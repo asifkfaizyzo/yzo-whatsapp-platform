@@ -1,0 +1,57 @@
+# ========================
+# 🔐 Environment Variables
+# ========================
+.env
+.env.*
+!.env.example   # allow example file
+
+# ========================
+# 📦 Node Modules
+# ========================
+node_modules/
+
+# ========================
+# 🗃 Logs
+# ========================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# ========================
+# 🗄 Prisma
+# ========================
+prisma/dev.db
+prisma/dev.db-journal
+prisma/*.db
+prisma/*.db-journal
+
+# ========================
+# 🏗 Build Output
+# ========================
+dist/
+build/
+
+# ========================
+# 🧪 Coverage
+# ========================
+coverage/
+
+# ========================
+# 💻 OS Files
+# ========================
+.DS_Store
+Thumbs.db
+
+# ========================
+# 🧑‍💻 VS Code / IDE
+# ========================
+.vscode/
+.idea/
+
+# ========================
+# 🔑 SSL Certificates
+# ========================
+*.pem
+*.key
