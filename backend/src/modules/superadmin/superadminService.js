@@ -103,14 +103,14 @@ export const createSuperAdminService =
     );
 
     // 6️⃣ delete any existing refresh tokens for this SuperAdmin (if any)
-   await prisma.refreshTokens.deleteMany({   // ← FIX: refreshTokens, not superAdmin
+   await prisma.refreshToken.deleteMany({   // ← FIX: refreshTokens, not superAdmin
   where: {
     superAdminId: superAdmin.id,
   },
 });
 
     //save new refresh token to refresh table
-    await prisma.refreshTokens.create({
+    await prisma.refreshToken.create({
     data: {
       token: refreshToken,
       superAdminId: superAdmin.id,
