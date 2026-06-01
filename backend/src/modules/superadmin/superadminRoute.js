@@ -1,6 +1,6 @@
 import express from 'express';
 import * as superAdminController from './superadminController.js';
-import {verifySuperAdmin} from '../../middlewares/authMiddleware.js';
+import {verifySuperAdmin} from '../../middlewares/authSuperAdmin.js';
 
 const router = express.Router();
 

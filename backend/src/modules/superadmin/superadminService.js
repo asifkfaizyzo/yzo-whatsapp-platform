@@ -41,7 +41,7 @@ const prisma = new PrismaClient();
 
 
 
-// SuperAdmin Registration Service
+// SuperAdmin creation Service
 export const createSuperAdminService =
   async (data) => {
     const { name, email, password } =
@@ -102,17 +102,24 @@ export const createSuperAdminService =
       }
     );
 
-    // 6️⃣ Save refresh token
-    await prisma.superAdmin.update({
-      where: {
-        id: superAdmin.id,
-      },
-      data: {
-        refreshToken,
-      },
-    });
+    // 6️⃣ delete any existing refresh tokens for this SuperAdmin (if any)
+   await prisma.refreshTokens.deleteMany({   // ← FIX: refreshTokens, not superAdmin
+  where: {
+    superAdminId: superAdmin.id,
+  },
+});
 
-    // 7️⃣ Remove password
+    //save new refresh token to refresh table
+    await prisma.refreshTokens.create({
+    data: {
+      token: refreshToken,
+      superAdminId: superAdmin.id,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      isRevoked: false,
+    },
+  });
+
+// 7️⃣ Remove password
     const {
       password: _,
       ...safeSuperAdmin
@@ -192,21 +199,25 @@ export const loginSuperAdminService =
       }
     );
 
-    // 6. Save refresh token
-    await prisma.superAdmin.update({
-      where: {
-        id: superAdmin.id,
-      },
-      data: {
-        refreshToken,
-      },
-    });
+      // Delete old refresh tokens for this SuperAdmin
+  await prisma.refreshToken.deleteMany({
+    where: {
+      superAdminId: superAdmin.id,
+    },
+  });
 
-    // 7. Remove password
-    const {
-      password: _,
-      ...safeSuperAdmin
-    } = superAdmin;
+   //Save new refresh token to refreshTokens table
+  await prisma.refreshToken.create({
+    data: {
+      token: refreshToken,
+      superAdminId: superAdmin.id,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      isRevoked: false,
+    },
+  });
+
+  //Remove password from response
+  const { password: _, ...safeSuperAdmin } = superAdmin;
 
     // 8. Return response
     return {
@@ -220,73 +231,84 @@ export const loginSuperAdminService =
 
 
 
-//SuperAdmin Logout Service
-export const logoutSuperAdminService =
-  async (refreshToken) => {
+  //logout service for superadmin
+export const logoutSuperAdminService = async (refreshToken) => {
 
-    // Find SuperAdmin
-    const superAdmin =
-      await prisma.superAdmin.findFirst({
-        where: {
-          refreshToken,
-        },
-      });
-
-    // If not found
-    if (!superAdmin) {
-      throw new Error(
-        'Invalid refresh token'
-      );
-    }
-
-    // Remove refresh token
-    await prisma.superAdmin.update({
-      where: {
-        id: superAdmin.id,
-      },
-      data: {
-        refreshToken: null,
-      },
-    });
-
-    return {
-      message:
-        'Logout successful',
-    };
-  };
-
-
-
-//generating access token when access token expires
-export const refreshAccessTokenService = async (refreshToken) => {
-
-  // 1️⃣ Check token exists
+  // 1️⃣ Check input
   if (!refreshToken) {
     throw new Error('Refresh token required');
   }
 
-  // 2️⃣ Find SuperAdmin with this refresh token in DB
-  const superAdmin = await prisma.superAdmin.findFirst({
-    where: { refreshToken },
+  // 2️⃣ ✅ Find token in RefreshToken table (NOT SuperAdmin table)
+  const foundToken = await prisma.refreshToken.findFirst({
+    where: {
+      token: refreshToken,
+      superAdminId: { not: null },
+    },
   });
 
-  // 3️⃣ No superAdmin found = invalid token
-  if (!superAdmin) {
+  // 3️⃣ Invalid token
+  if (!foundToken) {
     throw new Error('Invalid refresh token');
   }
 
-  // 4️⃣ Verify refresh token is not expired
-  try {
-    jwt.verify(
-      refreshToken,
-      process.env.REFRESH_SECRET
-    );
-  } catch (error) {
-    // Refresh token is expired or tampered
+  // 4️⃣ ✅ Delete using the token's own ID
+  await prisma.refreshToken.delete({
+    where: {
+      id: foundToken.id,
+    },
+  });
+
+  return {
+    message: 'Logout successful',
+  };
+};
+
+
+
+
+//access tioken refresh service   
+export const refreshAccessTokenService = async (refreshToken) => {
+// 1️⃣ Check token exists
+  if (!refreshToken) {
+    throw new Error('Refresh token required');
+  }
+
+  // 2️⃣ ✅ Find token in RefreshToken table (NOT SuperAdmin table)
+  const tokenRecord = await prisma.refreshToken.findFirst({
+    where: {
+      token: refreshToken,
+      superAdminId: { not: null },  // Must belong to a SuperAdmin
+    },
+  });
+
+  // 3️⃣ No token found = invalid
+  if (!tokenRecord) {
+    throw new Error('Invalid refresh token');
+  }
+
+  // 4️⃣ Check if expired in DB
+  if (tokenRecord.expiresAt < new Date()) {
     throw new Error('Refresh token expired, please login again');
   }
 
-  // 5️⃣ Generate NEW access token
+  // 5️⃣ Verify JWT signature
+  try {
+    jwt.verify(refreshToken, process.env.REFRESH_SECRET);
+  } catch (error) {
+    throw new Error('Refresh token expired, please login again');
+  }
+
+  // 6️⃣ ✅ Find SuperAdmin using superAdminId from token record
+  const superAdmin = await prisma.superAdmin.findUnique({
+    where: { id: tokenRecord.superAdminId },
+  });
+
+  if (!superAdmin) {
+    throw new Error('SuperAdmin not found');
+  }
+
+  // 7️⃣ Generate NEW access token
   const newAccessToken = jwt.sign(
     {
       id: superAdmin.id,
@@ -298,7 +320,7 @@ export const refreshAccessTokenService = async (refreshToken) => {
     }
   );
 
-  // 6️⃣ Return new access token
+  // 8️⃣ Return new access token
   return {
     accessToken: newAccessToken,
   };
