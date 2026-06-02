@@ -48,6 +48,7 @@ export const loginUserService =
         id: user.id,
         email: user.email,
         tenantId: user.tenantId,
+        type: 'USER',
       },
       process.env.ACCESS_SECRET,
       {
@@ -60,6 +61,7 @@ export const loginUserService =
       {
         id: user.id,
         tenantId: user.tenantId,
+        type: 'USER',
       },
       process.env.REFRESH_SECRET,
       {
@@ -96,9 +98,15 @@ export const loginUserService =
     // 9️⃣ Return response
     return {
       message: 'Login successful',
-      user: safeUser,
-      accessToken,
-      refreshToken,
+    accessToken,
+    refreshToken,
+    user: {
+      id: safeUser.id,
+      name: safeUser.name,
+      email: safeUser.email,
+      tenantId: safeUser.tenantId,
+      type: 'USER',
+    },
     };
   };
 
@@ -188,6 +196,7 @@ export const refreshUserAccessTokenService = async (refreshToken) => {
       id: user.id,
       email: user.email,
       tenantId: user.tenantId,
+      type: 'USER',
     },
     process.env.ACCESS_SECRET,
     { expiresIn: '1d' }

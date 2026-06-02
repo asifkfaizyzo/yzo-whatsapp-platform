@@ -52,9 +52,9 @@ export default function RegisterPage() {
     const result = await registerSuperAdmin(formData);
 
     if (result.success) {
-      setSuccess("Account created successfully! Redirecting to login...");
+      setSuccess("Account created successfully! Redirecting to dashboard...");
       setTimeout(() => {
-        navigate("/login");
+        navigate("/dashboard");
       }, 2000);
     } else {
       setError(result.message);

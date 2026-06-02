@@ -29,10 +29,18 @@ export const verifySuperAdmin =
         process.env.ACCESS_SECRET
       );
 
-      // 5️⃣ Save decoded user info
+      // 5️⃣ Verify user type is SUPERADMIN
+      if (decoded.type !== 'SUPERADMIN') {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied. SuperAdmins only.',
+        });
+      }
+
+      // 6️⃣ Save decoded user info
       req.superAdmin = decoded;
 
-      // 6️⃣ Go to next function
+      // 7️⃣ Go to next function
       next();
 
     } catch (error) {

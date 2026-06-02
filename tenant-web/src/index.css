@@ -1,0 +1,80 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --surface-2: #f1f5f9;
+  --text: #0f172a;
+  --muted: #64748b;
+  --border: #e2e8f0;
+
+  --primary: #10b981;
+  --primary-dark: #059669;
+  --primary-rgb: 16 185 129;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply antialiased;
+  background: var(--bg);
+  color: var(--text);
+}
+
+@layer components {
+  .container-shell {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+
+  .card {
+    @apply rounded-3xl border bg-white shadow-sm;
+    border-color: var(--border);
+    background: var(--surface);
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-medium text-white transition;
+    background-color: var(--primary);
+  }
+
+  .btn-primary:hover {
+    background-color: var(--primary-dark);
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-xl border px-5 py-3 text-sm font-medium transition;
+    border-color: var(--border);
+    background-color: white;
+    color: var(--text);
+  }
+
+  .btn-secondary:hover {
+    background-color: var(--surface-2);
+  }
+
+  .input {
+    @apply w-full rounded-xl border bg-white px-4 py-3 text-sm outline-none transition;
+    border-color: var(--border);
+    color: var(--text);
+  }
+
+  .input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px rgb(var(--primary-rgb) / 0.12);
+  }
+
+  .label {
+    @apply mb-2 block text-sm font-medium;
+    color: var(--text);
+  }
+
+  .pill {
+    @apply inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold;
+    background-color: rgb(var(--primary-rgb) / 0.1);
+    color: var(--primary-dark);
+  }
+}

@@ -45,7 +45,7 @@ export const registerTenantService = async (data) => {
     {
       id: tenant.id,
       email: tenant.email,
-      role: 'tenant',           // Recommended for role-based auth
+      type: 'TENANT',
     },
     process.env.ACCESS_SECRET,
     {
@@ -57,6 +57,7 @@ export const registerTenantService = async (data) => {
     {
       id: tenant.id,
       tenantId: tenant.id,     // Include tenantId for easier token management
+      type: 'TENANT',
     },
     process.env.REFRESH_SECRET,
     {
@@ -65,26 +66,31 @@ export const registerTenantService = async (data) => {
   );
 
   // 6️⃣ Save refresh token
-await prisma.refreshToken.create({
-  data: {
-    token: refreshToken,
-    tenantId: tenant.id,
-    expiresAt: new Date(
-      Date.now() + 7 * 24 * 60 * 60 * 1000
-    ),
-  },
-});
+  await prisma.refreshToken.create({
+    data: {
+      token: refreshToken,
+      tenantId: tenant.id,
+      expiresAt: new Date(
+        Date.now() + 7 * 24 * 60 * 60 * 1000
+      ),
+    },
+  });
 
   // 7️⃣ Remove password & refreshToken
- const {
-  password: _,
-  ...safeTenant
-} = tenant;
+  const {
+    password: _,
+    ...safeTenant
+  } = tenant;
 
   // 8️⃣ Return data
   return {
     message: 'Tenant registered successfully',
-    tenant: safeTenant,
+    user: {
+      id: safeTenant.id,
+      name: safeTenant.tenantName,
+      email: safeTenant.email,
+      type: 'TENANT',
+    },
     accessToken,
     refreshToken,
   };
@@ -150,6 +156,7 @@ export const loginTenantService =
       {
         id: tenant.id,
         email: tenant.email,
+        type: 'TENANT',
       },
       process.env.ACCESS_SECRET,
       {
@@ -159,9 +166,7 @@ export const loginTenantService =
 
     // 6️⃣ Generate Refresh Token
     const refreshToken = jwt.sign(
-      {
-        id: tenant.id,
-      },
+      { id: tenant.id, type: 'TENANT' },
       process.env.REFRESH_SECRET,
       {
         expiresIn: '7d',
@@ -183,6 +188,7 @@ export const loginTenantService =
       data: {
         token: refreshToken,
         tenantId: tenant.id,
+        userId: null,   
         expiresAt: new Date(
           Date.now() + 7 * 24 * 60 * 60 * 1000
         ),
@@ -198,11 +204,15 @@ export const loginTenantService =
 
     // 9️⃣ Return response
     return {
-      message:
-        'Login successful',
-      tenant: safeTenant,
-      accessToken,
-      refreshToken,
+message: 'Login successful',
+    accessToken,
+    refreshToken,
+    user: {
+      id: safeTenant.id,
+      name: safeTenant.tenantName,
+      email: safeTenant.email,
+      type: 'TENANT', 
+    },
     };
   };
 
@@ -308,6 +318,7 @@ export const refreshTenantAccessTokenService =
       {
         id: tenant.id,
         email: tenant.email,
+        type: 'TENANT',
       },
       process.env.ACCESS_SECRET,
       {
@@ -316,35 +327,36 @@ export const refreshTenantAccessTokenService =
     );
 
     // 8️⃣ Generate NEW refresh token (rotation)
-  const newRefreshToken = jwt.sign(
-    {
-      id: tenant.id,
-    },
-    process.env.REFRESH_SECRET,
-    { expiresIn: '7d' }
-  );
+    const newRefreshToken = jwt.sign(
+      {
+        id: tenant.id,
+        type: 'TENANT',
+      },
+      process.env.REFRESH_SECRET,
+      { expiresIn: '7d' }
+    );
 
-  // 9️⃣ Delete OLD refresh token from DB
-  await prisma.refreshToken.delete({
-    where: { id: tokenRecord.id },
-  });
+    // 9️⃣ Delete OLD refresh token from DB
+    await prisma.refreshToken.delete({
+      where: { id: tokenRecord.id },
+    });
 
-  // 🔟 Save NEW refresh token to DB
-  await prisma.refreshToken.create({
-    data: {
-      token: newRefreshToken,
-      tenantId: tenant.id,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      isRevoked: false,
-    },
-  });
+    // 🔟 Save NEW refresh token to DB
+    await prisma.refreshToken.create({
+      data: {
+        token: newRefreshToken,
+        tenantId: tenant.id,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        isRevoked: false,
+      },
+    });
 
-  // 1️⃣1️⃣ Return both new tokens
-  return {
-    message: 'Token refreshed successfully',
-    accessToken,
-    refreshToken: newRefreshToken,
-  };
+    // 1️⃣1️⃣ Return both new tokens
+    return {
+      message: 'Token refreshed successfully',
+      accessToken,
+      refreshToken: newRefreshToken,
+    };
   };
 
 
@@ -389,8 +401,8 @@ export const createUserService = async (data, tenantId) => {
     {
       id: user.id,
       email: user.email,
-      // role: user.role,
       tenantId: user.tenantId,
+      type: 'USER',
     },
     process.env.ACCESS_SECRET,
     {
@@ -401,6 +413,7 @@ export const createUserService = async (data, tenantId) => {
     {
       id: user.id,
       tenantId: user.tenantId,
+      type: 'USER',
     },
     process.env.REFRESH_SECRET,
     {
@@ -433,7 +446,13 @@ export const createUserService = async (data, tenantId) => {
   // 8️⃣ Return data
   return {
     message: 'User created successfully',
-    user: safeUser,
+    user: {
+      id: safeUser.id,
+      name: safeUser.name,
+      email: safeUser.email,
+      tenantId: safeUser.tenantId,
+      type: 'USER',
+    },
     accessToken,
     refreshToken,
   };

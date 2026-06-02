@@ -6,9 +6,10 @@ import{registerTenantService,loginTenantService,logoutTenantService,
   refreshTenantAccessTokenService,createUserService,getUsersByTenantService,
   getUserByIdService,updateUserByIdService,deleteUserByIdService,
   deactivateUserByIdService,reactivateUserByIdService} from './tenantService.js';
+import { loginUserService } from '../users/userService.js';
 
-
-
+const { PrismaClient } = pkg;
+const prisma = new PrismaClient();
 
 // Tenant Registration Controller
 export const registerTenant = async (req, res) => {
@@ -30,32 +31,57 @@ export const registerTenant = async (req, res) => {
 
 
 
-// Tenant Login Controller
-export const loginTenant =
-  async (req, res) => {
+// Tenant (and Unified User) Login Controller
+export const loginTenant = async (req, res) => {
+  try {
+    const { email } = req.body;
 
-    try {
-
-      const result =
-        await loginTenantService(
-          req.body
-        );
-
-      return res.status(200).json({
-        success: true,
-        message:
-          'Tenant logged in successfully',
-        data: result,
-      });
-
-    } catch (error) {
-
+    if (!email) {
       return res.status(400).json({
         success: false,
-        message: error.message,
+        message: 'Email and password are required',
+      });
+    }
+
+    // 1️⃣ Check if email exists in Tenant table
+    const tenantExists = await prisma.tenant.findUnique({
+      where: { email },
+    });
+
+    let result;
+    let message;
+
+    if (tenantExists) {
+      result = await loginTenantService(req.body);
+      message = 'Tenant logged in successfully';
+    } else {
+      // 2️⃣ Check if email exists in User table
+      const userExists = await prisma.user.findUnique({
+        where: { email },
       });
 
+      if (userExists) {
+        result = await loginUserService(req.body);
+        message = 'User logged in successfully';
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid credentials',
+        });
+      }
     }
+
+    return res.status(200).json({
+      success: true,
+      message,
+      data: result,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
 };
 
 

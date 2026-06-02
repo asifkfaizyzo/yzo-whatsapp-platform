@@ -11,6 +11,20 @@ export const registerSuperAdmin = async (userData) => {
       password: userData.password,
       //   companyName: userData.companyName,
     });
+    
+    const registerData = response.data?.data;
+    if (registerData) {
+      if (registerData.accessToken) {
+        localStorage.setItem('accessToken', registerData.accessToken);
+      }
+      if (registerData.refreshToken) {
+        localStorage.setItem('refreshToken', registerData.refreshToken);
+      }
+      if (registerData.superAdmin) {
+        localStorage.setItem('user', JSON.stringify(registerData.superAdmin));
+      }
+    }
+
     return { success: true, data: response.data };
   } catch (error) {
     return {

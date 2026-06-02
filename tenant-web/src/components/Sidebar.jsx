@@ -1,51 +1,89 @@
-// admin-web/src/components/Sidebar.jsx
+// src/components/Sidebar.jsx
 
 import React from "react";
 import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard,
-  BarChart3,
+  Inbox,
+  Megaphone,
+  FileCode,
+  Users,
   UserCheck,
+  BarChart3,
   Settings,
 } from "lucide-react";
 
-export default function Sidebar({ userRole = "Super Admin" }) {
-  const menuItems = [
+export default function Sidebar({ userRole }) {
+  const isAdmin = userRole === "admin";
+
+  const allMenuItems = [
     {
       label: "Dashboard",
       path: "/dashboard",
       icon: <LayoutDashboard size={20} />,
+      adminOnly: false,
       end: true,
     },
     {
-      label: "Platform Reports",
-      path: "/dashboard/reports",
-      icon: <BarChart3 size={20} />,
+      label: "Inbox",
+      path: "/dashboard/inbox",
+      icon: <Inbox size={20} />,
+      adminOnly: false,
     },
     {
-      label: "Admins Team",
+      label: "Broadcasts",
+      path: "/dashboard/broadcasts",
+      icon: <Megaphone size={20} />,
+      adminOnly: true,
+    },
+    {
+      label: "Templates",
+      path: "/dashboard/templates",
+      icon: <FileCode size={20} />,
+      adminOnly: true,
+    },
+    {
+      label: "Contacts",
+      path: "/dashboard/contacts",
+      icon: <Users size={20} />,
+      adminOnly: false,
+    },
+    {
+      label: "Team",
       path: "/dashboard/team",
       icon: <UserCheck size={20} />,
+      adminOnly: true,
     },
     {
-      label: "System Settings",
+      label: "Reports",
+      path: "/dashboard/reports",
+      icon: <BarChart3 size={20} />,
+      adminOnly: true,
+    },
+    {
+      label: "Settings",
       path: "/dashboard/settings",
       icon: <Settings size={20} />,
+      adminOnly: false,
     },
   ];
+
+  // Filter items based on user's role
+  const menuItems = allMenuItems.filter((item) => !item.adminOnly || isAdmin);
 
   return (
     <aside className="w-64 bg-white border-r border-[color:var(--border)] flex flex-col justify-between min-h-[calc(100vh-64px)] shrink-0">
       <div className="flex flex-col py-6 px-4">
         {/* User Role Indicator Card */}
         <div className="mb-6 rounded-2xl bg-slate-50 border border-slate-100 p-3.5">
-          <p className="text-xs text-slate-400 font-medium">Active Role</p>
+          <p className="text-xs text-[color:var(--muted)] font-medium">Active Role</p>
           <div className="mt-1 flex items-center justify-between">
             <span className="text-sm font-semibold capitalize text-slate-800">
-              {userRole}
+              {userRole || "User"}
             </span>
-            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">
-              Full Access
+            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${isAdmin ? "bg-emerald-50 text-emerald-700 border border-emerald-100" : "bg-blue-50 text-blue-700 border border-blue-100"
+              }`}>
+              {isAdmin ? "Full Access" : "Agent View"}
             </span>
           </div>
         </div>
@@ -75,8 +113,8 @@ export default function Sidebar({ userRole = "Super Admin" }) {
 
       {/* Footer Info */}
       <div className="p-4 border-t border-[color:var(--border)]">
-        <p className="text-[11px] text-slate-400 text-center font-medium">
-          yzo SaaS Control v1.0.0
+        <p className="text-[11px] text-[color:var(--muted)] text-center font-medium">
+          yzo Platform v1.0.0
         </p>
       </div>
     </aside>

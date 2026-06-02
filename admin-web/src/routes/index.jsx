@@ -3,7 +3,10 @@ import LandingPage from "../pages/LandingPage";
 import LoginPage from "../pages/auth/LoginPage";
 import RegisterPage from "../pages/auth/RegisterPage";
 import AdminLayout from "../layouts/AdminLayout";
-import Dashboard from "../pages/Dashboard";
+import Dashboard from "../pages/dashboard/Dashboard";
+import Reports from "../pages/dashboard/Reports";
+import Team from "../pages/dashboard/Team";
+import Settings from "../pages/dashboard/Settings";
 import NotFound from "../pages/NotFound";
 
 function App() {
@@ -18,6 +21,9 @@ function App() {
       {/* Protected Admin Routes */}
       <Route element={<AdminLayout />}>
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/dashboard/reports" element={<Reports />} />
+        <Route path="/dashboard/team" element={<Team />} />
+        <Route path="/dashboard/settings" element={<Settings />} />
       </Route>
 
       {/* Fallback */}

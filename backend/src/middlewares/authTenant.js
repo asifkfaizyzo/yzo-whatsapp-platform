@@ -31,10 +31,18 @@ export const verifyTenant =
         process.env.ACCESS_SECRET
       );
 
-      // 5️⃣ Save decoded tenant info
+      // 5️⃣ Verify user type is TENANT
+      if (decoded.type !== 'TENANT') {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied. Tenants only.',
+        });
+      }
+
+      // 6️⃣ Save decoded tenant info
       req.tenant = decoded;
 
-      // 6️⃣ Go to next function
+      // 7️⃣ Go to next function
       next();
 
     } catch (error) {

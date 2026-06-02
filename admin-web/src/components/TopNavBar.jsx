@@ -52,7 +52,7 @@ const TopNavbar = () => {
           </svg>
         </div>
         <span className="text-xl font-bold text-gray-800 tracking-tight">
-          yzo <span className="text-[#10b981] font-semibold">platform</span>
+          Replyo
         </span>
       </div>
 

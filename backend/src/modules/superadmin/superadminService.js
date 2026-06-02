@@ -85,6 +85,7 @@ export const createSuperAdminService =
       {
         id: superAdmin.id,
         email: superAdmin.email,
+        type: 'SUPERADMIN',
       },
       process.env.ACCESS_SECRET,
       {
@@ -95,6 +96,7 @@ export const createSuperAdminService =
     const refreshToken = jwt.sign(
       {
         id: superAdmin.id,
+        type: 'SUPERADMIN',
       },
       process.env.REFRESH_SECRET,
       {
@@ -130,6 +132,12 @@ export const createSuperAdminService =
       message:
         'SuperAdmin registered successfully',
       superAdmin: safeSuperAdmin,
+      user: {
+        id: safeSuperAdmin.id,
+        name: safeSuperAdmin.name,
+        email: safeSuperAdmin.email,
+        type: 'SUPERADMIN',
+      },
       accessToken,
       refreshToken,
     };
@@ -181,6 +189,7 @@ export const loginSuperAdminService =
       {
         id: superAdmin.id,
         email: superAdmin.email,
+        type: 'SUPERADMIN',
       },
       process.env.ACCESS_SECRET,
       {
@@ -192,6 +201,7 @@ export const loginSuperAdminService =
     const refreshToken = jwt.sign(
       {
         id: superAdmin.id,
+        type: 'SUPERADMIN',
       },
       process.env.REFRESH_SECRET,
       {
@@ -224,6 +234,12 @@ export const loginSuperAdminService =
       message:
         'Login successful',
       superAdmin: safeSuperAdmin,
+      user: {
+        id: safeSuperAdmin.id,
+        name: safeSuperAdmin.name,
+        email: safeSuperAdmin.email,
+        type: 'SUPERADMIN',
+      },
       accessToken,
       refreshToken,
     };
@@ -313,6 +329,7 @@ export const refreshAccessTokenService = async (refreshToken) => {
     {
       id: superAdmin.id,
       email: superAdmin.email,
+      type: 'SUPERADMIN',
     },
     process.env.ACCESS_SECRET,
     {
