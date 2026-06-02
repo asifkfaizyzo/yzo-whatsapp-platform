@@ -2,9 +2,12 @@ import bcrypt from 'bcrypt';
 import pkg from '@prisma/client';
 
 import {generateAccessToken, generateRefreshToken} from '../auth/jwtservice.js';
-import{registerTenantService,loginTenantService,
-       logoutTenantService, refreshTenantAccessTokenService,
-      createUserService} from './tenantService.js';
+import{registerTenantService,loginTenantService,logoutTenantService,
+  refreshTenantAccessTokenService,createUserService,getUsersByTenantService,
+  getUserByIdService,updateUserByIdService,deleteUserByIdService,
+  deactivateUserByIdService,reactivateUserByIdService} from './tenantService.js';
+
+
 
 
 // Tenant Registration Controller
@@ -143,6 +146,158 @@ export const createUser = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: 'User created successfully',
+      data: result,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
+
+//Get all users by tenant-controller
+export const getUsersByTenant = async (req, res) => {
+  try {
+    // 3️⃣ Get tenantId from the logged-in tenant (set by verifyTenant middleware)
+    const tenantId = req.tenant.id;
+
+    const result = await getUsersByTenantService(tenantId);
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
+
+//Get user by id under tenant-tenantcontroller
+export const getUserById = async (req, res) => {
+  try {
+    // user id from params
+    const { id } = req.params;
+
+    // tenant id from middleware
+    const tenantId = req.tenant.id;
+
+    const result = await getUserByIdService(id, tenantId);
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
+
+//update user by id under tenant-tenantcontroller
+export const updateUserById = async (req, res) => {
+  try {
+    // User ID from URL params
+    const { id } = req.params;
+
+    // Tenant ID from middleware
+    const tenantId = req.tenant.id;
+
+    // Data from request body
+    const data = req.body;
+
+    const result = await updateUserByIdService(id, tenantId, data);
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
+
+//Deactivate user by id (soft delete) under tenant-controller
+export const deactivateUserById = async (req, res) => {
+  try {
+    // User ID from URL params
+    const { id } = req.params;
+
+    // Tenant ID from middleware
+    const tenantId = req.tenant.id;
+
+    const result = await deactivateUserByIdService(id, tenantId);
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
+
+
+//Reactivate User By Id - under tenant-controller
+export const reactivateUserById = async (req, res) => {
+  try {
+    // User ID from URL params
+    const { id } = req.params;
+
+    // Tenant ID from middleware
+    const tenantId = req.tenant.id;
+
+    const result = await reactivateUserByIdService(id, tenantId);
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
+
+
+//Delete user by id under tenant-tenantcontroller
+export const deleteUserById = async (req, res) => {
+  try {
+    // User ID from URL params
+    const { id } = req.params;
+
+    // Tenant ID from middleware
+    const tenantId = req.tenant.id;
+
+    const result = await deleteUserByIdService(id, tenantId);
+
+    return res.status(200).json({
+      success: true,
       data: result,
     });
   } catch (error) {

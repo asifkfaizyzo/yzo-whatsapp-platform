@@ -36,6 +36,7 @@ export const registerTenantService = async (data) => {
       password: hashedPassword,
       phone,
       address,
+      status: 'PENDING', // New tenants start as PENDING
     },
   });
 
@@ -116,6 +117,19 @@ export const loginTenantService =
         'Invalid credentials'
       );
     }
+
+  //Check tenant status BEFORE password check
+  if (tenant.status === 'PENDING') {
+    throw new Error('Your account is pending approval');
+  }
+
+  if (tenant.status === 'BLOCKED') {
+    throw new Error('Your account is blocked. Contact support.');
+  }
+
+  if (!tenant.isActive) {
+    throw new Error('Your account has been deactivated');
+  }
 
     // 4️⃣ Compare password
     const isPasswordMatch =
@@ -357,11 +371,9 @@ export const createUserService = async (data, tenantId) => {
   if (existingUser) {
     throw new Error('User with this email already exists');
   }
-
-  // 3️⃣ Hash password
+ // 3️⃣ Hash password
   const hashedPassword = await bcrypt.hash(password, 10);
-
-  // 4️⃣ Create User under this Tenant
+ // 4️⃣ Create User under this Tenant
   const user = await prisma.user.create({
     data: {
       name,
@@ -372,8 +384,7 @@ export const createUserService = async (data, tenantId) => {
       isActive: true,
     },
   });
-
-  // 5️⃣ Generate JWT Tokens (Auto Login)
+// 5️⃣ Generate JWT Tokens (Auto Login)
   const accessToken = jwt.sign(
     {
       id: user.id,
@@ -386,8 +397,7 @@ export const createUserService = async (data, tenantId) => {
       expiresIn: '1d',
     }
   );
-
-  const refreshToken = jwt.sign(
+ const refreshToken = jwt.sign(
     {
       id: user.id,
       tenantId: user.tenantId,
@@ -397,15 +407,13 @@ export const createUserService = async (data, tenantId) => {
       expiresIn: '7d',
     }
   );
-
-  // 6️⃣ delete old tokens
+// 6️⃣ delete old tokens
   await prisma.refreshToken.deleteMany({
     where: {
       userId: user.id,
     },
   });
-
-  // 7️⃣ Save new refresh token
+// 7️⃣ Save new refresh token
   await prisma.refreshToken.create({
     data: {
       token: refreshToken,
@@ -415,8 +423,7 @@ export const createUserService = async (data, tenantId) => {
     isRevoked: false,
   },
 });
-
-  // 7️⃣ Remove sensitive data
+//Remove sensitive data
   const {
     password: _,
     refreshToken: __,
@@ -431,3 +438,316 @@ export const createUserService = async (data, tenantId) => {
     refreshToken,
   };
 };
+
+
+
+
+//Get all users of tenant- tenantcontroller
+export const getUsersByTenantService = async (tenantId) => {
+  // 1️⃣ Validate
+  if (!tenantId) {
+    throw new Error('Tenant ID is required');
+  }
+// 2️⃣ Fetch all users under this tenant (exclude passwords)
+  const users = await prisma.user.findMany({
+    where: {  tenantId: tenantId, isActive: true, // Optional: only show active users
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      isActive: true,
+      tenantId: true,
+      createdAt: true,
+      updatedAt: true,
+      // ❌ password is NOT selected
+    },
+    orderBy: {  createdAt: 'desc', },
+  });
+  return {
+    message: 'Users fetched successfully',
+    count: users.length,
+    users,
+  };
+};
+
+
+
+
+
+//Get by-id using tenant-controller
+export const getUserByIdService = async (userId, tenantId) => {
+  // 1️⃣ Validate input
+  if (!userId) {
+    throw new Error('User ID is required');
+  }
+
+  if (!tenantId) {
+    throw new Error('Tenant ID is required');
+  }
+
+  // 2️⃣ Find user by id AND tenantId
+  const user = await prisma.user.findFirst({
+    where: {
+      id: userId,
+      tenantId: tenantId,
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      isActive: true,
+      tenantId: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+
+  // 3️⃣ If not found
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  // 4️⃣ Return user
+  return {
+    message: 'User fetched successfully',
+    user,
+  };
+}; 
+
+
+
+//Update user by id under tenant-controller
+export const updateUserByIdService = async (userId, tenantId, data) => {
+  
+  // 1️⃣ Validate input
+  if (!userId) {
+    throw new Error('User ID is required');
+  }
+
+  if (!tenantId) {
+    throw new Error('Tenant ID is required');
+  }
+
+  // 2️⃣ Check if user exists AND belongs to this tenant
+  const existingUser = await prisma.user.findFirst({
+    where: {
+      id: userId,
+      tenantId: tenantId,
+    },
+  });
+
+  if (!existingUser) {
+    throw new Error('User not found');
+  }
+
+  // 3️⃣ Prepare update data (only allowed fields)
+  const updateData = {};
+
+  if (data.name) {
+    updateData.name = data.name;
+  }
+
+  if (data.email) {
+    // Check if email is already taken by another user
+    const emailExists = await prisma.user.findFirst({
+      where: {
+        email: data.email,
+        id: { not: userId },  // Exclude current user
+      },
+    });
+
+    if (emailExists) {
+      throw new Error('Email already in use');
+    }
+
+    updateData.email = data.email;
+  }
+
+  if (typeof data.isActive === 'boolean') {
+    updateData.isActive = data.isActive;
+  }
+
+  // 4️⃣ Check if there's anything to update
+  if (Object.keys(updateData).length === 0) {
+    throw new Error('No valid fields to update');
+  }
+
+  // 5️⃣ Update user
+  const updatedUser = await prisma.user.update({
+    where: { id: userId },
+    data: updateData,
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      isActive: true,
+      tenantId: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+
+  return {
+    message: 'User updated successfully',
+    user: updatedUser,
+  };
+};
+
+
+
+
+
+//Deactivate user by id (soft delete) under tenant-controller
+export const deactivateUserByIdService = async (userId, tenantId) => {
+
+  // 1️⃣ Validate input
+  if (!userId) {
+    throw new Error('User ID is required');
+  }
+
+  if (!tenantId) {
+    throw new Error('Tenant ID is required');
+  }
+  // 2️⃣ Check if user exists AND belongs to this tenant
+  const existingUser = await prisma.user.findFirst({
+    where: {
+      id: userId,
+      tenantId: tenantId,
+    },
+  });
+
+  // 3️⃣ User not found
+  if (!existingUser) {
+    throw new Error('User not found');
+  }
+
+  // 4️⃣ Check if already deactivated
+  if (!existingUser.isActive) {
+    throw new Error('User is already deactivated');
+  }
+
+  // 5️⃣ Deactivate user (set isActive to false)
+  const deactivatedUser = await prisma.user.update({
+    where: { id: userId },
+    data: { isActive: false },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      isActive: true,
+      tenantId: true,
+      updatedAt: true,
+    },
+  });
+ // 6️⃣ Delete their refresh tokens (force logout)
+  await prisma.refreshToken.deleteMany({
+    where: { userId: userId },
+  });
+  return {
+    message: 'User deactivated successfully',
+    user: deactivatedUser,
+  };
+};
+
+
+
+
+//Reactivate User By Tenant - under tenant-controller
+export const reactivateUserByIdService = async (userId, tenantId) => {
+
+  // 1️⃣ Validate input
+  if (!userId) {
+    throw new Error('User ID is required');
+  }
+
+  if (!tenantId) {
+    throw new Error('Tenant ID is required');
+  }
+
+  // 2️⃣ Check if user exists AND belongs to this tenant
+  const existingUser = await prisma.user.findFirst({
+    where: {
+      id: userId,
+      tenantId: tenantId,
+    },
+  });
+
+  // 3️⃣ User not found
+  if (!existingUser) {
+    throw new Error('User not found');
+  }
+
+  // 4️⃣ Check if already active
+  if (existingUser.isActive) {
+    throw new Error('User is already active');
+  }
+
+  // 5️⃣ Reactivate user (set isActive to true)
+  const reactivatedUser = await prisma.user.update({
+    where: { id: userId },
+    data: { isActive: true },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      isActive: true,
+      tenantId: true,
+      updatedAt: true,
+    },
+  });
+
+  return {
+    message: 'User reactivated successfully',
+    user: reactivatedUser,
+  };
+};
+
+
+
+
+
+//Delete the user record completely from the database.
+//Delete user by id under tenant-controller
+export const deleteUserByIdService = async (userId, tenantId) => {
+  
+  // 1️⃣ Validate input
+  if (!userId) {
+    throw new Error('User ID is required');
+  }
+
+  if (!tenantId) {
+    throw new Error('Tenant ID is required');
+  }
+
+  // 2️⃣ Check if user exists AND belongs to this tenant
+  const existingUser = await prisma.user.findFirst({
+    where: {
+      id: userId,
+      tenantId: tenantId,
+    },
+  });
+
+  if (!existingUser) {
+    throw new Error('User not found');
+  }
+
+  // 3️⃣ Delete all refresh tokens for this user first
+  await prisma.refreshToken.deleteMany({
+    where: {
+      userId: userId,
+    },
+  });
+
+  // 4️⃣ Delete the user
+  await prisma.user.delete({
+    where: { id: userId },
+  });
+
+  return {
+    message: 'User deleted successfully',
+  };
+};
+
+
+

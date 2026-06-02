@@ -19,4 +19,16 @@ router.post('/refresh-token', tenantController.refreshTenantAccessToken);
 //create user by tenant_🔥Protected Route
 router.post('/create-user', verifyTenant, tenantController.createUser);
 
+router.get('/get-all-users', verifyTenant, tenantController.getUsersByTenant);
+
+router.get('/get-user/:id', verifyTenant, tenantController.getUserById);
+
+router.put('/update-user/:id', verifyTenant, tenantController.updateUserById);
+
+router.patch('/users/:id/deactivate', verifyTenant, tenantController.deactivateUserById);
+
+router.patch('/users/:id/reactivate', verifyTenant, tenantController.reactivateUserById);
+
+router.delete('/delete-user/:id', verifyTenant, tenantController.deleteUserById);
+
 export default router;

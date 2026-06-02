@@ -3,7 +3,11 @@ import pkg from '@prisma/client';
 
 import {generateAccessToken, generateRefreshToken} from '../auth/jwtservice.js';
 import {createSuperAdminService,loginSuperAdminService,logoutSuperAdminService,
-        refreshAccessTokenService} from './superadminService.js';
+        refreshAccessTokenService,getAllTenantsService,getTenantByIdService,
+        updateTenantByIdService,deactivateTenantService,reactivateTenantService,
+        deleteTenantByIdService,approveTenantService,blockTenantService,
+        unblockTenantService
+      } from './superadminService.js';
 
 
 
@@ -113,9 +117,7 @@ export const loginSuperAdmin =
 //generating access token when access token expires
   export const refreshAccessTokenController =
   async (req, res) => {
-
     try {
-
       // 1️⃣ Get refresh token from body
       const { refreshToken } =
         req.body;
@@ -144,3 +146,122 @@ export const loginSuperAdmin =
 
     }
   };
+
+
+
+  //get all tenants by superadmin
+  export const getAllTenants = async (req, res) => {
+  try {
+    const result = await getAllTenantsService();
+    return res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+
+
+//Get tenant by id by superadmin
+export const getTenantById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await getTenantByIdService(id);
+    return res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+
+
+//update tenant by id by superadmin
+export const updateTenantById = async (req, res) => {
+  try {
+    // Tenant ID from URL params
+    const { id } = req.params;
+    // Data from request body
+    const data = req.body;
+    const result = await updateTenantByIdService(id, data);
+    return res.status(200).json({ success: true, data: result,});
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message});
+  }
+};
+
+
+
+//deactivate tenant by id by superadmin
+export const deactivateTenant = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await deactivateTenantService(id);
+    return res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+
+
+//Reactivate tenant by id by superadmin
+export const reactivateTenant = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await reactivateTenantService(id);
+    return res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+
+
+
+//Delete tenant by id by superadmin
+export const deleteTenantById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await deleteTenantByIdService(id);
+    return res.status(200).json({ success: true, data: result,
+    });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message,});
+  }
+};
+
+
+
+//Approve Tenant service by superadmin
+export const approveTenant = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await approveTenantService(id);
+    return res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+
+//Block Tenant service by superadmin
+export const blockTenant = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await blockTenantService(id);
+    return res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+
+//Unblock Tenant service by superadmin
+export const unblockTenant = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await unblockTenantService(id);
+    return res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+};
