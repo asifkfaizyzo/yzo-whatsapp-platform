@@ -2,11 +2,13 @@ import bcrypt from 'bcrypt';
 import pkg from '@prisma/client';
 
 import {generateAccessToken, generateRefreshToken} from '../auth/jwtservice.js';
+import { loginUserService } from '../users/userService.js';
+import { forgotPasswordTenantService,resetPasswordTenantService,} from './tenantService.js';
 import{registerTenantService,loginTenantService,logoutTenantService,
   refreshTenantAccessTokenService,createUserService,getUsersByTenantService,
   getUserByIdService,updateUserByIdService,deleteUserByIdService,
   deactivateUserByIdService,reactivateUserByIdService} from './tenantService.js';
-import { loginUserService } from '../users/userService.js';
+
 
 const { PrismaClient } = pkg;
 const prisma = new PrismaClient();
@@ -172,6 +174,45 @@ export const createUser = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: 'User created successfully',
+      data: result,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
+// ===================== FORGOT PASSWORD =====================
+export const forgotPasswordTenant = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const result = await forgotPasswordTenantService(email);
+    return res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ===================== RESET PASSWORD =====================
+export const resetPasswordTenant = async (req, res) => {
+  try {
+    const { token, newPassword, confirmPassword } = req.body;
+    const result = await resetPasswordTenantService(
+      token,
+      newPassword,
+      confirmPassword
+    );
+    return res.status(200).json({
+      success: true,
       data: result,
     });
   } catch (error) {

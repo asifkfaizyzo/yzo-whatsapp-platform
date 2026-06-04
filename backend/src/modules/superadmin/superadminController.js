@@ -6,7 +6,7 @@ import {createSuperAdminService,loginSuperAdminService,logoutSuperAdminService,
         refreshAccessTokenService,getAllTenantsService,getTenantByIdService,
         updateTenantByIdService,deactivateTenantService,reactivateTenantService,
         deleteTenantByIdService,approveTenantService,blockTenantService,
-        unblockTenantService
+        unblockTenantService,forgotPasswordSuperAdminService,resetPasswordSuperAdminService
       } from './superadminService.js';
 
 
@@ -43,8 +43,7 @@ export const createSuperAdmin = async (req,res) => {
 
     return res.status(201).json({
       success: true,
-      message:
-        'SuperAdmin created successfully',
+      message: 'SuperAdmin created successfully',
       data: result,
     });
   } catch (error) {
@@ -147,6 +146,46 @@ export const loginSuperAdmin =
     }
   };
 
+
+
+
+// ===================== FORGOT PASSWORD =====================
+export const forgotPasswordSuperAdmin = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const result = await forgotPasswordSuperAdminService(email);
+    return res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ===================== RESET PASSWORD =====================
+export const resetPasswordSuperAdmin = async (req, res) => {
+  try {
+    const { token, newPassword, confirmPassword } = req.body;
+    const result = await resetPasswordSuperAdminService(
+      token,
+      newPassword,
+      confirmPassword
+    );
+    return res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
 
 
   //get all tenants by superadmin
@@ -265,3 +304,5 @@ export const unblockTenant = async (req, res) => {
     return res.status(400).json({ success: false, message: error.message });
   }
 };
+
+

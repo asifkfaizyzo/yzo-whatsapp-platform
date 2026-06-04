@@ -1,14 +1,12 @@
 import bcrypt from 'bcrypt';
 import pkg from '@prisma/client';
 
-import {generateAccessToken, generateRefreshToken} from '../auth/jwtservice.js';
-
-import{loginUserService,logoutUserService,
-       refreshUserAccessTokenService
-} from './userService.js';
+import{ generateAccessToken, generateRefreshToken} from '../auth/jwtservice.js';
+import{ loginUserService,logoutUserService,refreshUserAccessTokenService } from './userService.js';
+import{ forgotPasswordUserService,resetPasswordUserService, } from './userService.js';
 
 
-// User Login Controller
+// ===============User Login Controller===============
 export const loginUser =
   async (req, res) => {
 
@@ -38,7 +36,7 @@ export const loginUser =
 
 
 
-// User Logout Controller
+// ===============User Logout Controller===============
 export const logoutUser = async (req, res) => {
   try {
     const { refreshToken } = req.body;
@@ -58,7 +56,7 @@ export const logoutUser = async (req, res) => {
 };
 
 
-//user access token refresh controller
+//===========user access token refresh controller===========
 export const refreshUserAccessToken = async (req, res) => {
   try {
     // Extract refreshToken from body
@@ -72,6 +70,46 @@ export const refreshUserAccessToken = async (req, res) => {
     });
   } catch (error) {
     return res.status(401).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
+
+// ===================== FORGOT PASSWORD =====================
+export const forgotPasswordUser = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const result = await forgotPasswordUserService(email);
+    return res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ===================== RESET PASSWORD =====================
+export const resetPasswordUser = async (req, res) => {
+  try {
+    const { token, newPassword, confirmPassword } = req.body;
+    const result = await resetPasswordUserService(
+      token,
+      newPassword,
+      confirmPassword
+    );
+    return res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    return res.status(400).json({
       success: false,
       message: error.message,
     });

@@ -2,6 +2,13 @@ import bcrypt from 'bcrypt';
 import pkg from '@prisma/client';
 import jwt from 'jsonwebtoken';
 
+import { generateAccessToken,generateRefreshToken,verifyAccessToken,verifyRefreshToken } from '../auth/jwtservice.js';
+import { saveRefreshToken, deleteRefreshToken,findRefreshToken } from '../auth/refreshtokenService.js';
+import { generateResetToken, getResetTokenExpiry, sendPasswordResetEmail,} from '../auth/emailService.js';
+import { forgotPasswordService,resetPasswordService, } from '../auth/passwordService.js';
+
+
+
 const { PrismaClient } = pkg;
 const prisma = new PrismaClient();
 
@@ -41,38 +48,31 @@ const prisma = new PrismaClient();
 
 
 
-// SuperAdmin creation Service
+
+//===========SuperAdmin creation Service===========//
 export const createSuperAdminService =
   async (data) => {
-    const { name, email, password } =
-      data;
+    const { name, email, password } = data;
 
     // 1️⃣ Validate input
     if (!name || !email || !password) {
-      throw new Error(
-        'Name, email and password are required'
-      );
+      throw new Error( 'Name, email and password are required');
     }
 
     // 2️⃣ Check existing SuperAdmin
-    const existingSuperAdmin =
-      await prisma.superAdmin.findUnique({
+    const existingSuperAdmin = await prisma.superAdmin.findUnique({
         where: { email },
       });
 
     if (existingSuperAdmin) {
-      throw new Error(
-        'SuperAdmin already exists'
-      );
+      throw new Error( 'SuperAdmin already exists' );
     }
 
     // 3️⃣ Hash password
-    const hashedPassword =
-      await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     // 4️⃣ Create SuperAdmin
-    const superAdmin =
-      await prisma.superAdmin.create({
+    const superAdmin = await prisma.superAdmin.create({
         data: {
           name,
           email,
@@ -80,57 +80,31 @@ export const createSuperAdminService =
         },
       });
 
-    // 5️⃣ Generate JWT Tokens
-    const accessToken = jwt.sign(
-      {
-        id: superAdmin.id,
-        email: superAdmin.email,
-        type: 'SUPERADMIN',
-      },
-      process.env.ACCESS_SECRET,
-      {
-        expiresIn: '1d',
-      }
-    );
+    // 5️⃣ Generate Tokens
+     const accessToken = generateAccessToken({
+    id: superAdmin.id,
+    email: superAdmin.email,
+    type: 'SUPERADMIN',
+  });
 
-    const refreshToken = jwt.sign(
-      {
-        id: superAdmin.id,
-        type: 'SUPERADMIN',
-      },
-      process.env.REFRESH_SECRET,
-      {
-        expiresIn: '7d',
-      }
-    );
 
-    // 6️⃣ delete any existing refresh tokens for this SuperAdmin (if any)
-   await prisma.refreshToken.deleteMany({   // ← FIX: refreshTokens, not superAdmin
-  where: {
+      const refreshToken = generateRefreshToken({
+    id: superAdmin.id,
+    type: 'SUPERADMIN',
+  });
+
+    // 6️⃣ Save refresh token
+  await saveRefreshToken({
+    token: refreshToken,
     superAdminId: superAdmin.id,
-  },
-});
-
-    //save new refresh token to refresh table
-    await prisma.refreshToken.create({
-    data: {
-      token: refreshToken,
-      superAdminId: superAdmin.id,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      isRevoked: false,
-    },
   });
 
 // 7️⃣ Remove password
-    const {
-      password: _,
-      ...safeSuperAdmin
-    } = superAdmin;
+    const { password: _, ...safeSuperAdmin } = superAdmin;
 
     // 8️⃣ Return data
     return {
-      message:
-        'SuperAdmin registered successfully',
+      message: 'SuperAdmin registered successfully',
       superAdmin: safeSuperAdmin,
       user: {
         id: safeSuperAdmin.id,
@@ -147,83 +121,47 @@ export const createSuperAdminService =
 
 
 
-// SuperAdmin Login Service
+//===========SuperAdmin Login Service===========
 export const loginSuperAdminService =
   async (data) => {
     const { email, password } = data;
 
     // 1. Check input
     if (!email || !password) {
-      throw new Error(
-        'Email and password are required'
-      );
+      throw new Error( 'Email and password are required');
     }
 
     // 2. Find SuperAdmin
     const superAdmin =
-      await prisma.superAdmin.findUnique({
-        where: { email },
-      });
+      await prisma.superAdmin.findUnique({ where: { email },});
 
     if (!superAdmin) {
-      throw new Error(
-        'Invalid credentials'
-      );
+      throw new Error( 'Invalid credentials' );
     }
 
     // 3. Compare password
     const isPasswordMatch =
-      await bcrypt.compare(
-        password,
-        superAdmin.password
-      );
+      await bcrypt.compare( password, superAdmin.password );
 
     if (!isPasswordMatch) {
-      throw new Error(
-        'Invalid credentials'
-      );
+      throw new Error( 'Invalid credentials' );
     }
 
     // 4. Generate Access Token
-    const accessToken = jwt.sign(
-      {
-        id: superAdmin.id,
-        email: superAdmin.email,
-        type: 'SUPERADMIN',
-      },
-      process.env.ACCESS_SECRET,
-      {
-        expiresIn: '1d',
-      }
-    );
-
-    // 5. Generate Refresh Token
-    const refreshToken = jwt.sign(
-      {
-        id: superAdmin.id,
-        type: 'SUPERADMIN',
-      },
-      process.env.REFRESH_SECRET,
-      {
-        expiresIn: '7d',
-      }
-    );
-
-      // Delete old refresh tokens for this SuperAdmin
-  await prisma.refreshToken.deleteMany({
-    where: {
-      superAdminId: superAdmin.id,
-    },
+     const accessToken = generateAccessToken({
+    id: superAdmin.id,
+    email: superAdmin.email,
+    type: 'SUPERADMIN',
   });
 
-   //Save new refresh token to refreshTokens table
-  await prisma.refreshToken.create({
-    data: {
-      token: refreshToken,
-      superAdminId: superAdmin.id,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      isRevoked: false,
-    },
+   const refreshToken = generateRefreshToken({
+    id: superAdmin.id,
+    type: 'SUPERADMIN',
+  });
+ //Save new refresh token to refreshTokens table
+  await saveRefreshToken({
+    token: refreshToken,
+    superAdminId: superAdmin.id,
   });
 
   //Remove password from response
@@ -247,7 +185,7 @@ export const loginSuperAdminService =
 
 
 
-  //logout service for superadmin
+  //===========logout service for superadmin===========
 export const logoutSuperAdminService = async (refreshToken) => {
 
   // 1️⃣ Check input
@@ -255,25 +193,8 @@ export const logoutSuperAdminService = async (refreshToken) => {
     throw new Error('Refresh token required');
   }
 
-  // 2️⃣ ✅ Find token in RefreshToken table (NOT SuperAdmin table)
-  const foundToken = await prisma.refreshToken.findFirst({
-    where: {
-      token: refreshToken,
-      superAdminId: { not: null },
-    },
-  });
-
-  // 3️⃣ Invalid token
-  if (!foundToken) {
-    throw new Error('Invalid refresh token');
-  }
-
-  // 4️⃣ ✅ Delete using the token's own ID
-  await prisma.refreshToken.delete({
-    where: {
-      id: foundToken.id,
-    },
-  });
+  //Delete refresh token 
+  await deleteRefreshToken(refreshToken);
 
   return {
     message: 'Logout successful',
@@ -283,36 +204,30 @@ export const logoutSuperAdminService = async (refreshToken) => {
 
 
 
-//access token refresh service   
+//===========access token refresh service   ===========
 export const refreshAccessTokenService = async (refreshToken) => {
 // 1️⃣ Check token exists
   if (!refreshToken) {
     throw new Error('Refresh token required');
   }
 
-  // 2️⃣ ✅ Find token in RefreshToken table (NOT SuperAdmin table)
-  const tokenRecord = await prisma.refreshToken.findFirst({
-    where: {
-      token: refreshToken,
-      superAdminId: { not: null },  // Must belong to a SuperAdmin
-    },
-  });
+  // 2️⃣ ✅ Find token in DB
+  const tokenRecord = await findRefreshToken(refreshToken, 'SUPERADMIN');
 
   // 3️⃣ No token found = invalid
   if (!tokenRecord) {
     throw new Error('Invalid refresh token');
   }
-
-  // 4️⃣ Check if expired in DB
+ // 4️⃣ Check if expired in DB
   if (tokenRecord.expiresAt < new Date()) {
     throw new Error('Refresh token expired, please login again');
   }
 
   // 5️⃣ Verify JWT signature
-  try {
-    jwt.verify(refreshToken, process.env.REFRESH_SECRET);
+    try {
+    verifyRefreshToken(refreshToken);
   } catch (error) {
-    throw new Error('Refresh token expired, please login again');
+    throw new Error('Invalid refresh token');
   }
 
   // 6️⃣ ✅ Find SuperAdmin using superAdminId from token record
@@ -346,7 +261,34 @@ export const refreshAccessTokenService = async (refreshToken) => {
 
 
 
-//get all tenant by superadmin service
+// ===================== FORGOT PASSWORD =====================
+export const forgotPasswordSuperAdminService = async (email) => {
+  return await forgotPasswordService(email, 'SUPERADMIN');
+};
+
+// ===================== RESET PASSWORD =====================
+export const resetPasswordSuperAdminService = async (
+  token,
+  newPassword,
+  confirmPassword
+) => {
+  return await resetPasswordService(
+    token,
+    newPassword,
+    confirmPassword,
+    'SUPERADMIN'
+  );
+};
+
+
+
+
+
+
+
+
+
+//===========get all tenant by superadmin service===========
 export const getAllTenantsService = async () => {
   
   const tenants = await prisma.tenant.findMany({
@@ -375,7 +317,7 @@ export const getAllTenantsService = async () => {
 
 
 
-//Get tenant by id by superadmin service
+//===========Get tenant by id by superadmin service===========
 export const getTenantByIdService = async (tenantId) => {
   
   if (!tenantId) {
@@ -410,7 +352,7 @@ export const getTenantByIdService = async (tenantId) => {
 
 
 
-//update tenant by id by superadmin
+//===========update tenant by id by superadmin===========
 export const updateTenantByIdService = async (tenantId, data) => {
 
   // 1️⃣ Validate input
@@ -488,7 +430,7 @@ export const updateTenantByIdService = async (tenantId, data) => {
 
 
 
-//Deactivate tenant by id by superadmin service
+//===========Deactivate tenant by id by superadmin service===========
 export const deactivateTenantService = async (tenantId) => {
   
   if (!tenantId) {
@@ -552,7 +494,7 @@ export const deactivateTenantService = async (tenantId) => {
 
 
 
-//Reactivate tenant by id by superadmin service
+//===========Reactivate tenant by id by superadmin service===========
 export const reactivateTenantService = async (tenantId) => {
   
   if (!tenantId) {
@@ -599,7 +541,7 @@ export const reactivateTenantService = async (tenantId) => {
 
 
 
-//Delete tenant by id by superadmin service
+//===========Delete tenant by id by superadmin service===========
 export const deleteTenantByIdService = async (tenantId) => {
 
   // 1️⃣ Validate input
@@ -654,7 +596,7 @@ export const deleteTenantByIdService = async (tenantId) => {
 
 
 
-//Approve Tenant service by superadmin
+//===========Approve Tenant service by superadmin===========
 export const approveTenantService = async (tenantId) => {
 
   if (!tenantId) {
@@ -693,7 +635,7 @@ export const approveTenantService = async (tenantId) => {
 
 
 
-//Block tenant by id by superadmin service
+//==========Block tenant by id by superadmin service===========
 export const blockTenantService = async (tenantId) => {
 
   if (!tenantId) {
@@ -753,7 +695,7 @@ export const blockTenantService = async (tenantId) => {
 
 
 
-//unblock tenant service by superadmin
+//=========unblock tenant service by superadmin============
 export const unblockTenantService = async (tenantId) => {
   if (!tenantId) {
     throw new Error('Tenant ID is required');

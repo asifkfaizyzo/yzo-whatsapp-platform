@@ -20,6 +20,14 @@ export const verifySuperAdmin = async (req, res, next) => {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.ACCESS_SECRET);
 
+    //Check token type
+    if (decoded.type !== 'SUPERADMIN') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. SuperAdmins only.',
+      });
+    }
+
     const superAdmin = await prisma.superAdmin.findUnique({
       where: { id: decoded.id },
     });
@@ -58,6 +66,15 @@ export const verifyTenant = async (req, res, next) => {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.ACCESS_SECRET);
 
+    //check token type
+    if (decoded.type !== 'TENANT') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Tenants only.',
+      });
+    }
+
+
     const tenant = await prisma.tenant.findUnique({
       where: { id: decoded.id },
     });
@@ -95,6 +112,14 @@ export const verifyUser = async (req, res, next) => {
 
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.ACCESS_SECRET);
+
+    //check token type
+    if (decoded.type !== 'USER') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Users only.',
+      });
+    }
 
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },

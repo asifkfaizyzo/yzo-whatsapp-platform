@@ -2,8 +2,8 @@ import express from 'express';
 import * as superAdminController from './superadminController.js';
 import {verifySuperAdmin} from '../../middlewares/authSuperAdmin.js';
 
-const router = express.Router();
 
+const router = express.Router();
 
 // router.post('/create',superAdminController.createSuperAdmin);
 //SuperAdmin Auth Routes
@@ -15,6 +15,9 @@ router.post('/logout',superAdminController.logoutSuperAdmin);
 
 router.post('/refresh-token',superAdminController. refreshAccessTokenController);
 
+router.post('/forgot-sup-password',superAdminController.forgotPasswordSuperAdmin);
+
+router.post('/reset-sup-password', superAdminController.resetPasswordSuperAdmin);
 
 
 // 🔥 Protected Route

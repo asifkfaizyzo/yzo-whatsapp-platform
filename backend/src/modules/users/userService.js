@@ -2,141 +2,94 @@ import bcrypt from 'bcrypt';
 import pkg from '@prisma/client';
 import jwt from 'jsonwebtoken';
 
+import { generateAccessToken,generateRefreshToken,verifyAccessToken,verifyRefreshToken } from '../auth/jwtservice.js';
+import { saveRefreshToken, deleteRefreshToken,findRefreshToken } from '../auth/refreshtokenService.js';
+import { forgotPasswordService,resetPasswordService, } from '../auth/passwordService.js';
+
 const { PrismaClient } = pkg;
 const prisma = new PrismaClient();
 
 
-//user Login Service
+// =========user Login Service =========
 export const loginUserService =
   async (data) => {
     const { email, password } = data;
 
     // 1️⃣ Check input
     if (!email || !password) {
-    throw new Error(
-        'Email and password are required'
-      );
+      throw new Error( 'Email and password are required' );
     }
     // 2️⃣ Find User
     const user = await prisma.user.findUnique({
-        where: { email },
-      });
+      where: { email },
+    });
 
     // 3️⃣ Check user exists
     if (!user) {
-      throw new Error(
-        'Invalid credentials'
-      );
+      throw new Error( 'Invalid credentials' );
     }
 
     // 4️⃣ Compare password
     const isPasswordMatch =
-      await bcrypt.compare(
-        password,
-        user.password
-      );
+      await bcrypt.compare( password, user.password );
 
     if (!isPasswordMatch) {
-     throw new Error(
-        'Invalid credentials'
-      );
+      throw new Error( 'Invalid credentials' );
     }
 
+
     // 5️⃣ Generate Access Token
-    const accessToken = jwt.sign(
-      {
-        id: user.id,
-        email: user.email,
-        tenantId: user.tenantId,
-        type: 'USER',
-      },
-      process.env.ACCESS_SECRET,
-      {
-        expiresIn: '1d',
-      }
-    );
+ const accessToken = generateAccessToken({
+    id: user.id,
+    email: user.email,
+    tenantId: user.tenantId,
+    type: 'USER',
+  });
 
-    // 6️⃣ Generate Refresh Token
-    const refreshToken = jwt.sign(
-      {
-        id: user.id,
-        tenantId: user.tenantId,
-        type: 'USER',
-      },
-      process.env.REFRESH_SECRET,
-      {
-        expiresIn: '7d',
-      }
-    );
+  const refreshToken = generateRefreshToken({
+    id: user.id,
+    tenantId: user.tenantId,
+    type: 'USER',
+  });
 
-    //delete old tokens
-    await prisma.refreshToken.deleteMany({
-      where: {
-        userId: user.id,
-      },
-      
-    });
-    // 7️⃣ Save refresh token in DB
-    console.log("Creating refresh token...");
-    const savedToken =
-    await prisma.refreshToken.create({
-      data: {
-        token: refreshToken,
-        userId: user.id,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        isRevoked: false,
-      },
-    });
-    console.log(savedToken);
+  // 7️⃣ Save refresh token
+  await saveRefreshToken({
+    token: refreshToken,
+    userId: user.id,
+  });
 
     // 8️⃣ Remove password
     const {
-      password: _,
-      ...safeUser
-    } = user;
+      password: _, ...safeUser } = user;
 
     // 9️⃣ Return response
     return {
       message: 'Login successful',
-    accessToken,
-    refreshToken,
-    user: {
-      id: safeUser.id,
-      name: safeUser.name,
-      email: safeUser.email,
-      tenantId: safeUser.tenantId,
-      type: 'USER',
-    },
+      accessToken,
+      refreshToken,
+      user: {
+        id: safeUser.id,
+        name: safeUser.name,
+        email: safeUser.email,
+        tenantId: safeUser.tenantId,
+        type: 'USER',
+      },
     };
   };
 
 
-  //user logout service
-  export const logoutUserService = async (refreshToken) => {
+
+
+// =========user logout service =========
+export const logoutUserService = async (refreshToken) => {
 
   // 1️⃣ Check input
   if (!refreshToken) {
     throw new Error('Refresh token required');
   }
-// 2️⃣ Find token in RefreshToken table (must belong to a User)
-  const foundToken = await prisma.refreshToken.findFirst({
-    where: {
-      token: refreshToken,
-      userId: { not: null },  // ← Ensures this is a User token, not Tenant/SuperAdmin
-    },
-  });
 
-  // 3️⃣ Invalid token
-  if (!foundToken) {
-    throw new Error('Invalid refresh token');
-  }
-
-  // 4️⃣ Delete the token from DB (complete logout)
-  await prisma.refreshToken.delete({
-    where: {
-      id: foundToken.id,
-    },
-  });
+  // 2️⃣ Delete token
+  await deleteRefreshToken(refreshToken);
 
   return {
     message: 'User logged out successfully',
@@ -144,40 +97,36 @@ export const loginUserService =
 };
 
 
-//user access token refresh service
+
+
+// =========user access token refresh service =========
 export const refreshUserAccessTokenService = async (refreshToken) => {
 
-  // 1️⃣ Check input
+ // 1️⃣ Check input
   if (!refreshToken) {
     throw new Error('Refresh token required');
   }
 
-  // 2️⃣ Find token in RefreshToken table (must belong to a User)
-  const tokenRecord = await prisma.refreshToken.findFirst({
-    where: {
-      token: refreshToken,
-      userId: { not: null },
-    },
-  });
+  // 2️⃣ Find token in DB
+  const tokenRecord = await findRefreshToken(refreshToken, 'USER');
 
-  // 3️⃣ Invalid token
   if (!tokenRecord) {
     throw new Error('Invalid refresh token');
   }
 
-  // 4️⃣ Check if expired in DB
+  // 3️⃣ Check expiry in DB
   if (tokenRecord.expiresAt < new Date()) {
     throw new Error('Refresh token expired, please login again');
   }
 
-  // 5️⃣ Verify JWT signature
+  // 4️⃣ Verify JWT signature
   try {
-    jwt.verify(refreshToken, process.env.REFRESH_SECRET);
+    verifyRefreshToken(refreshToken);
   } catch (error) {
     throw new Error('Invalid refresh token');
   }
 
-  // 6️⃣ Find User using userId from token record
+  // 5️⃣ Find User
   const user = await prisma.user.findUnique({
     where: { id: tokenRecord.userId },
   });
@@ -190,17 +139,13 @@ export const refreshUserAccessTokenService = async (refreshToken) => {
     throw new Error('User account is deactivated');
   }
 
-  // 7️⃣ Generate NEW access token only
-  const newAccessToken = jwt.sign(
-    {
-      id: user.id,
-      email: user.email,
-      tenantId: user.tenantId,
-      type: 'USER',
-    },
-    process.env.ACCESS_SECRET,
-    { expiresIn: '1d' }
-  );
+  // 6️⃣ Generate new access token
+  const newAccessToken = generateAccessToken({
+    id: user.id,
+    email: user.email,
+    tenantId: user.tenantId,
+    type: 'USER',
+  });
 
   // 8️⃣ Return tokens (same refreshToken continues to work)
   return {
@@ -208,4 +153,25 @@ export const refreshUserAccessTokenService = async (refreshToken) => {
     accessToken: newAccessToken,
     refreshToken: tokenRecord.token,  // Same old refresh token
   };
+};
+
+
+
+// ===================== FORGOT PASSWORD =====================
+export const forgotPasswordUserService = async (email) => {
+  return await forgotPasswordService(email, 'USER');
+};
+
+// ===================== RESET PASSWORD =====================
+export const resetPasswordUserService = async (
+  token,
+  newPassword,
+  confirmPassword
+) => {
+  return await resetPasswordService(
+    token,
+    newPassword,
+    confirmPassword,
+    'USER'
+  );
 };

@@ -93,3 +93,15 @@ model RefreshToken {
   isRevoked Boolean   @default(false) // ← is it still valid
   createdAt DateTime  @default(now())
 }
+
+
+
+// PasswordReset Model
+model PasswordReset {
+  id        String   @id @default(cuid())
+  email     String
+    token     String   @unique @default("")
+  expiresAt DateTime
+  isUsed    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}

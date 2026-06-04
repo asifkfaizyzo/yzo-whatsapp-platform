@@ -3,6 +3,7 @@ import * as tenantController from './tenantController.js';
 import {verifyTenant} from '../../middlewares/authTenant.js';
 
 import {generateAccessToken, generateRefreshToken} from '../auth/jwtservice.js';
+import {forgotPasswordTenant,resetPasswordTenant, } from './tenantController.js';
 
 const router = express.Router();
 
@@ -13,6 +14,10 @@ router.post('/login', tenantController.loginTenant);
 router.post('/logout', tenantController.logoutTenant);
 
 router.post('/refresh-token', tenantController.refreshTenantAccessToken);
+
+router.post('/forgot-ten-password', tenantController.forgotPasswordTenant);
+
+router.post('/reset-ten-password', tenantController.resetPasswordTenant);
 
 
 
