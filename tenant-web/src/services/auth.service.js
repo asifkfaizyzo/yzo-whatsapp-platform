@@ -110,3 +110,86 @@ export const createTenantUser = async (userData) => {
   }
 };
 
+// Get all users under this Tenant
+export const getTenantUsers = async () => {
+  try {
+    const response = await api.get("/get-all-users");
+    return {
+      success: true,
+      data: response.data.data, // Contains count and users array
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to fetch users",
+    };
+  }
+};
+
+// Update user details under this Tenant
+export const updateTenantUser = async (userId, userData) => {
+  try {
+    const response = await api.put(`/update-user/${userId}`, {
+      name: userData.name,
+      email: userData.email,
+    });
+    return {
+      success: true,
+      data: response.data.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to update user",
+    };
+  }
+};
+
+// Deactivate user under this Tenant
+export const deactivateTenantUser = async (userId) => {
+  try {
+    const response = await api.patch(`/users/${userId}/deactivate`);
+    return {
+      success: true,
+      data: response.data.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to deactivate user",
+    };
+  }
+};
+
+// Reactivate user under this Tenant
+export const reactivateTenantUser = async (userId) => {
+  try {
+    const response = await api.patch(`/users/${userId}/reactivate`);
+    return {
+      success: true,
+      data: response.data.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to reactivate user",
+    };
+  }
+};
+
+// Delete user under this Tenant
+export const deleteTenantUser = async (userId) => {
+  try {
+    const response = await api.delete(`/delete-user/${userId}`);
+    return {
+      success: true,
+      data: response.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to delete user",
+    };
+  }
+};
+

@@ -1,0 +1,193 @@
+import { Link } from "react-router-dom";
+import { useState } from "react";
+import { siteConfig } from "../../config/site";
+import { ArrowLeft, CheckCircle2, Mail, RefreshCw } from "lucide-react";
+
+const benefits = [
+  {
+    title: "Global styles",
+    text: "Update colors and base styles from one place.",
+  },
+  {
+    title: "Reusable UI",
+    text: "Buttons, cards, and inputs are shared across pages.",
+  },
+  {
+    title: "Clean auth flow",
+    text: "Dedicated login and registration screens.",
+  },
+];
+
+export default function ForgotPassword() {
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+
+    if (!email) {
+      setError("Please enter your email address.");
+      setLoading(false);
+      return;
+    }
+
+    // Simulate API delay for a polished feel
+    setTimeout(() => {
+      setLoading(false);
+      setSuccess(true);
+    }, 1500);
+  };
+
+  return (
+    <div className="min-h-screen">
+      <div className="container-shell grid min-h-screen items-center gap-8 py-8 lg:grid-cols-2">
+        {/* ── Left Panel ── */}
+        <div
+          className="hidden min-h-[700px] rounded-[32px] p-8 text-white lg:flex lg:flex-col lg:justify-between"
+          style={{
+            background:
+              "linear-gradient(135deg, var(--primary), var(--primary-dark))",
+          }}
+        >
+          <Link to="/" className="text-2xl font-semibold">
+            {siteConfig.brand}
+          </Link>
+
+          <div>
+            <p className="text-sm uppercase tracking-[0.3em] text-white/70">
+              Frontend UI
+            </p>
+            <h1 className="mt-4 text-5xl font-semibold leading-tight">
+              Reset Password
+            </h1>
+            <p className="mt-4 max-w-md text-base text-white/80">
+              Recover your access by verifying your registered business or user email address.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            {benefits.map((item) => (
+              <div
+                key={item.title}
+                className="rounded-2xl bg-white/10 p-4 backdrop-blur-sm"
+              >
+                <p className="font-medium">{item.title}</p>
+                <p className="mt-1 text-sm text-white/75">{item.text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Right Panel ── */}
+        <div className="mx-auto w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <Link
+            to="/"
+            className="mb-6 inline-flex text-xl font-semibold lg:hidden"
+          >
+            {siteConfig.brand}
+          </Link>
+
+          <div className="card p-6 sm:p-8">
+            {!success ? (
+              <>
+                {/* Heading */}
+                <div>
+                  <h2 className="text-2xl font-semibold text-slate-800">Forgot Password?</h2>
+                  <p className="mt-2 text-sm text-[color:var(--muted)]">
+                    No worries. Enter your email and we'll send you a link to reset your password.
+                  </p>
+                </div>
+
+                {/* Error Banner */}
+                {error && (
+                  <div className="mt-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-650 font-medium">
+                    {error}
+                  </div>
+                )}
+
+                {/* Form */}
+                <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
+                  {/* Email Input */}
+                  <div>
+                    <label className="label text-xs">Email Address</label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-3.5 text-slate-400" size={16} />
+                      <input
+                        className="input pl-10 text-xs"
+                        type="email"
+                        placeholder="user@company.com"
+                        value={email}
+                        onChange={(e) => {
+                          setEmail(e.target.value);
+                          setError("");
+                        }}
+                        required
+                        disabled={loading}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Submit Button */}
+                  <button
+                    type="submit"
+                    className="btn-primary w-full py-3.5 flex items-center justify-center gap-2 font-bold text-xs shadow-sm hover:shadow"
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <span>Sending Link...</span>
+                      </>
+                    ) : (
+                      <span>Send Reset Link</span>
+                    )}
+                  </button>
+                </form>
+
+                {/* Back to login */}
+                <div className="mt-6 text-center">
+                  <Link
+                    to="/login"
+                    className="inline-flex items-center gap-1.5 text-sm font-semibold text-[color:var(--primary-dark)] hover:underline"
+                  >
+                    <ArrowLeft size={14} />
+                    <span>Back to Login</span>
+                  </Link>
+                </div>
+              </>
+            ) : (
+              /* Success State */
+              <div className="text-center py-4 space-y-4 animate-in zoom-in-95 duration-250">
+                <div className="mx-auto w-12 h-12 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-600 border border-emerald-100">
+                  <CheckCircle2 size={24} />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-xl font-bold text-slate-800">Check your email</h3>
+                  <p className="text-sm text-[color:var(--muted)] leading-relaxed">
+                    We have sent a secure password reset link to <strong className="text-slate-700">{email}</strong>.
+                  </p>
+                </div>
+                <p className="text-xs text-slate-400">
+                  Didn't receive the email? Check your spam folder or try again.
+                </p>
+                <div className="pt-4 border-t border-slate-50">
+                  <Link
+                    to="/login"
+                    className="inline-flex items-center gap-1.5 text-sm font-bold text-[color:var(--primary-dark)] hover:underline"
+                  >
+                    <ArrowLeft size={14} />
+                    <span>Back to Login</span>
+                  </Link>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

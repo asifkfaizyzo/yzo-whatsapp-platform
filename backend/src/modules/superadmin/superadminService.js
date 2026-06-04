@@ -59,14 +59,17 @@ export const createSuperAdminService =
       throw new Error( 'Name, email and password are required');
     }
 
-    // 2️⃣ Check existing SuperAdmin
-    const existingSuperAdmin = await prisma.superAdmin.findUnique({
-        where: { email },
-      });
+    // 2️⃣ Check global email uniqueness (Tenant, User, SuperAdmin)
+    const [emailExistsInTenant, emailExistsInUser, emailExistsInSuperAdmin] = await Promise.all([
+      prisma.tenant.findUnique({ where: { email } }),
+      prisma.user.findUnique({ where: { email } }),
+      prisma.superAdmin.findUnique({ where: { email } }),
+    ]);
 
-    if (existingSuperAdmin) {
-      throw new Error( 'SuperAdmin already exists' );
+    if (emailExistsInTenant || emailExistsInUser || emailExistsInSuperAdmin) {
+      throw new Error('Email is already registered on the platform');
     }
+
 
     // 3️⃣ Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -302,6 +305,15 @@ export const getAllTenantsService = async () => {
       status: true,
       createdAt: true,
       updatedAt: true,
+      users: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          isActive: true,
+          createdAt: true,
+        },
+      },
     },
     orderBy: {
       createdAt: 'desc',
@@ -727,5 +739,85 @@ export const unblockTenantService = async (tenantId) => {
   return {
     message: 'Tenant unblocked successfully',
     tenant: unblockedTenant,
+  };
+};
+
+
+// ─── Super Admin Control over Tenant Users ───
+
+// Deactivate individual user by Super Admin
+export const deactivateUserService = async (userId) => {
+  if (!userId) {
+    throw new Error('User ID is required');
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  if (!user.isActive) {
+    throw new Error('User is already deactivated');
+  }
+
+  const deactivatedUser = await prisma.user.update({
+    where: { id: userId },
+    data: { isActive: false },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      isActive: true,
+      tenantId: true,
+    },
+  });
+
+  // Force logout user by deleting their refresh tokens
+  await prisma.refreshToken.deleteMany({
+    where: { userId: userId },
+  });
+
+  return {
+    message: 'User deactivated successfully',
+    user: deactivatedUser,
+  };
+};
+
+// Reactivate individual user by Super Admin
+export const reactivateUserService = async (userId) => {
+  if (!userId) {
+    throw new Error('User ID is required');
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  if (user.isActive) {
+    throw new Error('User is already active');
+  }
+
+  const reactivatedUser = await prisma.user.update({
+    where: { id: userId },
+    data: { isActive: true },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      isActive: true,
+      tenantId: true,
+    },
+  });
+
+  return {
+    message: 'User reactivated successfully',
+    user: reactivatedUser,
   };
 };

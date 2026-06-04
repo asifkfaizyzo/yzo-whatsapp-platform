@@ -7,6 +7,7 @@ import {createSuperAdminService,loginSuperAdminService,logoutSuperAdminService,
         updateTenantByIdService,deactivateTenantService,reactivateTenantService,
         deleteTenantByIdService,approveTenantService,blockTenantService,
         unblockTenantService,forgotPasswordSuperAdminService,resetPasswordSuperAdminService
+        ,deactivateUserService,reactivateUserService
       } from './superadminService.js';
 
 
@@ -306,3 +307,24 @@ export const unblockTenant = async (req, res) => {
 };
 
 
+// Deactivate individual tenant user by Super Admin
+export const deactivateUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await deactivateUserService(id);
+    return res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+// Reactivate individual tenant user by Super Admin
+export const reactivateUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await reactivateUserService(id);
+    return res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+};

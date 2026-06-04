@@ -171,13 +171,12 @@ export default function LoginPage() {
                   <input type="checkbox" className="h-4 w-4 rounded" />
                   Remember me
                 </label>
-                <button
-                  type="button"
-                  className="font-medium"
-                  style={{ color: "var(--primary-dark)" }}
+                <Link
+                  to="/forgot-password"
+                  className="font-medium hover:underline text-[color:var(--primary-dark)]"
                 >
                   Forgot password?
-                </button>
+                </Link>
               </div>
 
               {/* ✅ Submit Button with Loading */}

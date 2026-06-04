@@ -4,6 +4,7 @@ import React from "react";
 import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard,
+  Building2,
   BarChart3,
   UserCheck,
   Settings,
@@ -16,6 +17,11 @@ export default function Sidebar({ userRole = "Super Admin" }) {
       path: "/dashboard",
       icon: <LayoutDashboard size={20} />,
       end: true,
+    },
+    {
+      label: "Tenants",
+      path: "/dashboard/tenants",
+      icon: <Building2 size={20} />,
     },
     {
       label: "Platform Reports",

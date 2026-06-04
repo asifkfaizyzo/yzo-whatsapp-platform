@@ -58,7 +58,7 @@ const TopNavbar = () => {
 
       {/* Right: Actions */}
       <div className="flex items-center gap-5">
-        {/* Quick Start Status */}
+        {/* Quick Start Status
         <div className="hidden sm:flex items-center gap-2">
           <span className="text-gray-600 text-sm font-medium">Quick start</span>
           <div className="relative w-8 h-8 flex items-center justify-center">
@@ -87,12 +87,12 @@ const TopNavbar = () => {
               2/4
             </span>
           </div>
-        </div>
+        </div> */}
 
-        {/* Action Button */}
+        {/* Action Button
         <button className="hidden md:inline-flex border border-[#10b981] text-[#059669] px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-emerald-50 transition duration-150">
           Book a demo
-        </button>
+        </button> */}
 
         {/* Notification Bell */}
         <button className="text-gray-500 hover:text-gray-800 p-1.5 rounded-lg hover:bg-gray-50 transition">

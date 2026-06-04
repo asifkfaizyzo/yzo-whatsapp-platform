@@ -1,6 +1,10 @@
 // middlewares/verifyTenant.js
 
 import jwt from 'jsonwebtoken';
+import pkg from '@prisma/client';
+
+const { PrismaClient } = pkg;
+const prisma = new PrismaClient();
 
 export const verifyTenant =
   async (req, res, next) => {
@@ -39,10 +43,29 @@ export const verifyTenant =
         });
       }
 
-      // 6️⃣ Save decoded tenant info
-      req.tenant = decoded;
+      // 6️⃣ Fetch Tenant from Database to check status
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: decoded.id },
+      });
 
-      // 7️⃣ Go to next function
+      if (!tenant) {
+        return res.status(401).json({
+          success: false,
+          message: 'Tenant not found',
+        });
+      }
+
+      if (tenant.status === 'BLOCKED' || !tenant.isActive) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied. Your account is blocked or deactivated.',
+        });
+      }
+
+      // 7️⃣ Save full tenant info
+      req.tenant = tenant;
+
+      // 8️⃣ Go to next function
       next();
 
     } catch (error) {
@@ -54,4 +77,19 @@ export const verifyTenant =
       });
 
     }
+};
+
+
+// Middleware to ensure the tenant's account has been approved by a super admin
+export const requireApprovedTenant = async (req, res, next) => {
+  const tenant = req.tenant; // Already fetched by verifyTenant
+
+  if (!tenant || tenant.status !== 'APPROVED') {
+    return res.status(403).json({
+      success: false,
+      message: 'Action forbidden. Your tenant account is pending approval or blocked.',
+    });
+  }
+
+  next();
 };

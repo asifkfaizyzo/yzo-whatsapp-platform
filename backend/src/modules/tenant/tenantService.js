@@ -21,14 +21,16 @@ export const registerTenantService = async (data) => {
     throw new Error('Tenant name, email and password are required');
   }
 
-  // 2️⃣ Check existing Tenant
-  const existingTenant = await prisma.tenant.findUnique({
-    where: { email },
-  });
+// 2️⃣ Check global email uniqueness (Tenant, User, SuperAdmin)
+const [emailExistsInTenant, emailExistsInUser, emailExistsInSuperAdmin] = await Promise.all([
+  prisma.tenant.findUnique({ where: { email } }),
+  prisma.user.findUnique({ where: { email } }),
+  prisma.superAdmin.findUnique({ where: { email } }),
+]);
 
-  if (existingTenant) {
-    throw new Error('Tenant already exists');
-  }
+if (emailExistsInTenant || emailExistsInUser || emailExistsInSuperAdmin) {
+  throw new Error('Email is already registered on the platform');
+}
 
   // 3️⃣ Hash password
   const hashedPassword = await bcrypt.hash(password, 10);
@@ -74,6 +76,7 @@ export const registerTenantService = async (data) => {
       name: safeTenant.tenantName,
       email: safeTenant.email,
       type: 'TENANT',
+      status: safeTenant.status,
     },
     accessToken,
     refreshToken,
@@ -104,10 +107,10 @@ export const loginTenantService =
       throw new Error( 'Invalid credentials' );
     }
 
-  //Check tenant status BEFORE password check
-  if (tenant.status === 'PENDING') {
-    throw new Error('Your account is pending approval');
-  }
+  // //Check tenant status BEFORE password check
+  // if (tenant.status === 'PENDING') {
+  //   throw new Error('Your account is pending approval');
+  // }
 
   if (tenant.status === 'BLOCKED') {
     throw new Error('Your account is blocked. Contact support.');
@@ -155,6 +158,7 @@ message: 'Login successful',
       name: safeTenant.tenantName,
       email: safeTenant.email,
       type: 'TENANT', 
+      status: safeTenant.status,
     },
     };
   };
@@ -269,25 +273,18 @@ export const createUserService = async (data, tenantId) => {
     throw new Error('Tenant ID is required');
   }
 
-  // 2️⃣ Check if tenant exists
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: tenantId },
-  });
+  // 2️⃣ Check global email uniqueness (Tenant, User, SuperAdmin)
+  const [emailExistsInTenant, emailExistsInUser, emailExistsInSuperAdmin] = await Promise.all([
+  prisma.tenant.findUnique({ where: { email } }),
+  prisma.user.findUnique({ where: { email } }),
+  prisma.superAdmin.findUnique({ where: { email } }),
+  ]);
 
-  if (!tenant) {
-    throw new Error('Tenant not found');
+  if (emailExistsInTenant || emailExistsInUser || emailExistsInSuperAdmin) {
+  throw new Error('Email is already registered on the platform');
   }
 
-  // 3️⃣ Check if user already exists
-  const existingUser = await prisma.user.findUnique({
-    where: { email },
-  });
-
-  if (existingUser) {
-    throw new Error('User with this email already exists');
-  }
-
-  // 4️⃣ Hash password
+ // 3️⃣ Hash password
   const hashedPassword = await bcrypt.hash(password, 10);
 
   // 5️⃣ Create User under this Tenant
@@ -349,8 +346,7 @@ export const getUsersByTenantService = async (tenantId) => {
   }
 // 2️⃣ Fetch all users under this tenant (exclude passwords)
   const users = await prisma.user.findMany({
-    where: {  tenantId: tenantId, isActive: true, // Optional: only show active users
-    },
+    where: {  tenantId: tenantId },
     select: {
       id: true,
       name: true,

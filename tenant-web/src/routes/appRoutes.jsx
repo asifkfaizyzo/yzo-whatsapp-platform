@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import LoginPage from "../pages/auth/Login";
 import RegisterPage from "../pages/auth/Register";
+import ForgotPassword from "../pages/auth/ForgotPassword";
 import MainLayout from "../layouts/MainLayout";
 import LandingPage from "../pages/Home";
 import NotFound from "../pages/NotFound";
@@ -21,6 +22,7 @@ function App() {
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
 
       {/* Protected Tenant Dashboard Routes */}
       <Route path="/dashboard" element={<MainLayout />}>

@@ -13,12 +13,14 @@ import {
   ThumbsUp,
   ArrowRight
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useOutletContext } from "react-router-dom";
 
 export default function Dashboard() {
+  const { tenantStatus } = useOutletContext();
   const [userName, setUserName] = useState("Admin");
   const [userRole, setUserRole] = useState("admin");
   const [agentStatus, setAgentStatus] = useState("active");
+  // const [tenantStatus, setTenantStatus] = useState("APPROVED");
 
   useEffect(() => {
     const stored = localStorage.getItem("user");
@@ -27,6 +29,7 @@ export default function Dashboard() {
         const parsed = JSON.parse(stored);
         setUserName(parsed.name || "Admin");
         setUserRole(parsed.type === "TENANT" ? "admin" : "agent");
+        // setTenantStatus(parsed.status || "APPROVED");
       } catch (e) {}
     }
   }, []);
@@ -396,7 +399,110 @@ export default function Dashboard() {
     </div>
   );
 
-  // Return Dashboard View based on user role
+    const renderPendingDashboard = () => (
+    <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-300">
+      {/* Welcome Banner */}
+      <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/60 rounded-3xl p-6 sm:p-8 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="space-y-2">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-100 border border-amber-200 text-amber-800 text-xs font-bold rounded-full">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+            Account Under Review
+          </div>
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-800">
+            Welcome to yzo, {userName}!
+          </h1>
+          <p className="text-sm text-slate-600 max-w-xl font-medium leading-relaxed">
+            Your tenant account has been registered successfully and is currently awaiting approval from a super administrator.
+          </p>
+        </div>
+        <div className="flex flex-col items-center justify-center p-4 bg-white/80 backdrop-blur-sm border border-amber-200/50 rounded-2xl shrink-0 text-center shadow-inner">
+          <Clock className="w-10 h-10 text-amber-500 animate-spin" style={{ animationDuration: '6s' }} />
+          <span className="mt-2 text-xs font-bold text-slate-700">Estimated response:</span>
+          <span className="text-[10px] text-slate-500 font-semibold">Within 24 hours</span>
+        </div>
+      </div>
+
+      {/* Progress / Timeline Card */}
+      <div className="card p-6 sm:p-8 border border-slate-100 bg-white">
+        <h2 className="text-lg font-bold text-slate-800">Onboarding Status</h2>
+        <p className="text-xs text-slate-400 font-medium">Follow your account verification and setup progress</p>
+
+        {/* Timeline */}
+        <div className="mt-8 relative flex flex-col md:flex-row md:justify-between gap-8 md:gap-4 before:absolute before:left-4 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100 md:before:left-2 md:before:right-2 md:before:top-4 md:before:h-0.5 md:before:w-auto">
+          {/* Step 1 */}
+          <div className="relative flex items-start md:flex-col gap-4 md:gap-2.5 md:flex-1">
+            <div className="z-10 w-9 h-9 rounded-full bg-emerald-500 border-4 border-emerald-100 text-white flex items-center justify-center shadow-sm">
+              <CheckCircle2 size={16} />
+            </div>
+            <div className="md:mt-1">
+              <p className="text-sm font-bold text-slate-800">Register Account</p>
+              <p className="text-xs text-slate-500 mt-0.5">Tenant profile created successfully.</p>
+            </div>
+          </div>
+
+          {/* Step 2 */}
+          <div className="relative flex items-start md:flex-col gap-4 md:gap-2.5 md:flex-1">
+            <div className="z-10 w-9 h-9 rounded-full bg-amber-500 border-4 border-amber-100 text-white flex items-center justify-center shadow-sm animate-pulse">
+              <Clock size={16} />
+            </div>
+            <div className="md:mt-1">
+              <p className="text-sm font-bold text-slate-800">Super Admin Review</p>
+              <p className="text-xs text-slate-500 mt-0.5">Reviewing business details & compliance.</p>
+            </div>
+          </div>
+
+          {/* Step 3 */}
+          <div className="relative flex items-start md:flex-col gap-4 md:gap-2.5 md:flex-1">
+            <div className="z-10 w-9 h-9 rounded-full bg-slate-100 border-4 border-slate-50 text-slate-400 flex items-center justify-center">
+              <Plus size={16} />
+            </div>
+            <div className="md:mt-1">
+              <p className="text-sm font-bold text-slate-400">Connect WABA</p>
+              <p className="text-xs text-slate-400 mt-0.5">Hook up your WhatsApp Business API profile.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Docs / Information Grid */}
+      <div className="grid gap-6 sm:grid-cols-2">
+        <div className="card p-6 border border-slate-100 bg-white flex flex-col justify-between">
+          <div className="space-y-2">
+            <h3 className="text-base font-bold text-slate-800">What can you do right now?</h3>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Explore your profile and settings. Make sure your account information is up to date in the Settings panel so the approval process goes smoothly.
+            </p>
+          </div>
+          <div className="mt-4 pt-4 border-t border-slate-50">
+            <Link to="/dashboard/settings" className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-700 transition">
+              <span>Go to Settings</span>
+              <ArrowRight size={14} />
+            </Link>
+          </div>
+        </div>
+
+        <div className="card p-6 border border-slate-100 bg-white flex flex-col justify-between">
+          <div className="space-y-2">
+            <h3 className="text-base font-bold text-slate-800">Need immediate assistance?</h3>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Do you have a custom deployment model, or need to expedite account approval? Send an email to our support team and we will get back to you.
+            </p>
+          </div>
+          <div className="mt-4 pt-4 border-t border-slate-50">
+            <a href="mailto:support@yzo.com" className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-700 transition">
+              <span>Contact Support</span>
+              <ArrowRight size={14} />
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Return Dashboard View based on user status/role
+  if (tenantStatus === "PENDING") {
+    return renderPendingDashboard();
+  }
   if (userRole === "agent") {
     return renderAgentDashboard();
   }

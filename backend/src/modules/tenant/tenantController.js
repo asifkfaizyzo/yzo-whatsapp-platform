@@ -374,3 +374,46 @@ export const deleteUserById = async (req, res) => {
     });
   }
 };
+
+
+// Get logged-in tenant's current profile details
+export const getLoggedInTenant = async (req, res) => {
+  try {
+    const tenantId = req.tenant?.id;
+
+    if (!tenantId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Tenant not authenticated',
+      });
+    }
+
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: {
+        id: true,
+        tenantName: true,
+        email: true,
+        status: true,
+        isActive: true,
+      },
+    });
+
+    if (!tenant) {
+      return res.status(404).json({
+        success: false,
+        message: 'Tenant not found',
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: tenant,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};

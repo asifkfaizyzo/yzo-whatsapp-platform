@@ -29,6 +29,22 @@ export const loginUserService =
       throw new Error( 'Invalid credentials' );
     }
 
+    // ── ADDED: Verify user account status ──
+    if (!user.isActive) {
+      throw new Error('Your user account has been deactivated. Please contact support.');
+    }
+
+    // ── ADDED: Verify organization/tenant status ──
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: user.tenantId },
+    });
+    if (!tenant || tenant.status === 'BLOCKED' || !tenant.isActive) {
+      throw new Error('Your organization account is deactivated or blocked.');
+    }
+    if (tenant.status === 'PENDING') {
+      throw new Error('Your organization account is pending approval.');
+    }
+
     // 4️⃣ Compare password
     const isPasswordMatch =
       await bcrypt.compare( password, user.password );
@@ -65,15 +81,16 @@ export const loginUserService =
     // 9️⃣ Return response
     return {
       message: 'Login successful',
-      accessToken,
-      refreshToken,
-      user: {
-        id: safeUser.id,
-        name: safeUser.name,
-        email: safeUser.email,
-        tenantId: safeUser.tenantId,
-        type: 'USER',
-      },
+    accessToken,
+    refreshToken,
+    user: {
+      id: safeUser.id,
+      name: safeUser.name,
+      email: safeUser.email,
+      tenantId: safeUser.tenantId,
+      type: 'USER',
+      status: tenant.status,
+    },
     };
   };
 

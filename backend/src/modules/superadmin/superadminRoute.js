@@ -53,4 +53,10 @@ router.patch('/block-tenant/:id', verifySuperAdmin, superAdminController.blockTe
 
 router.patch('/unblock-tenant/:id', verifySuperAdmin, superAdminController.unblockTenant);
 
+
+// Tenant User Control
+router.patch('/users/:id/deactivate', verifySuperAdmin, superAdminController.deactivateUser);
+
+router.patch('/users/:id/reactivate', verifySuperAdmin, superAdminController.reactivateUser);
+
 export default router;
