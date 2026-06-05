@@ -47,6 +47,7 @@ model Tenant {
   refreshTokens RefreshToken[]   // ← one tenant can have many refresh tokens
 
   users       User[]
+  contacts      Contact[]  
 }
 
 
@@ -104,4 +105,35 @@ model PasswordReset {
   expiresAt DateTime
   isUsed    Boolean  @default(false)
   createdAt DateTime @default(now())
+}
+
+
+
+model Contact {
+  id          String   @id @default(cuid())
+
+  // ─── Basic Info ───
+  name        String
+  phone       String
+  email       String?
+  company     String?
+  tags        String[]
+
+  // ─── WhatsApp ───
+  countryCode String   @default("+91")
+  whatsappId  String?
+
+  // ─── Status ───
+  isActive    Boolean  @default(true)
+  isBlocked   Boolean  @default(false)
+
+  // ─── Belongs to Tenant ───
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+
+  // ─── Timestamps ───
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([phone, tenantId])
 }
