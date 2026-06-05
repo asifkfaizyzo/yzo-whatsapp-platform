@@ -10,6 +10,7 @@ import Reports from "../pages/dashboard/Reports";
 import Team from "../pages/dashboard/Team";
 import Settings from "../pages/dashboard/Settings";
 import NotFound from "../pages/NotFound";
+import ResetPasswordPage from "../pages/auth/ResetPasswordPage";
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/auth" element={<Navigate to="/login" replace />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
 
       {/* Protected Admin Routes */}
       <Route element={<AdminLayout />}>

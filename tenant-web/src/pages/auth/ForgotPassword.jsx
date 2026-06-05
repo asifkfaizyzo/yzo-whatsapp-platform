@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { useState } from "react";
 import { siteConfig } from "../../config/site";
 import { ArrowLeft, CheckCircle2, Mail, RefreshCw } from "lucide-react";
+import { forgotPasswordTenant } from "../../services/auth.service";
 
 const benefits = [
   {
@@ -23,23 +24,53 @@ export default function ForgotPassword() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [roleType, setRoleType] = useState("TENANT");
+  const [resending, setResending] = useState(false);
+  const [resendTimer, setResendTimer] = useState(0);
+  const [resendMessage, setResendMessage] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError("");
-
     if (!email) {
       setError("Please enter your email address.");
       setLoading(false);
       return;
     }
-
-    // Simulate API delay for a polished feel
-    setTimeout(() => {
-      setLoading(false);
+    const result = await forgotPasswordTenant(email, roleType);
+    setLoading(false);
+    if (result.success) {
       setSuccess(true);
-    }, 1500);
+    } else {
+      setError(result.message);
+    }
+  };
+
+  const handleResend = async () => {
+    if (resendTimer > 0 || resending) return;
+    setResending(true);
+    setResendMessage("");
+    setError("");
+
+    const result = await forgotPasswordTenant(email, roleType);
+    setResending(false);
+
+    if (result.success) {
+      setResendMessage("Reset email resent successfully!");
+      setResendTimer(60);
+      const timer = setInterval(() => {
+        setResendTimer((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      setError(result.message);
+    }
   };
 
   return (
@@ -171,9 +202,29 @@ export default function ForgotPassword() {
                     We have sent a secure password reset link to <strong className="text-slate-700">{email}</strong>.
                   </p>
                 </div>
-                <p className="text-xs text-slate-400">
-                  Didn't receive the email? Check your spam folder or try again.
-                </p>
+                <div className="pt-2">
+                  <button
+                    onClick={handleResend}
+                    disabled={resendTimer > 0 || resending}
+                    className="text-xs font-semibold text-[color:var(--primary-dark)] hover:underline disabled:text-slate-400 disabled:no-underline"
+                  >
+                    {resending ? (
+                      <span className="flex items-center justify-center gap-1.5">
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Resending...
+                      </span>
+                    ) : resendTimer > 0 ? (
+                      `Resend email in ${resendTimer}s`
+                    ) : (
+                      "Resend email"
+                    )}
+                  </button>
+                  {resendMessage && (
+                    <p className="mt-2 text-xs text-emerald-600 font-medium">{resendMessage}</p>
+                  )}
+                  {error && (
+                    <p className="mt-2 text-xs text-red-600 font-medium">{error}</p>
+                  )}
+                </div>
                 <div className="pt-4 border-t border-slate-50">
                   <Link
                     to="/login"

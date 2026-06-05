@@ -21,9 +21,15 @@ export const getResetTokenExpiry = () => {
 };
 
 // ===================== SEND RESET EMAIL =====================
-export const sendPasswordResetEmail = async (email, resetToken) => {
+export const sendPasswordResetEmail = async (email, resetToken, userType) => {
 
-  const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
+  const frontendUrls = (process.env.FRONTEND_URLS || '').split(',');
+  // Default to tenant-web (localhost:5174) unless it's SUPERADMIN (localhost:5173)
+  const frontendUrl = userType === 'SUPERADMIN' 
+    ? (frontendUrls[0] || 'http://localhost:5173') 
+    : (frontendUrls[1] || 'http://localhost:5174');
+
+  const resetLink = `${frontendUrl.trim()}/reset-password?token=${resetToken}`;
 
   try {
     await transporter.sendMail({

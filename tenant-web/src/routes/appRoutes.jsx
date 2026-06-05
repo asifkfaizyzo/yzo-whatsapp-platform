@@ -14,6 +14,7 @@ import Contacts from "../pages/dashboard/Contacts";
 import Team from "../pages/dashboard/Team";
 import Reports from "../pages/dashboard/Reports";
 import Settings from "../pages/dashboard/Settings";
+import ResetPassword from "../pages/auth/ResetPassword";
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
 
       {/* Protected Tenant Dashboard Routes */}
       <Route path="/dashboard" element={<MainLayout />}>

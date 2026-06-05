@@ -1,6 +1,8 @@
 // src/services/auth.service.js
 
 import api from "../lib/axios";
+import api2 from "../lib/axios"; // Targets VITE_API_URL (/api2)
+import axios from "axios"; // Raw axios to easily target VITE_USER_API_URL (/api3)
 
 // Register Tenant
 export const registerTenant = async (formData) => {
@@ -192,4 +194,52 @@ export const deleteTenantUser = async (userId) => {
     };
   }
 };
+
+
+// ✅ Forgot Password for Tenant/User
+export const forgotPasswordTenant = async (email, roleType = 'TENANT') => {
+  try {
+    if (roleType === 'USER') {
+      // Call User forgot password endpoint
+      const response = await axios.post(`${import.meta.env.VITE_USER_API_URL}/forgot-usr-password`, { email });
+      return { success: true, message: response.data?.message };
+    } else {
+      // Call Tenant forgot password endpoint
+      const response = await api2.post('/forgot-ten-password', { email });
+      return { success: true, message: response.data?.message };
+    }
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || 'Failed to send recovery email',
+    };
+  }
+};
+
+// ✅ Reset Password for Tenant/User
+export const resetPasswordTenant = async (token, newPassword, confirmPassword, roleType = 'TENANT') => {
+  try {
+    if (roleType === 'USER') {
+      const response = await axios.post(`${import.meta.env.VITE_USER_API_URL}/reset-usr-password`, {
+        token,
+        newPassword,
+        confirmPassword
+      });
+      return { success: true, message: response.data?.message };
+    } else {
+      const response = await api2.post('/reset-ten-password', {
+        token,
+        newPassword,
+        confirmPassword
+      });
+      return { success: true, message: response.data?.message };
+    }
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || 'Failed to reset password',
+    };
+  }
+};
+
 

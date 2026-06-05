@@ -22,8 +22,9 @@ export const forgotPasswordService = async (email, userType) => {
     throw new Error('Email is required');
   }
 
-  // 2️⃣ Find user based on type
-  let user;
+  // 2️⃣ Find user based on type (with auto-detection fallback)
+  let user = null;
+  let detectedUserType = userType;
 
   if (userType === 'SUPERADMIN') {
     user = await prisma.superAdmin.findUnique({ where: { email } });
@@ -32,6 +33,28 @@ export const forgotPasswordService = async (email, userType) => {
   } else if (userType === 'USER') {
     user = await prisma.user.findUnique({ where: { email } });
   }
+
+  // If not found in the provided role, auto-detect across tables since email is unique
+  if (!user) {
+    const tenantUser = await prisma.tenant.findUnique({ where: { email } });
+    if (tenantUser) {
+      user = tenantUser;
+      detectedUserType = 'TENANT';
+    } else {
+      const regularUser = await prisma.user.findUnique({ where: { email } });
+      if (regularUser) {
+        user = regularUser;
+        detectedUserType = 'USER';
+      } else {
+        const superAdmin = await prisma.superAdmin.findUnique({ where: { email } });
+        if (superAdmin) {
+          user = superAdmin;
+          detectedUserType = 'SUPERADMIN';
+        }
+      }
+    }
+  }
+
 
   // 3️⃣ Security: dont reveal if email exists
   if (!user) {
@@ -60,7 +83,7 @@ export const forgotPasswordService = async (email, userType) => {
   });
 
   // 7️⃣ Send email
-  await sendPasswordResetEmail(email, resetToken);
+  await sendPasswordResetEmail(email, resetToken, detectedUserType);
 
   return {
     message: 'If this email exists, a reset link has been sent.',
@@ -104,8 +127,25 @@ export const resetPasswordService = async (token, newPassword, confirmPassword, 
   // 6️⃣ Hash new password
   const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-  // 7️⃣ Update password based on type
-  if (userType === 'SUPERADMIN') {
+  // 7️⃣ Detect actual user type from the email in resetRecord
+  let actualUserType = userType;
+  const isSuperAdmin = await prisma.superAdmin.findUnique({ where: { email: resetRecord.email } });
+  if (isSuperAdmin) {
+    actualUserType = 'SUPERADMIN';
+  } else {
+    const isTenant = await prisma.tenant.findUnique({ where: { email: resetRecord.email } });
+    if (isTenant) {
+      actualUserType = 'TENANT';
+    } else {
+      const isUser = await prisma.user.findUnique({ where: { email: resetRecord.email } });
+      if (isUser) {
+        actualUserType = 'USER';
+      }
+    }
+  }
+
+  // 8️⃣ Update password based on actualUserType
+  if (actualUserType === 'SUPERADMIN') {
     await prisma.superAdmin.update({
       where: { email: resetRecord.email },
       data: { password: hashedPassword },
@@ -120,7 +160,7 @@ export const resetPasswordService = async (token, newPassword, confirmPassword, 
     });
   }
 
-  if (userType === 'TENANT') {
+  if (actualUserType === 'TENANT') {
     await prisma.tenant.update({
       where: { email: resetRecord.email },
       data: { password: hashedPassword },
@@ -135,7 +175,7 @@ export const resetPasswordService = async (token, newPassword, confirmPassword, 
     });
   }
 
-  if (userType === 'USER') {
+  if (actualUserType === 'USER') {
     await prisma.user.update({
       where: { email: resetRecord.email },
       data: { password: hashedPassword },

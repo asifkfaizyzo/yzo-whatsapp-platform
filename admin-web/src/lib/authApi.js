@@ -76,3 +76,34 @@ export const logoutSuperAdmin = async () => {
     return { success: false };
   }
 };
+
+
+// ✅ Request Reset Link for Super Admin
+export const forgotPasswordSuperAdmin = async (email) => {
+  try {
+    const response = await api.post('/forgot-sup-password', { email });
+    return { success: true, message: response.data?.message };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || 'Failed to send recovery email',
+    };
+  }
+};
+
+// ✅ Reset Password for Super Admin
+export const resetPasswordSuperAdmin = async (token, newPassword, confirmPassword) => {
+  try {
+    const response = await api.post('/reset-sup-password', {
+      token,
+      newPassword,
+      confirmPassword,
+    });
+    return { success: true, message: response.data?.message };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || 'Failed to reset password',
+    };
+  }
+};
