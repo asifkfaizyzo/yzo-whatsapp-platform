@@ -1,5 +1,7 @@
 import express from 'express';
 import { verifyTenantOrUser } from '../../middlewares/authVerfyTenOrUser.js';
+import { upload } from '../../config/multerConfig.js';
+import { importContactsController } from './contactController.js';
 import {
     createContactController, getAllContactsController, getContactByIdController,
     updateContactController, deleteContactController, blockContactController,
@@ -13,6 +15,8 @@ const router = express.Router();
 router.post('/create-contact', verifyTenantOrUser, createContactController);
 
 router.get('/get-all-contacts', verifyTenantOrUser, getAllContactsController);
+
+router.post('/import', verifyTenantOrUser, upload.single('file'), importContactsController);
 
 router.get('/get-contact/:id', verifyTenantOrUser, getContactByIdController);
 

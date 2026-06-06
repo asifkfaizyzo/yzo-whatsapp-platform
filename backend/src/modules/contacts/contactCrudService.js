@@ -2,6 +2,9 @@ import pkg from '@prisma/client';
 const { PrismaClient } = pkg;
 const prisma = new PrismaClient();
 
+import fs from 'fs';
+import csv from 'csv-parser';
+
 
 
 // ===================== CREATE CONTACT =====================
@@ -261,5 +264,135 @@ export const unblockContact = async (contactId, tenantId) => {
     return {
         message: 'Contact unblocked successfully',
         contact: unblockedContact,
+    };
+};
+
+
+
+
+//bulk CSV contact importer function
+// ===================== IMPORT CSV =====================
+export const importContactsFromCSV = async (filePath, tenantId) => {
+
+    // 1️⃣ Validate
+    if (!filePath) {
+        throw new Error('CSV file is required');
+    }
+
+    if (!tenantId) {
+        throw new Error('Tenant ID is required');
+    }
+
+    // 2️⃣ Read CSV file
+    const rows = await new Promise((resolve, reject) => {
+        const results = [];
+
+        fs.createReadStream(filePath)
+            .pipe(csv()).on('data', (row) => {
+                results.push(row);
+            })
+            .on('end', () => {
+                resolve(results);
+            })
+            .on('error', (error) => {
+                reject(error);
+            });
+    });
+
+    console.log(`Total rows in CSV: ${rows.length}`);
+
+    // 3️⃣ Track results
+    const summary = {
+        total: rows.length,
+        created: 0,
+        duplicates: 0,
+        errors: 0,
+        errorDetails: [],
+    };
+
+    // 4️⃣ Process each row
+    for (const row of rows) {
+        try {
+            // Extract fields
+            const name = row.name?.trim();
+            const phone = row.phone?.trim();
+            const email = row.email?.trim() || null;
+            const company = row.company?.trim() || null;
+            const countryCode = row.countryCode?.trim() || '+91';
+            const tags = row.tags
+                ? row.tags.split(',').map((t) => t.trim()).filter(Boolean)
+                : [];
+
+            console.log(`Processing: ${name} - ${phone}`);
+
+            // 5️⃣ Validate required fields
+            if (!name || !phone) {
+                summary.errors++;
+                summary.errorDetails.push({
+                    name: name || 'missing',
+                    phone: phone || 'missing',
+                    reason: 'Name or phone is missing',
+                });
+                continue;
+            }
+
+            // 6️⃣ Check duplicate
+            const existing = await prisma.contact.findUnique({
+                where: {
+                    phone_tenantId: {
+                        phone,
+                        tenantId,
+                    },
+                },
+            });
+
+            if (existing) {
+                console.log(`Duplicate found: ${phone}`);
+                summary.duplicates++;
+                continue;
+            }
+
+            // 7️⃣ Generate WhatsApp ID
+            const whatsappId = countryCode.replace('+', '') + phone;
+
+            // 8️⃣ Create contact
+            await prisma.contact.create({
+                data: {
+                    name,
+                    phone,
+                    email,
+                    company,
+                    countryCode,
+                    whatsappId,
+                    tags,
+                    tenantId,
+                    isActive: true,
+                    isBlocked: false,
+                },
+            });
+
+            summary.created++;
+            console.log(`Created: ${name}`);
+
+        } catch (error) {
+            summary.errors++;
+            summary.errorDetails.push({
+                name: row.name || 'unknown',
+                phone: row.phone || 'unknown',
+                reason: error.message,
+            });
+            console.error(`Error processing row:`, error.message);
+        }
+    }
+
+    // 9️⃣ Delete uploaded file after processing
+    fs.unlinkSync(filePath);
+    console.log('CSV file deleted after processing');
+
+    console.log('Import summary:', summary);
+
+    return {
+        message: 'CSV import completed',
+        summary,
     };
 };

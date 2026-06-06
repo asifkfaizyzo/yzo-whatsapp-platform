@@ -1,3 +1,4 @@
+import { importContactsFromCSV } from './contactCrudService.js';
 import {
     createContact, getAllContacts, getContactById, updateContact,
     deleteContact, blockContact, unblockContact,
@@ -93,4 +94,44 @@ export const unblockContactController = async (req, res) => {
     } catch (error) {
         return res.status(400).json({ success: false, message: error.message });
     }
+};
+
+
+
+// 8.===================== IMPORT CONTACTS FROM CSV =====================
+// =============================== IMPORT CSV ===========================
+export const importContactsController = async (req, res) => {
+  try {
+    // 1️⃣ Get tenantId from middleware
+    const tenantId = req.tenantId;
+
+    // 2️⃣ Check file uploaded
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please upload a CSV file',
+      });
+    }
+
+    console.log('File received:', req.file.originalname);
+    console.log('File path:', req.file.path);
+
+    // 3️⃣ Call service
+    const result = await importContactsFromCSV(
+      req.file.path,
+      tenantId
+    );
+
+    // 4️⃣ Return result
+    return res.status(200).json({
+      success: true,
+      data: result,
+    });
+
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
 };
