@@ -1,7 +1,4 @@
-import pkg from '@prisma/client';
-const { PrismaClient } = pkg;
-const prisma = new PrismaClient();
-
+import prisma from '../../config/prisma.js';
 import fs from 'fs';
 import csv from 'csv-parser';
 
@@ -20,11 +17,20 @@ export const createContact = async (data, tenantId) => {
         throw new Error('Tenant ID is required');
     }
 
-    // Check duplicate
+    // Extract digits only from the phone number
+    const cleanDigits = phone.replace(/\D/g, '');
+    if (!cleanDigits) {
+        throw new Error('Invalid phone number format');
+    }
+
+    // Format phone with + prefix (E.164)
+    const formattedPhone = `+${cleanDigits}`;
+
+    // Check duplicate using the full formatted phone number
     const existingContact = await prisma.contact.findUnique({
         where: {
             phone_tenantId: {
-                phone,
+                phone: formattedPhone,
                 tenantId,
             },
         },
@@ -34,15 +40,15 @@ export const createContact = async (data, tenantId) => {
         throw new Error('Contact with this phone already exists');
     }
 
-    // Generate WhatsApp ID
+    // Generate WhatsApp ID (just the clean digits)
+    const whatsappId = cleanDigits;
     const code = countryCode || '+91';
-    const whatsappId = code.replace('+', '') + phone;
 
     // Create
     const contact = await prisma.contact.create({
         data: {
             name,
-            phone,
+            phone: formattedPhone,
             email,
             company,
             tags: tags || [],
@@ -60,25 +66,51 @@ export const createContact = async (data, tenantId) => {
 
 
 // ===================== GET ALL CONTACTS =====================
-export const getAllContacts = async (tenantId) => {
+export const getAllContacts = async (tenantId, page = 1, limit = 10, search = '') => {
 
     if (!tenantId) {
         throw new Error('Tenant ID is required');
     }
 
+    // 1. Build database filter conditions
+    const whereClause = {
+        tenantId,
+        isActive: true,
+    };
+
+    // If search text is present, filter contacts by name, phone, or email
+    if (search) {
+        whereClause.OR = [
+            { name: { contains: search, mode: 'insensitive' } },
+            { phone: { contains: search } },
+            { email: { contains: search, mode: 'insensitive' } }
+        ];
+    }
+
+    const skip = (page - 1) * limit;
+    const take = limit;
+
+    // 2. Query the total matching contacts count (needed for frontend page calculation)
+    const totalContacts = await prisma.contact.count({
+        where: whereClause,
+    });
+
+    // 3. Query only the current page's slice of contacts
     const contacts = await prisma.contact.findMany({
-        where: {
-            tenantId,
-            isActive: true,
-        },
+        where: whereClause,
         orderBy: {
             createdAt: 'desc',
         },
+        skip,
+        take,
     });
 
     return {
         message: 'Contacts fetched successfully',
-        count: contacts.length,
+        count: totalContacts,
+        totalPages: Math.ceil(totalContacts / limit),
+        currentPage: page,
+        limit,
         contacts,
     };
 };
@@ -139,9 +171,15 @@ export const updateContact = async (contactId, tenantId, data) => {
 
     // Phone update with duplicate check
     if (data.phone) {
+        const cleanDigits = data.phone.replace(/\D/g, '');
+        if (!cleanDigits) {
+            throw new Error('Invalid phone number format');
+        }
+        const formattedPhone = `+${cleanDigits}`;
+
         const duplicatePhone = await prisma.contact.findFirst({
             where: {
-                phone: data.phone,
+                phone: formattedPhone,
                 tenantId,
                 id: { not: contactId },
             },
@@ -151,9 +189,8 @@ export const updateContact = async (contactId, tenantId, data) => {
             throw new Error('Contact with this phone already exists');
         }
 
-        updateData.phone = data.phone;
-        const code = data.countryCode || existingContact.countryCode || '+91';
-        updateData.whatsappId = code.replace('+', '') + data.phone;
+        updateData.phone = formattedPhone;
+        updateData.whatsappId = cleanDigits;
     }
 
     if (Object.keys(updateData).length === 0) {

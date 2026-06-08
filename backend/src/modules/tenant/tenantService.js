@@ -1,15 +1,12 @@
 
 import bcrypt from 'bcrypt';
-import pkg from '@prisma/client';
+import prisma from '../../config/prisma.js';
 import jwt from 'jsonwebtoken';
 
 import { generateAccessToken,generateRefreshToken,verifyAccessToken,verifyRefreshToken } from '../auth/jwtservice.js';
 import { saveRefreshToken, deleteRefreshToken,findRefreshToken } from '../auth/refreshtokenService.js';
 import { generateResetToken,getResetTokenExpiry,sendPasswordResetEmail,} from '../auth/emailService.js';
 import { forgotPasswordService,resetPasswordService, } from '../auth/passwordService.js';
-
-const { PrismaClient } = pkg;
-const prisma = new PrismaClient();
 
 
 // ===========Tenant Registration Service (with Auto-Login)===========

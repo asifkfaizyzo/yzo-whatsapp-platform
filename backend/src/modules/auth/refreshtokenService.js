@@ -1,9 +1,4 @@
-import pkg from '@prisma/client';
-
-const { PrismaClient } = pkg;
-const prisma = new PrismaClient();
-
-
+import prisma from '../../config/prisma.js';
 
 // ===================== SAVE REFRESH TOKEN =====================
 export const saveRefreshToken = async ({

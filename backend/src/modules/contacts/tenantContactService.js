@@ -10,7 +10,7 @@ export const tenantCreateContact = async (data, tenantId) => {
   return await createContact(data, tenantId);
 };
 
-export const tenantGetAllContacts = async (tenantId) => {
+export const tenantGetAllContacts = async (tenantId, page, limit, search) => {
   return await getAllContacts(tenantId);
 };
 

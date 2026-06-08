@@ -1,11 +1,6 @@
 import bcrypt from 'bcrypt';
-import pkg from '@prisma/client';
+import prisma from '../../config/prisma.js';
 import { generateResetToken,getResetTokenExpiry,sendPasswordResetEmail, } from './emailService.js';
-
-
-
-const { PrismaClient } = pkg;
-const prisma = new PrismaClient();
 
 
 // ===================== FORGOT PASSWORD (Shared) =====================

@@ -1,13 +1,10 @@
 import bcrypt from 'bcrypt';
-import pkg from '@prisma/client';
+import prisma from '../../config/prisma.js';
 import jwt from 'jsonwebtoken';
 
 import { generateAccessToken,generateRefreshToken,verifyAccessToken,verifyRefreshToken } from '../auth/jwtservice.js';
 import { saveRefreshToken, deleteRefreshToken,findRefreshToken } from '../auth/refreshtokenService.js';
 import { forgotPasswordService,resetPasswordService, } from '../auth/passwordService.js';
-
-const { PrismaClient } = pkg;
-const prisma = new PrismaClient();
 
 
 // =========user Login Service =========

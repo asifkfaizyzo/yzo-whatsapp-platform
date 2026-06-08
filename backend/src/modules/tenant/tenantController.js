@@ -1,5 +1,5 @@
 import bcrypt from 'bcrypt';
-import pkg from '@prisma/client';
+import prisma from '../../config/prisma.js';
 
 import {generateAccessToken, generateRefreshToken} from '../auth/jwtservice.js';
 import { loginUserService } from '../users/userService.js';
@@ -8,10 +8,6 @@ import{registerTenantService,loginTenantService,logoutTenantService,
   refreshTenantAccessTokenService,createUserService,getUsersByTenantService,
   getUserByIdService,updateUserByIdService,deleteUserByIdService,
   deactivateUserByIdService,reactivateUserByIdService} from './tenantService.js';
-
-
-const { PrismaClient } = pkg;
-const prisma = new PrismaClient();
 
 // Tenant Registration Controller
 export const registerTenant = async (req, res) => {

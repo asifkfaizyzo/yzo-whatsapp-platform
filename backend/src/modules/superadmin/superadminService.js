@@ -1,52 +1,11 @@
 import bcrypt from 'bcrypt';
-import pkg from '@prisma/client';
+import prisma from '../../config/prisma.js';
 import jwt from 'jsonwebtoken';
 
 import { generateAccessToken,generateRefreshToken,verifyAccessToken,verifyRefreshToken } from '../auth/jwtservice.js';
 import { saveRefreshToken, deleteRefreshToken,findRefreshToken } from '../auth/refreshtokenService.js';
 import { generateResetToken, getResetTokenExpiry, sendPasswordResetEmail,} from '../auth/emailService.js';
 import { forgotPasswordService,resetPasswordService, } from '../auth/passwordService.js';
-
-
-
-const { PrismaClient } = pkg;
-const prisma = new PrismaClient();
-
-
-// //Creation of SuperAdmin
-// export const createSuperAdmin = async (data) => {
-//   const { name, email, password } = data;
-
-//   // 1️⃣ Check if email already exists
-//   const existingSuperAdmin = await prisma.superAdmin.findUnique({
-//     where: { email },
-//   });
-
-//   if (existingSuperAdmin) {
-//     throw new Error('Email already exists');
-//   }
-
-//   // 2️⃣ Hash password
-//   const hashedPassword = await bcrypt.hash(password, 10);
-
-//   // 3️⃣ Create SuperAdmin
-//   const superAdmin = await prisma.superAdmin.create({
-//     data: {
-//       name,
-//       email,
-//       password: hashedPassword,
-//     },
-//   });
-
-//   // 4️⃣ Remove password before returning
-//   const { password: _, ...safeSuperAdmin } = superAdmin;
-
-//   return safeSuperAdmin;
-// };
-
-
-
-
 
 
 //===========SuperAdmin creation Service===========//

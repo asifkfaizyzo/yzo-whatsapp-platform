@@ -1,6 +1,6 @@
 // src/layouts/MainLayout.jsx
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import TopNavBar from "../components/TopNavBar";
@@ -12,6 +12,7 @@ export default function MainLayout() {
   const [tenantStatus, setTenantStatus] = useState("APPROVED");
   const [userRole, setUserRole] = useState("agent");
   const [loading, setLoading] = useState(true);
+  const fetchedMeRef = useRef(false);
 
   useEffect(() => {
     const token = localStorage.getItem("accessToken");
@@ -33,12 +34,13 @@ export default function MainLayout() {
         setTenantStatus(status);
 
         // Fetch fresh tenant status from database to sync
-        if (parsed.type === "TENANT") {
+        if (parsed.type === "TENANT" && !fetchedMeRef.current) {
+          fetchedMeRef.current = true;
           api.get("/me")
             .then(res => {
               if (res.data?.success && res.data?.data) {
                 const freshTenant = res.data.data;
-                
+
                 // If tenant status became BLOCKED or de-activated, force logout immediately
                 if (freshTenant.status === "BLOCKED" || !freshTenant.isActive) {
                   console.warn("Tenant account is blocked or inactive. Logging out.");
@@ -65,10 +67,10 @@ export default function MainLayout() {
               }
             });
         }
-        
+
         if (status === "PENDING") {
           const allowedPendingPaths = ["/dashboard", "/dashboard/settings"];
-          const isAllowed = allowedPendingPaths.some(path => 
+          const isAllowed = allowedPendingPaths.some(path =>
             location.pathname === path || location.pathname === path + "/"
           );
           if (!isAllowed) {
@@ -126,7 +128,7 @@ export default function MainLayout() {
 
         {/* Dynamic Content Panel */}
         <main className="flex-1 p-6 lg:p-8 overflow-y-auto max-h-[calc(100vh-64px)]">
-           <Outlet context={{ tenantStatus }} />
+          <Outlet context={{ tenantStatus }} />
         </main>
       </div>
     </div>
