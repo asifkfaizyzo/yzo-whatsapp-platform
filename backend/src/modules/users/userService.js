@@ -189,3 +189,66 @@ export const resetPasswordUserService = async (
     'USER'
   );
 };
+
+
+// ===================== ASSIGNED CONTACTS =====================
+export const getAssignedContacts = async (userId, tenantId, options = {}) => {
+
+   // 🔍 DEBUG: check who is calling API
+  // console.log("LOGIN USER ID:", userId);
+  // console.log("TENANT ID:", tenantId);
+
+  const page = options.page || 1;
+  const limit = options.limit || 20;
+  const skip = (page - 1) * limit;
+
+    // 🔥 DEBUG: check ALL contacts in DB
+  const all = await prisma.contact.findMany();
+  // console.log("ALL CONTACTS:", all);
+  const totalAll = all.length;
+  console.log("TOTAL CONTACTS IN DB:", totalAll);
+
+  const where = {
+    assignedTo: userId,
+    tenantId: tenantId, // 🔒 Tenant isolation
+    isActive: true,
+    isBlocked: false,
+  };
+
+  const [contacts, total] = await Promise.all([
+    prisma.contact.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: [
+        { assignedAt: "desc" },
+        { updatedAt: "desc" },
+      ],
+      select: {
+        id: true,
+        phone: true,
+        email: true,
+        company: true,
+        tags: true,
+        countryCode: true,
+        whatsappId: true,
+        assignedAt: true,
+        createdAt: true,
+        updatedAt: true,
+        tenant: {
+          select: { id: true },
+        },
+      },
+    }),
+
+    prisma.contact.count({ where }),
+  ]);
+
+  return {
+    contacts,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+  };
+};

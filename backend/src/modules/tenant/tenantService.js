@@ -643,3 +643,165 @@ export const deleteUserByIdService = async (userId, tenantId) => {
 
 
 
+//========Get Unassigned Contacts by Tenant ID========
+
+
+
+//========Assign contact to user under tenant-controller(manual)========
+export const assignContactService = async (
+  contactId,
+  userId,
+  tenantId
+) => {
+  // 1️⃣ Validate contact
+  const contact = await prisma.contact.findFirst({
+    where: { id: contactId, tenantId },
+  });
+
+  if (!contact) {
+    throw new Error("Contact not found");
+  }
+
+  // 2️⃣ Validate user
+  const user = await prisma.user.findFirst({
+    where: { id: userId, tenantId },
+  });
+
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  // 3️⃣ Assign contact
+  return await prisma.contact.update({
+    where: { id: contactId },
+    data: {
+      assignedTo: userId,
+      assignedAt: new Date(),
+    },
+  });
+};
+
+
+//========Reassign contact to user under tenant-controller========
+export const reassignContactService = async (
+  contactId,
+  newUserId,
+  tenantId
+) => {
+  // 1️⃣ Check contact exists under tenant
+  const contact = await prisma.contact.findFirst({
+    where: {
+      id: contactId,
+      tenantId,
+    },
+  });
+
+  if (!contact) {
+    throw new Error("Contact not found");
+  }
+
+  // 2️⃣ Check new user exists under same tenant
+  const user = await prisma.user.findFirst({
+    where: {
+      id: newUserId,
+      tenantId,
+    },
+  });
+
+  if (!user) {
+    throw new Error("User not found under this tenant");
+  }
+
+  // 3️⃣ Reassign contact (overwrite old assignment)
+  const updatedContact = await prisma.contact.update({
+    where: {
+      id: contactId,
+    },
+    data: {
+      assignedTo: newUserId,
+      assignedAt: new Date(),
+    },
+  });
+
+  return updatedContact;
+};
+
+
+
+//========Unassign contact from user under tenant-controller========
+export const unassignContactService = async (
+  contactId,
+  tenantId
+) => {
+  // 1️⃣ Check contact belongs to tenant
+  const contact = await prisma.contact.findFirst({
+    where: {
+      id: contactId,
+      tenantId,
+    },
+  });
+
+  if (!contact) {
+    throw new Error("Contact not found");
+  }
+
+  // 2️⃣ Check if already unassigned
+  if (!contact.assignedTo) {
+    throw new Error("Contact is already unassigned");
+  }
+
+  // 3️⃣ Unassign contact
+  const updatedContact = await prisma.contact.update({
+    where: {
+      id: contactId,
+    },
+    data: {
+      assignedTo: null,
+      assignedAt: null,
+    },
+  });
+
+  return updatedContact;
+};
+
+
+//List all conversations for a user
+export const listConversations = async (tenantId, options = {}) => {
+  const page = options.page || 1;
+  const limit = options.limit || 20;
+  const skip = (page - 1) * limit;
+
+  // 1️⃣ Fetch conversations
+  const conversations = await prisma.conversation.findMany({
+    where: {
+      tenantId,
+    },
+    include: {
+      contact: true,
+      messages: {
+        orderBy: {
+          createdAt: "desc",
+        },
+        take: 1, // 🔥 only last message (important for inbox)
+      },
+    },
+    orderBy: {
+      updatedAt: "desc", // 🔥 latest chat first (WhatsApp style)
+    },
+    skip,
+    take: limit,
+  });
+
+  // 2️⃣ Count total conversations
+  const total = await prisma.conversation.count({
+    where: { tenantId },
+  });
+
+  return {
+    conversations,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+  };
+};

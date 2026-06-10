@@ -21,6 +21,8 @@ router.post('/reset-ten-password', tenantController.resetPasswordTenant);
 
 router.get('/me', verifyTenant, tenantController.getLoggedInTenant);
 
+router.get("/list-User-conversations",verifyTenant,tenantController.listConversationsController);
+
 
 
 //create user by tenant_🔥Protected Route
@@ -37,5 +39,13 @@ router.patch('/users/:id/deactivate', verifyTenant, requireApprovedTenant, tenan
 router.patch('/users/:id/reactivate', verifyTenant, requireApprovedTenant, tenantController.reactivateUserById);
 
 router.delete('/delete-user/:id', verifyTenant, requireApprovedTenant, tenantController.deleteUserById);
+
+// router.get('/unassigned-contacts', verifyTenant, tenantController.getUnassignedContacts);
+
+router.patch('/assign-contact/:contactId', verifyTenant, tenantController.assignContactController);1
+
+router.patch('/re-assign-contacts/:contactId', verifyTenant, tenantController. reassignContactController);
+
+router.patch('/unassign-contact/:contactId', verifyTenant, tenantController.unassignContactController);
 
 export default router;

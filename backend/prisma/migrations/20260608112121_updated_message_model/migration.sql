@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Message" ADD COLUMN     "isRead" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN     "type" TEXT NOT NULL DEFAULT 'TEXT';

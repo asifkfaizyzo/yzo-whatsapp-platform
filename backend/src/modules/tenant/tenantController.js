@@ -1,13 +1,16 @@
 import bcrypt from 'bcrypt';
 import prisma from '../../config/prisma.js';
 
-import {generateAccessToken, generateRefreshToken} from '../auth/jwtservice.js';
+import { generateAccessToken, generateRefreshToken } from '../auth/jwtservice.js';
 import { loginUserService } from '../users/userService.js';
-import { forgotPasswordTenantService,resetPasswordTenantService,} from './tenantService.js';
-import{registerTenantService,loginTenantService,logoutTenantService,
-  refreshTenantAccessTokenService,createUserService,getUsersByTenantService,
-  getUserByIdService,updateUserByIdService,deleteUserByIdService,
-  deactivateUserByIdService,reactivateUserByIdService} from './tenantService.js';
+import { forgotPasswordTenantService, resetPasswordTenantService, } from './tenantService.js';
+import {
+  registerTenantService, loginTenantService, logoutTenantService,
+  refreshTenantAccessTokenService, createUserService, getUsersByTenantService,
+  getUserByIdService, updateUserByIdService, deleteUserByIdService,
+  deactivateUserByIdService, assignContactService, reassignContactService,
+  unassignContactService,listConversations
+} from './tenantService.js';
 
 // Tenant Registration Controller
 export const registerTenant = async (req, res) => {
@@ -111,7 +114,7 @@ export const logoutTenant =
       });
 
     }
-};
+  };
 
 
 
@@ -148,7 +151,7 @@ export const refreshTenantAccessToken =
       });
 
     }
-};
+  };
 
 
 
@@ -406,6 +409,130 @@ export const getLoggedInTenant = async (req, res) => {
       success: true,
       data: tenant,
     });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
+
+//========Get Unassigned Contacts by Tenant ID========
+
+
+//========Assign contact to user under tenant-controller(manual)========
+export const assignContactController = async (req, res) => {
+  try {
+    const tenantId = req.tenant.id;
+    const { contactId } = req.params;
+    const { userId } = req.body;
+    const result = await assignContactService(
+      contactId,
+      userId,
+      tenantId
+    );
+    return res.status(200).json({
+      success: true,
+      message: "Contact assigned successfully",
+      data: result,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
+
+//========Reassign contact to user under tenant-controller========
+export const reassignContactController = async (req, res) => {
+  try {
+    const tenantId = req.tenant.id;
+    const { contactId } = req.params;
+    const { newUserId } = req.body;
+
+    if (!contactId || !newUserId) {
+      return res.status(400).json({
+        success: false,
+        message: "Contact ID and New User ID are required",
+      });
+    }
+    const result = await reassignContactService(
+      contactId,
+      newUserId,
+      tenantId
+    );
+    return res.status(200).json({
+      success: true,
+      message: "Contact reassigned successfully",
+      data: result,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
+
+//Unassign contact from user under tenant-controller
+export const unassignContactController = async (req, res) => {
+  try {
+    const tenantId = req.tenant.id;
+    const { contactId } = req.params;
+
+    if (!contactId) {
+      return res.status(400).json({
+        success: false,
+        message: "Contact ID is required",
+      });
+    }
+
+    const result = await unassignContactService(
+      contactId,
+      tenantId
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Contact unassigned successfully",
+      data: result,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
+
+//List all conversations for a user
+export const listConversationsController = async (req, res) => {
+  try {
+    const tenantId = req.tenant.id;
+
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+
+    const result = await listConversations(tenantId, {
+      page,
+      limit,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Conversations fetched successfully",
+      ...result,
+    });
+
   } catch (error) {
     return res.status(500).json({
       success: false,

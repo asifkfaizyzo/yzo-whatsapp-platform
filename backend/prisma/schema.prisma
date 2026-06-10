@@ -131,9 +131,49 @@ model Contact {
   tenantId    String
   tenant      Tenant   @relation(fields: [tenantId], references: [id])
 
+  assignedTo  String?  
+  assignedAt  DateTime? 
+
+  conversations Conversation?  
+
   // ─── Timestamps ───
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@unique([phone, tenantId])
+  @@index([assignedTo])      
+  @@index([tenantId])
+}
+
+
+
+model Conversation {
+  id        String    @id @default(cuid())
+  contactId String    @unique  // One conversation per contact (simplest)
+  tenantId  String
+  contact   Contact   @relation(fields: [contactId], references: [id])
+  status String @default("OPEN")
+  messages  Message[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([contactId])
+}
+
+
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  senderId       String?      // Agent ID (null = sent by contact/customer)
+  text           String
+  type           String @default ("TEXT") // TEXT, IMAGE, FILE
+  isRead         Boolean  @default(false)
+
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([conversationId])
 }
