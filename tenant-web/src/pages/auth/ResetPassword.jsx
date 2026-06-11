@@ -1,49 +1,42 @@
+// tenant-web/src/pages/auth/ResetPassword.jsx
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { resetPasswordTenant } from "../../services/auth.service";
 import { CheckCircle2, RefreshCw } from "lucide-react";
+import { useFormHandler } from "../../hooks/useFormHandler";
+import { resetPasswordSchema } from "../../validations/auth.validation";
+import FormError from "../../components/FormError";
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get("token");
   const navigate = useNavigate();
 
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [roleType, setRoleType] = useState("TENANT"); // User resets need to toggle this (TENANT or USER)
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [roleType] = useState("TENANT");
   const [success, setSuccess] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-
-    if (!token) {
-      setError("Reset token is missing from the link URL.");
-      setLoading(false);
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setError("Passwords do not match.");
-      setLoading(false);
-      return;
-    }
-
-    const result = await resetPasswordTenant(token, password, confirmPassword, roleType);
-    setLoading(false);
-
-    if (result.success) {
+  // 1. Setup Reset Password Hook with URL token
+  const {
+    register,
+    onSubmit,
+    generalError,
+    formState: { errors, isSubmitting }
+  } = useFormHandler({
+    schema: resetPasswordSchema,
+    defaultValues: {
+      token: token || "", // Auto-populate token from URL
+      newPassword: "",
+      confirmPassword: ""
+    },
+    onSubmitService: (data) =>
+      resetPasswordTenant(data.token, data.newPassword, data.confirmPassword, roleType),
+    onSuccess: () => {
       setSuccess(true);
       setTimeout(() => {
         navigate("/login");
       }, 3000);
-    } else {
-      setError(result.message);
-    }
-  };
+    },
+  });
 
   return (
     <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-slate-50">
@@ -57,14 +50,22 @@ export default function ResetPassword() {
           </p>
         </div>
 
-        {error && (
-          <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-650 font-medium">
-            {error}
+        {/* URL missing token error banner */}
+        {!token && (
+          <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-700 font-medium">
+            Reset token is missing from the link URL.
+          </div>
+        )}
+
+        {/* Server errors */}
+        {generalError && (
+          <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-655 font-medium">
+            {generalError}
           </div>
         )}
 
         {success ? (
-          <div className="text-center space-y-4">
+          <div className="text-center space-y-4 animate-in zoom-in-95 duration-200">
             <div className="mx-auto w-12 h-12 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-600 border border-emerald-100">
               <CheckCircle2 size={24} />
             </div>
@@ -73,52 +74,42 @@ export default function ResetPassword() {
             </p>
           </div>
         ) : (
-          <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-
-            {/* Role Switcher
-            <div>
-              <label className="label text-xs">Role Type</label>
-              <select
-                className="input text-xs"
-                value={roleType}
-                onChange={(e) => setRoleType(e.target.value)}
-              >
-                <option value="TENANT">Tenant Admin</option>
-                <option value="USER">Agent / Team Member</option>
-              </select>
-            </div> */}
+          <form className="mt-8 space-y-6" onSubmit={onSubmit}>
+            {/* Hidden field containing the url token */}
+            <input type="hidden" {...register("token")} />
 
             <div className="space-y-4">
               <div>
                 <label className="label text-xs">New Password</label>
                 <input
                   type="password"
-                  required
-                  className="input"
+                  className={`input ${errors.newPassword ? "border-red-500 focus:ring-red-200" : ""}`}
                   placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  {...register("newPassword")}
+                  disabled={isSubmitting}
                 />
+                <FormError message={errors.newPassword?.message} />
               </div>
+
               <div>
                 <label className="label text-xs">Confirm New Password</label>
                 <input
                   type="password"
-                  required
-                  className="input"
+                  className={`input ${errors.confirmPassword ? "border-red-500 focus:ring-red-200" : ""}`}
                   placeholder="••••••••"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  {...register("confirmPassword")}
+                  disabled={isSubmitting}
                 />
+                <FormError message={errors.confirmPassword?.message} />
               </div>
             </div>
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={isSubmitting}
               className="btn-primary w-full py-3 flex items-center justify-center gap-2 font-bold"
             >
-              {loading ? (
+              {isSubmitting ? (
                 <RefreshCw className="w-4 h-4 animate-spin" />
               ) : (
                 "Save Password"

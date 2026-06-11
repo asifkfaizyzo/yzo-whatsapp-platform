@@ -20,7 +20,7 @@ export const createConversation = async (req, res) => {
         ? "New conversation created"
         : "Conversation ready",
       isNew: result.isNew,
-      conversation: result.conversation,
+      conversation: result,
     });
 
   } catch (error) {

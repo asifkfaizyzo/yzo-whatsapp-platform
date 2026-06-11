@@ -1,21 +1,39 @@
-// src/pages/dashboard/Contacts.jsx
-
 import React, { useEffect, useState } from "react";
-import { 
-  Users, 
-  Plus, 
-  Search, 
-  Phone, 
+import {
+  Users,
+  Plus,
+  Search,
+  Phone,
   UserPlus,
   Trash2,
   X,
   Edit2,
   Ban,
   Unlock,
-  Upload
+  Upload,
+  MessageSquare,
 } from "lucide-react";
-import { getContacts, createContact, deleteContact, updateContact, blockContact, unblockContact, importContacts } from "../../services/contact.service";
+import {
+  getContacts,
+  createContact,
+  deleteContact,
+  updateContact,
+  blockContact,
+  unblockContact,
+  importContacts,
+} from "../../services/contact.service";
 import Pagination from "../../components/Pagination";
+import { useFormHandler } from "../../hooks/useFormHandler";
+import { contactFormSchema } from "../../validations/contact.validation";
+import FormError from "../../components/FormError";
+import { createConversation } from "../../services/conversation.service";
+import { useNavigate } from "react-router-dom";
+import {
+  getTenantUsers,
+  assignContact,
+  reassignContact,
+  unassignContact,
+} from "../../services/tenant.service";
 
 export default function Contacts() {
   const [contacts, setContacts] = useState([]);
@@ -23,13 +41,44 @@ export default function Contacts() {
   const [showModal, setShowModal] = useState(false);
   const [search, setSearch] = useState("");
   const [editingContact, setEditingContact] = useState(null);
-  const [newContact, setNewContact] = useState({
-    name: "",
-    phone: "",
-    email: "",
-    tag: "Lead",
-    company: "",
-    countryCode: "+91",
+  const [agents, setAgents] = useState([]);
+  const navigate = useNavigate();
+  // Setup hook for adding/editing contacts
+  const contactForm = useFormHandler({
+    schema: contactFormSchema,
+    defaultValues: {
+      name: "",
+      countryCode: "+91",
+      phone: "",
+      email: "",
+      company: "",
+      tag: "Lead",
+    },
+    onSubmitService: async (data) => {
+      // Clean formatting inputs
+      const cleanCC = data.countryCode.replace(/\D/g, "");
+      const cleanPhone = data.phone.replace(/\D/g, "");
+      const fullPhone = `+${cleanCC}${cleanPhone}`;
+
+      const payload = {
+        name: data.name.trim(),
+        phone: fullPhone,
+        countryCode: `+${cleanCC}`,
+        email: data.email?.trim() || null,
+        tags: [data.tag],
+        company: data.company?.trim() || null,
+      };
+
+      if (editingContact) {
+        return await updateContact(editingContact.id, payload);
+      } else {
+        return await createContact(payload);
+      }
+    },
+    onSuccess: () => {
+      fetchContacts();
+      handleCloseModal();
+    },
   });
   const [importing, setImporting] = useState(false);
   const [importSummary, setImportSummary] = useState(null);
@@ -40,30 +89,30 @@ export default function Contacts() {
   const [totalContacts, setTotalContacts] = useState(0);
 
   useEffect(() => {
-  const handler = setTimeout(() => {
-    setDebouncedSearch(search);
-    setPage(1); // Reset back to page 1 on new search terms
-  }, 400);
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1); // Reset back to page 1 on new search terms
+    }, 400);
 
-  return () => clearTimeout(handler);
+    return () => clearTimeout(handler);
   }, [search]);
 
-useEffect(() => {
-  fetchContacts();
-}, [page, limit, debouncedSearch]);
+  useEffect(() => {
+    fetchContacts();
+  }, [page, limit, debouncedSearch]);
 
-const fetchContacts = async () => {
-  setLoading(true);
-  const res = await getContacts(page, limit, debouncedSearch);
-  if (res.success) {
-    setContacts(res.data.contacts || []);
-    setTotalPages(res.data.totalPages || 1);
-    setTotalContacts(res.data.count || 0);
-  } else {
-    console.error(res.message);
-  }
-  setLoading(false);
-};
+  const fetchContacts = async () => {
+    setLoading(true);
+    const res = await getContacts(page, limit, debouncedSearch);
+    if (res.success) {
+      setContacts(res.data.contacts || []);
+      setTotalPages(res.data.totalPages || 1);
+      setTotalContacts(res.data.count || 0);
+    } else {
+      console.error(res.message);
+    }
+    setLoading(false);
+  };
 
   const handleImportCSV = async (e) => {
     const file = e.target.files?.[0];
@@ -88,13 +137,17 @@ const fetchContacts = async () => {
     }
   };
 
-
   const handleAdd = async (e) => {
     e.preventDefault();
-    if (!newContact.name.trim() || !newContact.phone.trim() || !newContact.countryCode.trim()) return;
+    if (
+      !newContact.name.trim() ||
+      !newContact.phone.trim() ||
+      !newContact.countryCode.trim()
+    )
+      return;
 
-    const cleanCountryCode = newContact.countryCode.replace(/\D/g, '');
-    const cleanPhone = newContact.phone.replace(/\D/g, '');
+    const cleanCountryCode = newContact.countryCode.replace(/\D/g, "");
+    const cleanPhone = newContact.phone.replace(/\D/g, "");
 
     if (!cleanCountryCode) {
       alert("Please enter a valid country code.");
@@ -132,24 +185,23 @@ const fetchContacts = async () => {
     }
   };
 
-    const handleCloseModal = () => {
+  const handleCloseModal = () => {
     setShowModal(false);
     setEditingContact(null);
-    setNewContact({ name: "", phone: "", email: "", tag: "Lead", company: "", countryCode: "+91" });
+    contactForm.reset();
   };
 
-    const handleEditClick = (contact) => {
+  const handleEditClick = (contact) => {
     setEditingContact(contact);
-    
-    // Extract local phone digits by stripping the countryCode prefix
-    const cleanCC = (contact.countryCode || "").replace(/\D/g, '');
-    const cleanPh = (contact.phone || "").replace(/\D/g, '');
+
+    const cleanCC = (contact.countryCode || "").replace(/\D/g, "");
+    const cleanPh = (contact.phone || "").replace(/\D/g, "");
     let local = cleanPh;
     if (cleanCC && cleanPh.startsWith(cleanCC)) {
       local = cleanPh.substring(cleanCC.length);
     }
 
-    setNewContact({
+    contactForm.reset({
       name: contact.name,
       phone: local,
       email: contact.email || "",
@@ -162,52 +214,106 @@ const fetchContacts = async () => {
 
   const handleToggleBlock = async (contact) => {
     const action = contact.isBlocked ? "unblock" : "block";
-    if (!window.confirm(`Are you sure you want to ${action} this contact?`)) return;
+    if (!window.confirm(`Are you sure you want to ${action} this contact?`))
+      return;
 
-    const res = contact.isBlocked 
-      ? await unblockContact(contact.id) 
+    const res = contact.isBlocked
+      ? await unblockContact(contact.id)
       : await blockContact(contact.id);
 
     if (res.success) {
       // Update local state isBlocked value
-      setContacts(prev => prev.map(c => c.id === contact.id ? { ...c, isBlocked: !c.isBlocked } : c));
+      setContacts((prev) =>
+        prev.map((c) =>
+          c.id === contact.id ? { ...c, isBlocked: !c.isBlocked } : c,
+        ),
+      );
     } else {
       alert(res.message);
     }
   };
 
-
-const handleDelete = async (id) => {
-  if (!window.confirm("Are you sure you want to delete this contact?")) return;
-  const res = await deleteContact(id);
-  if (res.success) {
-    if (contacts.length === 1 && page > 1) {
-      setPage((prev) => prev - 1);
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this contact?"))
+      return;
+    const res = await deleteContact(id);
+    if (res.success) {
+      if (contacts.length === 1 && page > 1) {
+        setPage((prev) => prev - 1);
+      } else {
+        fetchContacts();
+      }
     } else {
-      fetchContacts();
+      alert(res.message);
     }
-  } else {
-    alert(res.message);
-  }
-};
+  };
 
-
-  const filtered = contacts.filter((c) =>
-    (c.name || "").toLowerCase().includes(search.toLowerCase()) ||
-    (c.phone || "").includes(search) ||
-    (c.email || "").toLowerCase().includes(search.toLowerCase())
+  const filtered = contacts.filter(
+    (c) =>
+      (c.name || "").toLowerCase().includes(search.toLowerCase()) ||
+      (c.phone || "").includes(search) ||
+      (c.email || "").toLowerCase().includes(search.toLowerCase()),
   );
 
   const getTagColor = (tag) => {
-  if (tag === "Enterprise") {
-    return "bg-purple-50 text-purple-700 border-purple-100";
-  }
-  if (tag === "Interested in pricing") {
-    return "bg-emerald-50 text-emerald-700 border-emerald-100";
-  }
-  return "bg-blue-50 text-blue-700 border-blue-100";
-};
+    if (tag === "Enterprise") {
+      return "bg-purple-50 text-purple-700 border-purple-100";
+    }
+    if (tag === "Interested in pricing") {
+      return "bg-emerald-50 text-emerald-700 border-emerald-100";
+    }
+    return "bg-blue-50 text-blue-700 border-blue-100";
+  };
 
+  const handleAssignmentChange = async (
+    contactId,
+    currentUserId,
+    newUserId,
+  ) => {
+    let res;
+
+    if (!newUserId) {
+      // 1. Unassign contact
+      res = await unassignContact(contactId);
+    } else if (!currentUserId) {
+      // 2. Fresh assignment
+      res = await assignContact(contactId, newUserId);
+    } else {
+      // 3. Re-assignment
+      res = await reassignContact(contactId, newUserId);
+    }
+
+    if (res.success) {
+      // Update local contacts array state directly instead of re-fetching
+      setContacts((prev) =>
+        prev.map((c) =>
+          c.id === contactId ? { ...c, assignedTo: newUserId || null } : c,
+        ),
+      );
+    } else {
+      alert(res.message);
+    }
+  };
+
+  const handleStartChat = async (contact) => {
+    const res = await createConversation(contact.id);
+    if (res.success) {
+      // Navigate to the inbox page passing the conversation ID in query string
+      navigate(`/dashboard/inbox?conversationId=${res.data.id}`);
+    } else {
+      alert(res.message);
+    }
+  };
+
+  useEffect(() => {
+    const fetchAgents = async () => {
+      const res = await getTenantUsers();
+      if (res.success) {
+        setAgents(res.data || []);
+      }
+    };
+    fetchAgents();
+  }, []);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
@@ -254,7 +360,10 @@ const handleDelete = async (id) => {
         {/* Search/Filter Bar */}
         <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="relative max-w-xs w-full">
-            <Search className="absolute left-3 top-2.5 text-slate-400" size={15} />
+            <Search
+              className="absolute left-3 top-2.5 text-slate-400"
+              size={15}
+            />
             <input
               type="text"
               placeholder="Search by name or number..."
@@ -275,126 +384,192 @@ const handleDelete = async (id) => {
                 <th className="p-4 font-semibold">Email</th>
                 <th className="p-4 font-semibold">Subscribed Date</th>
                 <th className="p-4 font-semibold">Segment Tag</th>
+                <th className="p-4 font-semibold">Assigned Agent</th>
                 <th className="p-4 font-semibold text-center">Actions</th>
               </tr>
             </thead>
-              <tbody className="divide-y divide-slate-50 text-xs">
-                {loading ? (
-                  Array.from({ length: limit }).map((_, idx) => (
-                    <tr key={`skeleton-${idx}`} className="animate-pulse">
-                      <td className="p-4"><div className="h-4 bg-slate-200 rounded w-28"></div></td>
-                      <td className="p-4"><div className="h-4 bg-slate-100 rounded w-36"></div></td>
-                      <td className="p-4"><div className="h-4 bg-slate-100 rounded w-40"></div></td>
-                      <td className="p-4"><div className="h-4 bg-slate-100 rounded w-24"></div></td>
-                      <td className="p-4"><div className="h-6 bg-slate-100 rounded-full w-16"></div></td>
-                      <td className="p-4">
-                        <div className="flex justify-center gap-2">
-                          <div className="h-7 w-7 bg-slate-100 rounded-lg"></div>
-                          <div className="h-7 w-7 bg-slate-100 rounded-lg"></div>
-                          <div className="h-7 w-7 bg-slate-100 rounded-lg"></div>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                ) : contacts.length === 0 ? (
-                  <tr>
-                    <td colSpan="6" className="text-center py-12 text-slate-400">
-                      <div className="flex flex-col items-center justify-center gap-2">
-                        <Users size={32} className="text-slate-300 stroke-[1.5]" />
-                        <p className="text-sm font-medium">No contacts found</p>
-                        <p className="text-xs text-slate-400">Try adjusting your search terms or add a new contact.</p>
+            <tbody className="divide-y divide-slate-50 text-xs">
+              {loading ? (
+                Array.from({ length: limit }).map((_, idx) => (
+                  <tr key={`skeleton-${idx}`} className="animate-pulse">
+                    <td className="p-4">
+                      <div className="h-4 bg-slate-200 rounded w-28"></div>
+                    </td>
+                    <td className="p-4">
+                      <div className="h-4 bg-slate-100 rounded w-36"></div>
+                    </td>
+                    <td className="p-4">
+                      <div className="h-4 bg-slate-100 rounded w-40"></div>
+                    </td>
+                    <td className="p-4">
+                      <div className="h-4 bg-slate-100 rounded w-24"></div>
+                    </td>
+                    <td className="p-4">
+                      <div className="h-6 bg-slate-100 rounded-full w-16"></div>
+                    </td>
+                    <td className="p-4">
+                      <div className="flex justify-center gap-2">
+                        <div className="h-7 w-7 bg-slate-100 rounded-lg"></div>
+                        <div className="h-7 w-7 bg-slate-100 rounded-lg"></div>
+                        <div className="h-7 w-7 bg-slate-100 rounded-lg"></div>
                       </div>
                     </td>
                   </tr>
-                ) : (
-                  contacts.map((c) => {
-                    const primaryTag = c.tags && c.tags.length > 0 ? c.tags[0] : "Lead";
-                    const displayPhone = c.phone.startsWith("+") ? c.phone : `${c.countryCode || ""} ${c.phone}`;
-                    const displayDate = new Date(c.createdAt).toLocaleDateString("en-US", {
+                ))
+              ) : contacts.length === 0 ? (
+                <tr>
+                  <td colSpan="6" className="text-center py-12 text-slate-400">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <Users
+                        size={32}
+                        className="text-slate-300 stroke-[1.5]"
+                      />
+                      <p className="text-sm font-medium">No contacts found</p>
+                      <p className="text-xs text-slate-400">
+                        Try adjusting your search terms or add a new contact.
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                contacts.map((c) => {
+                  const primaryTag =
+                    c.tags && c.tags.length > 0 ? c.tags[0] : "Lead";
+                  const displayPhone = c.phone.startsWith("+")
+                    ? c.phone
+                    : `${c.countryCode || ""} ${c.phone}`;
+                  const displayDate = new Date(c.createdAt).toLocaleDateString(
+                    "en-US",
+                    {
                       month: "short",
                       day: "numeric",
                       year: "numeric",
-                    });
+                    },
+                  );
 
-                    return (
-                      <tr key={c.id} className={`hover:bg-slate-50/40 ${c.isBlocked ? 'bg-red-50/20' : ''}`}>
-                        <td className="p-4">
-                          <div className="flex items-center gap-2">
-                            <p className="font-bold text-slate-800 text-sm">{c.name}</p>
-                            {c.isBlocked && (
-                              <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-[10px] font-bold text-red-700 border border-red-200">
-                                Blocked
-                              </span>
+                  return (
+                    <tr
+                      key={c.id}
+                      className={`hover:bg-slate-50/40 ${c.isBlocked ? "bg-red-50/20" : ""}`}
+                    >
+                      <td className="p-4">
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-slate-800 text-sm">
+                            {c.name}
+                          </p>
+                          {c.isBlocked && (
+                            <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-[10px] font-bold text-red-700 border border-red-200">
+                              Blocked
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-4 font-mono text-slate-600 flex items-center gap-1.5">
+                        <Phone size={12} className="text-slate-400" />
+                        <span>{displayPhone}</span>
+                      </td>
+                      <td className="p-4 text-slate-500">{c.email || "N/A"}</td>
+                      <td className="p-4 text-slate-500">{displayDate}</td>
+                      <td className="p-4">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${getTagColor(primaryTag)}`}
+                        >
+                          {primaryTag}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        <select
+                          value={c.assignedTo || ""}
+                          onChange={(e) =>
+                            handleAssignmentChange(
+                              c.id,
+                              c.assignedTo,
+                              e.target.value,
+                            )
+                          }
+                          className="input text-xs py-1 px-2 border border-slate-200 rounded-lg bg-white w-40"
+                        >
+                          <option value="">-- Unassigned --</option>
+                          {agents.map((agent) => (
+                            <option key={agent.id} value={agent.id}>
+                              {agent.name}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="p-4 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleEditClick(c)}
+                            className="text-slate-400 hover:text-blue-600 p-1.5 rounded-lg hover:bg-blue-50 transition"
+                            title="Edit Contact"
+                          >
+                            <Edit2 size={14} />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleToggleBlock(c)}
+                            className={`p-1.5 rounded-lg transition ${
+                              c.isBlocked
+                                ? "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                                : "text-amber-500 hover:text-amber-600 hover:bg-amber-50"
+                            }`}
+                            title={
+                              c.isBlocked ? "Unblock Contact" : "Block Contact"
+                            }
+                          >
+                            {c.isBlocked ? (
+                              <Unlock size={14} />
+                            ) : (
+                              <Ban size={14} />
                             )}
-                          </div>
-                        </td>
-                        <td className="p-4 font-mono text-slate-600 flex items-center gap-1.5">
-                          <Phone size={12} className="text-slate-400" />
-                          <span>{displayPhone}</span>
-                        </td>
-                        <td className="p-4 text-slate-500">{c.email || "N/A"}</td>
-                        <td className="p-4 text-slate-500">{displayDate}</td>
-                        <td className="p-4">
-                          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${getTagColor(primaryTag)}`}>
-                            {primaryTag}
-                          </span>
-                        </td>
-                        <td className="p-4 text-center">
-                          <div className="flex items-center justify-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => handleEditClick(c)}
-                              className="text-slate-400 hover:text-blue-600 p-1.5 rounded-lg hover:bg-blue-50 transition"
-                              title="Edit Contact"
-                            >
-                              <Edit2 size={14} />
-                            </button>
+                          </button>
 
-                            <button
-                              type="button"
-                              onClick={() => handleToggleBlock(c)}
-                              className={`p-1.5 rounded-lg transition ${
-                                c.isBlocked 
-                                  ? 'text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50' 
-                                  : 'text-amber-500 hover:text-amber-600 hover:bg-amber-50'
-                              }`}
-                              title={c.isBlocked ? "Unblock Contact" : "Block Contact"}
-                            >
-                              {c.isBlocked ? <Unlock size={14} /> : <Ban size={14} />}
-                            </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(c.id)}
+                            className="text-slate-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition"
+                            title="Delete Contact"
+                          >
+                            <Trash2 size={14} />
+                          </button>
 
-                            <button
-                              type="button"
-                              onClick={() => handleDelete(c.id)}
-                              className="text-slate-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition"
-                              title="Delete Contact"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
+                          <button
+                            type="button"
+                            onClick={() => handleStartChat(c)}
+                            className="text-slate-400 hover:text-emerald-600 p-1.5 rounded-lg hover:bg-emerald-50 transition"
+                            title="Chat with Contact"
+                          >
+                            <MessageSquare size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
           </table>
           {filtered.length === 0 && (
-            <p className="text-xs text-slate-400 text-center py-8">No contacts match search terms</p>
+            <p className="text-xs text-slate-400 text-center py-8">
+              No contacts match search terms
+            </p>
           )}
         </div>
         <Pagination
-            currentPage={page}
-            totalPages={totalPages}
-            totalItems={totalContacts}
-            limit={limit}
-            onPageChange={setPage}
-            onLimitChange={(newLimit) => {
-              setLimit(newLimit);
-              setPage(1);
-            }}
-            itemName="contacts"
-          />
+          currentPage={page}
+          totalPages={totalPages}
+          totalItems={totalContacts}
+          limit={limit}
+          onPageChange={setPage}
+          onLimitChange={(newLimit) => {
+            setLimit(newLimit);
+            setPage(1);
+          }}
+          itemName="contacts"
+        />
       </div>
 
       {/* ── New Contact Modal ── */}
@@ -404,9 +579,11 @@ const handleDelete = async (id) => {
             {/* Modal Header */}
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <h2 className="text-base font-bold text-slate-800">
-                {editingContact ? "Edit WhatsApp Contact" : "Add New WhatsApp Contact"}
+                {editingContact
+                  ? "Edit WhatsApp Contact"
+                  : "Add New WhatsApp Contact"}
               </h2>
-              <button 
+              <button
                 onClick={() => setShowModal(false)}
                 className="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-50 transition"
               >
@@ -415,16 +592,23 @@ const handleDelete = async (id) => {
             </div>
 
             {/* Modal Form */}
-            <form onSubmit={handleAdd} className="p-6 space-y-4">
+            <form onSubmit={contactForm.onSubmit} className="p-6 space-y-4">
+              {contactForm.generalError && (
+                <div className="rounded-xl bg-rose-50 border border-rose-200 px-4 py-2.5 text-xs text-rose-650 font-semibold">
+                  {contactForm.generalError}
+                </div>
+              )}
+
               <div>
                 <label className="label text-xs">Contact Name</label>
                 <input
                   type="text"
                   placeholder="e.g. John Doe"
-                  required
-                  value={newContact.name}
-                  onChange={(e) => setNewContact({ ...newContact, name: e.target.value })}
-                  className="input text-xs"
+                  className={`input text-xs ${contactForm.formState.errors.name ? "border-red-500" : ""}`}
+                  {...contactForm.register("name")}
+                />
+                <FormError
+                  message={contactForm.formState.errors.name?.message}
                 />
               </div>
 
@@ -434,30 +618,36 @@ const handleDelete = async (id) => {
                   <input
                     type="text"
                     placeholder="+91"
-                    required
-                    value={newContact.countryCode}
-                    onChange={(e) => setNewContact({ ...newContact, countryCode: e.target.value })}
-                    className="input text-xs w-20 text-center"
+                    className={`input text-xs w-20 text-center ${contactForm.formState.errors.countryCode ? "border-red-500" : ""}`}
+                    {...contactForm.register("countryCode")}
                   />
                   <input
                     type="text"
                     placeholder="e.g. 9876543210"
-                    required
-                    value={newContact.phone}
-                    onChange={(e) => setNewContact({ ...newContact, phone: e.target.value })}
-                    className="input text-xs flex-1"
+                    className={`input text-xs flex-1 ${contactForm.formState.errors.phone ? "border-red-500" : ""}`}
+                    {...contactForm.register("phone")}
                   />
                 </div>
+                <FormError
+                  message={
+                    contactForm.formState.errors.countryCode?.message ||
+                    contactForm.formState.errors.phone?.message
+                  }
+                />
               </div>
 
               <div>
-                <label className="label text-xs">Email Address (Optional)</label>
+                <label className="label text-xs">
+                  Email Address (Optional)
+                </label>
                 <input
                   type="email"
                   placeholder="e.g. john@example.com"
-                  value={newContact.email}
-                  onChange={(e) => setNewContact({ ...newContact, email: e.target.value })}
-                  className="input text-xs"
+                  className={`input text-xs ${contactForm.formState.errors.email ? "border-red-500" : ""}`}
+                  {...contactForm.register("email")}
+                />
+                <FormError
+                  message={contactForm.formState.errors.email?.message}
                 />
               </div>
 
@@ -466,21 +656,24 @@ const handleDelete = async (id) => {
                 <input
                   type="text"
                   placeholder="e.g. Acme Corp"
-                  value={newContact.company}
-                  onChange={(e) => setNewContact({ ...newContact, company: e.target.value })}
-                  className="input text-xs"
+                  className={`input text-xs ${contactForm.formState.errors.company ? "border-red-500" : ""}`}
+                  {...contactForm.register("company")}
+                />
+                <FormError
+                  message={contactForm.formState.errors.company?.message}
                 />
               </div>
 
               <div>
                 <label className="label text-xs">Segment Tag</label>
-                <select 
+                <select
                   className="input text-xs"
-                  value={newContact.tag}
-                  onChange={(e) => setNewContact({ ...newContact, tag: e.target.value })}
+                  {...contactForm.register("tag")}
                 >
                   <option value="Lead">Lead</option>
-                  <option value="Interested in pricing">Interested in pricing</option>
+                  <option value="Interested in pricing">
+                    Interested in pricing
+                  </option>
                   <option value="Enterprise">Enterprise</option>
                 </select>
               </div>
@@ -491,14 +684,18 @@ const handleDelete = async (id) => {
                   type="button"
                   onClick={() => handleCloseModal()}
                   className="btn-secondary py-2 px-3 text-[11px] font-semibold"
+                  disabled={contactForm.formState.isSubmitting}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   className="btn-primary py-2 px-4 text-[11px] font-bold"
+                  disabled={contactForm.formState.isSubmitting}
                 >
-                  Save Contact
+                  {contactForm.formState.isSubmitting
+                    ? "Saving..."
+                    : "Save Contact"}
                 </button>
               </div>
             </form>
@@ -515,7 +712,7 @@ const handleDelete = async (id) => {
               <h2 className="text-base font-bold text-slate-800">
                 CSV Import Summary
               </h2>
-              <button 
+              <button
                 onClick={() => setImportSummary(null)}
                 className="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-50 transition"
               >
@@ -528,42 +725,63 @@ const handleDelete = async (id) => {
               {/* Stats Grid */}
               <div className="grid grid-cols-3 gap-3">
                 <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-3 text-center">
-                  <p className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider">Created</p>
-                  <p className="text-2xl font-black text-emerald-700 mt-1">{importSummary.created || 0}</p>
+                  <p className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider">
+                    Created
+                  </p>
+                  <p className="text-2xl font-black text-emerald-700 mt-1">
+                    {importSummary.created || 0}
+                  </p>
                 </div>
                 <div className="bg-amber-50 border border-amber-100 rounded-2xl p-3 text-center">
-                  <p className="text-[10px] uppercase font-bold text-amber-800 tracking-wider">Duplicates</p>
-                  <p className="text-2xl font-black text-amber-700 mt-1">{importSummary.duplicates || 0}</p>
+                  <p className="text-[10px] uppercase font-bold text-amber-800 tracking-wider">
+                    Duplicates
+                  </p>
+                  <p className="text-2xl font-black text-amber-700 mt-1">
+                    {importSummary.duplicates || 0}
+                  </p>
                 </div>
                 <div className="bg-rose-50 border border-rose-100 rounded-2xl p-3 text-center">
-                  <p className="text-[10px] uppercase font-bold text-rose-800 tracking-wider">Errors</p>
-                  <p className="text-2xl font-black text-rose-700 mt-1">{importSummary.errors || 0}</p>
+                  <p className="text-[10px] uppercase font-bold text-rose-800 tracking-wider">
+                    Errors
+                  </p>
+                  <p className="text-2xl font-black text-rose-700 mt-1">
+                    {importSummary.errors || 0}
+                  </p>
                 </div>
               </div>
 
               {/* Total Processed */}
               <div className="bg-slate-50 rounded-2xl px-4 py-3 flex justify-between items-center text-xs">
-                <span className="font-semibold text-slate-500">Total Rows Processed</span>
-                <span className="font-bold text-slate-800">{importSummary.total || 0}</span>
+                <span className="font-semibold text-slate-500">
+                  Total Rows Processed
+                </span>
+                <span className="font-bold text-slate-800">
+                  {importSummary.total || 0}
+                </span>
               </div>
 
               {/* Error Details */}
-              {importSummary.errorDetails && importSummary.errorDetails.length > 0 && (
-                <div className="space-y-2">
-                  <h3 className="text-xs font-bold text-slate-700">Error Details</h3>
-                  <div className="max-h-40 overflow-y-auto border border-slate-100 rounded-2xl divide-y divide-slate-50">
-                    {importSummary.errorDetails.map((err, i) => (
-                      <div key={i} className="p-3 text-[11px] bg-slate-50/50">
-                        <div className="flex justify-between items-center font-bold text-slate-700">
-                          <span>{err.name || "Unknown"}</span>
-                          <span className="font-mono text-slate-500">{err.phone || "No Phone"}</span>
+              {importSummary.errorDetails &&
+                importSummary.errorDetails.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-xs font-bold text-slate-700">
+                      Error Details
+                    </h3>
+                    <div className="max-h-40 overflow-y-auto border border-slate-100 rounded-2xl divide-y divide-slate-50">
+                      {importSummary.errorDetails.map((err, i) => (
+                        <div key={i} className="p-3 text-[11px] bg-slate-50/50">
+                          <div className="flex justify-between items-center font-bold text-slate-700">
+                            <span>{err.name || "Unknown"}</span>
+                            <span className="font-mono text-slate-500">
+                              {err.phone || "No Phone"}
+                            </span>
+                          </div>
+                          <p className="text-rose-600 mt-1">{err.reason}</p>
                         </div>
-                        <p className="text-rose-600 mt-1">{err.reason}</p>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
               {/* Action */}
               <div className="pt-4 flex items-center justify-end border-t border-slate-100">

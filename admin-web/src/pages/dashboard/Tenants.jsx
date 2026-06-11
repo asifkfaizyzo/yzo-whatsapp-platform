@@ -121,7 +121,12 @@ export default function Tenants() {
       }
     } catch (err) {
       console.error(err);
-      setModalError(err.response?.data?.message || "Error registering tenant.");
+      const resData = err.response?.data;
+      if (resData?.errors && resData.errors.length > 0) {
+        setModalError(resData.errors.map((e) => e.message).join(", "));
+      } else {
+        setModalError(resData?.message || "Error registering tenant.");
+      }
     } finally {
       setModalLoading(false);
     }
@@ -156,7 +161,12 @@ export default function Tenants() {
       }
     } catch (err) {
       console.error(err);
-      setModalError(err.response?.data?.message || "Error updating tenant.");
+      const resData = err.response?.data;
+      if (resData?.errors && resData.errors.length > 0) {
+        setModalError(resData.errors.map((e) => e.message).join(", "));
+      } else {
+        setModalError(resData?.message || "Error updating tenant.");
+      }
     } finally {
       setModalLoading(false);
     }

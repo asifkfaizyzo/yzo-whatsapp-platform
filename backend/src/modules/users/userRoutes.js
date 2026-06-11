@@ -5,18 +5,21 @@ import {generateAccessToken, generateRefreshToken} from '../auth/jwtservice.js';
 import {forgotPasswordUser,resetPasswordUser,} from './userController.js';
 import { verifyUser } from '../../middlewares/authUser.js';
 
+import { loginSchema, forgotPasswordSchema, resetPasswordSchema, refreshTokenSchema, logoutSchema } from '../../validations/auth.validation.js';
+import validate from '../../middlewares/validate.middleware.js';
+
 const router = express.Router();
 
 // ✅ Protected user routes
-router.post('/login-user', userController.loginUser);
+router.post('/login-user', validate(loginSchema), userController.loginUser);
 
-router.post('/logout-user', userController.logoutUser);
+router.post('/logout-user', validate(logoutSchema), userController.logoutUser);
 
-router.post('/refresh-user-access', userController.refreshUserAccessToken);
+router.post('/refresh-user-access', validate(refreshTokenSchema), userController.refreshUserAccessToken);
 
-router.post('/forgot-usr-password', userController.forgotPasswordUser);
+router.post('/forgot-usr-password', validate(forgotPasswordSchema), userController.forgotPasswordUser);
 
-router.post('/reset-usr-password', userController.resetPasswordUser);
+router.post('/reset-usr-password', validate(resetPasswordSchema), userController.resetPasswordUser);
 
 router.get('/my-assigned-contacts', verifyUser, userController.getMyAssignedContacts);
 

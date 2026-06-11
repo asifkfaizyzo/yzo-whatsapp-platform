@@ -4,6 +4,8 @@ import api from "../lib/axios";
 import api2 from "../lib/axios"; // Targets VITE_API_URL (/api2)
 import axios from "axios"; // Raw axios to easily target VITE_USER_API_URL (/api3)
 
+const USER_API_URL = `${import.meta.env.VITE_BACKEND_URL}/api3`;
+
 // Register Tenant
 export const registerTenant = async (formData) => {
   try {
@@ -70,7 +72,7 @@ export const logout = async () => {
     const user = userStr ? JSON.parse(userStr) : null;
 
     if (user?.type === "USER") {
-      const userLogoutUrl = `${import.meta.env.VITE_USER_API_URL}/logout-user`;
+      const userLogoutUrl = `${USER_API_URL}/logout-user`;
       await api.post(userLogoutUrl, {
         refreshToken,
       });
@@ -201,7 +203,7 @@ export const forgotPasswordTenant = async (email, roleType = 'TENANT') => {
   try {
     if (roleType === 'USER') {
       // Call User forgot password endpoint
-      const response = await axios.post(`${import.meta.env.VITE_USER_API_URL}/forgot-usr-password`, { email });
+      const response = await axios.post(`${USER_API_URL}/forgot-usr-password`, { email });
       return { success: true, message: response.data?.message };
     } else {
       // Call Tenant forgot password endpoint
@@ -220,7 +222,7 @@ export const forgotPasswordTenant = async (email, roleType = 'TENANT') => {
 export const resetPasswordTenant = async (token, newPassword, confirmPassword, roleType = 'TENANT') => {
   try {
     if (roleType === 'USER') {
-      const response = await axios.post(`${import.meta.env.VITE_USER_API_URL}/reset-usr-password`, {
+      const response = await axios.post(`${USER_API_URL}/reset-usr-password`, {
         token,
         newPassword,
         confirmPassword

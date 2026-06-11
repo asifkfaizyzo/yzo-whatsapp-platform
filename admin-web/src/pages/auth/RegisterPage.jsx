@@ -2,6 +2,9 @@ import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { siteConfig } from "../../config/site";
 import { registerSuperAdmin } from "../../lib/authApi";
+import { useFormHandler } from "../../hooks/useFormHandler";
+import { createSuperAdminSchema } from "../../validations/superAdmin.validation";
+import FormError from "../../components/FormError";
 
 const benefits = [
   {
@@ -21,47 +24,17 @@ const benefits = [
 export default function RegisterPage() {
   const navigate = useNavigate();
 
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    password: "",
-    companyName: "",
+  const {
+    register,
+    onSubmit,
+    generalError,
+    formState: { errors, isSubmitting }
+  } = useFormHandler({
+    schema: createSuperAdminSchema,
+    defaultValues: { name: "", email: "", password: "" },
+    onSubmitService: registerSuperAdmin, // Or whichever function creates superAdmin
+    onSuccess: () => navigate("/dashboard"),
   });
-
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-    setError(""); // clear error on typing
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-    setSuccess("");
-
-    if (!formData.name || !formData.email || !formData.password) {
-      setError("Name, email, and password are required.");
-      setLoading(false);
-      return;
-    }
-
-    const result = await registerSuperAdmin(formData);
-
-    if (result.success) {
-      setSuccess("Account created successfully! Redirecting to dashboard...");
-      setTimeout(() => {
-        navigate("/dashboard");
-      }, 2000);
-    } else {
-      setError(result.message);
-    }
-
-    setLoading(false);
-  };
 
   return (
     <div className="min-h-screen">
@@ -123,21 +96,21 @@ export default function RegisterPage() {
             </div>
 
             {/* ✅ Error Message */}
-            {error && (
+            {generalError && (
               <div className="mt-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
-                {error}
+                {generalError}
               </div>
             )}
 
-            {/* ✅ Success Message */}
+            {/* ✅ Success Message
             {success && (
               <div className="mt-4 rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-600">
                 {success}
               </div>
-            )}
+            )} */}
 
             {/* Form */}
-            <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
+            <form className="mt-6 space-y-4" onSubmit={onSubmit}>
               {/* Full Name */}
               <div>
                 <label className="label">Full name</label>
@@ -146,10 +119,9 @@ export default function RegisterPage() {
                   type="text"
                   name="name"
                   placeholder="John Doe"
-                  value={formData.name}
-                  onChange={handleChange}
-                  required
+                  {...register("name")}
                 />
+                <FormError message={errors.name?.message} />
               </div>
 
               {/* Email */}
@@ -160,10 +132,9 @@ export default function RegisterPage() {
                   type="email"
                   name="email"
                   placeholder="admin@company.com"
-                  value={formData.email}
-                  onChange={handleChange}
-                  required
+                  {...register("email")}
                 />
+                <FormError message={errors.email?.message} />
               </div>
 
               {/* Password */}
@@ -174,10 +145,9 @@ export default function RegisterPage() {
                   type="password"
                   name="password"
                   placeholder="••••••••"
-                  value={formData.password}
-                  onChange={handleChange}
-                  required
+                  {...register("password")}
                 />
+                <FormError message={errors.password?.message} />
               </div>
 
               {/* Company Name */}
@@ -188,10 +158,9 @@ export default function RegisterPage() {
                   type="text"
                   name="companyName"
                   placeholder="Your Company"
-                  value={formData.companyName}
-                  onChange={handleChange}
-                  required
+                  {...register("companyName")}
                 />
+                <FormError message={errors.companyName?.message} />
               </div>
 
               {/* Remember me */}
@@ -206,9 +175,9 @@ export default function RegisterPage() {
               <button
                 type="submit"
                 className="btn-primary w-full"
-                disabled={loading}
+                disabled={isSubmitting}
               >
-                {loading ? "Creating Account..." : "Create Account"}
+                {isSubmitting ? "Creating Account..." : "Create Account"}
               </button>
             </form>
 

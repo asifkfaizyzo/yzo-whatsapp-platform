@@ -1,5 +1,3 @@
-// src/pages/dashboard/Team.jsx
-
 import React, { useState, useEffect } from "react";
 import { 
   UserCheck, 
@@ -22,6 +20,9 @@ import {
   deactivateTenantUser, 
   reactivateTenantUser 
 } from "../../services/auth.service";
+import { useFormHandler } from "../../hooks/useFormHandler";
+import { createUserSchema, updateUserSchema } from "../../validations/user.validation";
+import FormError from "../../components/FormError";
 
 export default function Team() {
   const [agents, setAgents] = useState([]);
@@ -37,17 +38,32 @@ export default function Team() {
   const [modalLoading, setModalLoading] = useState(false);
   const [modalError, setModalError] = useState("");
 
-  // Forms state
-  const [newAgent, setNewAgent] = useState({
-    name: "",
-    email: "",
-    password: "",
+  // We still keep editingAgent.id to track which user we are editing
+  const [editingAgent, setEditingAgent] = useState({ id: "", name: "", email: "" });
+
+  // 1. Hook for Inviting New Agent
+  const inviteForm = useFormHandler({
+    schema: createUserSchema,
+    defaultValues: { name: "", email: "", password: "" },
+    onSubmitService: createTenantUser,
+    onSuccess: () => {
+      setShowInviteModal(false);
+      inviteForm.reset(); // Clear form fields
+      triggerFeedback("Agent created successfully!");
+      fetchTeam();
+    },
   });
 
-  const [editingAgent, setEditingAgent] = useState({
-    id: "",
-    name: "",
-    email: "",
+  // 2. Hook for Editing Existing Agent
+  const editForm = useFormHandler({
+    schema: updateUserSchema,
+    defaultValues: { name: "", email: "" },
+    onSubmitService: (data) => updateTenantUser(editingAgent.id, data),
+    onSuccess: () => {
+      setShowEditModal(false);
+      triggerFeedback("Teammate updated successfully!");
+      fetchTeam();
+    },
   });
 
   // Fetch team members from backend & combine with local owner details
@@ -342,9 +358,8 @@ export default function Team() {
                           
                           <button
                             onClick={() => {
-                              setModalError("");
-                              setEditingAgent({
-                                id: agent.id,
+                              setEditingAgent(agent);
+                              editForm.reset({
                                 name: agent.name,
                                 email: agent.email,
                               });
@@ -392,11 +407,11 @@ export default function Team() {
             </div>
 
             {/* Modal Form */}
-            <form onSubmit={handleInvite} className="p-6 space-y-4">
-              {modalError && (
+            <form onSubmit={inviteForm.onSubmit} className="p-6 space-y-4">
+              {inviteForm.generalError && (
                 <div className="rounded-xl bg-rose-50 border border-rose-200 px-4 py-2.5 text-xs text-rose-650 font-semibold flex items-center gap-1.5">
                   <AlertCircle size={14} />
-                  <span>{modalError}</span>
+                  <span>{inviteForm.generalError}</span>
                 </div>
               )}
 
@@ -405,11 +420,10 @@ export default function Team() {
                 <input
                   type="text"
                   placeholder="e.g. Sarah Connor"
-                  required
-                  value={newAgent.name}
-                  onChange={(e) => setNewAgent({ ...newAgent, name: e.target.value })}
-                  className="input text-xs"
+                  className={`input text-xs ${inviteForm.formState.errors.name ? "border-red-500" : ""}`}
+                  {...inviteForm.register("name")}
                 />
+                <FormError message={inviteForm.formState.errors.name?.message} />
               </div>
 
               <div>
@@ -417,11 +431,10 @@ export default function Team() {
                 <input
                   type="email"
                   placeholder="e.g. sarah@company.com"
-                  required
-                  value={newAgent.email}
-                  onChange={(e) => setNewAgent({ ...newAgent, email: e.target.value })}
-                  className="input text-xs"
+                  className={`input text-xs ${inviteForm.formState.errors.email ? "border-red-500" : ""}`}
+                  {...inviteForm.register("email")}
                 />
+                <FormError message={inviteForm.formState.errors.email?.message} />
               </div>
 
               <div>
@@ -429,29 +442,27 @@ export default function Team() {
                 <input
                   type="password"
                   placeholder="••••••••"
-                  required
-                  value={newAgent.password}
-                  onChange={(e) => setNewAgent({ ...newAgent, password: e.target.value })}
-                  className="input text-xs"
+                  className={`input text-xs ${inviteForm.formState.errors.password ? "border-red-500" : ""}`}
+                  {...inviteForm.register("password")}
                 />
+                <FormError message={inviteForm.formState.errors.password?.message} />
               </div>
 
-              {/* Actions */}
               <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setShowInviteModal(false)}
                   className="btn-secondary py-2 px-3 text-[11px] font-semibold"
-                  disabled={modalLoading}
+                  disabled={inviteForm.formState.isSubmitting}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   className="btn-primary py-2 px-4 text-[11px] font-bold"
-                  disabled={modalLoading}
+                  disabled={inviteForm.formState.isSubmitting}
                 >
-                  {modalLoading ? "Creating..." : "Send Invitation"}
+                  {inviteForm.formState.isSubmitting ? "Creating..." : "Send Invitation"}
                 </button>
               </div>
             </form>
@@ -475,11 +486,11 @@ export default function Team() {
             </div>
 
             {/* Modal Form */}
-            <form onSubmit={handleEdit} className="p-6 space-y-4">
-              {modalError && (
+            <form onSubmit={editForm.onSubmit} className="p-6 space-y-4">
+              {editForm.generalError && (
                 <div className="rounded-xl bg-rose-50 border border-rose-200 px-4 py-2.5 text-xs text-rose-650 font-semibold flex items-center gap-1.5">
                   <AlertCircle size={14} />
-                  <span>{modalError}</span>
+                  <span>{editForm.generalError}</span>
                 </div>
               )}
 
@@ -488,11 +499,10 @@ export default function Team() {
                 <input
                   type="text"
                   placeholder="e.g. Sarah Connor"
-                  required
-                  value={editingAgent.name}
-                  onChange={(e) => setEditingAgent({ ...editingAgent, name: e.target.value })}
-                  className="input text-xs"
+                  className={`input text-xs ${editForm.formState.errors.name ? "border-red-500" : ""}`}
+                  {...editForm.register("name")}
                 />
+                <FormError message={editForm.formState.errors.name?.message} />
               </div>
 
               <div>
@@ -500,29 +510,27 @@ export default function Team() {
                 <input
                   type="email"
                   placeholder="e.g. sarah@company.com"
-                  required
-                  value={editingAgent.email}
-                  onChange={(e) => setEditingAgent({ ...editingAgent, email: e.target.value })}
-                  className="input text-xs"
+                  className={`input text-xs ${editForm.formState.errors.email ? "border-red-500" : ""}`}
+                  {...editForm.register("email")}
                 />
+                <FormError message={editForm.formState.errors.email?.message} />
               </div>
 
-              {/* Actions */}
               <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setShowEditModal(false)}
                   className="btn-secondary py-2 px-3 text-[11px] font-semibold"
-                  disabled={modalLoading}
+                  disabled={editForm.formState.isSubmitting}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   className="btn-primary py-2 px-4 text-[11px] font-bold"
-                  disabled={modalLoading}
+                  disabled={editForm.formState.isSubmitting}
                 >
-                  {modalLoading ? "Saving..." : "Save Changes"}
+                  {editForm.formState.isSubmitting ? "Saving..." : "Save Changes"}
                 </button>
               </div>
             </form>

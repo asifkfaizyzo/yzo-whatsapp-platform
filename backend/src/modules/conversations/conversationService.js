@@ -89,6 +89,9 @@ export const getAssignedConversations = async ({
             name: true,
             phone: true,
             assignedTo: true,
+            email: true,
+            company: true,
+            tags: true,
           },
         },
         messages: {

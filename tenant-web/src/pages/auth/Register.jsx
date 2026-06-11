@@ -3,6 +3,9 @@ import { useState } from "react";
 import { siteConfig } from "../../config/site";
 // import { registerSuperAdmin } from "../../lib/authApi";
 import { registerTenant } from "../../services/auth.service";
+import { useFormHandler } from '../../hooks/useFormHandler';
+import { registerTenantSchema } from '../../validations/tenant.validation';
+import FormError from '../../components/FormError';
 
 const benefits = [
   {
@@ -22,46 +25,23 @@ const benefits = [
 export default function RegisterPage() {
   const navigate = useNavigate();
 
-  const [formData, setFormData] = useState({
-    tenantName: "",
-    email: "",
-    password: "",
-    phone: "",
-    address: "",
+  const {
+    register,
+    onSubmit,
+    generalError,
+    formState: { errors, isSubmitting },
+  } = useFormHandler({
+    schema: registerTenantSchema,
+    defaultValues: {
+      tenantName: "",
+      email: "",
+      password: "",
+      phone: "",
+      address: "",
+    },
+    onSubmitService: registerTenant,
+    onSuccess: () => navigate("/dashboard"),
   });
-
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-    setError(""); // clear error on typing
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setError('')
-
-    // if (form.password !== form.confirmPassword) {
-    //   setError('Passwords do not match')
-    //   return
-    // }
-
-    setLoading(true)
-
-    const result = await registerTenant(formData)
-    console.log("Token:", localStorage.getItem("accessToken"));
-
-    if (result.success) {
-        console.log("Registration successful");
-      navigate('/dashboard')
-    } else {
-      setError(result.message)
-    }
-
-    setLoading(false)
-  }
 
   return (
     <div className="min-h-screen">
@@ -123,88 +103,82 @@ export default function RegisterPage() {
             </div>
 
             {/* ✅ Error Message */}
-            {error && (
+            {generalError && (
               <div className="mt-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
-                {error}
+                {generalError}
               </div>
             )}
 
-            {/* ✅ Success Message */}
+            {/* ✅ Success Message
             {success && (
               <div className="mt-4 rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-600">
                 {success}
               </div>
-            )}
+            )} */}
 
             {/* Form */}
-            <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
+            <form className="mt-6 space-y-4" onSubmit={onSubmit}>
               {/* Tenant / Company Name */}
               <div>
                 <label className="label">Tenant / Company name</label>
                 <input
-                  className="input"
+                  className={`input ${errors.tenantName ? "border-red-500 focus:ring-red-200" : ""}`}
                   type="text"
-                  name="tenantName"
                   placeholder="Your Company or Name"
-                  value={formData.tenantName}
-                  onChange={handleChange}
-                  required
+                  {...register("tenantName")}
                 />
+                <FormError message={errors.tenantName?.message} />
               </div>
 
               {/* Email */}
               <div>
                 <label className="label">Email</label>
                 <input
-                  className="input"
+                  className={`input ${errors.email ? "border-red-500 focus:ring-red-200" : ""}`}
                   type="email"
                   name="email"
                   placeholder="admin@company.com"
-                  value={formData.email}
-                  onChange={handleChange}
-                  required
+                  {...register("email")}
                 />
+                <FormError message={errors.email?.message} />
               </div>
 
               {/* Password */}
               <div>
                 <label className="label">Password</label>
                 <input
-                  className="input"
+                  className={`input ${errors.password ? "border-red-500 focus:ring-red-200" : ""}`}
                   type="password"
                   name="password"
                   placeholder="••••••••"
-                  value={formData.password}
-                  onChange={handleChange}
-                  required
+                  {...register("password")}
                 />
+                <FormError message={errors.password?.message} />
               </div>
 
               {/* Phone Number */}
               <div>
                 <label className="label">Phone number</label>
                 <input
-                  className="input"
+                  className={`input ${errors.phone ? "border-red-500 focus:ring-red-200" : ""}`}
                   type="tel"
                   name="phone"
                   placeholder="+1 (555) 000-0000"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  required
+                  {...register("phone")}
                 />
+                <FormError message={errors.phone?.message} />
               </div>
 
               {/* Address */}
               <div>
                 <label className="label">Address</label>
                 <textarea
-                  className="input min-h-[80px] py-2 resize-none"
+                  className={`input min-h-[80px] py-2 resize-none ${errors.address ? "border-red-500 focus:ring-red-200" : ""}`}
                   name="address"
                   placeholder="123 Main St, City, Country"
-                  value={formData.address}
-                  onChange={handleChange}
-                  required
+                  {...register("address")}
                 />
+                <FormError message={errors.address?.message} />
               </div>
 
               {/* Remember me */}
@@ -219,12 +193,11 @@ export default function RegisterPage() {
               <button
                 type="submit"
                 className="btn-primary w-full"
-                disabled={loading}
+                disabled={isSubmitting}
               >
-                {loading ? "Creating Account..." : "Create Account"}
+                {isSubmitting ? "Creating Account..." : "Create Account"}
               </button>
             </form>
-
             {/* Switch Mode */}
             <p className="mt-6 text-center text-sm text-[color:var(--muted)]">
               Already have an account?{" "}

@@ -1,8 +1,12 @@
+// tenant-web/src/pages/auth/ForgotPassword.jsx
 import { Link } from "react-router-dom";
 import { useState } from "react";
 import { siteConfig } from "../../config/site";
 import { ArrowLeft, CheckCircle2, Mail, RefreshCw } from "lucide-react";
 import { forgotPasswordTenant } from "../../services/auth.service";
+import { useFormHandler } from "../../hooks/useFormHandler";
+import { forgotPasswordSchema } from "../../validations/auth.validation";
+import FormError from "../../components/FormError";
 
 const benefits = [
   {
@@ -20,40 +24,36 @@ const benefits = [
 ];
 
 export default function ForgotPassword() {
-  const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
-  const [roleType, setRoleType] = useState("TENANT");
+  const [roleType] = useState("TENANT");
   const [resending, setResending] = useState(false);
   const [resendTimer, setResendTimer] = useState(0);
   const [resendMessage, setResendMessage] = useState("");
+  const [success, setSuccess] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-    if (!email) {
-      setError("Please enter your email address.");
-      setLoading(false);
-      return;
-    }
-    const result = await forgotPasswordTenant(email, roleType);
-    setLoading(false);
-    if (result.success) {
-      setSuccess(true);
-    } else {
-      setError(result.message);
-    }
-  };
+  // 1. Setup Form Handler Hook
+  const {
+    register,
+    onSubmit,
+    generalError,
+    getValues, // Required to read email value for resend functionality
+    formState: { errors, isSubmitting }
+  } = useFormHandler({
+    schema: forgotPasswordSchema,
+    defaultValues: { email: "" },
+    onSubmitService: (data) => forgotPasswordTenant(data.email, roleType),
+    onSuccess: () => setSuccess(true),
+  });
 
+  // 2. Handle Resend email
   const handleResend = async () => {
     if (resendTimer > 0 || resending) return;
     setResending(true);
     setResendMessage("");
-    setError("");
 
-    const result = await forgotPasswordTenant(email, roleType);
+    // Grab the current email value typed into the form
+    const currentEmail = getValues("email");
+
+    const result = await forgotPasswordTenant(currentEmail, roleType);
     setResending(false);
 
     if (result.success) {
@@ -68,8 +68,6 @@ export default function ForgotPassword() {
           return prev - 1;
         });
       }, 1000);
-    } else {
-      setError(result.message);
     }
   };
 
@@ -125,7 +123,6 @@ export default function ForgotPassword() {
           <div className="card p-6 sm:p-8">
             {!success ? (
               <>
-                {/* Heading */}
                 <div>
                   <h2 className="text-2xl font-semibold text-slate-800">Forgot Password?</h2>
                   <p className="mt-2 text-sm text-[color:var(--muted)]">
@@ -133,42 +130,36 @@ export default function ForgotPassword() {
                   </p>
                 </div>
 
-                {/* Error Banner */}
-                {error && (
+                {/* General server error */}
+                {generalError && (
                   <div className="mt-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-650 font-medium">
-                    {error}
+                    {generalError}
                   </div>
                 )}
 
                 {/* Form */}
-                <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
-                  {/* Email Input */}
+                <form className="mt-6 space-y-4" onSubmit={onSubmit}>
                   <div>
                     <label className="label text-xs">Email Address</label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-3.5 text-slate-400" size={16} />
                       <input
-                        className="input pl-10 text-xs"
+                        className={`input pl-10 text-xs ${errors.email ? "border-red-500 focus:ring-red-200" : ""}`}
                         type="email"
                         placeholder="user@company.com"
-                        value={email}
-                        onChange={(e) => {
-                          setEmail(e.target.value);
-                          setError("");
-                        }}
-                        required
-                        disabled={loading}
+                        {...register("email")}
+                        disabled={isSubmitting}
                       />
                     </div>
+                    <FormError message={errors.email?.message} />
                   </div>
 
-                  {/* Submit Button */}
                   <button
                     type="submit"
                     className="btn-primary w-full py-3.5 flex items-center justify-center gap-2 font-bold text-xs shadow-sm hover:shadow"
-                    disabled={loading}
+                    disabled={isSubmitting}
                   >
-                    {loading ? (
+                    {isSubmitting ? (
                       <>
                         <RefreshCw className="w-4 h-4 animate-spin" />
                         <span>Sending Link...</span>
@@ -179,7 +170,6 @@ export default function ForgotPassword() {
                   </button>
                 </form>
 
-                {/* Back to login */}
                 <div className="mt-6 text-center">
                   <Link
                     to="/login"
@@ -199,7 +189,7 @@ export default function ForgotPassword() {
                 <div className="space-y-2">
                   <h3 className="text-xl font-bold text-slate-800">Check your email</h3>
                   <p className="text-sm text-[color:var(--muted)] leading-relaxed">
-                    We have sent a secure password reset link to <strong className="text-slate-700">{email}</strong>.
+                    We have sent a secure password reset link to <strong className="text-slate-700">{getValues("email")}</strong>.
                   </p>
                 </div>
                 <div className="pt-2">
@@ -221,8 +211,8 @@ export default function ForgotPassword() {
                   {resendMessage && (
                     <p className="mt-2 text-xs text-emerald-600 font-medium">{resendMessage}</p>
                   )}
-                  {error && (
-                    <p className="mt-2 text-xs text-red-600 font-medium">{error}</p>
+                  {generalError && (
+                    <p className="mt-2 text-xs text-red-600 font-medium">{generalError}</p>
                   )}
                 </div>
                 <div className="pt-4 border-t border-slate-50">

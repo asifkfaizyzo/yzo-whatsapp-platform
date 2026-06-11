@@ -1,199 +1,265 @@
 // src/pages/dashboard/Inbox.jsx
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { 
   Search, 
   Send, 
   Paperclip, 
   Smile, 
-  User, 
   Phone, 
   Tag, 
   Clock, 
   Check, 
   CheckCheck,
-  MoreVertical
+  MoreVertical,
+  MessageSquarePlus,
+  X,
+  Users
 } from "lucide-react";
+import { 
+  getAssignedConversations, 
+  getConversationMessages, 
+  createConversation 
+} from "../../services/conversation.service";
+import { sendMessage } from "../../services/message.service";
+import { getContacts } from "../../services/contact.service";
 
 export default function Inbox() {
-  const initialChats = [
-    {
-      id: 1,
-      name: "Riya Patel",
-      phone: "+91 98765 43210",
-      status: "online",
-      tag: "Interested in pricing",
-      tagColor: "bg-emerald-50 text-emerald-700 border-emerald-100",
-      avatarBg: "bg-emerald-100 text-emerald-800",
-      time: "11:45 AM",
-      unread: 1,
-      messages: [
-        { id: 1, text: "Hi, can you share your pricing plans?", sender: "contact", time: "11:40 AM", status: "read" },
-        { id: 2, text: "Sure — we have Starter, Growth, and Enterprise plans.", sender: "agent", time: "11:42 AM", status: "read" },
-        { id: 3, text: "Great. Can I book a quick demo?", sender: "contact", time: "11:45 AM", status: "sent" },
-      ],
-    },
-    {
-      id: 2,
-      name: "David Lee",
-      phone: "+1 (555) 019-2834",
-      status: "offline",
-      tag: "Lead",
-      tagColor: "bg-blue-50 text-blue-700 border-blue-100",
-      avatarBg: "bg-blue-100 text-blue-800",
-      time: "10:12 AM",
-      unread: 0,
-      messages: [
-        { id: 1, text: "Hello! I need support with integrations.", sender: "contact", time: "10:05 AM", status: "read" },
-        { id: 2, text: "Our integration docs are located at docs.yzo.com. Let me know if that helps!", sender: "agent", time: "10:10 AM", status: "read" },
-        { id: 3, text: "Thanks, looking into it now.", sender: "contact", time: "10:12 AM", status: "read" },
-      ],
-    },
-    {
-      id: 3,
-      name: "Acme Sales (Emma)",
-      phone: "+44 20 7946 0958",
-      status: "online",
-      tag: "Enterprise",
-      tagColor: "bg-purple-50 text-purple-700 border-purple-100",
-      avatarBg: "bg-purple-100 text-purple-800",
-      time: "Yesterday",
-      unread: 0,
-      messages: [
-        { id: 1, text: "We need 50 agent seats. Can we get a custom contract?", sender: "contact", time: "3:40 PM", status: "read" },
-        { id: 2, text: "Yes absolutely. Let me connect you to our Account Executive.", sender: "agent", time: "3:45 PM", status: "read" },
-      ],
-    },
-  ];
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlConversationId = searchParams.get("conversationId");
 
-  const [chats, setChats] = useState(initialChats);
-  const [activeChatId, setActiveChatId] = useState(1);
+  // State Management
+  const [chats, setChats] = useState([]);
+  const [activeChatId, setActiveChatId] = useState(urlConversationId || null);
+  const [messages, setMessages] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [typedMessage, setTypedMessage] = useState("");
+  const [loading, setLoading] = useState(true);
 
-  const activeChat = chats.find((c) => c.id === activeChatId) || chats[0];
+  // New Chat Modal States
+  const [showNewChatModal, setShowNewChatModal] = useState(false);
+  const [allContacts, setAllContacts] = useState([]);
+  const [modalSearch, setModalSearch] = useState("");
+  const [loadingContacts, setLoadingContacts] = useState(false);
 
-  const handleSendMessage = (e) => {
-    e.preventDefault();
-    if (!typedMessage.trim()) return;
+  // Derive currently active chat details from chats list
+  const activeChat = chats.find((c) => String(c.id) === String(activeChatId)) || null;
 
-    const newMessage = {
-      id: activeChat.messages.length + 1,
-      text: typedMessage,
-      sender: "agent",
-      time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      status: "sent",
-    };
-
-    // Update active chat messages
-    const updatedChats = chats.map((c) => {
-      if (c.id === activeChat.id) {
-        return {
-          ...c,
-          unread: 0,
-          time: newMessage.time,
-          messages: [...c.messages, newMessage],
-        };
+  // 1. Fetch conversations on component mount
+  const loadConversations = async () => {
+    setLoading(true);
+    const res = await getAssignedConversations(1, 50);
+    if (res.success) {
+      const convList = res.data.conversations || res.data || [];
+      setChats(convList);
+      
+      // If there's no conversation selected via URL but there are chats, select the first one
+      if (!urlConversationId && convList.length > 0) {
+        setActiveChatId(convList[0].id);
+        setSearchParams({ conversationId: convList[0].id });
       }
-      return c;
-    });
-
-    setChats(updatedChats);
-    setTypedMessage("");
-
-    // Simulate automatic contact reply after 1.5 seconds for visual wow factor!
-    setTimeout(() => {
-      const automaticReply = {
-        id: newMessage.id + 1,
-        text: `Thanks for the quick reply! I'm evaluating this in real-time.`,
-        sender: "contact",
-        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      };
-
-      setChats((prevChats) =>
-        prevChats.map((c) => {
-          if (c.id === activeChat.id) {
-            return {
-              ...c,
-              unread: 1,
-              time: automaticReply.time,
-              messages: [...c.messages, automaticReply],
-            };
-          }
-          return c;
-        })
-      );
-    }, 1500);
+    }
+    setLoading(false);
   };
 
-  const filteredChats = chats.filter((c) =>
-    c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    c.phone.includes(searchQuery)
-  );
+  useEffect(() => {
+    loadConversations();
+  }, []);
+
+  // 2. React to URL query parameters
+  useEffect(() => {
+    if (urlConversationId) {
+      setActiveChatId(urlConversationId);
+    }
+  }, [urlConversationId]);
+
+  // 3. Fetch messages whenever the active conversation changes
+  useEffect(() => {
+    if (!activeChatId) return;
+
+    const loadMessages = async () => {
+      const res = await getConversationMessages(activeChatId, 50);
+      if (res.success) {
+        setMessages(res.data.messages || []);
+      }
+    };
+    loadMessages();
+  }, [activeChatId]);
+
+  // 4. Load contacts list when New Chat modal opens
+  useEffect(() => {
+    if (showNewChatModal) {
+      const loadContacts = async () => {
+        setLoadingContacts(true);
+        const res = await getContacts(1, 100);
+        if (res.success) {
+          setAllContacts(res.data.contacts || []);
+        }
+        setLoadingContacts(false);
+      };
+      loadContacts();
+    }
+  }, [showNewChatModal]);
+
+  // 5. Send message handler
+  const handleSendMessage = async (e) => {
+    e.preventDefault();
+    if (!typedMessage.trim() || !activeChatId) return;
+
+    const messageText = typedMessage;
+    setTypedMessage(""); // Clear input immediately for smooth UX
+
+    const res = await sendMessage(activeChatId, messageText);
+    if (res.success) {
+      // Append the sent message locally
+      setMessages((prev) => [...prev, res.data]);
+
+      // Update the last message preview in the sidebar
+      setChats((prevChats) =>
+        prevChats.map((c) =>
+          String(c.id) === String(activeChatId)
+            ? { 
+                ...c, 
+                messages: [{ id: res.data.id, text: messageText, createdAt: new Date().toISOString() }] 
+              }
+            : c
+        )
+      );
+    } else {
+      alert("Failed to send message: " + res.message);
+    }
+  };
+
+  // Start new chat with a contact from the modal selection
+  const handleSelectContactForChat = async (contactId) => {
+    const res = await createConversation(contactId);
+    if (res.success) {
+      setShowNewChatModal(false);
+      // Reload conversation list to fetch any new entry
+      await loadConversations();
+      // Select the conversation in state and query param
+      setActiveChatId(res.data.id);
+      setSearchParams({ conversationId: res.data.id });
+    } else {
+      alert("Could not start chat: " + res.message);
+    }
+  };
+
+  // Helper styles
+  const getAvatarStyle = (name) => {
+    const chars = name ? name.charCodeAt(0) : 0;
+    const colors = [
+      "bg-emerald-100 text-emerald-800",
+      "bg-blue-100 text-blue-800",
+      "bg-purple-100 text-purple-800",
+      "bg-amber-100 text-amber-800",
+      "bg-rose-100 text-rose-800",
+    ];
+    return colors[chars % colors.length];
+  };
+
+  const getTagColor = (tag) => {
+    if (tag === "Enterprise") return "bg-purple-50 text-purple-700 border-purple-100";
+    if (tag === "Interested in pricing") return "bg-emerald-50 text-emerald-700 border-emerald-100";
+    return "bg-blue-50 text-blue-700 border-blue-100";
+  };
+
+  // Filter conversations in sidebar
+  const filteredChats = chats.filter((c) => {
+    const name = c.contact?.name || "";
+    const phone = c.contact?.phone || "";
+    return (
+      name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      phone.includes(searchQuery)
+    );
+  });
+
+  // Filter contacts inside New Chat modal
+  const filteredContacts = allContacts.filter((c) => {
+    const name = c.name || "";
+    const phone = c.phone || "";
+    return (
+      name.toLowerCase().includes(modalSearch.toLowerCase()) ||
+      phone.includes(modalSearch)
+    );
+  });
 
   return (
     <div className="h-[calc(100vh-130px)] flex border border-slate-100 rounded-3xl bg-white shadow-sm overflow-hidden animate-in fade-in duration-200">
+      
       {/* ── Left Sidebar (Conversations List) ── */}
       <div className="w-80 border-r border-slate-100 flex flex-col shrink-0">
-        {/* Search */}
-        <div className="p-4 border-b border-slate-100">
-          <div className="relative">
-            <Search className="absolute left-3.5 top-3.5 text-slate-400" size={16} />
+        
+        {/* Sidebar Header & Search */}
+        <div className="p-4 border-b border-slate-100 flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-3 text-slate-400" size={16} />
             <input
               type="text"
               placeholder="Search chat or phone..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="input pl-10 py-2.5"
+              className="input pl-9 py-2 text-xs"
             />
           </div>
+          <button 
+            onClick={() => setShowNewChatModal(true)}
+            className="p-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-xl transition border border-emerald-100 shrink-0"
+            title="Start New Conversation"
+          >
+            <MessageSquarePlus size={16} />
+          </button>
         </div>
 
         {/* Conversations List */}
         <div className="flex-1 overflow-y-auto divide-y divide-slate-50">
-          {filteredChats.map((chat) => {
-            const lastMsg = chat.messages[chat.messages.length - 1];
-            const isActive = chat.id === activeChatId;
+          {loading ? (
+            <div className="p-4 text-center text-xs text-slate-400">Loading chats...</div>
+          ) : filteredChats.map((chat) => {
+            const contactName = chat.contact?.name || "Unknown Contact";
+            const lastMsg = chat.messages?.[0]; // backend sorts latest first
+            const isActive = String(chat.id) === String(activeChatId);
+            const avatarBg = getAvatarStyle(contactName);
+            const primaryTag = chat.contact?.tags?.[0] || "Lead";
+
+            const timeStr = lastMsg 
+              ? new Date(lastMsg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+              : "";
 
             return (
               <button
                 key={chat.id}
                 onClick={() => {
                   setActiveChatId(chat.id);
-                  // Clear unread count on click
-                  setChats(chats.map(c => c.id === chat.id ? { ...c, unread: 0 } : c));
+                  setSearchParams({ conversationId: chat.id });
                 }}
                 className={`w-full text-left p-4 flex items-start gap-3.5 transition duration-150 ${
                   isActive ? "bg-slate-50" : "hover:bg-slate-50/40"
                 }`}
               >
-                <div className={`w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${chat.avatarBg}`}>
-                  {chat.name.charAt(0)}
+                <div className={`w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${avatarBg}`}>
+                  {contactName.charAt(0)}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
-                    <span className="font-semibold text-slate-800 text-sm truncate">{chat.name}</span>
-                    <span className="text-[10px] text-slate-400 font-medium">{chat.time}</span>
+                    <span className="font-semibold text-slate-800 text-sm truncate">{contactName}</span>
+                    <span className="text-[10px] text-slate-400 font-medium">{timeStr}</span>
                   </div>
                   <p className="text-xs text-slate-500 truncate mt-1">
                     {lastMsg ? lastMsg.text : "No messages yet"}
                   </p>
-                  <div className="mt-2.5 flex items-center justify-between">
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-semibold border ${chat.tagColor}`}>
-                      {chat.tag}
+                  <div className="mt-2 flex items-center justify-between">
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-semibold border ${getTagColor(primaryTag)}`}>
+                      {primaryTag}
                     </span>
-                    {chat.unread > 0 && (
-                      <span className="bg-emerald-600 text-white font-bold text-[10px] w-5 h-5 rounded-full flex items-center justify-center animate-pulse">
-                        {chat.unread}
-                      </span>
-                    )}
                   </div>
                 </div>
               </button>
             );
           })}
 
-          {filteredChats.length === 0 && (
+          {!loading && filteredChats.length === 0 && (
             <p className="text-sm text-slate-400 text-center mt-8">No chats found</p>
           )}
         </div>
@@ -201,117 +267,186 @@ export default function Inbox() {
 
       {/* ── Middle Chat Area ── */}
       <div className="flex-1 flex flex-col bg-slate-50/50 relative overflow-hidden">
-        {/* Chat Header */}
-        <div className="bg-white px-6 py-3 border-b border-slate-100 flex items-center justify-between relative z-10 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${activeChat.avatarBg}`}>
-              {activeChat.name.charAt(0)}
-            </div>
-            <div>
-              <p className="font-bold text-slate-800 text-sm leading-none">{activeChat.name}</p>
-              <div className="flex items-center gap-1.5 mt-1">
-                <span className={`w-1.5 h-1.5 rounded-full ${activeChat.status === "online" ? "bg-emerald-500" : "bg-slate-400"}`} />
-                <span className="text-[10px] text-slate-400 font-medium capitalize">{activeChat.status}</span>
-              </div>
-            </div>
-          </div>
-          <button className="text-slate-400 hover:text-slate-700 p-1.5 rounded-xl hover:bg-slate-50">
-            <MoreVertical size={18} />
-          </button>
-        </div>
-
-        {/* Message Thread */}
-        <div className="flex-1 p-6 overflow-y-auto space-y-4">
-          {activeChat.messages.map((msg) => {
-            const isAgent = msg.sender === "agent";
-            return (
-              <div key={msg.id} className={`flex ${isAgent ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[70%] rounded-2xl px-4 py-2.5 shadow-sm text-sm border flex flex-col ${
-                  isAgent
-                    ? "bg-emerald-600 border-emerald-700 text-white rounded-tr-none"
-                    : "bg-white border-slate-100 text-slate-800 rounded-tl-none"
-                }`}>
-                  <p className="leading-relaxed whitespace-pre-wrap">{msg.text}</p>
-                  <div className={`mt-1 flex items-center gap-1 self-end text-[10px] ${
-                    isAgent ? "text-emerald-100" : "text-slate-400"
-                  }`}>
-                    <span>{msg.time}</span>
-                    {isAgent && (
-                      msg.status === "read" ? <CheckCheck size={12} /> : <Check size={12} />
-                    )}
-                  </div>
+        {activeChat ? (
+          <>
+            {/* Chat Header */}
+            <div className="bg-white px-6 py-3 border-b border-slate-100 flex items-center justify-between relative z-10 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${getAvatarStyle(activeChat.contact?.name)}`}>
+                  {(activeChat.contact?.name || "C").charAt(0)}
+                </div>
+                <div>
+                  <p className="font-bold text-slate-800 text-sm leading-none">{activeChat.contact?.name}</p>
+                  <p className="text-[10px] text-slate-400 font-medium mt-1">{activeChat.contact?.phone}</p>
                 </div>
               </div>
-            );
-          })}
-        </div>
+              <button className="text-slate-400 hover:text-slate-700 p-1.5 rounded-xl hover:bg-slate-50">
+                <MoreVertical size={18} />
+              </button>
+            </div>
 
-        {/* Input Bar */}
-        <form onSubmit={handleSendMessage} className="bg-white p-4 border-t border-slate-100 flex items-center gap-3 shrink-0 relative z-10">
-          <button type="button" className="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-50 transition">
-            <Paperclip size={18} />
-          </button>
-          <input
-            type="text"
-            placeholder="Type a message..."
-            value={typedMessage}
-            onChange={(e) => setTypedMessage(e.target.value)}
-            className="input py-2 px-4"
-          />
-          <button type="button" className="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-50 transition">
-            <Smile size={18} />
-          </button>
-          <button type="submit" className="btn-primary w-11 h-11 p-0 rounded-xl shrink-0 flex items-center justify-center shadow-sm">
-            <Send size={16} />
-          </button>
-        </form>
+            {/* Message Thread */}
+            <div className="flex-1 p-6 overflow-y-auto space-y-4">
+              {messages.map((msg) => {
+                const isAgent = !msg.isFromCustomer;
+                const timeStr = new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                return (
+                  <div key={msg.id} className={`flex ${isAgent ? "justify-end" : "justify-start"}`}>
+                    <div className={`max-w-[70%] rounded-2xl px-4 py-2.5 shadow-sm text-sm border flex flex-col ${
+                      isAgent
+                        ? "bg-emerald-600 border-emerald-700 text-white rounded-tr-none"
+                        : "bg-white border-slate-100 text-slate-800 rounded-tl-none"
+                    }`}>
+                      <p className="leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+                      <div className={`mt-1 flex items-center gap-1 self-end text-[10px] ${
+                        isAgent ? "text-emerald-100" : "text-slate-400"
+                      }`}>
+                        <span>{timeStr}</span>
+                        {isAgent && <CheckCheck size={12} />}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              {messages.length === 0 && (
+                <p className="text-center text-xs text-slate-400 my-12">No messages in this chat yet.</p>
+              )}
+            </div>
+
+            {/* Input Bar */}
+            <form onSubmit={handleSendMessage} className="bg-white p-4 border-t border-slate-100 flex items-center gap-3 shrink-0 relative z-10">
+              <button type="button" className="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-50 transition">
+                <Paperclip size={18} />
+              </button>
+              <input
+                type="text"
+                placeholder="Type a message..."
+                value={typedMessage}
+                onChange={(e) => setTypedMessage(e.target.value)}
+                className="input py-2 px-4"
+              />
+              <button type="button" className="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-50 transition">
+                <Smile size={18} />
+              </button>
+              <button type="submit" className="btn-primary w-11 h-11 p-0 rounded-xl shrink-0 flex items-center justify-center shadow-sm">
+                <Send size={16} />
+              </button>
+            </form>
+          </>
+        ) : (
+          <div className="flex-1 flex flex-col items-center justify-center text-slate-400 p-6">
+            <Users size={40} className="stroke-[1.5] mb-2 text-slate-300" />
+            <p className="text-sm font-medium">Select a contact to begin messaging.</p>
+          </div>
+        )}
       </div>
 
       {/* ── Right Panel (Contact Detail Context) ── */}
-      <div className="w-72 border-l border-slate-100 p-6 flex flex-col gap-6 overflow-y-auto shrink-0">
-        <div className="flex flex-col items-center text-center">
-          <div className={`w-16 h-16 rounded-full flex items-center justify-center font-bold text-lg mb-3 ${activeChat.avatarBg}`}>
-            {activeChat.name.charAt(0)}
+      {activeChat && (
+        <div className="w-72 border-l border-slate-100 p-6 flex flex-col gap-6 overflow-y-auto shrink-0 bg-white">
+          <div className="flex flex-col items-center text-center">
+            <div className={`w-16 h-16 rounded-full flex items-center justify-center font-bold text-lg mb-3 ${getAvatarStyle(activeChat.contact?.name)}`}>
+              {(activeChat.contact?.name || "C").charAt(0)}
+            </div>
+            <h3 className="font-bold text-slate-800 text-base leading-none">{activeChat.contact?.name}</h3>
+            <p className="text-xs text-slate-400 mt-1">{activeChat.contact?.phone}</p>
           </div>
-          <h3 className="font-bold text-slate-800 text-base leading-none">{activeChat.name}</h3>
-          <p className="text-xs text-slate-400 mt-1">{activeChat.phone}</p>
+
+          <div className="pt-4 border-t border-slate-100 space-y-4">
+            <div>
+              <div className="flex items-center gap-2 text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">
+                <Phone size={13} />
+                <span>Contact Info</span>
+              </div>
+              <p className="text-xs font-semibold text-slate-700">Phone: <span className="font-medium text-slate-600">{activeChat.contact?.phone}</span></p>
+              <p className="text-xs font-semibold text-slate-700 mt-1">Email: <span className="font-medium text-slate-600">{activeChat.contact?.email || "N/A"}</span></p>
+              <p className="text-xs font-semibold text-slate-700 mt-1">Company: <span className="font-medium text-slate-600">{activeChat.contact?.company || "N/A"}</span></p>
+            </div>
+
+            <div>
+              <div className="flex items-center gap-2 text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">
+                <Tag size={13} />
+                <span>Tags</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {(activeChat.contact?.tags || []).map((tag, i) => (
+                  <span key={i} className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold border ${getTagColor(tag)}`}>
+                    {tag}
+                  </span>
+                ))}
+                {(activeChat.contact?.tags || []).length === 0 && (
+                  <span className="text-xs text-slate-400 italic">No tags</span>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center gap-2 text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">
+                <Clock size={13} />
+                <span>Session Log</span>
+              </div>
+              <p className="text-xs text-slate-600">Created: <span className="text-slate-500">{new Date(activeChat.createdAt).toLocaleDateString()}</span></p>
+              <p className="text-xs text-slate-600 mt-1">Last Interaction: <span className="text-slate-500">{new Date(activeChat.updatedAt).toLocaleDateString()}</span></p>
+            </div>
+          </div>
         </div>
+      )}
 
-        <div className="pt-4 border-t border-slate-100 space-y-4">
-          <div>
-            <div className="flex items-center gap-2 text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">
-              <Phone size={13} />
-              <span>Contact Info</span>
+      {/* ── New Chat Modal (Inbox-Centric Flow) ── */}
+      {showNewChatModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h2 className="text-base font-bold text-slate-800">Start a New Chat</h2>
+              <button 
+                onClick={() => setShowNewChatModal(false)}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-50 transition"
+              >
+                <X size={18} />
+              </button>
             </div>
-            <p className="text-xs font-semibold text-slate-700">Phone: <span className="font-medium text-slate-600">{activeChat.phone}</span></p>
-            <p className="text-xs font-semibold text-slate-700 mt-1">Country: <span className="font-medium text-slate-600">Global</span></p>
-          </div>
 
-          <div>
-            <div className="flex items-center gap-2 text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">
-              <Tag size={13} />
-              <span>Tags</span>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold border ${activeChat.tagColor}`}>
-                {activeChat.tag}
-              </span>
-              <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold border bg-slate-50 border-slate-200 text-slate-500 cursor-pointer hover:bg-slate-100 transition">
-                + Add Tag
-              </span>
-            </div>
-          </div>
+            {/* Modal Body */}
+            <div className="p-4 flex flex-col gap-4 max-h-[400px] overflow-hidden">
+              <div className="relative">
+                <Search className="absolute left-3 top-2.5 text-slate-400" size={14} />
+                <input
+                  type="text"
+                  placeholder="Search contacts..."
+                  value={modalSearch}
+                  onChange={(e) => setModalSearch(e.target.value)}
+                  className="input pl-9 py-1.5 text-xs"
+                />
+              </div>
 
-          <div>
-            <div className="flex items-center gap-2 text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">
-              <Clock size={13} />
-              <span>Session Log</span>
+              <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
+                {loadingContacts ? (
+                  <div className="text-center text-xs text-slate-400 py-6">Loading contacts...</div>
+                ) : filteredContacts.map((contact) => (
+                  <button
+                    key={contact.id}
+                    onClick={() => handleSelectContactForChat(contact.id)}
+                    className="w-full text-left py-2.5 px-2 hover:bg-slate-50 transition flex items-center gap-3 rounded-xl"
+                  >
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${getAvatarStyle(contact.name)}`}>
+                      {contact.name.charAt(0)}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-slate-850 truncate">{contact.name}</p>
+                      <p className="text-[10px] text-slate-400 font-mono mt-0.5">{contact.phone}</p>
+                    </div>
+                  </button>
+                ))}
+
+                {!loadingContacts && filteredContacts.length === 0 && (
+                  <p className="text-center text-xs text-slate-400 py-6">No matching contacts found</p>
+                )}
+              </div>
             </div>
-            <p className="text-xs text-slate-600">Created: <span className="text-slate-500">May 25, 2026</span></p>
-            <p className="text-xs text-slate-600 mt-1">Last Interaction: <span className="text-slate-500">{activeChat.time}</span></p>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
