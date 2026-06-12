@@ -18,11 +18,24 @@ export const loginUser =
           req.body
         );
 
+      const { accessToken, refreshToken, user } = result;
+
+      // Set HTTP-Only Cookie for the refresh token
+      res.cookie('refreshToken', refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      });
+
       return res.status(200).json({
         success: true,
         message:
           'User logged in successfully',
-        data: result,
+        data: {
+          user,
+          accessToken,
+        },
       });
 
     } catch (error) {
@@ -40,13 +53,22 @@ export const loginUser =
 // ===============User Logout Controller===============
 export const logoutUser = async (req, res) => {
   try {
-    const { refreshToken } = req.body;
+    const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
 
-    const result = await logoutUserService(refreshToken);
+    if (refreshToken) {
+      await logoutUserService(refreshToken);
+    }
+
+    // Clear cookie
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    });
 
     return res.status(200).json({
       success: true,
-      data: result,
+      message: 'Logout successful',
     });
   } catch (error) {
     return res.status(400).json({
@@ -60,8 +82,14 @@ export const logoutUser = async (req, res) => {
 //===========user access token refresh controller===========
 export const refreshUserAccessToken = async (req, res) => {
   try {
-    // Extract refreshToken from body
-    const { refreshToken } = req.body;
+    const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
+
+    if (!refreshToken) {
+      return res.status(401).json({
+        success: false,
+        message: 'Refresh token not found in cookies or body',
+      });
+    }
 
     const result = await refreshUserAccessTokenService(refreshToken);
 

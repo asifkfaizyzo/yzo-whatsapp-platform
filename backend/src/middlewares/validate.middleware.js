@@ -7,6 +7,7 @@ const validate = (schema) => (req, res, next) => {
     body:   req.body,
     params: req.params,
     query:  req.query,
+    cookies: req.cookies,
   });
 
   if (result.success) {

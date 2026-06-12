@@ -16,11 +16,23 @@ import {
 export const registerTenant = async (req, res) => {
   try {
     const result = await registerTenantService(req.body);
+    const { accessToken, refreshToken, user } = result;
+
+    // Set HTTP-Only Cookie for the refresh token
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
 
     return res.status(201).json({
       success: true,
       message: 'Tenant registered and logged in successfully',
-      data: result,
+      data: {
+        user,
+        accessToken,
+      },
     });
   } catch (error) {
     return res.status(400).json({
@@ -72,11 +84,26 @@ export const loginTenant = async (req, res) => {
       }
     }
 
-    return res.status(200).json({
-      success: true,
-      message,
-      data: result,
+    const { accessToken, refreshToken, user } = result;
+
+    // Set HTTP-Only Cookie for the refresh token
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production', // true in production
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' for cross-domain HTTPS
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days (matching your token duration)
     });
+
+
+  // Return user and access token in JSON body
+  return res.status(200).json({
+  success: true,
+  message: 'Login successful',
+  data: {
+    user,
+    accessToken // Stored in React state memory
+  }
+  });
   } catch (error) {
     return res.status(400).json({
       success: false,
@@ -93,17 +120,23 @@ export const logoutTenant =
 
     try {
 
-      const { refreshToken } =
-        req.body;
+      const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
 
-      const result =
-        await logoutTenantService(
-          refreshToken
-        );
+    if (refreshToken) {
+        // Delete from DB service
+        await logoutTenantService(refreshToken);
+    }
+
+        // Clear cookie
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    });
 
       return res.status(200).json({
         success: true,
-        data: result,
+        message: 'Logout successful',
       });
 
     } catch (error) {
@@ -126,14 +159,18 @@ export const refreshTenantAccessToken =
     try {
 
       // Get refresh token
-      const { refreshToken } =
-        req.body;
+      const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
+
+      
+    if (!refreshToken) {
+      return res.status(401).json({
+        success: false,
+        message: 'Refresh token not found in cookies or body',
+      });
+    }
 
       // Call service
-      const result =
-        await refreshTenantAccessTokenService(
-          refreshToken
-        );
+      const result = await refreshTenantAccessTokenService(refreshToken);
 
       return res.status(200).json({
         success: true,

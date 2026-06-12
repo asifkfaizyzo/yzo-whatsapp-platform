@@ -5,105 +5,102 @@ import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import TopNavBar from "../components/TopNavBar";
 import api from "../lib/axios";
+import { useAuthStore } from "../store/useAuthStore";
 
 export default function MainLayout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, accessToken } = useAuthStore();
   const [tenantStatus, setTenantStatus] = useState("APPROVED");
   const [userRole, setUserRole] = useState("agent");
   const [loading, setLoading] = useState(true);
   const fetchedMeRef = useRef(false);
 
   useEffect(() => {
-    const token = localStorage.getItem("accessToken");
-    const storedUser = localStorage.getItem("user");
-
-    if (!token || token === "undefined") {
+    if (!accessToken || !user) {
       navigate("/login");
       return;
     }
 
-    if (storedUser) {
-      try {
-        const parsed = JSON.parse(storedUser);
-        const role = parsed.type === "TENANT" ? "admin" : "agent";
-        setUserRole(role);
+    try {
+      const role = user.type === "TENANT" ? "admin" : "agent";
+      setUserRole(role);
 
-        // ── ADDED: Check Tenant Status & Enforce Dashboard-Only ──
-        const status = parsed.status || "APPROVED";
-        setTenantStatus(status);
+      // ── ADDED: Check Tenant Status & Enforce Dashboard-Only ──
+      const status = user.status || "APPROVED";
+      setTenantStatus(status);
 
-        // Fetch fresh tenant status from database to sync
-        if (parsed.type === "TENANT" && !fetchedMeRef.current) {
-          fetchedMeRef.current = true;
-          api.get("/me")
-            .then(res => {
-              if (res.data?.success && res.data?.data) {
-                const freshTenant = res.data.data;
+      // Fetch fresh tenant status from database to sync
+      if (user.type === "TENANT" && !fetchedMeRef.current) {
+        fetchedMeRef.current = true;
+        api.get("/me")
+          .then(res => {
+            if (res.data?.success && res.data?.data) {
+              const freshTenant = res.data.data;
 
-                // If tenant status became BLOCKED or de-activated, force logout immediately
-                if (freshTenant.status === "BLOCKED" || !freshTenant.isActive) {
-                  console.warn("Tenant account is blocked or inactive. Logging out.");
-                  localStorage.clear();
-                  navigate("/login");
-                  return;
-                }
-
-                if (freshTenant.status !== parsed.status) {
-                  // Status updated! Sync with localStorage and state
-                  const updatedUser = { ...parsed, status: freshTenant.status };
-                  localStorage.setItem("user", JSON.stringify(updatedUser));
-                  setTenantStatus(freshTenant.status);
-                }
-              }
-            })
-            .catch(err => {
-              console.error("Failed to sync tenant status:", err);
-              // Handle blocked/unauthorized status
-              if (err.response?.status === 403 || err.response?.status === 401) {
-                console.warn("Unauthorized access or blocked account. Logging out.");
-                localStorage.clear();
+              // If tenant status became BLOCKED or de-activated, force logout immediately
+              if (freshTenant.status === "BLOCKED" || !freshTenant.isActive) {
+                console.warn("Tenant account is blocked or inactive. Logging out.");
+                useAuthStore.getState().logout();
                 navigate("/login");
+                return;
               }
-            });
-        }
 
-        if (status === "PENDING") {
-          const allowedPendingPaths = ["/dashboard", "/dashboard/settings"];
-          const isAllowed = allowedPendingPaths.some(path =>
-            location.pathname === path || location.pathname === path + "/"
-          );
-          if (!isAllowed) {
-            console.warn("Restricted account: Redirecting to Dashboard.");
-            navigate("/dashboard");
-            return;
-          }
-        }
-
-        // Role-based Route Protection
-        // If an agent tries to access admin-only pages, redirect them to Inbox
-        const adminOnlyPaths = [
-          "/dashboard/broadcasts",
-          "/dashboard/templates",
-          "/dashboard/team",
-          "/dashboard/reports"
-        ];
-
-        // Prefix matching for admin-only pages
-        const isAdminPath = adminOnlyPaths.some(path => {
-          return location.pathname.startsWith(path);
-        });
-
-        if (role !== "admin" && isAdminPath) {
-          console.warn("Unauthorized access: Redirecting agent to Inbox console.");
-          navigate("/dashboard/inbox");
-        }
-      } catch (e) {
-        console.error("Failed to parse user role:", e);
+              if (freshTenant.status !== user.status) {
+                // Status updated! Sync with state
+                useAuthStore.setState((state) => ({
+                  user: { ...state.user, status: freshTenant.status }
+                }));
+                setTenantStatus(freshTenant.status);
+              }
+            }
+          })
+          .catch(err => {
+            console.error("Failed to sync tenant status:", err);
+            // Handle blocked/unauthorized status
+            if (err.response?.status === 403 || err.response?.status === 401) {
+              console.warn("Unauthorized access or blocked account. Logging out.");
+              useAuthStore.getState().logout();
+              navigate("/login");
+            }
+          });
       }
+
+      if (status === "PENDING") {
+        const allowedPendingPaths = ["/dashboard", "/dashboard/settings"];
+        const isAllowed = allowedPendingPaths.some(path =>
+          location.pathname === path || location.pathname === path + "/"
+        );
+        if (!isAllowed) {
+          console.warn("Restricted account: Redirecting to Dashboard.");
+          navigate("/dashboard");
+          return;
+        }
+      }
+
+      // Role-based Route Protection
+      // If an agent tries to access admin-only pages, redirect them to Inbox
+      const adminOnlyPaths = [
+        "/dashboard/broadcasts",
+        "/dashboard/templates",
+        "/dashboard/team",
+        "/dashboard/reports"
+      ];
+
+      // Prefix matching for admin-only pages
+      const isAdminPath = adminOnlyPaths.some(path => {
+        return location.pathname.startsWith(path);
+      });
+
+      if (role !== "admin" && isAdminPath) {
+        console.warn("Unauthorized access: Redirecting agent to Inbox console.");
+        navigate("/dashboard/inbox");
+      }
+    } catch (e) {
+      console.error("Failed to parse user role:", e);
     }
     setLoading(false);
-  }, [navigate, location.pathname]);
+  }, [navigate, location.pathname, accessToken, user]);
 
   if (loading) {
     return (

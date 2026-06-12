@@ -1,3 +1,4 @@
+import cookieParser from 'cookie-parser';
 import express from 'express';
 import superadminRoutes from './modules/superadmin/superadminRoute.js';
 import tenantRoutes from './modules/tenant/tenantRoutes.js';
@@ -10,6 +11,7 @@ import cors from 'cors'
 const app = express();
 
 app.use(express.json());
+app.use(cookieParser());
 
 const allowedOrigins = process.env.FRONTEND_URLS.split(",");
 

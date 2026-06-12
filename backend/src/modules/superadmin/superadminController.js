@@ -65,10 +65,23 @@ export const loginSuperAdmin =
           req.body
         );
 
+      const { accessToken, refreshToken, user } = result;
+
+      // Set HTTP-Only Cookie for the refresh token
+      res.cookie('refreshToken', refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      });
+
       return res.status(200).json({
         success: true,
         message:'SuperAdmin logged in successfully',
-        data: result,
+        data: {
+          user,
+          accessToken,
+        },
       });
     } catch (error) {
       return res.status(400).json({
@@ -86,19 +99,23 @@ export const loginSuperAdmin =
   async (req, res) => {
     try {
 
-      const { refreshToken } =
-        req.body;
-        console.log(req.body);
-        console.log(refreshToken);
+      const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
+        console.log("Logout request body/cookie token:", refreshToken);
 
-      const result =
-        await logoutSuperAdminService(
-          refreshToken
-        );
+      if (refreshToken) {
+        await logoutSuperAdminService(refreshToken);
+      }
+
+      // Clear cookie
+      res.clearCookie('refreshToken', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      });
 
       return res.status(200).json({
         success: true,
-        data: result,
+        message: 'Logout successful',
       });
 
     } catch (error) {
@@ -118,9 +135,15 @@ export const loginSuperAdmin =
   export const refreshAccessTokenController =
   async (req, res) => {
     try {
-      // 1️⃣ Get refresh token from body
-      const { refreshToken } =
-        req.body;
+      // 1️⃣ Get refresh token from cookie or body
+      const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
+
+      if (!refreshToken) {
+        return res.status(401).json({
+          success: false,
+          message: 'Refresh token not found in cookies or body',
+        });
+      }
 
       // 2️⃣ Call service
       const result =

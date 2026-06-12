@@ -1,22 +1,25 @@
-import axios from 'axios'
+import axios from 'axios';
+import { useAuthStore } from '../store/useAuthStore';
 
 const api = axios.create({
   baseURL: `${import.meta.env.VITE_BACKEND_URL}/api2`,
   headers: {
     'Content-Type': 'application/json',
   },
-})
+  withCredentials: true, // IMPORTANT: Allows cookies to be sent back and forth
+});
 
-// 1️⃣ Request Interceptor: Attach Access Token to Every Request
+// 1️⃣ Request Interceptor: Attach Access Token from Zustand Store
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('accessToken')
+  // Get access token from Zustand state in memory
+  const token = useAuthStore.getState().accessToken;
 
-  if (token && token !== 'undefined') {
-    config.headers.Authorization = `Bearer ${token}`
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
 
-  return config
-}, (error) => Promise.reject(error))
+  return config;
+}, (error) => Promise.reject(error));
 
 // 2️⃣ Response Interceptor: Auto Refresh Token on 401 Error
 api.interceptors.response.use(
@@ -24,41 +27,35 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // Check if error is 401 and the request has not been retried yet
     if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true; // Mark request so we don't end up in an infinite loop
+      originalRequest._retry = true;
 
       try {
-        const refreshToken = localStorage.getItem('refreshToken');
-        if (!refreshToken || refreshToken === 'undefined') {
-          throw new Error('No refresh token available');
-        }
-
-        const userStr = localStorage.getItem('user');
-        const user = userStr ? JSON.parse(userStr) : null;
-        const isUser = user && user.type === 'USER';
-
+        const isUser = localStorage.getItem('user_type') === 'USER';
         const refreshEndpoint = isUser ? '/refresh-user-access' : '/refresh-token';
         const refreshBaseUrl = isUser 
           ? `${import.meta.env.VITE_BACKEND_URL}/api3` 
           : `${import.meta.env.VITE_BACKEND_URL}/api2`;
 
-        // Call backend refresh token endpoint
+        // Request new accessToken - cookies are sent automatically
         const response = await axios.post(
           `${refreshBaseUrl}${refreshEndpoint}`,
-          { refreshToken }
+          {},
+          { withCredentials: true }
         );
 
         const newAccessToken = isUser ? response.data.data.accessToken : response.data.accessToken;
-        localStorage.setItem('accessToken', newAccessToken);
+        
+        // Save the new token into Zustand store memory
+        useAuthStore.setState({ accessToken: newAccessToken });
 
-        // Update authorization header and replay the original request
+        // Replay the original request with the new token
         originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
         return api(originalRequest);
 
       } catch (refreshError) {
-        // Refresh token expired or invalid -> logout user
-        localStorage.clear();
+        // Silent refresh failed -> force logout state in Zustand and redirect
+        useAuthStore.getState().logout();
         window.location.href = '/login';
         return Promise.reject(refreshError);
       }
@@ -66,6 +63,6 @@ api.interceptors.response.use(
 
     return Promise.reject(error);
   }
-)
+);
 
-export default api
+export default api;

@@ -55,17 +55,25 @@ export const resetPasswordSchema = z.object({
 // =========== Refresh Token Schema ===========
 export const refreshTokenSchema = z.object({
   body: z.object({
-    refreshToken: z
-      .string({ required_error: 'Refresh token is required' })
-      .min(1, 'Refresh token is required'),
+    refreshToken: z.string().optional(),
   }),
+  cookies: z.object({
+    refreshToken: z.string().optional(),
+  }).optional(),
+}).refine((data) => data.body?.refreshToken || data.cookies?.refreshToken, {
+  message: 'Refresh token is required in body or cookies',
+  path: ['refreshToken'],
 });
 
 // =========== Logout Schema ===========
 export const logoutSchema = z.object({
   body: z.object({
-    refreshToken: z
-      .string({ required_error: 'Refresh token is required' })
-      .min(1, 'Refresh token is required'),
+    refreshToken: z.string().optional(),
   }),
+  cookies: z.object({
+    refreshToken: z.string().optional(),
+  }).optional(),
+}).refine((data) => data.body?.refreshToken || data.cookies?.refreshToken, {
+  message: 'Refresh token is required in body or cookies',
+  path: ['refreshToken'],
 });

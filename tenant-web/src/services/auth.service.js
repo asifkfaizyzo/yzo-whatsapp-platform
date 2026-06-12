@@ -3,6 +3,7 @@
 import api from "../lib/axios";
 import api2 from "../lib/axios"; // Targets VITE_API_URL (/api2)
 import axios from "axios"; // Raw axios to easily target VITE_USER_API_URL (/api3)
+import { useAuthStore } from '../store/useAuthStore';
 
 const USER_API_URL = `${import.meta.env.VITE_BACKEND_URL}/api3`;
 
@@ -18,11 +19,9 @@ export const registerTenant = async (formData) => {
     });
 
     console.log("REGISTER RESPONSE:", response.data);
-    localStorage.setItem("accessToken", response.data.data.accessToken);
-
-    localStorage.setItem("refreshToken", response.data.data.refreshToken);
-
-    localStorage.setItem("user", JSON.stringify(response.data.data.user));
+    
+    // Set Zustand store state
+    useAuthStore.getState().login(response.data.data.user, response.data.data.accessToken);
 
     return {
       success: true,
@@ -44,9 +43,8 @@ export const login = async (email, password) => {
       password,
     });
 
-    localStorage.setItem("accessToken", response.data.data.accessToken);
-    localStorage.setItem("refreshToken", response.data.data.refreshToken);
-    localStorage.setItem("user", JSON.stringify(response.data.data.user));
+    // Set Zustand store state
+    useAuthStore.getState().login(response.data.data.user, response.data.data.accessToken);
 
     console.log(response.data.data.user);
 
@@ -63,30 +61,11 @@ export const login = async (email, password) => {
 };
 
 // Logout
-
-
 export const logout = async () => {
   try {
-    const refreshToken = localStorage.getItem("refreshToken");
-    const userStr = localStorage.getItem("user");
-    const user = userStr ? JSON.parse(userStr) : null;
-
-    if (user?.type === "USER") {
-      const userLogoutUrl = `${USER_API_URL}/logout-user`;
-      await api.post(userLogoutUrl, {
-        refreshToken,
-      });
-    } else {
-      await api.post("/logout", {
-        refreshToken,
-      });
-    }
-
-    localStorage.clear();
-
+    await useAuthStore.getState().logout();
     return { success: true };
   } catch (error) {
-    localStorage.clear();
     return { success: false };
   }
 };
