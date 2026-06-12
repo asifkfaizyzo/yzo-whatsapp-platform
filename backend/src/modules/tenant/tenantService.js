@@ -7,6 +7,7 @@ import { generateAccessToken,generateRefreshToken,verifyAccessToken,verifyRefres
 import { saveRefreshToken, deleteRefreshToken,findRefreshToken } from '../auth/refreshtokenService.js';
 import { generateResetToken,getResetTokenExpiry,sendPasswordResetEmail,} from '../auth/emailService.js';
 import { forgotPasswordService,resetPasswordService, } from '../auth/passwordService.js';
+import { getOrCreateConversation } from "../../modules/conversations/conversationService.js";
 
 
 // ===========Tenant Registration Service (with Auto-Login)===========
@@ -765,6 +766,7 @@ export const unassignContactService = async (
 };
 
 
+
 //List all conversations for a user
 export const listConversations = async (tenantId, options = {}) => {
   const page = options.page || 1;
@@ -804,4 +806,44 @@ export const listConversations = async (tenantId, options = {}) => {
     limit,
     totalPages: Math.ceil(total / limit),
   };
+};
+
+
+
+
+
+//Create Message by Tenant
+export const sendMessageService = async ({
+  contactId,
+  tenantId,
+  senderId,
+  senderType,
+  text,
+}) => {
+
+  // Create or get conversation
+  const conversation =
+    await getOrCreateConversation(
+      contactId,
+      tenantId
+    );
+
+  // Create message
+  
+  console.log({
+  senderId,
+  senderType,
+});
+    const message = await prisma.message.create({
+      data: {
+        conversationId: conversation.id,
+        senderId,
+        senderType,
+        text,
+        type: "TEXT",
+        isRead: false,
+      },
+    });
+
+  return message;
 };

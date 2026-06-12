@@ -9,7 +9,7 @@ import {
   refreshTenantAccessTokenService, createUserService, getUsersByTenantService,
   getUserByIdService, updateUserByIdService, deleteUserByIdService,
   deactivateUserByIdService, assignContactService, reassignContactService,
-  unassignContactService,listConversations
+  unassignContactService,listConversations,sendMessageService
 } from './tenantService.js';
 
 // Tenant Registration Controller
@@ -531,6 +531,44 @@ export const listConversationsController = async (req, res) => {
       success: true,
       message: "Conversations fetched successfully",
       ...result,
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
+
+//Send Message Tenant to contact
+export const sendMessage = async (req, res) => {
+  try {
+    const { contactId } = req.params;
+    const { text } = req.body;
+
+    const tenantId = req.tenantId;
+
+    const senderType = req.userType;
+
+    const senderId =
+      senderType === "TENANT"
+        ? req.tenant.id
+        : req.user.id;
+
+    const message = await sendMessageService({
+      contactId,
+      tenantId,
+      senderId,
+      senderType,
+      text,
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: message,
     });
 
   } catch (error) {

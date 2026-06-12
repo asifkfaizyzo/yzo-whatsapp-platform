@@ -1,15 +1,25 @@
 import bcrypt from 'bcrypt';
 import pkg from '@prisma/client';
 
+import { getOrCreateConversation } from '../conversations/conversationService.js';
+import { evaluateReopen } from '../auto-reopen/autoReopenService.js';
+import { logActivity } from '../activity/activityService.js';
 
 
+
+//Send message- user → contact direction
 export const sendMessage = async ({
   conversationId,
   senderId,
+  senderType,
   message, 
   type = "TEXT",
 }) => {
-     console.log("SERVICE MESSAGE:", message); 
+  console.log("senderId =", senderId);
+  console.log("senderType =", senderType);
+  console.log("SERVICE MESSAGE:", message);
+
+    
   // 1️⃣ Check conversation exists
   const conversation = await prisma.conversation.findUnique({
     where: { id: conversationId },
@@ -24,7 +34,8 @@ export const sendMessage = async ({
     data: {
       conversationId,
       senderId,
-      text: message,
+      senderType,
+      text:message,
       type,
       isRead: false,
     },
@@ -40,3 +51,85 @@ export const sendMessage = async ({
 
   return newMessage;
 };
+
+
+
+//Handle Incoming Message- contact → user
+const CLOSED_STATUSES = ['RESOLVED', 'CLOSED'];
+export const handleIncomingMessage = async ({
+  contactId,
+  tenantId,
+  text,
+  type = 'TEXT',
+}) => {
+  let conversation = await getOrCreateConversation(contactId, tenantId)
+
+  let action = 'message_saved'
+  let reason = null
+
+  if (CLOSED_STATUSES.includes(conversation.status)) {
+    const decision = await evaluateReopen(conversation, text)
+
+    if (decision.shouldReopen) {
+      conversation = await prisma.conversation.update({
+        where: { id: conversation.id },
+        data: {
+          status: 'OPEN',
+          reopenCount: { increment: 1 },
+          reopenedAt: new Date(),
+          resolvedAt: null,
+          closedAt: null,
+          lastMessageAt: new Date(),
+        },
+      })
+
+      await logActivity({
+        conversationId: conversation.id,
+        action: 'auto_reopened',
+        performedByType: 'system',
+        reason: decision.reason,
+      })
+
+      action = 'auto_reopened'
+      reason = decision.reason
+    } else {
+      await prisma.conversation.update({
+        where: { id: conversation.id },
+        data: { lastMessageAt: new Date() },
+      })
+
+      action = 'saved_without_reopen'
+      reason = decision.reason
+    }
+  } else {
+    await prisma.conversation.update({
+      where: { id: conversation.id },
+      data: { lastMessageAt: new Date() },
+    })
+
+    action = 'saved_to_active_conversation'
+  }
+
+  const message = await prisma.message.create({
+    data: {
+      conversationId: conversation.id,
+      senderId: null,
+      senderType:"CONTACT",
+      text,
+      type,
+      isRead: false,
+    },
+  })
+
+  const updatedConversation = await prisma.conversation.findUnique({
+    where: { id: conversation.id },
+  })
+
+  return {
+    conversation: updatedConversation,
+    message,
+    action,
+    reason,
+  }
+}
+

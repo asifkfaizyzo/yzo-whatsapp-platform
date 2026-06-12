@@ -87,6 +87,8 @@ export const getAllContacts = async (tenantId, page = 1, limit = 10, search = ''
         ];
     }
 
+    // const skip = (2 - 1) * 10
+    // const debugskip = 10
     const skip = (page - 1) * limit;
     const take = limit;
 

@@ -1,4 +1,4 @@
-import { sendMessage } from "./messageService.js";
+import { sendMessage,handleIncomingMessage } from "./messageService.js";
 
 export const sendMessageController = async (req, res) => {
   try {
@@ -15,13 +15,26 @@ export const sendMessageController = async (req, res) => {
 
     const senderId = req.user.id;
 
+    console.log("req.user =", req.user);
+console.log("req.tenant =", req.tenant);
+console.log("req.userType =", req.userType);
+
+console.log("Controller senderType =", req.userType);
+
     // 2️⃣ Call service
     const newMessage = await sendMessage({
       conversationId,
-      senderId : req.user.id,
+      senderId,
+      senderType : req.userType,
+      
       message,
     //   type: "TEXT",
     });
+
+    console.log({
+  senderId,
+  senderType: req.userType,
+});
 
     // 3️⃣ Response
     return res.status(200).json({
@@ -37,3 +50,43 @@ export const sendMessageController = async (req, res) => {
     });
   }
 };
+
+
+
+
+//handle incoming message
+export const incomingMessageController = async (req, res) => {
+ try {
+    const { contactId, tenantId, text, type } = req.body
+
+    if (!contactId || !tenantId || !text) {
+      return res.status(400).json({
+        success: false,
+        error: 'contactId, tenantId and text are required',
+      })
+    }
+
+    const result = await handleIncomingMessage({
+      contactId,
+      tenantId,
+      text,
+      type,
+    })
+
+    return res.status(200).json({
+      success: true,
+      action: result.action,
+      reason: result.reason,
+      conversationId: result.conversation.id,
+      conversationStatus: result.conversation.status,
+      reopenCount: result.conversation.reopenCount,
+      messageId: result.message.id,
+    })
+  } catch (error) {
+    console.error('❌ Error:', error)
+    return res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+    })
+  }
+}

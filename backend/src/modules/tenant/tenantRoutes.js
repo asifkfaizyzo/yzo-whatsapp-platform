@@ -4,6 +4,7 @@ import { verifyTenant, requireApprovedTenant } from '../../middlewares/authTenan
 
 import {generateAccessToken, generateRefreshToken} from '../auth/jwtservice.js';
 import {forgotPasswordTenant,resetPasswordTenant, } from './tenantController.js';
+import {verifyTenantOrUser} from '../../middlewares/authVerfyTenOrUser.js'
 
 import {
   loginSchema,
@@ -52,11 +53,13 @@ router.patch('/users/:id/reactivate', verifyTenant, requireApprovedTenant, tenan
 router.delete('/delete-user/:id', verifyTenant, requireApprovedTenant, validate(userIdParamSchema), tenantController.deleteUserById);
 
 // router.get('/unassigned-contacts', verifyTenant, tenantController.getUnassignedContacts);
-
+//***********
 router.patch('/assign-contact/:contactId', verifyTenant, tenantController.assignContactController);1
 
 router.patch('/re-assign-contacts/:contactId', verifyTenant, tenantController. reassignContactController);
 
-router.patch('/unassign-contact/:contactId', verifyTenant, tenantController.unassignContactController);
+// router.patch('/unassign-contact/:contactId', verifyTenant, tenantController.unassignContactController);
+
+router.post("/contacts/:contactId/messages",verifyTenantOrUser, tenantController.sendMessage);
 
 export default router;

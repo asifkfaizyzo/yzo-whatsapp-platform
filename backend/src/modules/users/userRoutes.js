@@ -3,6 +3,7 @@ import * as userController from './userController.js';
 
 import {generateAccessToken, generateRefreshToken} from '../auth/jwtservice.js';
 import {forgotPasswordUser,resetPasswordUser,} from './userController.js';
+import { verifyTenantOrUser } from '../../middlewares/authVerfyTenOrUser.js';
 import { verifyUser } from '../../middlewares/authUser.js';
 
 import { loginSchema, forgotPasswordSchema, resetPasswordSchema, refreshTokenSchema, logoutSchema } from '../../validations/auth.validation.js';

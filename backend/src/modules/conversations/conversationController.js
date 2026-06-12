@@ -9,8 +9,19 @@ import {
  // MANUAL CREATE / GET CONVERSATION
 export const createConversation = async (req, res) => {
   try {
+
+    console.log("req.user =>", req.user);
+console.log("req.tenant =>", req.tenant);
+console.log("req.auth =>", req.auth);
+
     const { contactId } = req.body;
-    const tenantId = req.user.tenantId;
+    const tenantId = req.tenantId;
+
+    const resultt = await getOrCreateConversation(
+      contactId,
+      tenantId
+    );
+
 
     const result = await getOrCreateConversation(contactId, tenantId);
 

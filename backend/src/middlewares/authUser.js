@@ -24,6 +24,8 @@ export const verifyUser = async (req, res, next) => {
     // 3️⃣ Verify token
     const decoded = jwt.verify(token, process.env.ACCESS_SECRET);
 
+     console.log("TOKEN TYPE:", decoded.type);
+
     // 4️⃣ Check user type
     if (decoded.type !== "USER") {
       return res.status(403).json({
@@ -31,6 +33,7 @@ export const verifyUser = async (req, res, next) => {
         message: "Access denied. Users only.",
       });
     }
+   
 
     // 5️⃣ Fetch user from DB (optional but recommended)
     // 5️⃣ Fetch user from DB (IMPORTANT FIX)
@@ -61,6 +64,8 @@ const user = await prisma.user.findUnique({
 
     // 6️⃣ Attach user to request
     req.user = user;
+
+    req.userType = "USER";
 
     next();
   } catch (error) {
