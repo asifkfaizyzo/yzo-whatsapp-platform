@@ -7,50 +7,50 @@ import { logActivity } from '../activity/activityService.js';
 
 
 
-//Send message- user → contact direction
-export const sendMessage = async ({
-  conversationId,
-  senderId,
-  senderType,
-  message, 
-  type = "TEXT",
-}) => {
-  console.log("senderId =", senderId);
-  console.log("senderType =", senderType);
-  console.log("SERVICE MESSAGE:", message);
+// //Send message- user → contact direction
+// export const sendMessage = async ({
+//   conversationId,
+//   senderId,
+//   senderType,
+//   message, 
+//   type = "TEXT",
+// }) => {
+//   console.log("senderId =", senderId);
+//   console.log("senderType =", senderType);
+//   console.log("SERVICE MESSAGE:", message);
 
     
-  // 1️⃣ Check conversation exists
-  const conversation = await prisma.conversation.findUnique({
-    where: { id: conversationId },
-  });
+//   // 1️⃣ Check conversation exists
+//   const conversation = await prisma.conversation.findUnique({
+//     where: { id: conversationId },
+//   });
 
-  if (!conversation) {
-    throw new Error("Conversation not found");
-  }
+//   if (!conversation) {
+//     throw new Error("Conversation not found");
+//   }
 
-  // 2️⃣ Create message
-  const newMessage = await prisma.message.create({
-    data: {
-      conversationId,
-      senderId,
-      senderType,
-      text:message,
-      type,
-      isRead: false,
-    },
-  });
+//   // 2️⃣ Create message
+//   const newMessage = await prisma.message.create({
+//     data: {
+//       conversationId,
+//       senderId,
+//       senderType,
+//       text:message,
+//       type,
+//       isRead: false,
+//     },
+//   });
 
-  // 3️⃣ Update conversation (IMPORTANT for inbox sorting)
-  await prisma.conversation.update({
-    where: { id: conversationId },
-    data: {
-      updatedAt: new Date(),
-    },
-  });
+//   // 3️⃣ Update conversation (IMPORTANT for inbox sorting)
+//   await prisma.conversation.update({
+//     where: { id: conversationId },
+//     data: {
+//       updatedAt: new Date(),
+//     },
+//   });
 
-  return newMessage;
-};
+//   return newMessage;
+// };
 
 
 
@@ -133,3 +133,41 @@ export const handleIncomingMessage = async ({
   }
 }
 
+
+
+
+//send Message by Tenant to user
+export const sendMessageService = async ({
+  contactId,
+  tenantId,
+  senderId,
+  senderType,
+  text,
+}) => {
+
+  // Create or get conversation
+  const conversation =
+    await getOrCreateConversation(
+      contactId,
+      tenantId
+    );
+
+  // Create message
+  
+  console.log({
+  senderId,
+  senderType,
+});
+    const message = await prisma.message.create({
+      data: {
+        conversationId: conversation.id,
+        senderId,
+        senderType,
+        text,
+        type: "TEXT",
+        isRead: false,
+      },
+    });
+
+  return message;
+};

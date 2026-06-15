@@ -18,7 +18,7 @@ const router = express.Router();
 router.post('/create-contact', verifyTenantOrUser, validate(createContactSchema), createContactController);
 
 router.get('/get-all-contacts', verifyTenantOrUser, getAllContactsController);
-
+//importing CSV file
 router.post('/import', verifyTenantOrUser, upload.single('file'), importContactsController);
 
 router.get('/get-contact/:id', verifyTenantOrUser, validate(contactIdParamSchema), getContactByIdController);
@@ -30,5 +30,7 @@ router.delete('/delete-contact/:id', verifyTenantOrUser, validate(contactIdParam
 router.patch('/block-contact/:id', verifyTenantOrUser, validate(contactIdParamSchema), blockContactController);
 
 router.patch('/unblock-contact/:id', verifyTenantOrUser, validate(contactIdParamSchema), unblockContactController);
+
+
 
 export default router;

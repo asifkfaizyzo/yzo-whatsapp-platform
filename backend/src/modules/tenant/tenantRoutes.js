@@ -6,13 +6,8 @@ import {generateAccessToken, generateRefreshToken} from '../auth/jwtservice.js';
 import {forgotPasswordTenant,resetPasswordTenant, } from './tenantController.js';
 import {verifyTenantOrUser} from '../../middlewares/authVerfyTenOrUser.js'
 
-import {
-  loginSchema,
-  forgotPasswordSchema,
-  resetPasswordSchema,
-  refreshTokenSchema,
-  logoutSchema,
-} from '../../validations/auth.validation.js';
+import {loginSchema,forgotPasswordSchema,resetPasswordSchema,
+        refreshTokenSchema,logoutSchema,} from '../../validations/auth.validation.js';
 import validate from '../../middlewares/validate.middleware.js';
 import { createTenantSchema } from '../../validations/tenant.validation.js';
 import { createUserSchema, updateUserSchema, userIdParamSchema } from '../../validations/user.validation.js';
@@ -52,14 +47,19 @@ router.patch('/users/:id/reactivate', verifyTenant, requireApprovedTenant, tenan
 
 router.delete('/delete-user/:id', verifyTenant, requireApprovedTenant, validate(userIdParamSchema), tenantController.deleteUserById);
 
-// router.get('/unassigned-contacts', verifyTenant, tenantController.getUnassignedContacts);
-//***********
-router.patch('/assign-contact/:contactId', verifyTenant, tenantController.assignContactController);1
+
+
+router.patch('/assign-contact/:contactId', verifyTenant, tenantController.assignContactController);
 
 router.patch('/re-assign-contacts/:contactId', verifyTenant, tenantController. reassignContactController);
 
-// router.patch('/unassign-contact/:contactId', verifyTenant, tenantController.unassignContactController);
+router.patch('/unassign-contact/:contactId', verifyTenant, tenantController.unassignContactController);
+//get the un assigned contacts of a tenant
+router.get('/unassigned-contacts', verifyTenant, tenantController. getUnassigned );
+//assign multiple contact to user
+router.patch('/assign-multiple',verifyTenant,tenantController.assignMultipleContacts);
 
-router.post("/contacts/:contactId/messages",verifyTenantOrUser, tenantController.sendMessage);
+
+
 
 export default router;

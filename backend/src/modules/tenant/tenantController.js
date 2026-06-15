@@ -4,13 +4,15 @@ import prisma from '../../config/prisma.js';
 import { generateAccessToken, generateRefreshToken } from '../auth/jwtservice.js';
 import { loginUserService } from '../users/userService.js';
 import { forgotPasswordTenantService, resetPasswordTenantService, } from './tenantService.js';
+import { userGetUnassignedContacts,userAssignMultipleContacts} from '../contacts/userContactService.js'
 import {
   registerTenantService, loginTenantService, logoutTenantService,
   refreshTenantAccessTokenService, createUserService, getUsersByTenantService,
   getUserByIdService, updateUserByIdService, deleteUserByIdService,
   deactivateUserByIdService, assignContactService, reassignContactService,
-  unassignContactService,listConversations,sendMessageService
+  unassignContactService,getUnassignedContacts,listConversations,
 } from './tenantService.js';
+
 
 // Tenant Registration Controller
 export const registerTenant = async (req, res) => {
@@ -412,6 +414,8 @@ export const deleteUserById = async (req, res) => {
 };
 
 
+
+
 // Get logged-in tenant's current profile details
 export const getLoggedInTenant = async (req, res) => {
   try {
@@ -456,7 +460,45 @@ export const getLoggedInTenant = async (req, res) => {
 
 
 
-//========Get Unassigned Contacts by Tenant ID========
+
+//========Get Un-assigned Contacts by Tenant ID========
+export const getUnassigned = async (req, res, next) => {
+    try {
+        // tenantId comes from your verifyTenant middleware
+        const tenantId = req.tenantId; 
+
+        const data = await userGetUnassignedContacts(tenantId);
+
+        res.status(200).json({
+            success: true,
+            data: data
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+
+
+
+//Assign multiple users by tenant
+export const assignMultipleContacts = async (req, res, next) => {
+    try {
+        const { contactIds, userId } = req.body;
+        const result = await userAssignMultipleContacts(contactIds, userId, req.tenantId);
+
+        // Returning only success and message
+        return res.status(200).json({
+            success: true,
+            message: result.message
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+
+
 
 
 //========Assign contact to user under tenant-controller(manual)========
@@ -580,38 +622,3 @@ export const listConversationsController = async (req, res) => {
 
 
 
-//Send Message Tenant to contact
-export const sendMessage = async (req, res) => {
-  try {
-    const { contactId } = req.params;
-    const { text } = req.body;
-
-    const tenantId = req.tenantId;
-
-    const senderType = req.userType;
-
-    const senderId =
-      senderType === "TENANT"
-        ? req.tenant.id
-        : req.user.id;
-
-    const message = await sendMessageService({
-      contactId,
-      tenantId,
-      senderId,
-      senderType,
-      text,
-    });
-
-    return res.status(201).json({
-      success: true,
-      data: message,
-    });
-
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};

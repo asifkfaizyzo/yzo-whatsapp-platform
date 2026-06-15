@@ -645,6 +645,21 @@ export const deleteUserByIdService = async (userId, tenantId) => {
 
 
 //========Get Unassigned Contacts by Tenant ID========
+export const getUnassignedContacts = async (tenantId) => {
+    // We simply find all contacts where:
+    // 1. They belong to this tenant
+    // 2. assignedTo is null (no agent has them)
+    const contacts = await Contact.findAll({
+        where: {
+            tenantId: tenantId,
+            assignedTo: null
+        },
+        // Optional: Show newest first
+        order: [['createdAt', 'DESC']]
+    });
+
+    return contacts;
+};
 
 
 
@@ -681,6 +696,9 @@ export const assignContactService = async (
     },
   });
 };
+
+
+
 
 
 //========Reassign contact to user under tenant-controller========
@@ -806,44 +824,4 @@ export const listConversations = async (tenantId, options = {}) => {
     limit,
     totalPages: Math.ceil(total / limit),
   };
-};
-
-
-
-
-
-//Create Message by Tenant
-export const sendMessageService = async ({
-  contactId,
-  tenantId,
-  senderId,
-  senderType,
-  text,
-}) => {
-
-  // Create or get conversation
-  const conversation =
-    await getOrCreateConversation(
-      contactId,
-      tenantId
-    );
-
-  // Create message
-  
-  console.log({
-  senderId,
-  senderType,
-});
-    const message = await prisma.message.create({
-      data: {
-        conversationId: conversation.id,
-        senderId,
-        senderType,
-        text,
-        type: "TEXT",
-        isRead: false,
-      },
-    });
-
-  return message;
 };

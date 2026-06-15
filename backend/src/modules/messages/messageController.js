@@ -1,55 +1,55 @@
-import { sendMessage,handleIncomingMessage } from "./messageService.js";
+import { handleIncomingMessage,sendMessageService } from "./messageService.js";
 
-export const sendMessageController = async (req, res) => {
-  try {
-    const { conversationId, message } = req.body;
-    console.log("REQ BODY:", req.body);
+// export const sendMessageController = async (req, res) => {
+//   try {
+//     const { conversationId, message } = req.body;
+//     console.log("REQ BODY:", req.body);
 
-    // 1️⃣ Validate user
-    if (!req.user || !req.user.id) {
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorized",
-      });
-    }
+//     // 1️⃣ Validate user
+//     if (!req.user || !req.user.id) {
+//       return res.status(401).json({
+//         success: false,
+//         message: "Unauthorized",
+//       });
+//     }
 
-    const senderId = req.user.id;
+//     const senderId = req.user.id;
 
-    console.log("req.user =", req.user);
-console.log("req.tenant =", req.tenant);
-console.log("req.userType =", req.userType);
+//     console.log("req.user =", req.user);
+// console.log("req.tenant =", req.tenant);
+// console.log("req.userType =", req.userType);
 
-console.log("Controller senderType =", req.userType);
+// console.log("Controller senderType =", req.userType);
 
-    // 2️⃣ Call service
-    const newMessage = await sendMessage({
-      conversationId,
-      senderId,
-      senderType : req.userType,
+//     // 2️⃣ Call service
+//     const newMessage = await sendMessage({
+//       conversationId,
+//       senderId,
+//       senderType : req.userType,
       
-      message,
-    //   type: "TEXT",
-    });
+//       message,
+//     //   type: "TEXT",
+//     });
 
-    console.log({
-  senderId,
-  senderType: req.userType,
-});
+//     console.log({
+//   senderId,
+//   senderType: req.userType,
+// });
 
-    // 3️⃣ Response
-    return res.status(200).json({
-      success: true,
-      message: "Message sent successfully",
-      data: newMessage,
-    });
+//     // 3️⃣ Response
+//     return res.status(200).json({
+//       success: true,
+//       message: "Message sent successfully",
+//       data: newMessage,
+//     });
 
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
+//   } catch (error) {
+//     return res.status(500).json({
+//       success: false,
+//       message: error.message,
+//     });
+//   }
+// };
 
 
 
@@ -65,7 +65,6 @@ export const incomingMessageController = async (req, res) => {
         error: 'contactId, tenantId and text are required',
       })
     }
-
     const result = await handleIncomingMessage({
       contactId,
       tenantId,
@@ -90,3 +89,40 @@ export const incomingMessageController = async (req, res) => {
     })
   }
 }
+
+
+//Send Message Tenant to contact
+export const sendMessage = async (req, res) => {
+  try {
+    const { contactId } = req.params;
+    const { text } = req.body;
+
+    const tenantId = req.tenantId;
+
+    const senderType = req.userType;
+
+    const senderId =
+      senderType === "TENANT"
+        ? req.tenant.id
+        : req.user.id;
+
+    const message = await sendMessageService({
+      contactId,
+      tenantId,
+      senderId,
+      senderType,
+      text,
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: message,
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};

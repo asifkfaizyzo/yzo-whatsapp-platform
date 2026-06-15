@@ -435,3 +435,79 @@ export const importContactsFromCSV = async (filePath, tenantId) => {
         summary,
     };
 };
+
+
+// get un- assigned contacts by the tenant
+export const getUnassignedContacts = async (tenantId) => {
+    return await prisma.contact.findMany({  
+        where: {
+            tenantId  : tenantId,
+            assignedTo: null                
+        },
+        orderBy: {
+            createdAt: 'desc'            
+        }
+    });
+};
+
+
+
+
+
+// ======== Assign Multiple Contacts to a Single User under Tenant ========
+// Find contacts by IDs
+export const findContactsByIds = async (contactIds, tenantId) => {
+    return await prisma.contact.findMany({
+        where: {
+            id      : { in: contactIds },
+            tenantId: tenantId
+        },
+        select: {
+            id        : true,
+            assignedTo: true
+        }
+    });
+};
+
+// Assign contacts
+export const assignMultipleContacts = async (contactIds, userId) => {
+    return await prisma.contact.updateMany({
+        where: {
+            id: { in: contactIds }
+        },
+        data: {
+            assignedTo: userId,
+            assignedAt: new Date()
+        }
+    });
+};
+
+export const findTenantUser = async (userId, tenantId) => {
+    return await prisma.user.findFirst({
+        where: {
+            id: userId,
+            tenantId: tenantId
+        }
+    });
+};
+
+export const getContactsByIds = async (contactIds, tenantId) => {
+    return await prisma.contact.findMany({
+        where: {
+            id: { in: contactIds },
+            tenantId: tenantId
+        }
+    });
+};
+
+export const updateContactsBatch = async (contactIds, userId) => {
+    return await prisma.contact.updateMany({
+        where: {
+            id: { in: contactIds }
+        },
+        data: {
+            assignedTo: userId,
+            assignedAt: new Date()
+        }
+    });
+};
