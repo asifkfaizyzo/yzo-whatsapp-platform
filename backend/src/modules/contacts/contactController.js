@@ -1,23 +1,35 @@
 import { importContactsFromCSV } from './contactCrudService.js';
+import { userCreateContact     } from './userContactService.js';
+import { assignByPriority } from './userContactService.js';
 import {
-    createContact, getAllContacts, getContactById, updateContact,
-    deleteContact, blockContact, unblockContact,
-} from './contactCrudService.js';
+         createContact, getAllContacts, getContactById, updateContact,
+         deleteContact, blockContact, unblockContact,addTagToContact,
+         checkContactTagMapping,getContactTags,getTagById, getContactsByUserId
+       } from './contactCrudService.js';
 
 
 //Shared Controller
 //  1.===================== CREATE CONTACT =====================
-export const createContactController = async (req, res) => {
+export const createContactController = async (req, res, next) => {
     try {
-        const data = req.body;
         const tenantId = req.tenantId;
-        const result = await createContact(data, tenantId);
-        return res.status(201).json({ success: true, data: result });
+
+        // ✅ Get userId from middleware
+        const userId = req.user?.id;
+
+        console.log('tenantId =>', tenantId);
+        console.log('userId =>', userId); // Debug: check if userId is set
+
+        const result = await userCreateContact(req.body, tenantId, userId);
+
+        return res.status(201).json({
+            success: true,
+            ...result
+        });
     } catch (error) {
-        return res.status(400).json({ success: false, message: error.message });
+        next(error);
     }
 };
-
 
 // 2.===================== GET ALL CONTACTS =====================
 export const getAllContactsController = async (req, res) => {
@@ -109,7 +121,7 @@ export const unblockContactController = async (req, res) => {
 export const importContactsController = async (req, res) => {
     try {
         // 1️⃣ Get tenantId from middleware
-        const tenantId = req.tenantId;
+       const tenantId = req.tenant.id;
 
         // 2️⃣ Check file uploaded
         if (!req.file) {
@@ -139,5 +151,92 @@ export const importContactsController = async (req, res) => {
             success: false,
             message: error.message,
         });
+    }
+};
+
+
+
+// ==========================ADD TAG TO CONTACT===========================
+export const addTagToContactController = async (req, res, next) => {
+    try {
+        const { contactId } = req.params;
+        const { tagId } = req.body;
+
+        const existingMapping = await checkContactTagMapping(contactId, tagId);
+
+        if (existingMapping) {
+            return res.status(200).json({
+                success: true,
+                message: "Contact is already tagged with this tag"
+            });
+        }
+
+        const otherTags = await getContactTags(contactId);
+
+        if (otherTags.length > 0) {
+            const tagNames = otherTags.map((t) => t.tag.name).join(', ');
+            return res.status(200).json({
+                success: true,
+                message: `Contact is already tagged with another tag: ${tagNames}`
+            });
+        }
+
+        await addTagToContact(contactId, tagId);
+
+        const tag = await getTagById(tagId);
+
+        return res.status(200).json({
+            success: true,
+            message: `Contact assigned with tag ${tag.name}`
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+
+
+
+//get  all contacts under a user
+export const getContactsByUser = async (req, res, next) => {
+    try {
+        const tenantId = req.tenant.id; // From verifyTenant middleware
+        const { userId } = req.params;  // From URL: /api/contacts/by-user/:userId
+        const { page = 1, limit = 20, search = '' } = req.query;
+
+        const result = await getContactsByUserId(
+            tenantId, 
+            userId, 
+            parseInt(page), 
+            parseInt(limit), 
+            search
+        );
+
+        return res.status(200).json({
+            success: true,
+            ...result
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+
+
+//=====================Assign contacts by priority=====================
+export const assignContactsByPriority = async (req, res, next) => {
+    try {
+        const { contactIds } = req.body;
+        const tenantId = req.tenant.id;
+
+        const result = await assignByPriority(contactIds, tenantId);
+
+        return res.status(200).json({
+            success: true,
+            message: `${result.success} contacts assigned by priority`,
+            data: result.assignments
+        });
+    } catch (error) {
+        next(error);
     }
 };

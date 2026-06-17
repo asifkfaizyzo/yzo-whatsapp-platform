@@ -354,9 +354,26 @@ export const getUsersByTenantService = async (tenantId) => {
       createdAt: true,
       updatedAt: true,
       // ❌ password is NOT selected
+         assignedContacts: {
+        select: { id: true }
+      }
     },
     orderBy: {  createdAt: 'desc', },
   });
+
+ const usersWithCount = users.map(user => ({
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    isActive: user.isActive,
+    tenantId: user.tenantId,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+    
+    // ✅ The dynamic count you were looking for
+    assignedContactCount: user.assignedContacts.length 
+  }));
+
   return {
     message: 'Users fetched successfully',
     count: users.length,

@@ -4,7 +4,7 @@ import prisma from '../../config/prisma.js';
 import { generateAccessToken, generateRefreshToken } from '../auth/jwtservice.js';
 import { loginUserService } from '../users/userService.js';
 import { forgotPasswordTenantService, resetPasswordTenantService, } from './tenantService.js';
-import { userGetUnassignedContacts,userAssignMultipleContacts} from '../contacts/userContactService.js'
+import { userGetUnassignedContacts,userAssignMultipleContacts, assignByPriority} from '../contacts/userContactService.js'
 import {
   registerTenantService, loginTenantService, logoutTenantService,
   refreshTenantAccessTokenService, createUserService, getUsersByTenantService,
@@ -12,6 +12,7 @@ import {
   deactivateUserByIdService, assignContactService, reassignContactService,
   unassignContactService,getUnassignedContacts,listConversations,
 } from './tenantService.js';
+
 
 
 // Tenant Registration Controller
@@ -622,3 +623,20 @@ export const listConversationsController = async (req, res) => {
 
 
 
+//========Priority-Based Assignment using Tag-User Mapping.========
+export const assignContactsByPriority = async (req, res, next) => {
+    try {
+        const { contactIds } = req.body;
+       const tenantId = req.tenant.id;
+
+        const result = await assignByPriority(contactIds, tenantId);
+
+        res.status(200).json({
+            success: true,
+            message: `Processed ${contactIds.length} contacts. ${result.success} assigned, ${result.failed} failed.`,
+            data: result
+        });
+    } catch (error) {
+        next(error);
+    }
+};

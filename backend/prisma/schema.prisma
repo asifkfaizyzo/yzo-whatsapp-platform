@@ -8,7 +8,8 @@ datasource db {
 }
 
 
-// SuperAdmin Model
+
+//──────────────────Model SuperAdmin──────────────────
 model SuperAdmin {
   id        String   @id @default(cuid())
   name      String
@@ -20,6 +21,8 @@ model SuperAdmin {
 }
 
 
+
+//─────────────────enum TenantStatus───────────────────
 enum TenantStatus {
   PENDING
   APPROVED
@@ -28,8 +31,7 @@ enum TenantStatus {
 
 
 
-
-// Tenant Model
+//──────────────────Model Tenant──────────────────
 model Tenant {
   id          String   @id @default(cuid())
   tenantName  String
@@ -45,13 +47,16 @@ model Tenant {
   updatedAt   DateTime @updatedAt
 
   refreshTokens RefreshToken[]   // ← one tenant can have many refresh tokens
+   tags        Tag[]              
+  userTagMappings UserTagMapping[]
 
   users       User[]
   contacts      Contact[]  
 }
 
 
-// User Model
+
+//──────────────────Model User──────────────────
 model User {
   id         String   @id @default(cuid())
   tenantId   String
@@ -66,13 +71,15 @@ model User {
   tenant     Tenant   @relation(fields: [tenantId], references: [id])
 
   refreshTokens RefreshToken[]   // ← one user can have many refresh tokens
+    userTags   UserTagMapping[]
 
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 }
 
 
-// Refresh Token Model
+
+//──────────────────Model RefreshToken──────────────────
 model RefreshToken {
   id        String   @id @default(cuid())
   token     String   @db.Text
@@ -99,7 +106,7 @@ model RefreshToken {
 
 
 
-// PasswordReset Model
+//──────────────────PasswordReset Model────────────────── 
 model PasswordReset {
   id        String   @id @default(cuid())
   email     String
@@ -111,6 +118,7 @@ model PasswordReset {
 
 
 
+//──────────────────Model Contact──────────────────
 model Contact {
   id          String   @id @default(cuid())
 
@@ -119,7 +127,9 @@ model Contact {
   phone       String
   email       String?
   company     String?
-  tags        String[]
+
+  // Link to Tag model
+  contactTags ContactTagMapping[]
 
   // ─── WhatsApp ───
   countryCode String   @default("+91")
@@ -151,6 +161,73 @@ model Contact {
 
 
 
+//────────────New Tag Model────────────
+model Tag {
+  id          String   @id @default(cuid())
+  name        String   // "VIP", "Hot Lead", "General", "Support"
+  priority    Int      // 1 = Highest, 2, 3, 4 = Lowest
+  description String?  // Optional: describe the tag
+
+  // ─── Belongs to Tenant ───
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+
+  // ─── Relations ───
+  contactTags ContactTagMapping[]  // Which contacts have this tag
+  userTags    UserTagMapping[]     // Which users handle this tag
+
+  // ─── Timestamps ───
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([name, tenantId])  // Tag names are unique per tenant
+  @@index([tenantId])
+  @@index([priority])
+}
+
+
+
+//────────────Contact ↔ Tag Mapping────────────
+model ContactTagMapping {
+  id        String  @id @default(cuid())
+
+  contactId String
+  contact   Contact @relation(fields: [contactId], references: [id])
+
+  tagId     String
+  tag       Tag     @relation(fields: [tagId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([contactId, tagId])  // A contact can't have the same tag twice
+}
+
+
+
+//──────────── Tag Mapping (This is the KEY to priority assignment)────────────
+model UserTagMapping {
+  id     String @id @default(cuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  tagId  String
+  tag    Tag    @relation(fields: [tagId], references: [id])
+
+  // ─── Belongs to Tenant ───
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, tagId])  // A user can't be mapped to the same tag twice
+  @@index([tagId])
+  @@index([userId])
+}
+
+
+
+//──────Model Conversation──────
 model Conversation {
   id        String    @id @default(cuid())
   contactId String    @unique  // One conversation per contact (simplest)
@@ -180,6 +257,7 @@ model Conversation {
 
 
 
+//──────Model Message──────
 model Message {
   id             String       @id @default(cuid())
   conversationId String
@@ -200,6 +278,8 @@ model Message {
 }
 
 
+
+//──────Model ConversationActivity──────
 model ConversationActivity {
   id              String       @id @default(cuid())
   conversationId  String
@@ -220,6 +300,7 @@ model ConversationActivity {
 
 
 
+//──────Model autoReopen──────
 model AutoReopenConfig {
   id                 String   @id @default(cuid())
   tenantId           String   @unique
