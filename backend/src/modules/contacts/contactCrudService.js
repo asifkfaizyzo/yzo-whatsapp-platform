@@ -9,7 +9,7 @@ export const createContact = async (data, tenantId, userId) => {
 
     // ✅ Destructure tagIds too
     const { name, phone, email, company, tags, tagIds, countryCode } = data;
-    
+
     console.log('📋 Creating contact with data:', { name, phone, tags, tagIds, userId });
 
     if (!name || !phone) throw new Error('Name and phone are required');
@@ -107,8 +107,10 @@ export const createContact = async (data, tenantId, userId) => {
 
 
 // ===================== GET ALL CONTACTS =====================
-export const getAllContacts = async (tenantId) => {
-if (!tenantId) {
+// userId: if provided, only contacts assigned to that user are returned (regular user scope)
+export const getAllContacts = async (tenantId, page = 1, limit = 10, search = '', userId = null, filter = 'all') => {
+
+    if (!tenantId) {
         throw new Error('Tenant ID is required');
     }
 
@@ -117,6 +119,24 @@ if (!tenantId) {
         tenantId,
         isActive: true,
     };
+
+    // Restrict to assigned contacts when called by a regular user
+    if (userId) {
+        whereClause.assignedTo = userId;
+    } else {
+        if (filter === 'assigned') {
+            whereClause.assignedTo = { not: null };
+        } else if (filter === 'unassigned') {
+            whereClause.assignedTo = null;
+        }
+    }
+
+    // Blocked contacts filter
+    if (filter === 'blocked') {
+        whereClause.isBlocked = true;
+    } else if (filter !== 'all') {
+        whereClause.isBlocked = false;
+    }
 
     // If search text is present, filter contacts by name, phone, or email
     if (search) {
@@ -127,8 +147,6 @@ if (!tenantId) {
         ];
     }
 
-    // const skip = (2 - 1) * 10
-    // const debugskip = 10
     const skip = (page - 1) * limit;
     const take = limit;
 
@@ -187,7 +205,7 @@ export const getContactById = async (contactId, tenantId) => {
 
 // ===================== GET CONTACTS BY USER ID =====================
 export const getContactsByUserId = async (tenantId, userId) => {
-     console.log(`🔍 Fetching contacts for User: ${userId}, Tenant: ${tenantId}`);
+    console.log(`🔍 Fetching contacts for User: ${userId}, Tenant: ${tenantId}`);
 
     const contacts = await prisma.contact.findMany({
         where: {
@@ -202,7 +220,7 @@ export const getContactsByUserId = async (tenantId, userId) => {
         }
     });
 
-     console.log(`✅ Found ${contacts.length} contacts`);
+    console.log(`✅ Found ${contacts.length} contacts`);
     console.log(`📋 Contacts:`, contacts.map(c => c.name));
 
     return {
@@ -430,9 +448,9 @@ export const importContactsFromCSV = async (filePath, tenantId) => {
 
             if (!name || !phone) {
                 summary.errors++;
-                summary.errorDetails.push({ 
-                    name: name || 'Unknown', 
-                    reason: 'Missing Name or Phone' 
+                summary.errorDetails.push({
+                    name: name || 'Unknown',
+                    reason: 'Missing Name or Phone'
                 });
                 continue;
             }
@@ -446,10 +464,10 @@ export const importContactsFromCSV = async (filePath, tenantId) => {
 
             if (existing) {
                 summary.duplicates++;
-                summary.duplicateContacts.push({ 
-                    name, 
-                    phone, 
-                    reason: 'Already exists' 
+                summary.duplicateContacts.push({
+                    name,
+                    phone,
+                    reason: 'Already exists'
                 });
                 currentContactId = existing.id;
             } else {
@@ -472,63 +490,63 @@ export const importContactsFromCSV = async (filePath, tenantId) => {
 
                 currentContactId = newContact.id;
                 summary.created++;
-                summary.createdContacts.push({ 
-                    id: newContact.id, 
-                    name, 
-                    phone, 
-                    whatsappId 
+                summary.createdContacts.push({
+                    id: newContact.id,
+                    name,
+                    phone,
+                    whatsappId
                 });
             }
 
             // ✅ Handle Tags: ONLY use existing tags, NO new tag creation
             // --- D. Handle Tags ---
-for (const tagName of tagNames) {
-    
-    // ✅ Try multiple formats to find the tag
-    const normalizedTagName = tagName.charAt(0).toUpperCase() + tagName.slice(1).toLowerCase();
+            for (const tagName of tagNames) {
 
-    console.log(`🔍 Looking for tag: "${tagName}" → normalized: "${normalizedTagName}"`);
+                // ✅ Try multiple formats to find the tag
+                const normalizedTagName = tagName.charAt(0).toUpperCase() + tagName.slice(1).toLowerCase();
 
-    // Try to find tag (case insensitive search)
-    const tag = await prisma.tag.findFirst({
-        where: {
-            tenantId: tenantId,
-            name: {
-                equals: tagName,
-                mode: 'insensitive'  // ✅ Case insensitive match
+                console.log(`🔍 Looking for tag: "${tagName}" → normalized: "${normalizedTagName}"`);
+
+                // Try to find tag (case insensitive search)
+                const tag = await prisma.tag.findFirst({
+                    where: {
+                        tenantId: tenantId,
+                        name: {
+                            equals: tagName,
+                            mode: 'insensitive'  // ✅ Case insensitive match
+                        }
+                    }
+                });
+
+                if (!tag) {
+                    console.log(`⚠️ Tag '${tagName}' not found in DB. Skipping...`);
+                    continue;
+                }
+
+                console.log(`✅ Found tag: ${tag.name} (ID: ${tag.id})`);
+
+                // Check if mapping already exists
+                const linkExists = await prisma.contactTagMapping.findUnique({
+                    where: {
+                        contactId_tagId: {
+                            contactId: currentContactId,
+                            tagId: tag.id
+                        }
+                    }
+                });
+
+                if (!linkExists) {
+                    await prisma.contactTagMapping.create({
+                        data: {
+                            contactId: currentContactId,
+                            tagId: tag.id
+                        }
+                    });
+                    console.log(`✅ Mapped contact to tag '${tag.name}'`);
+                } else {
+                    console.log(`ℹ️ Mapping already exists for tag '${tag.name}'`);
+                }
             }
-        }
-    });
-
-    if (!tag) {
-        console.log(`⚠️ Tag '${tagName}' not found in DB. Skipping...`);
-        continue;
-    }
-
-    console.log(`✅ Found tag: ${tag.name} (ID: ${tag.id})`);
-
-    // Check if mapping already exists
-    const linkExists = await prisma.contactTagMapping.findUnique({
-        where: {
-            contactId_tagId: {
-                contactId: currentContactId,
-                tagId: tag.id
-            }
-        }
-    });
-
-    if (!linkExists) {
-        await prisma.contactTagMapping.create({
-            data: {
-                contactId: currentContactId,
-                tagId: tag.id
-            }
-        });
-        console.log(`✅ Mapped contact to tag '${tag.name}'`);
-    } else {
-        console.log(`ℹ️ Mapping already exists for tag '${tag.name}'`);
-    }
-}
 
         } catch (error) {
             summary.errors++;
@@ -610,13 +628,13 @@ for (const tagName of tagNames) {
 
 // get un- assigned contacts by the tenant
 export const getUnassignedContacts = async (tenantId) => {
-    return await prisma.contact.findMany({  
+    return await prisma.contact.findMany({
         where: {
-            tenantId  : tenantId,
-            assignedTo: null                
+            tenantId: tenantId,
+            assignedTo: null
         },
         orderBy: {
-            createdAt: 'desc'            
+            createdAt: 'desc'
         }
     });
 };
@@ -627,11 +645,11 @@ export const getUnassignedContacts = async (tenantId) => {
 export const findContactsByIds = async (contactIds, tenantId) => {
     return await prisma.contact.findMany({
         where: {
-            id      : { in: contactIds },
+            id: { in: contactIds },
             tenantId: tenantId
         },
         select: {
-            id        : true,
+            id: true,
             assignedTo: true
         }
     });

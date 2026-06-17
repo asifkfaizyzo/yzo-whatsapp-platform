@@ -33,12 +33,15 @@ api.interceptors.response.use(
 
       try {
         const refreshToken = localStorage.getItem('refreshToken');
-        if (!refreshToken || refreshToken === 'undefined') {
-          throw new Error('No valid refresh token');
+        const body = {};
+        if (refreshToken && refreshToken !== 'undefined') {
+          body.refreshToken = refreshToken;
         }
+
         const response = await axios.post(
           `${import.meta.env.VITE_API_URL}/refresh-token`,
-          { refreshToken }
+          body,
+          { withCredentials: true }
         );
 
         const newAccessToken = response.data.accessToken;

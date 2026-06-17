@@ -108,10 +108,10 @@ export const userAssignMultipleContacts = async (contactIds, userId, tenantId) =
     const contacts = await getContactsByIds(contactIds, tenantId);
 
     // 3. Logic: Check for Scenario 3 (Assigned to another user)
-    const conflict = contacts.find(c => c.assignedTo !== null && c.assignedTo !== userId);
-    if (conflict) {
-        return { message: `Contacts are assigned to another user (${conflict.assignedTo})` };
-    }
+    // const conflict = contacts.find(c => c.assignedTo !== null && c.assignedTo !== userId);
+    // if (conflict) {
+    //     return { message: `Contacts are assigned to another user (${conflict.assignedTo})` };
+    // }
 
     // 4. Logic: Check for Scenario 2 (Already assigned to same user)
     const alreadyAssigned = contacts.every(c => c.assignedTo === userId);

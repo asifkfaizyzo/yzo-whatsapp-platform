@@ -23,10 +23,10 @@ export const createConversation = async (contactId) => {
 /**
  * Get all conversations assigned to the logged-in agent/user
  */
-export const getAssignedConversations = async (page = 1, limit = 20) => {
+export const getAssignedConversations = async (page = 1, limit = 20, filter = "all") => {
   try {
     const response = await api.get(`${CONV_BASE_URL}/assigned`, {
-      params: { page, limit },
+      params: { page, limit, filter },
     });
     return {
       success: true,
@@ -56,6 +56,24 @@ export const getConversationMessages = async (conversationId, limit = 30, before
     return {
       success: false,
       message: error.response?.data?.message || "Failed to fetch messages",
+    };
+  }
+};
+
+/**
+ * Update the status of a conversation (e.g., OPEN, RESOLVED, CLOSED)
+ */
+export const updateConversationStatus = async (conversationId, status) => {
+  try {
+    const response = await api.patch(`${CONV_BASE_URL}/status/${conversationId}`, { status });
+    return {
+      success: true,
+      data: response.data.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to update conversation status",
     };
   }
 };

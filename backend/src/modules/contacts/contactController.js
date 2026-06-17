@@ -1,14 +1,13 @@
 import { importContactsFromCSV } from './contactCrudService.js';
-import { userCreateContact     } from './userContactService.js';
+import { userCreateContact } from './userContactService.js';
 import { assignByPriority } from './userContactService.js';
 import {
-         createContact, getAllContacts, getContactById, updateContact,
-         deleteContact, blockContact, unblockContact,addTagToContact,
-         checkContactTagMapping,getContactTags,getTagById, getContactsByUserId
-       } from './contactCrudService.js';
+    createContact, getAllContacts, getContactById, updateContact,
+    deleteContact, blockContact, unblockContact, addTagToContact,
+    checkContactTagMapping, getContactTags, getTagById, getContactsByUserId
+} from './contactCrudService.js';
 
 
-//Shared Controller
 //  1.===================== CREATE CONTACT =====================
 export const createContactController = async (req, res, next) => {
     try {
@@ -35,13 +34,17 @@ export const createContactController = async (req, res, next) => {
 export const getAllContactsController = async (req, res) => {
     try {
         const tenantId = req.tenantId;
-        
+
         // Safely parse query parameters with fallbacks to defaults
         const page = parseInt(req.query.page, 10) || 1;
         const limit = parseInt(req.query.limit, 10) || 10;
         const search = req.query.search || '';
+        const filter = req.query.filter || 'all';
 
-        const result = await getAllContacts(tenantId, page, limit, search);
+        // Tenants see all contacts; regular users only see their assigned contacts
+        const userId = req.userType === 'USER' ? req.user.id : null;
+
+        const result = await getAllContacts(tenantId, page, limit, search, userId, filter);
         return res.status(200).json({ success: true, data: result });
     } catch (error) {
         return res.status(400).json({ success: false, message: error.message });
@@ -79,6 +82,9 @@ export const updateContactController = async (req, res) => {
 // 5.===================== DELETE CONTACT =====================
 export const deleteContactController = async (req, res) => {
     try {
+        if (req.userType !== 'TENANT') {
+            return res.status(403).json({ success: false, message: "Only tenant admins can delete contacts" });
+        }
         const { id } = req.params;
         const tenantId = req.tenantId;
         const result = await deleteContact(id, tenantId);
@@ -92,6 +98,9 @@ export const deleteContactController = async (req, res) => {
 // 6.===================== BLOCK CONTACT =====================
 export const blockContactController = async (req, res) => {
     try {
+        if (req.userType !== 'TENANT') {
+            return res.status(403).json({ success: false, message: "Only tenant admins can block contacts" });
+        }
         const { id } = req.params;
         const tenantId = req.tenantId;
         const result = await blockContact(id, tenantId);
@@ -105,6 +114,9 @@ export const blockContactController = async (req, res) => {
 // 7.===================== UNBLOCK CONTACT =====================
 export const unblockContactController = async (req, res) => {
     try {
+        if (req.userType !== 'TENANT') {
+            return res.status(403).json({ success: false, message: "Only tenant admins can unblock contacts" });
+        }
         const { id } = req.params;
         const tenantId = req.tenantId;
         const result = await unblockContact(id, tenantId);
@@ -121,7 +133,7 @@ export const unblockContactController = async (req, res) => {
 export const importContactsController = async (req, res) => {
     try {
         // 1️⃣ Get tenantId from middleware
-       const tenantId = req.tenant.id;
+        const tenantId = req.tenant.id;
 
         // 2️⃣ Check file uploaded
         if (!req.file) {
@@ -137,7 +149,8 @@ export const importContactsController = async (req, res) => {
         // 3️⃣ Call service
         const result = await importContactsFromCSV(
             req.file.path,
-            tenantId
+            tenantId,
+            userId
         );
 
         // 4️⃣ Return result
@@ -205,10 +218,10 @@ export const getContactsByUser = async (req, res, next) => {
         const { page = 1, limit = 20, search = '' } = req.query;
 
         const result = await getContactsByUserId(
-            tenantId, 
-            userId, 
-            parseInt(page), 
-            parseInt(limit), 
+            tenantId,
+            userId,
+            parseInt(page),
+            parseInt(limit),
             search
         );
 

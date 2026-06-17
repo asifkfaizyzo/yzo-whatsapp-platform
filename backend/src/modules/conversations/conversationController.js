@@ -1,6 +1,6 @@
 import {
        getOrCreateConversation,getConversationByContact,
-       getAssignedConversations,getMessages
+       getAssignedConversations,getMessages,updateConversationStatus
        } from './conversationService.js';
 
 
@@ -49,7 +49,7 @@ export const getConversationController = async (req, res) => {
   try {
     const { contactId } = req.params;
 
-    const tenantId = req.user.tenantId;
+    const tenantId = req.tenantId;
 
     const conversation = await getConversationByContact(
       contactId,
@@ -85,12 +85,31 @@ export const getConversationController = async (req, res) => {
 export const getAssignedConversationsController = async (req, res) => {
   try {
     // 1️⃣ Get logged-in user info
-    const userId = req.user.id;
-    const tenantId = req.user.tenantId;
+    const userId = req.userType === 'TENANT' ? null : req.user.id;
+    const tenantId = req.tenantId;
 
-    // 2️⃣ Get pagination from URL
+    // 2️⃣ Get pagination and filter from URL
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
+    const filter = req.query.filter || (req.userType === 'TENANT' ? 'all' : 'my');
+
+    let status = 'OPEN';
+    let assignmentType = 'all';
+
+    if (req.userType === 'TENANT') {
+      if (filter === 'closed') {
+        status = 'CLOSED';
+      } else if (filter === 'assigned') {
+        assignmentType = 'assigned';
+      } else if (filter === 'unassigned') {
+        assignmentType = 'unassigned';
+      }
+    } else {
+      assignmentType = 'my';
+      if (filter === 'closed') {
+        status = 'CLOSED';
+      }
+    }
 
     // 3️⃣ Call service
     const result = await getAssignedConversations({
@@ -98,6 +117,8 @@ export const getAssignedConversationsController = async (req, res) => {
       tenantId,
       page,
       limit,
+      status,
+      assignmentType,
     });
 
     // 4️⃣ Send response
@@ -120,7 +141,7 @@ export const getAssignedConversationsController = async (req, res) => {
 //Get messages for a conversation (pagination + infinite scroll)
 export const getMessagesController = async (req, res) => {
   try {
-    const tenantId = req.user?.tenantId;
+    const tenantId = req.tenantId;
     const conversationId = req.params.conversationId;
 
     if (!tenantId) {
@@ -156,4 +177,34 @@ export const getMessagesController = async (req, res) => {
 };
 
 
+// Update conversation status controller
+export const updateConversationStatusController = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const { status } = req.body;
+    const tenantId = req.tenantId;
 
+    // Extract agent context
+    const agentId = req.userType === 'TENANT' ? null : req.user.id;
+    const userType = req.userType;
+
+    const conversation = await updateConversationStatus({
+      conversationId,
+      tenantId,
+      status,
+      agentId,
+      userType,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `Conversation status updated successfully to ${status}`,
+      data: conversation,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};

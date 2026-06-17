@@ -27,22 +27,31 @@ import { useFormHandler } from "../../hooks/useFormHandler";
 import { contactFormSchema } from "../../validations/contact.validation";
 import FormError from "../../components/FormError";
 import { createConversation } from "../../services/conversation.service";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useAuthStore } from "../../store/useAuthStore";
 import {
   getTenantUsers,
   assignContact,
   reassignContact,
   unassignContact,
+  assignMultipleContacts,
 } from "../../services/tenant.service";
 
 export default function Contacts() {
+  const { user } = useAuthStore();
+  const isAdmin = user?.type === "TENANT";
   const [contacts, setContacts] = useState([]);
+  const [selectedContactIds, setSelectedContactIds] = useState([]);
+  const [bulkAgentId, setBulkAgentId] = useState("");
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [search, setSearch] = useState("");
   const [editingContact, setEditingContact] = useState(null);
   const [agents, setAgents] = useState([]);
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filter = searchParams.get("filter") || "all";
+  
   // Setup hook for adding/editing contacts
   const contactForm = useFormHandler({
     schema: contactFormSchema,
@@ -99,15 +108,16 @@ export default function Contacts() {
 
   useEffect(() => {
     fetchContacts();
-  }, [page, limit, debouncedSearch]);
+  }, [page, limit, debouncedSearch, filter]);
 
   const fetchContacts = async () => {
     setLoading(true);
-    const res = await getContacts(page, limit, debouncedSearch);
+    const res = await getContacts(page, limit, debouncedSearch, filter);
     if (res.success) {
       setContacts(res.data.contacts || []);
       setTotalPages(res.data.totalPages || 1);
       setTotalContacts(res.data.count || 0);
+      setSelectedContactIds([]); // Clear any bulk selection
     } else {
       console.error(res.message);
     }
@@ -305,15 +315,40 @@ export default function Contacts() {
     }
   };
 
+  const handleBulkAssignSubmit = async () => {
+    if (!bulkAgentId) {
+      alert("Please select an agent.");
+      return;
+    }
+    if (selectedContactIds.length === 0) {
+      alert("Please select at least one contact.");
+      return;
+    }
+
+    const res = await assignMultipleContacts(selectedContactIds, bulkAgentId);
+    
+    if (res.success) {
+      alert(res.message);
+      setSelectedContactIds([]);
+      setBulkAgentId("");
+      fetchContacts(); // Reload contacts list
+    } else {
+      alert(res.message);
+    }
+  };
+
   useEffect(() => {
     const fetchAgents = async () => {
+      if (!isAdmin) return;
       const res = await getTenantUsers();
       if (res.success) {
         setAgents(res.data || []);
       }
     };
     fetchAgents();
-  }, []);
+  }, [isAdmin]);
+
+  const activeContacts = contacts.filter((c) => !c.isBlocked);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
@@ -374,17 +409,65 @@ export default function Contacts() {
           </div>
         </div>
 
+        {/* Bulk Actions Panel */}
+        {isAdmin && selectedContactIds.length > 0 && (
+          <div className="p-4 bg-emerald-50/60 border-b border-slate-100 flex items-center justify-between animate-in slide-in-from-top-2 duration-200">
+            <span className="text-xs font-semibold text-emerald-800">
+              {selectedContactIds.length} contact(s) selected
+            </span>
+            <div className="flex items-center gap-2">
+              <select
+                value={bulkAgentId}
+                onChange={(e) => setBulkAgentId(e.target.value)}
+                className="input text-xs py-1.5 px-2 border border-slate-200 rounded-lg bg-white w-48"
+              >
+                <option value="">-- Assign to Agent --</option>
+                {agents.map((agent) => (
+                  <option key={agent.id} value={agent.id}>
+                    {agent.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={handleBulkAssignSubmit}
+                disabled={!bulkAgentId}
+                className="btn-primary py-1.5 px-3.5 text-xs shadow-sm hover:shadow transition"
+              >
+                Assign Selected
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Contacts Table */}
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="text-xs text-[color:var(--muted)] font-bold border-b border-slate-100 bg-slate-50/20">
+                {isAdmin && (
+                  <th className="p-4 w-12 text-center">
+                    <input
+                      type="checkbox"
+                      checked={activeContacts.length > 0 && activeContacts.every((c) => selectedContactIds.includes(c.id))}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedContactIds(activeContacts.map((c) => c.id));
+                        } else {
+                          setSelectedContactIds([]);
+                        }
+                      }}
+                      className="rounded border-slate-350 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                    />
+                  </th>
+                )}
                 <th className="p-4 font-semibold">Name</th>
                 <th className="p-4 font-semibold">WhatsApp Number</th>
                 <th className="p-4 font-semibold">Email</th>
                 <th className="p-4 font-semibold">Subscribed Date</th>
                 <th className="p-4 font-semibold">Segment Tag</th>
-                <th className="p-4 font-semibold">Assigned Agent</th>
+                {isAdmin && (
+                  <th className="p-4 font-semibold">Assigned Agent</th>
+                )}
                 <th className="p-4 font-semibold text-center">Actions</th>
               </tr>
             </thead>
@@ -392,6 +475,11 @@ export default function Contacts() {
               {loading ? (
                 Array.from({ length: limit }).map((_, idx) => (
                   <tr key={`skeleton-${idx}`} className="animate-pulse">
+                    {isAdmin && (
+                      <td className="p-4 w-12 text-center">
+                        <div className="h-4 bg-slate-100 rounded w-4 mx-auto"></div>
+                      </td>
+                    )}
                     <td className="p-4">
                       <div className="h-4 bg-slate-200 rounded w-28"></div>
                     </td>
@@ -407,6 +495,11 @@ export default function Contacts() {
                     <td className="p-4">
                       <div className="h-6 bg-slate-100 rounded-full w-16"></div>
                     </td>
+                    {isAdmin && (
+                      <td className="p-4">
+                        <div className="h-8 bg-slate-100 rounded-lg w-40"></div>
+                      </td>
+                    )}
                     <td className="p-4">
                       <div className="flex justify-center gap-2">
                         <div className="h-7 w-7 bg-slate-100 rounded-lg"></div>
@@ -418,7 +511,10 @@ export default function Contacts() {
                 ))
               ) : contacts.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="text-center py-12 text-slate-400">
+                  <td
+                    colSpan={isAdmin ? 8 : 6}
+                    className="text-center py-12 text-slate-400"
+                  >
                     <div className="flex flex-col items-center justify-center gap-2">
                       <Users
                         size={32}
@@ -452,6 +548,24 @@ export default function Contacts() {
                       key={c.id}
                       className={`hover:bg-slate-50/40 ${c.isBlocked ? "bg-red-50/20" : ""}`}
                     >
+                      {isAdmin && (
+                        <td className="p-4 text-center">
+                          <input
+                            type="checkbox"
+                            disabled={c.isBlocked}
+                            checked={selectedContactIds.includes(c.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedContactIds((prev) => [...prev, c.id]);
+                              } else {
+                                setSelectedContactIds((prev) => prev.filter((id) => id !== c.id));
+                              }
+                            }}
+                            className="rounded border-slate-350 text-emerald-600 focus:ring-emerald-500 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                            title={c.isBlocked ? "Blocked contacts cannot be assigned" : ""}
+                          />
+                        </td>
+                      )}
                       <td className="p-4">
                         <div className="flex items-center gap-2">
                           <p className="font-bold text-slate-800 text-sm">
@@ -477,26 +591,30 @@ export default function Contacts() {
                           {primaryTag}
                         </span>
                       </td>
-                      <td className="p-4">
-                        <select
-                          value={c.assignedTo || ""}
-                          onChange={(e) =>
-                            handleAssignmentChange(
-                              c.id,
-                              c.assignedTo,
-                              e.target.value,
-                            )
-                          }
-                          className="input text-xs py-1 px-2 border border-slate-200 rounded-lg bg-white w-40"
-                        >
-                          <option value="">-- Unassigned --</option>
-                          {agents.map((agent) => (
-                            <option key={agent.id} value={agent.id}>
-                              {agent.name}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
+                      {isAdmin && (
+                        <td className="p-4">
+                          <select
+                            disabled={c.isBlocked}
+                            value={c.assignedTo || ""}
+                            onChange={(e) =>
+                              handleAssignmentChange(
+                                c.id,
+                                c.assignedTo,
+                                e.target.value,
+                              )
+                            }
+                            className="input text-xs py-1 px-2 border border-slate-200 rounded-lg bg-white w-40 disabled:opacity-40 disabled:cursor-not-allowed"
+                            title={c.isBlocked ? "Blocked contacts cannot be assigned" : ""}
+                          >
+                            <option value="">-- Unassigned --</option>
+                            {agents.map((agent) => (
+                              <option key={agent.id} value={agent.id}>
+                                {agent.name}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                      )}
                       <td className="p-4 text-center">
                         <div className="flex items-center justify-center gap-2">
                           <button
@@ -508,33 +626,37 @@ export default function Contacts() {
                             <Edit2 size={14} />
                           </button>
 
-                          <button
-                            type="button"
-                            onClick={() => handleToggleBlock(c)}
-                            className={`p-1.5 rounded-lg transition ${
-                              c.isBlocked
-                                ? "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
-                                : "text-amber-500 hover:text-amber-600 hover:bg-amber-50"
-                            }`}
-                            title={
-                              c.isBlocked ? "Unblock Contact" : "Block Contact"
-                            }
-                          >
-                            {c.isBlocked ? (
-                              <Unlock size={14} />
-                            ) : (
-                              <Ban size={14} />
-                            )}
-                          </button>
+                          {isAdmin && (
+                            <button
+                              type="button"
+                              onClick={() => handleToggleBlock(c)}
+                              className={`p-1.5 rounded-lg transition ${
+                                c.isBlocked
+                                  ? "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                                  : "text-amber-500 hover:text-amber-600 hover:bg-amber-50"
+                              }`}
+                              title={
+                                c.isBlocked ? "Unblock Contact" : "Block Contact"
+                              }
+                            >
+                              {c.isBlocked ? (
+                                <Unlock size={14} />
+                              ) : (
+                                <Ban size={14} />
+                              )}
+                            </button>
+                          )}
 
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(c.id)}
-                            className="text-slate-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition"
-                            title="Delete Contact"
-                          >
-                            <Trash2 size={14} />
-                          </button>
+                          {isAdmin && (
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(c.id)}
+                              className="text-slate-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition"
+                              title="Delete Contact"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
 
                           <button
                             type="button"

@@ -1,63 +1,92 @@
 import { create } from 'zustand';
 import axios from 'axios';
-import api from '../lib/axios';
 
+// ─── Helper ───────────────────────────────────────────────────────────────────
+const getAuthConfig = (userType) => {
+  const isUser = userType === 'USER';
+  return {
+    baseUrl: isUser
+      ? `${import.meta.env.VITE_BACKEND_URL}/api3`
+      : `${import.meta.env.VITE_BACKEND_URL}/api2`,
+    refreshEndpoint: isUser ? '/refresh-user-access' : '/refresh-token',
+    logoutEndpoint: isUser ? '/logout-user' : '/logout',
+  };
+};
+
+// ─── Store ────────────────────────────────────────────────────────────────────
 export const useAuthStore = create((set, get) => ({
   user: null,
   accessToken: null,
   isAuthenticated: false,
   isLoading: true,
 
-  // Action: Initialize Auth (Silent token refresh on app mount)
+  // ── Initialize Auth on App Mount ──────────────────────────────────────────
   checkAuth: async () => {
     set({ isLoading: true });
     try {
-      // Determine if user is tenant or agent by checking a small local state hint
-      const isUser = localStorage.getItem('user_type') === 'USER';
-      const refreshEndpoint = isUser ? '/refresh-user-access' : '/refresh-token';
-      const refreshBaseUrl = isUser 
-        ? `${import.meta.env.VITE_BACKEND_URL}/api3` 
-        : `${import.meta.env.VITE_BACKEND_URL}/api2`;
+      const userType = localStorage.getItem('user_type');
+      const { baseUrl, refreshEndpoint } = getAuthConfig(userType);
 
-      // Make a call to refresh endpoint. The browser automatically attaches the httpOnly cookie.
       const response = await axios.post(
-        `${refreshBaseUrl}${refreshEndpoint}`,
+        `${baseUrl}${refreshEndpoint}`,
         {},
         { withCredentials: true }
       );
-      
-      const accessToken = isUser ? response.data.data.accessToken : response.data.accessToken;
-      
-      // Load user details from localStorage
-      const storedUser = JSON.parse(localStorage.getItem('user') || 'null');
 
-      if (!storedUser) {
-        throw new Error('User metadata not found in localStorage');
+      const isUser = userType === 'USER';
+
+      // ✅ Prefer getting user data from server response
+      const accessToken = isUser
+        ? response.data.data.accessToken
+        : response.data.accessToken;
+
+      const serverUser = isUser
+        ? response.data.data.user
+        : response.data.user;
+
+      // Fallback to localStorage only if server doesn't return user
+      const userData = serverUser || JSON.parse(localStorage.getItem('user') || 'null');
+
+      if (!userData) {
+        throw new Error('User metadata not found');
       }
 
+      // Keep localStorage in sync with fresh server data
+      localStorage.setItem('user', JSON.stringify(userData));
+
       set({
-        user: storedUser,
-        accessToken: accessToken,
+        user: userData,
+        accessToken,
         isAuthenticated: true,
         isLoading: false,
       });
     } catch (error) {
-      // Clear memory states if session expired or failed
-      localStorage.removeItem('user');
-      localStorage.removeItem('user_type');
-      set({
-        user: null,
-        accessToken: null,
-        isAuthenticated: false,
-        isLoading: false,
-      });
+          console.log('Refresh Failed:', error.response?.data);
+    console.log('Status:', error.response?.status);
+      const status = error.response?.status;
+
+      if (!status || status === 401 || status === 403) {
+        // Expired or invalid session → clear everything
+        localStorage.removeItem('user');
+        localStorage.removeItem('user_type');
+        set({
+          user: null,
+          accessToken: null,
+          isAuthenticated: false,
+          isLoading: false,
+        });
+      } else {
+        // Network/server error → don't force logout
+        console.error('Auth check failed (non-auth error):', error);
+        set({ isLoading: false });
+      }
     }
   },
 
-  // Action: Set User and Token manually (after successful login)
+  // ── Login ─────────────────────────────────────────────────────────────────
   login: (userData, token) => {
     localStorage.setItem('user', JSON.stringify(userData));
-    localStorage.setItem('user_type', userData.type); // Hint for endpoints
+    localStorage.setItem('user_type', userData.type);
     set({
       user: userData,
       accessToken: token,
@@ -66,17 +95,18 @@ export const useAuthStore = create((set, get) => ({
     });
   },
 
-  // Action: Clear store on logout
+  // ── Logout ────────────────────────────────────────────────────────────────
   logout: async () => {
     set({ isLoading: true });
     try {
-      const isUser = localStorage.getItem('user_type') === 'USER';
-      const logoutEndpoint = isUser ? '/logout-user' : '/logout';
-      const logoutBaseUrl = isUser 
-        ? `${import.meta.env.VITE_BACKEND_URL}/api3` 
-        : `${import.meta.env.VITE_BACKEND_URL}/api2`;
+      const userType = localStorage.getItem('user_type');
+      const { baseUrl, logoutEndpoint } = getAuthConfig(userType);
 
-      await axios.post(`${logoutBaseUrl}${logoutEndpoint}`, {}, { withCredentials: true });
+      await axios.post(
+        `${baseUrl}${logoutEndpoint}`,
+        {},
+        { withCredentials: true }
+      );
     } catch (error) {
       console.error('Logout error on server:', error);
     } finally {

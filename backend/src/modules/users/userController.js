@@ -1,10 +1,12 @@
 import bcrypt from 'bcrypt';
 import pkg from '@prisma/client';
 
-import{ generateAccessToken, generateRefreshToken} from '../auth/jwtservice.js';
-import{ loginUserService,logoutUserService,refreshUserAccessTokenService,
-        getAssignedContacts } from './userService.js';
-import{ forgotPasswordUserService,resetPasswordUserService, } from './userService.js';
+import { generateAccessToken, generateRefreshToken } from '../auth/jwtservice.js';
+import {
+  loginUserService, logoutUserService, refreshUserAccessTokenService,
+  getAssignedContacts
+} from './userService.js';
+import { forgotPasswordUserService, resetPasswordUserService, } from './userService.js';
 
 
 // ===============User Login Controller===============
@@ -26,6 +28,7 @@ export const loginUser =
         secure: process.env.NODE_ENV === 'production',
         sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        path: '/',
       });
 
       return res.status(200).json({
@@ -46,7 +49,7 @@ export const loginUser =
       });
 
     }
-};
+  };
 
 
 
@@ -64,6 +67,7 @@ export const logoutUser = async (req, res) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      path: '/',
     });
 
     return res.status(200).json({

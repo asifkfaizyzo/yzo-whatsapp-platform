@@ -7,10 +7,10 @@ const CONTACTS_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api4`;
 /**
  * Fetch all contacts for the logged-in tenant
  */
-export const getContacts = async (page = 1, limit = 10, search = "") => {
+export const getContacts = async (page = 1, limit = 10, search = "", filter = "all") => {
   try {
     const response = await api.get(`${CONTACTS_BASE_URL}/get-all-contacts`, {
-      params: { page, limit, search }
+      params: { page, limit, search, filter }
     });
     return {
       success: true,

@@ -74,3 +74,24 @@ export const unassignContact = async (contactId) => {
     };
   }
 };
+
+/**
+ * Assign multiple contacts to an agent in bulk
+ */
+export const assignMultipleContacts = async (contactIds, userId) => {
+  try {
+    const response = await api.patch(`${TENANT_BASE_URL}/assign-multiple`, {
+      contactIds,
+      userId,
+    });
+    return {
+      success: true,
+      message: response.data.message || "Contacts assigned successfully",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to assign contacts in bulk",
+    };
+  }
+};

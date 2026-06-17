@@ -1,7 +1,7 @@
 // src/components/Sidebar.jsx
 
 import React from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   Inbox,
@@ -11,11 +11,45 @@ import {
   UserCheck,
   BarChart3,
   Settings,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
   const isAdmin = userRole === "admin";
   const isPending = tenantStatus === "PENDING";
+  const location = useLocation();
+
+  const [inboxOpen, setInboxOpen] = React.useState(() => 
+    location.pathname.startsWith("/dashboard/inbox")
+  );
+  const [contactsOpen, setContactsOpen] = React.useState(() => 
+    location.pathname.startsWith("/dashboard/contacts")
+  );
+
+  React.useEffect(() => {
+    if (location.pathname.startsWith("/dashboard/inbox")) {
+      setInboxOpen(true);
+    }
+    if (location.pathname.startsWith("/dashboard/contacts")) {
+      setContactsOpen(true);
+    }
+  }, [location.pathname]);
+
+  const isSubItemActive = (path, filterValue) => {
+    if (location.pathname !== path) return false;
+    const searchParams = new URLSearchParams(location.search);
+    const activeFilter = searchParams.get("filter");
+    
+    if (!activeFilter) {
+      const isInbox = path.startsWith("/dashboard/inbox");
+      const defaultVal = isInbox 
+        ? (isAdmin ? "all" : "my")
+        : "all";
+      return filterValue === defaultVal;
+    }
+    return activeFilter === filterValue;
+  };
 
   const allMenuItems = [
     {
@@ -31,6 +65,18 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
       icon: <Inbox size={20} />,
       adminOnly: false,
       restrictedForPending: true,
+      hasDropdown: true,
+      dropdownItems: isAdmin
+        ? [
+            { label: "All", path: "/dashboard/inbox?filter=all", filterValue: "all" },
+            { label: "Assigned", path: "/dashboard/inbox?filter=assigned", filterValue: "assigned" },
+            { label: "Unassigned", path: "/dashboard/inbox?filter=unassigned", filterValue: "unassigned" },
+            { label: "Closed", path: "/dashboard/inbox?filter=closed", filterValue: "closed" },
+          ]
+        : [
+            { label: "My Chats", path: "/dashboard/inbox?filter=my", filterValue: "my" },
+            { label: "Closed", path: "/dashboard/inbox?filter=closed", filterValue: "closed" },
+          ],
     },
     {
       label: "Broadcasts",
@@ -52,6 +98,15 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
       icon: <Users size={20} />,
       adminOnly: false,
       restrictedForPending: true,
+      hasDropdown: isAdmin, // Only Admin (Tenant) gets contacts dropdown
+      dropdownItems: isAdmin
+        ? [
+            { label: "All", path: "/dashboard/contacts?filter=all", filterValue: "all" },
+            { label: "Assigned", path: "/dashboard/contacts?filter=assigned", filterValue: "assigned" },
+            { label: "Unassigned", path: "/dashboard/contacts?filter=unassigned", filterValue: "unassigned" },
+            { label: "Blocked", path: "/dashboard/contacts?filter=blocked", filterValue: "blocked" },
+          ]
+        : null,
     },
     {
       label: "Team",
@@ -123,6 +178,66 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
                 </div>
               );
             }
+
+            if (item.hasDropdown) {
+              const isOpen = item.label === "Inbox" ? inboxOpen : contactsOpen;
+              const isParentActive = location.pathname.startsWith(item.path);
+              const defaultSubPath = item.dropdownItems[0].path;
+
+              return (
+                <div key={item.path} className="space-y-1">
+                  <NavLink
+                    to={defaultSubPath}
+                    className={`flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium transition duration-150 ${isParentActive
+                      ? "bg-emerald-50 text-emerald-700 font-semibold"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3.5">
+                      <span className="transition-transform duration-200">
+                        {item.icon}
+                      </span>
+                      <span>{item.label}</span>
+                    </div>
+                    <span 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (item.label === "Inbox") setInboxOpen(!inboxOpen);
+                        if (item.label === "Contacts") setContactsOpen(!contactsOpen);
+                      }}
+                      className="p-1 hover:bg-emerald-100 hover:text-emerald-800 rounded-md transition"
+                    >
+                      {isOpen ? (
+                        <ChevronUp size={14} className="text-slate-400" />
+                      ) : (
+                        <ChevronDown size={14} className="text-slate-400" />
+                      )}
+                    </span>
+                  </NavLink>
+
+                  {isOpen && (
+                    <div className="pl-6 space-y-1 ml-3 border-l border-slate-100 animate-in fade-in duration-200">
+                      {item.dropdownItems.map((subItem) => {
+                        const isActive = isSubItemActive(item.path, subItem.filterValue);
+                        return (
+                          <NavLink
+                            key={subItem.path}
+                            to={subItem.path}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition duration-150 ${isActive
+                              ? "bg-slate-50 text-emerald-700 font-semibold border-l-2 border-emerald-600 pl-3.5"
+                              : "text-slate-500 hover:bg-slate-50 hover:text-slate-800 pl-3.5"
+                            }`}
+                          >
+                            <span>{subItem.label}</span>
+                          </NavLink>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            }
             
             return (
               <NavLink
@@ -150,7 +265,7 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
       {/* Footer Info */}
       <div className="p-4 border-t border-[color:var(--border)]">
         <p className="text-[11px] text-[color:var(--muted)] text-center font-medium">
-          yzo Platform v1.0.0
+          Replyo v1.0.0
         </p>
       </div>
     </aside>

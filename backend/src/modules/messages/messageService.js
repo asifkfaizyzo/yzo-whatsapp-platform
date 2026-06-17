@@ -1,5 +1,6 @@
 import bcrypt from 'bcrypt';
 import pkg from '@prisma/client';
+import prisma from '../../config/prisma.js';
 
 import { getOrCreateConversation } from '../conversations/conversationService.js';
 import { evaluateReopen } from '../auto-reopen/autoReopenService.js';
@@ -152,22 +153,52 @@ export const sendMessageService = async ({
       tenantId
     );
 
+  const isClosed = CLOSED_STATUSES.includes(conversation.status);
+
+  if (isClosed) {
+    await prisma.conversation.update({
+      where: { id: conversation.id },
+      data: {
+        status: 'OPEN',
+        reopenCount: { increment: 1 },
+        reopenedAt: new Date(),
+        resolvedAt: null,
+        closedAt: null,
+        lastMessageAt: new Date(),
+      },
+    });
+
+    await logActivity({
+      conversationId: conversation.id,
+      action: 'opened',
+      performedBy: senderId || null,
+      performedByType: senderType === 'TENANT' ? 'tenant' : 'agent',
+    });
+  } else {
+    await prisma.conversation.update({
+      where: { id: conversation.id },
+      data: {
+        lastMessageAt: new Date(),
+      },
+    });
+  }
+
   // Create message
   
   console.log({
   senderId,
   senderType,
 });
-    const message = await prisma.message.create({
-      data: {
-        conversationId: conversation.id,
-        senderId,
-        senderType,
-        text,
-        type: "TEXT",
-        isRead: false,
-      },
-    });
+  const message = await prisma.message.create({
+    data: {
+      conversationId: conversation.id,
+      senderId,
+      senderType,
+      text,
+      type: "TEXT",
+      isRead: false,
+    },
+  });
 
   return message;
 };

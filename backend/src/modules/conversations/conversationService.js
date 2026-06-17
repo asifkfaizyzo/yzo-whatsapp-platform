@@ -1,6 +1,6 @@
 import bcrypt from 'bcrypt';
 import pkg from '@prisma/client';
-
+import { logActivity } from '../activity/activityService.js';
 
 
  //AUTO / MANUAL: Get or create conversation
@@ -63,25 +63,41 @@ export const getAssignedConversations = async ({
   tenantId,
   page,
   limit,
+  status,
+  assignmentType,
 }) => {
   try {
     const skip = (page - 1) * limit;
-    const allContacts = await prisma.contact.findMany({
-      where: { tenantId },
-      select: {
-        id: true,
-        name: true,
-        assignedTo: true,
-      },
-    })
-    const matchedContacts = allContacts.filter(
-      (c) => c.assignedTo === userId
-    );
+    const whereClause = {
+      tenantId: tenantId,
+    };
+
+    // Filter by status
+    if (status === 'CLOSED') {
+      whereClause.status = { in: ['CLOSED', 'RESOLVED'] };
+    } else {
+      whereClause.status = 'OPEN';
+    }
+
+    // Filter by assignment
+    const assignType = assignmentType || (userId ? 'my' : 'all');
+    if (assignType === 'my' && userId) {
+      whereClause.contact = {
+        assignedTo: userId,
+      };
+    } else if (assignType === 'assigned') {
+      whereClause.contact = {
+        assignedTo: { not: null },
+      };
+    } else if (assignType === 'unassigned') {
+      whereClause.contact = {
+        assignedTo: null,
+      };
+    }
+
     // 🔥 STEP 4: MAIN QUERY (INBOX)
     const conversations = await prisma.conversation.findMany({
-      where: {
-        tenantId: tenantId,
-      },
+      where: whereClause,
       include: {
         contact: {
           select: {
@@ -110,14 +126,10 @@ export const getAssignedConversations = async ({
       skip,
       take: limit,
     });
+
     // 🔥 STEP 5: COUNT QUERY
     const total = await prisma.conversation.count({
-      where: {
-        tenantId,
-        contact: {
-          assignedTo: userId,
-        },
-      },
+      where: whereClause,
     });
     return {
       conversations,
@@ -197,5 +209,50 @@ export const getMessages = async (params) => {
   };
 };
 
+// Update conversation status (resolve/close/reopen)
+export const updateConversationStatus = async ({ conversationId, tenantId, status, agentId, userType }) => {
+  // 1. Validate status
+  const validStatuses = ['OPEN', 'RESOLVED', 'CLOSED'];
+  if (!validStatuses.includes(status)) {
+    throw new Error('Invalid conversation status');
+  }
 
+  // 2. Fetch conversation and check tenant boundary
+  const conversation = await prisma.conversation.findFirst({
+    where: { id: conversationId, tenantId },
+  });
+
+  if (!conversation) {
+    throw new Error('Conversation not found');
+  }
+
+  // 3. Setup status timestamps
+  const updateData = { status };
+  if (status === 'RESOLVED') {
+    updateData.resolvedAt = new Date();
+  } else if (status === 'CLOSED') {
+    updateData.closedAt = new Date();
+  } else if (status === 'OPEN') {
+    updateData.resolvedAt = null;
+    updateData.closedAt = null;
+    updateData.reopenedAt = new Date();
+  }
+
+  // 4. Update record
+  const updated = await prisma.conversation.update({
+    where: { id: conversationId },
+    data: updateData,
+  });
+
+  // 5. Log system activity
+  const action = status.toLowerCase() === 'open' ? 'opened' : status.toLowerCase() === 'resolved' ? 'resolved' : 'closed';
+  await logActivity({
+    conversationId,
+    action,
+    performedBy: agentId || null,
+    performedByType: userType === 'TENANT' ? 'tenant' : 'agent',
+  });
+
+  return updated;
+};
 

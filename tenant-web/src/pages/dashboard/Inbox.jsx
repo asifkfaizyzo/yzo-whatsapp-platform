@@ -15,19 +15,27 @@ import {
   MoreVertical,
   MessageSquarePlus,
   X,
-  Users
+  Users,
+  RefreshCw,
+  CheckCircle2
 } from "lucide-react";
 import { 
   getAssignedConversations, 
   getConversationMessages, 
-  createConversation 
+  createConversation,
+  updateConversationStatus 
 } from "../../services/conversation.service";
 import { sendMessage } from "../../services/message.service";
 import { getContacts } from "../../services/contact.service";
+import { useAuthStore } from "../../store/useAuthStore";
 
 export default function Inbox() {
+  const { user } = useAuthStore();
+  const userRole = user?.type === "TENANT" ? "admin" : "agent";
+
   const [searchParams, setSearchParams] = useSearchParams();
   const urlConversationId = searchParams.get("conversationId");
+  const filter = searchParams.get("filter") || (userRole === "admin" ? "all" : "my");
 
   // State Management
   const [chats, setChats] = useState([]);
@@ -46,10 +54,10 @@ export default function Inbox() {
   // Derive currently active chat details from chats list
   const activeChat = chats.find((c) => String(c.id) === String(activeChatId)) || null;
 
-  // 1. Fetch conversations on component mount
+  // 1. Fetch conversations on component mount or filter change
   const loadConversations = async () => {
     setLoading(true);
-    const res = await getAssignedConversations(1, 50);
+    const res = await getAssignedConversations(1, 50, filter);
     if (res.success) {
       const convList = res.data.conversations || res.data || [];
       setChats(convList);
@@ -57,7 +65,9 @@ export default function Inbox() {
       // If there's no conversation selected via URL but there are chats, select the first one
       if (!urlConversationId && convList.length > 0) {
         setActiveChatId(convList[0].id);
-        setSearchParams({ conversationId: convList[0].id });
+        setSearchParams({ filter, conversationId: convList[0].id });
+      } else if (convList.length === 0) {
+        setActiveChatId(null);
       }
     }
     setLoading(false);
@@ -65,7 +75,7 @@ export default function Inbox() {
 
   useEffect(() => {
     loadConversations();
-  }, []);
+  }, [filter]);
 
   // 2. React to URL query parameters
   useEffect(() => {
@@ -105,27 +115,41 @@ export default function Inbox() {
   // 5. Send message handler
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!typedMessage.trim() || !activeChatId) return;
+    if (!typedMessage.trim() || !activeChatId || !activeChat?.contact?.id) return;
 
     const messageText = typedMessage;
+    const isClosedOrResolved = ["RESOLVED", "CLOSED"].includes(activeChat?.status);
+
+    // ⚠️ Ask for confirmation if reopening via sending a message
+    if (isClosedOrResolved) {
+      const confirmReopen = window.confirm("This conversation is currently closed/resolved. Sending this message will reopen it. Do you want to proceed?");
+      if (!confirmReopen) return;
+    }
+
     setTypedMessage(""); // Clear input immediately for smooth UX
 
-    const res = await sendMessage(activeChatId, messageText);
+    const res = await sendMessage(activeChat.contact.id, messageText);
     if (res.success) {
       // Append the sent message locally
       setMessages((prev) => [...prev, res.data]);
 
-      // Update the last message preview in the sidebar
+      // Update the status and last message preview in the sidebar
       setChats((prevChats) =>
         prevChats.map((c) =>
           String(c.id) === String(activeChatId)
             ? { 
                 ...c, 
+                status: "OPEN",
                 messages: [{ id: res.data.id, text: messageText, createdAt: new Date().toISOString() }] 
               }
             : c
         )
       );
+
+      // If the chat was closed/resolved, sync with filters
+      if (isClosedOrResolved) {
+        loadConversations();
+      }
     } else {
       alert("Failed to send message: " + res.message);
     }
@@ -140,7 +164,7 @@ export default function Inbox() {
       await loadConversations();
       // Select the conversation in state and query param
       setActiveChatId(res.data.id);
-      setSearchParams({ conversationId: res.data.id });
+      setSearchParams({ filter, conversationId: res.data.id });
     } else {
       alert("Could not start chat: " + res.message);
     }
@@ -184,6 +208,32 @@ export default function Inbox() {
       phone.includes(modalSearch)
     );
   });
+
+  const handleUpdateStatus = async (newStatus) => {
+    if (!activeChatId) return;
+    
+    // ⚠️ Ask for confirmation
+    const actionText = newStatus === "OPEN" ? "reopen" : "resolve";
+    const confirmChange = window.confirm(`Are you sure you want to ${actionText} this conversation?`);
+    if (!confirmChange) return;
+
+    const res = await updateConversationStatus(activeChatId, newStatus);
+    if (res.success) {
+      // Refresh conversations list to update sidebar lists according to current filter
+      loadConversations();
+      
+      // Update local active chat status so UI updates immediately
+      setChats((prevChats) =>
+        prevChats.map((c) =>
+          String(c.id) === String(activeChatId)
+            ? { ...c, status: newStatus }
+            : c
+        )
+      );
+    } else {
+      alert(res.message);
+    }
+  };
 
   return (
     <div className="h-[calc(100vh-130px)] flex border border-slate-100 rounded-3xl bg-white shadow-sm overflow-hidden animate-in fade-in duration-200">
@@ -232,7 +282,7 @@ export default function Inbox() {
                 key={chat.id}
                 onClick={() => {
                   setActiveChatId(chat.id);
-                  setSearchParams({ conversationId: chat.id });
+                  setSearchParams({ filter, conversationId: chat.id });
                 }}
                 className={`w-full text-left p-4 flex items-start gap-3.5 transition duration-150 ${
                   isActive ? "bg-slate-50" : "hover:bg-slate-50/40"
@@ -280,9 +330,32 @@ export default function Inbox() {
                   <p className="text-[10px] text-slate-400 font-medium mt-1">{activeChat.contact?.phone}</p>
                 </div>
               </div>
-              <button className="text-slate-400 hover:text-slate-700 p-1.5 rounded-xl hover:bg-slate-50">
-                <MoreVertical size={18} />
-              </button>
+              
+              <div className="flex items-center gap-2">
+                {activeChat.status === "OPEN" ? (
+                  <button 
+                    onClick={() => handleUpdateStatus("RESOLVED")}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-55/10 hover:bg-emerald-50 border border-emerald-100 hover:border-emerald-200 rounded-xl text-emerald-700 text-xs font-semibold transition duration-150"
+                    title="Mark as Resolved"
+                  >
+                    <CheckCircle2 size={13} className="text-emerald-600" />
+                    <span>Resolve</span>
+                  </button>
+                ) : (
+                  <button 
+                    onClick={() => handleUpdateStatus("OPEN")}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-55/10 hover:bg-blue-50 border border-blue-100 hover:border-blue-200 rounded-xl text-blue-700 text-xs font-semibold transition duration-150"
+                    title="Reopen conversation"
+                  >
+                    <RefreshCw size={13} className="text-blue-600 animate-spin-hover" />
+                    <span>Reopen</span>
+                  </button>
+                )}
+                
+                <button className="text-slate-400 hover:text-slate-700 p-1.5 rounded-xl hover:bg-slate-50">
+                  <MoreVertical size={18} />
+                </button>
+              </div>
             </div>
 
             {/* Message Thread */}
@@ -314,23 +387,39 @@ export default function Inbox() {
             </div>
 
             {/* Input Bar */}
-            <form onSubmit={handleSendMessage} className="bg-white p-4 border-t border-slate-100 flex items-center gap-3 shrink-0 relative z-10">
-              <button type="button" className="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-50 transition">
-                <Paperclip size={18} />
-              </button>
-              <input
-                type="text"
-                placeholder="Type a message..."
-                value={typedMessage}
-                onChange={(e) => setTypedMessage(e.target.value)}
-                className="input py-2 px-4"
-              />
-              <button type="button" className="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-50 transition">
-                <Smile size={18} />
-              </button>
-              <button type="submit" className="btn-primary w-11 h-11 p-0 rounded-xl shrink-0 flex items-center justify-center shadow-sm">
-                <Send size={16} />
-              </button>
+            <form onSubmit={handleSendMessage} className="bg-white p-4 border-t border-slate-100 flex flex-col gap-3 shrink-0 relative z-10">
+              {["RESOLVED", "CLOSED"].includes(activeChat.status) && (
+                <div className="flex items-center justify-between text-xs bg-amber-50 text-amber-800 px-4 py-2.5 rounded-xl border border-amber-100 animate-in slide-in-from-bottom duration-200">
+                  <span className="font-semibold">
+                    This conversation is currently marked as <strong className="capitalize">{activeChat.status.toLowerCase()}</strong>. Sending a message will automatically reopen it.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleUpdateStatus("OPEN")}
+                    className="text-amber-900 font-bold hover:underline px-2 py-0.5 rounded-md hover:bg-amber-100 transition"
+                  >
+                    Reopen Chat
+                  </button>
+                </div>
+              )}
+              <div className="flex items-center gap-3">
+                <button type="button" className="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-50 transition">
+                  <Paperclip size={18} />
+                </button>
+                <input
+                  type="text"
+                  placeholder={["RESOLVED", "CLOSED"].includes(activeChat.status) ? "Type a message to reopen chat..." : "Type a message..."}
+                  value={typedMessage}
+                  onChange={(e) => setTypedMessage(e.target.value)}
+                  className="input py-2 px-4"
+                />
+                <button type="button" className="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-50 transition">
+                  <Smile size={18} />
+                </button>
+                <button type="submit" className="btn-primary w-11 h-11 p-0 rounded-xl shrink-0 flex items-center justify-center shadow-sm">
+                  <Send size={16} />
+                </button>
+              </div>
             </form>
           </>
         ) : (
