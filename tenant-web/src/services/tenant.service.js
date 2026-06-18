@@ -95,3 +95,75 @@ export const assignMultipleContacts = async (contactIds, userId) => {
     };
   }
 };
+
+/**
+ * Get Auto-Reopen Configuration for the tenant
+ */
+export const getAutoReopenConfig = async () => {
+  try {
+    const response = await api.get(`${TENANT_BASE_URL}/auto-reopen-config`);
+    return {
+      success: true,
+      data: response.data.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to fetch auto-reopen rules",
+    };
+  }
+};
+
+/**
+ * Update Auto-Reopen Configuration for the tenant
+ */
+export const updateAutoReopenConfig = async (data) => {
+  try {
+    const response = await api.put(`${TENANT_BASE_URL}/auto-reopen-config`, data);
+    return {
+      success: true,
+      data: response.data.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to update auto-reopen rules",
+    };
+  }
+};
+
+/**
+ * Fetch the logged-in tenant profile
+ */
+export const getTenantProfile = async () => {
+  try {
+    const response = await api.get(`${TENANT_BASE_URL}/me`);
+    return {
+      success: true,
+      data: response.data.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to fetch tenant profile",
+    };
+  }
+};
+
+/**
+ * Update the logged-in tenant profile
+ */
+export const updateTenantProfile = async (profileData) => {
+  try {
+    const response = await api.put(`${TENANT_BASE_URL}/update-profile`, profileData);
+    return {
+      success: true,
+      data: response.data.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to update tenant profile",
+    };
+  }
+};

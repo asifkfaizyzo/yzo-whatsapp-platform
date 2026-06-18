@@ -23,12 +23,29 @@ import {
 import { useFormHandler } from "../../hooks/useFormHandler";
 import { createUserSchema, updateUserSchema } from "../../validations/user.validation";
 import FormError from "../../components/FormError";
+import { getTags, assignUserToTag, removeUserFromTag } from "../../services/tag.service";
 
 export default function Team() {
   const [agents, setAgents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [feedback, setFeedback] = useState("");
+
+  // Tag list state for matching
+  const [systemTags, setSystemTags] = useState([]);
+
+  const fetchTagsList = async () => {
+    const res = await getTags();
+    if (res.success) {
+      setSystemTags(res.data || []);
+    }
+  };
+
+  const getAgentTags = (agentId) => {
+    return systemTags.filter(tag => 
+      tag.userTags && tag.userTags.some(ut => ut.userId === agentId)
+    );
+  };
 
   // Modals state
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -68,6 +85,7 @@ export default function Team() {
 
   // Fetch team members from backend & combine with local owner details
   const fetchTeam = async () => {
+    fetchTagsList();
     setLoading(true);
     setError("");
     try {
@@ -285,6 +303,7 @@ export default function Team() {
               <thead>
                 <tr className="text-xs text-[color:var(--muted)] font-bold border-b border-slate-100 bg-slate-50/20">
                   <th className="p-4 font-semibold">Teammate Info</th>
+                  <th className="p-4 font-semibold">Assigned Tags</th>
                   <th className="p-4 font-semibold">Role</th>
                   <th className="p-4 font-semibold">Live Load</th>
                   <th className="p-4 font-semibold">Status</th>
@@ -306,6 +325,18 @@ export default function Team() {
                             <span>{agent.email}</span>
                           </p>
                         </div>
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      <div className="flex flex-wrap gap-1">
+                        {getAgentTags(agent.id).map(tag => (
+                          <span key={tag.id} className="inline-flex items-center rounded-full bg-blue-50 border border-blue-100 px-2 py-0.5 text-[9px] font-bold text-blue-700 capitalize">
+                            {tag.name}
+                          </span>
+                        ))}
+                        {getAgentTags(agent.id).length === 0 && (
+                          <span className="text-[10px] text-slate-400 italic">No tags</span>
+                        )}
                       </div>
                     </td>
                     <td className="p-4 font-semibold text-slate-700 capitalize">
@@ -515,6 +546,47 @@ export default function Team() {
                 />
                 <FormError message={editForm.formState.errors.email?.message} />
               </div>
+
+              {/* Tag Assignments checklist */}
+              {!editingAgent.isOwner && (
+                <div className="pt-2 border-t border-slate-100 space-y-2">
+                  <label className="label text-[10px] uppercase font-bold text-slate-450">Routing Tag Assignments</label>
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                    {systemTags.map((tag) => {
+                      const isAssigned = tag.userTags && tag.userTags.some(ut => ut.userId === editingAgent.id);
+                      return (
+                        <label key={tag.id} className="flex items-center gap-2 px-3 py-2 bg-slate-50 hover:bg-slate-100/70 border border-slate-150/50 rounded-xl cursor-pointer transition text-xs font-semibold text-slate-700">
+                          <input
+                            type="checkbox"
+                            checked={isAssigned}
+                            onChange={async (e) => {
+                              setModalError("");
+                              const checked = e.target.checked;
+                              let res;
+                              if (checked) {
+                                res = await assignUserToTag(tag.id, editingAgent.id);
+                              } else {
+                                res = await removeUserFromTag(tag.id, editingAgent.id);
+                              }
+                              if (res.success) {
+                                fetchTagsList();
+                              } else {
+                                setModalError(res.message);
+                              }
+                            }}
+                            className="rounded border-slate-350 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                          />
+                          <span className="flex-1">{tag.name}</span>
+                          <span className="text-[10px] text-slate-400 font-bold">Priority {tag.priority}</span>
+                        </label>
+                      );
+                    })}
+                    {systemTags.length === 0 && (
+                      <p className="text-[10px] text-slate-400 italic">No tags configured in settings.</p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-100">
                 <button

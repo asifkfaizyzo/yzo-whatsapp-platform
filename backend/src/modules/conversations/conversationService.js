@@ -1,9 +1,10 @@
 import bcrypt from 'bcrypt';
 import pkg from '@prisma/client';
+import prisma from '../../config/prisma.js';
 import { logActivity } from '../activity/activityService.js';
 
 
- //AUTO / MANUAL: Get or create conversation
+//AUTO / MANUAL: Get or create conversation
 export const getOrCreateConversation = async (contactId, tenantId) => {
   // 1️⃣ Check if conversation exists
   let conversation = await prisma.conversation.findUnique({
@@ -107,7 +108,12 @@ export const getAssignedConversations = async ({
             assignedTo: true,
             email: true,
             company: true,
-            tags: true,
+            isBlocked: true,
+            contactTags: {
+              include: {
+                tag: true
+              }
+            },
           },
         },
         messages: {

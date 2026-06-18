@@ -1,9 +1,10 @@
 import { isJunkMessage } from "./smartFilter.js"
+import prisma from '../../config/prisma.js';
 
 
-const determineAgent = (conversation, strategy) => {
-  if (strategy === 'original_agent' && conversation.assignedTo) {
-    return conversation.assignedTo
+const determineAgent = (currentAssignedTo, strategy) => {
+  if (strategy === 'original_agent' && currentAssignedTo) {
+    return currentAssignedTo
   }
   // unassigned_pool or no original agent
   return null
@@ -15,6 +16,11 @@ export const evaluateReopen = async (conversation, messageText) => {
     where: { tenantId: conversation.tenantId },
   })
 
+  // 🔍 Fetch the actual assignment status from the Contact model
+  const contact = await prisma.contact.findUnique({
+    where: { id: conversation.contactId },
+  });
+  const currentAssignedTo = contact?.assignedTo || conversation.assignedTo;
 
   const enabled = config?.enabled ?? true
   const reopenWindowHours = config?.reopenWindowHours ?? 72
@@ -78,7 +84,7 @@ export const evaluateReopen = async (conversation, messageText) => {
     }
   }
 
-  const assignToAgentId = determineAgent(conversation, assignmentStrategy)
+  const assignToAgentId = determineAgent(currentAssignedTo, assignmentStrategy)
 
 
   return {

@@ -1,4 +1,4 @@
-import { handleIncomingMessage,sendMessageService } from "./messageService.js";
+import { handleIncomingMessage, sendMessageService } from "./messageService.js";
 
 // export const sendMessageController = async (req, res) => {
 //   try {
@@ -26,7 +26,7 @@ import { handleIncomingMessage,sendMessageService } from "./messageService.js";
 //       conversationId,
 //       senderId,
 //       senderType : req.userType,
-      
+
 //       message,
 //     //   type: "TEXT",
 //     });
@@ -56,7 +56,7 @@ import { handleIncomingMessage,sendMessageService } from "./messageService.js";
 
 //handle incoming message
 export const incomingMessageController = async (req, res) => {
- try {
+  try {
     const { contactId, tenantId, text, type } = req.body
 
     if (!contactId || !tenantId || !text) {
@@ -83,6 +83,12 @@ export const incomingMessageController = async (req, res) => {
     })
   } catch (error) {
     console.error('❌ Error:', error)
+    if (error.message.includes('blocked contact')) {
+      return res.status(400).json({
+        success: false,
+        error: error.message,
+      })
+    }
     return res.status(500).json({
       success: false,
       error: 'Internal server error',
@@ -120,6 +126,12 @@ export const sendMessage = async (req, res) => {
     });
 
   } catch (error) {
+    if (error.message.includes('blocked contact')) {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+      });
+    }
     return res.status(500).json({
       success: false,
       message: error.message,

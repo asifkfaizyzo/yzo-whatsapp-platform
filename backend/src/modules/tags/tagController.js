@@ -36,7 +36,7 @@ export const createTag = async (req, res, next) => {
 
 export const getTags = async (req, res, next) => {
     try {
-         const tenantId = req.tenant.id;
+        const tenantId = req.tenantId;
         const tags = await tagService.getTagsByTenant(tenantId);
         
         res.status(200).json({

@@ -153,3 +153,21 @@ export const importContacts = async (file) => {
   }
 };
 
+/**
+ * Add a tag to a contact
+ */
+export const addTagToContact = async (contactId, tagId) => {
+  try {
+    const response = await api.post(`${CONTACTS_BASE_URL}/${contactId}/tags`, { tagId });
+    return {
+      success: true,
+      data: response.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to add tag to contact",
+    };
+  }
+};
+

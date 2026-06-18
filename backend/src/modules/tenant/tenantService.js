@@ -842,3 +842,59 @@ export const listConversations = async (tenantId, options = {}) => {
     totalPages: Math.ceil(total / limit),
   };
 };
+
+
+//======== Get or Create Auto-Reopen Configuration for a Tenant ========
+export const getAutoReopenConfigService = async (tenantId) => {
+  if (!tenantId) {
+    throw new Error('Tenant ID is required');
+  }
+
+  // 1️⃣ Find existing config
+  let config = await prisma.autoReopenConfig.findUnique({
+    where: { tenantId },
+  });
+
+  // 2️⃣ If it doesn't exist, create a default one
+  if (!config) {
+    config = await prisma.autoReopenConfig.create({
+      data: {
+        tenantId,
+        enabled: true,
+        reopenWindowHours: 72,
+        maxReopenCount: 5,
+        smartFilterEnabled: true,
+        assignmentStrategy: 'original_agent',
+      },
+    });
+  }
+
+  return config;
+};
+
+//======== Update or Upsert Auto-Reopen Configuration for a Tenant ========
+export const updateAutoReopenConfigService = async (tenantId, data) => {
+  if (!tenantId) {
+    throw new Error('Tenant ID is required');
+  }
+
+  // Use upsert to safely update or insert the settings
+  return await prisma.autoReopenConfig.upsert({
+    where: { tenantId },
+    update: {
+      enabled: data.enabled,
+      reopenWindowHours: data.reopenWindowHours,
+      maxReopenCount: data.maxReopenCount,
+      smartFilterEnabled: data.smartFilterEnabled,
+      assignmentStrategy: data.assignmentStrategy,
+    },
+    create: {
+      tenantId,
+      enabled: data.enabled ?? true,
+      reopenWindowHours: data.reopenWindowHours ?? 72,
+      maxReopenCount: data.maxReopenCount ?? 5,
+      smartFilterEnabled: data.smartFilterEnabled ?? true,
+      assignmentStrategy: data.assignmentStrategy ?? 'original_agent',
+    },
+  });
+};

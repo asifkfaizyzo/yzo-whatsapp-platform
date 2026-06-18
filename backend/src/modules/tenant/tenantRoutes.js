@@ -9,7 +9,7 @@ import {verifyTenantOrUser} from '../../middlewares/authVerfyTenOrUser.js'
 import {loginSchema,forgotPasswordSchema,resetPasswordSchema,
         refreshTokenSchema,logoutSchema,} from '../../validations/auth.validation.js';
 import validate from '../../middlewares/validate.middleware.js';
-import { createTenantSchema } from '../../validations/tenant.validation.js';
+import { createTenantSchema, updateAutoReopenSchema, updateTenantProfileSchema  } from '../../validations/tenant.validation.js';
 import { createUserSchema, updateUserSchema, userIdParamSchema } from '../../validations/user.validation.js';
 
 const router = express.Router();
@@ -29,6 +29,9 @@ router.post('/reset-ten-password', validate(resetPasswordSchema), tenantControll
 router.get('/me', verifyTenant, tenantController.getLoggedInTenant);
 
 router.get("/list-User-conversations",verifyTenant,tenantController.listConversationsController);
+
+//======== Tenant Profile Routes ========
+router.put('/update-profile', verifyTenant, validate(updateTenantProfileSchema), tenantController.updateTenantProfile);
 
 
 
@@ -60,6 +63,9 @@ router.get('/unassigned-contacts', verifyTenant, tenantController. getUnassigned
 router.patch('/assign-multiple',verifyTenant,tenantController.assignMultipleContacts);
 
 
+//======== Auto-Reopen Policy Routes ========
+router.get('/auto-reopen-config', verifyTenant, tenantController.getAutoReopenConfig);
+router.put('/auto-reopen-config', verifyTenant, validate(updateAutoReopenSchema), tenantController.updateAutoReopenConfig);
 
 
 export default router;

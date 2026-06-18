@@ -6,5 +6,5 @@ export const contactFormSchema = z.object({
   phone: z.string().min(10, 'Phone number must be at least 10 digits').regex(/^\d+$/, 'Invalid digits'),
   email: z.string().email('Invalid email address').optional().or(z.literal('')),
   company: z.string().optional().or(z.literal('')),
-  tag: z.enum(['Lead', 'Interested in pricing', 'Enterprise']),
+  tag: z.string().optional().or(z.literal('')),
 });

@@ -2,15 +2,15 @@
 
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { 
-  Search, 
-  Send, 
-  Paperclip, 
-  Smile, 
-  Phone, 
-  Tag, 
-  Clock, 
-  Check, 
+import {
+  Search,
+  Send,
+  Paperclip,
+  Smile,
+  Phone,
+  Tag,
+  Clock,
+  Check,
   CheckCheck,
   MoreVertical,
   MessageSquarePlus,
@@ -19,11 +19,11 @@ import {
   RefreshCw,
   CheckCircle2
 } from "lucide-react";
-import { 
-  getAssignedConversations, 
-  getConversationMessages, 
+import {
+  getAssignedConversations,
+  getConversationMessages,
   createConversation,
-  updateConversationStatus 
+  updateConversationStatus
 } from "../../services/conversation.service";
 import { sendMessage } from "../../services/message.service";
 import { getContacts } from "../../services/contact.service";
@@ -45,6 +45,16 @@ export default function Inbox() {
   const [typedMessage, setTypedMessage] = useState("");
   const [loading, setLoading] = useState(true);
 
+  // Safe helper to extract tag names as strings
+  const getContactTags = (contact) => {
+    if (!contact) return [];
+    if (Array.isArray(contact.tags)) return contact.tags;
+    if (Array.isArray(contact.contactTags)) {
+      return contact.contactTags.map(ct => ct.tag?.name || ct.tag || "");
+    }
+    return [];
+  };
+
   // New Chat Modal States
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   const [allContacts, setAllContacts] = useState([]);
@@ -61,7 +71,7 @@ export default function Inbox() {
     if (res.success) {
       const convList = res.data.conversations || res.data || [];
       setChats(convList);
-      
+
       // If there's no conversation selected via URL but there are chats, select the first one
       if (!urlConversationId && convList.length > 0) {
         setActiveChatId(convList[0].id);
@@ -137,11 +147,11 @@ export default function Inbox() {
       setChats((prevChats) =>
         prevChats.map((c) =>
           String(c.id) === String(activeChatId)
-            ? { 
-                ...c, 
-                status: "OPEN",
-                messages: [{ id: res.data.id, text: messageText, createdAt: new Date().toISOString() }] 
-              }
+            ? {
+              ...c,
+              status: "OPEN",
+              messages: [{ id: res.data.id, text: messageText, createdAt: new Date().toISOString() }]
+            }
             : c
         )
       );
@@ -186,6 +196,7 @@ export default function Inbox() {
   const getTagColor = (tag) => {
     if (tag === "Enterprise") return "bg-purple-50 text-purple-700 border-purple-100";
     if (tag === "Interested in pricing") return "bg-emerald-50 text-emerald-700 border-emerald-100";
+    if (tag === "VIP") return "bg-rose-50 text-rose-700 border-rose-100";
     return "bg-blue-50 text-blue-700 border-blue-100";
   };
 
@@ -211,7 +222,7 @@ export default function Inbox() {
 
   const handleUpdateStatus = async (newStatus) => {
     if (!activeChatId) return;
-    
+
     // ⚠️ Ask for confirmation
     const actionText = newStatus === "OPEN" ? "reopen" : "resolve";
     const confirmChange = window.confirm(`Are you sure you want to ${actionText} this conversation?`);
@@ -221,7 +232,7 @@ export default function Inbox() {
     if (res.success) {
       // Refresh conversations list to update sidebar lists according to current filter
       loadConversations();
-      
+
       // Update local active chat status so UI updates immediately
       setChats((prevChats) =>
         prevChats.map((c) =>
@@ -237,10 +248,10 @@ export default function Inbox() {
 
   return (
     <div className="h-[calc(100vh-130px)] flex border border-slate-100 rounded-3xl bg-white shadow-sm overflow-hidden animate-in fade-in duration-200">
-      
+
       {/* ── Left Sidebar (Conversations List) ── */}
       <div className="w-80 border-r border-slate-100 flex flex-col shrink-0">
-        
+
         {/* Sidebar Header & Search */}
         <div className="p-4 border-b border-slate-100 flex items-center gap-2">
           <div className="relative flex-1">
@@ -253,7 +264,7 @@ export default function Inbox() {
               className="input pl-9 py-2 text-xs"
             />
           </div>
-          <button 
+          <button
             onClick={() => setShowNewChatModal(true)}
             className="p-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-xl transition border border-emerald-100 shrink-0"
             title="Start New Conversation"
@@ -271,9 +282,10 @@ export default function Inbox() {
             const lastMsg = chat.messages?.[0]; // backend sorts latest first
             const isActive = String(chat.id) === String(activeChatId);
             const avatarBg = getAvatarStyle(contactName);
-            const primaryTag = chat.contact?.tags?.[0] || "Lead";
+            const contactTags = getContactTags(chat.contact);
+            const primaryTag = contactTags[0] || "Lead";
 
-            const timeStr = lastMsg 
+            const timeStr = lastMsg
               ? new Date(lastMsg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
               : "";
 
@@ -284,16 +296,22 @@ export default function Inbox() {
                   setActiveChatId(chat.id);
                   setSearchParams({ filter, conversationId: chat.id });
                 }}
-                className={`w-full text-left p-4 flex items-start gap-3.5 transition duration-150 ${
-                  isActive ? "bg-slate-50" : "hover:bg-slate-50/40"
-                }`}
+                className={`w-full text-left p-4 flex items-start gap-3.5 transition duration-150 ${isActive ? "bg-slate-50" : "hover:bg-slate-50/40"
+                  }`}
               >
                 <div className={`w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${avatarBg}`}>
                   {contactName.charAt(0)}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
-                    <span className="font-semibold text-slate-800 text-sm truncate">{contactName}</span>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="font-semibold text-slate-800 text-sm truncate">{contactName}</span>
+                      {chat.contact?.isBlocked && (
+                        <span className="px-1.5 py-0.5 bg-red-50 text-red-600 text-[9px] font-bold rounded-md uppercase tracking-wider shrink-0 border border-red-100">
+                          Blocked
+                        </span>
+                      )}
+                    </div>
                     <span className="text-[10px] text-slate-400 font-medium">{timeStr}</span>
                   </div>
                   <p className="text-xs text-slate-500 truncate mt-1">
@@ -330,10 +348,10 @@ export default function Inbox() {
                   <p className="text-[10px] text-slate-400 font-medium mt-1">{activeChat.contact?.phone}</p>
                 </div>
               </div>
-              
+
               <div className="flex items-center gap-2">
                 {activeChat.status === "OPEN" ? (
-                  <button 
+                  <button
                     onClick={() => handleUpdateStatus("RESOLVED")}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-55/10 hover:bg-emerald-50 border border-emerald-100 hover:border-emerald-200 rounded-xl text-emerald-700 text-xs font-semibold transition duration-150"
                     title="Mark as Resolved"
@@ -342,7 +360,7 @@ export default function Inbox() {
                     <span>Resolve</span>
                   </button>
                 ) : (
-                  <button 
+                  <button
                     onClick={() => handleUpdateStatus("OPEN")}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-55/10 hover:bg-blue-50 border border-blue-100 hover:border-blue-200 rounded-xl text-blue-700 text-xs font-semibold transition duration-150"
                     title="Reopen conversation"
@@ -351,7 +369,7 @@ export default function Inbox() {
                     <span>Reopen</span>
                   </button>
                 )}
-                
+
                 <button className="text-slate-400 hover:text-slate-700 p-1.5 rounded-xl hover:bg-slate-50">
                   <MoreVertical size={18} />
                 </button>
@@ -365,15 +383,13 @@ export default function Inbox() {
                 const timeStr = new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
                 return (
                   <div key={msg.id} className={`flex ${isAgent ? "justify-end" : "justify-start"}`}>
-                    <div className={`max-w-[70%] rounded-2xl px-4 py-2.5 shadow-sm text-sm border flex flex-col ${
-                      isAgent
-                        ? "bg-emerald-600 border-emerald-700 text-white rounded-tr-none"
-                        : "bg-white border-slate-100 text-slate-800 rounded-tl-none"
-                    }`}>
-                      <p className="leading-relaxed whitespace-pre-wrap">{msg.text}</p>
-                      <div className={`mt-1 flex items-center gap-1 self-end text-[10px] ${
-                        isAgent ? "text-emerald-100" : "text-slate-400"
+                    <div className={`max-w-[70%] rounded-2xl px-4 py-2.5 shadow-sm text-sm border flex flex-col ${isAgent
+                      ? "bg-emerald-600 border-emerald-700 text-white rounded-tr-none"
+                      : "bg-white border-slate-100 text-slate-800 rounded-tl-none"
                       }`}>
+                      <p className="leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+                      <div className={`mt-1 flex items-center gap-1 self-end text-[10px] ${isAgent ? "text-emerald-100" : "text-slate-400"
+                        }`}>
                         <span>{timeStr}</span>
                         {isAgent && <CheckCheck size={12} />}
                       </div>
@@ -388,7 +404,14 @@ export default function Inbox() {
 
             {/* Input Bar */}
             <form onSubmit={handleSendMessage} className="bg-white p-4 border-t border-slate-100 flex flex-col gap-3 shrink-0 relative z-10">
-              {["RESOLVED", "CLOSED"].includes(activeChat.status) && (
+              {activeChat.contact?.isBlocked && (
+                <div className="flex items-center justify-between text-xs bg-red-50 text-red-800 px-4 py-2.5 rounded-xl border border-red-100 animate-in slide-in-from-bottom duration-200">
+                  <span className="font-semibold">
+                    This contact is blocked. You cannot send or receive messages.
+                  </span>
+                </div>
+              )}
+              {["RESOLVED", "CLOSED"].includes(activeChat.status) && !activeChat.contact?.isBlocked && (
                 <div className="flex items-center justify-between text-xs bg-amber-50 text-amber-800 px-4 py-2.5 rounded-xl border border-amber-100 animate-in slide-in-from-bottom duration-200">
                   <span className="font-semibold">
                     This conversation is currently marked as <strong className="capitalize">{activeChat.status.toLowerCase()}</strong>. Sending a message will automatically reopen it.
@@ -403,20 +426,21 @@ export default function Inbox() {
                 </div>
               )}
               <div className="flex items-center gap-3">
-                <button type="button" className="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-50 transition">
+                <button type="button" disabled={activeChat.contact?.isBlocked} className="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-50 transition disabled:opacity-50">
                   <Paperclip size={18} />
                 </button>
                 <input
                   type="text"
-                  placeholder={["RESOLVED", "CLOSED"].includes(activeChat.status) ? "Type a message to reopen chat..." : "Type a message..."}
+                  placeholder={activeChat.contact?.isBlocked ? "Cannot send messages to a blocked contact" : ["RESOLVED", "CLOSED"].includes(activeChat.status) ? "Type a message to reopen chat..." : "Type a message..."}
                   value={typedMessage}
+                  disabled={activeChat.contact?.isBlocked}
                   onChange={(e) => setTypedMessage(e.target.value)}
-                  className="input py-2 px-4"
+                  className="input py-2 px-4 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
                 />
-                <button type="button" className="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-50 transition">
+                <button type="button" disabled={activeChat.contact?.isBlocked} className="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-50 transition disabled:opacity-50">
                   <Smile size={18} />
                 </button>
-                <button type="submit" className="btn-primary w-11 h-11 p-0 rounded-xl shrink-0 flex items-center justify-center shadow-sm">
+                <button type="submit" disabled={activeChat.contact?.isBlocked} className="btn-primary w-11 h-11 p-0 rounded-xl shrink-0 flex items-center justify-center shadow-sm disabled:opacity-50">
                   <Send size={16} />
                 </button>
               </div>
@@ -458,12 +482,12 @@ export default function Inbox() {
                 <span>Tags</span>
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {(activeChat.contact?.tags || []).map((tag, i) => (
+                {getContactTags(activeChat.contact).map((tag, i) => (
                   <span key={i} className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold border ${getTagColor(tag)}`}>
                     {tag}
                   </span>
                 ))}
-                {(activeChat.contact?.tags || []).length === 0 && (
+                {getContactTags(activeChat.contact).length === 0 && (
                   <span className="text-xs text-slate-400 italic">No tags</span>
                 )}
               </div>
@@ -488,7 +512,7 @@ export default function Inbox() {
             {/* Modal Header */}
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <h2 className="text-base font-bold text-slate-800">Start a New Chat</h2>
-              <button 
+              <button
                 onClick={() => setShowNewChatModal(false)}
                 className="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-50 transition"
               >
@@ -521,8 +545,15 @@ export default function Inbox() {
                     <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${getAvatarStyle(contact.name)}`}>
                       {contact.name.charAt(0)}
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold text-slate-850 truncate">{contact.name}</p>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-xs font-bold text-slate-850 truncate">{contact.name}</p>
+                        {contact.isBlocked && (
+                          <span className="px-1.5 py-0.5 bg-red-50 text-red-600 text-[9px] font-bold rounded-md uppercase tracking-wider shrink-0 border border-red-100">
+                            Blocked
+                          </span>
+                        )}
+                      </div>
                       <p className="text-[10px] text-slate-400 font-mono mt-0.5">{contact.phone}</p>
                     </div>
                   </button>

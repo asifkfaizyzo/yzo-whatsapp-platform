@@ -20,7 +20,7 @@ import { logActivity } from '../activity/activityService.js';
 //   console.log("senderType =", senderType);
 //   console.log("SERVICE MESSAGE:", message);
 
-    
+
 //   // 1️⃣ Check conversation exists
 //   const conversation = await prisma.conversation.findUnique({
 //     where: { id: conversationId },
@@ -63,6 +63,20 @@ export const handleIncomingMessage = async ({
   text,
   type = 'TEXT',
 }) => {
+
+  // Check if contact is blocked
+  const contact = await prisma.contact.findUnique({
+    where: { id: contactId },
+  });
+
+  if (!contact) {
+    throw new Error('Contact not found');
+  }
+
+  if (contact.isBlocked) {
+    throw new Error('Cannot receive message from a blocked contact');
+  }
+
   let conversation = await getOrCreateConversation(contactId, tenantId)
 
   let action = 'message_saved'
@@ -81,6 +95,16 @@ export const handleIncomingMessage = async ({
           resolvedAt: null,
           closedAt: null,
           lastMessageAt: new Date(),
+          assignedTo: decision.assignToAgentId,
+        },
+      })
+
+      // Update Contact.assignedTo to match (critical for frontend inbox filters!)
+      await prisma.contact.update({
+        where: { id: contact.id },
+        data: {
+          assignedTo: decision.assignToAgentId,
+          assignedAt: decision.assignToAgentId ? new Date() : null,
         },
       })
 
@@ -115,7 +139,7 @@ export const handleIncomingMessage = async ({
     data: {
       conversationId: conversation.id,
       senderId: null,
-      senderType:"CONTACT",
+      senderType: "CONTACT",
       text,
       type,
       isRead: false,
@@ -145,6 +169,19 @@ export const sendMessageService = async ({
   senderType,
   text,
 }) => {
+
+  // Check if contact is blocked
+  const contact = await prisma.contact.findUnique({
+    where: { id: contactId },
+  });
+
+  if (!contact) {
+    throw new Error('Contact not found');
+  }
+
+  if (contact.isBlocked) {
+    throw new Error('Cannot send message to a blocked contact');
+  }
 
   // Create or get conversation
   const conversation =
@@ -184,11 +221,11 @@ export const sendMessageService = async ({
   }
 
   // Create message
-  
+
   console.log({
-  senderId,
-  senderType,
-});
+    senderId,
+    senderType,
+  });
   const message = await prisma.message.create({
     data: {
       conversationId: conversation.id,

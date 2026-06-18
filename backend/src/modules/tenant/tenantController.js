@@ -11,7 +11,9 @@ import {
   getUserByIdService, updateUserByIdService, deleteUserByIdService,
   deactivateUserByIdService, assignContactService, reassignContactService,
   unassignContactService,getUnassignedContacts,listConversations,
+  getAutoReopenConfigService, updateAutoReopenConfigService
 } from './tenantService.js';
+import { updateTenantByIdService } from '../superadmin/superadminService.js';
 
 
 
@@ -440,6 +442,8 @@ export const getLoggedInTenant = async (req, res) => {
         email: true,
         status: true,
         isActive: true,
+        phone: true,
+        address: true 
       },
     });
 
@@ -642,4 +646,63 @@ export const assignContactsByPriority = async (req, res, next) => {
     } catch (error) {
         next(error);
     }
+};
+
+
+//======== Fetch Auto-Reopen Configurations ========
+export const getAutoReopenConfig = async (req, res, next) => {
+  try {
+    const tenantId = req.tenant?.id;
+    const config = await getAutoReopenConfigService(tenantId);
+    
+    return res.status(200).json({
+      success: true,
+      data: config,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+//======== Update Auto-Reopen Configurations ========
+export const updateAutoReopenConfig = async (req, res, next) => {
+  try {
+    const tenantId = req.tenant?.id;
+    // Data comes from req.body after being validated
+    const config = await updateAutoReopenConfigService(tenantId, req.body);
+    
+    return res.status(200).json({
+      success: true,
+      message: 'Auto-reopen configuration updated successfully',
+      data: config,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+//======== Update Tenant Profile details ========
+export const updateTenantProfile = async (req, res, next) => {
+  try {
+    const tenantId = req.tenant?.id;
+    const { tenantName, email, phone, address } = req.body;
+
+    const result = await updateTenantByIdService(tenantId, {
+      tenantName,
+      email,
+      phone,
+      address,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Tenant profile updated successfully',
+      data: result.tenant,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
 };

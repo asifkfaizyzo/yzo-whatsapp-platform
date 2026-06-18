@@ -29,6 +29,7 @@ import FormError from "../../components/FormError";
 import { createConversation } from "../../services/conversation.service";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuthStore } from "../../store/useAuthStore";
+import { getTags } from "../../services/tag.service";
 import {
   getTenantUsers,
   assignContact,
@@ -52,6 +53,19 @@ export default function Contacts() {
   const [searchParams, setSearchParams] = useSearchParams();
   const filter = searchParams.get("filter") || "all";
   
+  // Dynamic tags list
+  const [systemTags, setSystemTags] = useState([]);
+
+  useEffect(() => {
+    const fetchTags = async () => {
+      const res = await getTags();
+      if (res.success) {
+        setSystemTags(res.data || []);
+      }
+    };
+    fetchTags();
+  }, []);
+  
   // Setup hook for adding/editing contacts
   const contactForm = useFormHandler({
     schema: contactFormSchema,
@@ -74,7 +88,7 @@ export default function Contacts() {
         phone: fullPhone,
         countryCode: `+${cleanCC}`,
         email: data.email?.trim() || null,
-        tags: [data.tag],
+        tags: data.tag ? [data.tag] : [],
         company: data.company?.trim() || null,
       };
 
@@ -215,7 +229,7 @@ export default function Contacts() {
       name: contact.name,
       phone: local,
       email: contact.email || "",
-      tag: contact.tags && contact.tags.length > 0 ? contact.tags[0] : "Lead",
+      tag: contact.contactTags && contact.contactTags.length > 0 ? contact.contactTags[0].tag.name : "",
       company: contact.company || "",
       countryCode: contact.countryCode || "+91",
     });
@@ -271,6 +285,9 @@ export default function Contacts() {
     }
     if (tag === "Interested in pricing") {
       return "bg-emerald-50 text-emerald-700 border-emerald-100";
+    }
+    if (tag === "VIP") {
+      return "bg-rose-50 text-rose-700 border-rose-100";
     }
     return "bg-blue-50 text-blue-700 border-blue-100";
   };
@@ -364,21 +381,25 @@ export default function Contacts() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <input
-            type="file"
-            id="csv-file-input"
-            accept=".csv"
-            onChange={handleImportCSV}
-            className="hidden"
-            disabled={importing}
-          />
-          <label
-            htmlFor="csv-file-input"
-            className={`btn-secondary flex items-center justify-center gap-2 text-sm shadow-sm cursor-pointer ${importing ? "opacity-60 cursor-not-allowed" : ""}`}
-          >
-            <Upload size={16} className={importing ? "animate-spin" : ""} />
-            <span>{importing ? "Importing..." : "Import CSV"}</span>
-          </label>
+          {isAdmin && (
+            <>
+              <input
+                type="file"
+                id="csv-file-input"
+                accept=".csv"
+                onChange={handleImportCSV}
+                className="hidden"
+                disabled={importing}
+              />
+              <label
+                htmlFor="csv-file-input"
+                className={`btn-secondary flex items-center justify-center gap-2 text-sm shadow-sm cursor-pointer ${importing ? "opacity-60 cursor-not-allowed" : ""}`}
+              >
+                <Upload size={16} className={importing ? "animate-spin" : ""} />
+                <span>{importing ? "Importing..." : "Import CSV"}</span>
+              </label>
+            </>
+          )}
           <button
             onClick={() => setShowModal(true)}
             className="btn-primary flex items-center justify-center gap-2 text-sm shadow-sm"
@@ -529,8 +550,7 @@ export default function Contacts() {
                 </tr>
               ) : (
                 contacts.map((c) => {
-                  const primaryTag =
-                    c.tags && c.tags.length > 0 ? c.tags[0] : "Lead";
+                  const contactTagsList = c.contactTags ? c.contactTags.map(ct => ct.tag) : [];
                   const displayPhone = c.phone.startsWith("+")
                     ? c.phone
                     : `${c.countryCode || ""} ${c.phone}`;
@@ -585,11 +605,21 @@ export default function Contacts() {
                       <td className="p-4 text-slate-500">{c.email || "N/A"}</td>
                       <td className="p-4 text-slate-500">{displayDate}</td>
                       <td className="p-4">
-                        <span
-                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${getTagColor(primaryTag)}`}
-                        >
-                          {primaryTag}
-                        </span>
+                        <div className="flex flex-wrap gap-1">
+                          {contactTagsList.map(tag => (
+                            <span
+                              key={tag.id}
+                              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${getTagColor(tag.name)}`}
+                            >
+                              {tag.name}
+                            </span>
+                          ))}
+                          {contactTagsList.length === 0 && (
+                            <span className="inline-flex items-center rounded-full bg-slate-50 border border-slate-100 px-2.5 py-0.5 text-[10px] font-bold text-slate-500">
+                              Unassigned
+                            </span>
+                          )}
+                        </div>
                       </td>
                       {isAdmin && (
                         <td className="p-4">
@@ -792,11 +822,12 @@ export default function Contacts() {
                   className="input text-xs"
                   {...contactForm.register("tag")}
                 >
-                  <option value="Lead">Lead</option>
-                  <option value="Interested in pricing">
-                    Interested in pricing
-                  </option>
-                  <option value="Enterprise">Enterprise</option>
+                  <option value="">-- No Tag --</option>
+                  {systemTags.map((tag) => (
+                    <option key={tag.id} value={tag.name}>
+                      {tag.name} (Priority {tag.priority})
+                    </option>
+                  ))}
                 </select>
               </div>
 

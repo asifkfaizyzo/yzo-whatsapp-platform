@@ -233,7 +233,11 @@ export const getAssignedContacts = async (userId, tenantId, options = {}) => {
         phone: true,
         email: true,
         company: true,
-        tags: true,
+        contactTags: {
+          include: {
+            tag: true
+          }
+        },
         countryCode: true,
         whatsappId: true,
         assignedAt: true,

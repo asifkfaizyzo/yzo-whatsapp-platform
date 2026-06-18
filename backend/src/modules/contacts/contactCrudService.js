@@ -172,6 +172,11 @@ export const getAllContacts = async (tenantId, page = 1, limit = 10, search = ''
         },
         skip,
         take,
+        include: {
+            contactTags: {
+                include: { tag: true }
+            }
+        }
     });
 
     return {
@@ -266,7 +271,6 @@ export const updateContact = async (contactId, tenantId, data) => {
     if (data.name) updateData.name = data.name;
     if (data.email !== undefined) updateData.email = data.email;
     if (data.company !== undefined) updateData.company = data.company;
-    if (data.tags !== undefined) updateData.tags = data.tags;
     if (data.countryCode !== undefined) updateData.countryCode = data.countryCode;
 
     // Phone update with duplicate check
@@ -293,18 +297,68 @@ export const updateContact = async (contactId, tenantId, data) => {
         updateData.whatsappId = cleanDigits;
     }
 
-    if (Object.keys(updateData).length === 0) {
-        throw new Error('No valid fields to update');
+    if (Object.keys(updateData).length > 0) {
+        await prisma.contact.update({
+            where: { id: contactId },
+            data: updateData,
+        });
     }
 
-    const updatedContact = await prisma.contact.update({
+    // Handle tag mappings updates
+    if (data.tags !== undefined) {
+        // Clear existing mappings
+        await prisma.contactTagMapping.deleteMany({
+            where: { contactId }
+        });
+
+        const tagIdentifiers = data.tags || [];
+        if (tagIdentifiers.length > 0) {
+            for (const tagIdentifier of tagIdentifiers) {
+                let tag;
+                if (tagIdentifier.startsWith('c') && tagIdentifier.length > 20) {
+                    tag = await prisma.tag.findFirst({
+                        where: { id: tagIdentifier, tenantId }
+                    });
+                } else {
+                    tag = await prisma.tag.findFirst({
+                        where: {
+                            tenantId,
+                            name: { equals: tagIdentifier, mode: 'insensitive' }
+                        }
+                    });
+                }
+
+                if (!tag) {
+                    console.log(`⚠️ Tag '${tagIdentifier}' not found during update. Skipping...`);
+                    continue;
+                }
+
+                await prisma.contactTagMapping.create({
+                    data: {
+                        contactId: contactId,
+                        tagId: tag.id
+                    }
+                });
+            }
+        }
+    }
+
+    // Return updated contact with its tags and assigned user
+    const contactWithTags = await prisma.contact.findUnique({
         where: { id: contactId },
-        data: updateData,
+        include: {
+            contactTags: {
+                include: { tag: true }
+            },
+            assignedUser: {
+                select: { id: true, name: true, email: true }
+            }
+        }
     });
 
     return {
         message: 'Contact updated successfully',
-        contact: updatedContact,
+        contact: contactWithTags,
     };
 };
 
