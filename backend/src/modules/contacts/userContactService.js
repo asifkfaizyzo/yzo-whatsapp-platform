@@ -1,17 +1,19 @@
 import {
-         createContact,  getContactById,updateContact, 
-         deleteContact, blockContact,unblockContact, getUnassignedContacts,
-         findTenantUser,findContactsByIds, assignMultipleContacts,
-         getContactsByIds, getContactsWithTags,assignContactToUser,
-       } from './contactCrudService.js';
+    createContact, getContactById, updateContact,
+    deleteContact, blockContact, unblockContact, getUnassignedContacts,
+    findTenantUser, findContactsByIds, assignMultipleContacts,
+    getContactsByIds, getContactsWithTags, assignContactToUser,
+    getLeastLoadedUser, getAllActiveUsers
+} from './contactCrudService.js';
 import { getUsersByTagId } from '../tags/tagCrudService.js';
+import { loginUser } from '../users/userController.js';
 
 
 
 
 
-export const userCreateContact = async (data, tenantId,userId) => {
-         return await createContact(data, tenantId,userId); 
+export const userCreateContact = async (data, tenantId, userId) => {
+    return await createContact(data, tenantId, userId);
 };
 
 export const userGetAllContacts = async (tenantId, page, limit, search) => {
@@ -52,7 +54,7 @@ export const getContactsByUserId = async (tenantId, userId, page = 1, limit = 20
     // 1. Build Filter: Must belong to Tenant AND be assigned to this User
     const whereClause = {
         tenantId: tenantId,
-        assignedTo: userId, 
+        assignedTo: userId,
         isActive: true, // Optional: only show active contacts
     };
 
@@ -128,13 +130,18 @@ export const userAssignMultipleContacts = async (contactIds, userId, tenantId) =
 
 
 //========Priority-Based Assignment using Tag-User Mapping.========
-
 export const assignByPriority = async (contactIds, tenantId) => {
     // 1. Fetch contacts with their tags
     const contacts = await getContactsWithTags(contactIds, tenantId);
 
     if (contacts.length === 0) {
-        throw new Error("No contacts found");
+        // throw new Error("No contacts found");
+        return {
+            sucess: 0,
+            failed: 0,
+            assignments: [],
+            errors: []
+        };
     }
 
     const results = [];
@@ -156,45 +163,70 @@ export const assignByPriority = async (contactIds, tenantId) => {
             // 3. Get tags sorted by priority (1 is highest)
             const tags = contact.contactTags
                 .map(ct => ct.tag)
+                .filter(tag => tag !== null)
                 .sort((a, b) => a.priority - b.priority);
 
+
             if (tags.length === 0) {
+                console.log(`⏸️ ${contact.name} has no tag. Leaving unassigned.`);
                 errors.push({
                     contactId: contact.id,
                     name: contact.name,
-                    reason: "No tags found on contact"
+                    reason: 'No tag found. Contact left unassigned.'
                 });
+
                 continue;
             }
 
-            // 4. Take highest priority tag
+
             const highestPriorityTag = tags[0];
 
             // 5. Find users mapped to this tag
             const eligibleUsers = await getUsersByTagId(highestPriorityTag.id, tenantId);
 
             if (eligibleUsers.length === 0) {
+                console.log(` No users for tag '${highestPriorityTag.name}'. Leaving unassigned.`);
+
                 errors.push({
                     contactId: contact.id,
                     name: contact.name,
-                    reason: `No users available for tag: ${highestPriorityTag.name}`
+                    reason: `No users mapped for tag: ${highestPriorityTag.name}.Contact left unassigned.`
                 });
                 continue;
             }
 
-            // 6. Pick first user (or implement round-robin logic here)
-            const selectedUser = eligibleUsers[0];
 
-            // 7. Assign
-            await assignContactToUser(contact.id, selectedUser.id);
+
+            if (eligibleUsers.length === 1) {
+                // ─────────────────────────────────────
+                // ONLY ONE USER → Direct Assignment
+                // ─────────────────────────────────────
+                selectedUserId = eligibleUsers[0].id;
+                assignmentMethod = 'Direct (Single user for tag)';
+
+            } else {
+                // ─────────────────────────────────────
+                // MULTIPLE USERS → Round Robin within group
+                // ─────────────────────────────────────
+                const eligibleUserIds = eligibleUsers.map(u => u.id);
+                selectedUserId = await getLeastLoadedUser(eligibleUserIds, tenantId);
+                assignmentMethod = `Round Robin (Tag: ${highestPriorityTag.name})`;
+
+            }
+
+            // 4. Assign contact to selected user
+            await assignContactToUser(contact.id, selectedUserId);
+
+            console.log(`✅ ${contact.name} → ${selectedUserId} (${assignmentMethod})`);
 
             results.push({
                 contactId: contact.id,
                 contactName: contact.name,
-                assignedTo: selectedUser.id,
-                assignedToName: selectedUser.name,
-                tag: highestPriorityTag.name,
-                priority: highestPriorityTag.priority
+                assignedTo: selectedUserid,
+                // assignedToName: selectedUser.name,
+                tag: tagName,
+                // priority: highestPriorityTag.priority
+                method: assignmentMethod
             });
 
         } catch (error) {

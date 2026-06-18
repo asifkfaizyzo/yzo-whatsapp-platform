@@ -1,10 +1,10 @@
-import { importContactsFromCSV } from './contactCrudService.js';
 import { userCreateContact } from './userContactService.js';
 import { assignByPriority } from './userContactService.js';
 import {
     createContact, getAllContacts, getContactById, updateContact,
     deleteContact, blockContact, unblockContact, addTagToContact,
-    checkContactTagMapping, getContactTags, getTagById, getContactsByUserId
+    checkContactTagMapping, getContactTags, getTagById, getContactsByUserId,
+    importContactsFromCSV
 } from './contactCrudService.js';
 
 
@@ -133,13 +133,22 @@ export const unblockContactController = async (req, res) => {
 export const importContactsController = async (req, res) => {
     try {
         // 1️⃣ Get tenantId from middleware
-        const tenantId = req.tenant.id;
+        const tenantId = req.tenantId || req.tenant?.id;
+        console.log('req.tenantId =>', req.tenantId);   // ← Add this
+        console.log('req.tenant =>', req.tenant);
 
         // 2️⃣ Check file uploaded
         if (!req.file) {
             return res.status(400).json({
                 success: false,
                 message: 'Please upload a CSV file',
+            });
+        }
+
+        if (!tenantId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Tenant ID is missing'
             });
         }
 
@@ -150,8 +159,9 @@ export const importContactsController = async (req, res) => {
         const result = await importContactsFromCSV(
             req.file.path,
             tenantId,
-            userId
+            // userId
         );
+        console.log('✅ Import result:', result);
 
         // 4️⃣ Return result
         return res.status(200).json({
@@ -160,6 +170,7 @@ export const importContactsController = async (req, res) => {
         });
 
     } catch (error) {
+        console.error('❌ Import error:', error);
         return res.status(400).json({
             success: false,
             message: error.message,
@@ -240,7 +251,15 @@ export const getContactsByUser = async (req, res, next) => {
 export const assignContactsByPriority = async (req, res, next) => {
     try {
         const { contactIds } = req.body;
-        const tenantId = req.tenant.id;
+        const tenantId = req.tenantId;
+        const userId = req.user?.id || null;
+
+        if (!tenantId) {
+            return res.status(401).json({
+                success: false,
+                message: 'Tenant not authenticated',
+            });
+        }
 
         const result = await assignByPriority(contactIds, tenantId);
 

@@ -14,6 +14,8 @@ export const createTag = async (name, priority, tenantId, color, description) =>
     });
 };
 
+
+
 // Get all tags for tenant
 export const getTagsByTenant = async (tenantId) => {
     return await prisma.tag.findMany({
@@ -38,15 +40,68 @@ export const mapUserToTag = async (userId, tagId, tenantId) => {
     });
 };
 
-// Remove user from tag
-export const removeUserFromTag = async (userId, tagId) => {
-    return await prisma.userTagMapping.deleteMany({
+
+
+// Change a user's tag(Update the user with new tag)
+export const changeUserTagService = async (userId, oldTagId, newTagId, tenantId) => {
+    // 1. Check new tag exists under tenant
+    const newTag = await prisma.tag.findFirst({
         where: {
-            userId,
-            tagId
+            id: newTagId,
+            tenantId: tenantId
         }
     });
+
+    if (!newTag) {
+        throw new Error('New tag not found');
+    }
+
+    // 2. Remove old tag mapping
+    await prisma.userTagMapping.deleteMany({
+        where: {
+            userId: userId,
+            tagId: oldTagId,
+            tenantId: tenantId
+        }
+    });
+
+    // 3. Check if new mapping already exists
+    const existingMapping = await prisma.userTagMapping.findFirst({
+        where: {
+            userId: userId,
+            tagId: newTagId,
+            tenantId: tenantId
+        }
+    });
+
+    if (existingMapping) {
+        return {
+            message: `User is already assigned to ${newTag.name}`,
+            userId,
+            tagId: newTagId,
+            tagName: newTag.name
+        };
+    }
+
+    // 4. Create new mapping
+    await prisma.userTagMapping.create({
+        data: {
+            userId: userId,
+            tagId: newTagId,
+            tenantId: tenantId
+        }
+    });
+
+    return {
+        message: `User tag changed to ${newTag.name}`,
+        userId,
+        tagId: newTagId,
+        tagName: newTag.name
+    };
 };
+
+
+
 
 // Get users by tag ID
 export const getUsersByTagId = async (tagId, tenantId) => {

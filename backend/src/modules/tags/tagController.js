@@ -102,16 +102,28 @@ export const assignUserToTag = async (req, res, next) => {
 
 
 
-
-export const removeUserFromTag = async (req, res, next) => {
+//Change user tag to newTag
+export const changeUserTag = async (req, res, next) => {
     try {
-        const { tagId, userId } = req.params;
-        
-        await tagService.removeUserFromTag(userId, tagId);
-        
-        res.status(200).json({
+        const { userId } = req.params;
+        const { oldTagId, newTagId } = req.body;
+        const tenantId = req.tenant.id;
+
+        const result = await tagService.changeUserTagService(
+            userId,
+            oldTagId,
+            newTagId,
+            tenantId
+        );
+
+        return res.status(200).json({
             success: true,
-            message: "User removed from tag"
+            message: result.message,
+            data: {
+                userId: result.userId,
+                tagId: result.tagId,
+                tagName: result.tagName
+            }
         });
     } catch (error) {
         next(error);
