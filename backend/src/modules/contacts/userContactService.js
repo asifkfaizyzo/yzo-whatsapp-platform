@@ -128,8 +128,11 @@ export const userAssignMultipleContacts = async (contactIds, userId, tenantId) =
 
 
 
-
-//========Priority-Based Assignment using Tag-User Mapping.========
+// ======== Manual Priority Assignment using Tag-User Mapping.========
+// - Highest priority tag is checked first
+// - If multiple users exist for that tag → Round Robin
+// - If no users exist for that tag → try next tag
+// - If no users exist for any tag → keep contact unassigned
 export const assignByPriority = async (contactIds, tenantId) => {
     // 1. Fetch contacts with their tags
     const contacts = await getContactsWithTags(contactIds, tenantId);

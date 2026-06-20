@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes } from "react-router-dom";
-import LoginPage from "../pages/auth/Login";
+import Login from "../pages/auth/Login";
 import RegisterPage from "../pages/auth/Register";
 import ForgotPassword from "../pages/auth/ForgotPassword";
 import MainLayout from "../layouts/MainLayout";
@@ -17,15 +17,46 @@ import Settings from "../pages/dashboard/Settings";
 import ResetPassword from "../pages/auth/ResetPassword";
 import ProtectedRoute from "./ProtectedRoute";
 
+// Landing Pages ✅
+import Home           from '../pages/Home'
+import Features       from '../pages/Features'
+import Pricing        from '../pages/Pricing'
+import Testimonials   from '../pages/Testimonials'
+import Contact        from '../pages/Contact'
+
+// Support Pages ✅ ADD THESE
+import HelpCenter from "../pages/HelpCenter";
+import PrivacyPolicy from "../pages/PrivacyPolicy";
+import Terms from "../pages/Terms";
+// import Status from "../pages/Status";
+
 function App() {
   return (
     <Routes>
       {/* Public Routes */}
       <Route path="/" element={<LandingPage />} />
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
+      <Route path="/auth/login" element={<Login />} />
+      <Route path="/auth/register" element={<RegisterPage />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
-      <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/auth/reset-password" element={<ResetPassword />} />
+
+
+      
+      {/* Landing Routes ✅ */}
+      <Route path="/"               element={<Home />}         />
+      <Route path="/features"       element={<Features />}     />
+      <Route path="/pricing"        element={<Pricing />}      />
+      <Route path="/testimonials"   element={<Testimonials />} />
+      <Route path="/contact"        element={<Contact />}      />
+
+
+          {/* Support */}
+      <Route path="/help"          element={<HelpCenter />}   />
+      <Route path="/privacy"       element={<PrivacyPolicy />}/>
+      <Route path="/terms"         element={<Terms />}        />
+      {/* <Route path="/status"        element={<Status />}       /> */}
+
+
 
       {/* Protected Tenant Dashboard Routes */}
       <Route 

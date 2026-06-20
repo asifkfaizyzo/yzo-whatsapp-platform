@@ -671,8 +671,7 @@ if (summary.createdContacts.length > 0) {
 }
 
 
-
-//======== Cascading Priority Assignment Helper ========
+// ======== Cascading Priority + Round Robin Assignment ========
 export const assignContactByPriority = async (contactId, tenantId) => {
 
     // 1. Fetch contact with sorted tags
@@ -726,8 +725,9 @@ export const assignContactByPriority = async (contactId, tenantId) => {
 
 
 
-// ======== Get Least Loaded User (Round Robin Helper) ========
-// Finds the user with the fewest assigned contacts
+// ======== Round Robin Helper ========
+// Find the user who currently has the least number of assigned contacts
+// This is the core logic used for balanced distribution
 export const getLeastLoadedUser = async (userIds, tenantId) => {
     // Count how many contacts each user has
     const userLoads = await Promise.all(
