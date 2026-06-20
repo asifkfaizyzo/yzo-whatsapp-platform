@@ -1,6 +1,6 @@
 // src/pages/dashboard/Inbox.jsx
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   Search,
@@ -28,6 +28,7 @@ import {
 import { sendMessage } from "../../services/message.service";
 import { getContacts } from "../../services/contact.service";
 import { useAuthStore } from "../../store/useAuthStore";
+import { io } from "socket.io-client";
 
 export default function Inbox() {
   const { user } = useAuthStore();
@@ -44,6 +45,17 @@ export default function Inbox() {
   const [searchQuery, setSearchQuery] = useState("");
   const [typedMessage, setTypedMessage] = useState("");
   const [loading, setLoading] = useState(true);
+
+  // Scroll to bottom ref and handler
+  const messagesEndRef = useRef(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   // Safe helper to extract tag names as strings
   const getContactTags = (contact) => {
@@ -63,6 +75,66 @@ export default function Inbox() {
 
   // Derive currently active chat details from chats list
   const activeChat = chats.find((c) => String(c.id) === String(activeChatId)) || null;
+
+  const [socket, setSocket] = useState(null);
+  const activeTenantId = user?.type === "TENANT" ? user?.id : user?.tenantId;
+
+  // Connect socket & Join Room
+  useEffect(() => {
+    const socketUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
+    const newSocket = io(socketUrl, {
+      withCredentials: true,
+      transports: ["websocket"]
+    });
+
+    setSocket(newSocket);
+
+    if (activeTenantId) {
+      newSocket.emit("join_tenant", activeTenantId);
+    }
+
+    return () => newSocket.disconnect();
+  }, [activeTenantId]);
+
+  // Listen for incoming messages
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.on("new_message", (data) => {
+      const { conversationId, message } = data;
+
+      // 1. Append message if active chat matches
+      if (String(activeChatId) === String(conversationId)) {
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === message.id)) return prev;
+          return [...prev, message];
+        });
+      }
+
+      // 2. Update sidebar preview and move conversation to top
+      setChats((prevChats) => {
+        const updated = prevChats.map((c) => {
+          if (String(c.id) === String(conversationId)) {
+            return {
+              ...c,
+              messages: [{ id: message.id, text: message.text, createdAt: message.createdAt }]
+            };
+          }
+          return c;
+        });
+
+        return [...updated].sort((a, b) => {
+          const dateA = a.messages?.[0]?.createdAt || a.updatedAt;
+          const dateB = b.messages?.[0]?.createdAt || b.updatedAt;
+          return new Date(dateB) - new Date(dateA);
+        });
+      });
+    });
+
+    return () => {
+      socket.off("new_message");
+    };
+  }, [socket, activeChatId]);
 
   // 1. Fetch conversations on component mount or filter change
   const loadConversations = async () => {
@@ -140,22 +212,6 @@ export default function Inbox() {
 
     const res = await sendMessage(activeChat.contact.id, messageText);
     if (res.success) {
-      // Append the sent message locally
-      setMessages((prev) => [...prev, res.data]);
-
-      // Update the status and last message preview in the sidebar
-      setChats((prevChats) =>
-        prevChats.map((c) =>
-          String(c.id) === String(activeChatId)
-            ? {
-              ...c,
-              status: "OPEN",
-              messages: [{ id: res.data.id, text: messageText, createdAt: new Date().toISOString() }]
-            }
-            : c
-        )
-      );
-
       // If the chat was closed/resolved, sync with filters
       if (isClosedOrResolved) {
         loadConversations();
@@ -400,6 +456,7 @@ export default function Inbox() {
               {messages.length === 0 && (
                 <p className="text-center text-xs text-slate-400 my-12">No messages in this chat yet.</p>
               )}
+              <div ref={messagesEndRef} />
             </div>
 
             {/* Input Bar */}

@@ -1,4 +1,5 @@
 import { handleIncomingMessage, sendMessageService } from "./messageService.js";
+import { emitToTenant } from '../../lib/socket.js';
 
 // export const sendMessageController = async (req, res) => {
 //   try {
@@ -118,6 +119,18 @@ export const sendMessage = async (req, res) => {
       senderId,
       senderType,
       text,
+    });
+
+    // ─── ADDED: Emit Socket Event ───
+    emitToTenant(tenantId, 'new_message', {
+      conversationId: message.conversationId,
+      message: {
+        id: message.id,
+        text: message.text,
+        senderId: message.senderId,
+        isFromCustomer: false,
+        createdAt: message.createdAt
+      }
     });
 
     return res.status(201).json({

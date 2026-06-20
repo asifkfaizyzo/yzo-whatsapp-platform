@@ -706,3 +706,59 @@ export const updateTenantProfile = async (req, res, next) => {
     });
   }
 };
+
+
+// ======== Fetch Tenant WhatsApp Config ========
+export const getWhatsappCredentials = async (req, res, next) => {
+  try {
+    const tenantId = req.tenant?.id;
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: {
+        whatsappPhoneId: true,
+        whatsappWabaId: true,
+        whatsappVerifyToken: true,
+        whatsappAccessToken: true,
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: tenant,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ======== Update Tenant WhatsApp Config ========
+export const updateWhatsappCredentials = async (req, res, next) => {
+  try {
+    const tenantId = req.tenant?.id;
+    const { phoneId, wabaId, accessToken, verifyToken } = req.body;
+
+    const updated = await prisma.tenant.update({
+      where: { id: tenantId },
+      data: {
+        whatsappPhoneId: phoneId,
+        whatsappWabaId: wabaId,
+        whatsappAccessToken: accessToken,
+        whatsappVerifyToken: verifyToken,
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'WhatsApp credentials updated successfully',
+      data: updated,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};

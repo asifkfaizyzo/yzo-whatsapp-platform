@@ -40,6 +40,11 @@ model Tenant {
   phone       String?
   address     String?
   
+   whatsappPhoneId     String?  
+   whatsappWabaId      String?  
+   whatsappAccessToken String?  
+   whatsappVerifyToken String?  @default("yzo_default_verification_token")
+  
    status      TenantStatus @default(PENDING)
    isActive    Boolean   @default(true) 
 

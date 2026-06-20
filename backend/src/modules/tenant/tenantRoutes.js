@@ -67,5 +67,8 @@ router.patch('/assign-multiple',verifyTenant,tenantController.assignMultipleCont
 router.get('/auto-reopen-config', verifyTenant, tenantController.getAutoReopenConfig);
 router.put('/auto-reopen-config', verifyTenant, validate(updateAutoReopenSchema), tenantController.updateAutoReopenConfig);
 
+// ======== WhatsApp API Credentials Routes ========
+router.get('/whatsapp-credentials', verifyTenant, tenantController.getWhatsappCredentials);
+router.put('/whatsapp-credentials', verifyTenant, tenantController.updateWhatsappCredentials);
 
 export default router;

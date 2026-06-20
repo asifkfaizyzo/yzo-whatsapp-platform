@@ -183,6 +183,34 @@ export const sendMessageService = async ({
     throw new Error('Cannot send message to a blocked contact');
   }
 
+  // ─── ADDED: Meta WhatsApp API Send Logic ───
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+  });
+  if (tenant && tenant.whatsappPhoneId && tenant.whatsappAccessToken) {
+    const cleanPhone = contact.phone.replace('+', ''); // Meta expects the number without '+'
+    const url = `https://graph.facebook.com/v20.0/${tenant.whatsappPhoneId}/messages`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${tenant.whatsappAccessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: cleanPhone,
+        type: "text",
+        text: { body: text }
+      })
+    });
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Meta API Error Payload:', errorData);
+      throw new Error(`Meta API Error: ${errorData.error?.message || 'Unknown error'}`);
+    }
+  }
+
   // Create or get conversation
   const conversation =
     await getOrCreateConversation(

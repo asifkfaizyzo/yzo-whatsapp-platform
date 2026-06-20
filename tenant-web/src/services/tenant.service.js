@@ -167,3 +167,40 @@ export const updateTenantProfile = async (profileData) => {
     };
   }
 };
+
+
+/**
+ * Fetch WhatsApp Cloud API configurations
+ */
+export const getWhatsappConfig = async () => {
+  try {
+    const response = await api.get(`${TENANT_BASE_URL}/whatsapp-credentials`);
+    return {
+      success: true,
+      data: response.data.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to fetch WhatsApp configuration",
+    };
+  }
+};
+
+/**
+ * Update WhatsApp Cloud API configurations
+ */
+export const updateWhatsappConfig = async (data) => {
+  try {
+    const response = await api.put(`${TENANT_BASE_URL}/whatsapp-credentials`, data);
+    return {
+      success: true,
+      data: response.data.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to update WhatsApp configuration",
+    };
+  }
+};

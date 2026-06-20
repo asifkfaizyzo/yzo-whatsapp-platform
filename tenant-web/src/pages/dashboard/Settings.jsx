@@ -16,7 +16,7 @@ import {
   RefreshCw
 } from "lucide-react";
 import { getTags, createTag } from "../../services/tag.service";
-import { getAutoReopenConfig, updateAutoReopenConfig, getTenantProfile, updateTenantProfile } from "../../services/tenant.service";
+import { getAutoReopenConfig, updateAutoReopenConfig, getTenantProfile, updateTenantProfile, getWhatsappConfig, updateWhatsappConfig } from "../../services/tenant.service";
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("profile");
@@ -81,6 +81,29 @@ export default function SettingsPage() {
   });
   const [loadingReopen, setLoadingReopen] = useState(false);
   const [reopenError, setReopenError] = useState("");
+
+    // ─── ADDED: WhatsApp Config Load Logic ───
+  const fetchWhatsappConfig = async () => {
+    if (userRole !== "admin") return;
+    const res = await getWhatsappConfig();
+    if (res.success && res.data) {
+      setWhatsapp({
+        phoneId: res.data.whatsappPhoneId || "",
+        wabaId: res.data.whatsappWabaId || "",
+        accessToken: res.data.whatsappAccessToken || "",
+      });
+      setWebhook((prev) => ({
+        ...prev,
+        token: res.data.whatsappVerifyToken || prev.token,
+      }));
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "whatsapp" && userRole === "admin") {
+      fetchWhatsappConfig();
+    }
+  }, [activeTab]);
 
     const fetchReopenConfig = async () => {
     setLoadingReopen(true);
@@ -209,16 +232,38 @@ export default function SettingsPage() {
     }
   };
 
-  const handleWhatsappSave = (e) => {
+  const handleWhatsappSave = async (e) => {
     e.preventDefault();
-    setFeedback("WhatsApp Cloud API details verified & synced!");
-    setTimeout(() => setFeedback(""), 3000);
+    setFeedback("");
+    const res = await updateWhatsappConfig({
+      phoneId: whatsapp.phoneId,
+      wabaId: whatsapp.wabaId,
+      accessToken: whatsapp.accessToken,
+      verifyToken: webhook.token,
+    });
+    if (res.success) {
+      setFeedback("WhatsApp Cloud API details verified & synced!");
+      setTimeout(() => setFeedback(""), 3000);
+    } else {
+      alert("Failed to save WhatsApp config: " + res.message);
+    }
   };
 
-  const handleWebhookSave = (e) => {
+  const handleWebhookSave = async (e) => {
     e.preventDefault();
-    setFeedback("Webhook API triggers saved!");
-    setTimeout(() => setFeedback(""), 3000);
+    setFeedback("");
+    const res = await updateWhatsappConfig({
+      phoneId: whatsapp.phoneId,
+      wabaId: whatsapp.wabaId,
+      accessToken: whatsapp.accessToken,
+      verifyToken: webhook.token,
+    });
+    if (res.success) {
+      setFeedback("Webhook API triggers saved!");
+      setTimeout(() => setFeedback(""), 3000);
+    } else {
+      alert("Failed to save Webhook config: " + res.message);
+    }
   };
 
   const copyApiKey = () => {
