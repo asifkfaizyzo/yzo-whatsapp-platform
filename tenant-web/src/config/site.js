@@ -1,5 +1,5 @@
 export const siteConfig = {
-  brand: "Replyo",
+  brand: "sudoreply",
   hero: {
     title: "WhatsApp marketing & support made simple",
     subtitle:

@@ -1,11 +1,7 @@
-import Navbar from "../components/landing/layout/Navbar";
-import Footer from "../components/landing/layout/Footer";
 
 export default function PrivacyPolicy() {
   return (
     <div>
-      <Navbar />
-
       <section className="py-20 bg-white">
         <div className="max-w-3xl mx-auto px-6">
 
@@ -110,7 +106,6 @@ export default function PrivacyPolicy() {
         </div>
       </section>
 
-      <Footer />
-    </div>
+      </div>
   );
 }

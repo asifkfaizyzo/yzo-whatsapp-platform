@@ -1,5 +1,4 @@
-import Navbar from "../components/landing/layout/Navbar";
-import Footer from "../components/landing/layout/Footer";
+
 
 export default function Testimonials() {
   const reviews = [
@@ -32,8 +31,7 @@ export default function Testimonials() {
 
   return (
     <div>
-      <Navbar />
-
+  
       <section className="py-20 bg-white">
         <div className="max-w-4xl mx-auto px-6">
 
@@ -111,7 +109,6 @@ export default function Testimonials() {
         </div>
       </section>
 
-      <Footer />
     </div>
   );
 }

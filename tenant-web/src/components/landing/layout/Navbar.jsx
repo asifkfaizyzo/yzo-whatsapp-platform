@@ -27,10 +27,10 @@ export default function Navbar() {
           <Link to="/" className="flex items-center gap-2">
             <div className="w-9 h-9 bg-green-600 rounded-lg 
                             flex items-center justify-center">
-              <span className="text-white font-bold text-lg">W</span>
+              <span className="text-white font-bold text-lg">s</span>
             </div>
             <span className="text-xl font-bold text-gray-900">
-              wati
+              sudoreply
               {/* <span className="text-green-600">.io</span> */}
             </span>
           </Link>

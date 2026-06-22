@@ -68,10 +68,10 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
       hasDropdown: true,
       dropdownItems: isAdmin
         ? [
-            { label: "All", path: "/dashboard/inbox?filter=all", filterValue: "all" },
-            { label: "Assigned", path: "/dashboard/inbox?filter=assigned", filterValue: "assigned" },
-            { label: "Unassigned", path: "/dashboard/inbox?filter=unassigned", filterValue: "unassigned" },
-            { label: "Closed", path: "/dashboard/inbox?filter=closed", filterValue: "closed" },
+            { label: "WhatsApp", path: "/dashboard/inbox?filter=all", filterValue: "all" },
+            // { label: "Assigned", path: "/dashboard/inbox?filter=assigned", filterValue: "assigned" },
+            // { label: "Unassigned", path: "/dashboard/inbox?filter=unassigned", filterValue: "unassigned" },
+            // { label: "Closed", path: "/dashboard/inbox?filter=closed", filterValue: "closed" },
           ]
         : [
             { label: "My Chats", path: "/dashboard/inbox?filter=my", filterValue: "my" },

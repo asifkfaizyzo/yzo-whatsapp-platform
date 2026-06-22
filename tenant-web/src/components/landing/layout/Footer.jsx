@@ -14,10 +14,10 @@ export default function Footer() {
             <Link to="/" className="flex items-center gap-2 mb-4">
               <div className="w-8 h-8 bg-green-600 rounded-lg 
                               flex items-center justify-center">
-                <span className="text-white font-bold text-sm">W</span>
+                <span className="text-white font-bold text-sm">s</span>
               </div>
               <span className="text-lg font-bold text-white">
-                wati
+                sudoreply
                 {/* <span className="text-green-500">.io</span> */}
               </span>
             </Link>
@@ -136,7 +136,7 @@ export default function Footer() {
                   justify-between items-center gap-4">
 
           <p className="text-xs">
-            © 2026 WATI All rights reserved.
+            © 2026 sudoreply All rights reserved.
           </p>
 
           <div className="flex gap-6">

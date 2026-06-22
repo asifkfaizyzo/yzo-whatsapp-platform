@@ -1,5 +1,4 @@
-import Navbar from "../components/landing/layout/Navbar";
-import Footer from "../components/landing/layout/Footer";
+
 import { useState } from "react";
 
 export default function HelpCenter() {
@@ -46,8 +45,6 @@ export default function HelpCenter() {
 
   return (
     <div>
-      <Navbar />
-
       <section className="py-20 bg-white">
         <div className="max-w-3xl mx-auto px-6">
 
@@ -118,7 +115,7 @@ export default function HelpCenter() {
         </div>
       </section>
 
-      <Footer />
+    
     </div>
   );
 }

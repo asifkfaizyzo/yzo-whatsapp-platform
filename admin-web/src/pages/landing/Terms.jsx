@@ -1,10 +1,8 @@
-import Navbar from "../components/landing/layout/Navbar";
-import Footer from "../components/landing/layout/Footer";
+
 
 export default function Terms() {
   return (
     <div>
-      <Navbar />
 
       <section className="py-20 bg-white">
         <div className="max-w-3xl mx-auto px-6">
@@ -31,7 +29,7 @@ export default function Terms() {
                 1. Acceptance of Terms
               </h2>
               <p>
-                By accessing and using WATI platform, you agree 
+                By accessing and using sudoreply platform, you agree 
                 to be bound by these Terms of Service. If you do not 
                 agree, please do not use our services.
               </p>
@@ -115,7 +113,6 @@ export default function Terms() {
         </div>
       </section>
 
-      <Footer />
     </div>
   );
 }
