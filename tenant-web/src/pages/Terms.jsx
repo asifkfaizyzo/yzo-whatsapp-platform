@@ -1,5 +1,6 @@
 import Navbar from "../components/landing/layout/Navbar";
 import Footer from "../components/landing/layout/Footer";
+import { siteConfig } from "../config/site";
 
 export default function Terms() {
   return (
@@ -31,7 +32,7 @@ export default function Terms() {
                 1. Acceptance of Terms
               </h2>
               <p>
-                By accessing and using WATI platform, you agree 
+                By accessing and using {siteConfig.brand} platform, you agree 
                 to be bound by these Terms of Service. If you do not 
                 agree, please do not use our services.
               </p>
@@ -103,9 +104,9 @@ export default function Terms() {
               </h2>
               <p>
                 Questions about these terms? Contact us at{" "}
-                <a href="mailto:legal@sudoreply" 
+                <a href={`mailto:${siteConfig.emails.legal}`} 
                    className="text-green-600 hover:underline">
-                  legal@sudoreply
+                  {siteConfig.emails.legal}
                 </a>
               </p>
             </div>

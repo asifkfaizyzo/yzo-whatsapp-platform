@@ -1,5 +1,6 @@
 import Navbar from "../components/landing/layout/Navbar";
 import Footer from "../components/landing/layout/Footer";
+import { siteConfig } from "../config/site";
 
 export default function PrivacyPolicy() {
   return (
@@ -98,9 +99,9 @@ export default function PrivacyPolicy() {
               <p>
                 If you have any questions about this Privacy Policy, 
                 please contact us at{" "}
-                <a href="mailto:privacy@sudoreply" 
+                <a href={`mailto:${siteConfig.emails.privacy}`} 
                    className="text-green-600 hover:underline">
-                  privacy@sudoreply
+                  {siteConfig.emails.privacy}
                 </a>
               </p>
             </div>
