@@ -64,6 +64,8 @@ export const verifyTenant =
 
       // 7️⃣ Save full tenant info
       req.tenant = tenant;
+      req.tenantId = tenant.id;
+      req.userType = 'TENANT';
 
       // 8️⃣ Go to next function
       next();

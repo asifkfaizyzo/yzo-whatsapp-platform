@@ -25,7 +25,7 @@ export default function CTABanner() {
         {/* Buttons */}
         <div className="flex flex-wrap justify-center gap-4">
           <Link
-            to="/auth/register"
+            to="/register"
             className="bg-gray-900 text-white px-7 py-3 
                        rounded-lg font-medium text-sm
                        hover:bg-gray-800 transition-all 

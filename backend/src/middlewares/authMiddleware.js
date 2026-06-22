@@ -87,6 +87,8 @@ export const verifyTenant = async (req, res, next) => {
     }
 
     req.tenant = tenant;
+    req.tenantId = tenant.id;
+    req.userType = 'TENANT';
     next();
   } catch (error) {
     return res.status(401).json({

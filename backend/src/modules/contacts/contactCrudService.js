@@ -382,9 +382,18 @@ export const deleteContact = async (contactId, tenantId) => {
         throw new Error('Contact not found');
     }
 
-    await prisma.contact.delete({
-        where: { id: contactId },
-    });
+    // Delete tag mappings, conversation, and the contact in a transaction to satisfy foreign key constraints
+    await prisma.$transaction([
+        prisma.contactTagMapping.deleteMany({
+            where: { contactId }
+        }),
+        prisma.conversation.deleteMany({
+            where: { contactId }
+        }),
+        prisma.contact.delete({
+            where: { id: contactId }
+        })
+    ]);
 
     return {
         message: 'Contact deleted successfully',

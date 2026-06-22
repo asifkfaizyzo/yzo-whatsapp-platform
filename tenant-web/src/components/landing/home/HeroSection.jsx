@@ -30,7 +30,7 @@ export default function HeroSection() {
         {/* CTA Buttons */}
         <div className="flex flex-wrap justify-center gap-4 mb-8">
           <Link
-            to="/auth/register"
+            to="/register"
             className="bg-green-600 text-white px-7 py-3 
                        rounded-lg font-medium text-sm 
                        hover:bg-green-700 transition-all 

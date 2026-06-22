@@ -56,7 +56,10 @@ model Tenant {
   userTagMappings UserTagMapping[]
 
   users       User[]
-  contacts      Contact[]  
+  contacts      Contact[]
+
+  templates   Template[]
+  broadcasts  Broadcast[]
 }
 
 
@@ -68,6 +71,9 @@ model User {
   name       String
   email      String   @unique
   password   String
+
+  createdTemplates Template[]
+  createdBroadcasts Broadcast[]
 
   assignedContacts Contact[] @relation("UserAssignedContacts")
   
@@ -148,6 +154,8 @@ model Contact {
   tenantId    String
   tenant      Tenant   @relation(fields: [tenantId], references: [id])
 
+  broadcastRecipients BroadcastRecipient[]
+
   assignedTo  String?  
   assignedAt  DateTime? 
 
@@ -180,6 +188,8 @@ model Tag {
   // ─── Relations ───
   contactTags ContactTagMapping[]  // Which contacts have this tag
   userTags    UserTagMapping[]     // Which users handle this tag
+
+  broadcastTags BroadcastTag[]
 
   // ─── Timestamps ───
   createdAt   DateTime @default(now())
@@ -320,4 +330,188 @@ model AutoReopenConfig {
 
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
+}
+
+
+
+enum TemplateCategory {
+  UTILITY
+  MARKETING
+  AUTHENTICATION
+}
+
+enum TemplateStatus {
+  DRAFT           // Created locally, not submitted to Meta
+  PENDING         // Submitted to Meta, awaiting review
+  APPROVED        // Approved by Meta, ready to use
+  REJECTED        // Rejected by Meta
+  PAUSED          // Paused by Meta (quality issues)
+  DISABLED        // Disabled by Meta
+  DELETED         // Soft deleted
+}
+
+enum BroadcastTarget {
+  ALL
+  TAGS
+}
+
+enum BroadcastStatus {
+  DRAFT
+  SCHEDULED
+  PROCESSING     // Currently sending
+  PAUSED         // Manually paused mid-send
+  COMPLETED      // All messages attempted
+  CANCELLED
+  FAILED         // System error
+}
+
+enum MessageStatus {
+  PENDING         // Not yet sent to Meta
+  SENT            // Accepted by Meta API
+  DELIVERED       // Delivered to user's phone
+  READ            // User opened/read
+  FAILED          // Failed to send
+}
+
+// ============================================
+// TEMPLATE MANAGEMENT
+// ============================================
+
+model Template {
+  id              String           @id @default(cuid())
+  
+  // Multi-tenancy
+  tenantId        String
+  tenant          Tenant           @relation(fields: [tenantId], references: [id])
+  
+  // Meta-synced fields
+  metaTemplateId  String?          @unique  // ID returned by Meta after approval
+  name            String           // must be lowercase, underscores only for Meta
+  language        String           @default("en_US")
+  category        TemplateCategory
+  status          TemplateStatus   @default(DRAFT)
+  
+  // Template structure
+  components      Json             // Full Meta components array: body text, headers, buttons
+  
+  // Parameter metadata (for UI rendering)
+  headerParams    Int              @default(0)  // count of {{n}} in header
+  bodyParams      Int              @default(0)  // count of {{n}} in body
+  
+  // Meta rejection reason
+  rejectedReason  String?
+  
+  // Quality tracking
+  qualityScore    String?          // GREEN, YELLOW, RED from Meta
+  
+  createdById     String
+  createdBy       User             @relation(fields: [createdById], references: [id])
+  
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  lastSyncedAt    DateTime?
+
+  broadcasts      Broadcast[]
+  
+  @@unique([name, language, tenantId])  // Meta requires unique name+language, unique per tenant
+  @@index([status])
+  @@index([category])
+  @@index([tenantId])
+}
+
+// ============================================
+// BROADCAST CAMPAIGNS
+// ============================================
+
+model Broadcast {
+  id              String           @id @default(cuid())
+  tenantId        String
+  tenant          Tenant           @relation(fields: [tenantId], references: [id])
+  name            String           // Campaign name: "Diwali Sale 2024"
+  
+  // Template reference
+  templateId      String
+  template        Template         @relation(fields: [templateId], references: [id])
+  
+  // Targeting
+  targetType      BroadcastTarget  // ALL or TAGS
+  tags            BroadcastTag[]   // Only used if targetType = TAGS
+  
+  // Default parameters (can be overridden per recipient)
+  defaultParams   Json?
+  
+  // Campaign status
+  status          BroadcastStatus  @default(DRAFT)
+  
+  // Scheduling
+  scheduledAt     DateTime?        // null = send immediately
+  startedAt       DateTime?
+  completedAt     DateTime?
+  
+  // Stats (denormalized for fast queries)
+  totalRecipients Int              @default(0)
+  sent            Int              @default(0)
+  delivered       Int              @default(0)
+  read            Int              @default(0)
+  failed          Int              @default(0)
+  
+  // Rate limiting
+  batchSize       Int              @default(50)   // messages per batch
+  batchDelayMs    Int              @default(1000)  // delay between batches
+  
+  createdById     String
+  createdBy       User             @relation(fields: [createdById], references: [id])
+  
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  
+  recipients      BroadcastRecipient[]
+  
+  @@index([status])
+  @@index([scheduledAt])
+  @@index([createdById])
+  @@index([tenantId])
+}
+
+model BroadcastTag {
+  broadcastId String
+  tagId       String
+  broadcast   Broadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+  tag         Tag       @relation(fields: [tagId], references: [id])
+  
+  @@id([broadcastId, tagId])
+}
+
+model BroadcastRecipient {
+  id            String          @id @default(cuid())
+  
+  broadcastId   String
+  broadcast     Broadcast       @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+  
+  contactId     String
+  contact       Contact         @relation(fields: [contactId], references: [id])
+  
+  // Per-recipient custom parameters override
+  params        Json?
+  
+  // Meta tracking
+  wamid         String?         @unique  // WhatsApp Message ID from Meta
+  
+  // Status progression: PENDING -> SENT -> DELIVERED -> READ or FAILED
+  status        MessageStatus   @default(PENDING)
+  
+  sentAt        DateTime?
+  deliveredAt   DateTime?
+  readAt        DateTime?
+  failedAt      DateTime?
+  errorCode     String?         // Meta error code
+  errorMessage  String?         // Human-readable error
+  
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  
+  @@unique([broadcastId, contactId])  // prevent duplicate sends
+  @@index([broadcastId, status])
+  @@index([wamid])
+  @@index([status])
 }
