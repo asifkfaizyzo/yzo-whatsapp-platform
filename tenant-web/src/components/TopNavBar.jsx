@@ -53,7 +53,7 @@ export default function TopNavBar() {
           </svg>
         </div>
         <span className="text-xl font-bold text-gray-800 tracking-tight">
-          {user?.tenantName || user?.companyName || "Replyo"}
+          {user?.tenantName || user?.companyName || "sudoreply"}
         </span>
       </div>
 

@@ -82,7 +82,7 @@ export default function Sidebar({ userRole = "Super Admin" }) {
       {/* Footer Info */}
       <div className="p-4 border-t border-[color:var(--border)]">
         <p className="text-[11px] text-slate-400 text-center font-medium">
-          Replyo v1.0.0
+          sudoreply v1.0.0
         </p>
       </div>
     </aside>
