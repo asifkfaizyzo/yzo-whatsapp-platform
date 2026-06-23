@@ -91,7 +91,7 @@ export default function Features() {
           {/* Bottom CTA */}
           <div className="text-center mt-14">
             <Link
-              to="/auth/register"
+              to="/register"
               className="bg-gray-900 text-white px-7 py-3 
                          rounded-lg font-medium text-sm 
                          hover:bg-gray-800 transition"

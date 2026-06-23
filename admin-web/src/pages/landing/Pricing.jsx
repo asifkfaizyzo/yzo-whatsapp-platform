@@ -139,7 +139,7 @@ export default function Pricing() {
                 <Link
                   to={plan.name === "Enterprise" 
                       ? "/contact" 
-                      : "/auth/register"}
+                      : "/register"}
                   className={`block text-center py-2.5 rounded-lg 
                              font-medium text-sm transition-all 
                              duration-300 hover:-translate-y-0.5

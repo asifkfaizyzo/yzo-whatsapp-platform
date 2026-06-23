@@ -23,7 +23,7 @@ export default function Home() {
             Send bulk WhatsApp messages at scale.
           </p>
           <div className="flex flex-wrap justify-center gap-4 mb-8">
-            <Link to="/auth/register"
+            <Link to="/register"
               className="bg-green-600 text-white px-7 py-3 
                          rounded-lg font-medium text-sm 
                          hover:bg-green-700 transition-all 
@@ -119,7 +119,7 @@ export default function Home() {
             Start broadcasting today. No credit card required.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
-            <Link to="/auth/register"
+            <Link to="/register"
               className="bg-gray-900 text-white px-7 py-3 
                          rounded-lg font-medium text-sm 
                          hover:bg-gray-800 transition">
