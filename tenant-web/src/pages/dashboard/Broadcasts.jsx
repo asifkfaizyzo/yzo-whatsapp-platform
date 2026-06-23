@@ -74,7 +74,7 @@ export default function Broadcasts() {
 
     if (!activeTenantId) return;
 
-    const socketUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
+    const socketUrl = import.meta.env.VITE_BACKEND_URL;
     const socket = io(socketUrl, { transports: ["websocket"] });
 
     socket.emit("join_tenant", activeTenantId);

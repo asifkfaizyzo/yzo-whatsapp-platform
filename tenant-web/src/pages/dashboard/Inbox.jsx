@@ -81,7 +81,7 @@ export default function Inbox() {
 
   // Connect socket & Join Room
   useEffect(() => {
-    const socketUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
+    const socketUrl = import.meta.env.VITE_BACKEND_URL;
     const newSocket = io(socketUrl, {
       withCredentials: true,
       transports: ["websocket"]
