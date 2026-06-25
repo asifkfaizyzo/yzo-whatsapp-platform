@@ -1,6 +1,6 @@
 // backend/src/modules/webhook/webhookRoutes.js
 import express from 'express';
-import { verifyMetaWebhook, receiveMetaWebhookEvent } from './webhookController.js';
+import { verifyMetaWebhook, receiveMetaWebhookEvent, verifyMetaSignature } from './webhookController.js';
 
 const router = express.Router();
 
@@ -8,6 +8,6 @@ const router = express.Router();
 router.get('/whatsapp', verifyMetaWebhook);
 
 // Meta message event receiver (POST)
-router.post('/whatsapp', receiveMetaWebhookEvent);
+router.post('/whatsapp', verifyMetaSignature, receiveMetaWebhookEvent);
 
 export default router;

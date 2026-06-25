@@ -3,6 +3,32 @@ import prisma from '../../config/prisma.js';
 import { handleIncomingMessage } from '../messages/messageService.js';
 import { emitToTenant } from '../../lib/socket.js';
 
+// Insert the 'verifyMetaSignature' middleware right below the imports:
+export const verifyMetaSignature = (req, res, next) => {
+  const appSecret = process.env.META_APP_SECRET;
+  // Fallback: If App Secret is not configured in .env, log a warning but allow requests
+  // (Prevents breaking local dev setup)
+  if (!appSecret) {
+    console.warn('⚠️ META_APP_SECRET is not configured in .env. Skipping signature verification.');
+    return next();
+  }
+  const signatureHeader = req.headers['x-hub-signature-256'];
+  if (!signatureHeader) {
+    console.warn('⚠️ Incoming webhook request missing x-hub-signature-256 header.');
+    return res.status(401).send('Signature missing');
+  }
+  const signature = signatureHeader.split('sha256=')[1];
+  const expectedSignature = crypto
+    .createHmac('sha256', appSecret)
+    .update(req.rawBody || '')
+    .digest('hex');
+  if (signature !== expectedSignature) {
+    console.warn('⚠️ Webhook signature validation failed! Request unauthorized.');
+    return res.status(401).send('Invalid signature');
+  }
+  next();
+};
+
 // 1. GET: Handshake Verification for Meta
 export const verifyMetaWebhook = async (req, res) => {
   const mode = req.query['hub.mode'];

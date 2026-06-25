@@ -1,8 +1,6 @@
 // middlewares/auth.middleware.js
 import jwt from 'jsonwebtoken';
-import prisma from '../config/prisma.js';   // ← Update the path according to your project
-
-const prisma = new PrismaClient();
+import prisma from '../config/prisma.js';
 
 
 // ===================== SUPERADMIN =====================
