@@ -293,7 +293,7 @@ export default function Tenants() {
       {/* ── Toast Message ── */}
       {successToast && (
         <div className="fixed bottom-5 right-5 z-50 flex items-center gap-3 bg-slate-900 text-white px-5 py-3.5 rounded-2xl shadow-2xl border border-slate-800 transition-all duration-300 animate-bounce">
-          <CheckCircle className="text-emerald-400 w-5 h-5 flex-shrink-0" />
+          <CheckCircle className="text-[#125EF2] w-5 h-5 flex-shrink-0" />
           <span className="text-sm font-medium">{successToast}</span>
           <button onClick={() => setSuccessToast("")} className="text-gray-400 hover:text-white ml-2">
             <X size={16} />
@@ -305,7 +305,7 @@ export default function Tenants() {
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-gray-900 flex items-center gap-2">
-            <Building2 className="text-[#10b981]" size={28} />
+            <Building2 className="text-[#125EF2]" size={28} />
             <span>Tenant Management</span>
           </h1>
           <p className="text-sm text-gray-500 mt-1">
@@ -353,7 +353,7 @@ export default function Tenants() {
                 placeholder="Search tenant, email, or phone..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm w-full sm:w-64 focus:outline-none focus:border-[#10b981] focus:ring-2 focus:ring-emerald-100 transition duration-150"
+                className="pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm w-full sm:w-64 focus:outline-none focus:border-[#125EF2] focus:ring-2 focus:ring-[#CFE0FD] transition duration-150"
               />
               {searchQuery && (
                 <button
@@ -387,7 +387,7 @@ export default function Tenants() {
         <div className="overflow-x-auto">
           {loading ? (
             <div className="p-12 text-center flex flex-col items-center justify-center">
-              <RefreshCw className="w-10 h-10 text-emerald-500 animate-spin mb-3" />
+              <RefreshCw className="w-10 h-10 text-[#125EF2] animate-spin mb-3" />
               <p className="text-gray-500 text-sm font-medium">Fetching registered tenants...</p>
             </div>
           ) : error ? (
@@ -421,8 +421,8 @@ export default function Tenants() {
               <tbody className="divide-y divide-gray-100 text-sm">
                 {filteredTenants.map((tenant) => {
                   // Determine status badge colors
-                  let badgeBg = "bg-emerald-50 text-emerald-700 border-emerald-100";
-                  let badgeDot = "bg-emerald-500";
+                  let badgeBg = "bg-[#EAF2FE] text-[#0F4FCC] border-[#CFE0FD]";
+                  let badgeDot = "bg-[#125EF2]";
                   let label = "Active";
 
                   if (tenant.status === "PENDING") {
@@ -525,7 +525,7 @@ export default function Tenants() {
                           {tenant.status === "PENDING" && (
                             <button
                               onClick={() => handleStatusChange(tenant.id, "approve", tenant.tenantName)}
-                              className="px-2.5 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 text-xs font-semibold transition duration-150"
+                              className="px-2.5 py-1.5 rounded-lg bg-[#EAF2FE] border border-[#CFE0FD] text-[#0F4FCC] hover:bg-[#CFE0FD] text-xs font-semibold transition duration-150"
                             >
                               Approve
                             </button>
@@ -537,7 +537,7 @@ export default function Tenants() {
                               onClick={() => handleToggleActivation(tenant.id, tenant.isActive, tenant.tenantName)}
                               className={`px-2.5 py-1.5 rounded-lg border text-xs font-medium transition duration-150 ${tenant.isActive
                                   ? "bg-white hover:bg-amber-50 border-gray-200 text-amber-600 hover:border-amber-200"
-                                  : "bg-white hover:bg-emerald-50 border-gray-200 text-emerald-700 hover:border-emerald-200"
+                                  : "bg-white hover:bg-[#EAF2FE] border-gray-200 text-[#0F4FCC] hover:border-[#CFE0FD]"
                                 }`}
                             >
                               {tenant.isActive ? "Suspend" : "Activate"}
@@ -607,7 +607,7 @@ export default function Tenants() {
             {/* Modal Header */}
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-slate-50">
               <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                <Building2 className="text-[#10b981] w-5 h-5" />
+                <Building2 className="text-[#125EF2] w-5 h-5" />
                 <span>Onboard New Tenant</span>
               </h3>
               <button
@@ -729,7 +729,7 @@ export default function Tenants() {
             {/* Modal Header */}
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-slate-50">
               <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                <Edit className="text-[#10b981] w-5 h-5" />
+                <Edit className="text-[#125EF2] w-5 h-5" />
                 <span>Edit Tenant Details</span>
               </h3>
               <button
@@ -833,7 +833,7 @@ export default function Tenants() {
             {/* Modal Header */}
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-slate-50">
               <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                <Users2 className="text-[#10b981] w-5 h-5" />
+                <Users2 className="text-[#125EF2] w-5 h-5" />
                 <span>Users created by: {selectedTenantForUsers.tenantName}</span>
               </h3>
               <button
@@ -876,11 +876,11 @@ export default function Tenants() {
                           {/* Status Badge */}
                           <span
                             className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${usr.isActive
-                                ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
+                                ? "bg-[#EAF2FE] text-[#0F4FCC] border border-[#CFE0FD]"
                                 : "bg-slate-100 text-slate-700 border border-slate-200"
                               }`}
                           >
-                            <span className={`w-1.5 h-1.5 rounded-full ${usr.isActive ? "bg-emerald-500" : "bg-slate-400"}`} />
+                            <span className={`w-1.5 h-1.5 rounded-full ${usr.isActive ? "bg-[#125EF2]" : "bg-slate-400"}`} />
                             <span>{usr.isActive ? "Active" : "Inactive"}</span>
                           </span>
 
@@ -889,7 +889,7 @@ export default function Tenants() {
                             onClick={() => handleToggleUserActivation(usr.id, usr.isActive, usr.name)}
                             className={`px-2 py-1.5 rounded-lg border text-[10px] font-semibold transition duration-150 ${usr.isActive
                                 ? "bg-white hover:bg-amber-50 border-gray-200 text-amber-600 hover:border-amber-200"
-                                : "bg-white hover:bg-emerald-50 border-gray-200 text-emerald-700 hover:border-emerald-200"
+                                : "bg-white hover:bg-[#EAF2FE] border-gray-200 text-[#0F4FCC] hover:border-[#CFE0FD]"
                               }`}
                           >
                             {usr.isActive ? "Deactivate" : "Reactivate"}

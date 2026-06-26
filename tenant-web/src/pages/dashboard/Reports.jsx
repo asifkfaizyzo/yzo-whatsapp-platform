@@ -20,10 +20,10 @@ export default function Reports() {
 
   // Visual CSS charts - Funnel bars
   const funnelSteps = [
-    { phase: "1. Sent", count: "48,290", percent: 100, color: "bg-emerald-600" },
-    { phase: "2. Delivered", count: "48,010", percent: 99.4, color: "bg-emerald-500" },
-    { phase: "3. Read", count: "39,705", percent: 82.7, color: "bg-emerald-400" },
-    { phase: "4. Replied", count: "12,940", percent: 26.8, color: "bg-emerald-300" },
+    { phase: "1. Sent", count: "48,290", percent: 100, color: "bg-[#125EF2]" },
+    { phase: "2. Delivered", count: "48,010", percent: 99.4, color: "bg-[#125EF2]" },
+    { phase: "3. Read", count: "39,705", percent: 82.7, color: "bg-[#125EF2]" },
+    { phase: "4. Replied", count: "12,940", percent: 26.8, color: "bg-[#A0C2FA]" },
   ];
 
   const weeklyTraffic = [
@@ -43,7 +43,7 @@ export default function Reports() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-          <BarChart3 className="text-emerald-600" size={24} />
+          <BarChart3 className="text-[#125EF2]" size={24} />
           <span>Analytics & Reports</span>
         </h1>
         <p className="text-xs text-[color:var(--muted)] font-medium mt-1">
@@ -60,7 +60,7 @@ export default function Reports() {
               <span className="text-2xl font-bold text-slate-800">{card.value}</span>
               <span className={`text-xs font-bold px-2 py-0.5 rounded-lg ${
                 card.type === "positive" 
-                  ? "bg-emerald-50 text-emerald-700 border border-emerald-100" 
+                  ? "bg-[#EAF2FE] text-[#125EF2] border border-[#CFE0FD]" 
                   : "bg-slate-50 text-slate-600 border border-slate-150"
               }`}>
                 {card.change}
@@ -75,7 +75,7 @@ export default function Reports() {
         {/* Conversion Funnel */}
         <div className="card border border-slate-100 p-6">
           <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
-            <TrendingUp size={18} className="text-emerald-600" />
+            <TrendingUp size={18} className="text-[#125EF2]" />
             <span>Message Conversion Funnel</span>
           </h2>
           <p className="text-xs text-slate-400 font-medium mt-0.5">Efficiency breakdown from dispatch to client replies</p>
@@ -102,7 +102,7 @@ export default function Reports() {
         <div className="card border border-slate-100 p-6 flex flex-col justify-between">
           <div>
             <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
-              <Clock size={18} className="text-emerald-600" />
+              <Clock size={18} className="text-[#125EF2]" />
               <span>Weekly Message Volume</span>
             </h2>
             <p className="text-xs text-slate-400 font-medium mt-0.5">Total processed events (outgoing + incoming)</p>
@@ -121,7 +121,7 @@ export default function Reports() {
                   
                   {/* Bar */}
                   <div 
-                    className="w-8 bg-emerald-100 border-t border-emerald-500 rounded-t group-hover:bg-emerald-600 transition-all duration-300"
+                    className="w-8 bg-[#CFE0FD] border-t border-[#125EF2] rounded-t group-hover:bg-[#125EF2] transition-all duration-300"
                     style={{ height: `${height}%` }}
                   ></div>
                   
@@ -136,11 +136,11 @@ export default function Reports() {
       {/* AI Campaign Insights summary */}
       <div className="card border border-slate-100 p-6 bg-slate-50 border-l-4 border-l-emerald-600">
         <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
-          <Sparkles size={16} className="text-emerald-600" />
+          <Sparkles size={16} className="text-[#125EF2]" />
           <span>Smart Campaign Insight</span>
         </h3>
         <p className="text-xs text-slate-600 leading-relaxed mt-2">
-          Your <strong className="text-slate-800">Summer Promo Campaign</strong> generated a read rate of <span className="text-emerald-700 font-bold">84.2%</span>. This is 3.5% higher than your average. Campaigns dispatched between <strong className="text-slate-800">10:00 AM and 11:30 AM</strong> show the highest engagement response rates from your contacts.
+          Your <strong className="text-slate-800">Summer Promo Campaign</strong> generated a read rate of <span className="text-[#125EF2] font-bold">84.2%</span>. This is 3.5% higher than your average. Campaigns dispatched between <strong className="text-slate-800">10:00 AM and 11:30 AM</strong> show the highest engagement response rates from your contacts.
         </p>
       </div>
     </div>

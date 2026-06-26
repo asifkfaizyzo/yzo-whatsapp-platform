@@ -60,7 +60,7 @@ export default function Team() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <UserCheck className="text-emerald-600" size={24} />
+            <UserCheck className="text-[#125EF2]" size={24} />
             <span>Platform Operators & Administrators</span>
           </h1>
           <p className="text-xs text-gray-500 mt-1">
@@ -69,8 +69,8 @@ export default function Team() {
         </div>
 
         {feedback && (
-          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-100 rounded-xl text-emerald-800 text-xs font-semibold animate-bounce shrink-0">
-            <CheckCircle2 size={13} className="text-emerald-600" />
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#EAF2FE] border border-[#CFE0FD] rounded-xl text-[#0D47A1] text-xs font-semibold animate-bounce shrink-0">
+            <CheckCircle2 size={13} className="text-[#125EF2]" />
             <span>{feedback}</span>
           </div>
         )}
@@ -120,11 +120,11 @@ export default function Team() {
                   <td className="p-4">
                     <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${
                       admin.status === "Active"
-                        ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                        ? "bg-[#EAF2FE] text-[#0F4FCC] border-[#CFE0FD]"
                         : "bg-amber-50 text-amber-700 border-amber-100"
                     }`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${
-                        admin.status === "Active" ? "bg-emerald-500" : "bg-amber-500"
+                        admin.status === "Active" ? "bg-[#125EF2]" : "bg-amber-500"
                       }`} />
                       <span>{admin.status}</span>
                     </span>

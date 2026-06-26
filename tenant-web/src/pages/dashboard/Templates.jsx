@@ -83,7 +83,7 @@ export default function Templates() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <FileCode className="text-emerald-600" size={24} />
+            <FileCode className="text-[#125EF2]" size={24} />
             <span>WhatsApp Message Templates</span>
           </h1>
           <p className="text-xs text-[color:var(--muted)] font-medium mt-1">
@@ -110,7 +110,7 @@ export default function Templates() {
                 </span>
                 <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold border ${
                   temp.status === "approved"
-                    ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                    ? "bg-[#EAF2FE] text-[#125EF2] border-[#CFE0FD]"
                     : "bg-amber-50 text-amber-700 border-amber-100"
                 }`}>
                   {temp.status === "approved" ? <CheckCircle size={10} /> : <Clock size={10} />}
@@ -252,7 +252,7 @@ export default function Templates() {
             {/* Phone Screen Mock */}
             <div className="bg-[#efeae2] h-96 rounded-2xl p-3 flex flex-col justify-end mt-4 overflow-hidden relative">
               {/* Wallpaper Doodles Pattern Mock */}
-              <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#059669_1px,transparent_1px)] [background-size:16px_16px]"></div>
+              <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#125EF2_1px,transparent_1px)] [background-size:16px_16px]"></div>
               
               {/* Message Bubble */}
               <div className="bg-white text-slate-800 rounded-2xl rounded-tl-none p-3 shadow-sm border border-slate-200/50 max-w-[90%] text-[11px] leading-relaxed relative z-10 font-sans">

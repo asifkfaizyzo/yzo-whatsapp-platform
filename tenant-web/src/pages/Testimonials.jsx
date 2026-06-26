@@ -39,13 +39,13 @@ export default function Testimonials() {
 
           {/* Header */}
           <div className="text-center mb-14">
-            <span className="text-green-600 font-semibold text-sm 
+            <span className="text-[#125EF2] font-semibold text-sm 
                              uppercase tracking-wider">
               Testimonials
             </span>
             <h1 className="text-3xl font-bold text-gray-900 mt-3 mb-4">
               Trusted by{" "}
-              <span className="text-green-600">5,000+ businesses</span>
+              <span className="text-[#125EF2]">5,000+ businesses</span>
             </h1>
             <p className="text-gray-500 text-sm">
               See why teams choose sudoreply for WhatsApp broadcasting.
@@ -72,9 +72,9 @@ export default function Testimonials() {
 
                 {/* Author */}
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 bg-green-100 rounded-full 
+                  <div className="w-9 h-9 bg-[#CFE0FD] rounded-full 
                                   flex items-center justify-center 
-                                  text-green-600 font-bold text-sm">
+                                  text-[#125EF2] font-bold text-sm">
                     {review.name.charAt(0)}
                   </div>
                   <div>

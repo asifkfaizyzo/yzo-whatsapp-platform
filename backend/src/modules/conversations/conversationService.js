@@ -73,14 +73,15 @@ export const getAssignedConversations = async ({
       tenantId: tenantId,
     };
 
-    // Filter by status
-    if (status === 'CLOSED') {
-      whereClause.status = { in: ['CLOSED', 'RESOLVED'] };
-    } else {
-      whereClause.status = 'OPEN';
-    }
+// Filter by status
+if (status === 'CLOSED') {
+  whereClause.status = { in: ['CLOSED', 'RESOLVED'] };
+} else if (status === 'OPEN') {
+  whereClause.status = 'OPEN';
+}
 
-    // Filter by assignment
+// ── if status is 'ALL' or undefined → no status filter → return ALL statuses ──
+// Filter by assignment
     const assignType = assignmentType || (userId ? 'my' : 'all');
     if (assignType === 'my' && userId) {
       whereClause.contact = {

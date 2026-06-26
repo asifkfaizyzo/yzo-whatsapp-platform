@@ -93,23 +93,30 @@ export const getAssignedConversationsController = async (req, res) => {
     const limit = parseInt(req.query.limit) || 20;
     const filter = req.query.filter || (req.userType === 'TENANT' ? 'all' : 'my');
 
-    let status = 'OPEN';
-    let assignmentType = 'all';
+    let status = 'ALL'; // ← default is ALL (no status filter)
+let assignmentType = 'all';
 
-    if (req.userType === 'TENANT') {
-      if (filter === 'closed') {
-        status = 'CLOSED';
-      } else if (filter === 'assigned') {
-        assignmentType = 'assigned';
-      } else if (filter === 'unassigned') {
-        assignmentType = 'unassigned';
-      }
-    } else {
-      assignmentType = 'my';
-      if (filter === 'closed') {
-        status = 'CLOSED';
-      }
-    }
+if (req.userType === 'TENANT') {
+  if (filter === 'closed') {
+    status = 'CLOSED';
+  } else if (filter === 'open') {
+    status = 'OPEN';
+  } else if (filter === 'assigned') {
+    assignmentType = 'assigned';
+  } else if (filter === 'unassigned') {
+    assignmentType = 'unassigned';
+  }
+  // filter === 'all' → status stays 'ALL' → returns everything
+} else {
+  // User/Agent
+  assignmentType = 'my';
+  if (filter === 'closed') {
+    status = 'CLOSED';
+  } else if (filter === 'open') {
+    status = 'OPEN';
+  }
+  // filter === 'my' → status stays 'ALL' → returns all their chats
+}
 
     // 3️⃣ Call service
     const result = await getAssignedConversations({

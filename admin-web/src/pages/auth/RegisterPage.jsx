@@ -6,6 +6,7 @@ import { useFormHandler } from "../../hooks/useFormHandler";
 import { createSuperAdminSchema } from "../../validations/superAdmin.validation";
 import FormError from "../../components/FormError";
 
+
 const benefits = [
   {
     title: "Global styles",
@@ -23,6 +24,7 @@ const benefits = [
 
 export default function RegisterPage() {
   const navigate = useNavigate();
+
 
   const {
     register,
@@ -47,9 +49,15 @@ export default function RegisterPage() {
               "linear-gradient(135deg, var(--primary), var(--primary-dark))",
           }}
         >
-          <Link to="/" className="text-2xl font-semibold">
-            {siteConfig.brand}
-          </Link>
+         <div>
+    <Link to="/" className="inline-flex items-center">
+      <img
+        src="/sudo2.png"
+        alt="SudoReply Logo"
+        className="w-20 h-20 object-contain"
+      />
+    </Link>
+  </div>
 
           <div>
             <p className="text-sm uppercase tracking-[0.3em] text-white/70">
@@ -138,10 +146,13 @@ export default function RegisterPage() {
               </div>
 
               {/* Password */}
-              <div>
+            
+ <div>
                 <label className="label">Password</label>
                 <input
-                  className="input"
+                  className={`input ${
+                    errors.password ? "border-red-500 focus:ring-red-200" : ""
+                  }`}
                   type="password"
                   name="password"
                   placeholder="••••••••"

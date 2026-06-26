@@ -48,6 +48,9 @@ model Tenant {
    status      TenantStatus @default(PENDING)
    isActive    Boolean   @default(true) 
 
+  planId      String?
+  plan        SubscriptionPlan? @relation("TenantSubscription", fields: [planId], references: [id])
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -320,4 +323,95 @@ model AutoReopenConfig {
 
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
+}
+
+
+
+//──────────────────enum PlanStatus──────────────────
+enum PlanStatus {
+  ACTIVE
+  INACTIVE
+}
+
+
+
+//──────────────────Model SubscriptionPlan──────────────────
+model SubscriptionPlan {
+  id           String     @id @default(cuid())
+  name         String     @unique
+  description  String?
+
+  monthlyPrice Float
+  annualPrice  Float?
+
+  status       PlanStatus @default(ACTIVE)
+
+  // ─── Usage Limits (null = unlimited) ───
+  maxAgents      Int
+  maxBroadcasts  Int?
+  maxAutomations Int?
+  maxCampaigns   Int?
+  maxApiCalls    Int?
+  maxAiCredits   Int?
+
+  // ─── Relations ───
+  features     PlanFeature[]
+  integrations PlanIntegration[]
+  tenants      Tenant[]   @relation("TenantSubscription")
+
+  // ─── Timestamps ───
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+}
+
+
+
+//──────────────────Model Feature──────────────────
+model Feature {
+  id    String @id @default(cuid())
+  name  String @unique
+
+  // ─── Relations ───
+  plans PlanFeature[]
+
+  // ─── Timestamps ───
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+
+
+//──────────────────Plan ↔ Feature Mapping──────────────────
+model PlanFeature {
+  id        String           @id @default(cuid())
+
+  planId    String
+  plan      SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  featureId String
+  feature   Feature          @relation(fields: [featureId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([planId, featureId])
+  @@index([planId])
+  @@index([featureId])
+}
+
+
+
+//──────────────────Model PlanIntegration──────────────────
+model PlanIntegration {
+  id     String           @id @default(cuid())
+  name   String
+
+  planId String
+  plan   SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([planId, name])
+  @@index([planId])
 }

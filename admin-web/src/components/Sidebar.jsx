@@ -7,6 +7,7 @@ import {
   Building2,
   BarChart3,
   UserCheck,
+  CreditCard,
   Settings,
 } from "lucide-react";
 
@@ -23,6 +24,11 @@ export default function Sidebar({ userRole = "Super Admin" }) {
       path: "/dashboard/tenants",
       icon: <Building2 size={20} />,
     },
+    {
+  label: "Subscription Plans",
+  path: "/dashboard/subscription-plans",
+  icon: <CreditCard size={20} />,
+},
     {
       label: "Platform Reports",
       path: "/dashboard/reports",
@@ -50,7 +56,7 @@ export default function Sidebar({ userRole = "Super Admin" }) {
             <span className="text-sm font-semibold capitalize text-slate-800">
               {userRole}
             </span>
-            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">
+            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-[#EAF2FE] text-[#0F4FCC] border border-[#CFE0FD]">
               Full Access
             </span>
           </div>
@@ -65,7 +71,7 @@ export default function Sidebar({ userRole = "Super Admin" }) {
               end={item.end}
               className={({ isActive }) =>
                 `flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-medium transition duration-150 ${isActive
-                  ? "bg-emerald-50 text-emerald-700 border-l-4 border-emerald-600 font-semibold"
+                  ? "bg-[#EAF2FE] text-[#0F4FCC] border-l-4 border-[#125EF2] font-semibold"
                   : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                 }`
               }

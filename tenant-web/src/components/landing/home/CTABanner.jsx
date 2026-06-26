@@ -6,7 +6,7 @@ export default function CTABanner() {
       <div className="max-w-3xl mx-auto px-6 text-center">
 
         {/* Small Icon */}
-        <div className="w-14 h-14 bg-green-100 rounded-2xl 
+        <div className="w-14 h-14 bg-[#CFE0FD] rounded-2xl 
                         flex items-center justify-center 
                         text-2xl mx-auto mb-6">
           🚀
@@ -26,11 +26,11 @@ export default function CTABanner() {
         <div className="flex flex-wrap justify-center gap-4">
           <Link
             to="/auth/register"
-            className="bg-gray-900 text-white px-7 py-3 
-                       rounded-lg font-medium text-sm
-                       hover:bg-gray-800 transition-all 
-                       duration-300 hover:-translate-y-0.5 
-                       hover:shadow-lg"
+             className="bg-[#125EF2] text-white px-7 py-3
+                         rounded-lg font-medium text-sm
+                         hover:bg-[#0F4FCC] transition
+                         shadow-sm hover:shadow-md
+                         hover:shadow-[#125EF2]/20"
           >
             Start Free Trial →
           </Link>

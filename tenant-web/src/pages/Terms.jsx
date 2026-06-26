@@ -11,7 +11,7 @@ export default function Terms() {
 
           {/* Header */}
           <div className="mb-12">
-            <span className="text-green-600 font-semibold text-sm 
+            <span className="text-[#125EF2] font-semibold text-sm 
                              uppercase tracking-wider">
               Legal
             </span>
@@ -104,7 +104,7 @@ export default function Terms() {
               <p>
                 Questions about these terms? Contact us at{" "}
                 <a href="mailto:legal@sudoreply" 
-                   className="text-green-600 hover:underline">
+                   className="text-[#125EF2] hover:underline">
                   legal@sudoreply
                 </a>
               </p>

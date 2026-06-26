@@ -3,28 +3,22 @@ import { Link } from "react-router-dom";
 export default function Footer() {
   return (
     <footer className="bg-gray-900 text-gray-400">
-
       {/* Main Footer */}
-      <div className="max-w-7xl mx-auto px-6 py-14">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-10">
-
+      <div className="mx-auto max-w-7xl px-6 py-14">
+        <div className="grid grid-cols-2 gap-10 md:grid-cols-4">
           {/* Column 1 — Brand */}
           <div className="col-span-2 md:col-span-1">
-            {/* Logo */}
-            <Link to="/" className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 bg-green-600 rounded-lg 
-                              flex items-center justify-center">
-                <span className="text-white font-bold text-sm">s</span>
-              </div>
-              <span className="text-lg font-bold text-white">
-                sudoreply
-                {/* <span className="text-green-500">.io</span> */}
-              </span>
+            <Link to="/" className="mb-4 inline-flex items-center gap-3">
+              <img
+                src="/sudo_bg.png"
+                alt="SudoReply Logo"
+                className="h-20 w-20 object-contain shrink-0"
+              />
+              
             </Link>
 
-            <p className="text-sm leading-relaxed mb-4">
-              The #1 WhatsApp Business API platform
-              to engage customers at scale.
+            <p className="mb-4 max-w-xs text-sm leading-relaxed">
+              The #1 WhatsApp Business API platform to engage customers at scale.
             </p>
 
             {/* Social Icons */}
@@ -33,11 +27,7 @@ export default function Footer() {
                 <a
                   key={i}
                   href="#"
-                  className="w-8 h-8 bg-gray-800 rounded-lg 
-                             flex items-center justify-center 
-                             text-xs text-gray-400 
-                             hover:bg-green-600 hover:text-white 
-                             transition-all duration-300"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-800 text-xs text-gray-400 transition-all duration-300 hover:bg-[#125EF2] hover:text-white"
                 >
                   {icon}
                 </a>
@@ -47,9 +37,7 @@ export default function Footer() {
 
           {/* Column 2 — Product */}
           <div>
-            <h4 className="text-white font-semibold text-sm mb-4">
-              Product
-            </h4>
+            <h4 className="mb-4 text-sm font-semibold text-white">Product</h4>
             <ul className="space-y-3">
               {[
                 { name: "Features", path: "/features" },
@@ -60,8 +48,7 @@ export default function Footer() {
                 <li key={item.name}>
                   <Link
                     to={item.path}
-                    className="text-sm hover:text-white 
-                               transition-colors duration-200"
+                    className="text-sm transition-colors duration-200 hover:text-white"
                   >
                     {item.name}
                   </Link>
@@ -72,9 +59,7 @@ export default function Footer() {
 
           {/* Column 3 — Company */}
           <div>
-            <h4 className="text-white font-semibold text-sm mb-4">
-              Company
-            </h4>
+            <h4 className="mb-4 text-sm font-semibold text-white">Company</h4>
             <ul className="space-y-3">
               {[
                 { name: "About Us", path: "#" },
@@ -85,8 +70,7 @@ export default function Footer() {
                 <li key={item.name}>
                   <Link
                     to={item.path}
-                    className="text-sm hover:text-white 
-                               transition-colors duration-200"
+                    className="text-sm transition-colors duration-200 hover:text-white"
                   >
                     {item.name}
                   </Link>
@@ -95,65 +79,53 @@ export default function Footer() {
             </ul>
           </div>
 
-
           {/* Column 4 — Support */}
           <div>
-            <h4 className="text-white font-semibold text-sm mb-4">
-              Support
-            </h4>
+            <h4 className="mb-4 text-sm font-semibold text-white">Support</h4>
             <ul className="space-y-3">
               <li>
-                <Link to="/help" className="text-sm hover:text-white transition">
+                <Link to="/help" className="text-sm transition hover:text-white">
                   Help Center
                 </Link>
               </li>
               <li>
-                <Link to="/privacy" className="text-sm hover:text-white transition">
+                <Link to="/privacy" className="text-sm transition hover:text-white">
                   Privacy Policy
                 </Link>
               </li>
               <li>
-                <Link to="/terms" className="text-sm hover:text-white transition">
+                <Link to="/terms" className="text-sm transition hover:text-white">
                   Terms of Service
                 </Link>
               </li>
               <li>
-                <Link to="/status" className="text-sm hover:text-white transition">
+                <Link to="/status" className="text-sm transition hover:text-white">
                   Status
                 </Link>
               </li>
             </ul>
           </div>
-
         </div>
       </div>
-
 
       {/* Bottom Bar */}
       <div className="border-t border-gray-800">
-        <div className="max-w-7xl mx-auto px-6 py-5 
-                  flex flex-col md:flex-row 
-                  justify-between items-center gap-4">
-
-          <p className="text-xs">
-            © 2026 sudoreply All rights reserved.
-          </p>
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-6 py-5 md:flex-row">
+          <p className="text-xs">© 2026 sudoreply All rights reserved.</p>
 
           <div className="flex gap-6">
-            <Link to="/privacy" className="text-xs hover:text-white transition">
+            <Link to="/privacy" className="text-xs transition hover:text-white">
               Privacy
             </Link>
-            <Link to="/terms" className="text-xs hover:text-white transition">
+            <Link to="/terms" className="text-xs transition hover:text-white">
               Terms
             </Link>
-            <Link to="/privacy" className="text-xs hover:text-white transition">
+            <Link to="/privacy" className="text-xs transition hover:text-white">
               Cookies
             </Link>
           </div>
-
         </div>
       </div>
-
     </footer>
   );
 }

@@ -21,7 +21,7 @@ export default function Contact() {
 
             {/* Left — Info */}
             <div>
-              <span className="text-green-600 font-semibold text-sm 
+              <span className="text-[#125EF2] font-semibold text-sm 
                                uppercase tracking-wider">
                 Contact
               </span>
@@ -36,20 +36,20 @@ export default function Contact() {
               {/* Contact Info */}
               <div className="space-y-6">
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-green-50 rounded-lg 
+                  <div className="w-10 h-10 bg-[#EAF2FE] rounded-lg 
                                   flex items-center justify-center">
                     📧
                   </div>
                   <div>
                     <p className="text-xs text-gray-400">Email</p>
                     <p className="text-sm font-medium text-gray-900">
-                      hello@wati.io
+                      hello@sudoreply
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-green-50 rounded-lg 
+                  <div className="w-10 h-10 bg-[#EAF2FE] rounded-lg 
                                   flex items-center justify-center">
                     💬
                   </div>
@@ -62,7 +62,7 @@ export default function Contact() {
                 </div>
 
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-green-50 rounded-lg 
+                  <div className="w-10 h-10 bg-[#EAF2FE] rounded-lg 
                                   flex items-center justify-center">
                     📞
                   </div>
@@ -75,7 +75,7 @@ export default function Contact() {
                 </div>
 
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-green-50 rounded-lg 
+                  <div className="w-10 h-10 bg-[#EAF2FE] rounded-lg 
                                   flex items-center justify-center">
                     📍
                   </div>
@@ -92,9 +92,9 @@ export default function Contact() {
             {/* Right — Form or Success */}
             <div>
               {submitted ? (
-                <div className="bg-green-50 rounded-2xl p-10 
-                                border border-green-100 text-center">
-                  <div className="w-16 h-16 bg-green-100 rounded-full 
+                <div className="bg-[#EAF2FE] rounded-2xl p-10 
+                                border border-[#CFE0FD] text-center">
+                  <div className="w-16 h-16 bg-[#CFE0FD] rounded-full 
                                   flex items-center justify-center 
                                   text-3xl mx-auto mb-4">
                     ✅
@@ -108,8 +108,8 @@ export default function Contact() {
                   </p>
                   <button
                     onClick={() => setSubmitted(false)}
-                    className="text-sm font-medium text-green-600 
-                               hover:text-green-700"
+                    className="text-sm font-medium text-[#125EF2] 
+                               hover:text-[#0F4FCC]"
                   >
                     Send another message →
                   </button>
@@ -137,7 +137,7 @@ export default function Contact() {
                           className="w-full px-4 py-2.5 rounded-lg 
                                      border border-gray-200 text-sm 
                                      focus:outline-none focus:ring-2 
-                                     focus:ring-green-500 bg-white"
+                                     focus:ring-[#125EF2] bg-white"
                         />
                       </div>
 
@@ -154,7 +154,7 @@ export default function Contact() {
                           className="w-full px-4 py-2.5 rounded-lg 
                                      border border-gray-200 text-sm 
                                      focus:outline-none focus:ring-2 
-                                     focus:ring-green-500 bg-white"
+                                     focus:ring-[#125EF2] bg-white"
                         />
                       </div>
                     </div>
@@ -174,7 +174,7 @@ export default function Contact() {
                           className="w-full px-4 py-2.5 rounded-lg 
                                      border border-gray-200 text-sm 
                                      focus:outline-none focus:ring-2 
-                                     focus:ring-green-500 bg-white"
+                                     focus:ring-[#125EF2] bg-white"
                         />
                       </div>
 
@@ -190,7 +190,7 @@ export default function Contact() {
                           className="w-full px-4 py-2.5 rounded-lg 
                                      border border-gray-200 text-sm 
                                      focus:outline-none focus:ring-2 
-                                     focus:ring-green-500 bg-white"
+                                     focus:ring-[#125EF2] bg-white"
                         />
                       </div>
                     </div>
@@ -205,7 +205,7 @@ export default function Contact() {
                         className="w-full px-4 py-2.5 rounded-lg 
                                    border border-gray-200 text-sm 
                                    focus:outline-none focus:ring-2 
-                                   focus:ring-green-500 bg-white 
+                                   focus:ring-[#125EF2] bg-white 
                                    text-gray-500"
                       >
                         <option value="">Select team size</option>
@@ -229,7 +229,7 @@ export default function Contact() {
                         className="w-full px-4 py-2.5 rounded-lg 
                                    border border-gray-200 text-sm 
                                    focus:outline-none focus:ring-2 
-                                   focus:ring-green-500 bg-white 
+                                   focus:ring-[#125EF2] bg-white 
                                    resize-none"
                       />
                     </div>

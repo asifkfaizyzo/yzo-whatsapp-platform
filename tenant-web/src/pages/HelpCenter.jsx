@@ -53,7 +53,7 @@ export default function HelpCenter() {
 
           {/* Header */}
           <div className="text-center mb-14">
-            <span className="text-green-600 font-semibold text-sm 
+            <span className="text-[#125EF2] font-semibold text-sm 
                              uppercase tracking-wider">
               Help Center
             </span>
@@ -109,7 +109,7 @@ export default function HelpCenter() {
             <p className="text-sm text-gray-400">
               Email us at{" "}
               <a href="mailto:support@sudoreply" 
-                 className="text-green-600 hover:underline">
+                 className="text-[#125EF2] hover:underline">
                 support@sudoreply
               </a>
             </p>

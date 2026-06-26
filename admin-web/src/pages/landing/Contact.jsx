@@ -18,7 +18,7 @@ export default function Contact() {
 
             {/* Left — Info */}
             <div>
-              <span className="text-green-600 font-semibold text-sm 
+                <span className="text-[#125EF2] font-semibold text-sm 
                                uppercase tracking-wider">
                 Contact
               </span>
@@ -40,7 +40,7 @@ export default function Contact() {
                   <div>
                     <p className="text-xs text-gray-400">Email</p>
                     <p className="text-sm font-medium text-gray-900">
-                      hello@wati.io
+                      hello@sudoreply
                     </p>
                   </div>
                 </div>

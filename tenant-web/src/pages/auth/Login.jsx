@@ -1,11 +1,11 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { siteConfig } from "../../config/site";
-// import { loginSuperAdmin } from "../../lib/authApi";
+// import { siteConfig } from "../../config/site";
 import { login } from "../../services/auth.service";
 import { useFormHandler } from "../../hooks/useFormHandler";
 import { loginSchema } from "../../validations/auth.validation";
 import FormError from "../../components/FormError";
+
 
 const benefits = [
   {
@@ -25,19 +25,17 @@ const benefits = [
 export default function LoginPage() {
   const navigate = useNavigate();
 
-const {
-  register,
-  onSubmit,
-  generalError,
-  formState: { errors, isSubmitting },
-} = useFormHandler({
-  schema: loginSchema,
-  defaultValues: { email: "", password: "" },
-  // Wrap login to match expected input params
-  onSubmitService: (data) => login(data.email, data.password),
-  onSuccess: () => navigate("/dashboard"),
-});
-
+  const {
+    register,
+    onSubmit,
+    generalError,
+    formState: { errors, isSubmitting },
+  } = useFormHandler({
+    schema: loginSchema,
+    defaultValues: { email: "", password: "" },
+    onSubmitService: (data) => login(data.email, data.password),
+    onSuccess: () => navigate("/dashboard"),
+  });
 
   return (
     <div className="min-h-screen">
@@ -50,10 +48,18 @@ const {
               "linear-gradient(135deg, var(--primary), var(--primary-dark))",
           }}
         >
-          <Link to="/" className="text-2xl font-semibold">
-            {siteConfig.brand}
-          </Link>
+          {/* Top: Logo */}
+          <div>
+            <Link to="/" className="inline-flex items-center">
+              <img
+                src="/sudo2.png"
+                alt="SudoReply Logo"
+                className="w-20 h-20 object-contain"
+              />
+            </Link>
+          </div>
 
+          {/* Middle: Headline */}
           <div>
             <p className="text-sm uppercase tracking-[0.3em] text-white/70">
               Frontend UI
@@ -67,6 +73,7 @@ const {
             </p>
           </div>
 
+          {/* Bottom: Benefits */}
           <div className="space-y-4">
             {benefits.map((item) => (
               <div
@@ -82,11 +89,13 @@ const {
 
         {/* ── Right Panel (Form) ── */}
         <div className="mx-auto w-full max-w-md">
-          <Link
-            to="/"
-            className="mb-6 inline-flex text-xl font-semibold lg:hidden"
-          >
-            {siteConfig.brand}
+          {/* Mobile Logo */}
+          <Link to="/" className="mb-6 inline-flex items-center lg:hidden">
+            <img
+              src="/sudo2.png"
+              alt="SudoReply Logo"
+              className="w-12 h-12 object-contain"
+            />
           </Link>
 
           <div className="card p-6 sm:p-8">
@@ -98,19 +107,12 @@ const {
               </p>
             </div>
 
-            {/* ✅ Error Message */}
-            {generalError  && (
-              <div className="mt-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
-                {generalError }
+            {/* Error Message */}
+            {generalError && (
+              <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+                {generalError}
               </div>
             )}
-
-            {/* ✅ Success Message
-            {success && (
-              <div className="mt-4 rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-600">
-                {success}
-              </div>
-            )} */}
 
             {/* Form */}
             <form className="mt-6 space-y-4" onSubmit={onSubmit}>
@@ -118,7 +120,9 @@ const {
               <div>
                 <label className="label">Email</label>
                 <input
-                  className={`input ${errors.email ? "border-red-500 focus:ring-red-200" : ""}`}
+                  className={`input ${
+                    errors.email ? "border-red-500 focus:ring-red-200" : ""
+                  }`}
                   type="email"
                   name="email"
                   placeholder="admin@company.com"
@@ -131,7 +135,9 @@ const {
               <div>
                 <label className="label">Password</label>
                 <input
-                  className={`input ${errors.password ? "border-red-500 focus:ring-red-200" : ""}`}
+                  className={`input ${
+                    errors.password ? "border-red-500 focus:ring-red-200" : ""
+                  }`}
                   type="password"
                   name="password"
                   placeholder="••••••••"
@@ -148,13 +154,13 @@ const {
                 </label>
                 <Link
                   to="/forgot-password"
-                  className="font-medium hover:underline text-[color:var(--primary-dark)]"
+                  className="font-medium text-[color:var(--primary-dark)] hover:underline"
                 >
                   Forgot password?
                 </Link>
               </div>
 
-              {/* ✅ Submit Button with Loading */}
+              {/* Submit Button */}
               <button
                 type="submit"
                 className="btn-primary w-full"

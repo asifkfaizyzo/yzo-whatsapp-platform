@@ -32,7 +32,21 @@ export const initSocket = (server) => {
 };
 
 export const emitToTenant = (tenantId, event, data) => {
-  if (io) {
-    io.to(tenantId).emit(event, data);
+  if (!io) {
+    console.log("❌ Socket.io not initialized");
+    return;
   }
+
+  const room = io.sockets.adapter.rooms.get(tenantId);
+
+  console.log("🏠 ROOM:", tenantId);
+  console.log(
+    "👥 CLIENTS IN ROOM:",
+    room ? [...room] : []
+  );
+
+  io.to(tenantId).emit(event, data);
+
+  console.log("📤 EVENT EMITTED:", event);
+  console.log("📦 PAYLOAD:", data);
 };

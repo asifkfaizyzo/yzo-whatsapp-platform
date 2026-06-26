@@ -42,7 +42,7 @@ const TopNavbar = () => {
     <div className="flex items-center justify-between bg-white border-b border-gray-200 px-6 py-3 h-16 relative z-30">
       {/* Left: Logo */}
       <div className="flex items-center gap-2">
-        <div className="bg-[#10b981] p-2 rounded-lg flex items-center justify-center">
+        <div className="bg-[#125EF2] p-2 rounded-lg flex items-center justify-center">
           <svg
             className="w-5 h-5 text-white"
             fill="currentColor"
@@ -75,7 +75,7 @@ const TopNavbar = () => {
                 cx="16"
                 cy="16"
                 r="13"
-                stroke="#10b981"
+                stroke="#125EF2"
                 strokeWidth="2.5"
                 fill="none"
                 strokeDasharray="81.68"
@@ -83,14 +83,14 @@ const TopNavbar = () => {
                 strokeLinecap="round"
               />
             </svg>
-            <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-[#059669]">
+            <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-[#125EF2]">
               2/4
             </span>
           </div>
         </div> */}
 
         {/* Action Button
-        <button className="hidden md:inline-flex border border-[#10b981] text-[#059669] px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-emerald-50 transition duration-150">
+        <button className="hidden md:inline-flex border border-[#125EF2] text-[#125EF2] px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-[#EAF2FE] transition duration-150">
           Book a demo
         </button> */}
 
@@ -105,7 +105,7 @@ const TopNavbar = () => {
             onClick={() => setShowDropdown(!showDropdown)}
             className="flex items-center gap-1.5 p-1 rounded-xl hover:bg-gray-50 border border-transparent hover:border-gray-100 transition duration-150"
           >
-            <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-700 font-semibold text-sm">
+            <div className="w-8 h-8 rounded-lg bg-[#CFE0FD] flex items-center justify-center text-[#0F4FCC] font-semibold text-sm">
               {user?.name ? user.name.charAt(0).toUpperCase() : <User size={16} />}
             </div>
             <ChevronDown size={14} className={`text-gray-500 transition-transform duration-200 ${showDropdown ? 'rotate-180' : ''}`} />

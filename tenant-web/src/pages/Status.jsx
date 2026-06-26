@@ -15,8 +15,8 @@
 //     switch (status) {
 //       case "operational":
 //         return {
-//           dot: "bg-green-500",
-//           text: "text-green-600",
+//           dot: "bg-[#125EF2]",
+//           text: "text-[#125EF2]",
 //           label: "Operational",
 //         };
 //       case "degraded":
@@ -49,7 +49,7 @@
 
 //           {/* Header */}
 //           <div className="text-center mb-14">
-//             <span className="text-green-600 font-semibold text-sm 
+//             <span className="text-[#125EF2] font-semibold text-sm 
 //                              uppercase tracking-wider">
 //               Status
 //             </span>
@@ -59,11 +59,11 @@
 
 //             {/* Overall Status */}
 //             <div className="inline-flex items-center gap-2 
-//                             bg-green-50 border border-green-100 
+//                             bg-[#EAF2FE] border border-[#CFE0FD] 
 //                             rounded-full px-5 py-2">
-//               <span className="w-2.5 h-2.5 bg-green-500 
+//               <span className="w-2.5 h-2.5 bg-[#125EF2] 
 //                               rounded-full animate-pulse"></span>
-//               <span className="text-sm font-medium text-green-700">
+//               <span className="text-sm font-medium text-[#0F4FCC]">
 //                 All Systems Operational
 //               </span>
 //             </div>
@@ -101,13 +101,13 @@
 //               <span className="text-sm font-medium text-gray-900">
 //                 Overall Uptime (Last 30 days)
 //               </span>
-//               <span className="text-sm font-bold text-green-600">
+//               <span className="text-sm font-bold text-[#125EF2]">
 //                 99.98%
 //               </span>
 //             </div>
 //             {/* Progress Bar */}
 //             <div className="w-full bg-gray-200 rounded-full h-2">
-//               <div className="bg-green-500 h-2 rounded-full" 
+//               <div className="bg-[#125EF2] h-2 rounded-full" 
 //                    style={{ width: "99.98%" }}></div>
 //             </div>
 //           </div>
@@ -130,7 +130,7 @@
 //             <p className="text-sm text-gray-400">
 //               Want status updates?{" "}
 //               <a href="mailto:support@wati.io" 
-//                  className="text-green-600 hover:underline">
+//                  className="text-[#125EF2] hover:underline">
 //                 Subscribe to notifications
 //               </a>
 //             </p>

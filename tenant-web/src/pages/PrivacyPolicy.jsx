@@ -11,7 +11,7 @@ export default function PrivacyPolicy() {
 
           {/* Header */}
           <div className="mb-12">
-            <span className="text-green-600 font-semibold text-sm 
+            <span className="text-[#125EF2] font-semibold text-sm 
                              uppercase tracking-wider">
               Legal
             </span>
@@ -99,7 +99,7 @@ export default function PrivacyPolicy() {
                 If you have any questions about this Privacy Policy, 
                 please contact us at{" "}
                 <a href="mailto:privacy@sudoreply" 
-                   className="text-green-600 hover:underline">
+                   className="text-[#125EF2] hover:underline">
                   privacy@sudoreply
                 </a>
               </p>

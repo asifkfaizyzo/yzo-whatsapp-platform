@@ -8,18 +8,18 @@ export default function NotFound() {
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#f8fafc] px-4 py-12">
       {/* Decorative background blobs */}
-      <div className="absolute -left-20 -top-20 -z-10 h-72 w-72 rounded-full bg-emerald-100/50 blur-3xl" />
-      <div className="absolute -right-20 -bottom-20 -z-10 h-80 w-80 rounded-full bg-teal-100/50 blur-3xl" />
+      <div className="absolute -left-20 -top-20 -z-10 h-72 w-72 rounded-full bg-[#CFE0FD]/50 blur-3xl" />
+      <div className="absolute -right-20 -bottom-20 -z-10 h-80 w-80 rounded-full bg-[#CFE0FD]/50 blur-3xl" />
 
       {/* Main card */}
       <div className="card max-w-md w-full p-8 text-center shadow-xl backdrop-blur-sm bg-white/90 border-slate-200/50 transform transition-all duration-500 hover:scale-[1.01]">
         {/* Animated Icon */}
-        <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-3xl bg-emerald-50 text-emerald-500 shadow-inner animate-pulse">
+        <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-3xl bg-[#EAF2FE] text-[#125EF2] shadow-inner animate-pulse">
           <AlertCircle className="h-10 w-10" />
         </div>
 
         {/* 404 Text */}
-        <h1 className="bg-gradient-to-r from-emerald-500 to-teal-600 bg-clip-text text-8xl font-black tracking-tight text-transparent">
+        <h1 className="bg-gradient-to-r from-[#125EF2] to-[#125EF2] bg-clip-text text-8xl font-black tracking-tight text-transparent">
           404
         </h1>
 

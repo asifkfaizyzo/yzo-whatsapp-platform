@@ -24,16 +24,13 @@ export default function Navbar() {
         <div className="flex justify-between items-center h-16">
 
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2">
-            <div className="w-9 h-9 bg-green-600 rounded-lg 
-                            flex items-center justify-center">
-              <span className="text-white font-bold text-lg">s</span>
-            </div>
-            <span className="text-xl font-bold text-gray-900">
-              sudoreply
-              {/* <span className="text-green-600">.io</span> */}
-            </span>
-          </Link>
+   <Link to="/" className="flex items-center gap-2">
+  <img 
+    src="/sudo_bg.png" 
+    alt="SudoReply Logo" 
+    className="h-9 w-auto rounded-lg"
+  />
+</Link>
 
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-1">
@@ -44,8 +41,8 @@ export default function Navbar() {
                 className={`px-4 py-2 rounded-lg text-sm font-medium 
                            transition-all duration-200
                            ${isActive(item.path)
-                             ? "text-green-600 bg-green-50"
-                             : "text-gray-600 hover:text-green-600 hover:bg-green-50"
+                             ? "text-[#125EF2] bg-[#EAF2FE]"
+                             : "text-gray-600 hover:text-[#125EF2] hover:bg-[#EAF2FE]"
                            }`}
               >
                 {item.name}
@@ -58,14 +55,14 @@ export default function Navbar() {
             <Link
               to="/auth/login"
               className="text-sm font-medium text-gray-600 
-                         hover:text-green-600 transition px-4 py-2"
+                         hover:text-[#125EF2] transition px-4 py-2"
             >
               Log in
             </Link>
             <Link
               to="/auth/register"
-              className="text-sm font-medium text-white bg-green-600 
-                         px-5 py-2.5 rounded-lg hover:bg-green-700 
+              className="text-sm font-medium text-white bg-[#125EF2] 
+                         px-5 py-2.5 rounded-lg hover:bg-[#0F4FCC] 
                          transition-all duration-200 shadow-sm 
                          hover:shadow-md hover:shadow-green-200"
             >
@@ -109,7 +106,7 @@ export default function Navbar() {
                   className={`px-4 py-2.5 rounded-lg text-sm 
                              font-medium transition
                              ${isActive(item.path)
-                               ? "text-green-600 bg-green-50"
+                               ? "text-[#125EF2] bg-[#EAF2FE]"
                                : "text-gray-600 hover:bg-gray-50"
                              }`}
                 >
@@ -132,9 +129,9 @@ export default function Navbar() {
                   to="/auth/signup"
                   onClick={() => setIsOpen(false)}
                   className="text-sm font-medium text-white 
-                             bg-green-600 px-4 py-2.5 
+                             bg-[#125EF2] px-4 py-2.5 
                              rounded-lg text-center 
-                             hover:bg-green-700"
+                             hover:bg-[#0F4FCC]"
                 >
                   Get Started Free
                 </Link>

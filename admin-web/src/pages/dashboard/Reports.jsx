@@ -31,7 +31,7 @@ export default function Reports() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <TrendingUp className="text-emerald-600" size={24} />
+          <TrendingUp className="text-[#125EF2]" size={24} />
           <span>SaaS Analytics & Reports</span>
         </h1>
         <p className="text-xs text-gray-500 mt-1">
@@ -52,7 +52,7 @@ export default function Reports() {
             <div className="mt-4">
               <span className="text-3xl font-bold text-slate-800">{item.value}</span>
               <p className={`mt-1 text-xs font-semibold flex items-center gap-1 ${
-                item.trend === "up" ? "text-emerald-600" : "text-amber-600"
+                item.trend === "up" ? "text-[#125EF2]" : "text-amber-600"
               }`}>
                 {item.trend === "up" ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
                 <span>{item.change}</span>
@@ -87,12 +87,12 @@ export default function Reports() {
                 <tr key={item.tenant} className="hover:bg-slate-50/50">
                   <td className="py-3.5 font-semibold text-slate-700">{item.tenant}</td>
                   <td className="py-3.5">
-                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">
+                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold bg-[#EAF2FE] text-[#0F4FCC] border border-[#CFE0FD]">
                       {item.plan}
                     </span>
                   </td>
                   <td className="py-3.5 text-right font-semibold text-slate-800">{item.messagesSent.toLocaleString()}</td>
-                  <td className="py-3.5 text-right text-emerald-600 font-semibold">{item.successRate}</td>
+                  <td className="py-3.5 text-right text-[#125EF2] font-semibold">{item.successRate}</td>
                   <td className="py-3.5 text-right font-bold text-slate-800">{item.bills}</td>
                 </tr>
               ))}

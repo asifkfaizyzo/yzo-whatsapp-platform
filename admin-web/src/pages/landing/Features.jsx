@@ -1,4 +1,3 @@
-
 import { Link } from "react-router-dom";
 
 export default function Features() {
@@ -42,16 +41,18 @@ export default function Features() {
 
           {/* Header */}
           <div className="text-center mb-14">
-            <span className="text-green-600 font-semibold text-sm 
-                             uppercase tracking-wider">
+            <span
+              className="text-[#125EF2] font-semibold text-sm
+                         uppercase tracking-wider"
+            >
               Features
             </span>
             <h1 className="text-3xl font-bold text-gray-900 mt-3 mb-4">
               Everything you need to{" "}
-              <span className="text-green-600">broadcast at scale</span>
+              <span className="text-[#125EF2]">broadcast at scale</span>
             </h1>
             <p className="text-gray-500 max-w-lg mx-auto text-sm">
-              Simple, powerful tools to manage tenants, 
+              Simple, powerful tools to manage tenants,
               users, contacts, and campaigns.
             </p>
           </div>
@@ -61,23 +62,24 @@ export default function Features() {
             {features.map((f) => (
               <div
                 key={f.title}
-                className="flex gap-4 bg-gray-50 rounded-xl p-5 
+                className="flex gap-4 bg-gray-50 rounded-xl p-5
                            border border-gray-100
-                           hover:bg-white hover:shadow-sm 
-                           hover:border-green-100
+                           hover:bg-white hover:shadow-sm
+                           hover:border-[#CFE0FD]
                            transition-all duration-300"
               >
                 {/* Icon */}
-                <div className="w-10 h-10 bg-white rounded-lg 
-                                flex items-center justify-center 
-                                text-xl shrink-0 border border-gray-100">
+                <div
+                  className="w-10 h-10 bg-white rounded-lg
+                              flex items-center justify-center
+                              text-xl shrink-0 border border-gray-100"
+                >
                   {f.icon}
                 </div>
 
                 {/* Text */}
                 <div>
-                  <h3 className="text-sm font-semibold 
-                                 text-gray-900 mb-1">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-1">
                     {f.title}
                   </h3>
                   <p className="text-sm text-gray-400 leading-relaxed">
@@ -92,17 +94,16 @@ export default function Features() {
           <div className="text-center mt-14">
             <Link
               to="/auth/register"
-              className="bg-gray-900 text-white px-7 py-3 
+            className="bg-gray-900 text-white px-7 py-3 
                          rounded-lg font-medium text-sm 
                          hover:bg-gray-800 transition"
             >
-              Start Free Trial →
+              Start Free Trial
             </Link>
           </div>
 
         </div>
       </section>
-
     </div>
   );
 }

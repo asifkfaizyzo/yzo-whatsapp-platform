@@ -73,6 +73,23 @@ export const incomingMessageController = async (req, res) => {
       type,
     })
 
+      // 🔥 Emit realtime event to all users in this tenant
+    emitToTenant(tenantId, 'new_message', {
+      conversationId: result.conversation.id,
+      message: {
+        id: result.message.id,
+        text: result.message.text,
+        senderId: result.message.senderId,
+        isFromCustomer: true,
+        createdAt: result.message.createdAt,
+      },
+    });
+    console.log("📤 EMITTING SOCKET EVENT", {
+  tenantId,
+  conversationId: result.conversation.id,
+  messageId: result.message.id,
+});
+
     return res.status(200).json({
       success: true,
       action: result.action,

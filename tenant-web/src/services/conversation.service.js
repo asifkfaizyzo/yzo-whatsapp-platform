@@ -25,9 +25,32 @@ export const createConversation = async (contactId) => {
  */
 export const getAssignedConversations = async (page = 1, limit = 20, filter = "all") => {
   try {
-    const response = await api.get(`${CONV_BASE_URL}/assigned`, {
-      params: { page, limit, filter },
-    });
+  // Convert frontend filter to backend params
+const params = { page, limit };
+
+if (filter === "all") {
+  params.status = "ALL";
+  params.assignmentType = "all";
+} else if (filter === "my") {
+  params.status = "ALL";
+  params.assignmentType = "my";
+} else if (filter === "closed") {
+  params.status = "CLOSED";
+  params.assignmentType = "all";
+} else if (filter === "open") {
+  params.status = "OPEN";
+  params.assignmentType = "all";
+} else if (filter === "assigned") {
+  params.status = "ALL";
+  params.assignmentType = "assigned";
+} else if (filter === "unassigned") {
+  params.status = "ALL";
+  params.assignmentType = "unassigned";
+}
+
+const response = await api.get(`${CONV_BASE_URL}/assigned`, {
+  params: { page, limit, filter },  // keep sending filter
+});
     return {
       success: true,
       data: response.data.conversations || response.data.data, // Check structure returned by backend

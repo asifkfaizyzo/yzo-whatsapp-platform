@@ -70,7 +70,7 @@ export default function Pagination({
             <select
               value={limit}
               onChange={(e) => onLimitChange(Number(e.target.value))}
-              className="bg-white border border-slate-200 rounded px-1.5 py-0.5 text-xs text-slate-700 outline-none focus:border-emerald-500 cursor-pointer"
+              className="bg-white border border-slate-200 rounded px-1.5 py-0.5 text-xs text-slate-700 outline-none focus:border-[#125EF2] cursor-pointer"
             >
               <option value={10}>10</option>
               <option value={25}>25</option>
@@ -104,7 +104,7 @@ export default function Pagination({
               onClick={() => onPageChange(p)}
               className={`px-3 py-1.5 rounded-lg font-medium transition ${
                 currentPage === p
-                  ? "bg-emerald-600 text-white shadow-sm font-bold"
+                  ? "bg-[#125EF2] text-white shadow-sm font-bold"
                   : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
               }`}
             >

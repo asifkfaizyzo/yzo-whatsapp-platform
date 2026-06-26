@@ -47,42 +47,51 @@ export default function RegisterPage() {
     <div className="min-h-screen">
       <div className="container-shell grid min-h-screen items-center gap-8 py-8 lg:grid-cols-2">
         {/* ── Left Panel ── */}
-        <div
-          className="hidden min-h-[700px] rounded-[32px] p-8 text-white lg:flex lg:flex-col lg:justify-between"
-          style={{
-            background:
-              "linear-gradient(135deg, var(--primary), var(--primary-dark))",
-          }}
-        >
-          <Link to="/" className="text-2xl font-semibold">
-            {siteConfig.brand}
-          </Link>
+<div
+  className="hidden min-h-[700px] rounded-[32px] p-8 text-white lg:flex lg:flex-col lg:justify-between"
+  style={{
+    background:
+      "linear-gradient(135deg, var(--primary), var(--primary-dark))",
+  }}
+>
+  {/* Top: Logo */}
+  <div>
+    <Link to="/" className="inline-flex items-center">
+      <img
+        src="/sudo2.png"
+        alt="SudoReply Logo"
+        className="w-20 h-20 object-contain"
+      />
+    </Link>
+  </div>
 
-          <div>
-            <p className="text-sm uppercase tracking-[0.3em] text-white/70">
-              Frontend UI
-            </p>
-            <h1 className="mt-4 text-5xl font-semibold leading-tight">
-              Create your Tenant account
-            </h1>
-            <p className="mt-4 max-w-md text-base text-white/80">
-              A minimal registration UI that matches the landing page and stays easy to
-              edit globally.
-            </p>
-          </div>
+  {/* Middle: Headline */}
+  <div>
+    <p className="text-sm uppercase tracking-[0.3em] text-white/70">
+      Welcome to SudoReply
+    </p>
+    <h1 className="mt-4 text-5xl font-semibold leading-tight">
+      Create your Tenant account
+    </h1>
+    <p className="mt-4 max-w-md text-base text-white/80">
+      A minimal registration UI that matches the landing page and stays
+      easy to edit globally.
+    </p>
+  </div>
 
-          <div className="space-y-4">
-            {benefits.map((item) => (
-              <div
-                key={item.title}
-                className="rounded-2xl bg-white/10 p-4 backdrop-blur-sm"
-              >
-                <p className="font-medium">{item.title}</p>
-                <p className="mt-1 text-sm text-white/75">{item.text}</p>
-              </div>
-            ))}
-          </div>
-        </div>
+  {/* Bottom: Benefits */}
+  <div className="space-y-4">
+    {benefits.map((item) => (
+      <div
+        key={item.title}
+        className="rounded-2xl bg-white/10 p-4 backdrop-blur-sm"
+      >
+        <p className="font-medium">{item.title}</p>
+        <p className="mt-1 text-sm text-white/75">{item.text}</p>
+      </div>
+    ))}
+  </div>
+</div>
 
         {/* ── Right Panel (Form) ── */}
         <div className="mx-auto w-full max-w-md">
@@ -111,7 +120,7 @@ export default function RegisterPage() {
 
             {/* ✅ Success Message
             {success && (
-              <div className="mt-4 rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-600">
+              <div className="mt-4 rounded-xl bg-[#EAF2FE] border border-[#CFE0FD] px-4 py-3 text-sm text-[#125EF2]">
                 {success}
               </div>
             )} */}
@@ -202,7 +211,7 @@ export default function RegisterPage() {
             <p className="mt-6 text-center text-sm text-[color:var(--muted)]">
               Already have an account?{" "}
               <Link
-                to="/login"
+                to="/auth/login"
                 className="font-medium text-[color:var(--primary-dark)] hover:underline"
               >
                 Login

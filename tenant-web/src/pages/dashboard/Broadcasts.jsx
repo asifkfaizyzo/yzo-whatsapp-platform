@@ -58,7 +58,7 @@ export default function Broadcasts() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <Megaphone className="text-emerald-600" size={24} />
+            <Megaphone className="text-[#125EF2]" size={24} />
             <span>Broadcast Campaigns</span>
           </h1>
           <p className="text-xs text-[color:var(--muted)] font-medium mt-1">
@@ -126,7 +126,7 @@ export default function Broadcasts() {
                     <td className="p-4 text-center">
                       <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${
                         b.status === "sent" 
-                          ? "bg-emerald-50 text-emerald-700 border-emerald-100" 
+                          ? "bg-[#EAF2FE] text-[#125EF2] border-[#CFE0FD]" 
                           : "bg-amber-50 text-amber-700 border-amber-100"
                       }`}>
                         {b.status === "sent" ? <CheckCircle size={10} /> : <Clock size={10} />}
@@ -139,7 +139,7 @@ export default function Broadcasts() {
                     <td className="p-4 text-right font-semibold text-blue-600 text-sm">
                       {b.status === "sent" ? `${readPercent}%` : "-"}
                     </td>
-                    <td className="p-4 text-right font-semibold text-emerald-600 text-sm">
+                    <td className="p-4 text-right font-semibold text-[#125EF2] text-sm">
                       {b.status === "sent" ? `${deliveryPercent}%` : "-"}
                     </td>
                   </tr>
@@ -208,7 +208,7 @@ export default function Broadcasts() {
                     onClick={() => setNewCampaign({ ...newCampaign, schedule: "now" })}
                     className={`py-3.5 px-4 rounded-xl border text-sm font-semibold flex flex-col items-center gap-1 transition ${
                       newCampaign.schedule === "now"
-                        ? "bg-emerald-50 border-emerald-500 text-emerald-700"
+                        ? "bg-[#EAF2FE] border-[#125EF2] text-[#125EF2]"
                         : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
                     }`}
                   >
@@ -220,7 +220,7 @@ export default function Broadcasts() {
                     onClick={() => setNewCampaign({ ...newCampaign, schedule: "later" })}
                     className={`py-3.5 px-4 rounded-xl border text-sm font-semibold flex flex-col items-center gap-1 transition ${
                       newCampaign.schedule === "later"
-                        ? "bg-emerald-50 border-emerald-500 text-emerald-700"
+                        ? "bg-[#EAF2FE] border-[#125EF2] text-[#125EF2]"
                         : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
                     }`}
                   >

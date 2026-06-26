@@ -42,25 +42,21 @@ export default function TopNavBar() {
   return (
     <header className="flex items-center justify-between bg-white border-b border-[color:var(--border)] px-6 py-3 h-16 relative z-30 shrink-0">
       {/* Left: Brand Logo */}
-      <div className="flex items-center gap-2">
-        <div className="bg-[#10b981] p-2 rounded-lg flex items-center justify-center">
-          <svg
-            className="w-5 h-5 text-white"
-            fill="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.38 5.07L2 22l5.07-1.38C8.42 21.5 10.15 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2z" />
-          </svg>
-        </div>
-        <span className="text-xl font-bold text-gray-800 tracking-tight">
-          {user?.tenantName || user?.companyName || "sudoreply"}
-        </span>
-      </div>
+  <div className="flex items-center gap-2">
+    <img 
+      src="/sudo_bg.png" 
+      alt="SudoReply Logo" 
+      className="h-8 w-auto"
+    />
+    <span className="text-xl font-bold text-gray-800 tracking-tight">
+      {user?.tenantName || user?.companyName }
+    </span>
+  </div>
 
       {/* Middle: WhatsApp API Connection Status */}
-      <div className="hidden sm:flex items-center gap-2 rounded-full bg-emerald-50 border border-emerald-100 px-3.5 py-1.5">
-        <CheckCircle2 size={15} className="text-emerald-600 animate-pulse" />
-        <span className="text-xs font-semibold text-emerald-800">
+      <div className="hidden sm:flex items-center gap-2 rounded-full bg-[#EAF2FE] border border-[#CFE0FD] px-3.5 py-1.5">
+        <CheckCircle2 size={15} className="text-[#125EF2] animate-pulse" />
+        <span className="text-xs font-semibold text-[#0D47A1]">
           WhatsApp Cloud API: Connected
         </span>
       </div>
@@ -70,7 +66,7 @@ export default function TopNavBar() {
         {/* Notification Bell */}
         <button className="text-slate-500 hover:text-slate-800 p-2 rounded-xl hover:bg-slate-50 transition relative">
           <Bell size={20} />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-emerald-500 rounded-full border-2 border-white"></span>
+          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#125EF2] rounded-full border-2 border-white"></span>
         </button>
 
         {/* User Dropdown */}
@@ -79,7 +75,7 @@ export default function TopNavBar() {
             onClick={() => setShowDropdown(!showDropdown)}
             className="flex items-center gap-2 p-1 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-100 transition duration-150"
           >
-            <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-700 font-semibold text-sm border border-emerald-200">
+            <div className="w-8 h-8 rounded-xl bg-[#CFE0FD] flex items-center justify-center text-[#125EF2] font-semibold text-sm border border-[#CFE0FD]">
               {user?.name ? user.name.charAt(0).toUpperCase() : (user?.tenantName ? user.tenantName.charAt(0).toUpperCase() : <User size={16} />)}
             </div>
             <div className="hidden md:flex flex-col text-left mr-1">

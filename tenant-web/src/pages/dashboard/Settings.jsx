@@ -278,7 +278,7 @@ export default function SettingsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <Settings className="text-emerald-600" size={24} />
+            <Settings className="text-[#125EF2]" size={24} />
             <span>Channel Settings</span>
           </h1>
           <p className="text-xs text-[color:var(--muted)] font-medium mt-1">
@@ -286,8 +286,8 @@ export default function SettingsPage() {
           </p>
         </div>
         {feedback && (
-          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-100 rounded-xl text-emerald-800 text-xs font-semibold animate-bounce shrink-0">
-            <CheckCircle2 size={13} className="text-emerald-600" />
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#EAF2FE] border border-[#CFE0FD] rounded-xl text-[#0D47A1] text-xs font-semibold animate-bounce shrink-0">
+            <CheckCircle2 size={13} className="text-[#125EF2]" />
             <span>{feedback}</span>
           </div>
         )}
@@ -485,7 +485,7 @@ export default function SettingsPage() {
                     className="btn-secondary px-3 flex items-center justify-center shrink-0"
                     title="Copy API Key"
                   >
-                    {copiedKey ? <CheckCircle2 size={15} className="text-emerald-600" /> : <Copy size={15} />}
+                    {copiedKey ? <CheckCircle2 size={15} className="text-[#125EF2]" /> : <Copy size={15} />}
                   </button>
                 </div>
               </div>
@@ -529,7 +529,7 @@ export default function SettingsPage() {
                 {/* Create Tag Form */}
                 <div className="bg-slate-50/50 rounded-2xl border border-slate-100 p-5 space-y-4">
                   <h3 className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                    <Plus size={14} className="text-emerald-600" />
+                    <Plus size={14} className="text-[#125EF2]" />
                     <span>Create New Segment Tag</span>
                   </h3>
                   
@@ -686,7 +686,7 @@ export default function SettingsPage() {
                       id="enabled"
                       checked={reopenConfig.enabled}
                       onChange={(e) => setReopenConfig({ ...reopenConfig, enabled: e.target.checked })}
-                      className="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                      className="mt-1 h-4 w-4 rounded border-slate-300 text-[#125EF2] focus:ring-[#125EF2] cursor-pointer"
                     />
                     <div>
                       <label htmlFor="enabled" className="text-xs font-bold text-slate-700 cursor-pointer select-none">
@@ -743,7 +743,7 @@ export default function SettingsPage() {
                       id="smartFilterEnabled"
                       checked={reopenConfig.smartFilterEnabled}
                       onChange={(e) => setReopenConfig({ ...reopenConfig, smartFilterEnabled: e.target.checked })}
-                      className="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                      className="mt-1 h-4 w-4 rounded border-slate-300 text-[#125EF2] focus:ring-[#125EF2] cursor-pointer"
                       disabled={!reopenConfig.enabled}
                     />
                     <div>

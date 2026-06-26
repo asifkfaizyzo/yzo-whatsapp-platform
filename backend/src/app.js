@@ -9,6 +9,7 @@ import messageRoutes from './modules/messages/messageRoute.js';
 import tagRoutes from './modules/tags/tagRoutes.js';
 import cors from 'cors'
 import webhookRoutes from './modules/webhook/webhookRoutes.js';
+import planRoutes from "./modules/plans/planRoutes.js";
 
 const app = express();
 
@@ -45,5 +46,9 @@ app.use('/api6', messageRoutes);
 app.use('/api7',tagRoutes);
 
 app.use('/api/webhook', webhookRoutes);
+
+app.use("/api/plans", planRoutes);
+
+app.use("/api2/plans", planRoutes);
 
 export default app;

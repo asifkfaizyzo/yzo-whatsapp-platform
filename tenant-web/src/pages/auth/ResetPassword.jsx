@@ -66,7 +66,7 @@ export default function ResetPassword() {
 
         {success ? (
           <div className="text-center space-y-4 animate-in zoom-in-95 duration-200">
-            <div className="mx-auto w-12 h-12 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-600 border border-emerald-100">
+            <div className="mx-auto w-12 h-12 bg-[#EAF2FE] rounded-full flex items-center justify-center text-[#125EF2] border border-[#CFE0FD]">
               <CheckCircle2 size={24} />
             </div>
             <p className="text-sm font-medium text-slate-800">

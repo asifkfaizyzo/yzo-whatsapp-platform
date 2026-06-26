@@ -51,7 +51,7 @@
 //             </div>
 
 //             <div className="relative">
-//               <div className="absolute -inset-6 -z-10 rounded-[40px] bg-emerald-100 blur-3xl opacity-70" />
+//               <div className="absolute -inset-6 -z-10 rounded-[40px] bg-[#CFE0FD] blur-3xl opacity-70" />
 
 //               <div className="card p-4 sm:p-6">
 //                 <div className="grid gap-4 lg:grid-cols-[220px,1fr]">

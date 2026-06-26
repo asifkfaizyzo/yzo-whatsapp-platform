@@ -2,9 +2,6 @@ import { Outlet } from "react-router-dom";
 import { Link, useLocation } from "react-router-dom";
 import { useState } from "react";
 
-/* ==========================================
-   NAVBAR
-   ========================================== */
 function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
@@ -27,13 +24,11 @@ function Navbar() {
 
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2">
-            <div className="w-9 h-9 bg-green-600 rounded-lg 
-                            flex items-center justify-center">
-              <span className="text-white font-bold text-lg">s</span>
-            </div>
-            <span className="text-xl font-bold text-gray-900">
-              sudoreply
-            </span>
+            <img 
+              src="/sudo_bg.png" 
+              alt="SudoReply Logo" 
+              className="h-9 w-auto rounded-lg"
+            />
           </Link>
 
           {/* Desktop Nav */}
@@ -45,8 +40,8 @@ function Navbar() {
                 className={`px-4 py-2 rounded-lg text-sm font-medium 
                            transition-all duration-200
                            ${isActive(item.path)
-                             ? "text-green-600 bg-green-50"
-                             : "text-gray-600 hover:text-green-600 hover:bg-green-50"
+                             ? "text-[#125EF2] bg-[#EAF2FE]"
+                             : "text-gray-600 hover:text-[#125EF2] hover:bg-[#EAF2FE]"
                            }`}
               >
                 {item.name}
@@ -59,16 +54,16 @@ function Navbar() {
             <Link
               to="/auth/login"
               className="text-sm font-medium text-gray-600 
-                         hover:text-green-600 transition px-4 py-2"
+                         hover:text-[#125EF2] transition px-4 py-2"
             >
               Log in
             </Link>
             <Link
               to="/auth/register"
-              className="text-sm font-medium text-white bg-green-600 
-                         px-5 py-2.5 rounded-lg hover:bg-green-700 
+              className="text-sm font-medium text-white bg-[#125EF2] 
+                         px-5 py-2.5 rounded-lg hover:bg-[#0F4FCC] 
                          transition-all duration-200 shadow-sm 
-                         hover:shadow-md hover:shadow-green-200"
+                         hover:shadow-md hover:shadow-[#125EF2]/20"
             >
               Get Started Free
             </Link>
@@ -110,7 +105,7 @@ function Navbar() {
                   className={`px-4 py-2.5 rounded-lg text-sm 
                              font-medium transition
                              ${isActive(item.path)
-                               ? "text-green-600 bg-green-50"
+                               ? "text-[#125EF2] bg-[#EAF2FE]"
                                : "text-gray-600 hover:bg-gray-50"
                              }`}
                 >
@@ -133,9 +128,9 @@ function Navbar() {
                   to="/auth/signup"
                   onClick={() => setIsOpen(false)}
                   className="text-sm font-medium text-white 
-                             bg-green-600 px-4 py-2.5 
+                             bg-[#125EF2] px-4 py-2.5 
                              rounded-lg text-center 
-                             hover:bg-green-700"
+                             hover:bg-[#0F4FCC]"
                 >
                   Get Started Free
                 </Link>
@@ -162,14 +157,13 @@ function Footer() {
 
           {/* Column 1 — Brand */}
           <div className="col-span-2 md:col-span-1">
-            <Link to="/" className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 bg-green-600 rounded-lg 
-                              flex items-center justify-center">
-                <span className="text-white font-bold text-sm">s</span>
-              </div>
-              <span className="text-lg font-bold text-white">
-            sudoreply
-              </span>
+          <Link to="/" className="mb-4 inline-flex items-center gap-3">
+              <img
+                src="/sudo_bg.png"
+                alt="SudoReply Logo"
+                className="h-20 w-20 object-contain shrink-0"
+              />
+              
             </Link>
 
             <p className="text-sm leading-relaxed mb-4">

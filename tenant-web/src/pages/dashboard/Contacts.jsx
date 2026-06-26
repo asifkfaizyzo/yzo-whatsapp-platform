@@ -284,7 +284,7 @@ export default function Contacts() {
       return "bg-purple-50 text-purple-700 border-purple-100";
     }
     if (tag === "Interested in pricing") {
-      return "bg-emerald-50 text-emerald-700 border-emerald-100";
+      return "bg-[#EAF2FE] text-[#125EF2] border-[#CFE0FD]";
     }
     if (tag === "VIP") {
       return "bg-rose-50 text-rose-700 border-rose-100";
@@ -373,7 +373,7 @@ export default function Contacts() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <Users className="text-emerald-600" size={24} />
+            <Users className="text-[#125EF2]" size={24} />
             <span>Contacts</span>
           </h1>
           <p className="text-xs text-[color:var(--muted)] font-medium mt-1">
@@ -432,8 +432,8 @@ export default function Contacts() {
 
         {/* Bulk Actions Panel */}
         {isAdmin && selectedContactIds.length > 0 && (
-          <div className="p-4 bg-emerald-50/60 border-b border-slate-100 flex items-center justify-between animate-in slide-in-from-top-2 duration-200">
-            <span className="text-xs font-semibold text-emerald-800">
+          <div className="p-4 bg-[#EAF2FE]/60 border-b border-slate-100 flex items-center justify-between animate-in slide-in-from-top-2 duration-200">
+            <span className="text-xs font-semibold text-[#0D47A1]">
               {selectedContactIds.length} contact(s) selected
             </span>
             <div className="flex items-center gap-2">
@@ -477,7 +477,7 @@ export default function Contacts() {
                           setSelectedContactIds([]);
                         }
                       }}
-                      className="rounded border-slate-350 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                      className="rounded border-slate-350 text-[#125EF2] focus:ring-[#125EF2] cursor-pointer"
                     />
                   </th>
                 )}
@@ -581,7 +581,7 @@ export default function Contacts() {
                                 setSelectedContactIds((prev) => prev.filter((id) => id !== c.id));
                               }
                             }}
-                            className="rounded border-slate-350 text-emerald-600 focus:ring-emerald-500 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="rounded border-slate-350 text-[#125EF2] focus:ring-[#125EF2] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                             title={c.isBlocked ? "Blocked contacts cannot be assigned" : ""}
                           />
                         </td>
@@ -662,7 +662,7 @@ export default function Contacts() {
                               onClick={() => handleToggleBlock(c)}
                               className={`p-1.5 rounded-lg transition ${
                                 c.isBlocked
-                                  ? "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                                  ? "text-[#125EF2] hover:text-[#125EF2] hover:bg-[#EAF2FE]"
                                   : "text-amber-500 hover:text-amber-600 hover:bg-amber-50"
                               }`}
                               title={
@@ -691,7 +691,7 @@ export default function Contacts() {
                           <button
                             type="button"
                             onClick={() => handleStartChat(c)}
-                            className="text-slate-400 hover:text-emerald-600 p-1.5 rounded-lg hover:bg-emerald-50 transition"
+                            className="text-slate-400 hover:text-[#125EF2] p-1.5 rounded-lg hover:bg-[#EAF2FE] transition"
                             title="Chat with Contact"
                           >
                             <MessageSquare size={14} />
@@ -877,11 +877,11 @@ export default function Contacts() {
             <div className="p-6 space-y-6">
               {/* Stats Grid */}
               <div className="grid grid-cols-3 gap-3">
-                <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-3 text-center">
-                  <p className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider">
+                <div className="bg-[#EAF2FE] border border-[#CFE0FD] rounded-2xl p-3 text-center">
+                  <p className="text-[10px] uppercase font-bold text-[#0D47A1] tracking-wider">
                     Created
                   </p>
-                  <p className="text-2xl font-black text-emerald-700 mt-1">
+                  <p className="text-2xl font-black text-[#125EF2] mt-1">
                     {importSummary.created || 0}
                   </p>
                 </div>

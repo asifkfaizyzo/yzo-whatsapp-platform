@@ -81,7 +81,7 @@ export default function Dashboard() {
         colorClass = "bg-slate-400";
       } else if (tenant.status === "APPROVED" && tenant.isActive) {
         actionText = `Tenant "${tenant.tenantName}" is approved and active`;
-        colorClass = "bg-emerald-500";
+        colorClass = "bg-[#125EF2]";
       }
 
       return {
@@ -125,12 +125,12 @@ export default function Dashboard() {
             ) : (
               <p className="text-3xl font-bold text-gray-900">{totalTenantsCount}</p>
             )}
-            <div className="flex items-center gap-1 text-xs text-emerald-600 font-medium">
+            <div className="flex items-center gap-1 text-xs text-[#125EF2] font-medium">
               <TrendingUp size={14} />
               <span>SaaS instances registered</span>
             </div>
           </div>
-          <div className="p-3 bg-emerald-50 rounded-2xl text-emerald-600">
+          <div className="p-3 bg-[#EAF2FE] rounded-2xl text-[#125EF2]">
             <Building2 size={24} />
           </div>
         </div>
@@ -185,8 +185,8 @@ export default function Dashboard() {
           <div className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Platform Health</p>
             <p className="text-3xl font-bold text-gray-900">99.98%</p>
-            <div className="flex items-center gap-1 text-xs text-emerald-600 font-medium">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+            <div className="flex items-center gap-1 text-xs text-[#125EF2] font-medium">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#125EF2] animate-ping"></span>
               <span>All nodes online</span>
             </div>
           </div>
@@ -205,7 +205,7 @@ export default function Dashboard() {
               <h3 className="font-bold text-gray-800 text-base">Recent Platform Activity</h3>
               <p className="text-xs text-gray-400 mt-0.5">Real-time tenant onboarding and instance statuses</p>
             </div>
-            <Link to="/dashboard/tenants" className="text-xs font-semibold text-emerald-600 hover:underline flex items-center gap-1">
+            <Link to="/dashboard/tenants" className="text-xs font-semibold text-[#125EF2] hover:underline flex items-center gap-1">
               <span>View All Tenants</span>
               <ArrowRight size={13} />
             </Link>
@@ -213,7 +213,7 @@ export default function Dashboard() {
 
           {loading ? (
             <div className="py-12 text-center">
-              <RefreshCw className="w-8 h-8 text-emerald-500 animate-spin mx-auto mb-2" />
+              <RefreshCw className="w-8 h-8 text-[#125EF2] animate-spin mx-auto mb-2" />
               <p className="text-xs text-gray-400">Loading audit log...</p>
             </div>
           ) : recentActivities.length === 0 ? (
@@ -240,19 +240,19 @@ export default function Dashboard() {
         {/* Right Column: Gateway Status & Quick Navigation */}
         <div className="space-y-6">
           {/* Quick Guide Card */}
-          <div className="card p-6 space-y-4 bg-gradient-to-br from-emerald-500 to-emerald-600 text-white border-transparent shadow-md">
+          <div className="card p-6 space-y-4 bg-gradient-to-br from-[#125EF2] to-[#125EF2] text-white border-transparent shadow-md">
             <h3 className="font-bold text-base flex items-center gap-2">
               <Shield size={18} />
               <span>Super Admin Access</span>
             </h3>
-            <p className="text-sm text-emerald-100 leading-relaxed">
+            <p className="text-sm text-[#CFE0FD] leading-relaxed">
               You are logged in with root platform privileges. Use the links below or the sidebar to review business analytics, register manual nodes, or toggle security configurations.
             </p>
-            <div className="bg-emerald-600/50 rounded-2xl p-4 border border-emerald-400/20">
-              <p className="text-xs font-semibold uppercase tracking-wider text-emerald-200">System Gateway API</p>
+            <div className="bg-[#125EF2]/50 rounded-2xl p-4 border border-[#125EF2]/20">
+              <p className="text-xs font-semibold uppercase tracking-wider text-[#CFE0FD]">System Gateway API</p>
               <div className="flex items-baseline gap-2 mt-1">
                 <p className="text-2xl font-bold">12ms</p>
-                <p className="text-xs text-emerald-100">avg webhook delay</p>
+                <p className="text-xs text-[#CFE0FD]">avg webhook delay</p>
               </div>
             </div>
           </div>
@@ -263,7 +263,7 @@ export default function Dashboard() {
             <div className="space-y-2">
               <Link
                 to="/dashboard/tenants"
-                className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-slate-700 hover:text-emerald-700 hover:bg-emerald-50/50 transition font-semibold text-xs"
+                className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-slate-700 hover:text-[#0F4FCC] hover:bg-[#EAF2FE]/50 transition font-semibold text-xs"
               >
                 <span className="flex items-center gap-2">
                   <Building2 size={15} />
@@ -274,7 +274,7 @@ export default function Dashboard() {
 
               <Link
                 to="/dashboard/reports"
-                className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-slate-700 hover:text-emerald-700 hover:bg-emerald-50/50 transition font-semibold text-xs"
+                className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-slate-700 hover:text-[#0F4FCC] hover:bg-[#EAF2FE]/50 transition font-semibold text-xs"
               >
                 <span className="flex items-center gap-2">
                   <Server size={15} />
@@ -285,7 +285,7 @@ export default function Dashboard() {
 
               <Link
                 to="/dashboard/settings"
-                className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-slate-700 hover:text-emerald-700 hover:bg-emerald-50/50 transition font-semibold text-xs"
+                className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-slate-700 hover:text-[#0F4FCC] hover:bg-[#EAF2FE]/50 transition font-semibold text-xs"
               >
                 <span className="flex items-center gap-2">
                   <Settings size={15} />

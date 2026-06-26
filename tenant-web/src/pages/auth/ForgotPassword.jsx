@@ -183,7 +183,7 @@ export default function ForgotPassword() {
             ) : (
               /* Success State */
               <div className="text-center py-4 space-y-4 animate-in zoom-in-95 duration-250">
-                <div className="mx-auto w-12 h-12 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-600 border border-emerald-100">
+                <div className="mx-auto w-12 h-12 bg-[#EAF2FE] rounded-full flex items-center justify-center text-[#125EF2] border border-[#CFE0FD]">
                   <CheckCircle2 size={24} />
                 </div>
                 <div className="space-y-2">
@@ -209,7 +209,7 @@ export default function ForgotPassword() {
                     )}
                   </button>
                   {resendMessage && (
-                    <p className="mt-2 text-xs text-emerald-600 font-medium">{resendMessage}</p>
+                    <p className="mt-2 text-xs text-[#125EF2] font-medium">{resendMessage}</p>
                   )}
                   {generalError && (
                     <p className="mt-2 text-xs text-red-600 font-medium">{generalError}</p>

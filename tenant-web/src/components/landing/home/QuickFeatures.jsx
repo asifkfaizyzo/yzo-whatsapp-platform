@@ -24,7 +24,7 @@ export default function QuickFeatures() {
         <h2 className="text-2xl font-bold text-gray-900 
                        text-center mb-12">
           Why teams choose{" "}
-          <span className="text-green-600">sudoreply</span>
+          <span className="text-[#125EF2]">sudoreply</span>
         </h2>
 
         <div className="grid md:grid-cols-3 gap-6">

@@ -39,8 +39,8 @@ export default function Dashboard() {
       label: "Total Sent",
       value: "48,290",
       change: "+12% this week",
-      icon: <Send size={22} className="text-emerald-600" />,
-      bg: "bg-emerald-50 border-emerald-100",
+      icon: <Send size={22} className="text-[#125EF2]" />,
+      bg: "bg-[#EAF2FE] border-[#CFE0FD]",
     },
     {
       label: "Delivery Rate",
@@ -77,8 +77,8 @@ export default function Dashboard() {
       label: "Assigned Chats",
       value: "4",
       change: "2 unread messages",
-      icon: <MessageSquare size={22} className="text-emerald-600" />,
-      bg: "bg-emerald-50 border-emerald-100",
+      icon: <MessageSquare size={22} className="text-[#125EF2]" />,
+      bg: "bg-[#EAF2FE] border-[#CFE0FD]",
     },
     {
       label: "Closed Today",
@@ -104,7 +104,7 @@ export default function Dashboard() {
   ];
 
   const assignedChats = [
-    { name: "Riya Patel", phone: "+91 98765 43210", lastMessage: "Great. Can I book a quick demo?", time: "11:45 AM", tag: "Interested in pricing", tagColor: "bg-emerald-50 text-emerald-700 border-emerald-100" },
+    { name: "Riya Patel", phone: "+91 98765 43210", lastMessage: "Great. Can I book a quick demo?", time: "11:45 AM", tag: "Interested in pricing", tagColor: "bg-[#EAF2FE] text-[#125EF2] border-[#CFE0FD]" },
     { name: "David Lee", phone: "+1 (555) 019-2834", lastMessage: "Thanks, looking into it now.", time: "10:12 AM", tag: "Lead", tagColor: "bg-blue-50 text-blue-700 border-blue-100" },
   ];
 
@@ -144,7 +144,7 @@ export default function Dashboard() {
             </div>
             <div className="mt-4">
               <span className="text-3xl font-bold text-slate-800">{item.value}</span>
-              <p className="mt-1 text-xs text-emerald-600 font-semibold flex items-center gap-1">
+              <p className="mt-1 text-xs text-[#125EF2] font-semibold flex items-center gap-1">
                 <TrendingUp size={12} />
                 <span>{item.change}</span>
               </p>
@@ -162,7 +162,7 @@ export default function Dashboard() {
               <h2 className="text-lg font-bold text-slate-800">Recent Broadcasts</h2>
               <p className="text-xs text-[color:var(--muted)] font-medium">Overview of your last 3 message campaigns</p>
             </div>
-            <Link to="/dashboard/broadcasts" className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-0.5">
+            <Link to="/dashboard/broadcasts" className="text-xs font-semibold text-[#125EF2] hover:text-[#125EF2] flex items-center gap-0.5">
               <span>View All</span>
               <ArrowUpRight size={14} />
             </Link>
@@ -184,7 +184,7 @@ export default function Dashboard() {
                     <td className="py-3.5 font-semibold text-slate-700">{b.name}</td>
                     <td className="py-3.5 text-slate-500">{b.date}</td>
                     <td className="py-3.5 text-right font-semibold text-slate-800">{b.sent}</td>
-                    <td className="py-3.5 text-right text-emerald-600 font-semibold">{b.delivered}</td>
+                    <td className="py-3.5 text-right text-[#125EF2] font-semibold">{b.delivered}</td>
                     <td className="py-3.5 text-right text-blue-600 font-semibold">{b.read}</td>
                   </tr>
                 ))}
@@ -205,7 +205,7 @@ export default function Dashboard() {
                   <p className="text-xs font-semibold text-slate-700">Webhook Status</p>
                   <p className="text-[10px] text-slate-500 font-medium mt-0.5">Real-time chat handler</p>
                 </div>
-                <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+                <span className="inline-flex items-center rounded-full bg-[#EAF2FE] border border-[#CFE0FD] px-2 py-0.5 text-xs font-semibold text-[#125EF2]">
                   Operational
                 </span>
               </div>
@@ -224,11 +224,11 @@ export default function Dashboard() {
           <div className="mt-6 pt-5 border-t border-slate-100">
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Useful Next Steps</h3>
             <div className="mt-3 space-y-2.5 text-sm">
-              <Link to="/dashboard/templates" className="flex items-center justify-between text-slate-600 hover:text-emerald-600 font-semibold transition">
+              <Link to="/dashboard/templates" className="flex items-center justify-between text-slate-600 hover:text-[#125EF2] font-semibold transition">
                 <span>• Submit new template for approval</span>
                 <ArrowUpRight size={14} />
               </Link>
-              <Link to="/dashboard/team" className="flex items-center justify-between text-slate-600 hover:text-emerald-600 font-semibold transition">
+              <Link to="/dashboard/team" className="flex items-center justify-between text-slate-600 hover:text-[#125EF2] font-semibold transition">
                 <span>• Invite support agents</span>
                 <ArrowUpRight size={14} />
               </Link>
@@ -265,7 +265,7 @@ export default function Dashboard() {
                 className={`px-3 py-1 text-xs font-semibold rounded-lg capitalize transition duration-150 flex items-center gap-1.5 ${
                   agentStatus === status
                     ? status === "active"
-                      ? "bg-emerald-500 text-white shadow-sm"
+                      ? "bg-[#125EF2] text-white shadow-sm"
                       : status === "away"
                       ? "bg-amber-500 text-white shadow-sm"
                       : "bg-slate-500 text-white shadow-sm"
@@ -276,7 +276,7 @@ export default function Dashboard() {
                   agentStatus === status 
                     ? "bg-white" 
                     : status === "active"
-                    ? "bg-emerald-500"
+                    ? "bg-[#125EF2]"
                     : status === "away"
                     ? "bg-amber-500"
                     : "bg-slate-400"
@@ -317,7 +317,7 @@ export default function Dashboard() {
               <h2 className="text-lg font-bold text-slate-800">My Assigned Chats</h2>
               <p className="text-xs text-[color:var(--muted)] font-medium">Your most recent active support sessions</p>
             </div>
-            <Link to="/dashboard/inbox" className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-0.5">
+            <Link to="/dashboard/inbox" className="text-xs font-semibold text-[#125EF2] hover:text-[#125EF2] flex items-center gap-0.5">
               <span>Open Inbox</span>
               <ArrowUpRight size={14} />
             </Link>
@@ -350,7 +350,7 @@ export default function Dashboard() {
                     <td className="py-3.5 text-right">
                       <Link 
                         to="/dashboard/inbox"
-                        className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-50 border border-emerald-100 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-lg transition duration-150"
+                        className="inline-flex items-center gap-1 px-3 py-1 bg-[#EAF2FE] border border-[#CFE0FD] hover:bg-[#CFE0FD] text-[#125EF2] text-xs font-semibold rounded-lg transition duration-150"
                       >
                         <span>Chat</span>
                         <ArrowRight size={12} />
@@ -384,11 +384,11 @@ export default function Dashboard() {
           <div className="mt-6 pt-5 border-t border-slate-100">
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Quick Actions</h3>
             <div className="mt-3 space-y-2.5 text-sm">
-              <Link to="/dashboard/contacts" className="flex items-center justify-between text-slate-600 hover:text-[#10b981] font-semibold transition">
+              <Link to="/dashboard/contacts" className="flex items-center justify-between text-slate-600 hover:text-[#125EF2] font-semibold transition">
                 <span>• Manage Contacts & Tags</span>
                 <ArrowUpRight size={14} />
               </Link>
-              <Link to="/dashboard/settings" className="flex items-center justify-between text-slate-600 hover:text-[#10b981] font-semibold transition">
+              <Link to="/dashboard/settings" className="flex items-center justify-between text-slate-600 hover:text-[#125EF2] font-semibold transition">
                 <span>• Edit My Profile Settings</span>
                 <ArrowUpRight size={14} />
               </Link>
@@ -431,7 +431,7 @@ export default function Dashboard() {
         <div className="mt-8 relative flex flex-col md:flex-row md:justify-between gap-8 md:gap-4 before:absolute before:left-4 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100 md:before:left-2 md:before:right-2 md:before:top-4 md:before:h-0.5 md:before:w-auto">
           {/* Step 1 */}
           <div className="relative flex items-start md:flex-col gap-4 md:gap-2.5 md:flex-1">
-            <div className="z-10 w-9 h-9 rounded-full bg-emerald-500 border-4 border-emerald-100 text-white flex items-center justify-center shadow-sm">
+            <div className="z-10 w-9 h-9 rounded-full bg-[#125EF2] border-4 border-[#CFE0FD] text-white flex items-center justify-center shadow-sm">
               <CheckCircle2 size={16} />
             </div>
             <div className="md:mt-1">
@@ -474,7 +474,7 @@ export default function Dashboard() {
             </p>
           </div>
           <div className="mt-4 pt-4 border-t border-slate-50">
-            <Link to="/dashboard/settings" className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-700 transition">
+            <Link to="/dashboard/settings" className="inline-flex items-center gap-1 text-xs font-bold text-[#125EF2] hover:text-[#125EF2] transition">
               <span>Go to Settings</span>
               <ArrowRight size={14} />
             </Link>
@@ -489,7 +489,7 @@ export default function Dashboard() {
             </p>
           </div>
           <div className="mt-4 pt-4 border-t border-slate-50">
-            <a href="mailto:support@yzo.com" className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-700 transition">
+            <a href="mailto:support@yzo.com" className="inline-flex items-center gap-1 text-xs font-bold text-[#125EF2] hover:text-[#125EF2] transition">
               <span>Contact Support</span>
               <ArrowRight size={14} />
             </a>

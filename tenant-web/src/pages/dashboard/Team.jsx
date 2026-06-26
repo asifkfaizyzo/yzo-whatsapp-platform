@@ -243,7 +243,7 @@ export default function Team() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <UserCheck className="text-emerald-600" size={24} />
+            <UserCheck className="text-[#125EF2]" size={24} />
             <span>Agent & Team Management</span>
           </h1>
           <p className="text-xs text-[color:var(--muted)] font-medium mt-1">
@@ -253,8 +253,8 @@ export default function Team() {
         
         <div className="flex items-center gap-2.5 shrink-0">
           {feedback && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-100 rounded-xl text-emerald-800 text-xs font-semibold animate-bounce">
-              <CheckCircle2 size={13} className="text-emerald-600" />
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#EAF2FE] border border-[#CFE0FD] rounded-xl text-[#0D47A1] text-xs font-semibold animate-bounce">
+              <CheckCircle2 size={13} className="text-[#125EF2]" />
               <span>{feedback}</span>
             </div>
           )}
@@ -286,7 +286,7 @@ export default function Team() {
         <div className="overflow-x-auto">
           {loading ? (
             <div className="p-12 text-center flex flex-col items-center justify-center">
-              <RefreshCw className="w-8 h-8 text-emerald-500 animate-spin mb-2" />
+              <RefreshCw className="w-8 h-8 text-[#125EF2] animate-spin mb-2" />
               <p className="text-xs text-slate-400 font-semibold">Loading team members...</p>
             </div>
           ) : error ? (
@@ -357,14 +357,14 @@ export default function Team() {
                     <td className="p-4">
                       <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${
                         agent.status === "active"
-                          ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                          ? "bg-[#EAF2FE] text-[#125EF2] border-[#CFE0FD]"
                           : agent.status === "away"
                           ? "bg-amber-50 text-amber-700 border-amber-100"
                           : "bg-slate-50 text-slate-500 border-slate-150"
                       }`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${
                           agent.status === "active"
-                            ? "bg-emerald-500"
+                            ? "bg-[#125EF2]"
                             : agent.status === "away"
                             ? "bg-amber-500"
                             : "bg-slate-400"
@@ -381,7 +381,7 @@ export default function Team() {
                             className={`px-2 py-1 rounded-lg border text-[10px] font-semibold transition ${
                               agent.isActive
                                 ? "bg-white hover:bg-amber-50 border-gray-200 text-amber-600 hover:border-amber-200"
-                                : "bg-white hover:bg-emerald-50 border-gray-200 text-emerald-700 hover:border-emerald-200"
+                                : "bg-white hover:bg-[#EAF2FE] border-gray-200 text-[#125EF2] hover:border-[#CFE0FD]"
                             }`}
                           >
                             {agent.isActive ? "Deactivate" : "Reactivate"}
@@ -396,7 +396,7 @@ export default function Team() {
                               });
                               setShowEditModal(true);
                             }}
-                            className="text-slate-400 hover:text-emerald-700 p-1.5 rounded-lg hover:bg-emerald-50 border border-transparent hover:border-emerald-150 transition"
+                            className="text-slate-400 hover:text-[#125EF2] p-1.5 rounded-lg hover:bg-[#EAF2FE] border border-transparent hover:border-[#125EF2] transition"
                             title="Edit Agent Details"
                           >
                             <Edit2 size={13} />
@@ -574,7 +574,7 @@ export default function Team() {
                                 setModalError(res.message);
                               }
                             }}
-                            className="rounded border-slate-350 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                            className="rounded border-slate-350 text-[#125EF2] focus:ring-[#125EF2] cursor-pointer"
                           />
                           <span className="flex-1">{tag.name}</span>
                           <span className="text-[10px] text-slate-400 font-bold">Priority {tag.priority}</span>

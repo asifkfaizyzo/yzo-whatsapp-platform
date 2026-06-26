@@ -6,7 +6,7 @@ export default function HeroSection() {
       <div className="max-w-3xl mx-auto px-6 text-center">
 
         {/* Badge */}
-        <span className="inline-block bg-green-50 text-green-600 
+        <span className="inline-block bg-[#EAF2FE] text-[#125EF2] 
                          text-sm font-medium px-4 py-1.5 
                          rounded-full mb-6">
           WhatsApp Broadcasting Platform
@@ -16,7 +16,7 @@ export default function HeroSection() {
         <h1 className="text-4xl md:text-5xl font-bold 
                        text-gray-900 leading-tight mb-6">
           Broadcast Messages to{" "}
-          <span className="text-green-600">Thousands</span>
+          <span className="text-[#125EF2]">Thousands</span>
           {" "}— Instantly
         </h1>
 
@@ -31,9 +31,9 @@ export default function HeroSection() {
         <div className="flex flex-wrap justify-center gap-4 mb-8">
           <Link
             to="/auth/register"
-            className="bg-green-600 text-white px-7 py-3 
+            className="bg-[#125EF2] text-white px-7 py-3 
                        rounded-lg font-medium text-sm 
-                       hover:bg-green-700 transition-all 
+                       hover:bg-[#0F4FCC] transition-all 
                        duration-300 hover:-translate-y-0.5 
                        shadow-sm"
           >
@@ -51,11 +51,43 @@ export default function HeroSection() {
           </Link>
         </div>
 
-        {/* Trust Text */}
-        <p className="text-sm text-gray-400">
-          ✅ No credit card &nbsp; ✅ Free trial &nbsp; ✅ Cancel anytime
-        </p>
-
+      
+       {/* Trust Text (With Brand Blue Ticks) */}
+        <div className="flex flex-wrap justify-center items-center gap-x-6 gap-y-2 text-sm text-gray-400 font-medium">
+          <span className="flex items-center">
+            <svg 
+              className="w-4 h-4 text-[#125EF2] mr-1.5 stroke-[3]" 
+              fill="none" 
+              viewBox="0 0 24 24" 
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+            No credit card
+          </span>
+          <span className="flex items-center">
+            <svg 
+              className="w-4 h-4 text-[#125EF2] mr-1.5 stroke-[3]" 
+              fill="none" 
+              viewBox="0 0 24 24" 
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+            Free trial
+          </span>
+          <span className="flex items-center">
+            <svg 
+              className="w-4 h-4 text-[#125EF2] mr-1.5 stroke-[3]" 
+              fill="none" 
+              viewBox="0 0 24 24" 
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+            Cancel anytime
+          </span>
+        </div>
       </div>
     </section>
   );

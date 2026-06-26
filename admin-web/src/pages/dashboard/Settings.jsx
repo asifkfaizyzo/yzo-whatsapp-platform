@@ -46,7 +46,7 @@ export default function SettingsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <Settings className="text-emerald-600" size={24} />
+            <Settings className="text-[#125EF2]" size={24} />
             <span>Platform Configurations</span>
           </h1>
           <p className="text-xs text-gray-500 mt-1">
@@ -54,8 +54,8 @@ export default function SettingsPage() {
           </p>
         </div>
         {feedback && (
-          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-100 rounded-xl text-emerald-800 text-xs font-semibold animate-bounce shrink-0">
-            <CheckCircle2 size={13} className="text-emerald-600" />
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#EAF2FE] border border-[#CFE0FD] rounded-xl text-[#0D47A1] text-xs font-semibold animate-bounce shrink-0">
+            <CheckCircle2 size={13} className="text-[#125EF2]" />
             <span>{feedback}</span>
           </div>
         )}
