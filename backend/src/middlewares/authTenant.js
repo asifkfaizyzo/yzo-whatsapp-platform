@@ -1,10 +1,5 @@
-// middlewares/verifyTenant.js
-
 import jwt from 'jsonwebtoken';
-import pkg from '@prisma/client';
-
-const { PrismaClient } = pkg;
-const prisma = new PrismaClient();
+import prisma from '../config/prisma.js';
 
 export const verifyTenant =
   async (req, res, next) => {
@@ -64,6 +59,8 @@ export const verifyTenant =
 
       // 7️⃣ Save full tenant info
       req.tenant = tenant;
+      req.tenantId = tenant.id;
+      req.userType = 'TENANT';
 
       // 8️⃣ Go to next function
       next();

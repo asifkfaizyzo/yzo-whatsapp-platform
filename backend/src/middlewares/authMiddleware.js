@@ -1,8 +1,6 @@
 // middlewares/auth.middleware.js
 import jwt from 'jsonwebtoken';
-import prisma from '../config/prisma.js';   // ← Update the path according to your project
-
-const prisma = new PrismaClient();
+import prisma from '../config/prisma.js';
 
 
 // ===================== SUPERADMIN =====================
@@ -87,6 +85,8 @@ export const verifyTenant = async (req, res, next) => {
     }
 
     req.tenant = tenant;
+    req.tenantId = tenant.id;
+    req.userType = 'TENANT';
     next();
   } catch (error) {
     return res.status(401).json({

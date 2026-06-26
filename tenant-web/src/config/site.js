@@ -1,5 +1,11 @@
 export const siteConfig = {
   brand: "sudoreply",
+  domain: "sudoreply.com",
+  emails: {
+    support: "support@sudoreply.com",
+    privacy: "privacy@sudoreply.com",
+    legal: "legal@sudoreply.com",
+  },
   hero: {
     title: "WhatsApp marketing & support made simple",
     subtitle:

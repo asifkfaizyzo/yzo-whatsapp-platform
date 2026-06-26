@@ -266,7 +266,7 @@ export default function Pricing() {
                 </ul>
 
                 <Link
-                  to="/auth/register"
+                  to="/register"
                   className={
                     plan.popular
                       ? "block text-center py-3 rounded-lg bg-[#125EF2] text-white hover:bg-[#0F4FCC]"

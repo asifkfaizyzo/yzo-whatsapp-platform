@@ -52,14 +52,14 @@ function Navbar() {
           {/* Desktop Buttons */}
           <div className="hidden md:flex items-center gap-3">
             <Link
-              to="/auth/login"
+              to="/login"
               className="text-sm font-medium text-gray-600 
                          hover:text-[#125EF2] transition px-4 py-2"
             >
               Log in
             </Link>
             <Link
-              to="/auth/register"
+              to="/register"
               className="text-sm font-medium text-white bg-[#125EF2] 
                          px-5 py-2.5 rounded-lg hover:bg-[#0F4FCC] 
                          transition-all duration-200 shadow-sm 
@@ -116,7 +116,7 @@ function Navbar() {
               <div className="flex flex-col gap-2 mt-3 pt-3 
                               border-t border-gray-100">
                 <Link
-                  to="/auth/login"
+                  to="/login"
                   onClick={() => setIsOpen(false)}
                   className="text-sm font-medium text-gray-600 
                              px-4 py-2.5 rounded-lg 

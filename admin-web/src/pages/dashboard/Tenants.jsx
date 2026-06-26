@@ -99,8 +99,7 @@ export default function Tenants() {
     }
 
     try {
-      // Pointing to /api2/register by replacing the URL segment
-      const registerBaseURL = import.meta.env.VITE_API_URL.replace("/api", "/api2");
+      const registerBaseURL = `${import.meta.env.VITE_API_URL}/api2`;
       const response = await axios.post(`${registerBaseURL}/register`, newTenant);
 
       if (response.data?.success) {

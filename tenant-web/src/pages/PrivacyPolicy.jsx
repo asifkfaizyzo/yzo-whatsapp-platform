@@ -1,5 +1,6 @@
 import Navbar from "../components/landing/layout/Navbar";
 import Footer from "../components/landing/layout/Footer";
+import { siteConfig } from "../config/site";
 
 export default function PrivacyPolicy() {
   return (

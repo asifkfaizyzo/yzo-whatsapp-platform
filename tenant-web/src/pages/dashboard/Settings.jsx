@@ -13,7 +13,9 @@ import {
   Tag,
   Plus,
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { getTags, createTag } from "../../services/tag.service";
 import { getAutoReopenConfig, updateAutoReopenConfig, getTenantProfile, updateTenantProfile, getWhatsappConfig, updateWhatsappConfig } from "../../services/tenant.service";
@@ -22,6 +24,8 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("profile");
   const [copiedKey, setCopiedKey] = useState(false);
   const [userRole, setUserRole] = useState("admin");
+  const [showVerifyToken, setShowVerifyToken] = useState(false);
+  const [showAccessToken, setShowAccessToken] = useState(false);
   const [profile, setProfile] = useState({
     name: "Admin Member",
     companyName: "WhatsApp Tenant Corp",
@@ -419,13 +423,22 @@ export default function SettingsPage() {
 
               <div>
                 <label className="label text-xs">Permanent System Access Token</label>
-                <input
-                  type="password"
-                  value={whatsapp.accessToken}
-                  onChange={(e) => setWhatsapp({ ...whatsapp, accessToken: e.target.value })}
-                  className="input text-xs font-mono"
-                  required
-                />
+                <div className="relative">
+                  <input
+                    type={showAccessToken ? "text" : "password"}
+                    value={whatsapp.accessToken}
+                    onChange={(e) => setWhatsapp({ ...whatsapp, accessToken: e.target.value })}
+                    className="input text-xs font-mono pr-10"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowAccessToken(!showAccessToken)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-650 transition"
+                  >
+                    {showAccessToken ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
                 <p className="text-[10px] text-slate-400 mt-1 font-medium">
                   Obtained from Meta App Developer portal under WhatsApp Settings.
                 </p>
@@ -461,13 +474,22 @@ export default function SettingsPage() {
 
               <div>
                 <label className="label text-xs">Verify Webhook Token</label>
-                <input
-                  type="text"
-                  value={webhook.token}
-                  onChange={(e) => setWebhook({ ...webhook, token: e.target.value })}
-                  className="input text-xs font-mono"
-                  required
-                />
+                <div className="relative">
+                  <input
+                    type={showVerifyToken ? "text" : "password"}
+                    value={webhook.token}
+                    onChange={(e) => setWebhook({ ...webhook, token: e.target.value })}
+                    className="input text-xs font-mono pr-10"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowVerifyToken(!showVerifyToken)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-650 transition"
+                  >
+                    {showVerifyToken ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
               </div>
 
               <div>

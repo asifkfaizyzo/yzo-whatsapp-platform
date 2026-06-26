@@ -1,80 +1,111 @@
-// src/pages/dashboard/Templates.jsx
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   FileCode, 
   Plus, 
-  Search, 
   CheckCircle, 
   Clock, 
   X,
-  Smartphone,
-  Eye
+  Eye,
+  RefreshCw,
+  Trash2,
+  AlertCircle
 } from "lucide-react";
+import { getTemplates, createTemplate, syncTemplates, deleteTemplate } from "../../services/template.service";
 
 export default function Templates() {
-  const [templates, setTemplates] = useState([
-    {
-      id: 1,
-      name: "summer_sale_2026",
-      category: "Marketing",
-      language: "en (English)",
-      status: "approved",
-      body: "Hello {{1}}, our Summer Clearance Sale is officially LIVE! Use code {{2}} to get {{3}}% off on all items. Shop here: {{4}}",
-    },
-    {
-      id: 2,
-      name: "monthly_newsletter",
-      category: "Marketing",
-      language: "en (English)",
-      status: "approved",
-      body: "Hey {{1}}, check out this month's updates and tips for WhatsApp Automation in our newsletter: {{2}}",
-    },
-    {
-      id: 3,
-      name: "customer_feedback",
-      category: "Utility",
-      language: "en (English)",
-      status: "approved",
-      body: "Hi {{1}}, thank you for chatting with us today. We would love to hear your feedback. Please rate us here: {{2}}",
-    },
-    {
-      id: 4,
-      name: "cart_recovery",
-      category: "Marketing",
-      language: "en (English)",
-      status: "pending",
-      body: "Hi {{1}}, we noticed you left some items in your cart. Complete your purchase now and get free shipping: {{2}}",
-    },
-  ]);
+  const [templates, setTemplates] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [error, setError] = useState("");
+  const [feedback, setFeedback] = useState("");
 
   const [showModal, setShowModal] = useState(false);
   const [previewTemplate, setPreviewTemplate] = useState(null);
   
   const [newTemplate, setNewTemplate] = useState({
     name: "",
-    category: "Marketing",
+    category: "MARKETING",
     body: "",
   });
 
-  const handleCreate = (e) => {
+  const loadTemplates = async () => {
+    setLoading(true);
+    setError("");
+    const res = await getTemplates();
+    if (res.success) {
+      setTemplates(res.data);
+    } else {
+      setError(res.message);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    loadTemplates();
+  }, []);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    setFeedback("");
+    setError("");
+    const res = await syncTemplates();
+    if (res.success) {
+      setFeedback(`Synced ${res.count} templates from Meta successfully!`);
+      setTimeout(() => setFeedback(""), 3500);
+      loadTemplates();
+    } else {
+      setError(res.message);
+    }
+    setSyncing(false);
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this template? This will delete it locally and on Meta.")) return;
+    const res = await deleteTemplate(id);
+    if (res.success) {
+      setFeedback("Template deleted successfully.");
+      setTimeout(() => setFeedback(""), 3000);
+      loadTemplates();
+    } else {
+      setError(res.message);
+    }
+  };
+
+  const handleCreate = async (e) => {
     e.preventDefault();
     if (!newTemplate.name.trim() || !newTemplate.body.trim()) return;
 
     const formattedName = newTemplate.name.toLowerCase().replace(/[^a-z0-9_]/g, "_");
     
-    const created = {
-      id: templates.length + 1,
+    // Construct Meta components structure
+    const components = [
+      {
+        type: "BODY",
+        text: newTemplate.body
+      }
+    ];
+
+    const res = await createTemplate({
       name: formattedName,
       category: newTemplate.category,
-      language: "en (English)",
-      status: "pending",
-      body: newTemplate.body,
-    };
+      language: "en_US",
+      components
+    });
 
-    setTemplates([created, ...templates]);
-    setShowModal(false);
-    setNewTemplate({ name: "", category: "Marketing", body: "" });
+    if (res.success) {
+      setShowModal(false);
+      setNewTemplate({ name: "", category: "MARKETING", body: "" });
+      setFeedback("Template created successfully!");
+      setTimeout(() => setFeedback(""), 3000);
+      loadTemplates();
+    } else {
+      alert("Failed to create template: " + res.message);
+    }
+  };
+
+  const getBodyText = (components) => {
+    const bodyComp = (components || []).find(c => c.type === 'BODY');
+    return bodyComp ? bodyComp.text : '';
   };
 
   return (
@@ -90,64 +121,105 @@ export default function Templates() {
             Create, manage, and inspect WhatsApp pre-approved templates synced with Meta.
           </p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="btn-primary flex items-center justify-center gap-2 text-sm shadow-sm"
-        >
-          <Plus size={16} />
-          <span>Create Template</span>
-        </button>
+        
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            className="btn-secondary flex items-center gap-2 text-sm bg-white"
+          >
+            <RefreshCw size={15} className={syncing ? "animate-spin" : ""} />
+            <span>Sync from Meta</span>
+          </button>
+          <button
+            onClick={() => setShowModal(true)}
+            className="btn-primary flex items-center justify-center gap-2 text-sm shadow-sm"
+          >
+            <Plus size={16} />
+            <span>Create Template</span>
+          </button>
+        </div>
       </div>
+
+      {feedback && (
+        <div className="rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-3 text-xs text-emerald-800 font-semibold">
+          {feedback}
+        </div>
+      )}
+
+      {error && (
+        <div className="rounded-xl bg-rose-50 border border-rose-200 px-4 py-3 text-xs text-rose-800 font-semibold flex items-center gap-2">
+          <AlertCircle size={15} />
+          <span>{error}</span>
+        </div>
+      )}
 
       {/* Templates Catalog */}
-      <div className="grid gap-6 md:grid-cols-2">
-        {templates.map((temp) => (
-          <div key={temp.id} className="card border border-slate-100 p-5 flex flex-col justify-between hover:shadow-md transition duration-150">
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="font-mono font-bold text-slate-800 text-sm truncate max-w-[200px]">
-                  {temp.name}
-                </span>
-                <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold border ${
-                  temp.status === "approved"
-                    ? "bg-[#EAF2FE] text-[#125EF2] border-[#CFE0FD]"
-                    : "bg-amber-50 text-amber-700 border-amber-100"
-                }`}>
-                  {temp.status === "approved" ? <CheckCircle size={10} /> : <Clock size={10} />}
-                  <span className="capitalize">{temp.status}</span>
-                </span>
+      {loading ? (
+        <div className="text-center py-12 text-sm text-slate-400">Loading templates...</div>
+      ) : templates.length === 0 ? (
+        <div className="text-center py-12 text-slate-450 italic border border-dashed rounded-3xl">
+          No templates found. Create one or sync from Meta!
+        </div>
+      ) : (
+        <div className="grid gap-6 md:grid-cols-2">
+          {templates.map((temp) => (
+            <div key={temp.id} className="card border border-slate-100 p-5 flex flex-col justify-between hover:shadow-md transition duration-150 bg-white">
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="font-mono font-bold text-slate-800 text-sm truncate max-w-[200px]" title={temp.name}>
+                    {temp.name}
+                  </span>
+                  <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold border ${
+                    temp.status === "APPROVED"
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                      : temp.status === "PENDING"
+                      ? "bg-amber-50 text-amber-700 border-amber-100"
+                      : "bg-rose-50 text-rose-700 border-rose-100"
+                  }`}>
+                    {temp.status === "APPROVED" ? <CheckCircle size={10} /> : <Clock size={10} />}
+                    <span className="capitalize">{temp.status.toLowerCase()}</span>
+                  </span>
+                </div>
+
+                <div className="mt-2.5 flex items-center gap-3">
+                  <span className="text-[10px] bg-slate-100 text-slate-600 font-bold px-2 py-0.5 rounded border border-slate-200/40">
+                    {temp.category}
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-medium">
+                    Language: {temp.language}
+                  </span>
+                </div>
+
+                <div className="mt-4 p-3.5 bg-slate-50 border border-slate-100 rounded-2xl">
+                  <p className="text-xs text-slate-600 font-mono leading-relaxed line-clamp-3">
+                    {getBodyText(temp.components)}
+                  </p>
+                </div>
               </div>
 
-              <div className="mt-2.5 flex items-center gap-3">
-                <span className="text-[10px] bg-slate-100 text-slate-600 font-bold px-2 py-0.5 rounded border border-slate-200/40">
-                  {temp.category}
-                </span>
-                <span className="text-[10px] text-slate-400 font-medium">
-                  Language: {temp.language}
-                </span>
-              </div>
-
-              <div className="mt-4 p-3.5 bg-slate-50 border border-slate-100 rounded-2xl">
-                <p className="text-xs text-slate-600 font-mono leading-relaxed line-clamp-3">
-                  {temp.body}
-                </p>
+              <div className="mt-5 pt-3 border-t border-slate-55 flex items-center justify-between">
+                <button
+                  onClick={() => handleDelete(temp.id)}
+                  className="text-slate-405 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition"
+                  title="Delete Template"
+                >
+                  <Trash2 size={15} />
+                </button>
+                <button 
+                  onClick={() => setPreviewTemplate(temp)}
+                  className="btn-secondary py-1.5 px-3 text-[11px] font-semibold flex items-center gap-1 bg-white"
+                >
+                  <Eye size={12} />
+                  <span>Preview Mock</span>
+                </button>
               </div>
             </div>
+          ))}
+        </div>
+      )}
 
-            <div className="mt-5 pt-3 border-t border-slate-50 flex items-center justify-end gap-2">
-              <button 
-                onClick={() => setPreviewTemplate(temp)}
-                className="btn-secondary py-1.5 px-3 text-[11px] font-semibold flex items-center gap-1 bg-white"
-              >
-                <Eye size={12} />
-                <span>Preview Mock</span>
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* ── Meta Template Creator Modal ── */}
+      {/* Submit Template Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-150">
@@ -164,9 +236,8 @@ export default function Templates() {
 
             {/* Modal Form */}
             <form onSubmit={handleCreate} className="p-6 space-y-4">
-              {/* Template Name */}
               <div>
-                <label className="label">Template Name</label>
+                <label className="label text-xs font-semibold text-slate-700">Template Name</label>
                 <input
                   type="text"
                   placeholder="e.g. order_shipment_notification"
@@ -180,23 +251,21 @@ export default function Templates() {
                 </p>
               </div>
 
-              {/* Category */}
               <div>
-                <label className="label">Category</label>
+                <label className="label text-xs font-semibold text-slate-700">Category</label>
                 <select 
                   className="input"
                   value={newTemplate.category}
                   onChange={(e) => setNewTemplate({ ...newTemplate, category: e.target.value })}
                 >
-                  <option value="Marketing">Marketing (Promos, Offers)</option>
-                  <option value="Utility">Utility (Transaction receipts, updates)</option>
-                  <option value="Authentication">Authentication (OTPs, Security codes)</option>
+                  <option value="MARKETING">Marketing (Promos, Offers)</option>
+                  <option value="UTILITY">Utility (Transaction receipts, updates)</option>
+                  <option value="AUTHENTICATION">Authentication (OTPs, Security codes)</option>
                 </select>
               </div>
 
-              {/* Body Text */}
               <div>
-                <label className="label">Template Body Text</label>
+                <label className="label text-xs font-semibold text-slate-700">Template Body Text</label>
                 <textarea
                   placeholder="Hello {{1}}, your order {{2}} has been confirmed! Track it here: {{3}}"
                   required
@@ -210,7 +279,6 @@ export default function Templates() {
                 </p>
               </div>
 
-              {/* Actions */}
               <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-100">
                 <button
                   type="button"
@@ -231,14 +299,12 @@ export default function Templates() {
         </div>
       )}
 
-      {/* ── Smartphone Preview Modal ── */}
+      {/* Smartphone Preview Modal */}
       {previewTemplate && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 text-white rounded-[40px] p-4 w-72 border-8 border-slate-800 shadow-2xl relative animate-in zoom-in-95 duration-150 shrink-0">
-            {/* Phone Notch */}
             <div className="absolute top-2 left-1/2 -translate-x-1/2 w-28 h-4 bg-slate-800 rounded-full"></div>
             
-            {/* Phone Header */}
             <div className="mt-5 flex items-center justify-between pb-3 border-b border-slate-800">
               <span className="text-[10px] font-semibold text-slate-400">WhatsApp Preview</span>
               <button 
@@ -249,14 +315,11 @@ export default function Templates() {
               </button>
             </div>
 
-            {/* Phone Screen Mock */}
             <div className="bg-[#efeae2] h-96 rounded-2xl p-3 flex flex-col justify-end mt-4 overflow-hidden relative">
-              {/* Wallpaper Doodles Pattern Mock */}
-              <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#125EF2_1px,transparent_1px)] [background-size:16px_16px]"></div>
+              <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#059669_1px,transparent_1px)] [background-size:16px_16px]"></div>
               
-              {/* Message Bubble */}
               <div className="bg-white text-slate-800 rounded-2xl rounded-tl-none p-3 shadow-sm border border-slate-200/50 max-w-[90%] text-[11px] leading-relaxed relative z-10 font-sans">
-                <p className="whitespace-pre-wrap">{previewTemplate.body.replace(/\{\{\d\}\}/g, "...")}</p>
+                <p className="whitespace-pre-wrap">{getBodyText(previewTemplate.components).replace(/\{\{\d\}\}/g, "...")}</p>
                 <span className="text-[9px] text-slate-400 float-right mt-1.5">12:00 PM</span>
               </div>
             </div>
