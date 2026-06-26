@@ -195,7 +195,7 @@ export default function Pricing() {
 
                     {/* CTA */}
                     <Link
-                      to="/auth/register"
+                      to="/register"
                       className={
                         isPopular
                           ? "block text-center py-3 rounded-lg bg-[#125EF2] text-white hover:bg-[#0F4FCC] font-medium text-sm transition-all duration-300 hover:-translate-y-0.5"

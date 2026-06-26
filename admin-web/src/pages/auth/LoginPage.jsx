@@ -9,16 +9,16 @@ import FormError from "../../components/FormError";
 
 const benefits = [
   {
-    title: "Global styles",
-    text: "Update colors and base styles from one place.",
+    title: "Tenant Operations",
+    text: "Provision workspaces, configure system settings, and manage tenant subscriptions seamlessly.",
   },
   {
-    title: "Reusable UI",
-    text: "Buttons, cards, and inputs are shared across pages.",
+    title: "Platform Monitor",
+    text: "Real-time auditing, platform health dashboard, and detailed API transaction logs.",
   },
   {
-    title: "Clean auth flow",
-    text: "Dedicated login and registration screens.",
+    title: "Provider Console",
+    text: "Manage global WhatsApp API gateway configurations, webhooks, and provider access credentials.",
   },
 ];
 
@@ -42,7 +42,7 @@ export default function LoginPage() {
     <div className="min-h-screen">
       <div className="container-shell grid min-h-screen items-center gap-8 py-8 lg:grid-cols-2">
 
-        {/* ── Left Panel ── */}
+        {/* ── Left Panel (Desktop only) ── */}
         <div
           className="hidden min-h-[700px] rounded-[32px] p-8 text-white lg:flex lg:flex-col lg:justify-between"
           style={{
@@ -70,8 +70,7 @@ export default function LoginPage() {
               Welcome back
             </h1>
             <p className="mt-4 max-w-md text-base text-white/80">
-              Manage tenants, monitor platform health, and oversee all WhatsApp
-              Business API operations.
+              Manage tenants, monitor platform health, and oversee all WhatsApp Business API operations.
             </p>
           </div>
 
@@ -89,22 +88,32 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* ── Right Panel (Form) ── */}
-        <div className="mx-auto w-full max-w-md">
+        {/* ── Right Panel (Form & Mobile Branding) ── */}
+        <div className="mx-auto w-full max-w-md sm:max-w-2xl lg:max-w-md">
+          {/* Mobile/Tablet Header */}
+          <div className="flex flex-col items-center text-center lg:hidden mb-8">
+            <Link to="/" className="inline-flex items-center mb-4">
+              <img
+                src="/sudo2.png"
+                alt="SudoReply Logo"
+                className="w-16 h-16 object-contain"
+              />
+            </Link>
+            <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+              Admin Portal
+            </p>
+            <h1 className="mt-2 text-3xl font-semibold leading-tight text-slate-900">
+              Welcome back
+            </h1>
+            <p className="mt-2 text-sm text-[color:var(--muted)] max-w-md">
+              Manage tenants, monitor platform health, and oversee all WhatsApp Business API operations.
+            </p>
+          </div>
 
-          {/* Mobile Logo */}
-          <Link to="/" className="mb-6 inline-flex items-center lg:hidden">
-            <img
-              src="/sudo2.png"
-              alt="SudoReply Logo"
-              className="w-12 h-12 object-contain"
-            />
-          </Link>
-
-          <div className="card p-6 sm:p-8">
-
+          {/* Form Card */}
+          <div className="card p-6 sm:p-8 max-w-md mx-auto w-full">
             {/* Heading */}
-            <div>
+            <div className="hidden lg:block">
               <h2 className="text-2xl font-semibold">
                 Login to Admin Dashboard
               </h2>
@@ -139,19 +148,19 @@ export default function LoginPage() {
               </div>
 
               {/* Password */}
-             <div>
-                            <label className="label">Password</label>
-                            <input
-                              className={`input ${
-                                errors.password ? "border-red-500 focus:ring-red-200" : ""
-                              }`}
-                              type="password"
-                              name="password"
-                              placeholder="••••••••"
-                              {...register("password")}
-                            />
-                            <FormError message={errors.password?.message} />
-                          </div>
+              <div>
+                <label className="label">Password</label>
+                <input
+                  className={`input ${
+                    errors.password ? "border-red-500 focus:ring-red-200" : ""
+                  }`}
+                  type="password"
+                  name="password"
+                  placeholder="••••••••"
+                  {...register("password")}
+                />
+                <FormError message={errors.password?.message} />
+              </div>
 
               {/* Remember me / Forgot password */}
               <div className="flex items-center justify-between text-sm">
@@ -188,6 +197,24 @@ export default function LoginPage() {
               </Link>
             </p>
 
+          </div>
+
+          {/* Mobile/Tablet Benefits */}
+          <div className="mt-8 lg:hidden max-w-md sm:max-w-2xl mx-auto w-full">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--muted)] text-center mb-4">
+              Platform Benefits
+            </h3>
+            <div className="grid gap-4 sm:grid-cols-3">
+              {benefits.map((item) => (
+                <div
+                  key={item.title}
+                  className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"
+                >
+                  <p className="font-semibold text-slate-800 text-sm">{item.title}</p>
+                  <p className="mt-1 text-xs text-slate-500">{item.text}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>

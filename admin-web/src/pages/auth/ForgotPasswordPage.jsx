@@ -76,7 +76,7 @@ const handleSubmit = async (e) => {
   return (
     <div className="min-h-screen">
       <div className="container-shell grid min-h-screen items-center gap-8 py-8 lg:grid-cols-2">
-        {/* ── Left Panel ── */}
+        {/* ── Left Panel (Desktop only) ── */}
         <div
           className="hidden min-h-[700px] rounded-[32px] p-8 text-white lg:flex lg:flex-col lg:justify-between"
           style={{
@@ -84,9 +84,16 @@ const handleSubmit = async (e) => {
               "linear-gradient(135deg, var(--primary), var(--primary-dark))",
           }}
         >
-          <Link to="/" className="text-2xl font-semibold">
-            {siteConfig.brand}
-          </Link>
+          {/* Top: Logo */}
+          <div>
+            <Link to="/" className="inline-flex items-center">
+              <img
+                src="/sudo2.png"
+                alt="SudoReply Logo"
+                className="w-20 h-20 object-contain"
+              />
+            </Link>
+          </div>
 
           <div>
             <p className="text-sm uppercase tracking-[0.3em] text-white/70">
@@ -113,21 +120,35 @@ const handleSubmit = async (e) => {
           </div>
         </div>
 
-        {/* ── Right Panel ── */}
-        <div className="mx-auto w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-300">
-          <Link
-            to="/"
-            className="mb-6 inline-flex text-xl font-semibold lg:hidden"
-          >
-            {siteConfig.brand}
-          </Link>
+        {/* ── Right Panel (Form & Mobile Branding) ── */}
+        <div className="mx-auto w-full max-w-md sm:max-w-2xl lg:max-w-md">
+          {/* Mobile/Tablet Header */}
+          <div className="flex flex-col items-center text-center lg:hidden mb-8">
+            <Link to="/" className="inline-flex items-center mb-4">
+              <img
+                src="/sudo2.png"
+                alt="SudoReply Logo"
+                className="w-16 h-16 object-contain"
+              />
+            </Link>
+            <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+              Root Console
+            </p>
+            <h1 className="mt-2 text-3xl font-semibold leading-tight text-slate-900">
+              Restore Access
+            </h1>
+            <p className="mt-2 text-sm text-[color:var(--muted)] max-w-md">
+              Recover your administrator account password using our secure token verification flow.
+            </p>
+          </div>
 
-          <div className="card p-6 sm:p-8">
+          {/* Form Card */}
+          <div className="card p-6 sm:p-8 max-w-md mx-auto w-full">
             {!success ? (
               <>
                 {/* Heading */}
-                <div>
-                  <h2 className="text-2xl font-semibold text-slate-800">Forgot Password?</h2>
+                <div className="hidden lg:block">
+                  <h2 className="text-2xl font-semibold text-slate-800">ForgotPassword?</h2>
                   <p className="mt-2 text-sm text-[color:var(--muted)]">
                     No worries. Enter your email and we'll send you a link to reset your password.
                   </p>
@@ -222,7 +243,7 @@ const handleSubmit = async (e) => {
                     <p className="mt-2 text-xs text-[#125EF2] font-medium">{resendMessage}</p>
                   )}
                   {error && (
-                    <p className="mt-2 text-xs text-red-600 font-medium">{error}</p>
+                    <p className="mt-2 text-xs text-red-650 font-medium">{error}</p>
                   )}
                 </div>
                 <div className="pt-4 border-t border-slate-50">
@@ -236,6 +257,24 @@ const handleSubmit = async (e) => {
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Mobile/Tablet Benefits */}
+          <div className="mt-8 lg:hidden max-w-md sm:max-w-2xl mx-auto w-full">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--muted)] text-center mb-4">
+              Platform Benefits
+            </h3>
+            <div className="grid gap-4 sm:grid-cols-3">
+              {benefits.map((item) => (
+                <div
+                  key={item.title}
+                  className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"
+                >
+                  <p className="font-semibold text-slate-800 text-sm">{item.title}</p>
+                  <p className="mt-1 text-xs text-slate-500">{item.text}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>

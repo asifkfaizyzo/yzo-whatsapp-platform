@@ -9,16 +9,16 @@ import FormError from "../../components/FormError";
 
 const benefits = [
   {
-    title: "Global styles",
-    text: "Update colors and base styles from one place.",
+    title: "Tenant Operations",
+    text: "Provision workspaces, configure system settings, and manage tenant subscriptions seamlessly.",
   },
   {
-    title: "Reusable UI",
-    text: "Buttons, cards, and inputs are shared across pages.",
+    title: "Platform Monitor",
+    text: "Real-time auditing, platform health dashboard, and detailed API transaction logs.",
   },
   {
-    title: "Clean auth flow",
-    text: "Dedicated login and registration screens.",
+    title: "Provider Console",
+    text: "Manage global WhatsApp API gateway configurations, webhooks, and provider access credentials.",
   },
 ];
 
@@ -41,7 +41,7 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen">
       <div className="container-shell grid min-h-screen items-center gap-8 py-8 lg:grid-cols-2">
-        {/* ── Left Panel ── */}
+        {/* ── Left Panel (Desktop only) ── */}
         <div
           className="hidden min-h-[700px] rounded-[32px] p-8 text-white lg:flex lg:flex-col lg:justify-between"
           style={{
@@ -49,29 +49,31 @@ export default function RegisterPage() {
               "linear-gradient(135deg, var(--primary), var(--primary-dark))",
           }}
         >
-         <div>
-    <Link to="/" className="inline-flex items-center">
-      <img
-        src="/sudo2.png"
-        alt="SudoReply Logo"
-        className="w-20 h-20 object-contain"
-      />
-    </Link>
-  </div>
+          {/* Top: Logo */}
+          <div>
+            <Link to="/" className="inline-flex items-center">
+              <img
+                src="/sudo2.png"
+                alt="SudoReply Logo"
+                className="w-20 h-20 object-contain"
+              />
+            </Link>
+          </div>
 
+          {/* Middle: Headline */}
           <div>
             <p className="text-sm uppercase tracking-[0.3em] text-white/70">
-              Frontend UI
+              Admin Portal
             </p>
             <h1 className="mt-4 text-5xl font-semibold leading-tight">
-              Create your Tenant account
+              Create Admin Account
             </h1>
             <p className="mt-4 max-w-md text-base text-white/80">
-              A minimal registration UI that matches the landing page and stays easy to
-              edit globally.
+              Access the administration panel to manage tenant subscriptions, configure system settings, and monitor usage statistics.
             </p>
           </div>
 
+          {/* Bottom: Benefits */}
           <div className="space-y-4">
             {benefits.map((item) => (
               <div
@@ -85,18 +87,32 @@ export default function RegisterPage() {
           </div>
         </div>
 
-        {/* ── Right Panel (Form) ── */}
-        <div className="mx-auto w-full max-w-md">
-          <Link
-            to="/"
-            className="mb-6 inline-flex text-xl font-semibold lg:hidden"
-          >
-            {siteConfig.brand}
-          </Link>
+        {/* ── Right Panel (Form & Mobile Branding) ── */}
+        <div className="mx-auto w-full max-w-md sm:max-w-2xl lg:max-w-md">
+          {/* Mobile/Tablet Header */}
+          <div className="flex flex-col items-center text-center lg:hidden mb-8">
+            <Link to="/" className="inline-flex items-center mb-4">
+              <img
+                src="/sudo2.png"
+                alt="SudoReply Logo"
+                className="w-16 h-16 object-contain"
+              />
+            </Link>
+            <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--muted)]">
+              Admin Portal
+            </p>
+            <h1 className="mt-2 text-3xl font-semibold leading-tight text-slate-900">
+              Create Admin Account
+            </h1>
+            <p className="mt-2 text-sm text-[color:var(--muted)] max-w-md">
+              Access the administration panel to manage tenant subscriptions, configure system settings, and monitor usage statistics.
+            </p>
+          </div>
 
-          <div className="card p-6 sm:p-8">
+          {/* Form Card */}
+          <div className="card p-6 sm:p-8 max-w-md mx-auto w-full">
             {/* Heading */}
-            <div>
+            <div className="hidden lg:block">
               <h2 className="text-2xl font-semibold">Create account</h2>
               <p className="mt-2 text-sm text-[color:var(--muted)]">
                 Start with a simple admin account.
@@ -109,13 +125,6 @@ export default function RegisterPage() {
                 {generalError}
               </div>
             )}
-
-            {/* ✅ Success Message
-            {success && (
-              <div className="mt-4 rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-600">
-                {success}
-              </div>
-            )} */}
 
             {/* Form */}
             <form className="mt-6 space-y-4" onSubmit={onSubmit}>
@@ -146,8 +155,7 @@ export default function RegisterPage() {
               </div>
 
               {/* Password */}
-            
- <div>
+              <div>
                 <label className="label">Password</label>
                 <input
                   className={`input ${
@@ -202,6 +210,24 @@ export default function RegisterPage() {
                 Login
               </Link>
             </p>
+          </div>
+
+          {/* Mobile/Tablet Benefits */}
+          <div className="mt-8 lg:hidden max-w-md sm:max-w-2xl mx-auto w-full">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--muted)] text-center mb-4">
+              Platform Benefits
+            </h3>
+            <div className="grid gap-4 sm:grid-cols-3">
+              {benefits.map((item) => (
+                <div
+                  key={item.title}
+                  className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"
+                >
+                  <p className="font-semibold text-slate-800 text-sm">{item.title}</p>
+                  <p className="mt-1 text-xs text-slate-500">{item.text}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>

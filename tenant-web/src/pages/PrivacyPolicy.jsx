@@ -20,13 +20,14 @@ export default function PrivacyPolicy() {
               Privacy Policy
             </h1>
             <p className="text-sm text-gray-400">
-              Last updated: January 2025
+              Last updated: June 2026
             </p>
           </div>
 
           {/* Content */}
           <div className="space-y-8 text-sm text-gray-600 leading-relaxed">
 
+            {/* Section 1 */}
             <div>
               <h2 className="text-lg font-semibold text-gray-900 mb-3">
                 1. Information We Collect
@@ -39,6 +40,7 @@ export default function PrivacyPolicy() {
               </p>
             </div>
 
+            {/* Section 2 */}
             <div>
               <h2 className="text-lg font-semibold text-gray-900 mb-3">
                 2. How We Use Your Information
@@ -53,6 +55,7 @@ export default function PrivacyPolicy() {
               </ul>
             </div>
 
+            {/* Section 3 */}
             <div>
               <h2 className="text-lg font-semibold text-gray-900 mb-3">
                 3. Data Storage & Security
@@ -65,6 +68,7 @@ export default function PrivacyPolicy() {
               </p>
             </div>
 
+            {/* Section 4 */}
             <div>
               <h2 className="text-lg font-semibold text-gray-900 mb-3">
                 4. Data Sharing
@@ -78,6 +82,7 @@ export default function PrivacyPolicy() {
               </p>
             </div>
 
+            {/* Section 5 */}
             <div>
               <h2 className="text-lg font-semibold text-gray-900 mb-3">
                 5. Your Rights
@@ -92,22 +97,67 @@ export default function PrivacyPolicy() {
               </ul>
             </div>
 
+            {/* Section 6 - NEW DATA DELETION SECTION */}
             <div>
               <h2 className="text-lg font-semibold text-gray-900 mb-3">
-                6. Contact Us
+                6. Data Deletion Request
+              </h2>
+              <p className="mb-3">
+                If you would like to request deletion of your personal 
+                data from Sudoreply, you can submit a request by 
+                contacting us at{" "}
+                <a
+                  href="mailto:privacy@sudoreply.com"
+                  className="text-[#125EF2] hover:underline"
+                >
+                  privacy@sudoreply.com
+                </a>{" "}
+                with the subject line{" "}
+                <span className="font-medium text-gray-700">
+                  "Data Deletion Request"
+                </span>
+                .
+              </p>
+              <p className="mb-3">Please include in your request:</p>
+              <ul className="list-disc pl-5 space-y-1 text-gray-500 mb-3">
+                <li>Your full name</li>
+                <li>Your registered email address</li>
+                <li>
+                  Your WhatsApp Business account number (if applicable)
+                </li>
+              </ul>
+              <p className="mb-3">Upon receiving your request we will:</p>
+              <ul className="list-disc pl-5 space-y-1 text-gray-500 mb-3">
+                <li>Confirm receipt of your request within 48 hours</li>
+                <li>Process the deletion within 30 days</li>
+                <li>Notify you once your data has been permanently deleted</li>
+              </ul>
+              <p>
+                All personal data associated with your account, including 
+                connected WhatsApp Business account information, message 
+                history stored in our systems, and profile data, will be 
+                permanently deleted unless retention is required by law.
+              </p>
+            </div>
+
+            {/* Section 7 - Previously Section 6 */}
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 mb-3">
+                7. Contact Us
               </h2>
               <p>
                 If you have any questions about this Privacy Policy, 
                 please contact us at{" "}
-                <a href="mailto:privacy@sudoreply" 
-                   className="text-[#125EF2] hover:underline">
-                  privacy@sudoreply
+                <a
+                  href="mailto:privacy@sudoreply.com"
+                  className="text-blue-600 hover:underline"
+                >
+                  privacy@sudoreply.com
                 </a>
               </p>
             </div>
 
           </div>
-
         </div>
       </section>
 
