@@ -20,9 +20,10 @@ import {
   Cpu
 } from "lucide-react";
 import api from "../../lib/axios";
+import { useAdminAuthStore } from "../../store/useAdminAuthStore";
 
 export default function Dashboard() {
-  const [user, setUser] = useState(null);
+  const user = useAdminAuthStore((state) => state.user);
   const [tenants, setTenants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -45,14 +46,6 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    try {
-      const storedUser = localStorage.getItem("user");
-      if (storedUser && storedUser !== "undefined" && storedUser !== "null") {
-        setUser(JSON.parse(storedUser));
-      }
-    } catch (e) {
-      console.error(e);
-    }
     fetchStats();
   }, []);
 

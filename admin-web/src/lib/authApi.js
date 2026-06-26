@@ -1,6 +1,7 @@
 // src/api/authApi.js
 
 import api from './axios';
+import { useAdminAuthStore } from '../store/useAdminAuthStore';
 
 // ✅ Super Admin Register
 export const registerSuperAdmin = async (userData) => {
@@ -9,20 +10,12 @@ export const registerSuperAdmin = async (userData) => {
       name: userData.name,
       email: userData.email,
       password: userData.password,
-      //   companyName: userData.companyName,
     });
     
     const registerData = response.data?.data;
-    if (registerData) {
-      if (registerData.accessToken) {
-        localStorage.setItem('accessToken', registerData.accessToken);
-      }
-      if (registerData.refreshToken) {
-        localStorage.setItem('refreshToken', registerData.refreshToken);
-      }
-      if (registerData.superAdmin) {
-        localStorage.setItem('user', JSON.stringify(registerData.superAdmin));
-      }
+    const user = registerData?.user || registerData?.superAdmin;
+    if (registerData && user && registerData.accessToken) {
+      useAdminAuthStore.getState().login(user, registerData.accessToken);
     }
 
     return { success: true, data: response.data };
@@ -39,18 +32,9 @@ export const loginSuperAdmin = async (email, password) => {
   try {
     const response = await api.post('/login', { email, password });
     const loginData = response.data?.data;
-
-    // Save tokens
-    if (loginData) {
-      if (loginData.accessToken) {
-        localStorage.setItem('accessToken', loginData.accessToken);
-      }
-      if (loginData.refreshToken) {
-        localStorage.setItem('refreshToken', loginData.refreshToken);
-      }
-      if (loginData.superAdmin) {
-        localStorage.setItem('user', JSON.stringify(loginData.superAdmin));
-      }
+    const user = loginData?.user || loginData?.superAdmin;
+    if (loginData && user && loginData.accessToken) {
+      useAdminAuthStore.getState().login(user, loginData.accessToken);
     }
 
     return { success: true, data: response.data };
@@ -65,18 +49,12 @@ export const loginSuperAdmin = async (email, password) => {
 // ✅ Logout
 export const logoutSuperAdmin = async () => {
   try {
-    const refreshToken = localStorage.getItem('refreshToken');
-    if (refreshToken && refreshToken !== 'undefined') {
-      await api.post('/logout', { refreshToken });
-    }
-    localStorage.clear();
+    await useAdminAuthStore.getState().logout();
     return { success: true };
   } catch (error) {
-    localStorage.clear();   // clear even if API fails
     return { success: false };
   }
 };
-
 
 // ✅ Request Reset Link for Super Admin
 export const forgotPasswordSuperAdmin = async (email) => {

@@ -1,33 +1,25 @@
-import React, { useEffect, useState } from "react";
-import { Outlet, useNavigate } from "react-router-dom";
+import React from "react";
+import { Outlet, Navigate } from "react-router-dom";
+import { useAdminAuthStore } from "../store/useAdminAuthStore";
 import Sidebar from "../components/Sidebar";
 import TopNavbar from "../components/TopNavBar";
 
 export default function AdminLayout() {
-  const navigate = useNavigate();
-  const [userRole, setUserRole] = useState("Super Admin");
+  const { isAuthenticated, isLoading, user } = useAdminAuthStore();
 
-  useEffect(() => {
-    const token = localStorage.getItem("accessToken");
-    if (!token || token === "undefined") {
-      navigate("/login");
-      return;
-    }
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#f8fafc]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#10b981]" />
+      </div>
+    );
+  }
 
-    try {
-      const storedUser = localStorage.getItem("user");
-      if (storedUser) {
-        const parsed = JSON.parse(storedUser);
-        if (parsed.type === "SUPERADMIN") {
-          setUserRole("Super Admin");
-        } else if (parsed.name) {
-          setUserRole(parsed.name);
-        }
-      }
-    } catch (e) {
-      console.error("Failed to parse user role in AdminLayout", e);
-    }
-  }, [navigate]);
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  const userRole = user?.type === "SUPERADMIN" ? "Super Admin" : (user?.name || "Admin");
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f8fafc] overflow-hidden">

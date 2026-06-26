@@ -40,7 +40,9 @@ app.use(express.json({
 }));
 app.use(cookieParser());
 
-const allowedOrigins = process.env.FRONTEND_URLS.split(",");
+const allowedOrigins = (process.env.FRONTEND_URLS || '')
+  .split(",")
+  .map((url) => url.trim());
 
 app.use(
   cors({
@@ -98,9 +100,14 @@ app.use((req, res, next) => {
 // 2. Global Error Handler (Place this as the LAST middleware)
 app.use((err, req, res, next) => {
   console.error('❌ Server Error:', err.stack);
-  res.status(err.status || 500).json({
+  const isProduction = process.env.NODE_ENV === 'production';
+  const statusCode = err.status || 500;
+
+  res.status(statusCode).json({
     success: false,
-    message: err.message || 'Internal Server Error'
+    message: statusCode === 500 && isProduction
+      ? 'Internal Server Error'
+      : (err.message || 'Internal Server Error')
   });
 });
 

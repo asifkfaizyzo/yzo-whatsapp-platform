@@ -2,23 +2,13 @@ import React, { useState, useEffect, useRef } from "react";
 import { Bell, Rocket, User, LogOut, ChevronDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { logoutSuperAdmin } from "../lib/authApi";
+import { useAdminAuthStore } from "../store/useAdminAuthStore";
 
 const TopNavbar = () => {
   const navigate = useNavigate();
-  const [user, setUser] = useState(null);
+  const user = useAdminAuthStore((state) => state.user);
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
-
-  useEffect(() => {
-    try {
-      const storedUser = localStorage.getItem("user");
-      if (storedUser && storedUser !== "undefined" && storedUser !== "null") {
-        setUser(JSON.parse(storedUser));
-      }
-    } catch (error) {
-      console.error("Failed to parse user from localStorage:", error);
-    }
-  }, []);
 
   // Close dropdown when clicking outside
   useEffect(() => {
