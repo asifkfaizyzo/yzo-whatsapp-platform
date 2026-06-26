@@ -83,8 +83,9 @@ app.use('/api7',tagRoutes);
 app.use('/api/webhook', webhookRoutes);
 
 app.use("/api/plans", planRoutes);
-
+//Fetch plans to tenant page
 app.use("/api2/plans", planRoutes);
+
 app.use('/api8', templateRoutes);
 
 app.use('/api9', broadcastRoutes);
