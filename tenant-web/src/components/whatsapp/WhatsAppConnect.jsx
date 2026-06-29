@@ -45,7 +45,8 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
       (response) => {
         if (response.authResponse) {
           const code = response.authResponse.code;
-          const redirectUri = window.location.href;  // must match what Meta used internally
+          // Get a clean URL matching what Meta's JS SDK defaults to
+          const redirectUri = window.location.origin + window.location.pathname;
           exchangeToken(code, redirectUri);
         } else {
           setError("Login was cancelled. Please try again.");
