@@ -50,7 +50,8 @@ const launchEmbeddedSignup = useCallback(() => {
       if (response.authResponse) {
         const code = response.authResponse.code;
         console.log("Auth code received:", code.substring(0, 20) + "...");
-        const redirectUri = window.location.origin + "/";
+        // Strips any hash fragments and query strings to match Meta's JS SDK URL exactly
+        const redirectUri = window.location.href.split('#')[0].split('?')[0];
         exchangeToken(code, redirectUri);
       } else {
         setError("Login was cancelled. Please try again.");
