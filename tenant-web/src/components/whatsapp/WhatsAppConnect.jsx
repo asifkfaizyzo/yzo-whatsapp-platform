@@ -49,14 +49,7 @@ const launchEmbeddedSignup = useCallback(() => {
       
       if (response.authResponse) {
         const code = response.authResponse.code;
-        // Clean redirect URI - very important
-        let redirectUri = window.location.origin + window.location.pathname;
-        // Remove any query params or hash
-        redirectUri = redirectUri.split('?')[0].split('#')[0];
-        
-        console.log("Using redirectUri for exchange:", redirectUri);
-        
-        exchangeToken(code, redirectUri);
+        exchangeToken(code);
       } else {
         setError("Login was cancelled. Please try again.");
         setIsLoading(false);
@@ -75,11 +68,11 @@ const launchEmbeddedSignup = useCallback(() => {
   );
 }, []);
 
-const exchangeToken = async (code, redirectUri) => {
+const exchangeToken = async (code) => {
   try {
     const response = await api.post(
       '/whatsapp/exchange-token', 
-      { code, redirectUri }
+      { code }
     );
     const data = response.data;
     if (data.success) {
