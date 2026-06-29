@@ -7,7 +7,7 @@ import prisma from '../../config/prisma.js';
 // then fetches the WABA ID + Phone Number ID and saves them to the tenant.
 // ─────────────────────────────────────────────────────────────────────────────
 export const exchangeToken = async (req, res) => {
-  const { code } = req.body;
+  const { code, redirectUri } = req.body;
   const tenantId = req.tenantId;
 
   if (!code) {
@@ -24,24 +24,49 @@ export const exchangeToken = async (req, res) => {
 
   try {
     // 1️⃣ Exchange auth code → access token
-    // For Meta Embedded Signup flows via the JS SDK popup, do not pass any redirect_uri.
-    const params = new URLSearchParams({
+    // Strategy: Try WITHOUT redirect_uri first (recommended for JS SDK popup flow).
+    // If Meta returns error 36008, retry WITH the redirect_uri from the frontend.
+    const baseParams = {
       client_id: process.env.META_APP_ID,
       client_secret: process.env.META_APP_SECRET,
       code,
-    });
+    };
 
-    console.log(`[WhatsApp] Exchanging code with Meta Graph API. App ID: ${process.env.META_APP_ID}, Code: ${code.substring(0, 10)}...`);
+    const attempts = [
+      { label: 'without redirect_uri', params: { ...baseParams } },
+    ];
+    // If frontend sent a redirectUri, add it as a fallback attempt
+    if (redirectUri) {
+      attempts.push({ label: `with redirect_uri=${redirectUri}`, params: { ...baseParams, redirect_uri: redirectUri } });
+    }
 
-    const tokenRes = await fetch(
-      `https://graph.facebook.com/oauth/access_token?${params.toString()}`
-    );
-    const tokenData = await tokenRes.json();
+    let tokenData = null;
+    for (const attempt of attempts) {
+      const qs = new URLSearchParams(attempt.params);
+      const exchangeUrl = `https://graph.facebook.com/v23.0/oauth/access_token?${qs.toString()}`;
+      
+      console.log(`[WhatsApp] Attempting token exchange ${attempt.label}`);
+      console.log(`[WhatsApp]   URL (minus secret): ${exchangeUrl.replace(process.env.META_APP_SECRET, '***')}`);
 
-    console.log(`[WhatsApp] Token exchange response:`, tokenData);
+      const tokenRes = await fetch(exchangeUrl);
+      tokenData = await tokenRes.json();
+
+      console.log(`[WhatsApp] Response (${attempt.label}):`, tokenData);
+
+      if (tokenData.access_token) {
+        console.log(`[WhatsApp] ✅ Token exchange succeeded ${attempt.label}`);
+        break;
+      }
+
+      // If it's a redirect_uri error (36008) and we have another attempt, try it
+      if (tokenData.error?.error_subcode === 36008 && attempts.indexOf(attempt) < attempts.length - 1) {
+        console.log(`[WhatsApp] ⚠️ redirect_uri mismatch, retrying next strategy...`);
+        continue;
+      }
+    }
 
     if (!tokenData.access_token) {
-      console.error('❌ Meta token exchange failed:', tokenData);
+      console.error('❌ Meta token exchange failed after all attempts:', tokenData);
       return res.status(400).json({
         success: false,
         message: tokenData.error?.message || 'Failed to exchange auth code with Meta.'
