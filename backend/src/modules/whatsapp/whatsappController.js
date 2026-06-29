@@ -49,7 +49,7 @@ export const exchangeToken = async (req, res) => {
       console.log(`[WhatsApp] Trying redirect_uri: "${redirectUri}"`);
 
       const tokenRes = await fetch(
-        `https://graph.facebook.com/v23.0/oauth/access_token?${params.toString()}`
+        `https://graph.facebook.com/oauth/access_token?${params.toString()}`
       );
       const tokenData = await tokenRes.json();
 
@@ -76,7 +76,7 @@ export const exchangeToken = async (req, res) => {
   try {
     // 2️⃣ Inspect token to find WABA ID
     const debugRes = await fetch(
-      `https://graph.facebook.com/v23.0/debug_token` +
+      `https://graph.facebook.com/debug_token` +
       `?input_token=${access_token}` +
       `&access_token=${process.env.META_APP_ID}|${process.env.META_APP_SECRET}`
     );
@@ -94,7 +94,7 @@ export const exchangeToken = async (req, res) => {
     let phoneNumberId = null;
     if (wabaId) {
       const phoneRes = await fetch(
-        `https://graph.facebook.com/v23.0/${wabaId}/phone_numbers` +
+        `https://graph.facebook.com/${wabaId}/phone_numbers` +
         `?access_token=${access_token}`
       );
       const phoneData = await phoneRes.json();
