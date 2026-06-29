@@ -2,18 +2,18 @@ import prisma from '../../config/prisma.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api2/whatsapp/exchange-token
-// Receives the auth code from the frontend (returned by FB.login()),
-// exchanges it for an access token on the backend (keeps APP_SECRET safe),
-// then fetches the WABA ID + Phone Number ID and saves them to the tenant.
+// Receives either a short-lived token or auth code from the frontend,
+// converts it to a long-lived access token, fetches WABA/Phone IDs,
+// and saves them to the tenant.
 // ─────────────────────────────────────────────────────────────────────────────
 export const exchangeToken = async (req, res) => {
-  const { code } = req.body;
+  const { shortLivedToken, code } = req.body;
   const tenantId = req.tenantId;
 
-  if (!code) {
+  if (!shortLivedToken && !code) {
     return res.status(400).json({ 
       success: false, 
-      message: 'Auth code is required.' 
+      message: 'Either shortLivedToken or auth code is required.' 
     });
   }
 
@@ -23,37 +23,62 @@ export const exchangeToken = async (req, res) => {
   }
 
   try {
-    // 1️⃣ Exchange auth code → access token
-    // The FB JS SDK popup flow uses Facebook's internal xd_arbiter as the redirect_uri.
-    // We must pass this exact same base URL (without the dynamic hash fragment).
-    const sdkRedirectUri = 'https://staticxx.facebook.com/x/connect/xd_arbiter/?version=46';
+    let access_token;
 
-    const params = new URLSearchParams({
-      client_id: process.env.META_APP_ID,
-      client_secret: process.env.META_APP_SECRET,
-      redirect_uri: sdkRedirectUri,
-      code,
-    });
+    if (shortLivedToken) {
+      // ─── Path A: Extend short-lived token → long-lived token ───
+      // This avoids the redirect_uri problem entirely.
+      console.log('[WhatsApp] Extending short-lived token to long-lived token...');
 
-    const exchangeUrl = `https://graph.facebook.com/v23.0/oauth/access_token?${params.toString()}`;
-    console.log(`[WhatsApp] Exchanging code with Meta Graph API`);
-    console.log(`[WhatsApp]   redirect_uri: "${sdkRedirectUri}"`);
-    console.log(`[WhatsApp]   URL (minus secret): ${exchangeUrl.replace(process.env.META_APP_SECRET, '***')}`);
-
-    const tokenRes = await fetch(exchangeUrl);
-    const tokenData = await tokenRes.json();
-
-    console.log(`[WhatsApp] Token exchange response:`, tokenData);
-
-    if (!tokenData.access_token) {
-      console.error('❌ Meta token exchange failed:', tokenData);
-      return res.status(400).json({
-        success: false,
-        message: tokenData.error?.message || 'Failed to exchange auth code with Meta.'
+      const params = new URLSearchParams({
+        grant_type: 'fb_exchange_token',
+        client_id: process.env.META_APP_ID,
+        client_secret: process.env.META_APP_SECRET,
+        fb_exchange_token: shortLivedToken,
       });
-    }
 
-    const access_token = tokenData.access_token;
+      const tokenRes = await fetch(
+        `https://graph.facebook.com/v23.0/oauth/access_token?${params.toString()}`
+      );
+      const tokenData = await tokenRes.json();
+
+      console.log('[WhatsApp] Token extension response:', tokenData);
+
+      if (!tokenData.access_token) {
+        // If extension fails, try using the short-lived token directly
+        console.log('[WhatsApp] Extension failed, using short-lived token directly');
+        access_token = shortLivedToken;
+      } else {
+        access_token = tokenData.access_token;
+        console.log('[WhatsApp] ✅ Got long-lived token');
+      }
+    } else {
+      // ─── Path B: Exchange auth code → access token (fallback) ───
+      console.log('[WhatsApp] Exchanging auth code for access token...');
+
+      const params = new URLSearchParams({
+        client_id: process.env.META_APP_ID,
+        client_secret: process.env.META_APP_SECRET,
+        code,
+      });
+
+      const tokenRes = await fetch(
+        `https://graph.facebook.com/v23.0/oauth/access_token?${params.toString()}`
+      );
+      const tokenData = await tokenRes.json();
+
+      console.log('[WhatsApp] Code exchange response:', tokenData);
+
+      if (!tokenData.access_token) {
+        console.error('❌ Meta token exchange failed:', tokenData);
+        return res.status(400).json({
+          success: false,
+          message: tokenData.error?.message || 'Failed to exchange auth code with Meta.'
+        });
+      }
+
+      access_token = tokenData.access_token;
+    }
 
     // 2️⃣ Inspect token to find WABA ID
     const debugRes = await fetch(

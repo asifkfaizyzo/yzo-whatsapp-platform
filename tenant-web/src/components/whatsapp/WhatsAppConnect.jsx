@@ -44,12 +44,24 @@ const launchEmbeddedSignup = useCallback(() => {
   FB.login(
     (response) => {
       console.log("FB.login full response:", JSON.stringify(response));
-      console.log("Current URL:", window.location.href);
-      console.log("Origin:", window.location.origin);
       
       if (response.authResponse) {
-        const code = response.authResponse.code;
-        exchangeToken(code);
+        // The SDK returns a short-lived access token directly
+        const accessToken = response.authResponse.accessToken;
+        if (accessToken) {
+          console.log("[WhatsApp] Got access token from FB.login, sending to backend");
+          exchangeToken(accessToken);
+        } else {
+          // Fallback: some flows return a code instead
+          const code = response.authResponse.code;
+          if (code) {
+            console.log("[WhatsApp] Got auth code from FB.login, sending to backend");
+            exchangeToken(null, code);
+          } else {
+            setError("No token or code received. Please try again.");
+            setIsLoading(false);
+          }
+        }
       } else {
         setError("Login was cancelled. Please try again.");
         setIsLoading(false);
@@ -57,7 +69,7 @@ const launchEmbeddedSignup = useCallback(() => {
     },
     {
       config_id: CONFIG_ID,
-      response_type: "code",
+      response_type: "token",
       override_default_response_type: true,
       extras: {
         setup: {},
@@ -68,11 +80,11 @@ const launchEmbeddedSignup = useCallback(() => {
   );
 }, []);
 
-const exchangeToken = async (code) => {
+const exchangeToken = async (shortLivedToken, code = null) => {
   try {
     const response = await api.post(
       '/whatsapp/exchange-token', 
-      { code }
+      { shortLivedToken, code }
     );
     const data = response.data;
     if (data.success) {
