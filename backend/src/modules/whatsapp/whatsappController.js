@@ -7,7 +7,7 @@ import prisma from '../../config/prisma.js';
 // then fetches the WABA ID + Phone Number ID and saves them to the tenant.
 // ─────────────────────────────────────────────────────────────────────────────
 export const exchangeToken = async (req, res) => {
-  const { code, redirectUri } = req.body;
+  const { code } = req.body;
   const tenantId = req.tenantId;
 
   if (!code) {
@@ -21,12 +21,11 @@ export const exchangeToken = async (req, res) => {
 
   try {
     // 1️⃣ Exchange auth code → access token
-    // redirect_uri must match what Meta used internally during FB.login()
+    // For FB.login popup flows, do NOT pass a redirect_uri.
     const params = new URLSearchParams({
       client_id: process.env.META_APP_ID,
       client_secret: process.env.META_APP_SECRET,
       code,
-      ...(redirectUri && { redirect_uri: redirectUri }),
     });
 
     const tokenRes = await fetch(
