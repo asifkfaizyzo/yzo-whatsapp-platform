@@ -45,7 +45,8 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
       (response) => {
         if (response.authResponse) {
           const code = response.authResponse.code;
-          exchangeToken(code);
+          const redirectUri = window.location.href;  // must match what Meta used internally
+          exchangeToken(code, redirectUri);
         } else {
           setError("Login was cancelled. Please try again.");
           setIsLoading(false);
@@ -65,9 +66,9 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
   }, []);
 
   // Exchange Code for Token
-  const exchangeToken = async (code) => {
+  const exchangeToken = async (code, redirectUri) => {
     try {
-      const response = await api.post('/whatsapp/exchange-token', { code });
+      const response = await api.post('/whatsapp/exchange-token', { code, redirectUri });
       const data = response.data;
       if (data.success) {
         setIsConnected(true);
