@@ -7,7 +7,7 @@ import prisma from '../../config/prisma.js';
 // then fetches the WABA ID + Phone Number ID and saves them to the tenant.
 // ─────────────────────────────────────────────────────────────────────────────
 export const exchangeToken = async (req, res) => {
-  const { code, redirectUri } = req.body;
+  const { code } = req.body;
   const tenantId = req.tenantId;
 
   if (!code) {
@@ -17,63 +17,39 @@ export const exchangeToken = async (req, res) => {
     });
   }
 
-  // Try the dynamically passed redirectUri first, then fallbacks
-  const redirectUrisToTry = [];
-  if (redirectUri) {
-    redirectUrisToTry.push(redirectUri);
-  }
-  redirectUrisToTry.push(
-    "", // Empty string
-    "https://www.sudoreply.com/",
-    "https://www.sudoreply.com",
-    "https://sudoreply.com/",
-    "https://sudoreply.com"
-  );
-
-  let access_token = null;
-  let successRedirectUri = null;
-
-  for (const redirectUri of redirectUrisToTry) {
-    try {
-      const params = new URLSearchParams({
-        client_id: process.env.META_APP_ID,
-        client_secret: process.env.META_APP_SECRET,
-        code,
-      });
-
-      // Only add redirect_uri if not empty
-      if (redirectUri) {
-        params.append('redirect_uri', redirectUri);
-      }
-
-      console.log(`[WhatsApp] Trying redirect_uri: "${redirectUri}"`);
-
-      const tokenRes = await fetch(
-        `https://graph.facebook.com/oauth/access_token?${params.toString()}`
-      );
-      const tokenData = await tokenRes.json();
-
-      console.log(`[WhatsApp] Result for "${redirectUri}":`, tokenData);
-
-      if (tokenData.access_token) {
-        access_token = tokenData.access_token;
-        successRedirectUri = redirectUri;
-        console.log(`✅ SUCCESS with redirect_uri: "${redirectUri}"`);
-        break;
-      }
-    } catch (err) {
-      console.log(`[WhatsApp] Error with "${redirectUri}":`, err.message);
-    }
-  }
-
-  if (!access_token) {
-    return res.status(400).json({
-      success: false,
-      message: 'Failed to exchange auth code. All redirect_uri attempts failed.'
-    });
+  if (!process.env.META_APP_ID || !process.env.META_APP_SECRET) {
+    console.error('❌ META_APP_ID or META_APP_SECRET not set in environment.');
+    return res.status(500).json({ success: false, message: 'Meta credentials not configured on server.' });
   }
 
   try {
+    // 1️⃣ Exchange auth code → access token
+    // For Meta Embedded Signup flows via the JS SDK popup, do not pass any redirect_uri.
+    const params = new URLSearchParams({
+      client_id: process.env.META_APP_ID,
+      client_secret: process.env.META_APP_SECRET,
+      code,
+    });
+
+    console.log(`[WhatsApp] Exchanging code with Meta Graph API. App ID: ${process.env.META_APP_ID}, Code: ${code.substring(0, 10)}...`);
+
+    const tokenRes = await fetch(
+      `https://graph.facebook.com/oauth/access_token?${params.toString()}`
+    );
+    const tokenData = await tokenRes.json();
+
+    console.log(`[WhatsApp] Token exchange response:`, tokenData);
+
+    if (!tokenData.access_token) {
+      console.error('❌ Meta token exchange failed:', tokenData);
+      return res.status(400).json({
+        success: false,
+        message: tokenData.error?.message || 'Failed to exchange auth code with Meta.'
+      });
+    }
+
+    const access_token = tokenData.access_token;
+
     // 2️⃣ Inspect token to find WABA ID
     const debugRes = await fetch(
       `https://graph.facebook.com/debug_token` +
@@ -112,11 +88,7 @@ export const exchangeToken = async (req, res) => {
       },
     });
 
-    console.log(
-      `✅ WhatsApp connected for tenant ${tenantId}` +
-      ` — WABA: ${wabaId}, Phone: ${phoneNumberId}` +
-      ` — Successful redirect_uri: "${successRedirectUri}"`
-    );
+    console.log(`✅ WhatsApp connected for tenant ${tenantId} — WABA: ${wabaId}, Phone: ${phoneNumberId}`);
 
     return res.json({
       success: true,
