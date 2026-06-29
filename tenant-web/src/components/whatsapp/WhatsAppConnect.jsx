@@ -43,9 +43,14 @@ const launchEmbeddedSignup = useCallback(() => {
 
   FB.login(
     (response) => {
+      console.log("FB.login full response:", JSON.stringify(response));
+      console.log("Current URL:", window.location.href);
+      console.log("Origin:", window.location.origin);
+      
       if (response.authResponse) {
         const code = response.authResponse.code;
-        exchangeToken(code); // ← No redirectUri
+        console.log("Auth code received:", code.substring(0, 20) + "...");
+        exchangeToken(code);
       } else {
         setError("Login was cancelled. Please try again.");
         setIsLoading(false);
