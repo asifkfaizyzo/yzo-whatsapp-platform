@@ -70,16 +70,9 @@ const launchEmbeddedSignup = useCallback(() => {
 
 const exchangeToken = async (code) => {
   try {
-    // Send the current page URL as redirectUri — Meta's SDK records
-    // the page URL when opening the popup, and the backend token exchange
-    // must pass the matching redirect_uri.
-    // Use origin + pathname (no query/hash) to match what the SDK sees.
-    const currentPageUrl = window.location.origin + window.location.pathname;
-    console.log("[WhatsApp] Sending code to backend with redirectUri:", currentPageUrl);
-    
     const response = await api.post(
       '/whatsapp/exchange-token', 
-      { code, redirectUri: currentPageUrl }
+      { code }
     );
     const data = response.data;
     if (data.success) {
