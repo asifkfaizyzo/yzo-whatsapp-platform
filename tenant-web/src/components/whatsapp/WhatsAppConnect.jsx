@@ -50,7 +50,8 @@ const launchEmbeddedSignup = useCallback(() => {
       if (response.authResponse) {
         const code = response.authResponse.code;
         console.log("Auth code received:", code.substring(0, 20) + "...");
-        exchangeToken(code);
+        const redirectUri = window.location.origin + "/";
+        exchangeToken(code, redirectUri);
       } else {
         setError("Login was cancelled. Please try again.");
         setIsLoading(false);
@@ -69,11 +70,11 @@ const launchEmbeddedSignup = useCallback(() => {
   );
 }, []);
 
-const exchangeToken = async (code) => {
+const exchangeToken = async (code, redirectUri) => {
   try {
     const response = await api.post(
       '/whatsapp/exchange-token', 
-      { code } // ← No redirectUri
+      { code, redirectUri }
     );
     const data = response.data;
     if (data.success) {

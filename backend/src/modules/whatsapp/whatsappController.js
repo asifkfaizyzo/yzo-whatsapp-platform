@@ -7,7 +7,7 @@ import prisma from '../../config/prisma.js';
 // then fetches the WABA ID + Phone Number ID and saves them to the tenant.
 // ─────────────────────────────────────────────────────────────────────────────
 export const exchangeToken = async (req, res) => {
-  const { code } = req.body;
+  const { code, redirectUri } = req.body;
   const tenantId = req.tenantId;
 
   if (!code) {
@@ -17,14 +17,18 @@ export const exchangeToken = async (req, res) => {
     });
   }
 
-  // Try these redirect_uri values one by one
-  const redirectUrisToTry = [
+  // Try the dynamically passed redirectUri first, then fallbacks
+  const redirectUrisToTry = [];
+  if (redirectUri) {
+    redirectUrisToTry.push(redirectUri);
+  }
+  redirectUrisToTry.push(
     "", // Empty string
     "https://www.sudoreply.com/",
     "https://www.sudoreply.com",
     "https://sudoreply.com/",
-    "https://sudoreply.com",
-  ];
+    "https://sudoreply.com"
+  );
 
   let access_token = null;
   let successRedirectUri = null;
