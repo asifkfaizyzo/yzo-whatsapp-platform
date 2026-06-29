@@ -29,7 +29,6 @@ export const exchangeToken = async (req, res) => {
       client_id: process.env.META_APP_ID,
       client_secret: process.env.META_APP_SECRET,
       code,
-      redirect_uri: "https://sudoreply.com/dashboard",
     });
 
     console.log(`[WhatsApp] Exchanging code with Meta Graph API. App ID: ${process.env.META_APP_ID}, Code: ${code.substring(0, 10)}...`);
