@@ -5,7 +5,7 @@ import { emitToTenant } from '../../lib/socket.js';
 // Send individual Template request to Meta Cloud API
 const sendMetaTemplateMessage = async (tenant, phone, templateName, languageCode, params) => {
   const cleanPhone = phone.replace('+', ''); // Meta expects phone without + prefix
-  const url = `https://graph.facebook.com/v20.0/${tenant.whatsappPhoneId}/messages`;
+  const url = `https://graph.facebook.com/v23.0/${tenant.whatsappPhoneId}/messages`;
 
   // Map parameters into Meta's structure: [ { type: "text", text: "..." } ]
   const bodyParameters = (params?.body || []).map(val => ({

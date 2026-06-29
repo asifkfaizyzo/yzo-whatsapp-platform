@@ -189,7 +189,7 @@ export const sendMessageService = async ({
   });
   if (tenant && tenant.whatsappPhoneId && tenant.whatsappAccessToken) {
     const cleanPhone = contact.phone.replace('+', ''); // Meta expects the number without '+'
-    const url = `https://graph.facebook.com/v20.0/${tenant.whatsappPhoneId}/messages`;
+    const url = `https://graph.facebook.com/v23.0/${tenant.whatsappPhoneId}/messages`;
     const response = await fetch(url, {
       method: 'POST',
       headers: {

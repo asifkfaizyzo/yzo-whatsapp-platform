@@ -43,33 +43,27 @@ const launchEmbeddedSignup = useCallback(() => {
 
   FB.login(
     (response) => {
-      console.log("FB.login full response:", JSON.stringify(response));
+      console.log("[WhatsApp] FB.login full response:", JSON.stringify(response));
       
       if (response.authResponse) {
-        // The SDK returns a short-lived access token directly
-        const accessToken = response.authResponse.accessToken;
-        if (accessToken) {
-          console.log("[WhatsApp] Got access token from FB.login, sending to backend");
-          exchangeToken(accessToken);
+        const code = response.authResponse.code;
+        if (code) {
+          console.log("[WhatsApp] Got auth code from FB.login, sending to backend for exchange");
+          exchangeCode(code);
         } else {
-          // Fallback: some flows return a code instead
-          const code = response.authResponse.code;
-          if (code) {
-            console.log("[WhatsApp] Got auth code from FB.login, sending to backend");
-            exchangeToken(null, code);
-          } else {
-            setError("No token or code received. Please try again.");
-            setIsLoading(false);
-          }
+          console.error("[WhatsApp] No authorization code in response:", response.authResponse);
+          setError("No authorization code received. Please try again.");
+          setIsLoading(false);
         }
       } else {
+        console.warn("[WhatsApp] FB.login cancelled or failed:", response);
         setError("Login was cancelled. Please try again.");
         setIsLoading(false);
       }
     },
     {
       config_id: CONFIG_ID,
-      response_type: "token",
+      response_type: "code",
       override_default_response_type: true,
       extras: {
         setup: {},
@@ -80,11 +74,11 @@ const launchEmbeddedSignup = useCallback(() => {
   );
 }, []);
 
-const exchangeToken = async (shortLivedToken, code = null) => {
+const exchangeCode = async (code) => {
   try {
     const response = await api.post(
       '/whatsapp/exchange-token', 
-      { shortLivedToken, code }
+      { code }
     );
     const data = response.data;
     if (data.success) {
@@ -92,7 +86,7 @@ const exchangeToken = async (shortLivedToken, code = null) => {
       setIsLoading(false);
       if (onSuccess) onSuccess(data);
     } else {
-      setError("Failed to connect. Please try again.");
+      setError(data.message || "Failed to connect. Please try again.");
       setIsLoading(false);
     }
   } catch (err) {

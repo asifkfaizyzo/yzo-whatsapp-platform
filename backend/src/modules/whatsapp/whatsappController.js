@@ -2,18 +2,18 @@ import prisma from '../../config/prisma.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api2/whatsapp/exchange-token
-// Receives either a short-lived token or auth code from the frontend,
-// converts it to a long-lived access token, fetches WABA/Phone IDs,
-// and saves them to the tenant.
+// Receives an authorization code from the frontend Embedded Signup,
+// exchanges it for an access token, extends to long-lived token,
+// fetches WABA/Phone/Business info, and saves to the tenant.
 // ─────────────────────────────────────────────────────────────────────────────
 export const exchangeToken = async (req, res) => {
-  const { shortLivedToken, code } = req.body;
+  const { code } = req.body;
   const tenantId = req.tenantId;
 
-  if (!shortLivedToken && !code) {
+  if (!code) {
     return res.status(400).json({ 
       success: false, 
-      message: 'Either shortLivedToken or auth code is required.' 
+      message: 'Authorization code is required.' 
     });
   }
 
@@ -22,65 +22,77 @@ export const exchangeToken = async (req, res) => {
     return res.status(500).json({ success: false, message: 'Meta credentials not configured on server.' });
   }
 
+  if (!process.env.META_REDIRECT_URI) {
+    console.error('❌ META_REDIRECT_URI not set in environment.');
+    return res.status(500).json({ success: false, message: 'Redirect URI not configured on server.' });
+  }
+
   try {
-    let access_token;
+    // ─── Step 1: Exchange authorization code → short-lived access token ───
+    console.log('[WhatsApp] Step 1: Exchanging auth code for access token...');
+    
+    const exchangeParams = new URLSearchParams({
+      client_id: process.env.META_APP_ID,
+      client_secret: process.env.META_APP_SECRET,
+      redirect_uri: process.env.META_REDIRECT_URI,
+      code,
+    });
 
-    if (shortLivedToken) {
-      // ─── Path A: Extend short-lived token → long-lived token ───
-      // This avoids the redirect_uri problem entirely.
-      console.log('[WhatsApp] Extending short-lived token to long-lived token...');
+    console.log('[WhatsApp] Exchange params:', {
+      client_id: process.env.META_APP_ID,
+      redirect_uri: process.env.META_REDIRECT_URI,
+      code: code.substring(0, 20) + '...',
+    });
 
-      const params = new URLSearchParams({
-        grant_type: 'fb_exchange_token',
-        client_id: process.env.META_APP_ID,
-        client_secret: process.env.META_APP_SECRET,
-        fb_exchange_token: shortLivedToken,
+    const tokenRes = await fetch(
+      `https://graph.facebook.com/v23.0/oauth/access_token?${exchangeParams.toString()}`
+    );
+    const tokenData = await tokenRes.json();
+
+    console.log('[WhatsApp] Code exchange response:', JSON.stringify(tokenData, null, 2));
+
+    if (!tokenData.access_token) {
+      console.error('❌ Meta code exchange failed:', tokenData);
+      return res.status(400).json({
+        success: false,
+        message: tokenData.error?.message || 'Failed to exchange auth code with Meta.'
       });
-
-      const tokenRes = await fetch(
-        `https://graph.facebook.com/v23.0/oauth/access_token?${params.toString()}`
-      );
-      const tokenData = await tokenRes.json();
-
-      console.log('[WhatsApp] Token extension response:', tokenData);
-
-      if (!tokenData.access_token) {
-        // If extension fails, try using the short-lived token directly
-        console.log('[WhatsApp] Extension failed, using short-lived token directly');
-        access_token = shortLivedToken;
-      } else {
-        access_token = tokenData.access_token;
-        console.log('[WhatsApp] ✅ Got long-lived token');
-      }
-    } else {
-      // ─── Path B: Exchange auth code → access token (fallback) ───
-      console.log('[WhatsApp] Exchanging auth code for access token...');
-
-      const params = new URLSearchParams({
-        client_id: process.env.META_APP_ID,
-        client_secret: process.env.META_APP_SECRET,
-        code,
-      });
-
-      const tokenRes = await fetch(
-        `https://graph.facebook.com/v23.0/oauth/access_token?${params.toString()}`
-      );
-      const tokenData = await tokenRes.json();
-
-      console.log('[WhatsApp] Code exchange response:', tokenData);
-
-      if (!tokenData.access_token) {
-        console.error('❌ Meta token exchange failed:', tokenData);
-        return res.status(400).json({
-          success: false,
-          message: tokenData.error?.message || 'Failed to exchange auth code with Meta.'
-        });
-      }
-
-      access_token = tokenData.access_token;
     }
 
-    // 2️⃣ Inspect token to find WABA ID
+    let access_token = tokenData.access_token;
+    console.log('[WhatsApp] ✅ Got short-lived access token');
+
+    // ─── Step 2: Exchange short-lived token → long-lived token (60 days) ───
+    console.log('[WhatsApp] Step 2: Extending to long-lived token...');
+
+    const longLivedParams = new URLSearchParams({
+      grant_type: 'fb_exchange_token',
+      client_id: process.env.META_APP_ID,
+      client_secret: process.env.META_APP_SECRET,
+      fb_exchange_token: access_token,
+    });
+
+    const longLivedRes = await fetch(
+      `https://graph.facebook.com/v23.0/oauth/access_token?${longLivedParams.toString()}`
+    );
+    const longLivedData = await longLivedRes.json();
+
+    console.log('[WhatsApp] Long-lived token response:', {
+      has_token: !!longLivedData.access_token,
+      token_type: longLivedData.token_type,
+      expires_in: longLivedData.expires_in,
+    });
+
+    if (longLivedData.access_token) {
+      access_token = longLivedData.access_token;
+      console.log('[WhatsApp] ✅ Got long-lived token (expires in', longLivedData.expires_in, 'seconds)');
+    } else {
+      console.warn('[WhatsApp] ⚠️ Long-lived token exchange failed, continuing with short-lived token');
+    }
+
+    // ─── Step 3: Inspect token to find WABA ID ───
+    console.log('[WhatsApp] Step 3: Inspecting token for WABA ID...');
+
     const debugRes = await fetch(
       `https://graph.facebook.com/debug_token` +
       `?input_token=${access_token}` +
@@ -88,27 +100,53 @@ export const exchangeToken = async (req, res) => {
     );
     const debugData = await debugRes.json();
 
-    console.log('[WhatsApp] Debug response:', JSON.stringify(debugData, null, 2));
+    console.log('[WhatsApp] Debug token response:', JSON.stringify(debugData, null, 2));
 
     const wabaIds = debugData.data?.granular_scopes?.find(
       (s) => s.scope === 'whatsapp_business_management'
     )?.target_ids || [];
 
     const wabaId = wabaIds[0] || null;
+    console.log('[WhatsApp] WABA ID:', wabaId);
 
-    // 3️⃣ Get Phone Number ID
+    // ─── Step 4: Get Business ID ───
+    console.log('[WhatsApp] Step 4: Fetching business info...');
+    let businessId = null;
+
+    try {
+      const bizRes = await fetch(
+        `https://graph.facebook.com/v23.0/me/businesses?access_token=${access_token}`
+      );
+      const bizData = await bizRes.json();
+      console.log('[WhatsApp] Business info:', JSON.stringify(bizData, null, 2));
+      businessId = bizData.data?.[0]?.id || null;
+    } catch (bizErr) {
+      console.warn('[WhatsApp] ⚠️ Could not fetch business info:', bizErr.message);
+    }
+
+    // ─── Step 5: Get Phone Number details ───
+    console.log('[WhatsApp] Step 5: Fetching phone numbers...');
     let phoneNumberId = null;
+    let displayPhoneNumber = null;
+    let verifiedName = null;
+
     if (wabaId) {
       const phoneRes = await fetch(
-        `https://graph.facebook.com/${wabaId}/phone_numbers` +
+        `https://graph.facebook.com/v23.0/${wabaId}/phone_numbers` +
         `?access_token=${access_token}`
       );
       const phoneData = await phoneRes.json();
-      console.log('[WhatsApp] Phone numbers:', phoneData);
-      phoneNumberId = phoneData.data?.[0]?.id || null;
+      console.log('[WhatsApp] Phone numbers response:', JSON.stringify(phoneData, null, 2));
+      
+      const firstPhone = phoneData.data?.[0];
+      phoneNumberId = firstPhone?.id || null;
+      displayPhoneNumber = firstPhone?.display_phone_number || null;
+      verifiedName = firstPhone?.verified_name || null;
     }
 
-    // 4️⃣ Save to tenant
+    // ─── Step 6: Save to tenant ───
+    console.log('[WhatsApp] Step 6: Saving to database...');
+
     await prisma.tenant.update({
       where: { id: tenantId },
       data: {
@@ -118,13 +156,21 @@ export const exchangeToken = async (req, res) => {
       },
     });
 
-    console.log(`✅ WhatsApp connected for tenant ${tenantId} — WABA: ${wabaId}, Phone: ${phoneNumberId}`);
+    console.log(`✅ WhatsApp connected for tenant ${tenantId}`);
+    console.log(`   WABA: ${wabaId}`);
+    console.log(`   Phone: ${phoneNumberId}`);
+    console.log(`   Display: ${displayPhoneNumber}`);
+    console.log(`   Business: ${businessId}`);
+    console.log(`   Verified Name: ${verifiedName}`);
 
     return res.json({
       success: true,
       message: 'WhatsApp Business account connected successfully.',
       wabaId,
       phoneNumberId,
+      displayPhoneNumber,
+      verifiedName,
+      businessId,
     });
 
   } catch (err) {

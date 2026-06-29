@@ -1,4 +1,5 @@
 // backend/src/modules/webhook/webhookController.js
+import crypto from 'crypto';
 import prisma from '../../config/prisma.js';
 import { handleIncomingMessage } from '../messages/messageService.js';
 import { emitToTenant } from '../../lib/socket.js';

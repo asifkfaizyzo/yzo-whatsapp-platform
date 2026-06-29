@@ -1,7 +1,7 @@
 
 // 1. Fetch templates catalog from Meta Business Account (WABA)
 export const fetchMetaTemplates = async (tenant) => {
-  const url = `https://graph.facebook.com/v20.0/${tenant.whatsappWabaId}/message_templates?limit=100`;
+  const url = `https://graph.facebook.com/v23.0/${tenant.whatsappWabaId}/message_templates?limit=100`;
   const response = await fetch(url, {
     headers: { 'Authorization': `Bearer ${tenant.whatsappAccessToken}` }
   });
@@ -17,7 +17,7 @@ export const fetchMetaTemplates = async (tenant) => {
 
 // 2. Submit a new message template to Meta review pipeline
 export const submitMetaTemplate = async (tenant, { name, category, language, components }) => {
-  const url = `https://graph.facebook.com/v20.0/${tenant.whatsappWabaId}/message_templates`;
+  const url = `https://graph.facebook.com/v23.0/${tenant.whatsappWabaId}/message_templates`;
   const response = await fetch(url, {
     method: 'POST',
     headers: {
@@ -42,7 +42,7 @@ export const submitMetaTemplate = async (tenant, { name, category, language, com
 
 // 3. Delete a template from WABA
 export const deleteMetaTemplate = async (tenant, templateName) => {
-  const url = `https://graph.facebook.com/v20.0/${tenant.whatsappWabaId}/message_templates?name=${templateName}`;
+  const url = `https://graph.facebook.com/v23.0/${tenant.whatsappWabaId}/message_templates?name=${templateName}`;
   const response = await fetch(url, {
     method: 'DELETE',
     headers: { 'Authorization': `Bearer ${tenant.whatsappAccessToken}` }
