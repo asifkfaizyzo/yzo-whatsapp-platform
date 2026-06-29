@@ -7,7 +7,7 @@ import prisma from '../../config/prisma.js';
 // then fetches the WABA ID + Phone Number ID and saves them to the tenant.
 // ─────────────────────────────────────────────────────────────────────────────
 export const exchangeToken = async (req, res) => {
-  const { code } = req.body;
+  const { code, redirectUri } = req.body;
   const tenantId = req.tenantId;
 
   if (!code) {
@@ -29,6 +29,7 @@ export const exchangeToken = async (req, res) => {
       client_id: process.env.META_APP_ID,
       client_secret: process.env.META_APP_SECRET,
       code,
+      redirect_uri: redirectUri || "https://sudoreply.com/dashboard",
     });
 
     console.log(`[WhatsApp] Exchanging code with Meta Graph API. App ID: ${process.env.META_APP_ID}, Code: ${code.substring(0, 10)}...`);

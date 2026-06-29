@@ -49,9 +49,13 @@ const launchEmbeddedSignup = useCallback(() => {
       
       if (response.authResponse) {
         const code = response.authResponse.code;
-        console.log("Auth code received:", code.substring(0, 20) + "...");
-        // Strips any hash fragments and query strings to match Meta's JS SDK URL exactly
-        const redirectUri = window.location.href.split('#')[0].split('?')[0];
+        // Clean redirect URI - very important
+        let redirectUri = window.location.origin + window.location.pathname;
+        // Remove any query params or hash
+        redirectUri = redirectUri.split('?')[0].split('#')[0];
+        
+        console.log("Using redirectUri for exchange:", redirectUri);
+        
         exchangeToken(code, redirectUri);
       } else {
         setError("Login was cancelled. Please try again.");
