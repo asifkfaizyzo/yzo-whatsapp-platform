@@ -1,6 +1,6 @@
 // src/pages/dashboard/Inbox.jsx
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { FaWhatsapp } from "react-icons/fa";
 import {
@@ -97,7 +97,33 @@ export default function Inbox() {
   const activeTenantId =
     user?.type === "TENANT" ? user?.id : user?.tenantId;
 
-  // Socket
+  // Load conversations
+  const loadConversations = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    const res = await getAssignedConversations(1, 50, filter);
+    if (res.success) {
+      const convList = res.data.conversations || res.data || [];
+      setChats(convList);
+
+      setUnreadMap((prev) => {
+        const next = { ...prev };
+        convList.forEach((c) => {
+          if (next[String(c.id)] == null) next[String(c.id)] = 0;
+        });
+        return next;
+      });
+
+      if (!urlConversationId && convList.length > 0) {
+        setActiveChatId(convList[0].id);
+        setSearchParams({ filter, conversationId: convList[0].id });
+      } else if (convList.length === 0) {
+        setActiveChatId(null);
+      }
+    }
+    if (!silent) setLoading(false);
+  }, [filter, urlConversationId, setSearchParams]);
+
+  // Socket Connection
   useEffect(() => {
     const socketUrl = import.meta.env.VITE_BACKEND_URL;
     const newSocket = io(socketUrl, {
@@ -111,11 +137,19 @@ export default function Inbox() {
       }
     });
 
-    newSocket.on("new_message", (data) => {
+    setSocket(newSocket);
+    return () => newSocket.disconnect();
+  }, [activeTenantId]);
+
+  // Socket Event Listeners (Reacts to activeChatId change without reconnecting socket)
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleNewMessage = (data) => {
       const { conversationId, message } = data;
       const isFromCustomer = message?.isFromCustomer === true;
       const isCurrentChatOpen =
-        String(activeChatId) === String(conversationId);
+        activeChatId && String(activeChatId) === String(conversationId);
 
       if (isCurrentChatOpen) {
         setMessages((prev) => {
@@ -135,7 +169,13 @@ export default function Inbox() {
         const exists = prevChats.some(
           (c) => String(c.id) === String(conversationId)
         );
-        if (!exists) return prevChats;
+        if (!exists) {
+          // Trigger a silent refresh for new conversations outside state update to avoid React warnings
+          setTimeout(() => {
+            loadConversations(true);
+          }, 0);
+          return prevChats;
+        }
 
         const updated = prevChats.map((c) => {
           if (String(c.id) === String(conversationId)) {
@@ -162,41 +202,17 @@ export default function Inbox() {
           return new Date(dateB) - new Date(dateA);
         });
       });
-    });
+    };
 
-    setSocket(newSocket);
-    return () => newSocket.disconnect();
-  }, [activeTenantId]);
-
-  // Load conversations
-  const loadConversations = async () => {
-    setLoading(true);
-    const res = await getAssignedConversations(1, 50, filter);
-    if (res.success) {
-      const convList = res.data.conversations || res.data || [];
-      setChats(convList);
-
-      setUnreadMap((prev) => {
-        const next = { ...prev };
-        convList.forEach((c) => {
-          if (next[String(c.id)] == null) next[String(c.id)] = 0;
-        });
-        return next;
-      });
-
-      if (!urlConversationId && convList.length > 0) {
-        setActiveChatId(convList[0].id);
-        setSearchParams({ filter, conversationId: convList[0].id });
-      } else if (convList.length === 0) {
-        setActiveChatId(null);
-      }
-    }
-    setLoading(false);
-  };
+    socket.on("new_message", handleNewMessage);
+    return () => {
+      socket.off("new_message", handleNewMessage);
+    };
+  }, [socket, activeChatId, loadConversations]);
 
   useEffect(() => {
     loadConversations();
-  }, [filter]);
+  }, [loadConversations]);
 
   useEffect(() => {
     if (urlConversationId) setActiveChatId(urlConversationId);
@@ -430,21 +446,19 @@ export default function Inbox() {
               <button
                 key={tab.value}
                 onClick={() => handleTabClick(tab.value)}
-                className={`flex items-center gap-1.5 px-3 py-2.5 text-[11px] font-semibold whitespace-nowrap border-b-2 transition duration-150 shrink-0 ${
-                  isTabActive
+                className={`flex items-center gap-1.5 px-3 py-2.5 text-[11px] font-semibold whitespace-nowrap border-b-2 transition duration-150 shrink-0 ${isTabActive
                     ? "border-[#25D366] text-[#075E54]"
                     : "border-transparent text-[#667781] hover:text-[#111B21] hover:border-emerald-200"
-                }`}
+                  }`}
               >
                 <span>{tab.label}</span>
                 <span
-                  className={`inline-flex items-center justify-center min-w-[18px] h-[17px] px-1 rounded-full text-[9px] font-bold leading-none ${
-                    isTabActive
+                  className={`inline-flex items-center justify-center min-w-[18px] h-[17px] px-1 rounded-full text-[9px] font-bold leading-none ${isTabActive
                       ? "bg-[#25D366]/15 text-[#075E54]"
                       : tab.value === "unread" && tab.count > 0
-                      ? "bg-[#25D366] text-white"
-                      : "bg-[#F0F2F5] text-[#667781]"
-                  }`}
+                        ? "bg-[#25D366] text-white"
+                        : "bg-[#F0F2F5] text-[#667781]"
+                    }`}
                 >
                   {tab.count > 99 ? "99+" : tab.count}
                 </span>
@@ -473,9 +487,9 @@ export default function Inbox() {
               const unreadCount = getUnreadCount(chat.id);
               const timeStr = lastMsg
                 ? new Date(lastMsg.createdAt).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
                 : "";
 
               return (
@@ -485,11 +499,10 @@ export default function Inbox() {
                     setActiveChatId(chat.id);
                     setSearchParams({ filter, conversationId: chat.id });
                   }}
-                  className={`w-full text-left px-4 py-3.5 flex items-start gap-3 transition duration-150 border-b border-[#F0F2F5] ${
-                    isActive
+                  className={`w-full text-left px-4 py-3.5 flex items-start gap-3 transition duration-150 border-b border-[#F0F2F5] ${isActive
                       ? "bg-[#F0F2F5]"
                       : "hover:bg-[#F5F6F6] bg-white"
-                  }`}
+                    }`}
                 >
                   {/* Avatar */}
                   <div className="relative shrink-0">
@@ -507,11 +520,10 @@ export default function Inbox() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5 min-w-0">
                         <span
-                          className={`text-sm truncate ${
-                            unreadCount > 0
+                          className={`text-sm truncate ${unreadCount > 0
                               ? "font-bold text-[#111B21]"
                               : "font-semibold text-[#111B21]"
-                          }`}
+                            }`}
                         >
                           {contactName}
                         </span>
@@ -522,11 +534,10 @@ export default function Inbox() {
                         )}
                       </div>
                       <span
-                        className={`text-[10px] font-medium shrink-0 ${
-                          unreadCount > 0
+                        className={`text-[10px] font-medium shrink-0 ${unreadCount > 0
                             ? "text-[#25D366] font-semibold"
                             : "text-[#667781]"
-                        }`}
+                          }`}
                       >
                         {timeStr}
                       </span>
@@ -542,11 +553,10 @@ export default function Inbox() {
                           />
                         )}
                         <p
-                          className={`text-xs truncate max-w-[160px] ${
-                            unreadCount > 0
+                          className={`text-xs truncate max-w-[160px] ${unreadCount > 0
                               ? "text-[#111B21] font-medium"
                               : "text-[#667781]"
-                          }`}
+                            }`}
                         >
                           {lastMsg ? lastMsg.text : "No messages yet"}
                         </p>
@@ -614,11 +624,10 @@ export default function Inbox() {
                   </p>
                   <div className="flex items-center gap-1.5 mt-1">
                     <span
-                      className={`w-1.5 h-1.5 rounded-full ${
-                        activeChat.status === "OPEN"
+                      className={`w-1.5 h-1.5 rounded-full ${activeChat.status === "OPEN"
                           ? "bg-[#25D366]"
                           : "bg-[#667781]"
-                      }`}
+                        }`}
                     />
                     <p className="text-[10px] text-emerald-200 font-medium">
                       {activeChat.contact?.phone} ·{" "}
@@ -686,16 +695,14 @@ export default function Inbox() {
                 return (
                   <div
                     key={msg.id}
-                    className={`flex ${
-                      isAgent ? "justify-end" : "justify-start"
-                    }`}
+                    className={`flex ${isAgent ? "justify-end" : "justify-start"
+                      }`}
                   >
                     <div
-                      className={`max-w-[65%] rounded-lg px-3 py-2 shadow-sm text-[13px] relative ${
-                        isAgent
+                      className={`max-w-[65%] rounded-lg px-3 py-2 shadow-sm text-[13px] relative ${isAgent
                           ? "bg-[#D9FDD3] text-[#111B21] rounded-tr-none"
                           : "bg-white text-[#111B21] rounded-tl-none"
-                      }`}
+                        }`}
                     >
                       {/* Direction indicator */}
                       {!isAgent && (
@@ -793,8 +800,8 @@ export default function Inbox() {
                     activeChat.contact?.isBlocked
                       ? "Cannot send messages to a blocked contact"
                       : ["RESOLVED", "CLOSED"].includes(activeChat.status)
-                      ? "Type a message to reopen chat..."
-                      : "Type a message"
+                        ? "Type a message to reopen chat..."
+                        : "Type a message"
                   }
                   value={typedMessage}
                   disabled={activeChat.contact?.isBlocked}
@@ -864,11 +871,10 @@ export default function Inbox() {
             </p>
             <div className="flex items-center gap-1.5 mt-2">
               <span
-                className={`w-2 h-2 rounded-full ${
-                  activeChat.status === "OPEN"
+                className={`w-2 h-2 rounded-full ${activeChat.status === "OPEN"
                     ? "bg-[#25D366]"
                     : "bg-[#667781]"
-                }`}
+                  }`}
               />
               <span className="text-[10px] text-emerald-200 font-semibold uppercase tracking-wider">
                 {activeChat.status}

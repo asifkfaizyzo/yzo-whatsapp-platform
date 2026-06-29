@@ -1,13 +1,36 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>tenant-web</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SudoReply</title>
+
+  <!-- Meta Facebook SDK -->
+  <script>
+    window.fbAsyncInit = function () {
+      FB.init({
+        appId: "1510944094144775",
+        cookie: true,
+        status: true,
+        autoLogAppEvents: true,
+        xfbml: true,
+        version: "v23.0",
+      });
+    };
+  </script>
+  <script
+    async
+    defer
+    crossorigin="anonymous"
+    src="https://connect.facebook.net/en_US/sdk.js"
+  ></script>
+
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
 </html>
