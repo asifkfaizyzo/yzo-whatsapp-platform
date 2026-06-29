@@ -15,6 +15,7 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
     const handleMessage = (event) => {
       if (event.origin !== "https://www.facebook.com") return;
       try {
+        if (typeof event.data !== "string" || !event.data.trim().startsWith("{")) return;
         const data = JSON.parse(event.data);
         if (data.type === "WA_EMBEDDED_SIGNUP") {
           if (data.event === "FINISH") {
@@ -36,53 +37,55 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
     return () => window.removeEventListener("message", handleMessage);
   }, []);
 
-  // Launch Embedded Signup
-  const launchEmbeddedSignup = useCallback(() => {
-    setIsLoading(true);
-    setError(null);
+const launchEmbeddedSignup = useCallback(() => {
+  setIsLoading(true);
+  setError(null);
 
-    FB.login(
-      (response) => {
-        if (response.authResponse) {
-          const code = response.authResponse.code;
-          exchangeToken(code);
-        } else {
-          setError("Login was cancelled. Please try again.");
-          setIsLoading(false);
-        }
-      },
-      {
-        config_id: CONFIG_ID,
-        response_type: "code",
-        override_default_response_type: true,
-        extras: {
-          setup: {},
-          featureType: "",
-          sessionInfoVersion: "3",
-        },
-      }
-    );
-  }, []);
-
-  // Exchange Code for Token
-  const exchangeToken = async (code) => {
-    try {
-      const response = await api.post('/whatsapp/exchange-token', { code });
-      const data = response.data;
-      if (data.success) {
-        setIsConnected(true);
-        setIsLoading(false);
-        if (onSuccess) onSuccess(data);
+  FB.login(
+    (response) => {
+      if (response.authResponse) {
+        const code = response.authResponse.code;
+        exchangeToken(code); // ← No redirectUri
       } else {
-        setError("Failed to connect. Please try again.");
+        setError("Login was cancelled. Please try again.");
         setIsLoading(false);
       }
-    } catch (err) {
-      const msg = err.response?.data?.message || "Server error. Please try again.";
-      setError(msg);
+    },
+    {
+      config_id: CONFIG_ID,
+      response_type: "code",
+      override_default_response_type: true,
+      extras: {
+        setup: {},
+        featureType: "",
+        sessionInfoVersion: "3",
+      },
+    }
+  );
+}, []);
+
+const exchangeToken = async (code) => {
+  try {
+    const response = await api.post(
+      '/whatsapp/exchange-token', 
+      { code } // ← No redirectUri
+    );
+    const data = response.data;
+    if (data.success) {
+      setIsConnected(true);
+      setIsLoading(false);
+      if (onSuccess) onSuccess(data);
+    } else {
+      setError("Failed to connect. Please try again.");
       setIsLoading(false);
     }
-  };
+  } catch (err) {
+    const msg = err.response?.data?.message || 
+                "Server error. Please try again.";
+    setError(msg);
+    setIsLoading(false);
+  }
+};
 
   // Handle Signup Complete (from postMessage WA_EMBEDDED_SIGNUP FINISH)
   const handleSignupComplete = async (phoneNumberId, wabaId) => {

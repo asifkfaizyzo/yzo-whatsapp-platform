@@ -7,49 +7,70 @@ import prisma from '../../config/prisma.js';
 // then fetches the WABA ID + Phone Number ID and saves them to the tenant.
 // ─────────────────────────────────────────────────────────────────────────────
 export const exchangeToken = async (req, res) => {
-  const { code } = req.body;
+  const { code } = req.body; // ← Only code, no redirectUri
   const tenantId = req.tenantId;
 
   if (!code) {
-    return res.status(400).json({ success: false, message: 'Auth code is required.' });
+    return res.status(400).json({ 
+      success: false, 
+      message: 'Auth code is required.' 
+    });
   }
 
   if (!process.env.META_APP_ID || !process.env.META_APP_SECRET) {
-    console.error('❌ META_APP_ID or META_APP_SECRET not set in environment.');
-    return res.status(500).json({ success: false, message: 'Meta credentials not configured on server.' });
+    console.error('❌ META_APP_ID or META_APP_SECRET not set.');
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Meta credentials not configured on server.' 
+    });
   }
 
   try {
     // 1️⃣ Exchange auth code → access token
-    // For FB.login popup flows, do NOT pass a redirect_uri.
+    // ⚠️ No redirect_uri for Embedded Signup
     const params = new URLSearchParams({
       client_id: process.env.META_APP_ID,
       client_secret: process.env.META_APP_SECRET,
       code,
+      // No redirect_uri ← KEY FIX
     });
 
+    console.log(
+      `[WhatsApp Connect] Exchanging code...` +
+      `code=${code.substring(0, 10)}...`
+    );
+
+    // ⚠️ Use v23.0
     const tokenRes = await fetch(
-      `https://graph.facebook.com/v20.0/oauth/access_token?${params.toString()}`
+      `https://graph.facebook.com/v23.0/oauth/access_token?${params.toString()}`
     );
     const tokenData = await tokenRes.json();
+
+    console.log('[WhatsApp Connect] Token response:', tokenData);
 
     if (!tokenData.access_token) {
       console.error('❌ Meta token exchange failed:', tokenData);
       return res.status(400).json({
         success: false,
-        message: tokenData.error?.message || 'Failed to exchange auth code with Meta.'
+        message: tokenData.error?.message || 
+                 'Failed to exchange auth code with Meta.'
       });
     }
 
     const access_token = tokenData.access_token;
 
-    // 2️⃣ Inspect the token to find the WABA ID (granular scopes)
+    // 2️⃣ Inspect token to find WABA ID
     const debugRes = await fetch(
-      `https://graph.facebook.com/v20.0/debug_token` +
+      `https://graph.facebook.com/v23.0/debug_token` +
       `?input_token=${access_token}` +
       `&access_token=${process.env.META_APP_ID}|${process.env.META_APP_SECRET}`
     );
     const debugData = await debugRes.json();
+
+    console.log(
+      '[WhatsApp Connect] Debug response:', 
+      JSON.stringify(debugData, null, 2)
+    );
 
     const wabaIds = debugData.data?.granular_scopes?.find(
       (s) => s.scope === 'whatsapp_business_management'
@@ -57,18 +78,19 @@ export const exchangeToken = async (req, res) => {
 
     const wabaId = wabaIds[0] || null;
 
-    // 3️⃣ Get the Phone Number ID from the WABA
+    // 3️⃣ Get Phone Number ID from WABA
     let phoneNumberId = null;
     if (wabaId) {
       const phoneRes = await fetch(
-        `https://graph.facebook.com/v20.0/${wabaId}/phone_numbers` +
+        `https://graph.facebook.com/v23.0/${wabaId}/phone_numbers` +
         `?access_token=${access_token}`
       );
       const phoneData = await phoneRes.json();
+      console.log('[WhatsApp Connect] Phone numbers:', phoneData);
       phoneNumberId = phoneData.data?.[0]?.id || null;
     }
 
-    // 4️⃣ Save everything to the tenant record
+    // 4️⃣ Save to tenant
     await prisma.tenant.update({
       where: { id: tenantId },
       data: {
@@ -78,7 +100,10 @@ export const exchangeToken = async (req, res) => {
       },
     });
 
-    console.log(`✅ WhatsApp connected for tenant ${tenantId} — WABA: ${wabaId}, Phone: ${phoneNumberId}`);
+    console.log(
+      `✅ WhatsApp connected for tenant ${tenantId}` +
+      ` — WABA: ${wabaId}, Phone: ${phoneNumberId}`
+    );
 
     return res.json({
       success: true,
@@ -89,7 +114,10 @@ export const exchangeToken = async (req, res) => {
 
   } catch (err) {
     console.error('❌ exchangeToken error:', err);
-    return res.status(500).json({ success: false, message: 'Server error during token exchange.' });
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Server error during token exchange.' 
+    });
   }
 };
 
