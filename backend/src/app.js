@@ -14,6 +14,7 @@ import webhookRoutes from './modules/webhook/webhookRoutes.js';
 import planRoutes from "./modules/plans/planRoutes.js";
 import templateRoutes from './modules/templates/templateRoutes.js';
 import broadcastRoutes from './modules/broadcasts/broadcastRoutes.js';
+import whatsappRoutes from './modules/whatsapp/whatsappRoutes.js';
 
 const app = express();
 
@@ -89,6 +90,8 @@ app.use("/api2/plans", planRoutes);
 app.use('/api8', templateRoutes);
 
 app.use('/api9', broadcastRoutes);
+
+app.use('/api2/whatsapp', whatsappRoutes);
 
 // 1. 404 Handler (Place this AFTER all routes)
 app.use((req, res, next) => {

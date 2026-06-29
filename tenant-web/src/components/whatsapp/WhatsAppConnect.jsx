@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import api from "../../lib/axios";
 
 const CONFIG_ID = import.meta.env.VITE_META_CONFIG_ID;
 
@@ -66,12 +67,8 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
   // Exchange Code for Token
   const exchangeToken = async (code) => {
     try {
-      const response = await fetch("/api/whatsapp/exchange-token", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code }),
-      });
-      const data = await response.json();
+      const response = await api.post('/whatsapp/exchange-token', { code });
+      const data = response.data;
       if (data.success) {
         setIsConnected(true);
         setIsLoading(false);
@@ -81,20 +78,17 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
         setIsLoading(false);
       }
     } catch (err) {
-      setError("Server error. Please try again.");
+      const msg = err.response?.data?.message || "Server error. Please try again.";
+      setError(msg);
       setIsLoading(false);
     }
   };
 
-  // Handle Signup Complete
+  // Handle Signup Complete (from postMessage WA_EMBEDDED_SIGNUP FINISH)
   const handleSignupComplete = async (phoneNumberId, wabaId) => {
     try {
-      const response = await fetch("/api/whatsapp/setup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumberId, wabaId }),
-      });
-      const data = await response.json();
+      const response = await api.post('/whatsapp/setup', { phoneNumberId, wabaId });
+      const data = response.data;
       if (data.success) {
         setIsConnected(true);
         setIsLoading(false);
@@ -104,7 +98,8 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
         setIsLoading(false);
       }
     } catch (err) {
-      setError("Server error. Please try again.");
+      const msg = err.response?.data?.message || "Server error. Please try again.";
+      setError(msg);
       setIsLoading(false);
     }
   };
