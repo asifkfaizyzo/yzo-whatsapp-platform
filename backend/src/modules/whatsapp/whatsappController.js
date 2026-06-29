@@ -24,18 +24,20 @@ export const exchangeToken = async (req, res) => {
 
   try {
     // 1️⃣ Exchange auth code → access token
-    // For the FB JS SDK popup flow (response_type: 'code' + override_default_response_type),
-    // the SDK uses postMessage, NOT a real redirect. Meta expects redirect_uri to be
-    // an EMPTY STRING in the token exchange — not omitted, not a URL.
+    // The FB JS SDK popup flow uses Facebook's internal xd_arbiter as the redirect_uri.
+    // We must pass this exact same base URL (without the dynamic hash fragment).
+    const sdkRedirectUri = 'https://staticxx.facebook.com/x/connect/xd_arbiter/?version=46';
+
     const params = new URLSearchParams({
       client_id: process.env.META_APP_ID,
       client_secret: process.env.META_APP_SECRET,
-      redirect_uri: '',
+      redirect_uri: sdkRedirectUri,
       code,
     });
 
     const exchangeUrl = `https://graph.facebook.com/v23.0/oauth/access_token?${params.toString()}`;
-    console.log(`[WhatsApp] Exchanging code with Meta Graph API (redirect_uri=empty)`);
+    console.log(`[WhatsApp] Exchanging code with Meta Graph API`);
+    console.log(`[WhatsApp]   redirect_uri: "${sdkRedirectUri}"`);
     console.log(`[WhatsApp]   URL (minus secret): ${exchangeUrl.replace(process.env.META_APP_SECRET, '***')}`);
 
     const tokenRes = await fetch(exchangeUrl);
