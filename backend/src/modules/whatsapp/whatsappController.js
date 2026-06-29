@@ -7,7 +7,7 @@ import prisma from '../../config/prisma.js';
 // fetches WABA/Phone/Business info, and saves to the tenant.
 // ─────────────────────────────────────────────────────────────────────────────
 export const exchangeToken = async (req, res) => {
-  const { code } = req.body;
+  const { code, redirectUri } = req.body;
   const tenantId = req.tenantId;
 
   if (!code) {
@@ -22,9 +22,17 @@ export const exchangeToken = async (req, res) => {
     return res.status(500).json({ success: false, message: 'Meta credentials not configured on server.' });
   }
 
-  if (!process.env.META_REDIRECT_URI) {
-    console.error('❌ META_REDIRECT_URI not set in environment.');
-    return res.status(500).json({ success: false, message: 'Redirect URI not configured on server.' });
+  // Fallback to env var if frontend didn't send it, but frontend should send it.
+  const finalRedirectUri = redirectUri || process.env.META_REDIRECT_URI;
+  
+  console.log('──────────────────────────────────────────────────');
+  console.log('[WhatsApp] Redirect URI received from frontend:', redirectUri);
+  console.log('[WhatsApp] Final Redirect URI used for exchange:', finalRedirectUri);
+  console.log('──────────────────────────────────────────────────');
+
+  if (!finalRedirectUri) {
+    console.error('❌ No redirect_uri provided from frontend or environment.');
+    return res.status(500).json({ success: false, message: 'Redirect URI missing.' });
   }
 
   try {
@@ -34,13 +42,13 @@ export const exchangeToken = async (req, res) => {
     const exchangeParams = new URLSearchParams({
       client_id: process.env.META_APP_ID,
       client_secret: process.env.META_APP_SECRET,
-      redirect_uri: process.env.META_REDIRECT_URI,
+      redirect_uri: finalRedirectUri,
       code,
     });
 
     console.log('[WhatsApp] Exchange params:', {
       client_id: process.env.META_APP_ID,
-      redirect_uri: process.env.META_REDIRECT_URI,
+      redirect_uri: finalRedirectUri,
       code: code.substring(0, 20) + '...',
     });
 
