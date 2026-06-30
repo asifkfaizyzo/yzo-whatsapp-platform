@@ -48,14 +48,10 @@ const launchEmbeddedSignup = useCallback(() => {
       if (response.authResponse) {
         const code = response.authResponse.code;
         if (code) {
-          console.log("[WhatsApp] Got auth code from FB.login, sending to backend for exchange");
-          // FB.login implicitly uses the current page URL as the redirect_uri.
-          // We MUST pass this exact same URL to the backend for the token exchange to succeed.
-          const currentUrl = window.location.origin + window.location.pathname;
-          console.log("[WhatsApp] Exact Redirect URI being sent to backend:", currentUrl);
-          exchangeCode(code, currentUrl);
+          console.log("[WhatsApp] Got auth code, sending to backend");
+          exchangeCode(code);  // ← No redirect_uri
         } else {
-          console.error("[WhatsApp] No authorization code in response:", response.authResponse);
+          console.error("[WhatsApp] No auth code in response");
           setError("No authorization code received. Please try again.");
           setIsLoading(false);
         }
@@ -76,13 +72,23 @@ const launchEmbeddedSignup = useCallback(() => {
       },
     }
   );
+  // In FB.login callback, before exchangeCode()
+console.log("[WhatsApp] Full authResponse:", JSON.stringify(response.authResponse));
+console.log("[WhatsApp] window.location:", {
+  href: window.location.href,
+  origin: window.location.origin,
+  pathname: window.location.pathname,
+});
+
+// The grantedScopes might give hints
+console.log("[WhatsApp] Auth response keys:", Object.keys(response.authResponse));
 }, []);
 
-const exchangeCode = async (code, redirectUri) => {
+const exchangeCode = async (code) => {
   try {
     const response = await api.post(
       '/whatsapp/exchange-token', 
-      { code, redirectUri }
+      { code }
     );
     const data = response.data;
     if (data.success) {

@@ -17,23 +17,23 @@ export const exchangeToken = async (req, res) => {
     });
   }
 
-  if (!process.env.META_APP_ID || !process.env.META_APP_SECRET) {
-    console.error('❌ META_APP_ID or META_APP_SECRET not set in environment.');
-    return res.status(500).json({ success: false, message: 'Meta credentials not configured on server.' });
-  }
+  // if (!process.env.META_APP_ID || !process.env.META_APP_SECRET) {
+  //   console.error('❌ META_APP_ID or META_APP_SECRET not set in environment.');
+  //   return res.status(500).json({ success: false, message: 'Meta credentials not configured on server.' });
+  // }
 
-  // Fallback to env var if frontend didn't send it, but frontend should send it.
-  const finalRedirectUri = redirectUri || process.env.META_REDIRECT_URI;
+  // // Fallback to env var if frontend didn't send it, but frontend should send it.
+  // const finalRedirectUri = redirectUri || process.env.META_REDIRECT_URI;
   
-  console.log('──────────────────────────────────────────────────');
-  console.log('[WhatsApp] Redirect URI received from frontend:', redirectUri);
-  console.log('[WhatsApp] Final Redirect URI used for exchange:', finalRedirectUri);
-  console.log('──────────────────────────────────────────────────');
+  // console.log('──────────────────────────────────────────────────');
+  // console.log('[WhatsApp] Redirect URI received from frontend:', redirectUri);
+  // console.log('[WhatsApp] Final Redirect URI used for exchange:', finalRedirectUri);
+  // console.log('──────────────────────────────────────────────────');
 
-  if (!finalRedirectUri) {
-    console.error('❌ No redirect_uri provided from frontend or environment.');
-    return res.status(500).json({ success: false, message: 'Redirect URI missing.' });
-  }
+  // if (!finalRedirectUri) {
+  //   console.error('❌ No redirect_uri provided from frontend or environment.');
+  //   return res.status(500).json({ success: false, message: 'Redirect URI missing.' });
+  // }
 
   try {
     // ─── Step 1: Exchange authorization code → short-lived access token ───
@@ -42,13 +42,13 @@ export const exchangeToken = async (req, res) => {
     const exchangeParams = new URLSearchParams({
       client_id: process.env.META_APP_ID,
       client_secret: process.env.META_APP_SECRET,
-      redirect_uri: finalRedirectUri,
+      redirect_uri: '',
       code,
     });
 
     console.log('[WhatsApp] Exchange params:', {
       client_id: process.env.META_APP_ID,
-      redirect_uri: finalRedirectUri,
+      redirect_uri: '',
       code: code.substring(0, 20) + '...',
     });
 
