@@ -40,7 +40,7 @@ export const exchangeToken = async (req, res) => {
     console.log('[WhatsApp] Making token exchange request...');
 
     const tokenRes = await fetch(
-      `https://graph.facebook.com/v23.0/oauth/access_token?${exchangeParams.toString()}`
+      `https://graph.facebook.com/v25.0/oauth/access_token?${exchangeParams.toString()}`
     );
     const tokenData = await tokenRes.json();
 
@@ -67,7 +67,7 @@ export const exchangeToken = async (req, res) => {
     });
 
     const longLivedRes = await fetch(
-      `https://graph.facebook.com/v23.0/oauth/access_token?${longLivedParams.toString()}`
+      `https://graph.facebook.com/v25.0/oauth/access_token?${longLivedParams.toString()}`
     );
     const longLivedData = await longLivedRes.json();
 
@@ -98,7 +98,7 @@ export const exchangeToken = async (req, res) => {
 
     if (wabaId) {
       const phoneRes = await fetch(
-        `https://graph.facebook.com/v23.0/${wabaId}/phone_numbers?access_token=${access_token}`
+        `https://graph.facebook.com/v25.0/${wabaId}/phone_numbers?access_token=${access_token}`
       );
       const phoneData = await phoneRes.json();
       console.log('[WhatsApp] Phone numbers:', JSON.stringify(phoneData, null, 2));
