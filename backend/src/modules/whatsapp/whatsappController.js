@@ -156,26 +156,60 @@ export const setupWhatsApp = async (req, res) => {
   }
 
   try {
+    const accessToken = process.env.META_SYSTEM_USER_TOKEN;
+
+    if (!accessToken) {
+      console.error('❌ META_SYSTEM_USER_TOKEN not set');
+      return res.status(500).json({
+        success: false,
+        message: 'System configuration error'
+      });
+    }
+
+    // Verify credentials work
+    console.log('[WhatsApp] Verifying with system user token...');
+    const verifyRes = await fetch(
+      `https://graph.facebook.com/v25.0/${phoneNumberId}?access_token=${accessToken}`
+    );
+    const verifyData = await verifyRes.json();
+    
+    if (verifyData.error) {
+      console.error('[WhatsApp] Verification failed:', verifyData.error);
+      return res.status(400).json({
+        success: false,
+        message: `Verification failed: ${verifyData.error.message}`,
+      });
+    }
+
+    console.log('[WhatsApp] ✅ Verified:', verifyData.display_phone_number);
+
+    // Save to database
     await prisma.tenant.update({
       where: { id: tenantId },
       data: {
         whatsappPhoneId: phoneNumberId,
         whatsappWabaId: wabaId,
+        whatsappAccessToken: accessToken,
       },
     });
 
-    console.log(`✅ WhatsApp setup saved for tenant ${tenantId} — WABA: ${wabaId}, Phone: ${phoneNumberId}`);
+    console.log(`✅ WhatsApp connected for tenant ${tenantId}`);
 
     return res.json({
       success: true,
-      message: 'WhatsApp phone number saved successfully.',
+      message: 'WhatsApp connected successfully',
       wabaId,
       phoneNumberId,
+      displayPhoneNumber: verifyData.display_phone_number,
+      verifiedName: verifyData.verified_name,
     });
 
   } catch (err) {
     console.error('❌ setupWhatsApp error:', err);
-    return res.status(500).json({ success: false, message: 'Server error during WhatsApp setup.' });
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Server error' 
+    });
   }
 };
 

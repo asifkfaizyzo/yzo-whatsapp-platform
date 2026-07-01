@@ -43,38 +43,29 @@ const launchEmbeddedSignup = useCallback(() => {
 
   FB.login(
     (response) => {
-      console.log("[WhatsApp] FB.login full response:", JSON.stringify(response));
+      console.log("[FB.login]", response);
+      // We don't need to do anything with the code
+      // handleMessage will save the WABA + Phone IDs
       
-      if (response.authResponse) {
-        console.log("[WhatsApp] Full authResponse:", JSON.stringify(response.authResponse));
-        
-        const code = response.authResponse.code;
-        if (code) {
-          console.log("[WhatsApp] Got auth code, sending to backend");
-          exchangeCode(code);
-        } else {
-          console.error("[WhatsApp] No auth code in response");
-          setError("No authorization code received. Please try again.");
-          setIsLoading(false);
-        }
-      } else {
-        console.warn("[WhatsApp] FB.login cancelled or failed:", response);
-        setError("Login was cancelled. Please try again.");
-        setIsLoading(false);
+      // Just check if flow was cancelled
+      if (!response.authResponse && !response.status) {
+        console.warn("[WhatsApp] User cancelled");
+        // Don't set error here - postMessage handler will
       }
     },
     {
       config_id: CONFIG_ID,
-      response_type: "code",
+      response_type: 'code',
       override_default_response_type: true,
       extras: {
         setup: {},
-        featureType: "",
-        sessionInfoVersion: "3",
-      },
+      }
     }
   );
 }, []);
+
+// Remove or comment out the exchangeCode function
+// It's not needed until App Review + Tech Provider are approved
 
 const exchangeCode = async (code) => {
   try {
