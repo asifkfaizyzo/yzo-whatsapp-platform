@@ -41,28 +41,17 @@ const launchEmbeddedSignup = useCallback(() => {
   setIsLoading(true);
   setError(null);
 
-  // Capture redirect URI BEFORE FB.login
-  const redirectUri = window.location.origin + window.location.pathname;
-  console.log("[WhatsApp] window.location:", {
-    href: window.location.href,
-    origin: window.location.origin,
-    pathname: window.location.pathname,
-  });
-  console.log("[WhatsApp] Will use redirect_uri:", redirectUri);
-
   FB.login(
     (response) => {
-      // ✅ ALL response usage must be INSIDE this callback
       console.log("[WhatsApp] FB.login full response:", JSON.stringify(response));
       
       if (response.authResponse) {
         console.log("[WhatsApp] Full authResponse:", JSON.stringify(response.authResponse));
-        console.log("[WhatsApp] Auth response keys:", Object.keys(response.authResponse));
         
         const code = response.authResponse.code;
         if (code) {
-          console.log("[WhatsApp] Got auth code, sending to backend with redirectUri:", redirectUri);
-          exchangeCode(code, redirectUri);
+          console.log("[WhatsApp] Got auth code, sending to backend");
+          exchangeCode(code);
         } else {
           console.error("[WhatsApp] No auth code in response");
           setError("No authorization code received. Please try again.");
@@ -87,12 +76,9 @@ const launchEmbeddedSignup = useCallback(() => {
   );
 }, []);
 
-const exchangeCode = async (code, redirectUri) => {
+const exchangeCode = async (code) => {
   try {
-    const response = await api.post('/whatsapp/exchange-token', { 
-      code, 
-      redirectUri 
-    });
+    const response = await api.post('/whatsapp/exchange-token', { code });
     
     const data = response.data;
     if (data.success) {

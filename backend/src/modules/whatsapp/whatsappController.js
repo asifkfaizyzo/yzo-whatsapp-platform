@@ -7,7 +7,7 @@ import prisma from '../../config/prisma.js';
 // fetches WABA/Phone/Business info, and saves to the tenant.
 // ─────────────────────────────────────────────────────────────────────────────
 export const exchangeToken = async (req, res) => {
-  const { code, redirectUri } = req.body;
+  const { code } = req.body;
   const tenantId = req.tenantId;
 
   if (!code) {
@@ -26,64 +26,36 @@ export const exchangeToken = async (req, res) => {
   }
 
   console.log('──────────────────────────────────────────────────');
-  console.log('[WhatsApp] Received redirectUri from frontend:', redirectUri);
+  console.log('[WhatsApp] Exchanging Embedded Signup code for token...');
   console.log('──────────────────────────────────────────────────');
 
-  // Try multiple redirect_uri values to find the working one
-  const candidates = [
-    redirectUri,
-    '',
-    'https://sudoreply.com/dashboard',
-    'https://www.sudoreply.com/dashboard',
-    'https://sudoreply.com/',
-    'https://www.sudoreply.com/',
-    'https://sudoreply.com',
-    'https://www.sudoreply.com',
-  ].filter(c => c !== null && c !== undefined);
-
-  // Remove duplicates
-  const uniqueCandidates = [...new Set(candidates)];
-
-  let tokenData = null;
-  let workedWith = null;
-
   try {
-    for (const candidate of uniqueCandidates) {
-      console.log(`[WhatsApp] Trying redirect_uri: "${candidate}"`);
-      
-      const params = new URLSearchParams({
-        client_id: process.env.META_APP_ID,
-        client_secret: process.env.META_APP_SECRET,
-        redirect_uri: candidate,
-        code,
-      });
+    // ─── Step 1: Exchange code for access token (NO redirect_uri) ───
+    const exchangeParams = new URLSearchParams({
+      client_id: process.env.META_APP_ID,
+      client_secret: process.env.META_APP_SECRET,
+      code,
+    });
 
-      const r = await fetch(
-        `https://graph.facebook.com/v23.0/oauth/access_token?${params.toString()}`
-      );
-      const data = await r.json();
+    console.log('[WhatsApp] Making token exchange request...');
 
-      if (data.access_token) {
-        tokenData = data;
-        workedWith = candidate;
-        console.log(`✅ SUCCESS with redirect_uri: "${candidate}"`);
-        break;
-      } else {
-        console.log(`❌ Failed with "${candidate}": ${data.error?.message}`);
-      }
-    }
+    const tokenRes = await fetch(
+      `https://graph.facebook.com/v23.0/oauth/access_token?${exchangeParams.toString()}`
+    );
+    const tokenData = await tokenRes.json();
 
-    if (!tokenData?.access_token) {
-      console.error('❌ All redirect_uri candidates failed');
+    console.log('[WhatsApp] Token exchange response:', JSON.stringify(tokenData, null, 2));
+
+    if (!tokenData.access_token) {
+      console.error('❌ Token exchange failed:', tokenData);
       return res.status(400).json({
         success: false,
-        message: 'Failed to exchange auth code with any redirect_uri.'
+        message: tokenData.error?.message || 'Failed to exchange code with Meta.'
       });
     }
 
-    console.log(`[WhatsApp] 🎯 Working redirect_uri is: "${workedWith}"`);
-
     let access_token = tokenData.access_token;
+    console.log('[WhatsApp] ✅ Got access token');
 
     // ─── Step 2: Long-lived token ───
     console.log('[WhatsApp] Extending to long-lived token...');
@@ -166,7 +138,6 @@ export const exchangeToken = async (req, res) => {
     });
   }
 };
-
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api2/whatsapp/setup
