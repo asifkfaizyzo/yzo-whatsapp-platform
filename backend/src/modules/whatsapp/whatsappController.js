@@ -162,7 +162,7 @@ export const setupWhatsApp = async (req, res) => {
         whatsappPhoneId: phoneNumberId,
         NOT: { id: tenantId },
       },
-      select: { id: true, name: true }
+      select: { id: true, tenantName: true }
     });
 
     if (existingTenant) {
@@ -347,7 +347,7 @@ export const disconnectWhatsApp = async (req, res) => {
     const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
       select: { 
-        name: true, 
+        tenantName: true, 
         whatsappPhoneId: true, 
         whatsappWabaId: true 
       }
