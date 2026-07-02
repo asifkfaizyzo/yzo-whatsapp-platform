@@ -156,6 +156,27 @@ export const setupWhatsApp = async (req, res) => {
   }
 
   try {
+    // ✅ Check for existing connection (prevent duplicates)
+    const existingTenant = await prisma.tenant.findFirst({
+      where: {
+        whatsappPhoneId: phoneNumberId,
+        NOT: { id: tenantId },
+      },
+      select: { id: true, name: true }
+    });
+
+    if (existingTenant) {
+      console.log(`⚠️ Duplicate connection attempt:
+        Phone: ${phoneNumberId}
+        Already used by: ${existingTenant.name} (${existingTenant.id})
+        Requested by: ${tenantId}`);
+      
+      return res.status(400).json({
+        success: false,
+        message: `This WhatsApp number is already connected to another account (${existingTenant.name}). Please disconnect it there first or use a different number.`,
+      });
+    }
+
     const accessToken = process.env.META_SYSTEM_USER_TOKEN;
 
     if (!accessToken) {
@@ -309,6 +330,77 @@ export const getMyWabas = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Server error'
+    });
+  }
+};
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api2/whatsapp/disconnect
+// Disconnects WhatsApp from the current tenant
+// ─────────────────────────────────────────────────────────────────────────────
+export const disconnectWhatsApp = async (req, res) => {
+  const tenantId = req.tenantId;
+
+  try {
+    // Get tenant info before disconnecting
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { 
+        name: true, 
+        whatsappPhoneId: true, 
+        whatsappWabaId: true 
+      }
+    });
+
+    if (!tenant) {
+      return res.status(404).json({
+        success: false,
+        message: 'Tenant not found'
+      });
+    }
+
+    if (!tenant.whatsappPhoneId) {
+      return res.status(400).json({
+        success: false,
+        message: 'WhatsApp is not connected'
+      });
+    }
+
+    // Optional: Delete related templates
+    await prisma.template.deleteMany({
+      where: { tenantId: tenantId }
+    });
+
+    // Optional: Delete related contacts/messages if needed
+    // Be careful with this - might want to keep for records
+    // await prisma.contact.deleteMany({ where: { tenantId } });
+    // await prisma.message.deleteMany({ where: { tenantId } });
+
+    // Disconnect WhatsApp
+    await prisma.tenant.update({
+      where: { id: tenantId },
+      data: {
+        whatsappPhoneId: null,
+        whatsappWabaId: null,
+        whatsappAccessToken: null,
+      },
+    });
+
+    console.log(`✅ WhatsApp disconnected for tenant ${tenantId} (${tenant.name})`);
+    console.log(`   Removed Phone ID: ${tenant.whatsappPhoneId}`);
+    console.log(`   Removed WABA ID: ${tenant.whatsappWabaId}`);
+
+    return res.json({
+      success: true,
+      message: 'WhatsApp disconnected successfully',
+    });
+
+  } catch (err) {
+    console.error('❌ disconnectWhatsApp error:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error during disconnect',
     });
   }
 };

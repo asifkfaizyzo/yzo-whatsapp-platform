@@ -1,6 +1,6 @@
 import express from 'express';
 import { verifyTenant, requireApprovedTenant } from '../../middlewares/authTenant.js';
-import { setupWhatsApp, getWhatsAppStatus, getMyWabas } from './whatsappController.js';
+import { setupWhatsApp, getWhatsAppStatus, getMyWabas, disconnectWhatsApp } from './whatsappController.js';
 
 const router = express.Router();
 
@@ -20,5 +20,7 @@ router.post('/setup', setupWhatsApp);
 router.get('/status', getWhatsAppStatus);
 
 router.get('/my-wabas', getMyWabas);
+
+router.post('/disconnect', disconnectWhatsApp);
 
 export default router;

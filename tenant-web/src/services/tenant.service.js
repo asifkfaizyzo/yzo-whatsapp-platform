@@ -204,3 +204,40 @@ export const updateWhatsappConfig = async (data) => {
     };
   }
 };
+
+/**
+ * Fetch WhatsApp connection status
+ */
+export const getWhatsappStatus = async () => {
+  try {
+    const response = await api.get(`${TENANT_BASE_URL}/whatsapp/status`);
+    return {
+      success: true,
+      data: response.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to fetch WhatsApp status",
+    };
+  }
+};
+
+/**
+ * Disconnect WhatsApp integration
+ */
+export const disconnectWhatsapp = async () => {
+  try {
+    const response = await api.post(`${TENANT_BASE_URL}/whatsapp/disconnect`);
+    return {
+      success: response.data?.success !== false,
+      message: response.data?.message || "WhatsApp disconnected successfully",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to disconnect WhatsApp",
+    };
+  }
+};
+

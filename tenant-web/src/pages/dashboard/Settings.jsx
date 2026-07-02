@@ -15,10 +15,24 @@ import {
   AlertCircle,
   RefreshCw,
   Eye,
-  EyeOff
+  EyeOff,
+  AlertTriangle,
+  Unplug,
+  Trash2,
+  MessageSquare
 } from "lucide-react";
 import { getTags, createTag } from "../../services/tag.service";
-import { getAutoReopenConfig, updateAutoReopenConfig, getTenantProfile, updateTenantProfile, getWhatsappConfig, updateWhatsappConfig } from "../../services/tenant.service";
+import { 
+  getAutoReopenConfig, 
+  updateAutoReopenConfig, 
+  getTenantProfile, 
+  updateTenantProfile, 
+  getWhatsappConfig, 
+  updateWhatsappConfig,
+  getWhatsappStatus,
+  disconnectWhatsapp
+} from "../../services/tenant.service";
+import WhatsAppConnect from "../../components/whatsapp/WhatsAppConnect";
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("profile");
@@ -57,10 +71,22 @@ export default function SettingsPage() {
   }, [activeTab, userRole]);
   
   const [whatsapp, setWhatsapp] = useState({
-    phoneId: "109283746592038",
-    wabaId: "982746104827591",
-    accessToken: "EAAGj21...z8QZDZD",
+    phoneId: "",
+    wabaId: "",
+    accessToken: "",
   });
+
+  // WhatsApp connection & disconnect state
+  const [whatsappStatus, setWhatsappStatus] = useState({
+    isConnected: false,
+    phoneNumberId: null,
+    wabaId: null,
+  });
+  const [loadingStatus, setLoadingStatus] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+  const [disconnectError, setDisconnectError] = useState(null);
+  const [showConfirmDisconnect, setShowConfirmDisconnect] = useState(false);
+  const [showConnectModal, setShowConnectModal] = useState(false);
 
   const [webhook, setWebhook] = useState({
     url: "https://api.yzo.com/webhooks/whatsapp",
@@ -86,7 +112,7 @@ export default function SettingsPage() {
   const [loadingReopen, setLoadingReopen] = useState(false);
   const [reopenError, setReopenError] = useState("");
 
-    // ─── ADDED: WhatsApp Config Load Logic ───
+    // ─── ADDED: WhatsApp Config Load & Status Logic ───
   const fetchWhatsappConfig = async () => {
     if (userRole !== "admin") return;
     const res = await getWhatsappConfig();
@@ -103,11 +129,59 @@ export default function SettingsPage() {
     }
   };
 
+  const fetchWhatsappStatusData = async () => {
+    if (userRole !== "admin") return;
+    setLoadingStatus(true);
+    const res = await getWhatsappStatus();
+    if (res.success && res.data) {
+      setWhatsappStatus({
+        isConnected: !!res.data.isConnected,
+        phoneNumberId: res.data.phoneNumberId || null,
+        wabaId: res.data.wabaId || null,
+      });
+      // Sync phoneId/wabaId if available
+      if (res.data.phoneNumberId || res.data.wabaId) {
+        setWhatsapp((prev) => ({
+          ...prev,
+          phoneId: res.data.phoneNumberId || prev.phoneId,
+          wabaId: res.data.wabaId || prev.wabaId,
+        }));
+      }
+    }
+    setLoadingStatus(false);
+  };
+
+  const handleDisconnectWhatsApp = async () => {
+    setDisconnecting(true);
+    setDisconnectError(null);
+    const res = await disconnectWhatsapp();
+    if (res.success) {
+      setWhatsappStatus({
+        isConnected: false,
+        phoneNumberId: null,
+        wabaId: null,
+      });
+      setWhatsapp({
+        phoneId: "",
+        wabaId: "",
+        accessToken: "",
+      });
+      setShowConfirmDisconnect(false);
+      setFeedback("WhatsApp disconnected successfully!");
+      setTimeout(() => setFeedback(""), 3500);
+    } else {
+      setDisconnectError(res.message || "Failed to disconnect WhatsApp.");
+    }
+    setDisconnecting(false);
+  };
+
   useEffect(() => {
     if (activeTab === "whatsapp" && userRole === "admin") {
       fetchWhatsappConfig();
+      fetchWhatsappStatusData();
     }
   }, [activeTab]);
+
 
     const fetchReopenConfig = async () => {
     setLoadingReopen(true);
@@ -395,62 +469,200 @@ export default function SettingsPage() {
 
           {/* Tab 2: WhatsApp Settings */}
           {activeTab === "whatsapp" && (
-            <form onSubmit={handleWhatsappSave} className="space-y-4">
-              <h2 className="text-base font-bold text-slate-800 pb-3 border-b border-slate-50">Meta Cloud API Credentials</h2>
-              
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="label text-xs">Phone Number ID</label>
-                  <input
-                    type="text"
-                    value={whatsapp.phoneId}
-                    onChange={(e) => setWhatsapp({ ...whatsapp, phoneId: e.target.value })}
-                    className="input text-xs font-mono"
-                    required
-                  />
+            <div className="space-y-6">
+              {/* Connection Status Overview Banner */}
+              {loadingStatus ? (
+                <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex items-center gap-3 text-xs text-slate-400">
+                  <RefreshCw size={14} className="animate-spin text-[#125EF2]" />
+                  <span>Checking WhatsApp connection status...</span>
                 </div>
-                <div>
-                  <label className="label text-xs">WhatsApp Business Account ID (WABA)</label>
-                  <input
-                    type="text"
-                    value={whatsapp.wabaId}
-                    onChange={(e) => setWhatsapp({ ...whatsapp, wabaId: e.target.value })}
-                    className="input text-xs font-mono"
-                    required
-                  />
-                </div>
-              </div>
+              ) : whatsappStatus.isConnected ? (
+                <div className="bg-emerald-50/60 border border-emerald-200/80 rounded-2xl p-5 shadow-sm space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-emerald-500 text-white rounded-xl flex items-center justify-center shadow-sm">
+                        <CheckCircle2 size={20} />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-emerald-950 flex items-center gap-2">
+                          <span>WhatsApp Connected</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-200 text-emerald-900">
+                            ACTIVE
+                          </span>
+                        </h3>
+                        <p className="text-xs text-emerald-800/80 font-medium">
+                          Your WhatsApp Business Cloud API integration is active and receiving messages.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
 
-              <div>
-                <label className="label text-xs">Permanent System Access Token</label>
-                <div className="relative">
-                  <input
-                    type={showAccessToken ? "text" : "password"}
-                    value={whatsapp.accessToken}
-                    onChange={(e) => setWhatsapp({ ...whatsapp, accessToken: e.target.value })}
-                    className="input text-xs font-mono pr-10"
-                    required
-                  />
+                  <div className="border-t border-emerald-200/60 pt-3 grid sm:grid-cols-2 gap-3 text-xs font-medium text-emerald-900">
+                    <div className="flex items-center justify-between bg-white/80 px-3 py-2 rounded-xl border border-emerald-100">
+                      <span className="text-emerald-700 font-semibold">Phone Number ID:</span>
+                      <span className="font-mono font-bold text-slate-800">{whatsappStatus.phoneNumberId || whatsapp.phoneId}</span>
+                    </div>
+                    <div className="flex items-center justify-between bg-white/80 px-3 py-2 rounded-xl border border-emerald-100">
+                      <span className="text-emerald-700 font-semibold">WABA ID:</span>
+                      <span className="font-mono font-bold text-slate-800">{whatsappStatus.wabaId || whatsapp.wabaId}</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-gradient-to-r from-amber-50/60 via-slate-50 to-emerald-50/40 border border-slate-200 rounded-2xl p-5 shadow-sm sm:flex sm:items-center sm:justify-between gap-4">
+                  <div className="flex items-center gap-3.5 mb-4 sm:mb-0">
+                    <div className="w-11 h-11 bg-slate-100 border border-slate-200 text-slate-600 rounded-2xl flex items-center justify-center shrink-0">
+                      <Smartphone size={22} />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-800">WhatsApp Not Connected</h3>
+                      <p className="text-xs text-slate-500 font-medium mt-0.5">
+                        Connect your Meta WhatsApp Business account via Embedded Signup or configure API keys.
+                      </p>
+                    </div>
+                  </div>
                   <button
                     type="button"
-                    onClick={() => setShowAccessToken(!showAccessToken)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-650 transition"
+                    onClick={() => setShowConnectModal(true)}
+                    className="shrink-0 px-4 py-2.5 bg-[#25D366] hover:bg-[#1ebe5d] text-white rounded-xl font-bold text-xs shadow-sm flex items-center justify-center gap-2 transition"
                   >
-                    {showAccessToken ? <EyeOff size={15} /> : <Eye size={15} />}
+                    <MessageSquare size={14} />
+                    <span>Connect WhatsApp</span>
                   </button>
                 </div>
-                <p className="text-[10px] text-slate-400 mt-1 font-medium">
-                  Obtained from Meta App Developer portal under WhatsApp Settings.
-                </p>
-              </div>
+              )}
 
-              <div className="pt-4 flex items-center justify-end border-t border-slate-50">
-                <button type="submit" className="btn-primary py-2 px-4 text-xs font-bold flex items-center gap-1.5">
-                  <Save size={14} />
-                  <span>Verify & Sync Credentials</span>
-                </button>
+              {/* Meta Cloud API Credentials Form */}
+              <form onSubmit={handleWhatsappSave} className="space-y-4 pt-2 border-t border-slate-100">
+                <h2 className="text-base font-bold text-slate-800 pb-2 border-b border-slate-50">Meta Cloud API Credentials</h2>
+                
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="label text-xs">Phone Number ID</label>
+                    <input
+                      type="text"
+                      value={whatsapp.phoneId}
+                      onChange={(e) => setWhatsapp({ ...whatsapp, phoneId: e.target.value })}
+                      className="input text-xs font-mono"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="label text-xs">WhatsApp Business Account ID (WABA)</label>
+                    <input
+                      type="text"
+                      value={whatsapp.wabaId}
+                      onChange={(e) => setWhatsapp({ ...whatsapp, wabaId: e.target.value })}
+                      className="input text-xs font-mono"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="label text-xs">Permanent System Access Token</label>
+                  <div className="relative">
+                    <input
+                      type={showAccessToken ? "text" : "password"}
+                      value={whatsapp.accessToken}
+                      onChange={(e) => setWhatsapp({ ...whatsapp, accessToken: e.target.value })}
+                      className="input text-xs font-mono pr-10"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowAccessToken(!showAccessToken)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-650 transition"
+                    >
+                      {showAccessToken ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1 font-medium">
+                    Obtained from Meta App Developer portal under WhatsApp Settings.
+                  </p>
+                </div>
+
+                <div className="pt-3 flex items-center justify-end">
+                  <button type="submit" className="btn-primary py-2 px-4 text-xs font-bold flex items-center gap-1.5">
+                    <Save size={14} />
+                    <span>Verify & Sync Credentials</span>
+                  </button>
+                </div>
+              </form>
+
+              {/* Danger Zone: Disconnect WhatsApp Integration */}
+              <div className="border border-rose-200 bg-rose-50/40 rounded-2xl p-5 space-y-4">
+                <div className="flex items-center gap-2 text-rose-700">
+                  <AlertTriangle size={18} />
+                  <h4 className="font-bold text-sm">Danger Zone</h4>
+                </div>
+                <p className="text-xs text-rose-900/80 font-medium leading-relaxed">
+                  Disconnecting will remove your WhatsApp integration credentials, delete synced message templates, and stop message sending and receiving. You can reconnect anytime.
+                </p>
+
+                {!showConfirmDisconnect ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDisconnectError(null);
+                      setShowConfirmDisconnect(true);
+                    }}
+                    className="px-4 py-2 border-2 border-rose-500 text-rose-600 hover:bg-rose-50 rounded-xl font-bold text-xs transition duration-150 flex items-center gap-1.5"
+                  >
+                    <Unplug size={14} />
+                    <span>Disconnect WhatsApp</span>
+                  </button>
+                ) : (
+                  <div className="p-4 bg-white border border-rose-200 rounded-xl space-y-3 shadow-sm">
+                    <p className="text-xs font-bold text-rose-900">
+                      Are you sure you want to disconnect WhatsApp?
+                    </p>
+                    <ul className="text-xs text-rose-800 space-y-1 list-disc list-inside font-medium">
+                      <li>Remove WhatsApp credentials and system access token</li>
+                      <li>Delete synced message templates from database</li>
+                      <li>Stop automated message sending & webhook receiving</li>
+                      <li>You can reconnect your account anytime later</li>
+                    </ul>
+
+                    {disconnectError && (
+                      <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-xs font-semibold flex items-center gap-1.5">
+                        <AlertCircle size={14} />
+                        <span>{disconnectError}</span>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={handleDisconnectWhatsApp}
+                        disabled={disconnecting}
+                        className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 disabled:opacity-50"
+                      >
+                        {disconnecting ? (
+                          <>
+                            <RefreshCw size={13} className="animate-spin" />
+                            <span>Disconnecting...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Trash2 size={13} />
+                            <span>Yes, Disconnect</span>
+                          </>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmDisconnect(false)}
+                        disabled={disconnecting}
+                        className="px-4 py-2 border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-            </form>
+            </div>
           )}
 
           {/* Tab 3: Developer Settings */}
@@ -808,6 +1020,20 @@ export default function SettingsPage() {
           )}
         </div>
       </div>
+
+      {showConnectModal && (
+        <WhatsAppConnect
+          onSuccess={(data) => {
+            setShowConnectModal(false);
+            fetchWhatsappStatusData();
+            fetchWhatsappConfig();
+            setFeedback("WhatsApp connected successfully!");
+            setTimeout(() => setFeedback(""), 3500);
+          }}
+          onClose={() => setShowConnectModal(false)}
+        />
+      )}
     </div>
   );
 }
+
