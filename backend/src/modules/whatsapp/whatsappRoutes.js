@@ -1,6 +1,6 @@
 import express from 'express';
 import { verifyTenant, requireApprovedTenant } from '../../middlewares/authTenant.js';
-import { exchangeToken, setupWhatsApp, getWhatsAppStatus, getMyWabas } from './whatsappController.js';
+import { setupWhatsApp, getWhatsAppStatus, getMyWabas } from './whatsappController.js';
 
 const router = express.Router();
 
@@ -9,7 +9,7 @@ router.use(verifyTenant, requireApprovedTenant);
 
 // POST /api2/whatsapp/exchange-token
 // Exchanges Meta auth code → access token, fetches WABA/Phone IDs, saves to DB
-router.post('/exchange-token', exchangeToken);
+// router.post('/exchange-token', exchangeToken);
 
 // POST /api2/whatsapp/setup
 // Saves WABA ID + Phone Number ID directly (from postMessage WA_EMBEDDED_SIGNUP FINISH event)
