@@ -1,6 +1,6 @@
 import express from 'express';
 import { verifyTenant, requireApprovedTenant } from '../../middlewares/authTenant.js';
-import { exchangeToken, setupWhatsApp, getWhatsAppStatus } from './whatsappController.js';
+import { exchangeToken, setupWhatsApp, getWhatsAppStatus, getMyWabas } from './whatsappController.js';
 
 const router = express.Router();
 
@@ -18,5 +18,7 @@ router.post('/setup', setupWhatsApp);
 // GET /api2/whatsapp/status
 // Returns whether this tenant has a WhatsApp number connected
 router.get('/status', getWhatsAppStatus);
+
+router.get('/my-wabas', getMyWabas);
 
 export default router;
