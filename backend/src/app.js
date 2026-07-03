@@ -15,6 +15,9 @@ import planRoutes from "./modules/plans/planRoutes.js";
 import templateRoutes from './modules/templates/templateRoutes.js';
 import broadcastRoutes from './modules/broadcasts/broadcastRoutes.js';
 import whatsappRoutes from './modules/whatsapp/whatsappRoutes.js';
+import notificationRoutes from "./modules/notifications/notificationRoutes.js";
+
+import path from "path";
 
 const app = express();
 
@@ -39,6 +42,16 @@ app.use(express.json({
     }
   }
 }));
+
+
+app.use(express.urlencoded({ extended: true }));
+// ✅ Fixed - add CORS headers
+app.use("/uploads", (req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Cross-Origin-Resource-Policy", "cross-origin");
+  next();
+}, express.static(path.join(process.cwd(), "uploads")));
+
 app.use(cookieParser());
 
 const allowedOrigins = (process.env.FRONTEND_URLS || '')
@@ -58,6 +71,8 @@ app.use(
   })
 );
 
+
+
 // Apply rate limiting to sensitive routes (login, register, forgot/reset password)
 app.use('/api/login', authLimiter);
 app.use('/api/create', authLimiter);
@@ -72,8 +87,10 @@ app.use('/api', superadminRoutes);
 app.use('/api2', tenantRoutes);
 
 app.use('/api3', userRoutes);
-  
-app.use('/api4', contactRoutes);
+
+// ✅ ADD THIS - mount contacts on BOTH paths
+app.use('/api4', contactRoutes);        // keep existing
+app.use('/api2/contacts', contactRoutes); // ✅ ADD - frontend calls this
 
 app.use('/api5', conversationRoutes);
 
@@ -92,6 +109,7 @@ app.use('/api8', templateRoutes);
 app.use('/api9', broadcastRoutes);
 
 app.use('/api2/whatsapp', whatsappRoutes);
+app.use("/api2/notifications", notificationRoutes);
 
 // 1. 404 Handler (Place this AFTER all routes)
 app.use((req, res, next) => {

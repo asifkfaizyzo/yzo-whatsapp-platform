@@ -1,6 +1,6 @@
-import { Link, useNavigate } from "react-router-dom";
-import { useState } from "react";
-// import { siteConfig } from "../../config/site";
+import { Link, useNavigate,} from "react-router-dom";
+import { useState,useEffect } from "react";
+import { useAuthStore } from "../../store/useAuthStore";
 import { login } from "../../services/auth.service";
 import { useFormHandler } from "../../hooks/useFormHandler";
 import { loginSchema } from "../../validations/auth.validation";
@@ -24,6 +24,14 @@ const benefits = [
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const { isAuthenticated, user, isHydrated } = useAuthStore();
+
+  // ✅ If already logged in, redirect away from login page
+  useEffect(() => {
+  if (isHydrated && isAuthenticated && user) {
+    navigate('/dashboard', { replace: true }); // works for BOTH types
+  }
+}, [isHydrated, isAuthenticated, user, navigate]);
 
   const {
     register,
@@ -34,7 +42,15 @@ export default function LoginPage() {
     schema: loginSchema,
     defaultValues: { email: "", password: "" },
     onSubmitService: (data) => login(data.email, data.password),
-    onSuccess: () => navigate("/dashboard"),
+    onSuccess: (result) => {
+      // ← Navigate based on user type returned from login
+      const userType = result?.data?.data?.user?.type;
+      if (userType === 'TENANT') {
+        navigate('/tenant/dashboard');
+      } else {
+        navigate('/dashboard');
+      }
+    },
   });
 
   return (

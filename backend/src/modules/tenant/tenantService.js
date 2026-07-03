@@ -8,6 +8,9 @@ import { saveRefreshToken, deleteRefreshToken,findRefreshToken } from '../auth/r
 import { generateResetToken,getResetTokenExpiry,sendPasswordResetEmail,} from '../auth/emailService.js';
 import { forgotPasswordService,resetPasswordService, } from '../auth/passwordService.js';
 import { getOrCreateConversation } from "../../modules/conversations/conversationService.js";
+import { AsyncLocalStorage } from 'async_hooks';
+import { emitToTenant } from "../../lib/socket.js";
+import { createNotification } from "../notifications/notificationService.js";
 
 
 // ===========Tenant Registration Service (with Auto-Login)===========
@@ -105,11 +108,6 @@ export const loginTenantService =
       throw new Error( 'Invalid credentials' );
     }
 
-  // //Check tenant status BEFORE password check
-  // if (tenant.status === 'PENDING') {
-  //   throw new Error('Your account is pending approval');
-  // }
-
   if (tenant.status === 'BLOCKED') {
     throw new Error('Your account is blocked. Contact support.');
   }
@@ -157,6 +155,9 @@ message: 'Login successful',
       email: safeTenant.email,
       type: 'TENANT', 
       status: safeTenant.status,
+       planId: safeTenant.planId,          
+       planStatus: safeTenant.planStatus,   
+       billingType: safeTenant.billingType,
     },
     };
   };
@@ -266,11 +267,13 @@ export const createUserService = async (data, tenantId) => {
   if (!name || !email || !password) {
     throw new Error('Name, email and password are required');
   }
-
+  console.log(data);
+  
+  
   if (!tenantId) {
     throw new Error('Tenant ID is required');
   }
-
+console.log("checking emails");
   // 2️⃣ Check global email uniqueness (Tenant, User, SuperAdmin)
   const [emailExistsInTenant, emailExistsInUser, emailExistsInSuperAdmin] = await Promise.all([
   prisma.tenant.findUnique({ where: { email } }),
@@ -284,7 +287,7 @@ export const createUserService = async (data, tenantId) => {
 
  // 3️⃣ Hash password
   const hashedPassword = await bcrypt.hash(password, 10);
-
+console.log("creating user");
   // 5️⃣ Create User under this Tenant
   const user = await prisma.user.create({
     data: {
@@ -318,7 +321,7 @@ export const createUserService = async (data, tenantId) => {
 
   // 8️⃣ Remove sensitive data
   const { password: _, ...safeUser } = user;
-
+console.log("return response");
   // 9️⃣ Return data
   return {
     message: 'User created successfully',
@@ -681,37 +684,67 @@ export const getUnassignedContacts = async (tenantId) => {
 
 
 //========Assign contact to user under tenant-controller(manual)========
-export const assignContactService = async (
-  contactId,
-  userId,
-  tenantId
-) => {
-  // 1️⃣ Validate contact
-  const contact = await prisma.contact.findFirst({
-    where: { id: contactId, tenantId },
-  });
+export const assignContactService = async (contactId, userId, tenantId) => {
+    
+    // 1️⃣ Validate contact
+    const contact = await prisma.contact.findFirst({
+        where: { id: contactId, tenantId },
+    });
 
-  if (!contact) {
-    throw new Error("Contact not found");
-  }
+    if (!contact) {
+        throw new Error("Contact not found");
+    }
 
-  // 2️⃣ Validate user
-  const user = await prisma.user.findFirst({
-    where: { id: userId, tenantId },
-  });
+    // 2️⃣ Validate user
+    const user = await prisma.user.findFirst({
+        where: { id: userId, tenantId },
+    });
 
-  if (!user) {
-    throw new Error("User not found");
-  }
+    if (!user) {
+        throw new Error("User not found");
+    }
 
-  // 3️⃣ Assign contact
-  return await prisma.contact.update({
-    where: { id: contactId },
-    data: {
-      assignedTo: userId,
-      assignedAt: new Date(),
-    },
-  });
+    // 3️⃣ Assign contact
+    // ✅ FIX: Store in variable, DON'T return yet!
+    const updatedContact = await prisma.contact.update({
+        where: { id: contactId },
+        data: {
+            assignedTo: userId,
+            assignedAt: new Date(),
+        },
+    });
+
+    // 4️⃣ Create notification
+    // ✅ Now this RUNS because we didn't return early!
+    try {
+        console.log('🔔 Creating notification for userId:', userId);
+
+        const notification = await createNotification({
+            tenantId,
+            userId,
+            type: "contact_assigned",
+            title: "Contact Assigned",
+            message: `${contact.name || contact.phone} has been assigned to you`,
+            metadata: {
+                contactId,
+                contactName: contact.name || contact.phone,
+            },
+        });
+
+        console.log('✅ Notification created:', notification);
+
+        // 5️⃣ Emit socket event
+        emitToTenant(tenantId, "new_notification", { notification });
+
+        console.log('✅ Socket emitted to tenant:', tenantId);
+
+    } catch (notifyError) {
+        console.error('❌ Notification error:', notifyError.message);
+        console.error('❌ Full error:', notifyError);
+    }
+
+    // 6️⃣ ✅ Return AFTER notification
+    return updatedContact;
 };
 
 
@@ -719,47 +752,46 @@ export const assignContactService = async (
 
 
 //========Reassign contact to user under tenant-controller========
-export const reassignContactService = async (
-  contactId,
-  newUserId,
-  tenantId
-) => {
-  // 1️⃣ Check contact exists under tenant
-  const contact = await prisma.contact.findFirst({
-    where: {
-      id: contactId,
-      tenantId,
-    },
-  });
 
-  if (!contact) {
-    throw new Error("Contact not found");
-  }
+export const reassignContactService = async (contactId, newUserId, tenantId) => {
+    
+    const contact = await prisma.contact.findFirst({
+        where: { id: contactId, tenantId },
+    });
+    if (!contact) throw new Error('Contact not found');
 
-  // 2️⃣ Check new user exists under same tenant
-  const user = await prisma.user.findFirst({
-    where: {
-      id: newUserId,
-      tenantId,
-    },
-  });
+    const user = await prisma.user.findFirst({
+        where: { id: newUserId, tenantId },
+    });
+    if (!user) throw new Error('User not found under this tenant');
 
-  if (!user) {
-    throw new Error("User not found under this tenant");
-  }
+    const updatedContact = await prisma.contact.update({
+        where: { id: contactId },
+        data: {
+            assignedTo: newUserId,
+            assignedAt: new Date(),
+        },
+    });
 
-  // 3️⃣ Reassign contact (overwrite old assignment)
-  const updatedContact = await prisma.contact.update({
-    where: {
-      id: contactId,
-    },
-    data: {
-      assignedTo: newUserId,
-      assignedAt: new Date(),
-    },
-  });
+    try {
+        const notification = await createNotification({
+            tenantId,
+            userId: newUserId,  // ✅ FIXED: was just 'userId' (not defined!)
+                                // now 'newUserId' (matches function parameter)
+            type: 'contact_assigned',
+            title: 'Contact Assigned',
+            message: `${contact.name || contact.phone} has been assigned to you`,
+            metadata: {
+                contactId,
+                contactName: contact.name || contact.phone,
+            },
+        });
+        emitToTenant(tenantId, 'new_notification', { notification });
+    } catch (notifyError) {
+        console.error('Notification error:', notifyError.message);
+    }
 
-  return updatedContact;
+    return updatedContact;
 };
 
 

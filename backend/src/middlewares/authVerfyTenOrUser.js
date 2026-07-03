@@ -5,6 +5,12 @@ export const verifyTenantOrUser = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
 
+    
+    // ✅ ADD THESE LOGS
+    console.log('🌐 URL:', req.originalUrl);
+    console.log('📋 Method:', req.method);
+    console.log('🔐 Auth header:', authHeader ? 'EXISTS' : '❌ MISSING');
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({
         success: false,
@@ -14,6 +20,9 @@ export const verifyTenantOrUser = async (req, res, next) => {
 
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.ACCESS_SECRET);
+
+     console.log('✅ Token decoded type:', decoded.type);
+    console.log('✅ Token decoded id:', decoded.id);
 
     // ===================== TENANT =====================
     if (decoded.type === 'TENANT') {
@@ -53,6 +62,8 @@ export const verifyTenantOrUser = async (req, res, next) => {
       req.tenantId = tenant.id;
       req.userType = 'TENANT';
 
+      console.log('✅ TENANT - tenantId set to:', req.tenantId);
+
       return next();
     }
 
@@ -68,6 +79,7 @@ export const verifyTenantOrUser = async (req, res, next) => {
           message: 'User not found',
         });
       }
+      
 
       if (!user.isActive) {
         return res.status(403).json({
@@ -112,6 +124,7 @@ export const verifyTenantOrUser = async (req, res, next) => {
       req.tenantId = user.tenantId;
       req.userType = 'USER';
 
+       console.log('✅ USER - tenantId set to:', req.tenantId);
       return next();
     }
 

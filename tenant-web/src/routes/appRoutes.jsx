@@ -30,9 +30,17 @@ import PrivacyPolicy from "../pages/PrivacyPolicy";
 import Terms from "../pages/Terms";
 // import Status from "../pages/Status";
 
+import SelectPlan from "../pages/SelectPlan";
+import Payment    from "../pages/Payment";
+
+import ScrollToTop from "../ScrollToTop"; 
+
 function App() {
   return (
+     <>
+      <ScrollToTop />
     <Routes>
+    
       {/* Public Routes */}
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<Login />} />
@@ -56,7 +64,23 @@ function App() {
       <Route path="/terms"         element={<Terms />}        />
       {/* <Route path="/status"        element={<Status />}       /> */}
 
-
+ {/* ✅ Plan & Payment Routes */}
+      <Route
+        path="/select-plan"
+        element={
+          <ProtectedRoute>
+            <SelectPlan />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/payment"
+        element={
+          <ProtectedRoute>
+            <Payment />
+          </ProtectedRoute>
+        }
+      />
 
       {/* Protected Tenant Dashboard Routes */}
       <Route 
@@ -80,6 +104,7 @@ function App() {
       {/* Fallback */}
       <Route path="*" element={<NotFound />} />
     </Routes>
+     </>
   );
 }
 

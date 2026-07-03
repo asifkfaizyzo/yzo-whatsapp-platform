@@ -1,30 +1,57 @@
+// modules/contacts/contactRoutes.js
+
 import express from 'express';
 import { verifyTenantOrUser } from '../../middlewares/authVerfyTenOrUser.js';
+import { verifyTenant } from '../../middlewares/authTenant.js';
 import { upload } from '../../config/multerConfig.js';
+import validate from '../../middlewares/validate.middleware.js';
+// import prisma from '../../config/prisma.js';
+
+// ✅ All controllers from contactController.js
 import {
-      importContactsController, assignContactsByPriority, createContactController,
-      getAllContactsController, getContactByIdController, updateContactController,
-      deleteContactController, blockContactController, unblockContactController,
-      addTagToContactController, getContactsByUser
+    importContactsController,
+    assignContactsByPriority,
+    createContactController,
+    getAllContactsController,
+    getContactByIdController,
+    updateContactController,
+    deleteContactController,
+    blockContactController,
+    unblockContactController,
+    addTagToContactController,
+    removeTagFromContactController,
+    getContactsByUser
 } from './contactController.js';
 
-import validate from '../../middlewares/validate.middleware.js';
-import { createContactSchema, updateContactSchema, contactIdParamSchema } from '../../validations/contact.validation.js';
-import { addTagToContact, removeTagFromContact } from './contactCrudService.js';
-import { verifyTenant } from '../../middlewares/authTenant.js';
+// ✅ Validation schemas
+import {
+    createContactSchema,
+    updateContactSchema,
+    contactIdParamSchema
+} from '../../validations/contact.validation.js';
 
+// ✅ Import tag functions from contactCrudService
+import {
+    removeTagFromContact,
+    checkContactTagMapping
+} from './contactCrudService.js';
+
+import { createNotification } from '../notifications/notificationService.js';
+import { emitToTenant } from '../../lib/socket.js';
+
+import { getTagById } from './contactCrudService.js';
 
 const router = express.Router();
 
-
+// ===================== CONTACT CRUD =====================
 router.post('/create-contact', verifyTenantOrUser, validate(createContactSchema), createContactController);
 
 router.get('/get-all-contacts', verifyTenantOrUser, getAllContactsController);
-//get all contacts by user id
+
 router.get('/by-user/:userId', verifyTenant, getContactsByUser);
-//importing CSV file
+
 router.post('/import', verifyTenant, upload.single('file'), importContactsController);
-// fetching contact by id
+
 router.get('/get-contact/:id', verifyTenantOrUser, validate(contactIdParamSchema), getContactByIdController);
 
 router.put('/update-contact/:id', verifyTenantOrUser, validate(updateContactSchema), updateContactController);
@@ -35,13 +62,16 @@ router.patch('/block-contact/:id', verifyTenantOrUser, validate(contactIdParamSc
 
 router.patch('/unblock-contact/:id', verifyTenantOrUser, validate(contactIdParamSchema), unblockContactController);
 
+// ===================== PRIORITY ASSIGNMENT =====================
+router.patch('/assign-by-priority', verifyTenant, assignContactsByPriority);
 
-
-
-// Add Tags to Your Existing Contacts
+// ===================== TAGS =====================
+// Add tag to contact
 router.post('/:contactId/tags', verifyTenantOrUser, addTagToContactController);
 
-//assign contact by priority
-router.patch('/assign-by-priority', verifyTenant, assignContactsByPriority);
+// Delete tag from contact 
+// router.delete('/:contactId/tags/:tagId', verifyTenantOrUser, removeTagFromContact);
+// ✅ TEST - Remove middleware temporarily
+router.delete('/:contactId/tags/:tagId', verifyTenantOrUser, removeTagFromContactController);
 
 export default router;

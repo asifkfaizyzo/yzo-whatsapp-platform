@@ -40,7 +40,7 @@ export default function RegisterPage() {
       address: "",
     },
     onSubmitService: registerTenant,
-    onSuccess: () => navigate("/dashboard"),
+    onSuccess: () => navigate("/select-plan"),
   });
 
   return (

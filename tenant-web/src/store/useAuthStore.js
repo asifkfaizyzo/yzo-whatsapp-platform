@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import axios from 'axios';
 
-// ─── Helper ───────────────────────────────────────────────────────────────────
 const getAuthConfig = (userType) => {
   const isUser = userType === 'USER';
   return {
@@ -13,20 +12,36 @@ const getAuthConfig = (userType) => {
   };
 };
 
-// ─── Store ────────────────────────────────────────────────────────────────────
-export const useAuthStore = create((set, get) => ({
+export const useAuthStore = create((set) => ({
   user: null,
   accessToken: null,
   isAuthenticated: false,
   isLoading: true,
+  isHydrated: false,
 
-  // ── Initialize Auth on App Mount ──────────────────────────────────────────
   checkAuth: async () => {
     set({ isLoading: true });
+
     try {
       const userType = localStorage.getItem('user_type');
+
+      // No session stored
+      if (!userType) {
+        set({
+          user: null,
+          accessToken: null,
+          isAuthenticated: false,
+          isLoading: false,
+          isHydrated: true,
+        });
+        return;
+      }
+
       const { baseUrl, refreshEndpoint } = getAuthConfig(userType);
 
+      // ✅ Now each userType reads its OWN cookie automatically
+      // TENANT → sends tenant_refresh_token cookie
+      // USER   → sends user_refresh_token cookie
       const response = await axios.post(
         `${baseUrl}${refreshEndpoint}`,
         {},
@@ -35,7 +50,6 @@ export const useAuthStore = create((set, get) => ({
 
       const isUser = userType === 'USER';
 
-      // ✅ Prefer getting user data from server response
       const accessToken = isUser
         ? response.data.data.accessToken
         : response.data.accessToken;
@@ -44,14 +58,19 @@ export const useAuthStore = create((set, get) => ({
         ? response.data.data.user
         : response.data.user;
 
-      // Fallback to localStorage only if server doesn't return user
-      const userData = serverUser || JSON.parse(localStorage.getItem('user') || 'null');
+      const userData =
+        serverUser ||
+        JSON.parse(localStorage.getItem('user') || 'null');
 
       if (!userData) {
         throw new Error('User metadata not found');
       }
 
-      // Keep localStorage in sync with fresh server data
+      // ✅ Verify the returned type matches what we expected
+      if (userData.type !== userType) {
+        throw new Error('User type mismatch — clearing session');
+      }
+
       localStorage.setItem('user', JSON.stringify(userData));
 
       set({
@@ -59,14 +78,15 @@ export const useAuthStore = create((set, get) => ({
         accessToken,
         isAuthenticated: true,
         isLoading: false,
+        isHydrated: true,
       });
+
     } catch (error) {
-          console.log('Refresh Failed:', error.response?.data);
-    console.log('Status:', error.response?.status);
+      console.log('Refresh Failed:', error.response?.data || error.message);
+
       const status = error.response?.status;
 
       if (!status || status === 401 || status === 403) {
-        // Expired or invalid session → clear everything
         localStorage.removeItem('user');
         localStorage.removeItem('user_type');
         set({
@@ -74,16 +94,14 @@ export const useAuthStore = create((set, get) => ({
           accessToken: null,
           isAuthenticated: false,
           isLoading: false,
+          isHydrated: true,
         });
       } else {
-        // Network/server error → don't force logout
-        console.error('Auth check failed (non-auth error):', error);
-        set({ isLoading: false });
+        set({ isLoading: false, isHydrated: true });
       }
     }
   },
 
-  // ── Login ─────────────────────────────────────────────────────────────────
   login: (userData, token) => {
     localStorage.setItem('user', JSON.stringify(userData));
     localStorage.setItem('user_type', userData.type);
@@ -92,23 +110,22 @@ export const useAuthStore = create((set, get) => ({
       accessToken: token,
       isAuthenticated: true,
       isLoading: false,
+      isHydrated: true,
     });
   },
 
-  // ── Logout ────────────────────────────────────────────────────────────────
   logout: async () => {
     set({ isLoading: true });
     try {
       const userType = localStorage.getItem('user_type');
       const { baseUrl, logoutEndpoint } = getAuthConfig(userType);
-
       await axios.post(
         `${baseUrl}${logoutEndpoint}`,
         {},
         { withCredentials: true }
       );
     } catch (error) {
-      console.error('Logout error on server:', error);
+      console.error('Logout error:', error);
     } finally {
       localStorage.removeItem('user');
       localStorage.removeItem('user_type');
@@ -117,6 +134,7 @@ export const useAuthStore = create((set, get) => ({
         accessToken: null,
         isAuthenticated: false,
         isLoading: false,
+        isHydrated: true,
       });
     }
   },

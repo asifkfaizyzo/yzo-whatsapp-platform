@@ -17,7 +17,7 @@ export default function HeroSection() {
                        text-gray-900 leading-tight mb-6">
           Broadcast Messages to{" "}
           <span className="text-[#125EF2]">Thousands</span>
-          {" "}— Instantly
+          {" "}Instantly
         </h1>
 
         {/* Sub Text */}

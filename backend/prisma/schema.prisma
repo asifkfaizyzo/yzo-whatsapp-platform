@@ -51,6 +51,10 @@ model Tenant {
   planId      String?
   plan        SubscriptionPlan? @relation("TenantSubscription", fields: [planId], references: [id])
 
+  planActivatedAt DateTime?
+  billingType     String?   @default("monthly") // monthly / annual
+  planStatus      String?   @default("inactive") // inactive / active / expired
+  
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -263,6 +267,12 @@ model Conversation {
   reopenedAt    DateTime?
   lastMessageAt DateTime?
 
+   // ── Archive ── 
+  isArchived    Boolean   @default(false)
+  archivedAt    DateTime?
+  archivedBy    String?   // userId or tenantId who archived
+  archivedByRole String?  // "TENANT" | "USER"
+
   messages  Message[]
   activities    ConversationActivity[]
 
@@ -271,28 +281,72 @@ model Conversation {
 
   @@index([contactId])
   @@index([tenantId, status])
+   @@index([tenantId, isArchived])
 }
 
 
 
 //──────Model Message──────
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+  VIDEO
+  AUDIO
+}
+
+enum SenderType {
+  SUPER_ADMIN
+  TENANT
+  USER  
+  CONTACT
+  SYSTEM
+}
+
+enum MessageDirection {
+  INBOUND       // contact → platform
+  OUTBOUND      // platform → contact
+}
+
 model Message {
-  id             String       @id @default(cuid())
+  id             String           @id @default(cuid())
   conversationId String
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversation   Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
-  senderId       String?      // Agent ID (null = sent by contact/customer)
-  senderType     String      
+  // ── Sender ──
+  senderId       String?          // null if contact
+  senderType     SenderType       // SUPER_ADMIN / TENANT / AGENT / CONTACT / SYSTEM
 
-  text           String
-  type           String @default ("TEXT") // TEXT, IMAGE, FILE
-  isRead         Boolean  @default(false)
+  // ── Direction ──
+  direction      MessageDirection @default(OUTBOUND)
 
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  // ── Content ──
+  text           String?          // optional (media messages may have no text)
+  type           MessageType      @default(TEXT)
+
+  // ── Media ──
+  mediaUrl       String?          // local file path
+  mediaName      String?          // original filename
+  mediaSize      Int?             // bytes
+  mediaMimeType  String?          // image/jpeg, application/pdf
+  caption        String?          // optional caption
+
+  // ── Status ──
+  isRead         Boolean          @default(false)
+  status         String       @default("sent") 
+
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
 
   @@index([conversationId])
-  @@index([senderType]) 
+  @@index([senderType])
+  @@index([direction])
+
+   // ── Soft Delete ──
+  isDeleted      Boolean          @default(false)
+  deletedAt      DateTime?
+  deletedBy      String?          // id of who deleted
+  deletedByRole  String?          // "TENANT" | "AGENT"
 }
 
 
@@ -606,4 +660,23 @@ model BroadcastRecipient {
   @@index([broadcastId, status])
   @@index([wamid])
   @@index([status])
+}
+
+
+
+//──────────────────Model Notification──────────────────
+model Notification {
+  id             String   @id @default(cuid())
+  tenantId       String
+  userId         String?  // null = for tenant admin
+  type           String   // new_message / contact_assigned / conversation_reopened / broadcast_completed
+  title          String
+  message        String
+  isRead         Boolean  @default(false)
+  metadata       Json?    // extra data like conversationId, contactId
+  createdAt      DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([isRead])
 }

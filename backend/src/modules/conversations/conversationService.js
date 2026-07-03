@@ -2,6 +2,8 @@ import bcrypt from 'bcrypt';
 import pkg from '@prisma/client';
 import prisma from '../../config/prisma.js';
 import { logActivity } from '../activity/activityService.js';
+import { emitToTenant } from "../../lib/socket.js";
+import { createNotification } from "../notifications/notificationService.js";
 
 
 //AUTO / MANUAL: Get or create conversation
@@ -68,52 +70,51 @@ export const getAssignedConversations = async ({
   assignmentType,
 }) => {
   try {
+    console.log("🔥 SERVICE called with:", { userId, tenantId, status, assignmentType });
+
     const skip = (page - 1) * limit;
     const whereClause = {
       tenantId: tenantId,
     };
+    whereClause.isArchived = false;
 
-// Filter by status
-if (status === 'CLOSED') {
-  whereClause.status = { in: ['CLOSED', 'RESOLVED'] };
-} else if (status === 'OPEN') {
-  whereClause.status = 'OPEN';
-}
+    console.log("🔥 whereClause:", JSON.stringify(whereClause));
 
-// ── if status is 'ALL' or undefined → no status filter → return ALL statuses ──
-// Filter by assignment
-    const assignType = assignmentType || (userId ? 'my' : 'all');
-    if (assignType === 'my' && userId) {
-      whereClause.contact = {
-        assignedTo: userId,
-      };
-    } else if (assignType === 'assigned') {
-      whereClause.contact = {
-        assignedTo: { not: null },
-      };
-    } else if (assignType === 'unassigned') {
-      whereClause.contact = {
-        assignedTo: null,
-      };
+    if (status === 'CLOSED') {
+      whereClause.status = { in: ['CLOSED', 'RESOLVED'] };
+    } else if (status === 'OPEN') {
+      whereClause.status = 'OPEN';
     }
 
-    // 🔥 STEP 4: MAIN QUERY (INBOX)
+    const assignType = assignmentType || (userId ? 'my' : 'all');
+    if (assignType === 'my' && userId) {
+      whereClause.contact = { assignedTo: userId };
+    } else if (assignType === 'assigned') {
+      whereClause.contact = { assignedTo: { not: null } };
+    } else if (assignType === 'unassigned') {
+      whereClause.contact = { assignedTo: null };
+    }
+
+    console.log("🔥 Final whereClause:", JSON.stringify(whereClause));
+    console.log("🔥 About to query conversations...");
+
+    // ── MAIN QUERY ──
     const conversations = await prisma.conversation.findMany({
       where: whereClause,
       include: {
         contact: {
           select: {
-            id: true,
-            name: true,
-            phone: true,
+            id:        true,
+            name:      true,
+            phone:     true,
             assignedTo: true,
-            email: true,
-            company: true,
+            email:     true,
+            company:   true,
             isBlocked: true,
             contactTags: {
               include: {
-                tag: true
-              }
+                tag: true,
+              },
             },
           },
         },
@@ -121,23 +122,23 @@ if (status === 'CLOSED') {
           orderBy: { createdAt: "desc" },
           take: 1,
           select: {
-            id: true,
-            text: true,
+            id:        true,
+            text:      true,
             createdAt: true,
           },
         },
       },
-      orderBy: {
-        updatedAt: "desc",
-      },
+      orderBy: { updatedAt: "desc" },
       skip,
       take: limit,
     });
 
-    // 🔥 STEP 5: COUNT QUERY
+    console.log("🔥 Conversations found:", conversations.length);
+
     const total = await prisma.conversation.count({
       where: whereClause,
     });
+
     return {
       conversations,
       total,
@@ -145,8 +146,10 @@ if (status === 'CLOSED') {
       limit,
       totalPages: Math.ceil(total / limit),
     };
+
   } catch (error) {
-    console.error("❌ SERVICE ERROR:", error);
+    console.error("❌ SERVICE ERROR message:", error.message);
+    console.error("❌ SERVICE ERROR stack:", error.stack);
     throw error;
   }
 };
@@ -158,7 +161,7 @@ if (status === 'CLOSED') {
 export const getMessages = async (params) => {
   const { conversationId, limit = 30, before } = params;
 
-  // 🔍 Step 1: Check if conversation exists
+  // Step 1: Check if conversation exists
   const conversation = await prisma.conversation.findUnique({
     where: { id: conversationId },
   });
@@ -167,12 +170,14 @@ export const getMessages = async (params) => {
     throw new Error("Conversation not found");
   }
 
-  // 🔍 Step 2: Build filter
+  // Step 2: Build filter
   const where = {
     conversationId,
+    // ✅ NO isDeleted filter here
+    // Fetch ALL messages including deleted ones
+    // Frontend will show placeholder for deleted ones
   };
 
-  // If user scrolls up (pagination)
   if (before) {
     const beforeMessage = await prisma.message.findUnique({
       where: { id: before },
@@ -184,30 +189,47 @@ export const getMessages = async (params) => {
       };
     }
   }
-  // 🔍 Step 3: Fetch messages
+
+  // Step 3: Fetch messages
   const messages = await prisma.message.findMany({
     where,
     orderBy: {
-      createdAt: "desc", // newest first
+      createdAt: "desc",
     },
-    take: limit + 1, // extra for "hasMore"
+    take: limit + 1,
   });
 
-  // 🔍 Step 4: Check pagination
+  // Step 4: Check pagination
   const hasMore = messages.length > limit;
   const actualMessages = hasMore ? messages.slice(0, limit) : messages;
 
-  // 🔍 Step 5: Convert to chat order (old → new)
+  // Step 5: Convert to chat order (old → new)
   const orderedMessages = actualMessages.reverse();
 
-  // 🔍 Step 6: Format output (frontend friendly)
+  // Step 6: Format output
   const formattedMessages = orderedMessages.map((msg) => ({
-    id: msg.id,
-    text: msg.text,
-    senderId: msg.senderId,
-    isFromCustomer: msg.senderId ? false : true,
-    mediaUrl: msg.mediaUrl || null,
-    createdAt: msg.createdAt,
+    id:             msg.id,
+    senderId:       msg.senderId,
+    isFromCustomer: msg.senderType === "CONTACT",
+    type:           msg.type || "TEXT",
+    direction:      msg.direction || null,
+    senderType:     msg.senderType || null,
+    isRead:         msg.isRead,
+    status:         msg.status || "sent",
+    createdAt:      msg.createdAt,
+
+    // ✅ If deleted → send null for all content
+    // Frontend will show "🚫 This message was deleted"
+    text:          msg.isDeleted ? null : msg.text,
+    mediaUrl:      msg.isDeleted ? null : (msg.mediaUrl || null),
+    mediaName:     msg.isDeleted ? null : (msg.mediaName || null),
+    mediaSize:     msg.isDeleted ? null : (msg.mediaSize || null),
+    mediaMimeType: msg.isDeleted ? null : (msg.mediaMimeType || null),
+    caption:       msg.isDeleted ? null : (msg.caption || null),
+
+    // ✅ Always send these — frontend needs them
+    isDeleted:     msg.isDeleted,
+    deletedAt:     msg.deletedAt,
   }));
 
   return {
@@ -215,6 +237,8 @@ export const getMessages = async (params) => {
     hasMore,
   };
 };
+
+
 
 // Update conversation status (resolve/close/reopen)
 export const updateConversationStatus = async ({ conversationId, tenantId, status, agentId, userType }) => {
@@ -240,6 +264,19 @@ export const updateConversationStatus = async ({ conversationId, tenantId, statu
   } else if (status === 'CLOSED') {
     updateData.closedAt = new Date();
   } else if (status === 'OPEN') {
+    const notification = await createNotification({
+    tenantId,
+    userId:  null,  // notify all
+    type:    "conversation_reopened",
+    title:   "Conversation Reopened",
+    message: `A conversation has been reopened`,
+    metadata: {
+      conversationId,
+    },
+  });
+
+  emitToTenant(tenantId, "new_notification", { notification });
+
     updateData.resolvedAt = null;
     updateData.closedAt = null;
     updateData.reopenedAt = new Date();
@@ -263,3 +300,204 @@ export const updateConversationStatus = async ({ conversationId, tenantId, statu
   return updated;
 };
 
+
+
+
+// ── Archive Conversation ──────────────────────────────────
+export const archiveConversation = async ({
+  conversationId,
+  tenantId,
+  requesterId,
+  requesterRole,
+}) => {
+
+  // Find conversation
+  const conversation = await prisma.conversation.findFirst({
+    where: {
+      id:       conversationId,
+      tenantId: tenantId,
+    },
+  });
+
+  if (!conversation) {
+    throw new Error("Conversation not found");
+  }
+
+  if (conversation.isArchived) {
+    throw new Error("Conversation already archived");
+  }
+
+  // Archive it
+  const archived = await prisma.conversation.update({
+    where: { id: conversationId },
+    data: {
+      isArchived:    true,
+      archivedAt:    new Date(),
+      archivedBy:    requesterId,
+      archivedByRole: requesterRole,
+    },
+  });
+
+  // Log activity
+  await logActivity({
+    conversationId,
+    action:          "archived",
+    performedBy:     requesterId,
+    performedByType: requesterRole === "TENANT" ? "tenant" : "agent",
+  });
+
+  return archived;
+};
+
+
+// ── Unarchive Conversation ────────────────────────────────
+export const unarchiveConversation = async ({
+  conversationId,
+  tenantId,
+  requesterId,
+  requesterRole,
+}) => {
+
+  const conversation = await prisma.conversation.findFirst({
+    where: {
+      id:       conversationId,
+      tenantId: tenantId,
+    },
+  });
+
+  if (!conversation) {
+    throw new Error("Conversation not found");
+  }
+
+  if (!conversation.isArchived) {
+    throw new Error("Conversation is not archived");
+  }
+
+  const unarchived = await prisma.conversation.update({
+    where: { id: conversationId },
+    data: {
+      isArchived:    false,
+      archivedAt:    null,
+      archivedBy:    null,
+      archivedByRole: null,
+    },
+  });
+
+  await logActivity({
+    conversationId,
+    action:          "unarchived",
+    performedBy:     requesterId,
+    performedByType: requesterRole === "TENANT" ? "tenant" : "agent",
+  });
+
+  return unarchived;
+};
+
+
+// ── Delete Conversation (TENANT only) ────────────────────
+export const deleteConversation = async ({
+  conversationId,
+  tenantId,
+  requesterId,
+  requesterRole,
+}) => {
+
+  // Only TENANT can delete
+  if (requesterRole !== "TENANT") {
+    throw new Error("Unauthorized: Only tenant can delete conversations");
+  }
+
+  // Find conversation
+  const conversation = await prisma.conversation.findFirst({
+    where: {
+      id:       conversationId,
+      tenantId: tenantId,   // tenant boundary check
+    },
+  });
+
+  if (!conversation) {
+    throw new Error("Conversation not found");
+  }
+
+  // Hard delete — Prisma cascade will delete messages too
+  // (onDelete: Cascade is set on Message model)
+  await prisma.conversation.delete({
+    where: { id: conversationId },
+  });
+
+  console.log("🗑️ Conversation hard deleted:", conversationId);
+
+  return { deleted: true, conversationId };
+};
+
+
+// ── Get Archived Conversations ────────────────────────────
+export const getArchivedConversations = async ({
+  tenantId,
+  userId,
+  page,
+  limit,
+}) => {
+
+  const skip = (page - 1) * limit;
+
+  const whereClause = {
+    tenantId:   tenantId,
+    isArchived: true,       // ← only archived
+  };
+
+  // If USER → only their assigned contacts
+  if (userId) {
+    whereClause.contact = {
+      assignedTo: userId,
+    };
+  }
+
+  const conversations = await prisma.conversation.findMany({
+    where: whereClause,
+    include: {
+      contact: {
+        select: {
+          id:        true,
+          name:      true,
+          phone:     true,
+          assignedTo: true,
+          email:     true,
+          company:   true,
+          isBlocked: true,
+          contactTags: {
+            include: { tag: true },
+          },
+        },
+      },
+      messages: {
+        where: {
+          isDeleted: false,
+        },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: {
+          id:        true,
+          text:      true,
+          createdAt: true,
+          isDeleted: true,
+        },
+      },
+    },
+    orderBy: { archivedAt: "desc" },
+    skip,
+    take: limit,
+  });
+
+  const total = await prisma.conversation.count({
+    where: whereClause,
+  });
+
+  return {
+    conversations,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+  };
+};

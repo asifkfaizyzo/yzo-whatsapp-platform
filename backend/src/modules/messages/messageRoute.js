@@ -12,4 +12,9 @@ router.post('/incoming', messageController.incomingMessageController)
 //Send Message Tenant to contact
 router.post("/contacts/:contactId/messages",verifyTenantOrUser,messageController.sendMessage);
 
+//route for Tenant / Agent / → Contact
+router.post("/contacts/:contactId/messages/media", verifyTenantOrUser, messageController.sendMediaMessage);
+//Delete message by messageId
+router.delete("/:messageId",verifyTenantOrUser,messageController.deleteMessageController);
+
 export default router;

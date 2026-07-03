@@ -1,10 +1,12 @@
 import bcrypt from 'bcrypt';
-import pkg from '@prisma/client';
 import prisma from '../../config/prisma.js';
 
 import { getOrCreateConversation } from '../conversations/conversationService.js';
 import { evaluateReopen } from '../auto-reopen/autoReopenService.js';
 import { logActivity } from '../activity/activityService.js';
+import { validateMedia, detectMediaType } from "../../lib/utils/mediaValidator.js";
+import { createNotification } from "../notifications/notificationService.js";
+import { emitToTenant } from "../../lib/socket.js";
 
 
 
@@ -62,6 +64,11 @@ export const handleIncomingMessage = async ({
   tenantId,
   text,
   type = 'TEXT',
+   mediaUrl,
+  mediaName,
+  mediaSize,
+  mediaMimeType,
+  caption,
 }) => {
 
   // Check if contact is blocked
@@ -140,11 +147,38 @@ export const handleIncomingMessage = async ({
       conversationId: conversation.id,
       senderId: null,
       senderType: "CONTACT",
+      direction: "INBOUND",       
+      text: text || null, 
       text,
       type,
       isRead: false,
+      mediaUrl: mediaUrl || null,
+      mediaName: mediaName || null,
+      mediaSize: mediaSize || null,
+      mediaMimeType: mediaMimeType || null,
+      caption: caption || null,
     },
   })
+
+  
+// create notification
+const notification = await createNotification({
+  tenantId,
+  userId:   null, // null = notify all tenant users
+  type:     "new_message",
+  title:    "New Message",
+  message:  `New message from ${contact.name || contact.phone}`,
+  metadata: {
+    conversationId: conversation.id,
+    contactId,
+    contactName: contact.name || contact.phone,
+  },
+});
+
+// Emit notification via socket
+emitToTenant(tenantId, "new_notification", {
+  notification,
+});
 
   const updatedConversation = await prisma.conversation.findUnique({
     where: { id: conversation.id },
@@ -261,9 +295,151 @@ export const sendMessageService = async ({
       senderType,
       text,
       type: "TEXT",
+      status: "sent",
       isRead: false,
     },
   });
 
   return message;
+};
+
+
+
+
+//send Media Message Service
+export const sendMediaMessageService = async ({
+  contactId,
+  conversationId,
+  senderId,
+  senderType,
+  file,
+  caption,
+}) => {
+
+  // 1. Detect media type
+  const mediaType = detectMediaType(file.mimetype);
+
+  if (!mediaType) {
+    throw new Error("Unsupported file type");
+  }
+
+  // 2. Validate file
+  const validation = validateMedia(
+    file.originalname,
+    file.mimetype,
+    file.size,
+    mediaType
+  );
+
+  if (!validation.valid) {
+    throw new Error(validation.error);
+  }
+
+  // 3. Build file URL
+  const mediaUrl = `/${file.path.replace(/\\/g, "/")}`;
+
+  // 4. Save message in DB
+  const message = await prisma.message.create({
+    data: {
+      conversationId,
+      senderId,
+      senderType,
+      direction:     "OUTBOUND",
+      type:          mediaType,        // IMAGE / FILE / VIDEO / AUDIO
+      text:          null,
+      caption:       caption || null,
+      mediaUrl:      mediaUrl,
+      mediaName:     file.originalname,
+      mediaSize:     file.size,
+      mediaMimeType: file.mimetype,
+      status:"sent",
+      isRead:        false,
+    },
+  });
+
+  return message;
+};
+
+
+
+// Soft Delete Message Service
+export const deleteMessageService = async ({
+  messageId,
+  requesterId,
+  requesterRole,  // "SUPER_ADMIN" | "TENANT" | "AGENT"
+  tenantId,       // tenant context (from token)
+}) => {
+
+  // ── Step 1: Find the message ──────────────────────────────
+  const message = await prisma.message.findUnique({
+    where: { id: messageId },
+    include: {
+      conversation: true, // need tenantId from conversation
+    },
+  });
+
+  if (!message) {
+    throw new Error("Message not found");
+  }
+
+  // ── Step 2: Check if already deleted ─────────────────────
+  if (message.isDeleted) {
+    throw new Error("Message already deleted");
+  }
+
+  // ── Step 3: Permission Check ──────────────────────────────
+  /*
+    TENANT      → can delete any message in THEIR tenant
+    AGENT       → can only delete messages THEY sent
+  */
+
+  const messageTenantId = message.conversation.tenantId;
+
+   if (requesterRole === "TENANT") {
+    // ✅ Tenant can delete any message in their own tenant
+    if (messageTenantId !== tenantId) {
+      throw new Error("Unauthorized: This message does not belong to your tenant");
+    }
+    console.log("🔑 Tenant deleting message:", messageId);
+
+  } else if (requesterRole === "AGENT") {
+    // ✅ Agent can only delete their own sent messages
+    if (messageTenantId !== tenantId) {
+      throw new Error("Unauthorized: This message does not belong to your tenant");
+    }
+
+    // Agent cannot delete contact's inbound messages
+    if (message.senderType === "CONTACT") {
+      throw new Error("Unauthorized: You cannot delete a contact's message");
+    }
+
+    // Agent cannot delete another agent's or tenant's message
+    if (message.senderId !== requesterId) {
+      throw new Error("Unauthorized: You can only delete your own messages");
+    }
+
+    console.log("🔑 Agent deleting their own message:", messageId);
+
+  } else {
+    throw new Error("Unauthorized: Unknown role");
+  }
+
+  // ── Step 4: Soft Delete ───────────────────────────────────
+  const deletedMessage = await prisma.message.update({
+    where: { id: messageId },
+    data: {
+      isDeleted:     true,
+      deletedAt:     new Date(),
+      deletedBy:     requesterId,
+      deletedByRole: requesterRole,
+    },
+  });
+
+  console.log("🗑️ Message soft deleted:", messageId);
+
+  return {
+    deletedMessage,
+    conversationId: message.conversationId,
+    tenantId:       messageTenantId,
+  };
 };

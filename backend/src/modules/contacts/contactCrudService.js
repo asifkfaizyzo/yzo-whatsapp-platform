@@ -481,7 +481,20 @@ export const importContactsFromCSV = async (filePath, tenantId) => {
     if (!filePath) throw new Error('CSV file path is missing');
     if (!tenantId) throw new Error('Tenant ID is missing');
 
+    // ✅ Helper to safely delete the temp file
+    const deleteTempFile = () => {
+        try {
+            if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
+                console.log(`🗑️ Temp file deleted: ${filePath}`);
+            }
+        } catch (err) {
+            console.error(`⚠️ Failed to delete temp file: ${filePath}`, err.message);
+        }
+    };
+
     // 1. Read CSV
+    try{ 
     const rows = await new Promise((resolve, reject) => {
         const results = [];
         fs.createReadStream(filePath)
@@ -675,10 +688,20 @@ if (summary.createdContacts.length > 0) {
         }
     }
 }
-    console.log('🏁 Import Summary:', summary);
+     console.log('🏁 Import Summary:', summary);
+
+    // ✅ Delete the temp file after successful import
+    deleteTempFile();
+
     return { message: 'CSV import completed', summary };
 }
-
+ catch (err) {
+        // ✅ Delete file even if something crashes
+        deleteTempFile();
+        console.error('❌ CSV Import failed:', err.message);
+        throw err;
+    }
+}
 
 // ======== Cascading Priority + Round Robin Assignment ========
 export const assignContactByPriority = async (contactId, tenantId) => {
