@@ -112,8 +112,9 @@ export default function Payment() {
 
         // Prefill tenant details
         prefill: {
-          name:  user?.name  || "",
-          email: user?.email || "",
+          name:    user?.tenantName || user?.name || "",
+          email:   user?.email || "",
+          contact: user?.phone || "",
         },
 
         // Theme color

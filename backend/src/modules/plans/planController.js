@@ -173,6 +173,18 @@ export const createPaymentOrder = async (req, res) => {
       });
     }
 
+    if (
+      !process.env.RAZORPAY_KEY_ID ||
+      !process.env.RAZORPAY_KEY_SECRET ||
+      process.env.RAZORPAY_KEY_ID.includes("xxxx")
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Razorpay API keys are not configured in backend/.env. Please set valid RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.",
+      });
+    }
+
     // Get plan
     const plan = await prisma.subscriptionPlan.findUnique({
       where: { id: planId },
@@ -198,7 +210,7 @@ export const createPaymentOrder = async (req, res) => {
     const order = await razorpay.orders.create({
       amount: amountInPaise,
       currency: "INR",
-      receipt: `rcpt_${tenantId}_${Date.now()}`,
+      receipt: `rcpt_${Date.now()}_${tenantId.slice(0, 8)}`,
       notes: {
         tenantId,
         planId,
