@@ -5,7 +5,7 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   const { isAuthenticated, user, isLoading, isHydrated } = useAuthStore();
   const location = useLocation();
 
-    // ← ADD THESE
+  // ← ADD THESE
   console.log('=== ProtectedRoute CHECK ===');
   console.log('pathname:', location.pathname);
   console.log('isHydrated:', isHydrated);
@@ -25,6 +25,9 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
 
   // ❌ Not logged in
   if (!isAuthenticated || !user) {
+    if (location.pathname === '/register') {
+      return children;
+    }
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
@@ -38,10 +41,27 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   const isPlanPage =
     location.pathname === '/select-plan' ||
     location.pathname === '/payment' ||
-     location.pathname === '/checkout';
+    location.pathname === '/checkout';
+  // ❌ Incomplete onboarding → force them to the registration/onboarding page
+  if (user?.type === 'TENANT' && !user?.onboardingCompleted) {
+    if (location.pathname !== '/register') {
+      return <Navigate to="/register" replace />;
+    }
+  } else if (user?.type === 'TENANT' && user?.onboardingCompleted) {
+    // Already finished onboarding → prevent accessing register page
+    if (location.pathname === '/register') {
+      return <Navigate to="/dashboard" replace />;
+    }
 
-  if (user.type === 'TENANT' && !user.planId && !isPlanPage) {
-    return <Navigate to="/select-plan" replace />;
+    // ✅ No plan → select plan (only check if onboarding is fully completed!)
+    const isPlanPage =
+      location.pathname === '/select-plan' ||
+      location.pathname === '/payment' ||
+      location.pathname === '/checkout';
+
+    if (!user.planId && !isPlanPage) {
+      return <Navigate to="/select-plan" replace />;
+    }
   }
 
   return children;

@@ -1,4 +1,5 @@
 import prisma from '../../config/prisma.js';
+import { encrypt, decrypt } from '../../lib/crypto.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api2/whatsapp/exchange-token
@@ -210,7 +211,7 @@ export const setupWhatsApp = async (req, res) => {
       data: {
         whatsappPhoneId: phoneNumberId,
         whatsappWabaId: wabaId,
-        whatsappAccessToken: accessToken,
+        whatsappAccessToken: encrypt(accessToken),
       },
     });
 

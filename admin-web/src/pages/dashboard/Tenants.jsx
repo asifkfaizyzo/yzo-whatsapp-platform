@@ -268,10 +268,15 @@ export default function Tenants() {
 
   // Filtering Logic
   const filteredTenants = tenants.filter((tenant) => {
+    if (!tenant) return false;
+    const name = tenant.tenantName || "";
+    const email = tenant.email || "";
+    const phone = tenant.phone || "";
+
     const matchesSearch =
-      tenant.tenantName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tenant.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (tenant.phone && tenant.phone.toLowerCase().includes(searchQuery.toLowerCase()));
+      name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      phone.toLowerCase().includes(searchQuery.toLowerCase());
 
     let matchesStatus = true;
     if (statusFilter === "Active") {
@@ -371,8 +376,8 @@ export default function Tenants() {
                   key={tab}
                   onClick={() => setStatusFilter(tab)}
                   className={`px-3 py-1 rounded-lg text-xs font-semibold transition duration-150 ${statusFilter === tab
-                      ? "bg-white text-slate-800 shadow-sm"
-                      : "text-gray-500 hover:text-slate-800"
+                    ? "bg-white text-slate-800 shadow-sm"
+                    : "text-gray-500 hover:text-slate-800"
                     }`}
                 >
                   {tab}
@@ -444,7 +449,7 @@ export default function Tenants() {
                       <td className="py-4 px-6 font-medium text-gray-900">
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600 font-bold text-xs flex-shrink-0">
-                            {tenant.tenantName
+                            {(tenant.tenantName || tenant.email || "Unknown")
                               .split(" ")
                               .map((w) => w.charAt(0))
                               .join("")
@@ -452,7 +457,7 @@ export default function Tenants() {
                               .toUpperCase()}
                           </div>
                           <div>
-                            <p className="font-semibold text-gray-900">{tenant.tenantName}</p>
+                            <p className="font-semibold text-gray-900">{tenant.tenantName || tenant.email || "Unknown Tenant"}</p>
                             <p className="text-xs text-gray-400 mt-0.5 font-mono">ID: {tenant.id.substring(0, 8)}...</p>
                           </div>
                         </div>
@@ -523,7 +528,7 @@ export default function Tenants() {
                           {/* Approve Pending */}
                           {tenant.status === "PENDING" && (
                             <button
-                              onClick={() => handleStatusChange(tenant.id, "approve", tenant.tenantName)}
+                              onClick={() => handleStatusChange(tenant.id, "approve", tenant.tenantName || tenant.email || "Unknown Tenant")}
                               className="px-2.5 py-1.5 rounded-lg bg-[#EAF2FE] border border-[#CFE0FD] text-[#0F4FCC] hover:bg-[#CFE0FD] text-xs font-semibold transition duration-150"
                             >
                               Approve
@@ -533,10 +538,10 @@ export default function Tenants() {
                           {/* Deactivate/Reactivate Approved */}
                           {tenant.status === "APPROVED" && (
                             <button
-                              onClick={() => handleToggleActivation(tenant.id, tenant.isActive, tenant.tenantName)}
+                              onClick={() => handleToggleActivation(tenant.id, tenant.isActive, tenant.tenantName || tenant.email || "Unknown Tenant")}
                               className={`px-2.5 py-1.5 rounded-lg border text-xs font-medium transition duration-150 ${tenant.isActive
-                                  ? "bg-white hover:bg-amber-50 border-gray-200 text-amber-600 hover:border-amber-200"
-                                  : "bg-white hover:bg-[#EAF2FE] border-gray-200 text-[#0F4FCC] hover:border-[#CFE0FD]"
+                                ? "bg-white hover:bg-amber-50 border-gray-200 text-amber-600 hover:border-amber-200"
+                                : "bg-white hover:bg-[#EAF2FE] border-gray-200 text-[#0F4FCC] hover:border-[#CFE0FD]"
                                 }`}
                             >
                               {tenant.isActive ? "Suspend" : "Activate"}
@@ -546,14 +551,14 @@ export default function Tenants() {
                           {/* Block/Unblock */}
                           {tenant.status === "BLOCKED" ? (
                             <button
-                              onClick={() => handleStatusChange(tenant.id, "unblock", tenant.tenantName)}
+                              onClick={() => handleStatusChange(tenant.id, "unblock", tenant.tenantName || tenant.email || "Unknown Tenant")}
                               className="px-2.5 py-1.5 rounded-lg bg-white border border-gray-200 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-200 text-xs font-medium transition duration-150"
                             >
                               Unblock
                             </button>
                           ) : (
                             <button
-                              onClick={() => handleStatusChange(tenant.id, "block", tenant.tenantName)}
+                              onClick={() => handleStatusChange(tenant.id, "block", tenant.tenantName || tenant.email || "Unknown Tenant")}
                               className="px-2.5 py-1.5 rounded-lg bg-white border border-gray-200 text-slate-500 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 text-xs font-medium transition duration-150"
                             >
                               Block
@@ -565,8 +570,8 @@ export default function Tenants() {
                             onClick={() => {
                               setEditingTenant({
                                 id: tenant.id,
-                                tenantName: tenant.tenantName,
-                                email: tenant.email,
+                                tenantName: tenant.tenantName || "",
+                                email: tenant.email || "",
                                 phone: tenant.phone || "",
                                 address: tenant.address || "",
                               });
@@ -582,7 +587,7 @@ export default function Tenants() {
 
                           {/* Delete */}
                           <button
-                            onClick={() => handleDeleteTenant(tenant.id, tenant.tenantName)}
+                            onClick={() => handleDeleteTenant(tenant.id, tenant.tenantName || tenant.email || "Unknown Tenant")}
                             className="p-1.5 rounded-lg bg-slate-50 border border-gray-200 text-gray-400 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition duration-150"
                             title="Delete Tenant"
                           >
@@ -833,7 +838,7 @@ export default function Tenants() {
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-slate-50">
               <h3 className="font-bold text-gray-900 flex items-center gap-2">
                 <Users2 className="text-[#125EF2] w-5 h-5" />
-                <span>Users created by: {selectedTenantForUsers.tenantName}</span>
+                <span>Users created by: {selectedTenantForUsers.tenantName || selectedTenantForUsers.email || "Unknown Tenant"}</span>
               </h3>
               <button
                 onClick={() => {
@@ -875,8 +880,8 @@ export default function Tenants() {
                           {/* Status Badge */}
                           <span
                             className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${usr.isActive
-                                ? "bg-[#EAF2FE] text-[#0F4FCC] border border-[#CFE0FD]"
-                                : "bg-slate-100 text-slate-700 border border-slate-200"
+                              ? "bg-[#EAF2FE] text-[#0F4FCC] border border-[#CFE0FD]"
+                              : "bg-slate-100 text-slate-700 border border-slate-200"
                               }`}
                           >
                             <span className={`w-1.5 h-1.5 rounded-full ${usr.isActive ? "bg-[#125EF2]" : "bg-slate-400"}`} />
@@ -887,8 +892,8 @@ export default function Tenants() {
                           <button
                             onClick={() => handleToggleUserActivation(usr.id, usr.isActive, usr.name)}
                             className={`px-2 py-1.5 rounded-lg border text-[10px] font-semibold transition duration-150 ${usr.isActive
-                                ? "bg-white hover:bg-amber-50 border-gray-200 text-amber-600 hover:border-amber-200"
-                                : "bg-white hover:bg-[#EAF2FE] border-gray-200 text-[#0F4FCC] hover:border-[#CFE0FD]"
+                              ? "bg-white hover:bg-amber-50 border-gray-200 text-amber-600 hover:border-amber-200"
+                              : "bg-white hover:bg-[#EAF2FE] border-gray-200 text-[#0F4FCC] hover:border-[#CFE0FD]"
                               }`}
                           >
                             {usr.isActive ? "Deactivate" : "Reactivate"}

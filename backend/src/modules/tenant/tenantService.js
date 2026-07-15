@@ -2,11 +2,12 @@
 import bcrypt from 'bcrypt';
 import prisma from '../../config/prisma.js';
 import jwt from 'jsonwebtoken';
+import { OAuth2Client } from 'google-auth-library';
 
-import { generateAccessToken,generateRefreshToken,verifyAccessToken,verifyRefreshToken } from '../auth/jwtservice.js';
-import { saveRefreshToken, deleteRefreshToken,findRefreshToken } from '../auth/refreshtokenService.js';
-import { generateResetToken,getResetTokenExpiry,sendPasswordResetEmail,} from '../auth/emailService.js';
-import { forgotPasswordService,resetPasswordService, } from '../auth/passwordService.js';
+import { generateAccessToken, generateRefreshToken, verifyAccessToken, verifyRefreshToken } from '../auth/jwtservice.js';
+import { saveRefreshToken, deleteRefreshToken, findRefreshToken } from '../auth/refreshtokenService.js';
+import { generateResetToken, getResetTokenExpiry, sendPasswordResetEmail, } from '../auth/emailService.js';
+import { forgotPasswordService, resetPasswordService, } from '../auth/passwordService.js';
 import { getOrCreateConversation } from "../../modules/conversations/conversationService.js";
 import { AsyncLocalStorage } from 'async_hooks';
 import { emitToTenant } from "../../lib/socket.js";
@@ -14,24 +15,38 @@ import { createNotification } from "../notifications/notificationService.js";
 
 
 // ===========Tenant Registration Service (with Auto-Login)===========
+// ===========Tenant Registration Service (with Auto-Login)===========
 export const registerTenantService = async (data) => {
-  const { tenantName, email, password, phone, address } = data;
+  const {
+    tenantName,
+    email,
+    password,
+    phone,
+    address,
+    firstName,
+    lastName,
+    websiteUrl,
+    industry,
+    companySize,
+    country
+  } = data;
 
   // 1️⃣ Validate input
-  if (!tenantName || !email || !password) {
-    throw new Error('Tenant name, email and password are required');
+  const resolvedTenantName = tenantName || (firstName ? `${firstName}'s Workspace` : (email ? email.split('@')[0] : 'My') + "'s Workspace");
+  if (!email || !password) {
+    throw new Error('Email and password are required');
   }
 
-// 2️⃣ Check global email uniqueness (Tenant, User, SuperAdmin)
-const [emailExistsInTenant, emailExistsInUser, emailExistsInSuperAdmin] = await Promise.all([
-  prisma.tenant.findUnique({ where: { email } }),
-  prisma.user.findUnique({ where: { email } }),
-  prisma.superAdmin.findUnique({ where: { email } }),
-]);
+  // 2️⃣ Check global email uniqueness (Tenant, User, SuperAdmin)
+  const [emailExistsInTenant, emailExistsInUser, emailExistsInSuperAdmin] = await Promise.all([
+    prisma.tenant.findUnique({ where: { email } }),
+    prisma.user.findUnique({ where: { email } }),
+    prisma.superAdmin.findUnique({ where: { email } }),
+  ]);
 
-if (emailExistsInTenant || emailExistsInUser || emailExistsInSuperAdmin) {
-  throw new Error('Email is already registered on the platform');
-}
+  if (emailExistsInTenant || emailExistsInUser || emailExistsInSuperAdmin) {
+    throw new Error('Email is already registered on the platform');
+  }
 
   // 3️⃣ Hash password
   const hashedPassword = await bcrypt.hash(password, 10);
@@ -39,11 +54,17 @@ if (emailExistsInTenant || emailExistsInUser || emailExistsInSuperAdmin) {
   // 4️⃣ Create Tenant
   const tenant = await prisma.tenant.create({
     data: {
-      tenantName,
+      tenantName: resolvedTenantName,
       email,
       password: hashedPassword,
       phone,
       address,
+      firstName,
+      lastName,
+      websiteUrl,
+      industry,
+      companySize,
+      country,
       status: 'PENDING', // New tenants start as PENDING
     },
   });
@@ -72,18 +93,27 @@ if (emailExistsInTenant || emailExistsInUser || emailExistsInSuperAdmin) {
   // 8️⃣ Return data
   return {
     message: 'Tenant registered successfully',
-    user: {
-      id: safeTenant.id,
-      name: safeTenant.tenantName,
-      email: safeTenant.email,
-      type: 'TENANT',
-      status: safeTenant.status,
+    data: {
+      user: {
+        id: safeTenant.id,
+        name: safeTenant.tenantName,
+        email: safeTenant.email,
+        type: 'TENANT',
+        status: safeTenant.status,
+        planId: safeTenant.planId,
+        planStatus: safeTenant.planStatus,
+        billingType: safeTenant.billingType,
+        tenantName: safeTenant.tenantName,
+        firstName: safeTenant.firstName,
+        lastName: safeTenant.lastName,
+        onboardingStep: safeTenant.onboardingStep,
+        onboardingCompleted: safeTenant.onboardingCompleted,
+      },
+      accessToken,
+      refreshToken,
     },
-    accessToken,
-    refreshToken,
   };
 };
-
 
 
 
@@ -95,7 +125,7 @@ export const loginTenantService =
     // 1️⃣ Check input
     if (!email || !password) {
 
-      throw new Error( 'Email and password are required' );
+      throw new Error('Email and password are required');
     }
     // 2️⃣ Find Tenant
     const tenant =
@@ -105,60 +135,68 @@ export const loginTenantService =
 
     // 3️⃣ Check tenant exists
     if (!tenant) {
-      throw new Error( 'Invalid credentials' );
+      throw new Error('Invalid credentials');
     }
 
-  if (tenant.status === 'BLOCKED') {
-    throw new Error('Your account is blocked. Contact support.');
-  }
+    if (tenant.status === 'BLOCKED') {
+      throw new Error('Your account is blocked. Contact support.');
+    }
 
-  if (!tenant.isActive) {
-    throw new Error('Your account has been deactivated');
-  }
+    if (!tenant.isActive) {
+      throw new Error('Your account has been deactivated');
+    }
 
     // 4️⃣ Compare password
-    const isPasswordMatch = await bcrypt.compare( password, tenant.password);
+    if (!tenant.password) {
+      throw new Error('This account uses Google Sign-In. Please log in with Google.');
+    }
+
+    const isPasswordMatch = await bcrypt.compare(password, tenant.password);
 
     if (!isPasswordMatch) {
-    throw new Error( 'Invalid credentials' );
+      throw new Error('Invalid credentials');
     }
 
     // 5️⃣ Generate  Tokens
-  const accessToken = generateAccessToken({
-    id: tenant.id,
-    email: tenant.email,
-    type: 'TENANT',
-  });
+    const accessToken = generateAccessToken({
+      id: tenant.id,
+      email: tenant.email,
+      type: 'TENANT',
+    });
 
-  const refreshToken = generateRefreshToken({
-    id: tenant.id,
-    type: 'TENANT',
-  });
+    const refreshToken = generateRefreshToken({
+      id: tenant.id,
+      type: 'TENANT',
+    });
 
-  // 7️⃣ Save refresh token
-  await saveRefreshToken({
-    token: refreshToken,
-    tenantId: tenant.id,
-  });
+    // 7️⃣ Save refresh token
+    await saveRefreshToken({
+      token: refreshToken,
+      tenantId: tenant.id,
+    });
 
     // 8️⃣ Remove password
-    const {  password: _, ...safeTenant } = tenant;
+    const { password: _, ...safeTenant } = tenant;
 
     // 9️⃣ Return response
     return {
-message: 'Login successful',
-    accessToken,
-    refreshToken,
-    user: {
-      id: safeTenant.id,
-      name: safeTenant.tenantName,
-      email: safeTenant.email,
-      type: 'TENANT', 
-      status: safeTenant.status,
-       planId: safeTenant.planId,          
-       planStatus: safeTenant.planStatus,   
-       billingType: safeTenant.billingType,
-    },
+      message: 'Login successful',
+      accessToken,
+      refreshToken,
+      user: {
+        id: safeTenant.id,
+        name: safeTenant.tenantName,
+        email: safeTenant.email,
+        type: 'TENANT',
+        status: safeTenant.status,
+        planId: safeTenant.planId,
+        planStatus: safeTenant.planStatus,
+        billingType: safeTenant.billingType,
+        onboardingStep: safeTenant.onboardingStep,
+        onboardingCompleted: safeTenant.onboardingCompleted,
+        firstName: safeTenant.firstName,
+        lastName: safeTenant.lastName,
+      },
     };
   };
 
@@ -169,14 +207,14 @@ message: 'Login successful',
 export const logoutTenantService =
   async (refreshToken) => {
 
-      // 1️⃣ Check input
-  if (!refreshToken) {
-    throw new Error('Refresh token required');
-  }
+    // 1️⃣ Check input
+    if (!refreshToken) {
+      throw new Error('Refresh token required');
+    }
 
-  // 2️⃣ Delete token
-  await deleteRefreshToken(refreshToken);
-    
+    // 2️⃣ Delete token
+    await deleteRefreshToken(refreshToken);
+
     return {
       message:
         'Logout successful',
@@ -190,48 +228,48 @@ export const refreshTenantAccessTokenService =
   async (refreshToken) => {
     // Check token
     if (!refreshToken) {
-      throw new Error( 'Refresh token required' );
+      throw new Error('Refresh token required');
     }
 
-  // 2️⃣ Find token in DB
-  const tokenRecord = await findRefreshToken(refreshToken, 'TENANT');
+    // 2️⃣ Find token in DB
+    const tokenRecord = await findRefreshToken(refreshToken, 'TENANT');
 
-  if (!tokenRecord) {
-    throw new Error('Invalid refresh token');
-  }
+    if (!tokenRecord) {
+      throw new Error('Invalid refresh token');
+    }
 
-  // 3️⃣ Check expiry in DB
-  if (tokenRecord.expiresAt < new Date()) {
-    throw new Error('Refresh token expired, please login again');
-  }
+    // 3️⃣ Check expiry in DB
+    if (tokenRecord.expiresAt < new Date()) {
+      throw new Error('Refresh token expired, please login again');
+    }
 
-  // 4️⃣ Verify JWT signature
-  try {
-    verifyRefreshToken(refreshToken);
-  } catch (error) {
-    throw new Error('Invalid refresh token');
-  }
+    // 4️⃣ Verify JWT signature
+    try {
+      verifyRefreshToken(refreshToken);
+    } catch (error) {
+      throw new Error('Invalid refresh token');
+    }
 
-  // 5️⃣ Find Tenant
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: tokenRecord.tenantId },
-  });
+    // 5️⃣ Find Tenant
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tokenRecord.tenantId },
+    });
 
-  if (!tenant) {
-    throw new Error('Tenant not found');
-  }
+    if (!tenant) {
+      throw new Error('Tenant not found');
+    }
 
-  // 6️⃣ Generate new access token only
-  const newAccessToken = generateAccessToken({
-    id: tenant.id,
-    email: tenant.email,
-    type: 'TENANT',
-  });
+    // 6️⃣ Generate new access token only
+    const newAccessToken = generateAccessToken({
+      id: tenant.id,
+      email: tenant.email,
+      type: 'TENANT',
+    });
 
     // 1️⃣1️⃣ Return both new tokens
     return {
       message: 'Token refreshed successfully',
-      accessToken : newAccessToken,
+      accessToken: newAccessToken,
     };
   };
 
@@ -268,26 +306,26 @@ export const createUserService = async (data, tenantId) => {
     throw new Error('Name, email and password are required');
   }
   console.log(data);
-  
-  
+
+
   if (!tenantId) {
     throw new Error('Tenant ID is required');
   }
-console.log("checking emails");
+  console.log("checking emails");
   // 2️⃣ Check global email uniqueness (Tenant, User, SuperAdmin)
   const [emailExistsInTenant, emailExistsInUser, emailExistsInSuperAdmin] = await Promise.all([
-  prisma.tenant.findUnique({ where: { email } }),
-  prisma.user.findUnique({ where: { email } }),
-  prisma.superAdmin.findUnique({ where: { email } }),
+    prisma.tenant.findUnique({ where: { email } }),
+    prisma.user.findUnique({ where: { email } }),
+    prisma.superAdmin.findUnique({ where: { email } }),
   ]);
 
   if (emailExistsInTenant || emailExistsInUser || emailExistsInSuperAdmin) {
-  throw new Error('Email is already registered on the platform');
+    throw new Error('Email is already registered on the platform');
   }
 
- // 3️⃣ Hash password
+  // 3️⃣ Hash password
   const hashedPassword = await bcrypt.hash(password, 10);
-console.log("creating user");
+  console.log("creating user");
   // 5️⃣ Create User under this Tenant
   const user = await prisma.user.create({
     data: {
@@ -321,7 +359,7 @@ console.log("creating user");
 
   // 8️⃣ Remove sensitive data
   const { password: _, ...safeUser } = user;
-console.log("return response");
+  console.log("return response");
   // 9️⃣ Return data
   return {
     message: 'User created successfully',
@@ -345,9 +383,9 @@ export const getUsersByTenantService = async (tenantId) => {
   if (!tenantId) {
     throw new Error('Tenant ID is required');
   }
-// 2️⃣ Fetch all users under this tenant (exclude passwords)
+  // 2️⃣ Fetch all users under this tenant (exclude passwords)
   const users = await prisma.user.findMany({
-    where: {  tenantId: tenantId },
+    where: { tenantId: tenantId },
     select: {
       id: true,
       name: true,
@@ -357,14 +395,14 @@ export const getUsersByTenantService = async (tenantId) => {
       createdAt: true,
       updatedAt: true,
       // ❌ password is NOT selected
-         assignedContacts: {
+      assignedContacts: {
         select: { id: true }
       }
     },
-    orderBy: {  createdAt: 'desc', },
+    orderBy: { createdAt: 'desc', },
   });
 
- const usersWithCount = users.map(user => ({
+  const usersWithCount = users.map(user => ({
     id: user.id,
     name: user.name,
     email: user.email,
@@ -372,9 +410,9 @@ export const getUsersByTenantService = async (tenantId) => {
     tenantId: user.tenantId,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
-    
+
     // ✅ The dynamic count you were looking for
-    assignedContactCount: user.assignedContacts.length 
+    assignedContactCount: user.assignedContacts.length
   }));
 
   return {
@@ -426,13 +464,13 @@ export const getUserByIdService = async (userId, tenantId) => {
     message: 'User fetched successfully',
     user,
   };
-}; 
+};
 
 
 
 //===========Update user by id under tenant-controller===========
 export const updateUserByIdService = async (userId, tenantId, data) => {
-  
+
   // 1️⃣ Validate input
   if (!userId) {
     throw new Error('User ID is required');
@@ -553,7 +591,7 @@ export const deactivateUserByIdService = async (userId, tenantId) => {
       updatedAt: true,
     },
   });
- // 6️⃣ Delete their refresh tokens (force logout)
+  // 6️⃣ Delete their refresh tokens (force logout)
   await prisma.refreshToken.deleteMany({
     where: { userId: userId },
   });
@@ -623,7 +661,7 @@ export const reactivateUserByIdService = async (userId, tenantId) => {
 //===========Delete the user record completely from the database.===========
 //Delete user by id under tenant-controller
 export const deleteUserByIdService = async (userId, tenantId) => {
-  
+
   // 1️⃣ Validate input
   if (!userId) {
     throw new Error('User ID is required');
@@ -666,85 +704,85 @@ export const deleteUserByIdService = async (userId, tenantId) => {
 
 //========Get Unassigned Contacts by Tenant ID========
 export const getUnassignedContacts = async (tenantId) => {
-    // We simply find all contacts where:
-    // 1. They belong to this tenant
-    // 2. assignedTo is null (no agent has them)
-    const contacts = await Contact.findAll({
-        where: {
-            tenantId: tenantId,
-            assignedTo: null
-        },
-        // Optional: Show newest first
-        order: [['createdAt', 'DESC']]
-    });
+  // We simply find all contacts where:
+  // 1. They belong to this tenant
+  // 2. assignedTo is null (no agent has them)
+  const contacts = await Contact.findAll({
+    where: {
+      tenantId: tenantId,
+      assignedTo: null
+    },
+    // Optional: Show newest first
+    order: [['createdAt', 'DESC']]
+  });
 
-    return contacts;
+  return contacts;
 };
 
 
 
 //========Assign contact to user under tenant-controller(manual)========
 export const assignContactService = async (contactId, userId, tenantId) => {
-    
-    // 1️⃣ Validate contact
-    const contact = await prisma.contact.findFirst({
-        where: { id: contactId, tenantId },
+
+  // 1️⃣ Validate contact
+  const contact = await prisma.contact.findFirst({
+    where: { id: contactId, tenantId },
+  });
+
+  if (!contact) {
+    throw new Error("Contact not found");
+  }
+
+  // 2️⃣ Validate user
+  const user = await prisma.user.findFirst({
+    where: { id: userId, tenantId },
+  });
+
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  // 3️⃣ Assign contact
+  // ✅ FIX: Store in variable, DON'T return yet!
+  const updatedContact = await prisma.contact.update({
+    where: { id: contactId },
+    data: {
+      assignedTo: userId,
+      assignedAt: new Date(),
+    },
+  });
+
+  // 4️⃣ Create notification
+  // ✅ Now this RUNS because we didn't return early!
+  try {
+    console.log('🔔 Creating notification for userId:', userId);
+
+    const notification = await createNotification({
+      tenantId,
+      userId,
+      type: "contact_assigned",
+      title: "Contact Assigned",
+      message: `${contact.name || contact.phone} has been assigned to you`,
+      metadata: {
+        contactId,
+        contactName: contact.name || contact.phone,
+      },
     });
 
-    if (!contact) {
-        throw new Error("Contact not found");
-    }
+    console.log('✅ Notification created:', notification);
 
-    // 2️⃣ Validate user
-    const user = await prisma.user.findFirst({
-        where: { id: userId, tenantId },
-    });
+    // 5️⃣ Emit socket event
+    emitToTenant(tenantId, "new_notification", { notification });
 
-    if (!user) {
-        throw new Error("User not found");
-    }
+    console.log('✅ Socket emitted to tenant:', tenantId);
 
-    // 3️⃣ Assign contact
-    // ✅ FIX: Store in variable, DON'T return yet!
-    const updatedContact = await prisma.contact.update({
-        where: { id: contactId },
-        data: {
-            assignedTo: userId,
-            assignedAt: new Date(),
-        },
-    });
+  } catch (notifyError) {
+    console.error('❌ Notification error:', notifyError.message);
+    console.error('❌ Full error:', notifyError);
+  }
 
-    // 4️⃣ Create notification
-    // ✅ Now this RUNS because we didn't return early!
-    try {
-        console.log('🔔 Creating notification for userId:', userId);
-
-        const notification = await createNotification({
-            tenantId,
-            userId,
-            type: "contact_assigned",
-            title: "Contact Assigned",
-            message: `${contact.name || contact.phone} has been assigned to you`,
-            metadata: {
-                contactId,
-                contactName: contact.name || contact.phone,
-            },
-        });
-
-        console.log('✅ Notification created:', notification);
-
-        // 5️⃣ Emit socket event
-        emitToTenant(tenantId, "new_notification", { notification });
-
-        console.log('✅ Socket emitted to tenant:', tenantId);
-
-    } catch (notifyError) {
-        console.error('❌ Notification error:', notifyError.message);
-        console.error('❌ Full error:', notifyError);
-    }
-
-    // 6️⃣ ✅ Return AFTER notification
-    return updatedContact;
+  // 6️⃣ ✅ Return AFTER notification
+  return updatedContact;
 };
 
 
@@ -754,44 +792,44 @@ export const assignContactService = async (contactId, userId, tenantId) => {
 //========Reassign contact to user under tenant-controller========
 
 export const reassignContactService = async (contactId, newUserId, tenantId) => {
-    
-    const contact = await prisma.contact.findFirst({
-        where: { id: contactId, tenantId },
+
+  const contact = await prisma.contact.findFirst({
+    where: { id: contactId, tenantId },
+  });
+  if (!contact) throw new Error('Contact not found');
+
+  const user = await prisma.user.findFirst({
+    where: { id: newUserId, tenantId },
+  });
+  if (!user) throw new Error('User not found under this tenant');
+
+  const updatedContact = await prisma.contact.update({
+    where: { id: contactId },
+    data: {
+      assignedTo: newUserId,
+      assignedAt: new Date(),
+    },
+  });
+
+  try {
+    const notification = await createNotification({
+      tenantId,
+      userId: newUserId,  // ✅ FIXED: was just 'userId' (not defined!)
+      // now 'newUserId' (matches function parameter)
+      type: 'contact_assigned',
+      title: 'Contact Assigned',
+      message: `${contact.name || contact.phone} has been assigned to you`,
+      metadata: {
+        contactId,
+        contactName: contact.name || contact.phone,
+      },
     });
-    if (!contact) throw new Error('Contact not found');
+    emitToTenant(tenantId, 'new_notification', { notification });
+  } catch (notifyError) {
+    console.error('Notification error:', notifyError.message);
+  }
 
-    const user = await prisma.user.findFirst({
-        where: { id: newUserId, tenantId },
-    });
-    if (!user) throw new Error('User not found under this tenant');
-
-    const updatedContact = await prisma.contact.update({
-        where: { id: contactId },
-        data: {
-            assignedTo: newUserId,
-            assignedAt: new Date(),
-        },
-    });
-
-    try {
-        const notification = await createNotification({
-            tenantId,
-            userId: newUserId,  // ✅ FIXED: was just 'userId' (not defined!)
-                                // now 'newUserId' (matches function parameter)
-            type: 'contact_assigned',
-            title: 'Contact Assigned',
-            message: `${contact.name || contact.phone} has been assigned to you`,
-            metadata: {
-                contactId,
-                contactName: contact.name || contact.phone,
-            },
-        });
-        emitToTenant(tenantId, 'new_notification', { notification });
-    } catch (notifyError) {
-        console.error('Notification error:', notifyError.message);
-    }
-
-    return updatedContact;
+  return updatedContact;
 };
 
 
@@ -929,4 +967,162 @@ export const updateAutoReopenConfigService = async (tenantId, data) => {
       assignmentStrategy: data.assignmentStrategy ?? 'original_agent',
     },
   });
+};
+
+
+// Initialize Google OAuth2Client using client ID from env
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+// =========== Google Sign-In & On-the-Fly Registration Service ===========
+export const loginOrRegisterWithGoogleService = async (credential) => {
+  // 1. Verify ID Token with Google
+  const ticket = await googleClient.verifyIdToken({
+    idToken: credential,
+    audience: process.env.GOOGLE_CLIENT_ID,
+  });
+
+  const payload = ticket.getPayload();
+  if (!payload) {
+    throw new Error('Invalid Google Token payload');
+  }
+
+  const { email, name, given_name: firstName, family_name: lastName, sub: googleId } = payload;
+
+  // 2. Check if user or tenant already exists by email
+  let tenant = await prisma.tenant.findUnique({ where: { email } });
+  let user = await prisma.user.findUnique({ where: { email } });
+
+  // Scenario A: User (Agent) already exists with this email
+  if (user) {
+    const accessToken = generateAccessToken({
+      id: user.id,
+      email: user.email,
+      type: 'USER',
+    });
+    const refreshToken = generateRefreshToken({
+      id: user.id,
+      type: 'USER',
+    });
+    await saveRefreshToken({
+      token: refreshToken,
+      userId: user.id,
+    });
+
+    return {
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        type: 'USER',
+        status: 'APPROVED',
+      },
+      accessToken,
+      refreshToken,
+    };
+  }
+
+  // Scenario B: Tenant does not exist yet (JIT sign up)
+  if (!tenant) {
+    tenant = await prisma.tenant.create({
+      data: {
+        tenantName: name ? `${name}'s Workspace` : 'Google Workspace',
+        email,
+        googleId,
+        firstName,
+        lastName,
+        authProvider: 'GOOGLE',
+        status: 'APPROVED', // Auto-approve Google-verified signups
+        onboardingStep: 4,  // Immediately advance to Step 4 (Company info)
+        onboardingCompleted: false,
+      },
+    });
+  } else {
+    // Scenario C: Tenant exists but doesn't have Google linked yet
+    if (tenant.authProvider !== 'GOOGLE') {
+      tenant = await prisma.tenant.update({
+        where: { id: tenant.id },
+        data: {
+          googleId,
+          authProvider: 'GOOGLE',
+        },
+      });
+    }
+  }
+
+  // 3. Issue Token credentials
+  const accessToken = generateAccessToken({
+    id: tenant.id,
+    email: tenant.email,
+    type: 'TENANT',
+  });
+  const refreshToken = generateRefreshToken({
+    id: tenant.id,
+    type: 'TENANT',
+  });
+  await saveRefreshToken({
+    token: refreshToken,
+    tenantId: tenant.id,
+  });
+
+  return {
+    user: {
+      id: tenant.id,
+      name: tenant.tenantName,
+      email: tenant.email,
+      type: 'TENANT',
+      status: tenant.status,
+      planId: tenant.planId,
+      planStatus: tenant.planStatus,
+      billingType: tenant.billingType,
+      onboardingStep: tenant.onboardingStep,
+      onboardingCompleted: tenant.onboardingCompleted,
+      firstName: tenant.firstName,
+      lastName: tenant.lastName,
+    },
+    accessToken,
+    refreshToken,
+  };
+};
+
+// ===================== UPDATE/SET PASSWORD (LOGGED IN) =====================
+export const updateTenantPasswordService = async (tenantId, { currentPassword, newPassword, confirmPassword }) => {
+  if (!newPassword || !confirmPassword) {
+    throw new Error('New password and confirm password are required');
+  }
+
+  if (newPassword !== confirmPassword) {
+    throw new Error('Passwords do not match');
+  }
+
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId }
+  });
+
+  if (!tenant) {
+    throw new Error('Tenant not found');
+  }
+
+  // If the tenant already has a password set, they must provide the correct current password
+  if (tenant.password) {
+    if (!currentPassword) {
+      throw new Error('Current password is required to change password');
+    }
+    const isPasswordMatch = await bcrypt.compare(currentPassword, tenant.password);
+    if (!isPasswordMatch) {
+      throw new Error('Incorrect current password');
+    }
+  }
+
+  // Hash new password
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+  // Update password in DB
+  await prisma.tenant.update({
+    where: { id: tenantId },
+    data: {
+      password: hashedPassword
+    }
+  });
+
+  return { message: 'Password updated successfully' };
 };

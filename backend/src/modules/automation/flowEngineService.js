@@ -11,7 +11,7 @@ const flowEngine = {
   // Called from webhookController.js
   // ─────────────────────────────────────────
 
-  processIncomingMessage: async (conversation, contact, userMessage) => {
+  processIncomingMessage: async (conversation, contact, userMessage, isNewContact = false) => {
     try {
 
       console.log(`\n📩 New message: "${userMessage}"`)
@@ -19,6 +19,7 @@ const flowEngine = {
       console.log(`   Mode            : ${conversation.mode}`)
       console.log(`   CurrentNodeId   : ${conversation.currentNodeId}`)
       console.log(`   BotPaused       : ${conversation.botPaused}`)
+      console.log(`   IsNewContact    : ${isNewContact}`)  // ✅ Log it
 
       // ── CASE 1: Agent is handling → notify agent only ──
       if (conversation.mode === 'AGENT' || conversation.botPaused) {
@@ -34,13 +35,13 @@ const flowEngine = {
         conversation.currentNodeId
       ) {
         console.log('🤖 Continuing existing flow...')
-        await flowEngine.continueFlow(conversation, contact, userMessage)
+        await flowEngine.continueFlow(conversation, contact, userMessage, isNewContact)
         return
       }
 
       // ── CASE 3: No active flow → find by keyword ──
       console.log('🔍 Looking for flow by keyword...')
-      await flowEngine.startNewFlow(conversation, contact, userMessage)
+      await flowEngine.startNewFlow(conversation, contact, userMessage, isNewContact)
 
     } catch (error) {
       console.error('❌ Flow Engine Error:', error)
@@ -51,7 +52,7 @@ const flowEngine = {
   // Start new flow by keyword
   // ─────────────────────────────────────────
 
-  startNewFlow: async (conversation, contact, userMessage) => {
+  startNewFlow: async (conversation, contact, userMessage, isNewContact = false) => {
     const tenantId = conversation.tenantId
 
     // Try keyword match
@@ -109,7 +110,8 @@ const flowEngine = {
       firstNode,
       updatedConversation,
       contact,
-      userMessage
+      userMessage,
+      isNewContact  // ✅ Pass down
     )
   },
 
@@ -117,7 +119,7 @@ const flowEngine = {
   // Continue from current node
   // ─────────────────────────────────────────
 
-  continueFlow: async (conversation, contact, userMessage) => {
+  continueFlow: async (conversation, contact, userMessage, isNewContact = false) => {
 
     const currentNode = await flowService.getNodeById(conversation.currentNodeId)
 
@@ -127,27 +129,27 @@ const flowEngine = {
       return
     }
 
-    await flowEngine.executeNode(currentNode, conversation, contact, userMessage)
+    await flowEngine.executeNode(currentNode, conversation, contact, userMessage, isNewContact)
   },
 
   // ─────────────────────────────────────────
   // Execute a single node
   // ─────────────────────────────────────────
 
-  executeNode: async (node, conversation, contact, userMessage) => {
+  executeNode: async (node, conversation, contact, userMessage, isNewContact = false) => {
     console.log(`\n⚙️  Node: ${node.id} | Type: ${node.type}`)
 
     switch (node.type) {
       case 'SEND_MESSAGE':
-        await flowEngine.handleSendMessage(node, conversation, contact, userMessage)
+        await flowEngine.handleSendMessage(node, conversation, contact, userMessage, isNewContact)
         break
 
       case 'ASK_QUESTION':
-        await flowEngine.handleAskQuestion(node, conversation, contact, userMessage)
+        await flowEngine.handleAskQuestion(node, conversation, contact, userMessage, isNewContact)
         break
 
       case 'CONDITION':
-        await flowEngine.handleCondition(node, conversation, contact, userMessage)
+        await flowEngine.handleCondition(node, conversation, contact, userMessage, isNewContact)
         break
 
       case 'ASSIGN_AGENT':
@@ -168,36 +170,40 @@ const flowEngine = {
   // Send message → move to next node auto
   // ─────────────────────────────────────────
 
-handleSendMessage: async (node, conversation, contact, userMessage) => {
-  console.log(`📨 Sending message: "${node.content}"`)
+  handleSendMessage: async (node, conversation, contact, userMessage, isNewContact = false) => {
+    console.log(`📨 Sending message: "${node.content}"`)
 
-  await flowEngine.sendWhatsAppMessage(
-    conversation.tenantId,
-    contact.phone,
-    node.content
-  )
+    await flowEngine.sendWhatsAppMessage(
+      conversation.tenantId,
+      contact.phone,
+      node.content
+    )
 
-  await flowEngine.saveBotMessage(conversation.id, node.content)
+    await flowEngine.saveBotMessage(conversation.id, node.content)
 
-  if (node.nextNodeId) {
-    const nextNode = await flowService.getNodeById(node.nextNodeId)
+    if (node.nextNodeId) {
+      const nextNode = await flowService.getNodeById(node.nextNodeId)
 
-    if (nextNode) {
-    await prisma.conversation.update({
-      where: { id: conversation.id },
-      data: { currentNodeId: nextNode.id }
-    })
+      if (nextNode) {
+        // Update DB to point at next node (for persistence/recovery)
+        await prisma.conversation.update({
+          where: { id: conversation.id },
+          data: { currentNodeId: nextNode.id }
+        })
 
-     const updatedConversation = {
+        // ✅ Pass null so the next node knows we're ARRIVING (not replying)
+        // If we passed nextNode.id, ASK_QUESTION would think the user is already replying
+        const updatedConversation = {
           ...conversation,
-          currentNodeId: nextNode.id  // ✅ FIX — correct node id
+          currentNodeId: null
         }
 
         await flowEngine.executeNode(
           nextNode,
           updatedConversation,
           contact,
-          userMessage
+          userMessage,
+          isNewContact
         )
       } else {
         // nextNodeId set but node not found
@@ -220,88 +226,91 @@ handleSendMessage: async (node, conversation, contact, userMessage) => {
   //   → save answer, move to next
   // ─────────────────────────────────────────
 
-handleAskQuestion: async (node, conversation, contact, userMessage) => {
+  handleAskQuestion: async (node, conversation, contact, userMessage, isNewContact = false) => {
 
-  // ⭐ Simple check:
-  // If conversation.currentNodeId === node.id
-  // means user is REPLYING to this question
-  // (because we saved node.id when we asked)
+    // ⭐ Simple check:
+    // If conversation.currentNodeId === node.id
+    // means user is REPLYING to this question
+    // (because we saved node.id when we asked)
 
-  // If conversation.currentNodeId !== node.id
-  // means we just ARRIVED here from previous node
+    // If conversation.currentNodeId !== node.id
+    // means we just ARRIVED here from previous node
 
-  const isReplying = conversation.currentNodeId === node.id
+    const isReplying = conversation.currentNodeId === node.id
 
-  if (!isReplying) {
-    // ── ARRIVING: Send question and STOP ──
-    console.log(`❓ Asking: "${node.content}"`)
+    if (!isReplying) {
+      // ── ARRIVING: Send question and STOP ──
+      console.log(`❓ Asking: "${node.content}"`)
 
-    await flowEngine.sendWhatsAppMessage(
-      conversation.tenantId,
-      contact.phone,
-      node.content
-    )
+      await flowEngine.sendWhatsAppMessage(
+        conversation.tenantId,
+        contact.phone,
+        node.content
+      )
 
-    await flowEngine.saveBotMessage(conversation.id, node.content)
+      await flowEngine.saveBotMessage(conversation.id, node.content)
 
-    // ⭐ Save THIS node as current → so next message = reply
-    await prisma.conversation.update({
-      where: { id: conversation.id },
-      data: {
-        currentNodeId: node.id,
-        mode: 'BOT'
-      }
-    })
-
-    console.log(`⏸️  Waiting for reply on node: ${node.id}`)
-    // STOP HERE ✅
-
-  } else {
-    // ── REPLYING: User answered ──
-    console.log(`💬 User answered: "${userMessage}"`)
-
-    const options = node.options || {}
-
-    if (options.saveAs) {
-      const currentFlowData = conversation.flowData || {}
-      currentFlowData[options.saveAs] = userMessage
-
+      // ⭐ Save THIS node as current → so next message = reply
       await prisma.conversation.update({
         where: { id: conversation.id },
-        data: { flowData: currentFlowData }
+        data: {
+          currentNodeId: node.id,
+          mode: 'BOT'
+        }
       })
 
-      conversation.flowData = currentFlowData
-      console.log(`💾 Saved "${options.saveAs}": "${userMessage}"`)
-    }
+      console.log(`⏸️  Waiting for reply on node: ${node.id}`)
+      // STOP HERE ✅
 
-    // Move to next node
-    if (node.nextNodeId) {
-      const nextNode = await flowService.getNodeById(node.nextNodeId)
+    } else {
+      // ── REPLYING: User answered ──
+      console.log(`💬 User answered: "${userMessage}"`)
 
-      if (nextNode) {
+      const options = node.options || {}
+
+      if (options.saveAs) {
+        const currentFlowData = conversation.flowData || {}
+        currentFlowData[options.saveAs] = userMessage
+
         await prisma.conversation.update({
           where: { id: conversation.id },
-          data: { currentNodeId: nextNode.id }
+          data: { flowData: currentFlowData }
         })
 
-        const updatedConversation = {
-          ...conversation,
-          currentNodeId: nextNode.id
-        }
-
-        await flowEngine.executeNode(
-          nextNode,
-          updatedConversation,
-          contact,
-          userMessage
-        )
+        conversation.flowData = currentFlowData
+        console.log(`💾 Saved "${options.saveAs}": "${userMessage}"`)
       }
-    } else {
-      await flowEngine.endFlow(conversation)
+
+      // Move to next node
+      if (node.nextNodeId) {
+        const nextNode = await flowService.getNodeById(node.nextNodeId)
+
+        if (nextNode) {
+          // Update DB to point at next node (for persistence/recovery)
+          await prisma.conversation.update({
+            where: { id: conversation.id },
+            data: { currentNodeId: nextNode.id }
+          })
+
+          // ✅ Pass null so the next node knows we're ARRIVING (not replying)
+          const updatedConversation = {
+            ...conversation,
+            currentNodeId: null
+          }
+
+          await flowEngine.executeNode(
+            nextNode,
+            updatedConversation,
+            contact,
+            userMessage,
+            isNewContact
+          )
+        }
+      } else {
+        await flowEngine.endFlow(conversation)
+      }
     }
-  }
-},
+  },
 
 
 
@@ -309,15 +318,17 @@ handleAskQuestion: async (node, conversation, contact, userMessage) => {
   // CONDITION Node
   // Supports both text matching AND real DB checks
   // ─────────────────────────────────────────
-  handleCondition: async (node, conversation, contact, userMessage) => {
+  handleCondition: async (node, conversation, contact, userMessage, isNewContact = false) => {
     console.log(`🔀 Evaluating condition...`)
 
     const options = node.options || []
-    const answer  = (userMessage || '').toLowerCase().trim()
+    const answer = (userMessage || '').toLowerCase().trim()
 
     console.log(`   Contact  : ${contact.name} (${contact.phone})`)
     console.log(`   Answer   : "${answer}"`)
+    console.log(`   IsNew    : ${isNewContact}`)
     console.log(`   Branches : ${options.length}`)
+    console.log(`   Raw options from DB:`, JSON.stringify(options, null, 2))  // ✅ Show exact DB data
 
     let matched = null
 
@@ -333,26 +344,38 @@ handleAskQuestion: async (node, conversation, contact, userMessage) => {
 
       // ─── 🗄️ DB-BASED RULES ───
 
+      // ✅ Check if contact is NEW (first message ever - set by webhookWorker)
+      if (rule === 'new_contact') {
+        isMatch = isNewContact  // ✅ Use the definitive flag, NOT a time window
+        console.log(`   🆕 New contact (flag): ${isMatch}`)
+      }
+
       // ✅ Check if contact exists (registered) in DB
-      if (rule === 'registered' || rule === 'contact_exists') {
-        const dbContact = await prisma.contact.findFirst({
-          where: {
-            phone:    contact.phone,
-            tenantId: conversation.tenantId
-          }
-        })
-        isMatch = !!dbContact
-        console.log(`   🗄️  Registered check: ${isMatch}`)
+      // NOTE: This is always true since webhook creates contact before flow runs.
+      // Only useful if you distinguish "registered" from a separate form signup flow.
+      else if (rule === 'registered' || rule === 'contact_exists') {
+        isMatch = !isNewContact  // ✅ Existing contact = NOT new
+        console.log(`   🗄️ Existing contact check: ${isMatch}`)
       }
 
       // ✅ Check if contact has assigned agent
       else if (rule === 'has_agent' || rule === 'assigned') {
         const c = await prisma.contact.findUnique({
-          where:  { id: contact.id },
+          where: { id: contact.id },
           select: { assignedTo: true }
         })
         isMatch = !!c?.assignedTo
         console.log(`   👤 Has agent: ${isMatch}`)
+      }
+
+      // ✅ Check if contact is existing AND has NO assigned agent
+      else if (rule === 'no_agent' || rule === 'unassigned') {
+        const c = await prisma.contact.findUnique({
+          where: { id: contact.id },
+          select: { assignedTo: true }
+        })
+        isMatch = !isNewContact && !c?.assignedTo
+        console.log(`   👤 Existing without agent: ${isMatch}`)
       }
 
       // ✅ Check if contact has a specific tag
@@ -368,18 +391,6 @@ handleAskQuestion: async (node, conversation, contact, userMessage) => {
         })
         isMatch = !!tagExists
         console.log(`   🏷️  Tag "${tagName}": ${isMatch}`)
-      }
-
-      // ✅ Check if contact is NEW (created in last 24h)
-      else if (rule === 'new_contact') {
-        const c = await prisma.contact.findUnique({
-          where:  { id: contact.id },
-          select: { createdAt: true }
-        })
-        const isRecent = c?.createdAt >
-          new Date(Date.now() - 24 * 60 * 60 * 1000)
-        isMatch = isRecent
-        console.log(`   🆕 New contact: ${isMatch}`)
       }
 
       // ─── 📝 TEXT-BASED RULES ───
@@ -432,7 +443,7 @@ handleAskQuestion: async (node, conversation, contact, userMessage) => {
         // Reset currentNodeId so next node knows it's arriving
         await prisma.conversation.update({
           where: { id: conversation.id },
-          data:  { currentNodeId: null }
+          data: { currentNodeId: null }
         })
 
         const freshConversation = {
@@ -444,7 +455,8 @@ handleAskQuestion: async (node, conversation, contact, userMessage) => {
           nextNode,
           freshConversation,
           contact,
-          userMessage
+          userMessage,
+          isNewContact  // ✅ Pass down
         )
       } else {
         console.log('⚠️ Next node not found')
@@ -462,193 +474,193 @@ handleAskQuestion: async (node, conversation, contact, userMessage) => {
   // ASSIGN_AGENT Node
   // Stop bot → assign to human agent
   // ─────────────────────────────────────────
-// In flowEngineService.js
-// Replace handleAssignAgent with this:
+  // In flowEngineService.js
+  // Replace handleAssignAgent with this:
 
-handleAssignAgent: async (node, conversation, contact) => {
-  console.log('👤 Assigning to agent...')
+  handleAssignAgent: async (node, conversation, contact) => {
+    console.log('👤 Assigning to agent...')
 
-  let agent = null
+    let agent = null
 
-  // ── Step 1: Check if contact already assigned ──
-  const freshContact = await prisma.contact.findUnique({
-    where: { id: contact.id },
-    select: {
-      assignedTo: true,
-      assignedUser: {
-        select: {
-          id: true,
-          name: true,
-          isActive: true
+    // ── Step 1: Check if contact already assigned ──
+    const freshContact = await prisma.contact.findUnique({
+      where: { id: contact.id },
+      select: {
+        assignedTo: true,
+        assignedUser: {
+          select: {
+            id: true,
+            name: true,
+            isActive: true
+          }
         }
-      }
-    }
-  })
-
-  if (freshContact?.assignedTo && freshContact?.assignedUser?.isActive) {
-    // Already assigned to an active agent → route to them
-    agent = freshContact.assignedUser
-    console.log(`✅ Already assigned to: ${agent.name} (${agent.id})`)
-    console.log('   Routing to existing agent...')
-
-  } else {
-
-    // ── Step 2: Get contact's tags ──
-    const contactTags = await prisma.contactTagMapping.findMany({
-      where: { contactId: contact.id },
-      select: { tagId: true }
-    })
-
-    const contactTagIds = contactTags.map(ct => ct.tagId)
-    console.log('🏷️ Contact tags:', contactTagIds.length)
-
-    // ── Step 3: If contact has tags → find matching agent ──
-    if (contactTagIds.length > 0) {
-
-      const matchingAgents = await prisma.userTagMapping.findMany({
-        where: {
-          tenantId: conversation.tenantId,
-          tagId: { in: contactTagIds }
-        },
-        include: {
-          user: true
-        }
-      })
-
-      // Get unique active agents
-      const activeAgents = matchingAgents
-        .filter(m => m.user.isActive)
-        .map(m => m.user)
-        .filter((user, index, self) =>
-          index === self.findIndex(u => u.id === user.id)
-        )
-
-      console.log('👥 Matching agents:', activeAgents.length)
-
-      if (activeAgents.length > 0) {
-        // Round Robin: find least loaded agent
-        const agentCounts = await Promise.all(
-          activeAgents.map(async (a) => {
-            const count = await prisma.contact.count({
-              where: {
-                tenantId: conversation.tenantId,
-                assignedTo: a.id
-              }
-            })
-            return { agent: a, count }
-          })
-        )
-
-        agentCounts.sort((a, b) => a.count - b.count)
-        agent = agentCounts[0].agent
-
-        console.log(`✅ Tag match → Agent: ${agent.name}`)
-        console.log(`   Load: ${agentCounts[0].count} contacts`)
-      }
-    }
-
-    // ── Step 4: No tag match → any available agent ──
-    if (!agent) {
-      console.log('⚠️ No tag match. Finding any available agent...')
-
-      // Find agent with least contacts (round robin)
-      const allAgents = await prisma.user.findMany({
-        where: {
-          tenantId: conversation.tenantId,
-          isActive: true
-        }
-      })
-
-      if (allAgents.length > 0) {
-        const agentCounts = await Promise.all(
-          allAgents.map(async (a) => {
-            const count = await prisma.contact.count({
-              where: {
-                tenantId: conversation.tenantId,
-                assignedTo: a.id
-              }
-            })
-            return { agent: a, count }
-          })
-        )
-
-        agentCounts.sort((a, b) => a.count - b.count)
-        agent = agentCounts[0].agent
-
-        console.log(`✅ Fallback → Agent: ${agent.name}`)
-        console.log(`   Load: ${agentCounts[0].count} contacts`)
-      }
-    }
-  }
-
-  // ── Step 5: Assign agent ──
-  if (agent) {
-    // Update conversation
-    await prisma.conversation.update({
-      where: { id: conversation.id },
-      data: {
-        mode: 'AGENT',
-        botPaused: true,
-        assignedTo: agent.id,
-        currentFlowId: null,
-        currentNodeId: null
       }
     })
 
-    // Update contact assignment (only if not already assigned)
-    if (!freshContact?.assignedTo || freshContact.assignedTo !== agent.id) {
-      await prisma.contact.update({
-        where: { id: contact.id },
+    if (freshContact?.assignedTo && freshContact?.assignedUser?.isActive) {
+      // Already assigned to an active agent → route to them
+      agent = freshContact.assignedUser
+      console.log(`✅ Already assigned to: ${agent.name} (${agent.id})`)
+      console.log('   Routing to existing agent...')
+
+    } else {
+
+      // ── Step 2: Get contact's tags ──
+      const contactTags = await prisma.contactTagMapping.findMany({
+        where: { contactId: contact.id },
+        select: { tagId: true }
+      })
+
+      const contactTagIds = contactTags.map(ct => ct.tagId)
+      console.log('🏷️ Contact tags:', contactTagIds.length)
+
+      // ── Step 3: If contact has tags → find matching agent ──
+      if (contactTagIds.length > 0) {
+
+        const matchingAgents = await prisma.userTagMapping.findMany({
+          where: {
+            tenantId: conversation.tenantId,
+            tagId: { in: contactTagIds }
+          },
+          include: {
+            user: true
+          }
+        })
+
+        // Get unique active agents
+        const activeAgents = matchingAgents
+          .filter(m => m.user.isActive)
+          .map(m => m.user)
+          .filter((user, index, self) =>
+            index === self.findIndex(u => u.id === user.id)
+          )
+
+        console.log('👥 Matching agents:', activeAgents.length)
+
+        if (activeAgents.length > 0) {
+          // Round Robin: find least loaded agent
+          const agentCounts = await Promise.all(
+            activeAgents.map(async (a) => {
+              const count = await prisma.contact.count({
+                where: {
+                  tenantId: conversation.tenantId,
+                  assignedTo: a.id
+                }
+              })
+              return { agent: a, count }
+            })
+          )
+
+          agentCounts.sort((a, b) => a.count - b.count)
+          agent = agentCounts[0].agent
+
+          console.log(`✅ Tag match → Agent: ${agent.name}`)
+          console.log(`   Load: ${agentCounts[0].count} contacts`)
+        }
+      }
+
+      // ── Step 4: No tag match → any available agent ──
+      if (!agent) {
+        console.log('⚠️ No tag match. Finding any available agent...')
+
+        // Find agent with least contacts (round robin)
+        const allAgents = await prisma.user.findMany({
+          where: {
+            tenantId: conversation.tenantId,
+            isActive: true
+          }
+        })
+
+        if (allAgents.length > 0) {
+          const agentCounts = await Promise.all(
+            allAgents.map(async (a) => {
+              const count = await prisma.contact.count({
+                where: {
+                  tenantId: conversation.tenantId,
+                  assignedTo: a.id
+                }
+              })
+              return { agent: a, count }
+            })
+          )
+
+          agentCounts.sort((a, b) => a.count - b.count)
+          agent = agentCounts[0].agent
+
+          console.log(`✅ Fallback → Agent: ${agent.name}`)
+          console.log(`   Load: ${agentCounts[0].count} contacts`)
+        }
+      }
+    }
+
+    // ── Step 5: Assign agent ──
+    if (agent) {
+      // Update conversation
+      await prisma.conversation.update({
+        where: { id: conversation.id },
         data: {
+          mode: 'AGENT',
+          botPaused: true,
           assignedTo: agent.id,
-          assignedAt: new Date()
+          currentFlowId: null,
+          currentNodeId: null
         }
       })
-    }
 
-    // Notify agent
-    emitToTenant(
-      conversation.tenantId,
-      'conversation_assigned',
-      {
-        conversationId: conversation.id,
-        agentId: agent.id,
-        contact: {
-          name: contact.name,
-          phone: contact.phone
+      // Update contact assignment (only if not already assigned)
+      if (!freshContact?.assignedTo || freshContact.assignedTo !== agent.id) {
+        await prisma.contact.update({
+          where: { id: contact.id },
+          data: {
+            assignedTo: agent.id,
+            assignedAt: new Date()
+          }
+        })
+      }
+
+      // Notify agent
+      emitToTenant(
+        conversation.tenantId,
+        'conversation_assigned',
+        {
+          conversationId: conversation.id,
+          agentId: agent.id,
+          contact: {
+            name: contact.name,
+            phone: contact.phone
+          }
         }
-      }
-    )
+      )
 
-    console.log(`✅ Final assignment: ${agent.name} (${agent.id})`)
+      console.log(`✅ Final assignment: ${agent.name} (${agent.id})`)
 
-    await flowEngine.sendWhatsAppMessage(
-      conversation.tenantId,
-      contact.phone,
-      '✅ Connecting you to an agent. Please wait...'
-    )
+      await flowEngine.sendWhatsAppMessage(
+        conversation.tenantId,
+        contact.phone,
+        '✅ Connecting you to an agent. Please wait...'
+      )
 
-  } else {
-    // ── Step 6: No agent available → queue ──
-    console.log('⚠️ No agent available. Queuing...')
+    } else {
+      // ── Step 6: No agent available → queue ──
+      console.log('⚠️ No agent available. Queuing...')
 
-    await prisma.conversation.update({
-      where: { id: conversation.id },
-      data: {
-        mode: 'QUEUED',
-        currentFlowId: null,
-        currentNodeId: null
-      }
-    })
+      await prisma.conversation.update({
+        where: { id: conversation.id },
+        data: {
+          mode: 'QUEUED',
+          currentFlowId: null,
+          currentNodeId: null
+        }
+      })
 
-    await flowEngine.sendWhatsAppMessage(
-      conversation.tenantId,
-      contact.phone,
-      '⏳ All agents are busy. You are in queue. We will respond shortly.'
-    )
-  }
-},
- 
+      await flowEngine.sendWhatsAppMessage(
+        conversation.tenantId,
+        contact.phone,
+        '⏳ All agents are busy. You are in queue. We will respond shortly.'
+      )
+    }
+  },
+
 
   // ─────────────────────────────────────────
   // End the flow
@@ -744,7 +756,7 @@ handleAssignAgent: async (node, conversation, contact) => {
   // ─────────────────────────────────────────
   //test code
   // ─────────────────────────────────────────
-    // ─────────────────────────────────────────
+  // ─────────────────────────────────────────
   // Send WhatsApp Message via Meta API
   // ─────────────────────────────────────────
 
@@ -817,13 +829,27 @@ handleAssignAgent: async (node, conversation, contact) => {
 
   saveBotMessage: async (conversationId, text) => {
     try {
-      await prisma.message.create({
+      const message = await prisma.message.create({
         data: {
           conversationId,
           senderType: 'SYSTEM',   // ✅ matches your SenderType enum
-          direction:  'OUTBOUND', // ✅ matches your MessageDirection enum
+          direction: 'OUTBOUND', // ✅ matches your MessageDirection enum
           text,
           type: 'TEXT'            // ✅ matches your MessageType enum
+        },
+        include: {
+          conversation: true
+        }
+      })
+
+      emitToTenant(message.conversation.tenantId, 'new_message', {
+        conversationId: message.conversationId,
+        message: {
+          id: message.id,
+          text: message.text,
+          senderId: message.senderId,
+          isFromCustomer: false,
+          createdAt: message.createdAt
         }
       })
     } catch (error) {

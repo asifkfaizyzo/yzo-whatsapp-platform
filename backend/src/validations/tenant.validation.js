@@ -1,33 +1,63 @@
 import { z } from 'zod';
 
-// Create Tenant
-export const createTenantSchema = z.object({
+// Step 1: First name + Last name
+export const step1Schema = z.object({
   body: z.object({
-    tenantName: z
-      .string({ required_error: "Tenant name is required" })
-      .min(2, "Name must be at least 2 characters"),
-    email: z
-      .string({ required_error: "Email is required" })
-      .email("Invalid email address"),
-    phone: z
-      .string()
-      .min(10, "Phone must be at least 10 digits")
-      .optional()
-      .or(z.literal("")),
-    address: z
-      .string()
-      .optional()
-      .or(z.literal("")),
-    password: z
-      .string({ required_error: "Password is required" })
-      .min(8, "Password must be at least 8 characters")
-        .regex(/[A-Z]/,       "Password must contain at least one uppercase letter")
-        .regex(/[0-9]/,       "Password must contain at least one number")
-        .regex(/[!@#$%^&*]/, "Password must contain at least one special character"),
+    firstName: z.string().min(1, "First name is required"),
+    lastName: z.string().min(1, "Last name is required"),
   }),
 });
 
-// Update Tenant
+// Step 2: Email
+export const step2Schema = z.object({
+  body: z.object({
+    email: z.string().email("Invalid work email address"),
+  }),
+});
+
+// Step 3: Password
+export const step3Schema = z.object({
+  body: z.object({
+    password: z
+      .string()
+      .min(8, "Password must be at least 8 characters")
+      .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+      .regex(/[0-9]/, "Password must contain at least one number")
+      .regex(/[!@#$%^&*]/, "Password must contain at least one special character"),
+  }),
+});
+
+// Step 4: Company name + Website
+export const step4Schema = z.object({
+  body: z.object({
+    tenantName: z.string().min(2, "Company name must be at least 2 characters"),
+    websiteUrl: z
+      .string()
+      .optional()
+      .or(z.literal(""))
+      .refine((val) => {
+        if (!val) return true;
+        try {
+          const urlStr = val.startsWith("http") ? val : `https://${val}`;
+          new URL(urlStr);
+          return true;
+        } catch {
+          return false;
+        }
+      }, "Please enter a valid website URL"),
+  }),
+});
+
+// Step 5: Business phone + Team size + Use case
+export const step5Schema = z.object({
+  body: z.object({
+    phone: z.string().min(10, "Phone number must be at least 10 digits"),
+    companySize: z.string().min(1, "Company size selection is required"),
+    useCase: z.string().min(1, "Use case description is required"),
+  }),
+});
+
+// Update Tenant (Used by superadmin)
 const updateTenantSchema = z.object({
   params: z.object({
     id: z.string({ required_error: "Tenant ID is required" }),
@@ -118,5 +148,28 @@ export const updateTenantProfileSchema = z.object({
       .string()
       .optional()
       .or(z.literal("")),
+    websiteUrl: z
+      .string()
+      .optional()
+      .or(z.literal("")),
+    industry: z
+      .string()
+      .optional()
+      .or(z.literal("")),
+    companySize: z
+      .string()
+      .optional()
+      .or(z.literal("")),
+    country: z
+      .string()
+      .optional()
+      .or(z.literal("")),
+  }),
+});
+
+export const setupWhatsAppSchema = z.object({
+  body: z.object({
+    phoneNumberId: z.string({ required_error: "phoneNumberId is required" }).min(1),
+    wabaId: z.string({ required_error: "wabaId is required" }).min(1),
   }),
 });

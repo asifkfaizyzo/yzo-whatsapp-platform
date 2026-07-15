@@ -50,7 +50,7 @@ import {
 } from "../../services/tenant.service";
 
 export default function Inbox() {
-  const { user } = useAuthStore();
+  const { user, accessToken } = useAuthStore();
   const userRole = user?.type === "TENANT" ? "admin" : "agent";
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -224,7 +224,9 @@ export default function Inbox() {
   // ── Socket Connection ──
   useEffect(() => {
     const socketUrl = import.meta.env.VITE_BACKEND_URL;
+    const token = useAuthStore.getState().accessToken;
     const newSocket = io(socketUrl, {
+      auth: { token: accessToken },
       withCredentials: true,
       transports: ["websocket"],
     });
@@ -237,7 +239,7 @@ export default function Inbox() {
 
     setSocket(newSocket);
     return () => newSocket.disconnect();
-  }, [activeTenantId]);
+  }, [activeTenantId, accessToken]);
 
   // ── Socket Event Listeners ──
   useEffect(() => {

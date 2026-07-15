@@ -1,5 +1,6 @@
 import bcrypt from 'bcrypt';
 import prisma from '../../config/prisma.js';
+import { decrypt } from '../../lib/crypto.js';
 
 import { getOrCreateConversation } from '../conversations/conversationService.js';
 import { evaluateReopen } from '../auto-reopen/autoReopenService.js';
@@ -7,6 +8,7 @@ import { logActivity } from '../activity/activityService.js';
 import { validateMedia, detectMediaType } from "../../lib/utils/mediaValidator.js";
 import { createNotification } from "../notifications/notificationService.js";
 import { emitToTenant } from "../../lib/socket.js";
+import flowEngine from '../automation/flowEngineService.js';
 
 
 
@@ -69,6 +71,7 @@ export const handleIncomingMessage = async ({
   mediaSize,
   mediaMimeType,
   caption,
+  isNewContact = false,  // ✅ Accept the flag (defaults false for agent-sent calls)
 }) => {
 
   // Check if contact is blocked
@@ -184,6 +187,13 @@ emitToTenant(tenantId, "new_notification", {
     where: { id: conversation.id },
   })
 
+  // Trigger automation flow engine asynchronously
+  if (text) {
+    flowEngine.processIncomingMessage(updatedConversation, contact, text, isNewContact).catch((err) => {
+      console.error('❌ Flow Engine failed to process incoming message:', err);
+    });
+  }
+
   return {
     conversation: updatedConversation,
     message,
@@ -227,7 +237,7 @@ export const sendMessageService = async ({
     const response = await fetch(url, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${tenant.whatsappAccessToken}`,
+        'Authorization': `Bearer ${decrypt(tenant.whatsappAccessToken)}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({

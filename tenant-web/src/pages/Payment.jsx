@@ -9,6 +9,27 @@ import {
   verifyPayment,
 } from "../services/plan.service";
 
+// Dynamically load Razorpay checkout.js only when needed
+let razorpayScriptPromise = null;
+function loadRazorpayScript() {
+  if (razorpayScriptPromise) return razorpayScriptPromise;
+  razorpayScriptPromise = new Promise((resolve, reject) => {
+    if (window.Razorpay) {
+      resolve(true);
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload = () => resolve(true);
+    script.onerror = () => {
+      razorpayScriptPromise = null; // allow retry on failure
+      reject(new Error("Failed to load Razorpay SDK"));
+    };
+    document.body.appendChild(script);
+  });
+  return razorpayScriptPromise;
+}
+
 export default function Payment() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -56,6 +77,9 @@ export default function Payment() {
     setProcessing(true);
 
     try {
+      // Load Razorpay SDK dynamically (only on first payment attempt)
+      await loadRazorpayScript();
+
       // Step 1: Create order from backend
       const orderRes = await createPaymentOrder(planId, billingType);
 
@@ -74,7 +98,7 @@ export default function Payment() {
         currency,
         name: "SudoReply",
         description: `${plan.name} Plan - ${billingType}`,
-        image: "/sudo2.png",
+        image: "https://www.sudoreply.com/sudo2.png",
         order_id: orderId,
 
         // Step 3: Handle payment success
@@ -90,12 +114,13 @@ export default function Payment() {
           if (verifyRes.success) {
             setPaid(true);
 
-            // Update auth store with new plan info
+            // Update auth store with new plan info AND approved status
             const updatedUser = {
               ...user,
               planId,
               planStatus: "active",
               billingType,
+              status: "APPROVED",
             };
             login(updatedUser, accessToken);
 

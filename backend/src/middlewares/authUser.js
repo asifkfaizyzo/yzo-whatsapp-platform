@@ -40,6 +40,7 @@ const user = await prisma.user.findUnique({
     email: true,
     name: true,
     isActive: true,
+    tenant: { select: { status: true, isActive: true } } // Fetch parent tenant
   },
 });
 
@@ -55,6 +56,11 @@ const user = await prisma.user.findUnique({
         success: false,
         message: "User account is inactive",
       });
+    }
+
+    // Ensure parent Tenant is active and approved
+    if (!user.tenant || user.tenant.status === 'BLOCKED' || !user.tenant.isActive) {
+      return res.status(403).json({ success: false, message: "Tenant account is blocked or inactive" });
     }
 
     // 6️⃣ Attach user to request

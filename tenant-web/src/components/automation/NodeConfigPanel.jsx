@@ -16,7 +16,9 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
     if (!node) return
     setContent(node.data?.content || '')
     setSaveAs(node.data?.options?.saveAs || '')
-    setOptions(node.data?.options?.conditions || [])
+    // ✅ FIX: options is a plain array on node.data.options, NOT nested under .conditions
+    const rawOptions = node.data?.options
+    setOptions(Array.isArray(rawOptions) ? rawOptions : [])
     setAssignType(node.data?.assign_type || 'auto')
   }, [node?.id])
 

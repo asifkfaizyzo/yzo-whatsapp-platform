@@ -2,9 +2,9 @@ import bcrypt from 'bcrypt';
 import prisma from '../../config/prisma.js';
 import jwt from 'jsonwebtoken';
 
-import { generateAccessToken,generateRefreshToken,verifyAccessToken,verifyRefreshToken } from '../auth/jwtservice.js';
-import { saveRefreshToken, deleteRefreshToken,findRefreshToken } from '../auth/refreshtokenService.js';
-import { forgotPasswordService,resetPasswordService, } from '../auth/passwordService.js';
+import { generateAccessToken, generateRefreshToken, verifyAccessToken, verifyRefreshToken } from '../auth/jwtservice.js';
+import { saveRefreshToken, deleteRefreshToken, findRefreshToken } from '../auth/refreshtokenService.js';
+import { forgotPasswordService, resetPasswordService, } from '../auth/passwordService.js';
 
 
 // =========user Login Service =========
@@ -14,7 +14,7 @@ export const loginUserService =
 
     // 1️⃣ Check input
     if (!email || !password) {
-      throw new Error( 'Email and password are required' );
+      throw new Error('Email and password are required');
     }
     // 2️⃣ Find User
     const user = await prisma.user.findUnique({
@@ -23,7 +23,7 @@ export const loginUserService =
 
     // 3️⃣ Check user exists
     if (!user) {
-      throw new Error( 'Invalid credentials' );
+      throw new Error('Invalid credentials');
     }
 
     // ── ADDED: Verify user account status ──
@@ -44,32 +44,32 @@ export const loginUserService =
 
     // 4️⃣ Compare password
     const isPasswordMatch =
-      await bcrypt.compare( password, user.password );
+      await bcrypt.compare(password, user.password);
 
     if (!isPasswordMatch) {
-      throw new Error( 'Invalid credentials' );
+      throw new Error('Invalid credentials');
     }
 
 
     // 5️⃣ Generate Access Token
- const accessToken = generateAccessToken({
-    id: user.id,
-    email: user.email,
-    tenantId: user.tenantId,
-    type: 'USER',
-  });
+    const accessToken = generateAccessToken({
+      id: user.id,
+      email: user.email,
+      tenantId: user.tenantId,
+      type: 'USER',
+    });
 
-  const refreshToken = generateRefreshToken({
-    id: user.id,
-    tenantId: user.tenantId,
-    type: 'USER',
-  });
+    const refreshToken = generateRefreshToken({
+      id: user.id,
+      tenantId: user.tenantId,
+      type: 'USER',
+    });
 
-  // 7️⃣ Save refresh token
-  await saveRefreshToken({
-    token: refreshToken,
-    userId: user.id,
-  });
+    // 7️⃣ Save refresh token
+    await saveRefreshToken({
+      token: refreshToken,
+      userId: user.id,
+    });
 
     // 8️⃣ Remove password
     const {
@@ -78,16 +78,16 @@ export const loginUserService =
     // 9️⃣ Return response
     return {
       message: 'Login successful',
-    accessToken,
-    refreshToken,
-    user: {
-      id: safeUser.id,
-      name: safeUser.name,
-      email: safeUser.email,
-      tenantId: safeUser.tenantId,
-      type: 'USER',
-      status: tenant.status,
-    },
+      accessToken,
+      refreshToken,
+      user: {
+        id: safeUser.id,
+        name: safeUser.name,
+        email: safeUser.email,
+        tenantId: safeUser.tenantId,
+        type: 'USER',
+        status: tenant.status,
+      },
     };
   };
 
@@ -116,7 +116,7 @@ export const logoutUserService = async (refreshToken) => {
 // =========user access token refresh service =========
 export const refreshUserAccessTokenService = async (refreshToken) => {
 
- // 1️⃣ Check input
+  // 1️⃣ Check input
   if (!refreshToken) {
     throw new Error('Refresh token required');
   }
@@ -198,7 +198,7 @@ export const resetPasswordUserService = async (
 // ===================== ASSIGNED CONTACTS =====================
 export const getAssignedContacts = async (userId, tenantId, options = {}) => {
 
-   // 🔍 DEBUG: check who is calling API
+  // 🔍 DEBUG: check who is calling API
   // console.log("LOGIN USER ID:", userId);
   // console.log("TENANT ID:", tenantId);
 
@@ -206,7 +206,7 @@ export const getAssignedContacts = async (userId, tenantId, options = {}) => {
   const limit = options.limit || 20;
   const skip = (page - 1) * limit;
 
-    // 🔥 DEBUG: check ALL contacts in DB
+  // 🔥 DEBUG: check ALL contacts in DB
   const all = await prisma.contact.findMany();
   // console.log("ALL CONTACTS:", all);
   const totalAll = all.length;

@@ -170,6 +170,25 @@ export const updateTenantProfile = async (profileData) => {
 
 
 /**
+ * Update/Set tenant password
+ */
+export const updateTenantPassword = async (passwordData) => {
+  try {
+    const response = await api.put(`${TENANT_BASE_URL}/change-password`, passwordData);
+    return {
+      success: true,
+      message: response.data.message,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to update password",
+    };
+  }
+};
+
+
+/**
  * Fetch WhatsApp Cloud API configurations
  */
 export const getWhatsappConfig = async () => {

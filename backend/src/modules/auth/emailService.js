@@ -33,7 +33,7 @@ export const sendPasswordResetEmail = async (email, resetToken, userType) => {
 
   try {
     await transporter.sendMail({
-      from: `"YZO Platform" <${process.env.EMAIL_USER}>`,
+      from: `"Sudoreply" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: 'Reset Your Password',
       html: `
@@ -295,5 +295,32 @@ export const sendTicketEmail = async ({
   } catch (error) {
     console.error("❌ Ticket email error:", error);
     // Non-blocking — don't throw
+  }
+};
+// ===================== SEND VERIFICATION OTP EMAIL =====================
+export const sendVerificationOtpEmail = async (email, otpCode) => {
+  try {
+    await transporter.sendMail({
+      from: `"Sudoreply" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: 'Verify Your Email Address',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
+          <h2>Email Verification</h2>
+          <p>Hi there,</p>
+          <p>Thank you for signing up. Please use the following One-Time Password (OTP) to verify your email address:</p>
+          <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; text-align: center; margin: 20px 0;">
+            <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #4F46E5;">${otpCode}</span>
+          </div>
+          <p>This code is valid for <strong>10 minutes</strong>. If you did not request this, you can ignore this email.</p>
+          <hr style="border: 1px solid #eee; margin: 20px 0;" />
+          <p style="color: #999; font-size: 12px;">Sudoreply Team</p>
+        </div>
+      `,
+    });
+    console.log('Verification OTP sent to:', email);
+  } catch (error) {
+    console.error('Email verification error:', error);
+    throw new Error('Failed to send verification email');
   }
 };

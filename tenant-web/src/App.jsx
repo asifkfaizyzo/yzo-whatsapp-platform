@@ -18,7 +18,7 @@ function App() {
     );
   }
 
-  return <AppRoutes />;  
+  return <AppRoutes />;
 }                        // ← function closes HERE, after return
 
 export default App;

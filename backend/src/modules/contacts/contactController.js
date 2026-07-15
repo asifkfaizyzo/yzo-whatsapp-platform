@@ -12,6 +12,7 @@ import {
 
 import { emitToTenant } from '../../lib/socket.js';
 import { createNotification } from '../notifications/notificationService.js';
+import fs from 'fs';
 
 //  1.===================== CREATE CONTACT =====================
 export const createContactController = async (req, res, next) => {
@@ -131,36 +132,31 @@ export const unblockContactController = async (req, res) => {
 
 // 8.===================== IMPORT CONTACTS FROM CSV =====================
 export const importContactsController = async (req, res) => {
+    let filePath = null;
     try {
         const tenantId = req.tenantId || req.tenant?.id;
-
         if (!req.file) {
-            return res.status(400).json({
-                success: false,
-                message: 'Please upload a CSV file',
-            });
+            return res.status(400).json({ success: false, message: 'Please upload a CSV file' });
         }
-
-        if (!tenantId) {
-            return res.status(400).json({
-                success: false,
-                message: 'Tenant ID is missing'
-            });
+        filePath = req.file.path;
+        // Verify file extension is .csv
+        if (!req.file.originalname.toLowerCase().endsWith('.csv')) {
+            return res.status(400).json({ success: false, message: 'Invalid file type. Only CSV files are allowed.' });
         }
-
-        const result = await importContactsFromCSV(req.file.path, tenantId);
-
-        return res.status(200).json({
-            success: true,
-            data: result,
-        });
-
+        const result = await importContactsFromCSV(filePath, tenantId);
+        return res.status(200).json({ success: true, data: result });
     } catch (error) {
         console.error('❌ Import error:', error);
-        return res.status(400).json({
-            success: false,
-            message: error.message,
-        });
+        return res.status(400).json({ success: false, message: error.message });
+    } finally {
+        // Clean up uploaded file from disk
+        if (filePath && fs.existsSync(filePath)) {
+            try {
+                fs.unlinkSync(filePath);
+            } catch (unlinkErr) {
+                console.error('Failed to delete temp file:', unlinkErr);
+            }
+        }
     }
 };
 
@@ -169,11 +165,25 @@ export const addTagToContactController = async (req, res, next) => {
     try {
         const { contactId } = req.params;
         const { tagId } = req.body;
-        // ✅ FIX: Extract tenantId from request
         const tenantId = req.tenantId;
 
-        const existingMapping = await checkContactTagMapping(contactId, tagId);
+        // 1. Verify Contact belongs to logged-in Tenant
+        const contact = await prisma.contact.findFirst({
+            where: { id: contactId, tenantId }
+        });
+        if (!contact) {
+            return res.status(404).json({ success: false, message: "Contact not found" });
+        }
 
+        // 2. Verify Tag belongs to logged-in Tenant
+        const tag = await prisma.tag.findFirst({
+            where: { id: tagId, tenantId }
+        });
+        if (!tag) {
+            return res.status(404).json({ success: false, message: "Tag not found" });
+        }
+
+        const existingMapping = await checkContactTagMapping(contactId, tagId);
         if (existingMapping) {
             return res.status(200).json({
                 success: true,
@@ -181,51 +191,7 @@ export const addTagToContactController = async (req, res, next) => {
             });
         }
 
-        const otherTags = await getContactTags(contactId);
-
-        if (otherTags.length > 0) {
-            const tagNames = otherTags.map((t) => t.tag.name).join(', ');
-            return res.status(200).json({
-                success: true,
-                message: `Contact is already tagged with another tag: ${tagNames}`
-            });
-        }
-
         await addTagToContact(contactId, tagId);
-
-        const tag = await getTagById(tagId);
-
-        // ✅ Send notification
-        try {
-            // ✅ FIX: Only select needed fields, tenantId is now defined
-            const contact = await prisma.contact.findFirst({
-                where: {
-                    id: String(contactId),      // ✅ plain string
-                    tenantId: String(tenantId)  // ✅ tenantId is now defined!
-                },
-                select: { id: true, name: true, phone: true }
-            });
-
-            if (tenantId) { // ✅ Only notify if tenantId exists
-                const notification = await createNotification({
-                    tenantId: String(tenantId),
-                    userId: null,
-                    type: 'tag_added',
-                    title: 'Tag Added',
-                    message: `Tag "${tag.name}" added to contact ${contact?.name || contact?.phone || ''}`,
-                    metadata: {
-                        contactId: String(contactId),
-                        tagId: String(tagId),
-                        tagName: String(tag.name || ''),
-                        contactName: String(contact?.name || contact?.phone || '')
-                    }
-                });
-
-                emitToTenant(String(tenantId), 'new_notification', { notification });
-            }
-        } catch (notifyError) {
-            console.error('Tag notification error:', notifyError.message);
-        }
 
         return res.status(200).json({
             success: true,

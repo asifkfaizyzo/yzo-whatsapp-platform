@@ -25,10 +25,25 @@ import path from "path";
 
 const app = express();
 
-// ── Security ──
-app.use(helmet());
+app.set('trust proxy', 1);
+// Add Health Check Endpoint
+app.get('/api/health', (req, res) => {
+  res.status(200).json({
+    status: 'UP',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
 
-// ── Rate Limiter ──
+// Apply security headers
+app.use(
+  helmet({
+    crossOriginOpenerPolicy: {
+      policy: "same-origin-allow-popups",
+    },
+  })
+);
+// Configure rate limiter
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,

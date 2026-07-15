@@ -1,5 +1,6 @@
 // backend/src/lib/socket.js
 import { Server } from 'socket.io';
+import jwt from 'jsonwebtoken';
 
 let io = null;
 
@@ -14,8 +15,29 @@ export const initSocket = (server) => {
     },
   });
 
+  // 1. Handshake Authentication Middleware
+  io.use((socket, next) => {
+    try {
+      const token = socket.handshake.auth?.token || socket.handshake.headers?.authorization?.split(' ')[1];
+
+      if (!token) {
+        return next(new Error('Authentication token required for WebSocket connection'));
+      }
+
+      const decoded = jwt.verify(token, process.env.ACCESS_SECRET);
+      socket.user = decoded;
+      socket.tenantId = decoded.type === 'TENANT' ? decoded.id : decoded.tenantId;
+
+      next();
+    } catch (err) {
+      console.warn(`⚠️ Socket connection authentication rejected: ${err.message}`);
+      return next(new Error('Unauthorized socket connection'));
+    }
+  });
+
+  // 2. Verified Connection & Room Management
   io.on('connection', (socket) => {
-    console.log(`🔌 Socket connected: ${socket.id}`);
+    console.log(`🔌 Authenticated Socket connected: ${socket.id} (Tenant: ${socket.tenantId}, User: ${socket.user?.id}, Type: ${socket.user?.type})`);
 
     // ── Tenant room ──
     socket.on('join_tenant', (tenantId) => {

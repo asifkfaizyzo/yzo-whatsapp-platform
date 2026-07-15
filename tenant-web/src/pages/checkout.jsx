@@ -33,6 +33,27 @@ const formatINR = (amount) => {
   }).format(amount);
 };
 
+// Dynamically load Razorpay checkout.js only when needed
+let razorpayScriptPromise = null;
+function loadRazorpayScript() {
+  if (razorpayScriptPromise) return razorpayScriptPromise;
+  razorpayScriptPromise = new Promise((resolve, reject) => {
+    if (window.Razorpay) {
+      resolve(true);
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload = () => resolve(true);
+    script.onerror = () => {
+      razorpayScriptPromise = null; // allow retry on failure
+      reject(new Error("Failed to load Razorpay SDK"));
+    };
+    document.body.appendChild(script);
+  });
+  return razorpayScriptPromise;
+}
+
 export default function Checkout() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -148,6 +169,9 @@ export default function Checkout() {
     setProcessing(true);
 
     try {
+      // Load Razorpay SDK dynamically
+      await loadRazorpayScript();
+
       // Step 1: Create order
       const orderRes = await createPaymentOrder(planId, billingType);
 
@@ -364,11 +388,10 @@ export default function Checkout() {
                     value={billingDetails.companyName}
                     onChange={handleChange}
                     placeholder="Acme Corp Pvt Ltd"
-                    className={`w-full px-4 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#125EF2]/20 focus:border-[#125EF2] transition ${
-                      errors.companyName
+                    className={`w-full px-4 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#125EF2]/20 focus:border-[#125EF2] transition ${errors.companyName
                         ? "border-red-300 bg-red-50"
                         : "border-gray-200"
-                    }`}
+                      }`}
                   />
                   {errors.companyName && (
                     <p className="text-red-500 text-xs mt-1">
@@ -390,11 +413,10 @@ export default function Checkout() {
                       value={billingDetails.email}
                       onChange={handleChange}
                       placeholder="admin@company.com"
-                      className={`w-full px-4 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#125EF2]/20 focus:border-[#125EF2] transition ${
-                        errors.email
+                      className={`w-full px-4 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#125EF2]/20 focus:border-[#125EF2] transition ${errors.email
                           ? "border-red-300 bg-red-50"
                           : "border-gray-200"
-                      }`}
+                        }`}
                     />
                     {errors.email && (
                       <p className="text-red-500 text-xs mt-1">
@@ -413,11 +435,10 @@ export default function Checkout() {
                       value={billingDetails.phone}
                       onChange={handleChange}
                       placeholder="+91 98765 43210"
-                      className={`w-full px-4 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#125EF2]/20 focus:border-[#125EF2] transition ${
-                        errors.phone
+                      className={`w-full px-4 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#125EF2]/20 focus:border-[#125EF2] transition ${errors.phone
                           ? "border-red-300 bg-red-50"
                           : "border-gray-200"
-                      }`}
+                        }`}
                     />
                     {errors.phone && (
                       <p className="text-red-500 text-xs mt-1">
@@ -455,11 +476,10 @@ export default function Checkout() {
                     name="state"
                     value={billingDetails.state}
                     onChange={handleChange}
-                    className={`w-full px-4 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#125EF2]/20 focus:border-[#125EF2] transition bg-white ${
-                      errors.state
+                    className={`w-full px-4 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#125EF2]/20 focus:border-[#125EF2] transition bg-white ${errors.state
                         ? "border-red-300 bg-red-50"
                         : "border-gray-200"
-                    }`}
+                      }`}
                   >
                     <option value="">Select State</option>
                     {INDIAN_STATES.map((state) => (
@@ -477,11 +497,10 @@ export default function Checkout() {
                   {/* GST Type Indicator */}
                   {billingDetails.state && (
                     <div
-                      className={`mt-2 px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 ${
-                        isSameState
+                      className={`mt-2 px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 ${isSameState
                           ? "bg-blue-50 text-blue-700"
                           : "bg-purple-50 text-purple-700"
-                      }`}
+                        }`}
                     >
                       <span>{isSameState ? "ℹ️" : "ℹ️"}</span>
                       {isSameState
@@ -513,11 +532,10 @@ export default function Checkout() {
                     }
                     placeholder="27AABCU9603R1ZM"
                     maxLength={15}
-                    className={`w-full px-4 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#125EF2]/20 focus:border-[#125EF2] transition font-mono ${
-                      errors.gstin
+                    className={`w-full px-4 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#125EF2]/20 focus:border-[#125EF2] transition font-mono ${errors.gstin
                         ? "border-red-300 bg-red-50"
                         : "border-gray-200"
-                    }`}
+                      }`}
                   />
                   {errors.gstin && (
                     <p className="text-red-500 text-xs mt-1">
@@ -703,11 +721,10 @@ export default function Checkout() {
               <button
                 onClick={handlePayment}
                 disabled={processing}
-                className={`w-full py-4 rounded-xl font-bold text-sm transition-all duration-300 ${
-                  processing
+                className={`w-full py-4 rounded-xl font-bold text-sm transition-all duration-300 ${processing
                     ? "bg-gray-200 text-gray-400 cursor-not-allowed"
                     : "bg-[#125EF2] text-white hover:bg-[#0F4FCC] shadow-lg hover:shadow-xl hover:-translate-y-0.5"
-                }`}
+                  }`}
               >
                 {processing ? (
                   <span className="flex items-center justify-center gap-2">

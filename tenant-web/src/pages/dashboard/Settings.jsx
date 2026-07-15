@@ -27,6 +27,7 @@ import {
   updateAutoReopenConfig, 
   getTenantProfile, 
   updateTenantProfile, 
+  updateTenantPassword,
   getWhatsappConfig, 
   updateWhatsappConfig,
   getWhatsappStatus,
@@ -47,6 +48,8 @@ export default function SettingsPage() {
     phone: "",
     address: "",
     timezone: "UTC+5:30 (India Standard Time)",
+    authProvider: "LOCAL",
+    hasPassword: true,
   });
 
   const fetchTenantProfile = async () => {
@@ -60,6 +63,8 @@ export default function SettingsPage() {
         email: res.data.email,
         phone: res.data.phone || "",
         address: res.data.address || "",
+        authProvider: res.data.authProvider || "LOCAL",
+        hasPassword: res.data.hasPassword ?? true,
       }));
     }
   };
@@ -89,12 +94,26 @@ export default function SettingsPage() {
   const [showConnectModal, setShowConnectModal] = useState(false);
 
   const [webhook, setWebhook] = useState({
-    url: "https://api.yzo.com/webhooks/whatsapp",
+    url: "https://api.sudoreply.com/webhooks/whatsapp",
     token: "yzo_verification_token_secure_2026",
     apiKey: "yzo_live_api_key_8x90a2b1cd34ef5678",
   });
 
   const [feedback, setFeedback] = useState("");
+
+  // Password setting/updating states
+  const [passwordState, setPasswordState] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordFeedback, setPasswordFeedback] = useState("");
+  const [showPasswordFields, setShowPasswordFields] = useState({
+    current: false,
+    new: false,
+    confirm: false,
+  });
 
   // Tag state management
   const [tags, setTags] = useState([]);
@@ -310,6 +329,37 @@ export default function SettingsPage() {
     }
   };
 
+  const handlePasswordSave = async (e) => {
+    e.preventDefault();
+    setPasswordError("");
+    setPasswordFeedback("");
+
+    if (passwordState.newPassword !== passwordState.confirmPassword) {
+      setPasswordError("New passwords do not match.");
+      return;
+    }
+
+    const res = await updateTenantPassword({
+      currentPassword: profile.hasPassword ? passwordState.currentPassword : "",
+      newPassword: passwordState.newPassword,
+      confirmPassword: passwordState.confirmPassword,
+    });
+
+    if (res.success) {
+      setPasswordFeedback(profile.hasPassword ? "Password changed successfully!" : "Password created successfully!");
+      setPasswordState({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+      // Refresh profile to update hasPassword
+      fetchTenantProfile();
+      setTimeout(() => setPasswordFeedback(""), 3500);
+    } else {
+      setPasswordError(res.message);
+    }
+  };
+
   const handleWhatsappSave = async (e) => {
     e.preventDefault();
     setFeedback("");
@@ -404,7 +454,8 @@ export default function SettingsPage() {
         <div className="card border border-slate-100 p-6 md:col-span-3 bg-white">
           {/* Tab 1: Profile */}
           {activeTab === "profile" && (
-            <form onSubmit={handleProfileSave} className="space-y-4">
+            <>
+              <form onSubmit={handleProfileSave} className="space-y-4">
               <h2 className="text-base font-bold text-slate-800 pb-3 border-b border-slate-50">
                 {userRole === "agent" ? "My Profile Settings" : "Business Profile Settings"}
               </h2>
@@ -465,6 +516,108 @@ export default function SettingsPage() {
                 </button>
               </div>
             </form>
+
+            {/* Password Section */}
+            {userRole === "admin" && (
+              <form onSubmit={handlePasswordSave} className="space-y-4 mt-8 pt-8 border-t border-slate-100">
+                <h2 className="text-base font-bold text-slate-800 pb-3 border-b border-slate-50 flex items-center gap-2">
+                  <Key className="text-[#125EF2]" size={18} />
+                  <span>{profile.hasPassword ? "Change Password" : "Create Password"}</span>
+                </h2>
+                
+                {profile.authProvider === 'GOOGLE' && !profile.hasPassword && (
+                  <div className="p-3.5 bg-blue-50 border border-blue-100 rounded-xl text-blue-800 text-xs font-medium">
+                    This account is signed up with Google. Setting a password will allow you to log in with either Google or your email and password.
+                  </div>
+                )}
+
+                {passwordFeedback && (
+                  <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl text-emerald-800 text-xs font-semibold">
+                    {passwordFeedback}
+                  </div>
+                )}
+
+                {passwordError && (
+                  <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl text-rose-800 text-xs font-semibold flex items-center gap-1.5">
+                    <AlertCircle size={14} className="text-rose-500 shrink-0" />
+                    <span>{passwordError}</span>
+                  </div>
+                )}
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {profile.hasPassword && (
+                    <div className="sm:col-span-2">
+                      <label className="label text-xs">Current Password</label>
+                      <div className="relative">
+                        <input
+                          type={showPasswordFields.current ? "text" : "password"}
+                          value={passwordState.currentPassword}
+                          onChange={(e) => setPasswordState({ ...passwordState, currentPassword: e.target.value })}
+                          className="input text-xs pr-10"
+                          required={profile.hasPassword}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPasswordFields({ ...showPasswordFields, current: !showPasswordFields.current })}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition"
+                        >
+                          {showPasswordFields.current ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="label text-xs">New Password</label>
+                    <div className="relative">
+                      <input
+                        type={showPasswordFields.new ? "text" : "password"}
+                        value={passwordState.newPassword}
+                        onChange={(e) => setPasswordState({ ...passwordState, newPassword: e.target.value })}
+                        className="input text-xs pr-10"
+                        required
+                        placeholder="At least 8 chars, 1 uppercase, 1 num, 1 special"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPasswordFields({ ...showPasswordFields, new: !showPasswordFields.new })}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition"
+                      >
+                        {showPasswordFields.new ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="label text-xs">Confirm New Password</label>
+                    <div className="relative">
+                      <input
+                        type={showPasswordFields.confirm ? "text" : "password"}
+                        value={passwordState.confirmPassword}
+                        onChange={(e) => setPasswordState({ ...passwordState, confirmPassword: e.target.value })}
+                        className="input text-xs pr-10"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPasswordFields({ ...showPasswordFields, confirm: !showPasswordFields.confirm })}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition"
+                      >
+                        {showPasswordFields.confirm ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-4 flex items-center justify-end">
+                  <button type="submit" className="btn-primary py-2 px-4 text-xs font-bold flex items-center gap-1.5 bg-[#125EF2] text-white rounded-xl hover:bg-[#0f4fcb] transition">
+                    <Save size={14} />
+                    <span>{profile.hasPassword ? "Update Password" : "Set Password"}</span>
+                  </button>
+                </div>
+              </form>
+            )}
+            </>
           )}
 
           {/* Tab 2: WhatsApp Settings */}

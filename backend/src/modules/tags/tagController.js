@@ -81,9 +81,12 @@ export const assignUserToTag = async (req, res, next) => {
         await tagService.mapUserToTag(userId, tagId, tenantId);
 
         // 4. Get tag name for response
-        const tag = await prisma.tag.findUnique({
-            where: { id: tagId }
+        const tag = await prisma.tag.findFirst({
+            where: { id: tagId, tenantId }
         });
+        if (!tag) {
+            return res.status(404).json({ success: false, message: "Tag not found" });
+        }
 
         return res.status(200).json({
             success: true,

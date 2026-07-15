@@ -15,7 +15,7 @@ const router = express.Router();
 
 // router.post('/create',superAdminController.createSuperAdmin);
 //SuperAdmin Auth Routes
-router.post('/create', validate(createSuperAdminSchema), superAdminController.createSuperAdmin);
+router.post('/create',verifySuperAdmin, validate(createSuperAdminSchema), superAdminController.createSuperAdmin);
 
 router.post('/login', validate(loginSchema), superAdminController.loginSuperAdmin);
 

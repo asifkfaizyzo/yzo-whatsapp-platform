@@ -15,15 +15,16 @@ export default function SettingsPage() {
   const [feedback, setFeedback]   = useState("");
 
   const [platform, setPlatform] = useState({
-    siteName:     "yzo Platform",
-    masterDomain: "https://yzo.com",
-    contactEmail: "ops@yzo.com",
+    siteName: "SudoReply",
+    masterDomain: "https://sudoreply.com",
+    contactEmail: "[EMAIL_ADDRESS]",
+    maxFreeTrialDays: 14,
   });
 
   const [gateway, setGateway] = useState({
-    masterPhoneId:     "901827364510293",
-    masterWabaId:      "123450987654321",
-    masterAccessToken: "EAAGj21...MASTER_TOKEN_xyz",
+    masterPhoneId: "",
+    masterWabaId: "",
+    masterAccessToken: "",
   });
 
   const handleSave = (e) => {

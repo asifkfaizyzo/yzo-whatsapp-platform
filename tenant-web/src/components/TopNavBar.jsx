@@ -26,20 +26,22 @@ import {
   markAllAsRead,
   clearAll,
 } from "../services/notification.service";
+import api from "../lib/axios";
 
 export default function TopNavBar() {
-  const navigate              = useNavigate();
-  const { user: authUser }    = useAuthStore();
+  const navigate = useNavigate();
+  const { user: authUser } = useAuthStore();
 
-  const [user, setUser]                           = useState(null);
-  const [showDropdown, setShowDropdown]           = useState(false);
+  const [user, setUser] = useState(null);
+  const [showDropdown, setShowDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications]         = useState([]);
-  const [unreadCount, setUnreadCount]             = useState(0);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [isWhatsappConnected, setIsWhatsappConnected] = useState(false);
 
-  const dropdownRef   = useRef(null);
-  const notifRef      = useRef(null);
-  const socketJoined  = useRef(false); // ✅ track if room already joined
+  const dropdownRef = useRef(null);
+  const notifRef = useRef(null);
+  const socketJoined = useRef(false); // ✅ track if room already joined
 
   // ── Load user from localStorage ──
   useEffect(() => {
@@ -74,6 +76,24 @@ export default function TopNavBar() {
   };
 
   // ── Socket setup ──
+  // ── Fetch WhatsApp connection status ──
+  useEffect(() => {
+    const checkWhatsAppStatus = async () => {
+      try {
+        const res = await api.get('/whatsapp/status');
+        if (res.data?.success && res.data?.isConnected) {
+          setIsWhatsappConnected(true);
+        } else {
+          setIsWhatsappConnected(false);
+        }
+      } catch (err) {
+        setIsWhatsappConnected(false);
+      }
+    };
+    checkWhatsAppStatus();
+  }, []);
+
+  // ── Socket: listen for new notifications ──
   useEffect(() => {
     if (!authUser) return;
 
@@ -81,7 +101,7 @@ export default function TopNavBar() {
       ? authUser?.id
       : authUser?.tenantId;
 
-    const userId   = authUser?.type === "USER"
+    const userId = authUser?.type === "USER"
       ? authUser?.id
       : null;
 
@@ -384,10 +404,10 @@ export default function TopNavBar() {
 
     // ✅ Navigate to tickets page
     if (
-      notification.type === "new_ticket"           ||
-      notification.type === "ticket_reply"         ||
-      notification.type === "ticket_escalated"     ||
-      notification.type === "ticket_resolved"      ||
+      notification.type === "new_ticket" ||
+      notification.type === "ticket_reply" ||
+      notification.type === "ticket_escalated" ||
+      notification.type === "ticket_resolved" ||
       notification.type === "ticket_status_updated"
     ) {
       navigate("/dashboard/tickets");
@@ -468,14 +488,14 @@ export default function TopNavBar() {
 
   // ── Format time ──
   const formatTime = (date) => {
-    const now   = new Date();
-    const diff  = now - new Date(date);
-    const mins  = Math.floor(diff / 60000);
+    const now = new Date();
+    const diff = now - new Date(date);
+    const mins = Math.floor(diff / 60000);
     const hours = Math.floor(diff / 3600000);
-    const days  = Math.floor(diff / 86400000);
+    const days = Math.floor(diff / 86400000);
 
-    if (mins < 1)   return "Just now";
-    if (mins < 60)  return `${mins}m ago`;
+    if (mins < 1) return "Just now";
+    if (mins < 60) return `${mins}m ago`;
     if (hours < 24) return `${hours}h ago`;
     return `${days}d ago`;
   };
@@ -498,15 +518,23 @@ export default function TopNavBar() {
       </div>
 
       {/* Middle: WhatsApp API Status */}
-      <div className="hidden sm:flex items-center gap-2 rounded-full
-                      bg-[#EAF2FE] border border-[#CFE0FD] px-3.5 py-1.5">
-        <CheckCircle2
-          size={15}
-          className="text-[#125EF2] animate-pulse"
-        />
-        <span className="text-xs font-semibold text-[#0D47A1]">
-          WhatsApp Cloud API: Connected
-        </span>
+      {/* Dynamic WhatsApp API Status */}
+      <div className="hidden sm:flex items-center gap-2 rounded-full px-3.5 py-1.5 border transition-all duration-300">
+        {isWhatsappConnected ? (
+          <>
+            <CheckCircle2 size={15} className="text-[#125EF2]" />
+            <span className="text-xs font-semibold text-[#0D47A1]">
+              WhatsApp Connected
+            </span>
+          </>
+        ) : (
+          <>
+            <X size={15} className="text-red-500" />
+            <span className="text-xs font-semibold text-red-500">
+              WhatsApp Is not Connected
+            </span>
+          </>
+        )}
       </div>
 
       {/* Right Actions */}
@@ -612,9 +640,8 @@ export default function TopNavBar() {
                     >
                       {getNotifIcon(notif.type)}
                       <div className="flex-1 min-w-0">
-                        <p className={`text-xs text-slate-800 truncate ${
-                          !notif.isRead ? "font-bold" : "font-semibold"
-                        }`}>
+                        <p className={`text-xs text-slate-800 truncate ${!notif.isRead ? "font-bold" : "font-semibold"
+                          }`}>
                           {notif.title}
                         </p>
                         <p className="text-[11px] text-slate-500

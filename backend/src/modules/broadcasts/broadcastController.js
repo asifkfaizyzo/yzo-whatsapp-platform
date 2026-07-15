@@ -53,10 +53,24 @@ export const launchBroadcast = async (req, res) => {
   try {
     const tenantId = req.tenantId;
     const tenant = req.tenant;
-    const { name, templateId, targetType, tagIds, defaultParams } = req.body;
+    const { name, templateId, targetType, tagIds, defaultParams, scheduledAt } = req.body;
 
     if (!name || !templateId || !targetType) {
       return res.status(400).json({ success: false, message: 'Name, Template ID, and Target Type are required.' });
+    }
+
+    // Check if campaign is scheduled for a future date/time
+    let delayMs = 0;
+    let campaignStatus = 'PROCESSING';
+    let scheduledDate = null;
+
+    if (scheduledAt) {
+      const targetTime = new Date(scheduledAt).getTime();
+      if (!isNaN(targetTime) && targetTime > Date.now()) {
+        delayMs = targetTime - Date.now();
+        campaignStatus = 'SCHEDULED';
+        scheduledDate = new Date(scheduledAt);
+      }
     }
 
     // Fetch the template record
@@ -109,7 +123,8 @@ export const launchBroadcast = async (req, res) => {
         templateId,
         targetType,
         defaultParams: defaultParams || {},
-        status: 'PROCESSING', // Starts sending immediately
+        status: campaignStatus,
+        scheduledAt: scheduledDate,
         totalRecipients: contacts.length,
         createdById: user.id
       }
@@ -132,16 +147,59 @@ export const launchBroadcast = async (req, res) => {
       }))
     });
 
-    // 4. Trigger asynchronous campaign processing (non-blocking)
-    processBroadcastCampaign(campaign.id, tenant, contacts, template, defaultParams);
+    // 4. Trigger asynchronous campaign processing (non-blocking) with delayMs if scheduled
+    processBroadcastCampaign(campaign.id, tenant, contacts, template, defaultParams, delayMs);
 
     return res.status(201).json({
       success: true,
-      message: `Broadcast launched to ${contacts.length} recipients.`,
-      campaignId: campaign.id
+      message: campaignStatus === 'SCHEDULED'
+        ? `Broadcast scheduled for ${scheduledDate.toISOString()} (${contacts.length} recipients).`
+        : `Broadcast launched to ${contacts.length} recipients.`,
+      campaignId: campaign.id,
+      scheduledAt: scheduledDate
     });
   } catch (error) {
     console.error('Error launching broadcast:', error);
     return res.status(500).json({ success: false, message: 'Failed to launch broadcast.' });
+  }
+};
+
+// 4. POST: Cancel a scheduled or processing campaign
+export const cancelBroadcast = async (req, res) => {
+  try {
+    const tenantId = req.tenantId;
+    const { id } = req.params;
+
+    const campaign = await prisma.broadcast.findFirst({
+      where: { id, tenantId }
+    });
+
+    if (!campaign) {
+      return res.status(404).json({ success: false, message: 'Campaign not found.' });
+    }
+
+    if (campaign.status === 'COMPLETED' || campaign.status === 'CANCELLED') {
+      return res.status(400).json({ success: false, message: `Campaign is already ${campaign.status.toLowerCase()}.` });
+    }
+
+    // Update campaign status to CANCELLED
+    const updated = await prisma.broadcast.update({
+      where: { id },
+      data: {
+        status: 'CANCELLED',
+        completedAt: new Date()
+      }
+    });
+
+    console.log(`🚫 Campaign ${id} was CANCELLED by tenant admin.`);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Campaign has been cancelled successfully.',
+      data: updated
+    });
+  } catch (error) {
+    console.error('Error cancelling broadcast campaign:', error);
+    return res.status(500).json({ success: false, message: 'Failed to cancel campaign.' });
   }
 };

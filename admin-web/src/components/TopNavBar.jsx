@@ -193,17 +193,14 @@ const TopNavbar = () => {
 
   return (
     <div className="flex items-center justify-between bg-white border-b border-gray-200 px-6 py-3 h-16 relative z-30">
-      
+
       {/* ── Left: Logo ── */}
-     <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2">
         <img
           src="/sudo_bg.png"
           alt="SudoReply Logo"
           className="h-8 w-auto"
         />
-        <span className="text-xl font-bold text-gray-800 tracking-tight">
-          {user?.tenantName || user?.companyName}
-        </span>
       </div>
 
       {/* ── Right: Actions ── */}
@@ -229,7 +226,7 @@ const TopNavbar = () => {
           {/* ── Notification Dropdown ── */}
           {showNotifications && (
             <div className="absolute right-0 mt-2 w-80 rounded-2xl bg-white border border-slate-100 shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
-              
+
               {/* Header */}
               <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -294,11 +291,10 @@ const TopNavbar = () => {
                       {getNotifIcon(notif.type)}
                       <div className="flex-1 min-w-0">
                         <p
-                          className={`text-xs text-slate-800 truncate ${
-                            !notif.isRead
+                          className={`text-xs text-slate-800 truncate ${!notif.isRead
                               ? "font-bold"
                               : "font-semibold"
-                          }`}
+                            }`}
                         >
                           {notif.title}
                         </p>
@@ -355,9 +351,8 @@ const TopNavbar = () => {
             </div>
             <ChevronDown
               size={14}
-              className={`text-gray-500 transition-transform duration-200 ${
-                showDropdown ? "rotate-180" : ""
-              }`}
+              className={`text-gray-500 transition-transform duration-200 ${showDropdown ? "rotate-180" : ""
+                }`}
             />
           </button>
 

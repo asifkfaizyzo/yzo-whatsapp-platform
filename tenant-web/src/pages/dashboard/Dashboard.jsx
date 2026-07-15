@@ -514,7 +514,7 @@ export default function Dashboard() {
             Account Under Review
           </div>
           <h1 className="text-3xl font-extrabold tracking-tight text-slate-800">
-            Welcome to yzo, {userName}!
+            Welcome to Sudoreply, {userName}!
           </h1>
           <p className="text-sm text-slate-600 max-w-xl font-medium leading-relaxed">
             Your tenant account has been registered successfully and is currently awaiting approval from a super administrator.
@@ -594,7 +594,7 @@ export default function Dashboard() {
             </p>
           </div>
           <div className="mt-4 pt-4 border-t border-slate-50">
-            <a href="mailto:support@yzo.com" className="inline-flex items-center gap-1 text-xs font-bold text-[#125EF2] hover:text-[#125EF2] transition">
+            <a href="mailto:support@sudoreply.com" className="inline-flex items-center gap-1 text-xs font-bold text-[#125EF2] hover:text-[#125EF2] transition">
               <span>Contact Support</span>
               <ArrowRight size={14} />
             </a>

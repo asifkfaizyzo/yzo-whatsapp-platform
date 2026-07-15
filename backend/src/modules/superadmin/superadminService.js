@@ -2,10 +2,10 @@ import bcrypt from 'bcrypt';
 import prisma from '../../config/prisma.js';
 import jwt from 'jsonwebtoken';
 
-import { generateAccessToken,generateRefreshToken,verifyAccessToken,verifyRefreshToken } from '../auth/jwtservice.js';
-import { saveRefreshToken, deleteRefreshToken,findRefreshToken } from '../auth/refreshtokenService.js';
-import { generateResetToken, getResetTokenExpiry, sendPasswordResetEmail,} from '../auth/emailService.js';
-import { forgotPasswordService,resetPasswordService, } from '../auth/passwordService.js';
+import { generateAccessToken, generateRefreshToken, verifyAccessToken, verifyRefreshToken } from '../auth/jwtservice.js';
+import { saveRefreshToken, deleteRefreshToken, findRefreshToken } from '../auth/refreshtokenService.js';
+import { generateResetToken, getResetTokenExpiry, sendPasswordResetEmail, } from '../auth/emailService.js';
+import { forgotPasswordService, resetPasswordService, } from '../auth/passwordService.js';
 
 
 //===========SuperAdmin creation Service===========//
@@ -15,7 +15,7 @@ export const createSuperAdminService =
 
     // 1️⃣ Validate input
     if (!name || !email || !password) {
-      throw new Error( 'Name, email and password are required');
+      throw new Error('Name, email and password are required');
     }
 
     // 2️⃣ Check global email uniqueness (Tenant, User, SuperAdmin)
@@ -35,33 +35,33 @@ export const createSuperAdminService =
 
     // 4️⃣ Create SuperAdmin
     const superAdmin = await prisma.superAdmin.create({
-        data: {
-          name,
-          email,
-          password: hashedPassword,
-        },
-      });
+      data: {
+        name,
+        email,
+        password: hashedPassword,
+      },
+    });
 
     // 5️⃣ Generate Tokens
-     const accessToken = generateAccessToken({
-    id: superAdmin.id,
-    email: superAdmin.email,
-    type: 'SUPERADMIN',
-  });
+    const accessToken = generateAccessToken({
+      id: superAdmin.id,
+      email: superAdmin.email,
+      type: 'SUPERADMIN',
+    });
 
 
-      const refreshToken = generateRefreshToken({
-    id: superAdmin.id,
-    type: 'SUPERADMIN',
-  });
+    const refreshToken = generateRefreshToken({
+      id: superAdmin.id,
+      type: 'SUPERADMIN',
+    });
 
     // 6️⃣ Save refresh token
-  await saveRefreshToken({
-    token: refreshToken,
-    superAdminId: superAdmin.id,
-  });
+    await saveRefreshToken({
+      token: refreshToken,
+      superAdminId: superAdmin.id,
+    });
 
-// 7️⃣ Remove password
+    // 7️⃣ Remove password
     const { password: _, ...safeSuperAdmin } = superAdmin;
 
     // 8️⃣ Return data
@@ -90,44 +90,44 @@ export const loginSuperAdminService =
 
     // 1. Check input
     if (!email || !password) {
-      throw new Error( 'Email and password are required');
+      throw new Error('Email and password are required');
     }
 
     // 2. Find SuperAdmin
     const superAdmin =
-      await prisma.superAdmin.findUnique({ where: { email },});
+      await prisma.superAdmin.findUnique({ where: { email }, });
 
     if (!superAdmin) {
-      throw new Error( 'Invalid credentials' );
+      throw new Error('Invalid credentials');
     }
 
     // 3. Compare password
     const isPasswordMatch =
-      await bcrypt.compare( password, superAdmin.password );
+      await bcrypt.compare(password, superAdmin.password);
 
     if (!isPasswordMatch) {
-      throw new Error( 'Invalid credentials' );
+      throw new Error('Invalid credentials');
     }
 
     // 4. Generate Access Token
-     const accessToken = generateAccessToken({
-    id: superAdmin.id,
-    email: superAdmin.email,
-    type: 'SUPERADMIN',
-  });
+    const accessToken = generateAccessToken({
+      id: superAdmin.id,
+      email: superAdmin.email,
+      type: 'SUPERADMIN',
+    });
 
-   const refreshToken = generateRefreshToken({
-    id: superAdmin.id,
-    type: 'SUPERADMIN',
-  });
- //Save new refresh token to refreshTokens table
-  await saveRefreshToken({
-    token: refreshToken,
-    superAdminId: superAdmin.id,
-  });
+    const refreshToken = generateRefreshToken({
+      id: superAdmin.id,
+      type: 'SUPERADMIN',
+    });
+    //Save new refresh token to refreshTokens table
+    await saveRefreshToken({
+      token: refreshToken,
+      superAdminId: superAdmin.id,
+    });
 
-  //Remove password from response
-  const { password: _, ...safeSuperAdmin } = superAdmin;
+    //Remove password from response
+    const { password: _, ...safeSuperAdmin } = superAdmin;
 
     // 8. Return response
     return {
@@ -147,7 +147,7 @@ export const loginSuperAdminService =
 
 
 
-  //===========logout service for superadmin===========
+//===========logout service for superadmin===========
 export const logoutSuperAdminService = async (refreshToken) => {
 
   // 1️⃣ Check input
@@ -168,7 +168,7 @@ export const logoutSuperAdminService = async (refreshToken) => {
 
 //===========access token refresh service   ===========
 export const refreshAccessTokenService = async (refreshToken) => {
-// 1️⃣ Check token exists
+  // 1️⃣ Check token exists
   if (!refreshToken) {
     throw new Error('Refresh token required');
   }
@@ -180,13 +180,13 @@ export const refreshAccessTokenService = async (refreshToken) => {
   if (!tokenRecord) {
     throw new Error('Invalid refresh token');
   }
- // 4️⃣ Check if expired in DB
+  // 4️⃣ Check if expired in DB
   if (tokenRecord.expiresAt < new Date()) {
     throw new Error('Refresh token expired, please login again');
   }
 
   // 5️⃣ Verify JWT signature
-    try {
+  try {
     verifyRefreshToken(refreshToken);
   } catch (error) {
     throw new Error('Invalid refresh token');
@@ -252,7 +252,7 @@ export const resetPasswordSuperAdminService = async (
 
 //===========get all tenant by superadmin service===========
 export const getAllTenantsService = async () => {
-  
+
   const tenants = await prisma.tenant.findMany({
     select: {
       id: true,
@@ -290,7 +290,7 @@ export const getAllTenantsService = async () => {
 
 //===========Get tenant by id by superadmin service===========
 export const getTenantByIdService = async (tenantId) => {
-  
+
   if (!tenantId) {
     throw new Error('Tenant ID is required');
   }
@@ -403,7 +403,7 @@ export const updateTenantByIdService = async (tenantId, data) => {
 
 //===========Deactivate tenant by id by superadmin service===========
 export const deactivateTenantService = async (tenantId) => {
-  
+
   if (!tenantId) {
     throw new Error('Tenant ID is required');
   }
@@ -467,7 +467,7 @@ export const deactivateTenantService = async (tenantId) => {
 
 //===========Reactivate tenant by id by superadmin service===========
 export const reactivateTenantService = async (tenantId) => {
-  
+
   if (!tenantId) {
     throw new Error('Tenant ID is required');
   }
