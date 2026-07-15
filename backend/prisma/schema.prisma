@@ -67,6 +67,10 @@ model Tenant {
 
   templates   Template[]
   broadcasts  Broadcast[]
+  payments        Payment[]
+  tickets Ticket[]
+  flows           Flow[]
+  keywordTriggers  KeywordTrigger[]
 }
 
 
@@ -90,6 +94,7 @@ model User {
 
   refreshTokens RefreshToken[]   // ← one user can have many refresh tokens
     userTags   UserTagMapping[]
+    tickets Ticket[]
 
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -259,8 +264,7 @@ model Conversation {
   status String @default("OPEN")
   // OPEN, RESOLVED, CLOSED
 
-   assignedTo    String?   // agentId
-
+  assignedTo    String?   // agentId
   reopenCount   Int       @default(0)
   resolvedAt    DateTime?
   closedAt      DateTime?
@@ -273,6 +277,13 @@ model Conversation {
   archivedBy    String?   // userId or tenantId who archived
   archivedByRole String?  // "TENANT" | "USER"
 
+  mode          ConversationMode  @default(BOT)
+  currentFlowId String?
+  currentFlow   Flow?    @relation("ConversationFlow", fields: [currentFlowId], references: [id])
+  currentNodeId String?
+  flowData      Json?    @default("{}")
+  botPaused     Boolean  @default(false)
+
   messages  Message[]
   activities    ConversationActivity[]
 
@@ -281,7 +292,9 @@ model Conversation {
 
   @@index([contactId])
   @@index([tenantId, status])
-   @@index([tenantId, isArchived])
+  @@index([tenantId, isArchived])
+  @@index([tenantId, mode])
+  @@index([currentFlowId])
 }
 
 
@@ -480,6 +493,53 @@ model PlanIntegration {
   @@index([planId])
 }
 
+
+//──────────────────Model Payment──────────────────
+model Payment {
+  id          String   @id @default(cuid())
+  tenantId    String
+
+  // Razorpay Details
+  razorpayOrderId    String   @unique
+  razorpayPaymentId  String?  @unique
+  razorpaySignature  String?
+
+  // Plan snapshot at time of payment
+  planId       String
+  planName     String
+  billingType  String   // monthly / annual
+
+  // Amount Breakdown
+  baseAmount   Float
+  gstPercent   Float    @default(18)
+  gstAmount    Float
+  totalAmount  Float
+  currency     String   @default("INR")
+
+  // Payment Meta
+  paymentMethod  String?   // card / upi / netbanking
+  status         PaymentStatus @default(PENDING)
+  paidAt         DateTime?
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  invoiceUrl    String? 
+
+  @@index([tenantId])
+  @@index([status])
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+
+
 enum TemplateCategory {
   UTILITY
   MARKETING
@@ -664,7 +724,7 @@ model BroadcastRecipient {
 
 
 
-//──────────────────Model Notification──────────────────
+//──────────────────Model Notification belongs to Tenant──────────────────
 model Notification {
   id             String   @id @default(cuid())
   tenantId       String
@@ -679,4 +739,231 @@ model Notification {
   @@index([tenantId])
   @@index([userId])
   @@index([isRead])
+}
+
+
+//─────────────Model Notification belongs to SuperAdmin ─────────────
+model SuperAdminNotification {
+  id        String   @id @default(cuid())
+  // NO tenantId   ← superadmin is above all tenants
+  // NO userId     ← not a tenant user
+  type      String   // superadmin-specific types only
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  metadata  Json?    // tenantId, planName, amount stored HERE
+  createdAt DateTime @default(now())
+
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TicketCategory {
+  BILLING
+  TECHNICAL
+  FEATURE
+  GENERAL
+  ACCOUNT
+}
+
+enum TicketRaisedBy {
+  TENANT
+  USER
+}
+
+model Ticket {
+  id           String         @id @default(cuid())
+  ticketNumber String         @unique
+
+  title        String
+  description  String
+
+  category     TicketCategory @default(GENERAL)
+  priority     TicketPriority @default(LOW)
+  status       TicketStatus   @default(OPEN)
+
+  raisedBy     TicketRaisedBy
+
+  // Which tenant this belongs to
+  tenantId     String
+  tenant       Tenant         @relation(fields: [tenantId], references: [id])
+
+  // If raised by user
+  userId       String?
+  user         User?          @relation(fields: [userId], references: [id])
+
+  // Escalated to superadmin
+  isEscalated  Boolean        @default(false)
+
+  messages     TicketMessage[]
+
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([isEscalated])
+}
+
+model TicketMessage {
+  id         String     @id @default(cuid())
+  ticketId   String
+  ticket     Ticket     @relation(fields: [ticketId], references: [id])
+
+  message    String
+  isInternal Boolean    @default(false)
+
+  sentBy     SenderType // ← existing enum reused
+
+  // Only one filled based on sentBy
+  tenantId     String?
+  userId       String?
+  superAdminId String?
+
+  createdAt  DateTime   @default(now())
+
+  @@index([ticketId])
+}
+
+
+
+// ──────────────────────────────────────────
+// CHAT AUTOMATION - MODEL
+// ──────────────────────────────────────────
+
+enum FlowNodeType {
+  SEND_MESSAGE
+  ASK_QUESTION
+  CONDITION
+  ASSIGN_AGENT
+  END_FLOW
+}
+
+enum ConversationMode {
+  BOT       // bot is handling
+  AGENT     // human agent handling
+  QUEUED    // waiting for agent
+}
+
+// ──────────────────────────────────────────
+// ADD Flow MODEL
+// ──────────────────────────────────────────
+
+model Flow {
+  id             String     @id @default(cuid())
+  tenantId       String
+  tenant         Tenant     @relation(fields: [tenantId], references: [id])
+
+  name           String
+  keywords    KeywordTrigger[]
+  isActive       Boolean    @default(false)
+  isDefault      Boolean    @default(false)
+  // isDefault = true means
+  // this flow runs when no keyword matches
+
+  nodes          FlowNode[]
+
+  conversations  Conversation[] @relation("ConversationFlow")
+
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, isActive])
+}
+
+// ──────────────────────────────────────────
+// ADD FlowNode MODEL
+// ──────────────────────────────────────────
+
+model FlowNode {
+  id          String       @id @default(cuid())
+
+  flowId      String
+  flow        Flow         @relation(fields: [flowId], references: [id], onDelete: Cascade)
+
+  type        FlowNodeType
+  // SEND_MESSAGE → just sends text
+  // ASK_QUESTION → sends text + waits for reply
+  // CONDITION    → checks user reply and branches
+  // ASSIGN_AGENT → hands off to human
+  // END_FLOW     → ends the automation
+
+  content     String?
+  // Text to send (for SEND_MESSAGE / ASK_QUESTION)
+
+  options     Json?
+  // For CONDITION node:
+  // [
+  //   { "value": "1", "nextNodeId": "clx..." },
+  //   { "value": "2", "nextNodeId": "clx..." },
+  //   { "default": true, "nextNodeId": "clx..." }
+  // ]
+  //
+  // For ASK_QUESTION node:
+  // { "saveAs": "customer_name" }
+  // saves user reply as attribute
+
+  nextNodeId  String?
+  // Points to next node id
+  // (used by SEND_MESSAGE and ASK_QUESTION)
+
+  position    Json?
+  // UI position: { "x": 100, "y": 200 }
+  // Only for frontend flow builder display
+
+  order       Int          @default(0)
+  // order of node in flow (1,2,3...)
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([flowId])
+  @@index([flowId, order])
+}
+
+
+// ── KEYWORDTRIGGER MODEL ──
+model KeywordTrigger {
+  id        String   @id @default(cuid())
+
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+
+  flowId    String
+  flow      Flow     @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  // onDelete Cascade = if flow deleted, keywords also deleted
+
+  keyword   String
+  // "hi", "hello", "hey", "support" etc.
+
+  category  String?
+  // "greeting", "support", "sales", "order"
+  // optional - just for organizing
+
+  createdAt DateTime @default(now())
+
+  @@unique([tenantId, keyword])
+  // Same keyword cannot be used in
+  // two different flows of same tenant
+
+  @@index([tenantId])
+  @@index([flowId])
+  @@index([tenantId, keyword])
 }

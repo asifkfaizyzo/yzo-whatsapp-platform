@@ -16,6 +16,7 @@ import Reports from "../pages/dashboard/Reports";
 import Settings from "../pages/dashboard/Settings";
 import ResetPassword from "../pages/auth/ResetPassword";
 import ProtectedRoute from "./ProtectedRoute";
+import Billing from "../pages/dashboard/Billing";
 
 // Landing Pages ✅
 import Home           from '../pages/Home'
@@ -31,7 +32,12 @@ import Terms from "../pages/Terms";
 // import Status from "../pages/Status";
 
 import SelectPlan from "../pages/SelectPlan";
+import Checkout from "../pages/Checkout";
 import Payment    from "../pages/Payment";
+
+import Tickets from "../pages/dashboard/Tickets";
+import Automation from "../pages/dashboard/Automation";
+import FlowBuilder from "../pages/dashboard/FlowBuilder";
 
 import ScrollToTop from "../ScrollToTop"; 
 
@@ -74,6 +80,14 @@ function App() {
         }
       />
       <Route
+  path="/checkout"
+  element={
+    <ProtectedRoute>
+      <Checkout />
+    </ProtectedRoute>
+  }
+/>
+      <Route
         path="/payment"
         element={
           <ProtectedRoute>
@@ -99,6 +113,11 @@ function App() {
         <Route path="team" element={<Team />} />
         <Route path="reports" element={<Reports />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="billing" element={<Billing />} />
+        <Route path="tickets"  element={<Tickets />} /> 
+
+        <Route path="automation" element={<Automation />} />
+        <Route path="automation/builder/:flowId" element={<FlowBuilder />} />
       </Route>
 
       {/* Fallback */}

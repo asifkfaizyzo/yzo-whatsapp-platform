@@ -16,25 +16,31 @@ import templateRoutes from './modules/templates/templateRoutes.js';
 import broadcastRoutes from './modules/broadcasts/broadcastRoutes.js';
 import whatsappRoutes from './modules/whatsapp/whatsappRoutes.js';
 import notificationRoutes from "./modules/notifications/notificationRoutes.js";
-
+import superAdminNotificationRoutes from "./modules/SuperAdminNotifications/superAdminNotificationRoutes.js";
+import revenueRoutes from "./modules/revenue/revenueRoutes.js";
+import ticketRoutes from "./modules/tickets/ticketRoutes.js";
+import adminTicketRoutes from "./modules/tickets/adminTicketRoutes.js";
+import flowRoutes from './modules/automation/flowRoutes.js'
 import path from "path";
 
 const app = express();
 
-// Apply security headers
+// ── Security ──
 app.use(helmet());
-// Configure rate limiter
+
+// ── Rate Limiter ──
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per 15 minutes
+  windowMs: 15 * 60 * 1000,
+  max: 100,
   message: {
     success: false,
-    message: 'Too many requests from this IP. Please try again after 15 minutes.'
+    message: 'Too many requests. Please try again after 15 minutes.'
   },
   standardHeaders: true,
   legacyHeaders: false,
 });
 
+// ── Body Parser ──
 app.use(express.json({
   verify: (req, res, buf) => {
     if (req.originalUrl.startsWith('/api/webhook')) {
@@ -42,10 +48,9 @@ app.use(express.json({
     }
   }
 }));
-
-
 app.use(express.urlencoded({ extended: true }));
-// ✅ Fixed - add CORS headers
+
+// ── Static Files ──
 app.use("/uploads", (req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
   res.header("Cross-Origin-Resource-Policy", "cross-origin");
@@ -54,77 +59,88 @@ app.use("/uploads", (req, res, next) => {
 
 app.use(cookieParser());
 
+// ── CORS ──
 const allowedOrigins = (process.env.FRONTEND_URLS || '')
   .split(",")
   .map((url) => url.trim());
 
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    credentials: true,
-  })
-);
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true,
+}));
 
-
-
-// Apply rate limiting to sensitive routes (login, register, forgot/reset password)
-app.use('/api/login', authLimiter);
-app.use('/api/create', authLimiter);
-app.use('/api2/login', authLimiter);
-app.use('/api2/register', authLimiter);
+// ── Rate Limiting on Auth Routes ──
+app.use('/api/login',            authLimiter);
+app.use('/api/create',           authLimiter);
+app.use('/api2/login',           authLimiter);
+app.use('/api2/register',        authLimiter);
 app.use('/api2/forgot-password', authLimiter);
-app.use('/api2/reset-password', authLimiter);
-app.use('/api3/login', authLimiter);
+app.use('/api2/reset-password',  authLimiter);
+app.use('/api3/login',           authLimiter);
 
-app.use('/api', superadminRoutes);
+// ──────────────────────────────────────
+// ⭐ SPECIFIC ROUTES FIRST
+// (before generic /api catches them)
+// ──────────────────────────────────────
 
-app.use('/api2', tenantRoutes);
+// Webhook - always first
+app.use('/api/webhook', webhookRoutes)
 
-app.use('/api3', userRoutes);
+// Flow routes - before /api superadmin
+app.use('/api/flows', flowRoutes)
 
-// ✅ ADD THIS - mount contacts on BOTH paths
-app.use('/api4', contactRoutes);        // keep existing
-app.use('/api2/contacts', contactRoutes); // ✅ ADD - frontend calls this
+// ──────────────────────────────────────
+// MAIN ROUTES
+// ──────────────────────────────────────
 
-app.use('/api5', conversationRoutes);
+app.use('/api',  superadminRoutes)
+app.use('/api2', tenantRoutes)
+app.use('/api3', userRoutes)
 
-app.use('/api6', messageRoutes);
+app.use('/api4',          contactRoutes)
+app.use('/api2/contacts', contactRoutes)
 
-app.use('/api7',tagRoutes);
+app.use('/api5', conversationRoutes)
+app.use('/api6', messageRoutes)
+app.use('/api7', tagRoutes)
 
-app.use('/api/webhook', webhookRoutes);
+app.use("/api/plans",  planRoutes)
+app.use("/api2/plans", planRoutes)
 
-app.use("/api/plans", planRoutes);
-//Fetch plans to tenant page
-app.use("/api2/plans", planRoutes);
+app.use('/api8', templateRoutes)
+app.use('/api9', broadcastRoutes)
 
-app.use('/api8', templateRoutes);
+app.use('/api2/whatsapp',       whatsappRoutes)
+app.use("/api2/notifications",  notificationRoutes)
+app.use("/api/super-admin/notifications", superAdminNotificationRoutes)
 
-app.use('/api9', broadcastRoutes);
+app.use("/api2", ticketRoutes)
+app.use("/api",  adminTicketRoutes)
+app.use("/api",  revenueRoutes)
 
-app.use('/api2/whatsapp', whatsappRoutes);
-app.use("/api2/notifications", notificationRoutes);
+// ──────────────────────────────────────
+// ERROR HANDLERS
+// ──────────────────────────────────────
 
-// 1. 404 Handler (Place this AFTER all routes)
+// 404
 app.use((req, res, next) => {
   res.status(404).json({
     success: false,
-    message: `Endpoint ${req.originalUrl} not found on this server.`
+    message: `Endpoint ${req.originalUrl} not found`
   });
 });
 
-// 2. Global Error Handler (Place this as the LAST middleware)
+// Global Error
 app.use((err, req, res, next) => {
   console.error('❌ Server Error:', err.stack);
   const isProduction = process.env.NODE_ENV === 'production';
   const statusCode = err.status || 500;
-
   res.status(statusCode).json({
     success: false,
     message: statusCode === 500 && isProduction

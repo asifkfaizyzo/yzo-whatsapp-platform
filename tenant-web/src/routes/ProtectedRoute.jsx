@@ -37,7 +37,8 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   // ✅ No plan → select plan
   const isPlanPage =
     location.pathname === '/select-plan' ||
-    location.pathname === '/payment';
+    location.pathname === '/payment' ||
+     location.pathname === '/checkout';
 
   if (user.type === 'TENANT' && !user.planId && !isPlanPage) {
     return <Navigate to="/select-plan" replace />;

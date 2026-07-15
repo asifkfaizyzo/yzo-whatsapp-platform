@@ -6,16 +6,21 @@ import * as notificationService from "./notificationService.js";
 export const getNotifications = async (req, res) => {
   try {
     const tenantId = req.tenantId;
-    const userId   = req.user?.id || null;
+    const userId   = req.userId || req.user?.id || null;
+    const userType = req.userType; // "TENANT" or "USER"
+
+    console.log("📋 getNotifications:", { tenantId, userId, userType });
 
     const notifications = await notificationService.getNotifications(
       tenantId,
-      userId
+      userId,
+      userType
     );
 
     const unreadCount = await notificationService.getUnreadCount(
       tenantId,
-      userId
+      userId,
+      userType
     );
 
     return res.status(200).json({
@@ -51,9 +56,10 @@ export const markAsRead = async (req, res) => {
 export const markAllAsRead = async (req, res) => {
   try {
     const tenantId = req.tenantId;
-    const userId   = req.user?.id || null;
+    const userId   = req.userId || req.user?.id || null;
+    const userType = req.userType;
 
-    await notificationService.markAllAsRead(tenantId, userId);
+    await notificationService.markAllAsRead(tenantId, userId, userType);
 
     return res.status(200).json({ success: true });
   } catch (error) {
@@ -68,9 +74,10 @@ export const markAllAsRead = async (req, res) => {
 export const clearAll = async (req, res) => {
   try {
     const tenantId = req.tenantId;
-    const userId   = req.user?.id || null;
+    const userId   = req.userId || req.user?.id || null;
+    const userType = req.userType;
 
-    await notificationService.clearAllNotifications(tenantId, userId);
+    await notificationService.clearAllNotifications(tenantId, userId, userType);
 
     return res.status(200).json({ success: true });
   } catch (error) {

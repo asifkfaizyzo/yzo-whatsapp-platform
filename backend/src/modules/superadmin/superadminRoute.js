@@ -1,5 +1,9 @@
 import express from 'express';
 import * as superAdminController from './superadminController.js';
+import {
+  getAllPayments,getTenantBilling,adminDownloadInvoice,
+} from './superadminController.js';
+
 import {verifySuperAdmin} from '../../middlewares/authSuperAdmin.js';
 
 import { createSuperAdminSchema, updateTenantByAdminSchema, superAdminIdParamSchema } from '../../validations/superAdmin.validation.js';
@@ -62,5 +66,10 @@ router.patch('/unblock-tenant/:id', verifySuperAdmin, superAdminController.unblo
 router.patch('/users/:id/deactivate', verifySuperAdmin, superAdminController.deactivateUser);
 
 router.patch('/users/:id/reactivate', verifySuperAdmin, superAdminController.reactivateUser);
+
+// ── Revenue Routes ──
+router.get('/revenue/payments', verifySuperAdmin, getAllPayments);
+router.get('/revenue/tenant/:id', verifySuperAdmin, getTenantBilling);
+router.get('/revenue/invoice/:paymentId', verifySuperAdmin, adminDownloadInvoice);
 
 export default router;

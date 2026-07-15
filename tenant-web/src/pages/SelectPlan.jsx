@@ -1,7 +1,7 @@
 // tenant-web/src/pages/SelectPlan.jsx
 
 import { useState, useEffect } from "react";
-import { useNavigate,Link  } from "react-router-dom";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useAuthStore } from "../store/useAuthStore";
 import { getPublicPlans } from "../services/plan.service";
 
@@ -9,6 +9,9 @@ import { getPublicPlans } from "../services/plan.service";
 export default function SelectPlan() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
+   const [searchParams] = useSearchParams();        // ← ADD THIS
+
+  const isUpgrade = searchParams.get("upgrade") === "true"; // ← ADD THIS
 
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -16,9 +19,9 @@ export default function SelectPlan() {
   const [selectedPlanId, setSelectedPlanId] = useState(null);
   const [billingType, setBillingType] = useState("monthly");
 
-  useEffect(() => {
-    // If already has active plan → go to dashboard
-    if (user?.planId && user?.planStatus === "active") {
+   useEffect(() => {
+    // ✅ FIXED: Only redirect if NOT coming from upgrade
+    if (!isUpgrade && user?.planId && user?.planStatus === "active") {
       navigate("/dashboard");
       return;
     }
@@ -48,7 +51,7 @@ export default function SelectPlan() {
       alert("Please select a plan to continue");
       return;
     }
-    navigate(`/payment?planId=${selectedPlanId}&billing=${billingType}`);
+    navigate(`/checkout?planId=${selectedPlanId}&billing=${billingType}`);
   };
 
   return (
@@ -158,20 +161,22 @@ export default function SelectPlan() {
               {plans.map((plan, index) => {
                 const isPopular = index === 1;
                 const isSelected = selectedPlanId === plan.id;
+                const isCurrentPlan = plan.id === user?.planId; 
                 const price = getPrice(plan);
 
                 return (
                   <div
                     key={plan.id}
-                    onClick={() => setSelectedPlanId(plan.id)}
-                    className={`
-                      relative rounded-2xl p-6 cursor-pointer
-                      transition-all duration-300
-                      ${
-                        isSelected
-                          ? "ring-4 ring-[#125EF2] shadow-xl scale-[1.02]"
-                          : "hover:shadow-lg hover:-translate-y-1"
-                      }
+                  onClick={() => !isCurrentPlan && setSelectedPlanId(plan.id)}
+                   className={`
+  relative rounded-2xl p-6 cursor-pointer
+  transition-all duration-300
+  ${isCurrentPlan ? "opacity-75 cursor-not-allowed" : ""}
+  ${
+    isSelected && !isCurrentPlan
+      ? "ring-4 ring-[#125EF2] shadow-xl scale-[1.02]"
+      : !isCurrentPlan ? "hover:shadow-lg hover:-translate-y-1" : ""
+  }
                       ${
                         isPopular
                           ? "bg-gray-900 text-white"
@@ -179,16 +184,40 @@ export default function SelectPlan() {
                       }
                     `}
                   >
-                    {/* Popular Badge */}
-                    {isPopular && (
+                  
+                 {/* Current Plan Badge */}
+                    {isCurrentPlan && (
+                      <span className="absolute -top-3 left-1/2 -translate-x-1/2 inline-block bg-emerald-500 text-white text-xs font-bold px-4 py-1 rounded-full shadow">
+                        ✓ Current Plan
+                      </span>
+                    )}
+
+                    {/* Popular Badge — only show if NOT current plan */}
+                    {isPopular && !isCurrentPlan && (
                       <span className="absolute -top-3 left-1/2 -translate-x-1/2 inline-block bg-[#125EF2] text-white text-xs font-bold px-4 py-1 rounded-full shadow">
                         Most Popular
                       </span>
                     )}
 
-                    {/* Selected Check */}
-                    {isSelected && (
+                    {/* Selected Check — only show if NOT current plan */}
+                    {isSelected && !isCurrentPlan && (
                       <div className="absolute top-4 right-4 w-6 h-6 bg-[#125EF2] rounded-full flex items-center justify-center">
+                        <svg
+                          width="12"
+                          height="12"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="white"
+                          strokeWidth="3"
+                        >
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      </div>
+                    )}
+
+                    {/* Current Plan Check Icon */}
+                    {isCurrentPlan && (
+                      <div className="absolute top-4 right-4 w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center">
                         <svg
                           width="12"
                           height="12"
@@ -271,12 +300,15 @@ export default function SelectPlan() {
                       )}
                     </div>
 
-                    {/* Select Button */}
+                    {/* Select / Current Plan Button */}
                     <button
+                      disabled={isCurrentPlan}
                       className={`
                         mt-5 w-full py-2.5 rounded-xl font-semibold text-sm transition
                         ${
-                          isSelected
+                          isCurrentPlan
+                            ? "bg-emerald-100 text-emerald-700 cursor-not-allowed"
+                            : isSelected
                             ? "bg-[#125EF2] text-white"
                             : isPopular
                             ? "bg-white/20 text-white hover:bg-white/30"
@@ -284,7 +316,11 @@ export default function SelectPlan() {
                         }
                       `}
                     >
-                      {isSelected ? "✓ Selected" : "Select Plan"}
+                      {isCurrentPlan
+                        ? "✓ Current Plan"
+                        : isSelected
+                        ? "✓ Selected"
+                        : "Select Plan"}
                     </button>
                   </div>
                 );
@@ -305,11 +341,21 @@ export default function SelectPlan() {
                   }
                 `}
               >
-                Continue to Payment →
+                {isUpgrade ? "Continue to Upgrade →" : "Continue to Payment →"}
               </button>
               <p className="text-xs text-gray-400 mt-3">
                 🔒 Secure checkout. Cancel anytime.
               </p>
+
+              {/* Back to Dashboard link for upgrade */}
+              {isUpgrade && (
+                <Link
+                  to="/dashboard/billing"
+                  className="inline-block mt-4 text-sm text-[#125EF2] hover:text-[#0F4FCC] font-semibold"
+                >
+                  ← Back to Billing
+                </Link>
+              )}
             </div>
           </>
         )}

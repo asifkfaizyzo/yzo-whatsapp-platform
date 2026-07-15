@@ -9,6 +9,8 @@ import {
   UserCheck,
   CreditCard,
   Settings,
+  BadgeIndianRupee,
+  TicketCheck,
 } from "lucide-react";
 
 export default function Sidebar({ userRole = "Super Admin" }) {
@@ -29,6 +31,16 @@ export default function Sidebar({ userRole = "Super Admin" }) {
   path: "/dashboard/subscription-plans",
   icon: <CreditCard size={20} />,
 },
+{
+  label: "Revenue",
+  path: "/dashboard/revenue",
+  icon: <BadgeIndianRupee size={20} />,
+},
+   {
+      label: "Support Tickets",           // ← ADD THIS
+      path: "/dashboard/tickets",
+      icon: <TicketCheck size={20} />,
+    },
     {
       label: "Platform Reports",
       path: "/dashboard/reports",

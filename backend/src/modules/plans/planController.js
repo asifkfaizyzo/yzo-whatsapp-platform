@@ -9,6 +9,12 @@ import Razorpay from "razorpay";
 import crypto from "crypto";
 import prisma from "../../config/prisma.js";
 
+import { generateInvoicePDF } from "./invoiceService.js";
+import { sendInvoiceEmail } from "../auth/emailService.js";
+
+import { createSuperAdminNotification } from "../superAdminNotifications/superAdminNotificationService.js";
+import { emitToSuperAdmin } from "../../lib/socket.js";
+
 // ✅ Initialize Razorpay
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
@@ -252,45 +258,328 @@ export const verifyPaymentAndActivate = async (req, res) => {
 
     const tenantId = req.tenantId;
 
-    // Verify signature
+    // 1. Verify signature
     const body = razorpay_order_id + "|" + razorpay_payment_id;
-
     const expectedSignature = crypto
       .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
       .update(body.toString())
       .digest("hex");
 
     if (expectedSignature !== razorpay_signature) {
+      await prisma.payment.updateMany({
+        where: { razorpayOrderId: razorpay_order_id },
+        data: { status: "FAILED" },
+      });
       return res.status(400).json({
         success: false,
         message: "Payment verification failed",
       });
     }
 
-    // Payment verified → activate plan
+    // 2. Get plan details
+    const plan = await prisma.subscriptionPlan.findUnique({
+      where: { id: planId },
+    });
+
+    if (!plan) {
+      return res.status(404).json({
+        success: false,
+        message: "Plan not found",
+      });
+    }
+
+    // 3. Get tenant details
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+    });
+
+    // 4. Calculate amounts
+    const baseAmount =
+      billingType === "annual" && plan.annualPrice
+        ? plan.annualPrice
+        : plan.monthlyPrice;
+
+    const gstPercent = 18;
+    const gstAmount = parseFloat(((baseAmount * gstPercent) / 100).toFixed(2));
+    const totalAmount = parseFloat((baseAmount + gstAmount).toFixed(2));
+
+    // 5. Get payment method from Razorpay
+    let paymentMethod = null;
+    try {
+      const rzpPayment = await razorpay.payments.fetch(razorpay_payment_id);
+      paymentMethod = rzpPayment.method || null;
+    } catch (e) {}
+
+    // 6. Save Payment record
+    const payment = await prisma.payment.create({
+      data: {
+        tenantId,
+        razorpayOrderId: razorpay_order_id,
+        razorpayPaymentId: razorpay_payment_id,
+        razorpaySignature: razorpay_signature,
+        planId,
+        planName: plan.name,
+        billingType: billingType || "monthly",
+        baseAmount,
+        gstPercent,
+        gstAmount,
+        totalAmount,
+        currency: "INR",
+        paymentMethod,
+        status: "SUCCESS",
+        paidAt: new Date(),
+      },
+    });
+
+    // 7. Activate plan on Tenant
     const updatedTenant = await prisma.tenant.update({
       where: { id: tenantId },
       data: {
         planId,
-        planStatus:       "active",
-        billingType:      billingType || "monthly",
-        planActivatedAt:  new Date(),
-        status:           "APPROVED",
+        planStatus: "active",
+        billingType: billingType || "monthly",
+        planActivatedAt: new Date(),
+        status: "APPROVED",
       },
     });
 
+    
+    // ─────────────────────────────────────────────
+    // 🔔 STEP 7.5 — Notify SuperAdmin (NEW - 3 lines)
+    // ─────────────────────────────────────────────
+    try {
+      const notification = await createSuperAdminNotification({
+        type: "tenant_payment",
+        title: "💰 Payment Received",
+        message: `${tenant.tenantName} paid ₹${totalAmount} for ${plan.name} (${billingType || "monthly"})`,
+        metadata: {
+          tenantId: tenant.id,
+          tenantName: tenant.tenantName,
+          planId: plan.id,
+          planName: plan.name,
+          amount: totalAmount,
+          baseAmount,
+          gstAmount,
+          billingType: billingType || "monthly",
+          paymentId: payment.id,
+          razorpayPaymentId: razorpay_payment_id,
+        },
+      });
+
+      // Real-time push to admin dashboard bell
+      emitToSuperAdmin("superadmin_notification", { notification });
+
+      console.log("✅ SuperAdmin notified of payment:", payment.id);
+    } catch (notifyErr) {
+      // ⚠️ Never block payment response for notification failure
+      console.error("❌ SuperAdmin notification failed:", notifyErr.message);
+    }
+    // ─────────────────────────────────────────────
+
+    // 8. Generate Invoice PDF + Send Email (non-blocking)
+    generateInvoicePDF(payment, tenant)
+      .then(async ({ filePath, fileUrl, invoiceNumber }) => {
+        // Save invoice URL to payment record
+        await prisma.payment.update({
+          where: { id: payment.id },
+          data: { invoiceUrl: fileUrl },
+        });
+
+        // Send invoice email
+        await sendInvoiceEmail(
+          tenant.email,
+          tenant.tenantName,
+          invoiceNumber,
+          filePath
+        );
+
+        console.log(`✅ Invoice generated: ${invoiceNumber}`);
+      })
+      .catch((err) => {
+        console.error("❌ Invoice generation error:", err);
+      });
+
+    // 9. Return success immediately (don't wait for PDF)
     return res.status(200).json({
       success: true,
       message: "Payment verified! Plan activated successfully.",
       data: {
-        planId:      updatedTenant.planId,
-        planStatus:  updatedTenant.planStatus,
+        planId: updatedTenant.planId,
+        planStatus: updatedTenant.planStatus,
         billingType: updatedTenant.billingType,
+        paymentId: payment.id,
+      },
+    });
+  } catch (error) {
+    console.error("Verify payment error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
+
+// ✅ NEW — Get Billing Details for Tenant Dashboard
+export const getBillingDetails = async (req, res) => {
+  try {
+    const tenantId = req.tenantId;
+
+    // 1. Get tenant with current plan
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      include: {
+        plan: {
+          select: {
+            id: true,
+            name: true,
+            monthlyPrice: true,
+            annualPrice: true,
+            maxAgents: true,
+            description: true,
+          },
+        },
       },
     });
 
+    if (!tenant) {
+      return res.status(404).json({
+        success: false,
+        message: "Tenant not found",
+      });
+    }
+
+    // 2. Get payment history (latest first)
+    const payments = await prisma.payment.findMany({
+      where: { tenantId },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        razorpayOrderId: true,
+        razorpayPaymentId: true,
+        planName: true,
+        billingType: true,
+        baseAmount: true,
+        gstPercent: true,
+        gstAmount: true,
+        totalAmount: true,
+        currency: true,
+        paymentMethod: true,
+        status: true,
+        paidAt: true,
+        createdAt: true,
+      },
+    });
+
+    // 3. Calculate next renewal date
+    let nextRenewalDate = null;
+    if (tenant.planActivatedAt && tenant.planStatus === "active") {
+      const activatedAt = new Date(tenant.planActivatedAt);
+      if (tenant.billingType === "annual") {
+        nextRenewalDate = new Date(activatedAt);
+        nextRenewalDate.setFullYear(nextRenewalDate.getFullYear() + 1);
+      } else {
+        nextRenewalDate = new Date(activatedAt);
+        nextRenewalDate.setMonth(nextRenewalDate.getMonth() + 1);
+      }
+    }
+
+    // 4. Build current plan price display
+    let currentPrice = null;
+    if (tenant.plan) {
+      const baseAmount =
+        tenant.billingType === "annual" && tenant.plan.annualPrice
+          ? tenant.plan.annualPrice
+          : tenant.plan.monthlyPrice;
+      const gstAmount = parseFloat(((baseAmount * 18) / 100).toFixed(2));
+      currentPrice = {
+        base: baseAmount,
+        gst: gstAmount,
+        total: parseFloat((baseAmount + gstAmount).toFixed(2)),
+      };
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        currentPlan: tenant.plan
+          ? {
+              id: tenant.plan.id,
+              name: tenant.plan.name,
+              description: tenant.plan.description,
+              billingType: tenant.billingType,
+              planStatus: tenant.planStatus,
+              activatedAt: tenant.planActivatedAt,
+              nextRenewalDate,
+              maxAgents: tenant.plan.maxAgents,
+              price: currentPrice,
+            }
+          : null,
+        payments,
+      },
+    });
   } catch (error) {
-    console.error("Verify payment error:", error);
+    console.error("Get billing details error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
+
+// ✅ Download Invoice
+export const downloadInvoice = async (req, res) => {
+  try {
+    const { paymentId } = req.params;
+    const tenantId = req.tenantId;
+
+    // 1. Find payment
+    const payment = await prisma.payment.findFirst({
+      where: {
+        id: paymentId,
+        tenantId,           // ← Security: only own payments
+        status: "SUCCESS",
+      },
+    });
+
+    if (!payment) {
+      return res.status(404).json({
+        success: false,
+        message: "Payment not found",
+      });
+    }
+
+    // 2. Check if invoice exists
+    if (!payment.invoiceUrl) {
+      // Generate on the fly if not exists
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: tenantId },
+      });
+      const { filePath, fileUrl, invoiceNumber } = await generateInvoicePDF(
+        payment,
+        tenant
+      );
+      // Save URL
+      await prisma.payment.update({
+        where: { id: paymentId },
+        data: { invoiceUrl: fileUrl },
+      });
+
+      payment.invoiceUrl = fileUrl;
+    }
+    // 3. Return invoice URL
+    return res.status(200).json({
+      success: true,
+      data: {
+        //Backend URL is set in .env file, if not set, fallback to localhost:5000
+        invoiceUrl: `${process.env.BACKEND_URL || "http://localhost:5000"}${payment.invoiceUrl}`,
+      },
+    });
+  } catch (error) {
+    console.error("Download invoice error:", error);
     return res.status(500).json({
       success: false,
       message: error.message,

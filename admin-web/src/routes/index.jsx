@@ -11,6 +11,8 @@ import  SubscriptionPlans from "../pages/dashboard/SubscriptionPlans"
 import Settings from "../pages/dashboard/Settings";
 import NotFound from "../pages/NotFound";
 import ResetPasswordPage from "../pages/auth/ResetPasswordPage";
+import Revenue from "../pages/dashboard/Revenue";
+import Tickets from "../pages/dashboard/Tickets";
 
 // Landing Layout
 import LandingLayout from "../pages/landing/LandingLayout";
@@ -60,6 +62,8 @@ function App() {
         <Route path="/dashboard/reports" element={<Reports />} />
         <Route path="/dashboard/team" element={<Team />} />
         <Route path="/dashboard/settings" element={<Settings />} />
+        <Route path="/dashboard/tickets" element={<Tickets />} />
+        <Route path="/dashboard/revenue" element={<Revenue />} />
       </Route>
 
       {/* Fallback */}

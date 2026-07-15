@@ -18,6 +18,9 @@ import {
   UserX,
   ShieldOff,
   UsersRound,
+  CreditCard,
+  TicketCheck,
+  Bot,
 } from "lucide-react";
 
 export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
@@ -119,7 +122,14 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
       adminOnly: true,
       restrictedForPending: true,
     },
-    // REPLACE WITH:
+    {
+  label: "Automation",
+  path: "/dashboard/automation",
+  icon: <Bot size={20} />,
+  adminOnly: true,           // only tenant admin
+  restrictedForPending: true // locked if pending
+},
+    
 {
   label: "Contacts",
   path: "/dashboard/contacts",
@@ -178,6 +188,20 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
       adminOnly: true,
       restrictedForPending: true,
     },
+     {
+      label: "Billing",
+      path: "/dashboard/billing",
+      icon: <CreditCard size={20} />,
+      adminOnly: true,       // ✅ Only TENANT (admin) sees this
+      restrictedForPending: false, // ✅ Visible even if pending
+    },
+    {
+  label: "Support Tickets",
+  path: "/dashboard/tickets",
+  icon: <TicketCheck size={20} />,
+  adminOnly: false, // ✅ Visible to both TENANT (admin) and AGENT (user)
+  restrictedForPending: false, // visible even if pending
+},
     {
       label: "Settings",
       path: "/dashboard/settings",
@@ -186,7 +210,13 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
     },
   ];
 
-  const menuItems = allMenuItems.filter((item) => !item.adminOnly || isAdmin);
+  const isTenant = userRole === "admin"; // In your app, TENANT = admin role
+const menuItems = allMenuItems.filter((item) => {
+  if (item.adminOnly && !isAdmin) return false;
+  // Billing only visible to tenant (admin), not agents/users
+  if (item.label === "Billing" && !isTenant) return false;
+  return true;
+});
 
   return (
     <aside className="w-64 bg-white border-r border-[color:var(--border)] flex flex-col justify-between min-h-[calc(100vh-64px)] shrink-0">

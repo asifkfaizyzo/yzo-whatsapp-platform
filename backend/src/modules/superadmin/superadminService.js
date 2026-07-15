@@ -780,3 +780,188 @@ export const reactivateUserService = async (userId) => {
     user: reactivatedUser,
   };
 };
+
+
+
+// ══════════════════════════════════════════
+// REVENUE OVERVIEW- SUPERADMIN VIEW OF ALL TENANTS - Add revenue APIs
+// ══════════════════════════════════════════
+// ── Get Revenue Overview Stats ──
+export const getRevenueStatsService = async () => {
+
+  // All successful payments
+  const payments = await prisma.payment.findMany({
+    where: { status: 'SUCCESS' },
+    include: {
+      tenant: {
+        select: {
+          id: true,
+          tenantName: true,
+          email: true,
+          planStatus: true,
+        },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  // Total revenue
+  const totalRevenue = payments.reduce((sum, p) => sum + p.totalAmount, 0);
+  const totalGST = payments.reduce((sum, p) => sum + p.gstAmount, 0);
+  const totalBase = payments.reduce((sum, p) => sum + p.baseAmount, 0);
+
+  // This month revenue
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const thisMonthPayments = payments.filter(
+    (p) => new Date(p.createdAt) >= startOfMonth
+  );
+  const thisMonthRevenue = thisMonthPayments.reduce(
+    (sum, p) => sum + p.totalAmount, 0
+  );
+
+  // Last month revenue
+  const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+  const lastMonthPayments = payments.filter(
+    (p) =>
+      new Date(p.createdAt) >= startOfLastMonth &&
+      new Date(p.createdAt) <= endOfLastMonth
+  );
+  const lastMonthRevenue = lastMonthPayments.reduce(
+    (sum, p) => sum + p.totalAmount, 0
+  );
+
+  // Active tenants with plans
+  const activeTenants = await prisma.tenant.count({
+    where: { planStatus: 'active' },
+  });
+
+  // Plan distribution
+  const planDistribution = await prisma.tenant.groupBy({
+    by: ['planId'],
+    where: { planStatus: 'active', planId: { not: null } },
+    _count: { planId: true },
+  });
+
+  // Get plan names for distribution
+  const planIds = planDistribution
+    .map((p) => p.planId)
+    .filter(Boolean);
+
+  const plans = await prisma.subscriptionPlan.findMany({
+    where: { id: { in: planIds } },
+    select: { id: true, name: true, monthlyPrice: true },
+  });
+
+  const planDistributionWithNames = planDistribution.map((p) => {
+    const plan = plans.find((pl) => pl.id === p.planId);
+    return {
+      planId: p.planId,
+      planName: plan?.name || 'Unknown',
+      count: p._count.planId,
+      monthlyPrice: plan?.monthlyPrice || 0,
+    };
+  });
+
+  // MRR calculation (Monthly Recurring Revenue)
+  const mrr = planDistributionWithNames.reduce(
+    (sum, p) => sum + p.monthlyPrice * p.count, 0
+  );
+
+  // ARR (Annual Recurring Revenue)
+  const arr = mrr * 12;
+
+  return {
+    totalRevenue: parseFloat(totalRevenue.toFixed(2)),
+    totalGST: parseFloat(totalGST.toFixed(2)),
+    totalBase: parseFloat(totalBase.toFixed(2)),
+    thisMonthRevenue: parseFloat(thisMonthRevenue.toFixed(2)),
+    lastMonthRevenue: parseFloat(lastMonthRevenue.toFixed(2)),
+    totalPayments: payments.length,
+    activeTenants,
+    mrr: parseFloat(mrr.toFixed(2)),
+    arr: parseFloat(arr.toFixed(2)),
+    planDistribution: planDistributionWithNames,
+  };
+};
+
+// ── Get All Payments (with tenant info) ──
+export const getAllPaymentsService = async () => {
+  return prisma.payment.findMany({
+    orderBy: { createdAt: 'desc' },
+    include: {
+      tenant: {
+        select: {
+          id: true,
+          tenantName: true,
+          email: true,
+          phone: true,
+        },
+      },
+    },
+  });
+};
+
+// ── Get Single Tenant Billing Detail ──
+export const getTenantBillingService = async (tenantId) => {
+
+  // Tenant info with plan
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    include: {
+      plan: {
+        select: {
+          id: true,
+          name: true,
+          monthlyPrice: true,
+          annualPrice: true,
+          maxAgents: true,
+        },
+      },
+    },
+  });
+
+  if (!tenant) throw new Error('Tenant not found');
+
+  // All payments for this tenant
+  const payments = await prisma.payment.findMany({
+    where: { tenantId },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  // Calculate next renewal
+  let nextRenewalDate = null;
+  if (tenant.planActivatedAt && tenant.planStatus === 'active') {
+    const activatedAt = new Date(tenant.planActivatedAt);
+    if (tenant.billingType === 'annual') {
+      nextRenewalDate = new Date(activatedAt);
+      nextRenewalDate.setFullYear(nextRenewalDate.getFullYear() + 1);
+    } else {
+      nextRenewalDate = new Date(activatedAt);
+      nextRenewalDate.setMonth(nextRenewalDate.getMonth() + 1);
+    }
+  }
+
+  // Total spent by tenant
+  const totalSpent = payments
+    .filter((p) => p.status === 'SUCCESS')
+    .reduce((sum, p) => sum + p.totalAmount, 0);
+
+  return {
+    tenant: {
+      id: tenant.id,
+      tenantName: tenant.tenantName,
+      email: tenant.email,
+      phone: tenant.phone,
+      status: tenant.status,
+      planStatus: tenant.planStatus,
+      billingType: tenant.billingType,
+      planActivatedAt: tenant.planActivatedAt,
+      nextRenewalDate,
+      plan: tenant.plan,
+    },
+    payments,
+    totalSpent: parseFloat(totalSpent.toFixed(2)),
+  };
+};

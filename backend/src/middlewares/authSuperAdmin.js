@@ -39,6 +39,7 @@ export const verifySuperAdmin =
 
       // 6️⃣ Save decoded user info
       req.superAdmin = decoded;
+      req.superAdminId = decoded.id;
 
       // 7️⃣ Go to next function
       next();

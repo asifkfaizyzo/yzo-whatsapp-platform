@@ -3,12 +3,10 @@ import crypto from 'crypto';
 import prisma from '../../config/prisma.js';
 import { handleIncomingMessage } from '../messages/messageService.js';
 import { emitToTenant } from '../../lib/socket.js';
+import flowEngine from '../automation/flowEngineService.js'
 
-// Insert the 'verifyMetaSignature' middleware right below the imports:
 export const verifyMetaSignature = (req, res, next) => {
   const appSecret = process.env.META_APP_SECRET;
-  // Fallback: If App Secret is not configured in .env, log a warning but allow requests
-  // (Prevents breaking local dev setup)
   if (!appSecret) {
     console.warn('⚠️ META_APP_SECRET is not configured in .env. Skipping signature verification.');
     return next();
@@ -30,15 +28,11 @@ export const verifyMetaSignature = (req, res, next) => {
   next();
 };
 
-// 1. GET: Handshake Verification for Meta
 export const verifyMetaWebhook = async (req, res) => {
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
-
-  // Fallback verify token (matches default in schema or .env)
   const verifyToken = process.env.META_VERIFY_TOKEN || 'yzo_default_verification_token';
-
   if (mode === 'subscribe' && token === verifyToken) {
     console.log('✅ Webhook verified successfully by Meta!');
     return res.status(200).send(challenge);
@@ -46,8 +40,6 @@ export const verifyMetaWebhook = async (req, res) => {
   return res.sendStatus(403);
 };
 
-
-// POST: Event Notification receiver for WhatsApp messages AND delivery status receipts
 export const receiveMetaWebhookEvent = async (req, res) => {
   try {
     const body = req.body;
@@ -57,14 +49,13 @@ export const receiveMetaWebhookEvent = async (req, res) => {
       const change = entry?.changes?.[0];
       const value = change?.value;
       const message = value?.messages?.[0];
-      const statusUpdate = value?.statuses?.[0]; // WhatsApp Message Status Receipts
+      const statusUpdate = value?.statuses?.[0];
 
-      // ───────────────── A. Handle Delivery status receipts ─────────────────
+      // ───────────────── A. Handle Delivery Status ─────────────────
       if (statusUpdate) {
-        const wamid = statusUpdate.id; // Meta Message ID
-        const status = statusUpdate.status; // sent, delivered, read, failed
+        const wamid = statusUpdate.id;
+        const status = statusUpdate.status;
 
-        // Find recipient record matching this WhatsApp message ID
         const recipient = await prisma.broadcastRecipient.findUnique({
           where: { wamid },
           include: { broadcast: true }
@@ -86,16 +77,11 @@ export const receiveMetaWebhookEvent = async (req, res) => {
             updateData.errorMessage = statusUpdate.errors?.[0]?.title || 'Meta Send Failure';
           }
 
-          // Update individual status record
           await prisma.broadcastRecipient.update({
             where: { wamid },
-            data: {
-              status: updatedStatus,
-              ...updateData
-            }
+            data: { status: updatedStatus, ...updateData }
           });
 
-          // Recalculate and update Campaign counter fields
           const broadcastId = recipient.broadcastId;
           const broadcast = await prisma.broadcast.update({
             where: { id: broadcastId },
@@ -106,7 +92,6 @@ export const receiveMetaWebhookEvent = async (req, res) => {
             }
           });
 
-          // Emit progress details over Socket to reload the frontend counters
           emitToTenant(recipient.broadcast.tenantId, 'broadcast_update', {
             broadcastId,
             sent: broadcast.sent,
@@ -119,20 +104,40 @@ export const receiveMetaWebhookEvent = async (req, res) => {
 
       // ───────────────── B. Handle Incoming Messages ─────────────────
       if (message) {
-        const phoneId = value.metadata?.phone_number_id; 
-        const customerPhone = message.from; 
-        const text = message.text?.body; 
+        const phoneId = value.metadata?.phone_number_id;
+        const customerPhone = message.from;
+        const text = message.text?.body;
 
-        // Query Tenant matching the incoming phone number ID
+        // ⭐ DEBUG
+        console.log('\n─────────────────────────────────')
+        console.log('📨 INCOMING MESSAGE')
+        console.log('   phoneId      :', phoneId)
+        console.log('   customerPhone:', customerPhone)
+        console.log('   text         :', text)
+        console.log('─────────────────────────────────')
+
+        // Find Tenant
         const tenant = await prisma.tenant.findFirst({
           where: { whatsappPhoneId: phoneId }
         });
 
+        // ⭐ DEBUG
+        console.log('🏢 Tenant found:', tenant ? tenant.id : 'NOT FOUND ❌')
+        console.log('   whatsappPhoneId in DB:', tenant?.whatsappPhoneId)
+
         if (tenant && text) {
-          // Query or create the Contact record under this Tenant
+
+          // Find or Create Contact
           let contact = await prisma.contact.findFirst({
-            where: { phone: `+${customerPhone}`, tenantId: tenant.id }
+            where: {
+              phone: `+${customerPhone}`,
+              tenantId: tenant.id
+            }
           });
+
+          // ⭐ DEBUG
+          console.log('👤 Contact search: +' + customerPhone)
+          console.log('👤 Contact found:', contact ? contact.id : 'NOT FOUND - creating new')
 
           if (!contact) {
             contact = await prisma.contact.create({
@@ -143,9 +148,14 @@ export const receiveMetaWebhookEvent = async (req, res) => {
                 whatsappId: customerPhone.slice(-10)
               }
             });
+            console.log('✅ New contact created:', contact.id)
           }
 
-          // Forward message payload into existing chat pipeline
+          // ⭐ DEBUG
+          console.log('👤 Final Contact ID   :', contact.id)
+          console.log('👤 Final Contact Phone:', contact.phone)
+
+          // Save message to DB
           const result = await handleIncomingMessage({
             contactId: contact.id,
             tenantId: tenant.id,
@@ -153,7 +163,13 @@ export const receiveMetaWebhookEvent = async (req, res) => {
             type: 'TEXT'
           });
 
-          // Emit Socket Event to update inbox chat box
+          // ⭐ DEBUG
+          console.log('💬 Conversation ID    :', result.conversation.id)
+          console.log('💬 Conversation Status:', result.conversation.status)
+          console.log('💬 Conversation Mode  :', result.conversation.mode)
+          console.log('💬 CurrentNodeId      :', result.conversation.currentNodeId)
+
+          // Emit to agent dashboard
           emitToTenant(tenant.id, 'new_message', {
             conversationId: result.conversation.id,
             message: {
@@ -164,11 +180,36 @@ export const receiveMetaWebhookEvent = async (req, res) => {
               createdAt: result.message.createdAt
             }
           });
+
+          // Get fresh conversation for flow engine
+          const conversation = await prisma.conversation.findUnique({
+            where: { id: result.conversation.id }
+          });
+
+          // ⭐ DEBUG
+          console.log('🤖 Fresh conversation for engine:')
+          console.log('   ID           :', conversation?.id)
+          console.log('   Mode         :', conversation?.mode)
+          console.log('   CurrentNodeId:', conversation?.currentNodeId)
+          console.log('   CurrentFlowId:', conversation?.currentFlowId)
+          console.log('   BotPaused    :', conversation?.botPaused)
+
+          // Run Flow Engine
+          if (conversation) {
+            await flowEngine.processIncomingMessage(
+              conversation,
+              contact,
+              text
+            );
+          }
         }
       }
+
       return res.status(200).send('EVENT_RECEIVED');
     }
+
     return res.sendStatus(404);
+
   } catch (err) {
     console.error('Webhook processing error:', err);
     return res.sendStatus(500);

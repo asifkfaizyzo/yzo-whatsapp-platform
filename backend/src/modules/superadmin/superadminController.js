@@ -6,32 +6,10 @@ import {createSuperAdminService,loginSuperAdminService,logoutSuperAdminService,
         refreshAccessTokenService,getAllTenantsService,getTenantByIdService,
         updateTenantByIdService,deactivateTenantService,reactivateTenantService,
         deleteTenantByIdService,approveTenantService,blockTenantService,
-        unblockTenantService,forgotPasswordSuperAdminService,resetPasswordSuperAdminService
-        ,deactivateUserService,reactivateUserService
+        unblockTenantService,forgotPasswordSuperAdminService,resetPasswordSuperAdminService,
+        deactivateUserService,reactivateUserService,getRevenueStatsService,
+        getAllPaymentsService,getTenantBillingService,
       } from './superadminService.js';
-
-
-
-
-
-// // 1️⃣ Create SuperAdmin
-// export const createSuperAdmin = async (req, res) => {
-//   try {
-//     const result = await createSuperAdminService(req.body);
-//     console.log('SuperAdmin created:', result);
-
-//     return res.status(201).json({
-//       success: true,
-//       message: 'SuperAdmin created successfully',
-//       data: result,
-//     });
-//   } catch (error) {
-//     return res.status(400).json({
-//       success: false,
-//       message: error.message,
-//     });
-//   }
-// };
 
 
 // 2️⃣ SuperAdmin Creation
@@ -351,5 +329,88 @@ export const reactivateUser = async (req, res) => {
     return res.status(200).json({ success: true, data: result });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+
+
+// ══════════════════════════════════════════
+// REVENUE OVERVIEW- SUPERADMIN VIEW OF ALL TENANTS - Add revenue APIs
+// ══════════════════════════════════════════
+// ── Get Revenue Stats ──
+export const getRevenueStats = async (req, res) => {
+  try {
+    const result = await getRevenueStatsService();
+    return res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ── Get All Payments ──
+export const getAllPayments = async (req, res) => {
+  try {
+    const result = await getAllPaymentsService();
+    return res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ── Get Tenant Billing Detail ──
+export const getTenantBilling = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await getTenantBillingService(id);
+    return res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ── Superadmin Download Invoice ──
+export const adminDownloadInvoice = async (req, res) => {
+  try {
+    const { paymentId } = req.params;
+
+    const payment = await prisma.payment.findUnique({
+      where: { id: paymentId },
+      include: {
+        tenant: true,
+      },
+    });
+
+    if (!payment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Payment not found',
+      });
+    }
+
+    // Generate invoice if not exists
+    if (!payment.invoiceUrl) {
+      const { generateInvoicePDF } = await import('../plans/invoiceService.js');
+
+      const { fileUrl } = await generateInvoicePDF(payment, payment.tenant);
+
+      await prisma.payment.update({
+        where: { id: paymentId },
+        data: { invoiceUrl: fileUrl },
+      });
+
+      payment.invoiceUrl = fileUrl;
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        invoiceUrl: `${process.env.BACKEND_URL || 'http://localhost:5000'}${payment.invoiceUrl}`,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };

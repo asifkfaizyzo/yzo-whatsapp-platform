@@ -130,6 +130,7 @@ export const verifyTenantOrUser = async (req, res, next) => {
       req.user = user;
       req.tenantId = user.tenantId;
       req.userType = 'USER';
+      req.userId   = decoded.id; 
 
        console.log('✅ USER - tenantId set to:', req.tenantId);
       return next();
