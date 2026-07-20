@@ -88,10 +88,20 @@ export default function Inbox() {
 
   // ── Scroll ──
   const messagesEndRef = useRef(null);
-  const scrollToBottom = () =>
-    messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+
+  const scrollToBottom = () => {
+    if (!messagesEndRef.current) return;
+    const chatContainer = messagesEndRef.current.parentElement;
+    if (chatContainer) {
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+  };
+
   useEffect(() => {
-    scrollToBottom();
+    const timer = setTimeout(() => {
+      scrollToBottom();
+    }, 50);
+    return () => clearTimeout(timer);
   }, [messages]);
 
   // ── New Chat Modal ──
@@ -226,9 +236,10 @@ export default function Inbox() {
   }, [activeChatId]);
 
   // ── Socket Connection ──
+  // FIXED: Added user room joining for USER type + correct dependencies
   useEffect(() => {
     const socketUrl = import.meta.env.VITE_BACKEND_URL;
-    const token = useAuthStore.getState().accessToken;
+
     const newSocket = io(socketUrl, {
       auth: { token: accessToken },
       withCredentials: true,
@@ -236,14 +247,30 @@ export default function Inbox() {
     });
 
     newSocket.on("connect", () => {
+      console.log("🔌 Inbox Socket Connected:", newSocket.id);
+
+      // Always join tenant room (needed for new_message events for everyone)
       if (activeTenantId) {
         newSocket.emit("join_tenant", activeTenantId);
+        console.log("👥 Inbox joined tenant room:", activeTenantId);
+      }
+
+      // FIXED: If USER (agent), also join personal user room
+      // This ensures new_notification events from emitToUser() are received
+      if (user?.type === "USER" && user?.id) {
+        newSocket.emit("join_user", user.id);
+        console.log("👤 Inbox joined user room:", user.id);
       }
     });
 
     setSocket(newSocket);
-    return () => newSocket.disconnect();
-  }, [activeTenantId, accessToken]);
+
+    return () => {
+      console.log("🔌 Inbox Socket Disconnecting");
+      newSocket.disconnect();
+    };
+  // FIXED: Added user?.id and user?.type to dependency array
+  }, [activeTenantId, accessToken, user?.id, user?.type]);
 
   // ── Socket Event Listeners ──
   useEffect(() => {
@@ -896,6 +923,8 @@ export default function Inbox() {
     ).length,
   };
 
+  // FIXED: This is the single source of truth for inbox_unread_count
+  // TopNavBar will check data-inbox-mounted before double counting
   useEffect(() => {
     localStorage.setItem("inbox_unread_count", String(tabCounts.unread));
     window.dispatchEvent(new Event("unread_updated"));
@@ -941,7 +970,12 @@ export default function Inbox() {
   // RENDER
   // ─────────────────────────────────────────────
   return (
-    <div className="h-[calc(100vh-130px)] flex rounded-3xl overflow-hidden animate-in fade-in duration-200 border border-[#075E54]/10 shadow-lg shadow-[#075E54]/5">
+    // FIXED: Added data-inbox-mounted marker so TopNavBar knows Inbox is active
+    // and won't double-increment the inbox_unread_count
+    <div
+      data-inbox-mounted="true"
+      className="h-[calc(100vh-130px)] flex rounded-3xl overflow-hidden animate-in fade-in duration-200 border border-[#075E54]/10 shadow-lg shadow-[#075E54]/5"
+    >
 
       {/* ══════════════════════════════════════
           LEFT SIDEBAR
@@ -2174,7 +2208,6 @@ export default function Inbox() {
           </div>
         </div>
       )}
-      {/* ══ End New Chat Modal ══ */}
 
       {/* ══════════════════════════════════════
           ARCHIVED CHATS MODAL
@@ -2359,6 +2392,7 @@ export default function Inbox() {
         </div>
       )}
       {/* ══ End Archived Modal ══ */}
+
     </div>
   );
 }

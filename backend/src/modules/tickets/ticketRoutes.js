@@ -19,11 +19,12 @@ import {
 } from "./ticketController.js";
 
 import { verifyTenantOrUser } from "../../middlewares/authVerfyTenOrUser.js";
+import { ticketUpload } from "../../config/ticketUpload.js";
 
 const router = express.Router();
 
 // ── Tenant own tickets ──
-router.post(  "/tickets",                       verifyTenantOrUser, createTenantTicket);
+router.post(  "/tickets",                       verifyTenantOrUser, ticketUpload.single("attachment"), createTenantTicket);
 router.get(   "/tickets/my",                    verifyTenantOrUser, getTenantTickets);
 router.get(   "/tickets/user-tickets/all",      verifyTenantOrUser, getTenantUserTickets);
 router.get(   "/tickets/:ticketId",             verifyTenantOrUser, getTenantTicketDetail);
@@ -34,7 +35,7 @@ router.patch( "/tickets/:ticketId/escalate",    verifyTenantOrUser, escalateTick
 router.patch( "/tickets/:ticketId/resolve",     verifyTenantOrUser, resolveTenantUserTicket);
 
 // ── User tickets ──
-router.post(  "/user-tickets",                  verifyTenantOrUser, createUserTicket);
+router.post(  "/user-tickets",                  verifyTenantOrUser, ticketUpload.single("attachment"), createUserTicket);
 router.get(   "/user-tickets/my",               verifyTenantOrUser, getUserTickets);
 router.get(   "/user-tickets/:ticketId",        verifyTenantOrUser, getUserTicketDetail);
 router.post(  "/user-tickets/:ticketId/reply",  verifyTenantOrUser, userReplyTicket);

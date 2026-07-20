@@ -1,13 +1,26 @@
 // tenant-web/src/lib/socket.js
 import { io } from "socket.io-client";
+import { useAuthStore } from "../store/useAuthStore";
 
 const socketUrl = import.meta.env.VITE_BACKEND_URL;
 
+// ═══════════════════════════════════════════════════════════
+// Helper: Get auth token from Zustand store (in-memory)
+// ═══════════════════════════════════════════════════════════
+const getAuthToken = () => {
+  const token = useAuthStore.getState().accessToken;
+  console.log("🔑 Socket getting token:", !!token);
+  return token;
+};
+
 // ── For Inbox (manual connect) ──
 export const socket = io(socketUrl, {
+  auth: (cb) => {
+    cb({ token: getAuthToken() });
+  },
   withCredentials: true,
   transports: ["websocket"],
-  autoConnect: false, // manually connect in Inbox ✅ kept as is
+  autoConnect: false,
 });
 
 // ── For TopNavBar (stable persistent connection) ──
@@ -16,12 +29,27 @@ let _persistentSocket = null;
 export const getSocket = () => {
   if (!_persistentSocket) {
     _persistentSocket = io(socketUrl, {
+      auth: (cb) => {
+        cb({ token: getAuthToken() });
+      },
       withCredentials: true,
       transports: ["websocket"],
-      autoConnect: true,        // auto connects immediately
-      reconnection: true,       // auto reconnects if dropped
+      autoConnect: true,
+      reconnection: true,
       reconnectionAttempts: 10,
       reconnectionDelay: 1000,
+    });
+
+    _persistentSocket.on("connect", () => {
+      console.log("✅ Persistent socket connected:", _persistentSocket.id);
+    });
+
+    _persistentSocket.on("connect_error", (err) => {
+      console.error("❌ Persistent socket connection error:", err.message);
+    });
+
+    _persistentSocket.on("disconnect", (reason) => {
+      console.log("🔌 Persistent socket disconnected:", reason);
     });
   }
   return _persistentSocket;

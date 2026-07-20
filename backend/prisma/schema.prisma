@@ -829,6 +829,8 @@ model Ticket {
   priority     TicketPriority @default(LOW)
   status       TicketStatus   @default(OPEN)
 
+  attachmentUrl  String? 
+
   raisedBy     TicketRaisedBy
 
   // Which tenant this belongs to

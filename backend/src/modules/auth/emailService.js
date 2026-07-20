@@ -182,7 +182,20 @@ export const sendTicketEmail = async ({
   category,
   priority,
 }) => {
-  try {
+
+  // ✅ Guard — if no recipient, log and skip silently
+  if (!to) {
+    console.warn(`⚠️ sendTicketEmail skipped — no recipient for ticket ${ticketNumber}`);
+    return;
+  }
+
+  // ✅ Guard — if email config missing, warn clearly
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    console.error("❌ EMAIL_USER or EMAIL_PASS is not set in environment variables");
+    return;
+  }
+
+try {
     await transporter.sendMail({
       from: `"SudoReply Support" <${process.env.EMAIL_USER}>`,
       to,
@@ -291,10 +304,17 @@ export const sendTicketEmail = async ({
       `,
     });
 
-    console.log(`✅ Ticket email sent to: ${to}`);
+     // ✅ Log success with messageId for debugging
+    console.log(`✅ Ticket email sent to: ${to} | messageId: ${info.messageId}`);
+
   } catch (error) {
-    console.error("❌ Ticket email error:", error);
-    // Non-blocking — don't throw
+    // ✅ Log the FULL error — not just a generic message
+    console.error(`❌ Ticket email FAILED to: ${to}`);
+    console.error(`❌ Subject: ${subject}`);
+    console.error(`❌ Error code: ${error.code}`);
+    console.error(`❌ Error message: ${error.message}`);
+    console.error(`❌ Full error:`, error);
+    // Non-blocking — don't throw, ticket still saves
   }
 };
 // ===================== SEND VERIFICATION OTP EMAIL =====================

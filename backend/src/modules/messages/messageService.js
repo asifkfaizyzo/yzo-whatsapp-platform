@@ -7,7 +7,6 @@ import { evaluateReopen } from '../auto-reopen/autoReopenService.js';
 import { logActivity } from '../activity/activityService.js';
 import { validateMedia, detectMediaType } from "../../lib/utils/mediaValidator.js";
 import { createNotification } from "../notifications/notificationService.js";
-import { emitToTenant } from "../../lib/socket.js";
 import flowEngine from '../automation/flowEngineService.js';
 
 
@@ -176,11 +175,6 @@ const notification = await createNotification({
     contactId,
     contactName: contact.name || contact.phone,
   },
-});
-
-// Emit notification via socket
-emitToTenant(tenantId, "new_notification", {
-  notification,
 });
 
   const updatedConversation = await prisma.conversation.findUnique({

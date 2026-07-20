@@ -40,7 +40,7 @@ export default function SettingsPage() {
   const toast = useToast();
   const [activeTab, setActiveTab] = useState("profile");
   const [copiedKey, setCopiedKey] = useState(false);
-  const [userRole, setUserRole] = useState("admin");
+  const [userRole, setUserRole] = useState(null);
   const [showVerifyToken, setShowVerifyToken] = useState(false);
   const [showAccessToken, setShowAccessToken] = useState(false);
   const [profile, setProfile] = useState({

@@ -3,7 +3,7 @@ import { QUEUE_NAME_WEBHOOK } from '../queues/webhookQueue.js';
 import { redisConnection } from '../config/redis.js';
 import prisma from '../config/prisma.js';
 import { handleIncomingMessage } from '../modules/messages/messageService.js';
-import { emitToTenant } from '../lib/socket.js';
+import { emitToTenant, emitToUser } from '../lib/socket.js';
 
 export const processWebhookJob = async (job) => {
   const body = job.data;
@@ -89,11 +89,9 @@ export const processWebhookJob = async (job) => {
       }
 
       // ✅ Normalize phone: strip any leading '+' then re-add one → always "+918596857485"
-      // WhatsApp sends message.from as "918596857485" (no +) but sometimes test payloads
-      // or retries can have "+918596857485" already, causing "++918596857485" double-plus.
-      const normalizedPhone = `+${customerPhone.replace(/^\+/, '')}`
+      const normalizedPhone = `+${customerPhone.replace(/^\+/, '')}`;
 
-      console.log(`📱 Normalized phone: ${normalizedPhone}`)
+      console.log(`📱 Normalized phone: ${normalizedPhone}`);
 
       let contact = await prisma.contact.findFirst({
         where: { phone: normalizedPhone, tenantId: tenant.id }
@@ -112,9 +110,9 @@ export const processWebhookJob = async (job) => {
             whatsappId: normalizedPhone.replace(/^\+/, '').slice(-10)
           }
         });
-        console.log(`🆕 New contact created: ${contact.name} (${normalizedPhone})`)
+        console.log(`🆕 New contact created: ${contact.name} (${normalizedPhone})`);
       } else {
-        console.log(`♻️  Existing contact found: ${contact.name} (${normalizedPhone})`)
+        console.log(`♻️  Existing contact found: ${contact.name} (${normalizedPhone})`);
       }
 
       const result = await handleIncomingMessage({
@@ -122,9 +120,10 @@ export const processWebhookJob = async (job) => {
         tenantId: tenant.id,
         text: text,
         type: 'TEXT',
-        isNewContact  // ✅ Pass the flag so the flow engine can use it
+        isNewContact
       });
 
+      // ── Emit to tenant (for admin dashboard) ──
       emitToTenant(tenant.id, 'new_message', {
         conversationId: result.conversation.id,
         message: {
@@ -135,9 +134,68 @@ export const processWebhookJob = async (job) => {
           createdAt: result.message.createdAt
         }
       });
+
+      // 🆕 Also emit notification to tenant (for bell icon + sidebar badge)
+      emitToTenant(tenant.id, 'new_notification', {
+        notification: {
+          id: `msg_tenant_${result.message.id}`,
+          type: 'new_message',
+          title: `New message from ${contact.name}`,
+          message: text.substring(0, 100),
+          isRead: false,
+          createdAt: new Date(),
+          metadata: {
+            contactId: contact.id,
+            conversationId: result.conversation.id,
+          }
+        }
+      });
+
+      // ── If contact has assigned user, also notify them directly ──
+// ── Notify Assigned User OR Handle Unassigned Case ──
+if (contact.assignedTo) {
+
+  // ✅ Case 1: Contact is assigned → notify that specific user
+  emitToUser(contact.assignedTo, 'new_message', {
+    conversationId: result.conversation.id,
+    message: {
+      id: result.message.id,
+      text: result.message.text,
+      senderId: result.message.senderId,
+      isFromCustomer: true,
+      createdAt: result.message.createdAt
     }
-  }
-};
+  });
+
+  emitToUser(contact.assignedTo, 'new_notification', {
+    notification: {
+      id: `msg_${result.message.id}`,
+      type: 'new_message',
+      title: `New message from ${contact.name}`,
+      message: text.substring(0, 100),
+      isRead: false,
+      createdAt: new Date(),
+      metadata: {
+        contactId: contact.id,
+        conversationId: result.conversation.id,
+      }
+    }
+  });
+
+  console.log(`📤 Notified assigned user ${contact.assignedTo}`);
+
+} else {
+
+  // ✅ Case 2: Contact is UNASSIGNED
+  // Do NOT emit to user room (no assigned user)
+  // Tenant room already received new_message earlier
+  // Agents will see it via tenant room socket
+
+  console.log(`ℹ️ Contact ${contact.name} is unassigned - notified via tenant room only`);
+}
+    }  // ← closes if (tenant && text)
+  }    // ← closes if (message)  ← THIS WAS MISSING!
+};     // ← closes processWebhookJob
 
 export const startWebhookWorker = () => {
   const worker = new Worker(
@@ -145,7 +203,7 @@ export const startWebhookWorker = () => {
     processWebhookJob,
     {
       connection: redisConnection,
-      concurrency: 10 // Process up to 10 webhook payloads concurrently
+      concurrency: 10
     }
   );
 

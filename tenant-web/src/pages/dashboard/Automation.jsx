@@ -478,15 +478,15 @@ export default function Automation() {
     navigate(`/dashboard/automation/builder/${flowId}`)
   }
 
-  const handleDelete = async (flowId) => {
-    if (!confirm('Delete this flow? This cannot be undone.')) return
-    try {
-      await flowService.deleteFlow(flowId)
-      loadFlows()
-    } catch (err) {
-      console.error(err)
-    }
+ const handleDelete = async (flowId) => {
+  if (!confirm('Delete this flow? This cannot be undone.')) return;
+  try {
+    await flowService.deleteFlow(flowId);
+    loadFlows();
+  } catch (err) {
+    console.error(err);
   }
+};
 
   const handleToggle = async (flowId, isActive) => {
     try {

@@ -20,7 +20,6 @@ import {
   ShieldOff,
   UsersRound,
   CreditCard,
-  TicketCheck,
   Bot,
 } from "lucide-react";
 
@@ -210,13 +209,7 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
       adminOnly: true,       // ✅ Only TENANT (admin) sees this
       restrictedForPending: false, // ✅ Visible even if pending
     },
-    {
-  label: "Support Tickets",
-  path: "/dashboard/tickets",
-  icon: <TicketCheck size={20} />,
-  adminOnly: false, // ✅ Visible to both TENANT (admin) and AGENT (user)
-  restrictedForPending: false, // visible even if pending
-},
+  
     {
       label: "Settings",
       path: "/dashboard/settings",

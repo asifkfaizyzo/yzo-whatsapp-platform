@@ -28,6 +28,24 @@ const flowEngine = {
         return
       }
 
+       // 🆕 CASE 1.5: Existing contact already has assigned agent → skip bot
+    if (!isNewContact && contact.assignedTo) {
+      console.log(`👤 Contact ${contact.name} already assigned to ${contact.assignedTo} - skipping bot`)
+      
+      // Update conversation to AGENT mode permanently for this contact
+      await prisma.conversation.update({
+        where: { id: conversation.id },
+        data: { 
+          mode: 'AGENT',
+          assignedTo: contact.assignedTo,
+          botPaused: true 
+        }
+      })
+      
+      await flowEngine.notifyAgents(conversation, contact, userMessage)
+      return
+    }
+
       // ── CASE 2: Bot active + waiting on a node → continue flow ──
       if (
         conversation.mode === 'BOT' &&
@@ -474,192 +492,240 @@ const flowEngine = {
   // ASSIGN_AGENT Node
   // Stop bot → assign to human agent
   // ─────────────────────────────────────────
-  // In flowEngineService.js
-  // Replace handleAssignAgent with this:
-
   handleAssignAgent: async (node, conversation, contact) => {
-    console.log('👤 Assigning to agent...')
+  console.log('\n👤 Assigning to agent...')
 
-    let agent = null
+  // Import here to avoid circular deps at module load time
+  const { isUserOnline, emitToUser, emitToTenant } = await import('../../lib/socket.js')
 
-    // ── Step 1: Check if contact already assigned ──
-    const freshContact = await prisma.contact.findUnique({
-      where: { id: contact.id },
-      select: {
-        assignedTo: true,
-        assignedUser: {
-          select: {
-            id: true,
-            name: true,
-            isActive: true
-          }
+  let agent = null
+
+  // ═══════════════════════════════════════════════════════════
+  // Step 1: If contact already has an assigned agent AND online → sticky
+  // ═══════════════════════════════════════════════════════════
+  const freshContact = await prisma.contact.findUnique({
+    where: { id: contact.id },
+    select: {
+      assignedTo: true,
+      assignedUser: {
+        select: {
+          id: true,
+          name: true,
+          isActive: true
         }
+      }
+    }
+  })
+
+  if (
+    freshContact?.assignedTo &&
+    freshContact?.assignedUser?.isActive &&
+    isUserOnline(conversation.tenantId, freshContact.assignedTo)
+  ) {
+    agent = freshContact.assignedUser
+    console.log(`✅ Sticky assignment → ${agent.name} (already assigned & online)`)
+  } else {
+
+    // ═══════════════════════════════════════════════════════════
+    // Step 2: Get contact's tags
+    // ═══════════════════════════════════════════════════════════
+    const contactTags = await prisma.contactTagMapping.findMany({
+      where: { contactId: contact.id },
+      select: { tagId: true }
+    })
+    const contactTagIds = contactTags.map(ct => ct.tagId)
+    console.log(`🏷️  Contact tags: ${contactTagIds.length}`)
+
+    // ═══════════════════════════════════════════════════════════
+    // Step 3: If tags exist → find tag-matched ONLINE agent
+    // ═══════════════════════════════════════════════════════════
+    if (contactTagIds.length > 0) {
+      const matchingAgents = await prisma.userTagMapping.findMany({
+        where: {
+          tenantId: conversation.tenantId,
+          tagId: { in: contactTagIds }
+        },
+        include: { user: true }
+      })
+
+      // Filter: active + online + unique
+      const onlineTagAgents = matchingAgents
+        .filter(m => m.user.isActive && isUserOnline(conversation.tenantId, m.user.id))
+        .map(m => m.user)
+        .filter((user, index, self) =>
+          index === self.findIndex(u => u.id === user.id)
+        )
+
+      console.log(`👥 Online tag-matched agents: ${onlineTagAgents.length}`)
+
+      if (onlineTagAgents.length > 0) {
+        // Pick least busy
+        const agentCounts = await Promise.all(
+          onlineTagAgents.map(async (a) => {
+            const count = await prisma.contact.count({
+              where: {
+                tenantId: conversation.tenantId,
+                assignedTo: a.id
+              }
+            })
+            return { agent: a, count }
+          })
+        )
+        agentCounts.sort((a, b) => a.count - b.count)
+        agent = agentCounts[0].agent
+        console.log(`✅ Tag match → ${agent.name} (load: ${agentCounts[0].count})`)
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // Step 4: Fallback → any ONLINE agent (even without matching tag)
+    // ═══════════════════════════════════════════════════════════
+    if (!agent) {
+      console.log('⚠️  No tag-matched online agent. Falling back to any online agent...')
+
+      const allAgents = await prisma.user.findMany({
+        where: {
+          tenantId: conversation.tenantId,
+          isActive: true
+        }
+      })
+
+      const onlineAgents = allAgents.filter(a =>
+        isUserOnline(conversation.tenantId, a.id)
+      )
+
+      console.log(`👥 Total online agents: ${onlineAgents.length}`)
+
+      if (onlineAgents.length > 0) {
+        const agentCounts = await Promise.all(
+          onlineAgents.map(async (a) => {
+            const count = await prisma.contact.count({
+              where: {
+                tenantId: conversation.tenantId,
+                assignedTo: a.id
+              }
+            })
+            return { agent: a, count }
+          })
+        )
+        agentCounts.sort((a, b) => a.count - b.count)
+        agent = agentCounts[0].agent
+        console.log(`✅ Fallback → ${agent.name} (load: ${agentCounts[0].count})`)
+      }
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // Step 5: Agent found → ASSIGN + NOTIFY
+  // ═══════════════════════════════════════════════════════════
+  if (agent) {
+    // Update conversation
+    await prisma.conversation.update({
+      where: { id: conversation.id },
+      data: {
+        mode: 'AGENT',
+        botPaused: true,
+        assignedTo: agent.id,
+        currentFlowId: null,
+        currentNodeId: null
       }
     })
 
-    if (freshContact?.assignedTo && freshContact?.assignedUser?.isActive) {
-      // Already assigned to an active agent → route to them
-      agent = freshContact.assignedUser
-      console.log(`✅ Already assigned to: ${agent.name} (${agent.id})`)
-      console.log('   Routing to existing agent...')
-
-    } else {
-
-      // ── Step 2: Get contact's tags ──
-      const contactTags = await prisma.contactTagMapping.findMany({
-        where: { contactId: contact.id },
-        select: { tagId: true }
-      })
-
-      const contactTagIds = contactTags.map(ct => ct.tagId)
-      console.log('🏷️ Contact tags:', contactTagIds.length)
-
-      // ── Step 3: If contact has tags → find matching agent ──
-      if (contactTagIds.length > 0) {
-
-        const matchingAgents = await prisma.userTagMapping.findMany({
-          where: {
-            tenantId: conversation.tenantId,
-            tagId: { in: contactTagIds }
-          },
-          include: {
-            user: true
-          }
-        })
-
-        // Get unique active agents
-        const activeAgents = matchingAgents
-          .filter(m => m.user.isActive)
-          .map(m => m.user)
-          .filter((user, index, self) =>
-            index === self.findIndex(u => u.id === user.id)
-          )
-
-        console.log('👥 Matching agents:', activeAgents.length)
-
-        if (activeAgents.length > 0) {
-          // Round Robin: find least loaded agent
-          const agentCounts = await Promise.all(
-            activeAgents.map(async (a) => {
-              const count = await prisma.contact.count({
-                where: {
-                  tenantId: conversation.tenantId,
-                  assignedTo: a.id
-                }
-              })
-              return { agent: a, count }
-            })
-          )
-
-          agentCounts.sort((a, b) => a.count - b.count)
-          agent = agentCounts[0].agent
-
-          console.log(`✅ Tag match → Agent: ${agent.name}`)
-          console.log(`   Load: ${agentCounts[0].count} contacts`)
-        }
-      }
-
-      // ── Step 4: No tag match → any available agent ──
-      if (!agent) {
-        console.log('⚠️ No tag match. Finding any available agent...')
-
-        // Find agent with least contacts (round robin)
-        const allAgents = await prisma.user.findMany({
-          where: {
-            tenantId: conversation.tenantId,
-            isActive: true
-          }
-        })
-
-        if (allAgents.length > 0) {
-          const agentCounts = await Promise.all(
-            allAgents.map(async (a) => {
-              const count = await prisma.contact.count({
-                where: {
-                  tenantId: conversation.tenantId,
-                  assignedTo: a.id
-                }
-              })
-              return { agent: a, count }
-            })
-          )
-
-          agentCounts.sort((a, b) => a.count - b.count)
-          agent = agentCounts[0].agent
-
-          console.log(`✅ Fallback → Agent: ${agent.name}`)
-          console.log(`   Load: ${agentCounts[0].count} contacts`)
-        }
-      }
-    }
-
-    // ── Step 5: Assign agent ──
-    if (agent) {
-      // Update conversation
-      await prisma.conversation.update({
-        where: { id: conversation.id },
+    // Update contact assignment (only if changed)
+    if (!freshContact?.assignedTo || freshContact.assignedTo !== agent.id) {
+      await prisma.contact.update({
+        where: { id: contact.id },
         data: {
-          mode: 'AGENT',
-          botPaused: true,
           assignedTo: agent.id,
-          currentFlowId: null,
-          currentNodeId: null
+          assignedAt: new Date()
         }
       })
-
-      // Update contact assignment (only if not already assigned)
-      if (!freshContact?.assignedTo || freshContact.assignedTo !== agent.id) {
-        await prisma.contact.update({
-          where: { id: contact.id },
-          data: {
-            assignedTo: agent.id,
-            assignedAt: new Date()
-          }
-        })
-      }
-
-      // Notify agent
-      emitToTenant(
-        conversation.tenantId,
-        'conversation_assigned',
-        {
-          conversationId: conversation.id,
-          agentId: agent.id,
-          contact: {
-            name: contact.name,
-            phone: contact.phone
-          }
-        }
-      )
-
-      console.log(`✅ Final assignment: ${agent.name} (${agent.id})`)
-
-      await flowEngine.sendWhatsAppMessage(
-        conversation.tenantId,
-        contact.phone,
-        '✅ Connecting you to an agent. Please wait...'
-      )
-
-    } else {
-      // ── Step 6: No agent available → queue ──
-      console.log('⚠️ No agent available. Queuing...')
-
-      await prisma.conversation.update({
-        where: { id: conversation.id },
-        data: {
-          mode: 'QUEUED',
-          currentFlowId: null,
-          currentNodeId: null
-        }
-      })
-
-      await flowEngine.sendWhatsAppMessage(
-        conversation.tenantId,
-        contact.phone,
-        '⏳ All agents are busy. You are in queue. We will respond shortly.'
-      )
     }
-  },
+
+    // 🔔 Notify the SPECIFIC agent (for badge/toast on their screen)
+    emitToUser(agent.id, 'new_assignment', {
+      conversationId: conversation.id,
+      contact: {
+        id: contact.id,
+        name: contact.name,
+        phone: contact.phone
+      },
+      fromQueue: false
+    })
+
+    // 🆕 Also emit notification event (for bell icon in TopNavBar)
+emitToUser(agent.id, 'new_notification', {
+  notification: {
+    id: `assign_${conversation.id}_${Date.now()}`,
+    type: 'contact_assigned',
+    title: '🎯 New chat assigned',
+    message: `${contact.name} has been assigned to you`,
+    isRead: false,
+    createdAt: new Date(),
+    metadata: {
+      contactId: contact.id,
+      conversationId: conversation.id,
+    }
+  }
+})
+
+    // 📢 Also broadcast to tenant (for admin dashboard)
+    emitToTenant(conversation.tenantId, 'conversation_assigned', {
+      conversationId: conversation.id,
+      agentId: agent.id,
+      contact: {
+        name: contact.name,
+        phone: contact.phone
+      },
+      fromQueue: false
+    })
+console.log(`✅ Final assignment: ${agent.name} (${agent.id})\n`)
+
+// Send WhatsApp confirmation to customer with agent name
+const assignmentText = `✅ You're connected with *${agent.name}*! They will assist you shortly. 💬`
+
+await flowEngine.sendWhatsAppMessage(
+  conversation.tenantId,
+  contact.phone,
+  assignmentText
+)
+
+await flowEngine.saveBotMessage(
+  conversation.id,
+  assignmentText
+)
+
+  } else {
+    // ═══════════════════════════════════════════════════════════
+    // Step 6: NO agent available → QUEUE the conversation
+    // ═══════════════════════════════════════════════════════════
+    console.log('⚠️  No online agent available. Adding to queue...\n')
+
+    await prisma.conversation.update({
+      where: { id: conversation.id },
+      data: {
+        mode: 'QUEUED',
+        currentFlowId: null,
+        currentNodeId: null
+      }
+    })
+
+    const queueText = '⏳ All our agents are currently busy. You are in the waiting queue. We will respond as soon as an agent is available.'
+
+await flowEngine.sendWhatsAppMessage(
+  conversation.tenantId,
+  contact.phone,
+  queueText
+)
+
+await flowEngine.saveBotMessage(
+  conversation.id,
+  queueText
+)
+  }
+},
+
+ 
 
 
   // ─────────────────────────────────────────

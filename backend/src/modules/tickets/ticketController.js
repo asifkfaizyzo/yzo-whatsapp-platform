@@ -25,7 +25,11 @@ import {
 
 export const createTenantTicket = async (req, res) => {
   try {
-    const ticket = await createTenantTicketService(req.tenantId, req.body);
+      const attachmentUrl = req.file
+      ? `/uploads/tickets/${req.file.filename}`
+      : null;
+      
+    const ticket = await createTenantTicketService(req.tenantId, { ...req.body, attachmentUrl });
     return res.status(201).json({ success: true, data: ticket });
   } catch (error) {
     console.error("Create tenant ticket error:", error);
@@ -156,13 +160,19 @@ export const createUserTicket = async (req, res) => {
   try {
     // ✅ FIXED - use resolved userId variable
     const userId = req.userId || req.user?.id;
+
+    
+    const attachmentUrl = req.file
+      ? `/uploads/tickets/${req.file.filename}`
+      : null;
+      
     console.log("req.user:", req.user);
     console.log("req.userId:", req.userId);
 
     const ticket = await createUserTicketService(
       userId,
       req.tenantId,
-      req.body
+      { ...req.body, attachmentUrl }
     );
     return res.status(201).json({ success: true, data: ticket });
   } catch (error) {
