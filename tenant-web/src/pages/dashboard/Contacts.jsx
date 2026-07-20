@@ -37,8 +37,12 @@ import {
   unassignContact,
   assignMultipleContacts,
 } from "../../services/tenant.service";
+import { useConfirm } from "../../context/ConfirmContext";
+import { useToast } from "../../context/ToastContext";
 
 export default function Contacts() {
+  const confirm = useConfirm();
+  const toast = useToast();
   const { user } = useAuthStore();
   const isAdmin = user?.type === "TENANT";
   const [contacts, setContacts] = useState([]);
@@ -101,6 +105,7 @@ export default function Contacts() {
     onSuccess: () => {
       fetchContacts();
       handleCloseModal();
+      toast.success(editingContact ? "Contact updated successfully!" : "Contact created successfully!");
     },
   });
   const [importing, setImporting] = useState(false);
@@ -143,7 +148,7 @@ export default function Contacts() {
     if (!file) return;
 
     if (!file.name.endsWith(".csv")) {
-      alert("Please upload a valid CSV file.");
+      toast.error("Please upload a valid CSV file.");
       e.target.value = "";
       return;
     }
@@ -155,9 +160,10 @@ export default function Contacts() {
 
     if (res.success) {
       setImportSummary(res.data.summary || res.data);
+      toast.success("Contacts imported successfully!");
       fetchContacts();
     } else {
-      alert(res.message);
+      toast.error(res.message);
     }
   };
 
@@ -202,10 +208,11 @@ export default function Contacts() {
     }
 
     if (res.success) {
+      toast.success(editingContact ? "Contact updated successfully!" : "Contact created successfully!");
       fetchContacts();
       handleCloseModal();
     } else {
-      alert(res.message);
+      toast.error(res.message);
     }
   };
 
@@ -238,37 +245,48 @@ export default function Contacts() {
 
   const handleToggleBlock = async (contact) => {
     const action = contact.isBlocked ? "unblock" : "block";
-    if (!window.confirm(`Are you sure you want to ${action} this contact?`))
-      return;
+    const ok = await confirm({
+      type: contact.isBlocked ? "info" : "warning",
+      title: contact.isBlocked ? "Unblock Contact?" : "Block Contact?",
+      message: `Are you sure you want to ${action} this contact?`,
+      confirmLabel: contact.isBlocked ? "Unblock" : "Block",
+    });
+    if (!ok) return;
 
     const res = contact.isBlocked
       ? await unblockContact(contact.id)
       : await blockContact(contact.id);
 
     if (res.success) {
-      // Update local state isBlocked value
       setContacts((prev) =>
         prev.map((c) =>
           c.id === contact.id ? { ...c, isBlocked: !c.isBlocked } : c,
         ),
       );
+      toast.success(contact.isBlocked ? "Contact unblocked successfully." : "Contact blocked successfully.");
     } else {
-      alert(res.message);
+      toast.error(res.message);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this contact?"))
-      return;
+    const ok = await confirm({
+      type: "danger",
+      title: "Delete Contact?",
+      message: "Permanently delete this contact? This action cannot be undone.",
+      confirmLabel: "Delete Contact",
+    });
+    if (!ok) return;
     const res = await deleteContact(id);
     if (res.success) {
+      toast.success("Contact deleted successfully.");
       if (contacts.length === 1 && page > 1) {
         setPage((prev) => prev - 1);
       } else {
         fetchContacts();
       }
     } else {
-      alert(res.message);
+      toast.error(res.message);
     }
   };
 
@@ -317,8 +335,9 @@ export default function Contacts() {
           c.id === contactId ? { ...c, assignedTo: newUserId || null } : c,
         ),
       );
+      toast.success(newUserId ? "Agent assigned successfully!" : "Contact unassigned successfully!");
     } else {
-      alert(res.message);
+      toast.error(res.message);
     }
   };
 
@@ -328,29 +347,29 @@ export default function Contacts() {
       // Navigate to the inbox page passing the conversation ID in query string
       navigate(`/dashboard/inbox?conversationId=${res.data.id}`);
     } else {
-      alert(res.message);
+      toast.error(res.message);
     }
   };
 
   const handleBulkAssignSubmit = async () => {
     if (!bulkAgentId) {
-      alert("Please select an agent.");
+      toast.warning("Please select an agent.");
       return;
     }
     if (selectedContactIds.length === 0) {
-      alert("Please select at least one contact.");
+      toast.warning("Please select at least one contact.");
       return;
     }
 
     const res = await assignMultipleContacts(selectedContactIds, bulkAgentId);
     
     if (res.success) {
-      alert(res.message);
+      toast.success(res.message || "Contacts assigned successfully!");
       setSelectedContactIds([]);
       setBulkAgentId("");
       fetchContacts(); // Reload contacts list
     } else {
-      alert(res.message);
+      toast.error(res.message);
     }
   };
 

@@ -14,9 +14,14 @@ import {
   Receipt,
   BadgeIndianRupee,
   ArrowUpRight,
+  X,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getBillingDetails, downloadInvoice } from "../../services/billing.service";
+import api from "../../lib/axios";
+import CancelSubscriptionModal from "../../components/billing/CancelSubscriptionModal";
+import SubscriptionExpiryBanner from "../../components/billing/SubscriptionExpiryBanner";
+import { createPortal } from "react-dom";
 
 // ── Helper: Format currency ──
 const formatINR = (amount) => {
@@ -71,25 +76,31 @@ const StatusBadge = ({ status }) => {
 const PlanStatusBadge = ({ status }) => {
   const map = {
     active: "bg-emerald-50 text-emerald-700 border border-emerald-100",
+    cancel_at_period_end: "bg-amber-50 text-amber-700 border border-amber-100",
     inactive: "bg-slate-100 text-slate-500 border border-slate-200",
     expired: "bg-red-50 text-red-600 border border-red-100",
   };
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${
-        map[status] || map.inactive
-      }`}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${map[status] || map.inactive
+        }`}
     >
       <span
         className={`w-1.5 h-1.5 rounded-full ${
-          status === "active" ? "bg-emerald-500 animate-pulse" : "bg-slate-400"
+          status === "active" 
+            ? "bg-emerald-500 animate-pulse" 
+            : status === "cancel_at_period_end" 
+            ? "bg-amber-500 animate-pulse" 
+            : "bg-slate-400"
         }`}
       />
       {status === "active"
         ? "Active"
-        : status === "expired"
-        ? "Expired"
-        : "Inactive"}
+        : status === "cancel_at_period_end"
+          ? "Cancelling"
+          : status === "expired"
+            ? "Expired"
+            : "Inactive"}
     </span>
   );
 };
@@ -124,9 +135,8 @@ const PaymentRow = ({ payment, index }) => {
     <>
       {/* Main Row */}
       <tr
-        className={`hover:bg-slate-50/60 transition cursor-pointer ${
-          expanded ? "bg-slate-50" : ""
-        }`}
+        className={`hover:bg-slate-50/60 transition cursor-pointer ${expanded ? "bg-slate-50" : ""
+          }`}
         onClick={() => setExpanded(!expanded)}
       >
         <td className="px-5 py-4 text-sm text-slate-600 font-medium whitespace-nowrap">
@@ -239,11 +249,10 @@ const PaymentRow = ({ payment, index }) => {
                       handleDownloadInvoice();
                     }}
                     disabled={downloading || payment.status !== "SUCCESS"}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition ${
-                      downloading || payment.status !== "SUCCESS"
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition ${downloading || payment.status !== "SUCCESS"
                         ? "bg-slate-100 text-slate-400 cursor-not-allowed"
                         : "bg-[#125EF2] text-white hover:bg-[#0d4fd6] shadow-sm"
-                    }`}
+                      }`}
                   >
                     {downloading ? (
                       <>
@@ -275,6 +284,9 @@ export default function Billing() {
   const [billingData, setBillingData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [isReactivateModalOpen, setIsReactivateModalOpen] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const fetchBilling = async () => {
     setLoading(true);
@@ -286,6 +298,22 @@ export default function Billing() {
       setError(res.message);
     }
     setLoading(false);
+  };
+
+  const handleReactivate = async () => {
+    setActionLoading(true);
+    try {
+      const res = await api.post("/billing/reactivate");
+      if (res.data.success) {
+        fetchBilling();
+      } else {
+        alert(res.data.message || "Failed to reactivate");
+      }
+    } catch (err) {
+      alert("Error reactivating subscription");
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -353,6 +381,36 @@ export default function Billing() {
         </button>
       </div>
 
+      {/* Cancellation Pending Banner */}
+      {currentPlan && currentPlan.subscriptionStatus === 'cancel_at_period_end' && (
+        <div className="mb-6 rounded-2xl bg-amber-50 border border-amber-100 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <AlertCircle className="text-amber-500 shrink-0" size={20} />
+            <div>
+              <p className="text-sm font-bold text-amber-900">Subscription scheduled to end</p>
+              <p className="text-xs text-amber-700">
+                All services will terminate on <strong>{formatDate(currentPlan.planPeriodEnd)}</strong>. You can reactivate anytime before then.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setIsReactivateModalOpen(true)}
+            disabled={actionLoading}
+            className="shrink-0 px-4.5 py-2 rounded-xl bg-[#d97706] hover:bg-[#b45309] text-xs font-bold text-white transition disabled:opacity-50"
+          >
+            {actionLoading ? "Reactivating..." : "Reactivate Subscription"}
+          </button>
+        </div>
+      )}
+
+      {/* Subscription Expiry Alert Banner */}
+      {currentPlan && (
+        <SubscriptionExpiryBanner
+          planPeriodEnd={currentPlan.planPeriodEnd}
+          subscriptionStatus={currentPlan.subscriptionStatus}
+        />
+      )}
+
       {/* Current Plan Card */}
       {currentPlan ? (
         <div className="relative overflow-hidden rounded-2xl border border-[#CFE0FD] bg-gradient-to-r from-[#EAF2FE] via-white to-blue-50 p-6 shadow-sm">
@@ -369,7 +427,7 @@ export default function Billing() {
                   <h2 className="text-xl font-extrabold text-slate-800">
                     {currentPlan.name}
                   </h2>
-                  <PlanStatusBadge status={currentPlan.planStatus} />
+                  <PlanStatusBadge status={currentPlan.subscriptionStatus} />
                   <span className="text-xs font-bold bg-white border border-slate-200 text-slate-600 px-2 py-0.5 rounded-full capitalize">
                     {currentPlan.billingType}
                   </span>
@@ -387,7 +445,9 @@ export default function Billing() {
                   {currentPlan.nextRenewalDate && (
                     <div className="flex items-center gap-1.5 text-xs text-slate-600 font-semibold">
                       <RefreshCw size={13} className="text-[#125EF2]" />
-                      <span>Renews: {formatDate(currentPlan.nextRenewalDate)}</span>
+                      <span>
+                        {currentPlan.subscriptionStatus === 'cancel_at_period_end' ? "Ends" : "Renews"}: {formatDate(currentPlan.nextRenewalDate)}
+                      </span>
                     </div>
                   )}
                   {currentPlan.maxAgents && (
@@ -412,13 +472,34 @@ export default function Billing() {
                   </div>
                 </div>
               )}
-              <Link
-                to="/select-plan?upgrade=true"
-                className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl bg-[#125EF2] text-white hover:bg-[#0d4fd6] transition shadow-sm"
-              >
-                <ArrowUpRight size={13} />
-                Upgrade Plan
-              </Link>
+              <div className="flex flex-wrap gap-2 justify-end">
+                {currentPlan.subscriptionStatus === 'active' && (
+                  <button
+                    onClick={() => setIsCancelModalOpen(true)}
+                    className="px-4 py-2 text-xs font-bold rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition shadow-sm"
+                  >
+                    Cancel Subscription
+                  </button>
+                )}
+
+                {currentPlan.id === "enterprise" ? (
+                  <Link
+                    to="/select-plan?upgrade=true"
+                    className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl bg-slate-900 text-white hover:bg-slate-850 transition shadow-sm"
+                  >
+                    <RefreshCw size={13} />
+                    Change Plan
+                  </Link>
+                ) : (
+                  <Link
+                    to="/select-plan?upgrade=true"
+                    className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl bg-[#125EF2] text-white hover:bg-[#0d4fd6] transition shadow-sm"
+                  >
+                    <ArrowUpRight size={13} />
+                    Upgrade Plan
+                  </Link>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -568,6 +649,66 @@ export default function Billing() {
             </a>
           </p>
         </div>
+      )}
+
+      {currentPlan && (
+        <CancelSubscriptionModal
+          isOpen={isCancelModalOpen}
+          onClose={() => setIsCancelModalOpen(false)}
+          planName={currentPlan.name}
+          periodEndDate={currentPlan.planPeriodEnd || currentPlan.nextRenewalDate}
+          onSuccess={fetchBilling}
+        />
+      )}
+
+      {/* Reactivate Confirmation Modal */}
+      {isReactivateModalOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200" style={{ zIndex: 99999 }}>
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden border border-slate-100 flex flex-col animate-in scale-in-95 duration-200">
+            
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+              <h3 className="text-lg font-bold text-slate-800">
+                Reactivate Subscription
+              </h3>
+              <button 
+                onClick={() => setIsReactivateModalOpen(false)} 
+                className="p-1 rounded-lg text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6">
+              <p className="text-sm text-slate-600 leading-relaxed">
+                Are you sure you want to reactivate your subscription? This will cancel your scheduled termination and keep your plan active. Your billing period and renewal cycle will continue without interruption.
+              </p>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50/50">
+              <button
+                onClick={async () => {
+                  setIsReactivateModalOpen(false);
+                  await handleReactivate();
+                }}
+                disabled={actionLoading}
+                className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-sm font-bold text-white transition shadow-sm"
+              >
+                {actionLoading ? "Reactivating..." : "Yes, Reactivate"}
+              </button>
+              <button
+                onClick={() => setIsReactivateModalOpen(false)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 hover:bg-slate-50 transition"
+              >
+                Cancel
+              </button>
+            </div>
+
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );

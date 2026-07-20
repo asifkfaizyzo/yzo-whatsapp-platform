@@ -1,7 +1,8 @@
 import { useState } from "react";
 import Navbar from "../components/landing/layout/Navbar";
 import Footer from "../components/landing/layout/Footer";
-import { siteConfig } from "../config/site";         
+import { siteConfig } from "../config/site";
+import api from "../lib/axios";
 
 // ── SVG Icons ─────────────────────────────────────────────────────────────────
 
@@ -75,10 +76,42 @@ const socialItems = [
 
 export default function Contact() {
   const [submitted, setSubmitted] = useState(false);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [subject, setSubject] = useState("");
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setSubmitted(true);
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await api.post("/enquiries", {
+        name,
+        email,
+        subject: subject || undefined,
+        message,
+      });
+
+      if (response.data.success) {
+        setSubmitted(true);
+        // Clear fields
+        setName("");
+        setEmail("");
+        setSubject("");
+        setMessage("");
+      } else {
+        setError(response.data.message || "Failed to submit enquiry.");
+      }
+    } catch (err) {
+      console.error("Enquiry submission error:", err);
+      setError(err.response?.data?.message || "An error occurred. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -114,7 +147,7 @@ export default function Contact() {
                   <div>
                     <p className="text-xs text-gray-400">Email</p>
                     <p className="text-sm font-medium text-gray-900">
-                      hello@sudoreply
+                      hello@sudoreply.com
                     </p>
                   </div>
                 </div>
@@ -199,7 +232,7 @@ export default function Contact() {
             <div>
               {submitted ? (
                 <div className="bg-[#EAF2FE] rounded-2xl p-10 
-                                border border-[#CFE0FD] text-center">
+                                border border-[#CFE0FD] text-center animate-fade-in">
                   <div className="w-16 h-16 bg-[#CFE0FD] rounded-full 
                                   flex items-center justify-center 
                                   text-3xl mx-auto mb-4">
@@ -209,8 +242,7 @@ export default function Contact() {
                     Message Sent!
                   </h3>
                   <p className="text-gray-500 text-sm mb-6">
-                    Thanks for reaching out. Our team will get 
-                    back to you within 24 hours.
+                    Thank you! We will get back to you soon.
                   </p>
                   <button
                     onClick={() => setSubmitted(false)}
@@ -227,99 +259,66 @@ export default function Contact() {
                              border border-gray-100"
                 >
                   <div className="space-y-5">
-
-                    {/* Name & Phone — Side by Side */}
-                    <div className="grid grid-cols-2 gap-4">
-                      {/* Full Name */}
-                      <div>
-                        <label className="block text-sm font-medium 
-                                          text-gray-700 mb-1.5">
-                          Full Name
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="John Doe"
-                          className="w-full px-4 py-2.5 rounded-lg 
-                                     border border-gray-200 text-sm 
-                                     focus:outline-none focus:ring-2 
-                                     focus:ring-[#125EF2] bg-white"
-                        />
+                    {error && (
+                      <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg border border-red-100">
+                        {error}
                       </div>
+                    )}
 
-                      {/* Phone Number */}
-                      <div>
-                        <label className="block text-sm font-medium 
-                                          text-gray-700 mb-1.5">
-                          Phone Number
-                        </label>
-                        <input
-                          type="tel"
-                          required
-                          placeholder="+1 234 567 8900"
-                          className="w-full px-4 py-2.5 rounded-lg 
-                                     border border-gray-200 text-sm 
-                                     focus:outline-none focus:ring-2 
-                                     focus:ring-[#125EF2] bg-white"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Email & Company — Side by Side */}
-                    <div className="grid grid-cols-2 gap-4">
-                      {/* Work Email */}
-                      <div>
-                        <label className="block text-sm font-medium 
-                                          text-gray-700 mb-1.5">
-                          Work Email
-                        </label>
-                        <input
-                          type="email"
-                          required
-                          placeholder="john@company.com"
-                          className="w-full px-4 py-2.5 rounded-lg 
-                                     border border-gray-200 text-sm 
-                                     focus:outline-none focus:ring-2 
-                                     focus:ring-[#125EF2] bg-white"
-                        />
-                      </div>
-
-                      {/* Company */}
-                      <div>
-                        <label className="block text-sm font-medium 
-                                          text-gray-700 mb-1.5">
-                          Company
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="Company name"
-                          className="w-full px-4 py-2.5 rounded-lg 
-                                     border border-gray-200 text-sm 
-                                     focus:outline-none focus:ring-2 
-                                     focus:ring-[#125EF2] bg-white"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Team Size */}
+                    {/* Full Name */}
                     <div>
                       <label className="block text-sm font-medium 
                                         text-gray-700 mb-1.5">
-                        Team Size
+                        Full Name
                       </label>
-                      <select
+                      <input
+                        type="text"
+                        required
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="John Doe"
                         className="w-full px-4 py-2.5 rounded-lg 
                                    border border-gray-200 text-sm 
                                    focus:outline-none focus:ring-2 
-                                   focus:ring-[#125EF2] bg-white 
-                                   text-gray-500"
-                      >
-                        <option value="">Select team size</option>
-                        <option value="1-10">1 - 10 members</option>
-                        <option value="11-50">11 - 50 members</option>
-                        <option value="51-200">51 - 200 members</option>
-                        <option value="200+">200+ members</option>
-                      </select>
+                                   focus:ring-[#125EF2] bg-white"
+                      />
+                    </div>
+
+                    {/* Email Address */}
+                    <div>
+                      <label className="block text-sm font-medium 
+                                        text-gray-700 mb-1.5">
+                        Email Address
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="john@company.com"
+                        className="w-full px-4 py-2.5 rounded-lg 
+                                   border border-gray-200 text-sm 
+                                   focus:outline-none focus:ring-2 
+                                   focus:ring-[#125EF2] bg-white"
+                      />
+                    </div>
+
+                    {/* Subject */}
+                    <div>
+                      <label className="block text-sm font-medium 
+                                        text-gray-700 mb-1.5">
+                        Subject (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={subject}
+                        onChange={(e) => setSubject(e.target.value)}
+                        placeholder="What's this about?"
+                        className="w-full px-4 py-2.5 rounded-lg 
+                                   border border-gray-200 text-sm 
+                                   focus:outline-none focus:ring-2 
+                                   focus:ring-[#125EF2] bg-white"
+                      />
                     </div>
 
                     {/* Message */}
@@ -331,6 +330,8 @@ export default function Contact() {
                       <textarea
                         rows={4}
                         required
+                        value={message}
+                        onChange={(e) => setMessage(e.target.value)}
                         placeholder="Tell us about your needs..."
                         className="w-full px-4 py-2.5 rounded-lg 
                                    border border-gray-200 text-sm 
@@ -343,12 +344,14 @@ export default function Contact() {
                     {/* Submit Button */}
                     <button
                       type="submit"
+                      disabled={loading}
                       className="w-full bg-gray-900 text-white py-3 
                                  rounded-lg font-medium text-sm 
                                  hover:bg-gray-800 transition-all 
-                                 duration-300 hover:-translate-y-0.5"
+                                 duration-300 hover:-translate-y-0.5
+                                 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Send Message →
+                      {loading ? "Sending..." : "Send Message"}
                     </button>
 
                     {/* Privacy Note */}

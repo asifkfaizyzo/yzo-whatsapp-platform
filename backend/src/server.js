@@ -1,12 +1,26 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+// ✅ Add environment variable check right after dotenv.config()
+const requiredEnvVars = [
+  'DATABASE_URL',
+  'ACCESS_SECRET',
+  'REFRESH_SECRET',
+];
+const missingEnvs = requiredEnvVars.filter((key) => !process.env[key]);
+if (missingEnvs.length > 0) {
+  console.error(`❌ FATAL: Missing required environment variables: ${missingEnvs.join(', ')}`);
+  process.exit(1);
+}
+
 import http from 'http';
 import app from './app.js';
 import { initSocket } from './lib/socket.js';
 import { startWebhookWorker } from './workers/webhookWorker.js';
 import { startBroadcastWorker } from './workers/broadcastWorker.js';
 import { startCleanupWorker } from './workers/cleanupWorker.js';
+import './jobs/checkExpiredSubscriptions.js';
+import './jobs/expiryRemindersJob.js';
 
 const port = process.env.PORT;
 

@@ -135,7 +135,7 @@ export const verifyOnboarding = async (req, res, next) => {
       });
     }
 
-    if (tenant.onboardingCompleted) {
+    if (tenant.onboardingCompleted && tenant.planId && tenant.planStatus === 'active') {
       return res.status(400).json({
         success: false,
         message: 'Onboarding already completed. Please log in normally.',

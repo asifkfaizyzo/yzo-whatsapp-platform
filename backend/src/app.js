@@ -21,7 +21,16 @@ import revenueRoutes from "./modules/revenue/revenueRoutes.js";
 import ticketRoutes from "./modules/tickets/ticketRoutes.js";
 import adminTicketRoutes from "./modules/tickets/adminTicketRoutes.js";
 import flowRoutes from './modules/automation/flowRoutes.js'
+import { verifyTenantOrUser } from './middlewares/authVerfyTenOrUser.js';
 import path from "path";
+
+// Enquiries and Enterprise Leads
+import enquiryRoutes from './modules/enquiries/enquiryRoute.js';
+import enterpriseLeadRoutes from './modules/enterprise-leads/enterpriseLeadRoute.js';
+import enterpriseLeadAdminRoutes from './modules/enterprise-leads/enterpriseLeadAdminRoute.js';
+
+import billingRoutes from './modules/billing/billingRoutes.js';
+import adminSubscriptionsRoute from './modules/admin-subscriptions/adminSubscriptionsRoute.js';
 
 const app = express();
 
@@ -66,7 +75,7 @@ app.use(express.json({
 app.use(express.urlencoded({ extended: true }));
 
 // ── Static Files ──
-app.use("/uploads", (req, res, next) => {
+app.use("/uploads", verifyTenantOrUser,(req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
   res.header("Cross-Origin-Resource-Policy", "cross-origin");
   next();
@@ -138,6 +147,18 @@ app.use("/api/super-admin/notifications", superAdminNotificationRoutes)
 app.use("/api2", ticketRoutes)
 app.use("/api",  adminTicketRoutes)
 app.use("/api",  revenueRoutes)
+
+// Enquiries and Enterprise Leads mounting
+app.use("/api", enquiryRoutes);
+app.use("/api2", enquiryRoutes);
+app.use("/api/register/enterprise-lead", enterpriseLeadRoutes);
+app.use("/api2/register/enterprise-lead", enterpriseLeadRoutes);
+app.use("/api/admin/enterprise-leads", enterpriseLeadAdminRoutes);
+
+app.use('/api/billing', billingRoutes);
+app.use('/api2/billing', billingRoutes);
+// Mount admin subscriptions management
+app.use('/api/admin/subscriptions', adminSubscriptionsRoute);
 
 // ──────────────────────────────────────
 // ERROR HANDLERS

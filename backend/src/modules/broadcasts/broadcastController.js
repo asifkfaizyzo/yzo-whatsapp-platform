@@ -1,5 +1,6 @@
 import prisma from '../../config/prisma.js';
 import { processBroadcastCampaign } from './broadcastService.js';
+import { checkFeatureAccess, checkLimitAccess } from '../../lib/planLimits.js';
 
 // 1. GET: Fetch all broadcasts history for the logged-in tenant
 export const getBroadcasts = async (req, res) => {
@@ -26,6 +27,17 @@ export const getBroadcasts = async (req, res) => {
 export const getBroadcastStats = async (req, res) => {
   try {
     const tenantId = req.tenantId;
+
+    // Check Campaign Tracking feature
+    const trackingCheck = await checkFeatureAccess(tenantId, 'Campaign Tracking');
+    if (!trackingCheck.allowed) {
+      return res.status(trackingCheck.status).json({
+        success: false,
+        code: trackingCheck.code,
+        message: trackingCheck.message
+      });
+    }
+
     const { id } = req.params;
 
     const campaign = await prisma.broadcast.findFirst({
@@ -57,6 +69,31 @@ export const launchBroadcast = async (req, res) => {
 
     if (!name || !templateId || !targetType) {
       return res.status(400).json({ success: false, message: 'Name, Template ID, and Target Type are required.' });
+    }
+
+    // Check scheduler feature
+    if (scheduledAt) {
+      const targetTime = new Date(scheduledAt).getTime();
+      if (!isNaN(targetTime) && targetTime > Date.now()) {
+        const featureCheck = await checkFeatureAccess(tenantId, 'Campaign Scheduler');
+        if (!featureCheck.allowed) {
+          return res.status(featureCheck.status).json({
+            success: false,
+            code: featureCheck.code,
+            message: featureCheck.message
+          });
+        }
+      }
+    }
+
+    // Check campaign limit
+    const campaignCheck = await checkLimitAccess(tenantId, 'maxCampaigns');
+    if (!campaignCheck.allowed) {
+      return res.status(campaignCheck.status).json({
+        success: false,
+        code: campaignCheck.code,
+        message: campaignCheck.message
+      });
     }
 
     // Check if campaign is scheduled for a future date/time
@@ -109,10 +146,14 @@ export const launchBroadcast = async (req, res) => {
       return res.status(400).json({ success: false, message: 'No active contacts matched the targeting criteria.' });
     }
 
-    // Fetch User creator record
-    const user = await prisma.user.findFirst({ where: { tenantId } });
-    if (!user) {
-      return res.status(400).json({ success: false, message: 'Need at least one agent user registered under tenant.' });
+    // Check broadcast recipients limit
+    const broadcastCheck = await checkLimitAccess(tenantId, 'maxBroadcasts', contacts.length);
+    if (!broadcastCheck.allowed) {
+      return res.status(broadcastCheck.status).json({
+        success: false,
+        code: broadcastCheck.code,
+        message: broadcastCheck.message
+      });
     }
 
     // 2. Create the Broadcast record
@@ -126,7 +167,7 @@ export const launchBroadcast = async (req, res) => {
         status: campaignStatus,
         scheduledAt: scheduledDate,
         totalRecipients: contacts.length,
-        createdById: user.id
+        createdById: null
       }
     });
 

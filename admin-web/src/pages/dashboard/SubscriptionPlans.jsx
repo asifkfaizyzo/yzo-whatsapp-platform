@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { useConfirm } from "../../context/ConfirmContext";
+import { useToast } from "../../context/ToastContext";
 import {
   getPlans,
   createPlan,
@@ -35,6 +37,9 @@ const defaultForm = {
 };
 
 export default function SubscriptionPlans() {
+  const confirm = useConfirm();
+  const toast = useToast();
+
   const [plans, setPlans] = useState([]);
   const [availableFeatures, setAvailableFeatures] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -175,15 +180,20 @@ export default function SubscriptionPlans() {
 
   // ── Delete plan ──
   const handleDelete = async (id, name) => {
-    const confirm = window.confirm(
-      `Are you sure you want to delete "${name}"? This cannot be undone.`
-    );
-    if (!confirm) return;
+    const ok = await confirm({
+      type: "danger",
+      title: "Delete Plan?",
+      message: `Permanently delete "${name}"?`,
+      detail: "All tenants on this plan will need to be migrated. This cannot be undone.",
+      confirmLabel: "Delete Plan",
+    });
+    if (!ok) return;
     const res = await deletePlan(id);
     if (res.success) {
+      toast.success(`Plan "${name}" deleted.`);
       await loadData();
     } else {
-      alert(res.message);
+      toast.error(res.message);
     }
   };
 

@@ -10,12 +10,12 @@ import {
   getFeatures,
   createFeature,
   deleteFeature,
-  createPaymentOrder,      
+  createPaymentOrder,
   verifyPaymentAndActivate,
   getBillingDetails,
   downloadInvoice
 } from "./planController.js";
-import {verifySuperAdmin} from "../../middlewares/authSuperAdmin.js"
+import { verifySuperAdmin } from "../../middlewares/authSuperAdmin.js"
 import { verifyTenantOrUser } from "../../middlewares/authVerfyTenOrUser.js"
 import { verifyTenant } from "../../middlewares/authTenant.js";
 
@@ -25,9 +25,10 @@ const router = Router();
 router.get("/public", getPublicPlans);
 router.get("/features", getFeatures);
 
-// ── Razorpay routes (tenant auth) ── ✅ Add these
-router.post("/create-order", verifyTenantOrUser, createPaymentOrder);
-router.post("/verify-payment", verifyTenantOrUser, verifyPaymentAndActivate);
+// ── Razorpay routes (TENANT ONLY — not regular users/agents) ──
+router.post("/create-order", verifyTenant, createPaymentOrder);
+router.post("/verify-payment", verifyTenant, verifyPaymentAndActivate);
+
 
 // ── Billing details (TENANT ONLY — not users) ──
 router.get("/billing", verifyTenant, getBillingDetails);

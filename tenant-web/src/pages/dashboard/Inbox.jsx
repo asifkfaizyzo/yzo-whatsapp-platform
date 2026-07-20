@@ -48,8 +48,12 @@ import {
   getTenantUsers,
   assignContact,
 } from "../../services/tenant.service";
+import { useConfirm } from "../../context/ConfirmContext";
+import { useToast } from "../../context/ToastContext";
 
 export default function Inbox() {
+  const confirm = useConfirm();
+  const toast = useToast();
   const { user, accessToken } = useAuthStore();
   const userRole = user?.type === "TENANT" ? "admin" : "agent";
 
@@ -395,7 +399,7 @@ export default function Inbox() {
       : 100 * 1024 * 1024;
 
     if (file.size > maxSize) {
-      alert(
+      toast.warning(
         `File too large. Max size is ${
           isImage ? "5MB" : isVideo || isAudio ? "16MB" : "100MB"
         }`
@@ -438,11 +442,12 @@ export default function Inbox() {
 
       if (res.success) {
         handleCancelFile();
+        toast.success("File sent successfully!");
       } else {
-        alert("Failed to send file: " + res.error);
+        toast.error("Failed to send file: " + res.error);
       }
     } catch (err) {
-      alert("Failed to send file");
+      toast.error("Failed to send file");
     }
     setUploadingFile(false);
   };
@@ -459,10 +464,13 @@ export default function Inbox() {
     );
 
     if (isClosedOrResolved) {
-      const confirmReopen = window.confirm(
-        "This conversation is closed/resolved. Sending will reopen it. Proceed?"
-      );
-      if (!confirmReopen) return;
+      const ok = await confirm({
+        type: "info",
+        title: "Reopen Conversation?",
+        message: "This conversation is closed/resolved. Sending will reopen it. Proceed?",
+        confirmLabel: "Send & Reopen",
+      });
+      if (!ok) return;
     }
 
     setTypedMessage("");
@@ -470,7 +478,7 @@ export default function Inbox() {
     if (res.success) {
       if (isClosedOrResolved) loadConversations();
     } else {
-      alert("Failed to send message: " + res.message);
+      toast.error("Failed to send message: " + res.message);
     }
   };
 
@@ -496,12 +504,12 @@ export default function Inbox() {
           )
         );
       } else {
-        alert("Failed to delete: " + res.message);
+        toast.error("Failed to delete: " + res.message);
         setDeleteConfirmId(null);
       }
     } catch (err) {
       console.error("Delete message error:", err);
-      alert("Something went wrong while deleting.");
+      toast.error("Something went wrong while deleting.");
     } finally {
       setDeletingMessageId(null);
     }
@@ -516,7 +524,7 @@ export default function Inbox() {
       setActiveChatId(res.data.id);
       setSearchParams({ filter, conversationId: res.data.id });
     } else {
-      alert("Could not start chat: " + res.message);
+      toast.error("Could not start chat: " + res.message);
     }
   };
 
@@ -524,10 +532,13 @@ export default function Inbox() {
   const handleUpdateStatus = async (newStatus) => {
     if (!activeChatId) return;
     const actionText = newStatus === "OPEN" ? "reopen" : "resolve";
-    const confirmChange = window.confirm(
-      `Are you sure you want to ${actionText} this conversation?`
-    );
-    if (!confirmChange) return;
+    const ok = await confirm({
+      type: newStatus === "OPEN" ? "info" : "warning",
+      title: `${newStatus === "OPEN" ? "Reopen" : "Resolve"} Conversation?`,
+      message: `Are you sure you want to ${actionText} this conversation?`,
+      confirmLabel: newStatus === "OPEN" ? "Reopen" : "Resolve",
+    });
+    if (!ok) return;
 
     const res = await updateConversationStatus(activeChatId, newStatus);
     if (res.success) {
@@ -540,7 +551,7 @@ export default function Inbox() {
         )
       );
     } else {
-      alert(res.message);
+      toast.error(res.message);
     }
   };
 
@@ -548,10 +559,13 @@ export default function Inbox() {
   const handleArchiveConversation = async () => {
     if (!activeChatId) return;
 
-    const confirmArchive = window.confirm(
-      "Archive this conversation? It will be hidden from your inbox."
-    );
-    if (!confirmArchive) return;
+    const ok = await confirm({
+      type: "warning",
+      title: "Archive Conversation?",
+      message: "Archive this conversation? It will be hidden from your inbox.",
+      confirmLabel: "Archive",
+    });
+    if (!ok) return;
 
     setArchivingConv(true);
     try {
@@ -564,10 +578,10 @@ export default function Inbox() {
         setSearchParams({ filter });
         setShowConvMenu(false);
       } else {
-        alert(res.message);
+        toast.error(res.message);
       }
     } catch (err) {
-      alert("Failed to archive conversation");
+      toast.error("Failed to archive conversation");
     }
     setArchivingConv(false);
   };
@@ -587,11 +601,12 @@ export default function Inbox() {
         setSearchParams({ filter });
         setShowDeleteConfirm(false);
         setShowConvMenu(false);
+        toast.success("Conversation deleted successfully.");
       } else {
-        alert(res.message);
+        toast.error(res.message);
       }
     } catch (err) {
-      alert("Failed to delete conversation");
+      toast.error("Failed to delete conversation");
     }
     setDeletingConv(false);
   };
@@ -626,11 +641,12 @@ export default function Inbox() {
           })
         );
         setSelectedTag("");
+        toast.success("Tag added successfully!");
       } else {
-        alert(res.message);
+        toast.error(res.message);
       }
     } catch (err) {
-      alert("Failed to assign tag");
+      toast.error("Failed to assign tag");
     }
     setAssigningTag(false);
   };
@@ -657,11 +673,12 @@ export default function Inbox() {
             return c;
           })
         );
+        toast.success("Tag removed successfully!");
       } else {
-        alert(res.message);
+        toast.error(res.message);
       }
     } catch (err) {
-      alert("Failed to remove tag");
+      toast.error("Failed to remove tag");
     }
   };
 
@@ -687,13 +704,13 @@ export default function Inbox() {
           })
         );
         setSelectedAgent("");
-        alert("Agent assigned successfully!");
+        toast.success("Agent assigned successfully!");
       } else {
-        alert(res.message);
+        toast.error(res.message);
       }
     } catch (err) {
       console.error("Assign agent error:", err);
-      alert("Failed to assign agent");
+      toast.error("Failed to assign agent");
     }
     setAssigningUser(false);
   };
@@ -767,7 +784,7 @@ export default function Inbox() {
       }, 1000);
     } catch (err) {
       console.error("Mic error:", err);
-      alert("Could not access microphone. Please allow mic permission.");
+      toast.error("Could not access microphone. Please allow mic permission.");
     }
   };
 
@@ -816,11 +833,11 @@ export default function Inbox() {
 
       const res = await sendMediaMessage(activeChat.contact.id, formData);
       if (!res.success) {
-        alert("Failed to send voice: " + res.error);
+        toast.error("Failed to send voice: " + res.error);
       }
     } catch (err) {
       console.error("Voice send error:", err);
-      alert("Failed to send voice message");
+      toast.error("Failed to send voice message");
     }
   };
 
@@ -848,11 +865,12 @@ export default function Inbox() {
           prev.filter((c) => String(c.id) !== String(conversationId))
         );
         await loadConversations();
+        toast.success("Conversation unarchived.");
       } else {
-        alert(res.message);
+        toast.error(res.message);
       }
     } catch (err) {
-      alert("Failed to unarchive conversation");
+      toast.error("Failed to unarchive conversation");
     }
     setUnarchivingId(null);
   };

@@ -51,6 +51,22 @@ export default function Pricing() {
       ],
       popular: false,
     },
+    {
+      name: "Enterprise",
+      price: "Custom",
+      desc: "Dedicated resources, custom API volume, and priority enterprise channels.",
+      features: [
+        "Unlimited Agents",
+        "Unlimited Broadcasts",
+        "Official WhatsApp Green Tick",
+        "Custom API & Webhook limits",
+        "Dedicated Account Manager",
+        "24/7 SLA Priority Support",
+        "Custom integrations",
+      ],
+      popular: false,
+      isEnterprise: true,
+    },
   ];
 
   const annualBilling = [
@@ -71,6 +87,12 @@ export default function Pricing() {
       monthly: "₹9,999",
       annual: "₹7,499",
       savings: "₹30,000/year",
+    },
+    {
+      plan: "Enterprise",
+      monthly: "Custom Sizing",
+      annual: "Custom Sizing",
+      savings: "Volume Discount",
     },
   ];
 
@@ -208,72 +230,89 @@ export default function Pricing() {
           </div>
 
           {/* Pricing Cards */}
-          <div className="grid md:grid-cols-3 gap-6 mb-20">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-20">
             {plans.map((plan) => (
               <div
                 key={plan.name}
                 className={
                   plan.popular
-                    ? "rounded-2xl p-6 bg-gray-900 text-white ring-2 ring-[#125EF2]"
-                    : "rounded-2xl p-6 bg-gray-50 border border-gray-100"
+                    ? "rounded-2xl p-6 bg-gray-900 text-white ring-2 ring-[#125EF2] flex flex-col justify-between"
+                    : plan.isEnterprise
+                    ? "rounded-2xl p-6 bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 flex flex-col justify-between"
+                    : "rounded-2xl p-6 bg-gray-50 border border-gray-100 flex flex-col justify-between"
                 }
               >
-                {plan.popular && (
-                  <span className="inline-block bg-[#125EF2] text-white text-xs font-semibold px-3 py-1 rounded-full mb-4">
-                    Most Popular
-                  </span>
-                )}
+                <div>
+                  {plan.popular && (
+                    <span className="inline-block bg-[#125EF2] text-white text-xs font-semibold px-3 py-1 rounded-full mb-4">
+                      Most Popular
+                    </span>
+                  )}
+                  {plan.isEnterprise && (
+                    <span className="inline-block bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-bold px-3 py-1 rounded-full mb-4 uppercase tracking-wide">
+                      Enterprise
+                    </span>
+                  )}
 
-                <h3 className="text-xl font-bold">{plan.name}</h3>
+                  <h3 className="text-xl font-bold">{plan.name}</h3>
 
-                <div className="mt-2 mb-2">
-                  <span className="text-4xl font-bold">{plan.price}</span>
-                  <span
+                  <div className="mt-2 mb-2">
+                    {plan.isEnterprise ? (
+                      <span className="text-3xl font-extrabold text-blue-700">Custom</span>
+                    ) : (
+                      <>
+                        <span className="text-4xl font-bold">{plan.price}</span>
+                        <span
+                          className={
+                            plan.popular
+                              ? "text-gray-400 text-sm ml-1"
+                              : "text-gray-500 text-sm ml-1"
+                          }
+                        >
+                          /month
+                        </span>
+                      </>
+                    )}
+                  </div>
+
+                  <p
                     className={
                       plan.popular
-                        ? "text-gray-400 text-sm ml-1"
-                        : "text-gray-500 text-sm ml-1"
+                        ? "text-gray-400 text-sm mb-6"
+                        : "text-gray-500 text-sm mb-6"
                     }
                   >
-                    /month
-                  </span>
+                    {plan.desc}
+                  </p>
+
+                  <ul className="space-y-2 mb-8">
+                    {plan.features.map((feature) => (
+                      <li
+                        key={feature}
+                        className={
+                          plan.popular
+                            ? "flex gap-2 text-sm text-gray-300"
+                            : "flex gap-2 text-sm text-gray-600"
+                        }
+                      >
+                        <span className="text-[#125EF2]">✓</span>
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-
-                <p
-                  className={
-                    plan.popular
-                      ? "text-gray-400 text-sm mb-6"
-                      : "text-gray-500 text-sm mb-6"
-                  }
-                >
-                  {plan.desc}
-                </p>
-
-                <ul className="space-y-2 mb-8">
-                  {plan.features.map((feature) => (
-                    <li
-                      key={feature}
-                      className={
-                        plan.popular
-                          ? "flex gap-2 text-sm text-gray-300"
-                          : "flex gap-2 text-sm text-gray-600"
-                      }
-                    >
-                      <span className="text-[#125EF2]">✓</span>
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
 
                 <Link
                   to="/register"
                   className={
                     plan.popular
                       ? "block text-center py-3 rounded-lg bg-[#125EF2] text-white hover:bg-[#0F4FCC]"
+                      : plan.isEnterprise
+                      ? "block text-center py-3 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition"
                       : "block text-center py-3 rounded-lg bg-white border border-gray-200 hover:shadow-sm"
                   }
                 >
-                  Start Free Trial
+                  {plan.isEnterprise ? "Contact Sales" : "Start Free Trial"}
                 </Link>
               </div>
             ))}

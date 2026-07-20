@@ -1,6 +1,8 @@
 // admin-web/src/pages/dashboard/Team.jsx
 
 import React, { useState } from "react";
+import { useConfirm } from "../../context/ConfirmContext";
+import { useToast } from "../../context/ToastContext";
 import {
   UserCheck,
   Plus,
@@ -8,10 +10,12 @@ import {
   Shield,
   Trash2,
   X,
-  CheckCircle2
 } from "lucide-react";
 
 export default function Team() {
+  const confirm = useConfirm();
+  const toast = useToast();
+
   const [admins, setAdmins] = useState([
     { id: 1, name: "Master Operator", email: "admin@yzo.com", role: "Primary SuperAdmin", status: "Active" },
     { id: 2, name: "Marcus Vance", email: "marcus@yzo.com", role: "SuperAdmin", status: "Active" },
@@ -19,7 +23,6 @@ export default function Team() {
   ]);
 
   const [showModal, setShowModal] = useState(false);
-  const [feedback, setFeedback] = useState("");
   const [newAdmin, setNewAdmin] = useState({
     name: "",
     email: "",
@@ -41,16 +44,19 @@ export default function Team() {
     setAdmins([...admins, created]);
     setShowModal(false);
     setNewAdmin({ name: "", email: "", role: "SuperAdmin" });
-
-    setFeedback(`Admin "${created.name}" invited successfully!`);
-    setTimeout(() => setFeedback(""), 3000);
+    toast.success(`Admin "${created.name}" invited successfully!`);
   };
 
-  const handleDelete = (id, name) => {
-    if (window.confirm(`Are you sure you want to revoke admin rights for "${name}"?`)) {
+  const handleDelete = async (id, name) => {
+    const ok = await confirm({
+      type: "danger",
+      title: "Revoke Admin Access?",
+      message: `Remove admin rights for "${name}"?`,
+      confirmLabel: "Revoke Access",
+    });
+    if (ok) {
       setAdmins(admins.filter((a) => a.id !== id));
-      setFeedback(`Access revoked for "${name}".`);
-      setTimeout(() => setFeedback(""), 3000);
+      toast.success(`Access revoked for "${name}".`);
     }
   };
 
@@ -67,13 +73,6 @@ export default function Team() {
             Configure system administration access levels and invite SaaS operators.
           </p>
         </div>
-
-        {feedback && (
-          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#EAF2FE] border border-[#CFE0FD] rounded-xl text-[#0D47A1] text-xs font-semibold animate-bounce shrink-0">
-            <CheckCircle2 size={13} className="text-[#125EF2]" />
-            <span>{feedback}</span>
-          </div>
-        )}
 
         <button
           onClick={() => setShowModal(true)}

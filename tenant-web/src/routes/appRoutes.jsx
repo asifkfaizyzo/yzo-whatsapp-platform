@@ -34,10 +34,13 @@ import Terms from "../pages/Terms";
 import SelectPlan from "../pages/SelectPlan";
 import Checkout from "../pages/checkout";
 import Payment from "../pages/Payment";
+import EnterpriseRequest from "../pages/EnterpriseRequest";
 
 import Tickets from "../pages/dashboard/Tickets";
 import Automation from "../pages/dashboard/Automation";
 import FlowBuilder from "../pages/dashboard/FlowBuilder";
+
+import ExpiredRouteGuard from "../components/guards/ExpiredRouteGuard";
 
 import ScrollToTop from "../ScrollToTop";
 
@@ -87,6 +90,14 @@ function App() {
           }
         />
         <Route
+          path="/enterprise-request"
+          element={
+            <ProtectedRoute>
+              <EnterpriseRequest />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/checkout"
           element={
             <ProtectedRoute>
@@ -104,14 +115,16 @@ function App() {
         />
 
         {/* Protected Tenant Dashboard Routes */}
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <MainLayout />
-            </ProtectedRoute>
-          }
-        >
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <ExpiredRouteGuard>
+                  <MainLayout />
+                </ExpiredRouteGuard>
+              </ProtectedRoute>
+            }
+          >
           <Route index element={<Dashboard />} />
           <Route path="inbox" element={<Inbox />} />
           <Route path="broadcasts" element={<Broadcasts />} />
@@ -127,6 +140,14 @@ function App() {
           <Route path="automation/builder/:flowId" element={<FlowBuilder />} />
         </Route>
 
+        <Route
+          path="/plans"
+          element={
+            <ProtectedRoute>
+              <SelectPlan />
+            </ProtectedRoute>
+          }
+        />
         {/* Fallback */}
         <Route path="*" element={<NotFound />} />
       </Routes>

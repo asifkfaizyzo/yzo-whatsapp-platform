@@ -80,6 +80,14 @@ export const processWebhookJob = async (job) => {
     });
 
     if (tenant && text) {
+      // Check active subscription status
+      const subStatus = tenant.subscriptionStatus;
+      const isActive = subStatus === 'active' || subStatus === 'trialing' || subStatus === 'cancel_at_period_end';
+      if (!isActive) {
+        console.log(`🚫 Webhook ignored for tenant ${tenant.id} due to inactive/expired subscription status: ${subStatus}`);
+        return;
+      }
+
       // ✅ Normalize phone: strip any leading '+' then re-add one → always "+918596857485"
       // WhatsApp sends message.from as "918596857485" (no +) but sometimes test payloads
       // or retries can have "+918596857485" already, causing "++918596857485" double-plus.

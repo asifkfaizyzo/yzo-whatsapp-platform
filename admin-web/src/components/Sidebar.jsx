@@ -11,6 +11,8 @@ import {
   Settings,
   BadgeIndianRupee,
   TicketCheck,
+  HelpCircle,
+  Sparkles,
 } from "lucide-react";
 
 export default function Sidebar({ userRole = "Super Admin" }) {
@@ -37,9 +39,19 @@ export default function Sidebar({ userRole = "Super Admin" }) {
   icon: <BadgeIndianRupee size={20} />,
 },
    {
-      label: "Support Tickets",           // ← ADD THIS
+      label: "Support Tickets",
       path: "/dashboard/tickets",
       icon: <TicketCheck size={20} />,
+    },
+    {
+      label: "Marketing Enquiries",
+      path: "/dashboard/enquiries",
+      icon: <HelpCircle size={20} />,
+    },
+    {
+      label: "Enterprise Leads",
+      path: "/dashboard/enterprise-leads",
+      icon: <Sparkles size={20} />,
     },
     {
       label: "Platform Reports",
@@ -50,6 +62,11 @@ export default function Sidebar({ userRole = "Super Admin" }) {
       label: "Admins Team",
       path: "/dashboard/team",
       icon: <UserCheck size={20} />,
+    },
+    {
+      label: "Subscriptions",
+      path: "/dashboard/subscriptions",
+      icon: <Sparkles size={20} />,
     },
     {
       label: "System Settings",

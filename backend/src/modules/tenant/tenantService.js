@@ -12,6 +12,7 @@ import { getOrCreateConversation } from "../../modules/conversations/conversatio
 import { AsyncLocalStorage } from 'async_hooks';
 import { emitToTenant } from "../../lib/socket.js";
 import { createNotification } from "../notifications/notificationService.js";
+import { checkLimitAccess } from '../../lib/planLimits.js';
 
 
 // ===========Tenant Registration Service (with Auto-Login)===========
@@ -266,10 +267,23 @@ export const refreshTenantAccessTokenService =
       type: 'TENANT',
     });
 
-    // 1️⃣1️⃣ Return both new tokens
+    // 1️⃣1️⃣ Return new token and user details
     return {
       message: 'Token refreshed successfully',
       accessToken: newAccessToken,
+      user: {
+        id: tenant.id,
+        firstName: tenant.firstName,
+        lastName: tenant.lastName,
+        email: tenant.email,
+        tenantName: tenant.tenantName,
+        onboardingStep: tenant.onboardingStep,
+        onboardingCompleted: tenant.onboardingCompleted,
+        planId: tenant.planId,
+        planStatus: tenant.planStatus,
+        isActive: tenant.isActive,
+        type: 'TENANT'
+      }
     };
   };
 
@@ -304,6 +318,12 @@ export const createUserService = async (data, tenantId) => {
   // 1️⃣ Validate input
   if (!name || !email || !password) {
     throw new Error('Name, email and password are required');
+  }
+
+  // Plan limit check
+  const limitCheck = await checkLimitAccess(tenantId, 'maxAgents');
+  if (!limitCheck.allowed) {
+    throw new Error(limitCheck.message);
   }
   console.log(data);
 
@@ -516,6 +536,12 @@ export const updateUserByIdService = async (userId, tenantId, data) => {
   }
 
   if (typeof data.isActive === 'boolean') {
+    if (data.isActive === true && !existingUser.isActive) {
+      const limitCheck = await checkLimitAccess(tenantId, 'maxAgents');
+      if (!limitCheck.allowed) {
+        throw new Error(limitCheck.message);
+      }
+    }
     updateData.isActive = data.isActive;
   }
 
@@ -616,6 +642,12 @@ export const reactivateUserByIdService = async (userId, tenantId) => {
     throw new Error('Tenant ID is required');
   }
 
+  // Plan limit check
+  const limitCheck = await checkLimitAccess(tenantId, 'maxAgents');
+  if (!limitCheck.allowed) {
+    throw new Error(limitCheck.message);
+  }
+
   // 2️⃣ Check if user exists AND belongs to this tenant
   const existingUser = await prisma.user.findFirst({
     where: {
@@ -683,16 +715,44 @@ export const deleteUserByIdService = async (userId, tenantId) => {
     throw new Error('User not found');
   }
 
-  // 3️⃣ Delete all refresh tokens for this user first
-  await prisma.refreshToken.deleteMany({
-    where: {
-      userId: userId,
-    },
-  });
+  await prisma.$transaction(async (tx) => {
+    // A. Clean up User Tag Mappings
+    await tx.userTagMapping.deleteMany({
+      where: { userId }
+    });
 
-  // 4️⃣ Delete the user
-  await prisma.user.delete({
-    where: { id: userId },
+    // B. Null out user references in Tickets and Ticket Messages
+    await tx.ticket.updateMany({
+      where: { userId },
+      data: { userId: null }
+    });
+
+    await tx.ticketMessage.updateMany({
+      where: { userId },
+      data: { userId: null }
+    });
+
+    // C. Null out contact assignments
+    await tx.contact.updateMany({
+      where: { assignedTo: userId },
+      data: { assignedTo: null, assignedAt: null }
+    });
+
+    // D. Null out conversation assignments
+    await tx.conversation.updateMany({
+      where: { assignedTo: userId },
+      data: { assignedTo: null }
+    });
+
+    // F. Delete refresh tokens
+    await tx.refreshToken.deleteMany({
+      where: { userId }
+    });
+
+    // G. Delete the user
+    await tx.user.delete({
+      where: { id: userId }
+    });
   });
 
   return {
@@ -707,16 +767,11 @@ export const getUnassignedContacts = async (tenantId) => {
   // We simply find all contacts where:
   // 1. They belong to this tenant
   // 2. assignedTo is null (no agent has them)
-  const contacts = await Contact.findAll({
-    where: {
-      tenantId: tenantId,
-      assignedTo: null
-    },
-    // Optional: Show newest first
-    order: [['createdAt', 'DESC']]
+  return await prisma.contact.findMany({
+    where: { tenantId, assignedTo: null },
+    orderBy: { createdAt: 'desc' }
   });
 
-  return contacts;
 };
 
 

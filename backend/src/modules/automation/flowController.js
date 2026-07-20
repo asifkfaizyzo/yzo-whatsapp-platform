@@ -1,6 +1,7 @@
 // src/modules/automation/flowController.js
 
 import flowService from './flowService.js'
+import { checkLimitAccess } from '../../lib/planLimits.js';
 
 const flowController = {
 
@@ -37,6 +38,17 @@ const flowController = {
   createFlow: async (req, res) => {
     try {
       const tenantId = req.tenantId
+
+      // Check maxAutomations limit
+      const limitCheck = await checkLimitAccess(tenantId, 'maxAutomations');
+      if (!limitCheck.allowed) {
+        return res.status(limitCheck.status).json({
+          success: false,
+          code: limitCheck.code,
+          message: limitCheck.message
+        });
+      }
+
       const flow = await flowService.createFlow(tenantId, req.body)
       res.status(201).json({ success: true, data: flow })
     } catch (error) {

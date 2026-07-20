@@ -18,6 +18,7 @@ model SuperAdmin {
   refreshTokens RefreshToken[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  activatedEnterpriseLeads EnterpriseLead[]
 }
 
 
@@ -87,6 +88,20 @@ model Tenant {
   tickets Ticket[]
   flows           Flow[]
   keywordTriggers  KeywordTrigger[]
+  enterpriseLeads EnterpriseLead[]
+
+  subscriptionStatus   SubscriptionStatus  @default(active)
+  currentPlan          String?
+  planPeriodStart      DateTime?
+  planPeriodEnd        DateTime?
+  cancelRequestedAt    DateTime?
+  cancellationReason   String?
+  reactivatedAt        DateTime?
+  dataDeletionDate     DateTime?
+  subscriptionReminders SubscriptionReminder[]
+  invoices             Invoice[]
+  cancellationSurvey   CancellationSurvey?
+  dataDeletions        TenantDataDeletion[]
 }
 
 
@@ -197,7 +212,7 @@ model Contact {
 
   @@unique([phone, tenantId])
   @@index([assignedTo])      
-  @@index([tenantId])
+  @@index([tenantId, createdAt])
 }
 
 
@@ -367,7 +382,7 @@ model Message {
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 
-  @@index([conversationId])
+  @@index([conversationId, createdAt])
   @@index([senderType])
   @@index([direction])
 
@@ -626,8 +641,8 @@ model Template {
   // Quality tracking
   qualityScore    String?          // GREEN, YELLOW, RED from Meta
   
-  createdById     String
-  createdBy       User             @relation(fields: [createdById], references: [id])
+  createdById     String?
+  createdBy       User?            @relation(fields: [createdById], references: [id], onDelete: SetNull)
   
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
@@ -681,8 +696,8 @@ model Broadcast {
   batchSize       Int              @default(50)   // messages per batch
   batchDelayMs    Int              @default(1000)  // delay between batches
   
-  createdById     String
-  createdBy       User             @relation(fields: [createdById], references: [id])
+  createdById     String?
+  createdBy       User?            @relation(fields: [createdById], references: [id], onDelete: SetNull)
   
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
@@ -982,4 +997,173 @@ model KeywordTrigger {
   @@index([tenantId])
   @@index([flowId])
   @@index([tenantId, keyword])
+}
+
+// ──────────────────────────────────────────
+// PUBLIC ENQUIRY FORM SYSTEM
+// ──────────────────────────────────────────
+
+enum EnquiryStatus {
+  new
+  read
+  replied
+  closed
+}
+
+model Enquiry {
+  id        String        @id @default(uuid())
+  name      String
+  email     String
+  subject   String?
+  message   String        @db.Text
+  status    EnquiryStatus @default(new)
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+
+  @@map("enquiries")
+}
+
+// ──────────────────────────────────────────
+// ENTERPRISE LEAD SYSTEM
+// ──────────────────────────────────────────
+
+enum EnterpriseCompanySize {
+  size_1_10     @map("1-10")
+  size_11_50    @map("11-50")
+  size_51_200   @map("51-200")
+  size_200_plus @map("200+")
+}
+
+enum EnterpriseTimeline {
+  urgent
+  months_1_3 @map("1-3months")
+  exploring
+}
+
+enum EnterprisePreferredContact {
+  email
+  phone
+  video_call
+}
+
+enum EnterpriseLeadStatus {
+  pending
+  contacted
+  negotiating
+  converted
+  rejected
+}
+
+model EnterpriseLead {
+  id                  String                     @id @default(uuid())
+  tenantId            String                     @map("tenant_id")
+  tenant              Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyName         String                     @map("company_name")
+  contactName         String                     @map("contact_name")
+  email               String
+  phone               String?
+  role                String?
+  companySize         EnterpriseCompanySize      @map("company_size")
+  estimatedUsers      Int?                       @map("estimated_users")
+  requirements        String?                    @db.Text
+  timeline            EnterpriseTimeline
+  preferredContact    EnterprisePreferredContact @map("preferred_contact")
+  status              EnterpriseLeadStatus       @default(pending)
+  internalNotes       String?                    @db.Text @map("internal_notes")
+  history             Json?                      @default("[]")
+  
+  activatedAt         DateTime?                  @map("activated_at")
+  activatedByAdminId  String?                    @map("activated_by_admin_id")
+  activatedByAdmin    SuperAdmin?                @relation(fields: [activatedByAdminId], references: [id])
+  
+  createdAt           DateTime                   @default(now()) @map("created_at")
+  updatedAt           DateTime                   @updatedAt @map("updated_at")
+
+  @@map("enterprise_leads")
+}
+
+// ── ADD SUBSCRIPTION & BILLING ENUMS ──
+enum SubscriptionStatus {
+  trialing
+  active
+  cancel_at_period_end
+  expired
+  paused
+}
+enum InvoiceStatus {
+  paid
+  failed
+  refunded
+}
+enum CancellationReason {
+  too_expensive
+  missing_features
+  switching_tool
+  not_using_enough
+  other
+}
+enum CompanySize {
+  size_1_10
+  size_11_50
+  size_51_200
+  size_200_plus
+}
+enum ContactTimeline {
+  urgent
+  one_to_3_months
+  exploring
+}
+enum PreferredContact {
+  email
+  phone
+  video_call
+}
+
+// ── NEW MODEL: Invoice ──
+model Invoice {
+  id                   String        @id @default(uuid())
+  tenantId             String
+  invoiceNumber        String        @unique
+  planName             String
+  amount               Decimal       @db.Decimal(10, 2)
+  currency             String        @default("USD")
+  status               InvoiceStatus @default(paid)
+  billingPeriodStart   DateTime
+  billingPeriodEnd     DateTime
+  paymentMethodLast4   String?
+  paymentMethodBrand   String?
+  pdfUrl               String?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  tenant               Tenant        @relation(fields: [tenantId], references: [id])
+}
+
+// ── NEW MODEL: CancellationSurvey ──
+model CancellationSurvey {
+  id                   String              @id @default(uuid())
+  tenantId             String              @unique
+  reason               CancellationReason
+  additionalComment    String?
+  createdAt            DateTime            @default(now())
+  tenant               Tenant              @relation(fields: [tenantId], references: [id])
+}
+
+// ── NEW MODEL: TenantDataDeletion ──
+model TenantDataDeletion {
+  id                   String    @id @default(uuid())
+  tenantId             String
+  deletedAt            DateTime  @default(now())
+  deletedBy            String    @default("system")
+  note                 String?
+  tenant               Tenant    @relation(fields: [tenantId], references: [id])
+}
+
+// ── NEW MODEL: SubscriptionReminder ──
+model SubscriptionReminder {
+  id           String   @id @default(uuid())
+  tenantId     String
+  reminderType String
+  sentAt       DateTime @default(now())
+
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
 }

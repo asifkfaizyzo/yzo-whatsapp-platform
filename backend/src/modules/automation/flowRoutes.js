@@ -3,10 +3,12 @@
 import express from 'express'
 import flowController from './flowController.js'
 import { verifyTenantOrUser } from '../../middlewares/authVerfyTenOrUser.js'
+import { checkSubscriptionAccess } from '../../middlewares/checkSubscriptionAccess.js'
 
 const router = express.Router()
 
 router.use(verifyTenantOrUser)
+router.use(checkSubscriptionAccess)
 
 router.get('/',                   flowController.getAllFlows)
 router.get('/:id',                flowController.getFlow)

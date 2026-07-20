@@ -3,6 +3,7 @@
 import React from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { FaWhatsapp } from "react-icons/fa";
+import api from "../lib/axios";
 import {
  LayoutDashboard,
   Inbox,
@@ -60,6 +61,20 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
     if (location.pathname.startsWith("/dashboard/contacts")) {
       setContactsOpen(true);
     }
+  }, [location.pathname]);
+
+  const [subStatus, setSubStatus] = React.useState(null);
+
+  React.useEffect(() => {
+    api.get("/billing")
+      .then(res => {
+        if (res.data?.success) {
+          setSubStatus(res.data.data.subscriptionStatus);
+        }
+      })
+      .catch(err => {
+        console.error("Failed to fetch sub status in Sidebar:", err);
+      });
   }, [location.pathname]);
 
   const isSubItemActive = (path, filterValue) => {
@@ -245,15 +260,16 @@ const menuItems = allMenuItems.filter((item) => {
         {/* Navigation Menu */}
         <nav className="space-y-1.5">
           {menuItems.map((item) => {
-            const locked = item.restrictedForPending && isPending;
-
+            const isExpired = subStatus === "expired";
+            const locked = (item.restrictedForPending && isPending) || (isExpired && item.label !== "Billing");
+ 
             // ── Locked Item ──
             if (locked) {
               return (
                 <div
                   key={item.path}
                   className="flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium text-slate-400 cursor-not-allowed opacity-65 bg-slate-50/50"
-                  title="Under review: Unlocks after approval"
+                  title={isExpired ? "Subscription expired: Resubscribe to unlock" : "Under review: Unlocks after approval"}
                 >
                   <div className="flex items-center gap-3.5">
                     <span>{item.icon}</span>

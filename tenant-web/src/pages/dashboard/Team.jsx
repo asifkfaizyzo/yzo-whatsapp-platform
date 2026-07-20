@@ -7,7 +7,6 @@ import {
   MessageSquare, 
   Trash2,
   X,
-  CheckCircle2,
   Edit2,
   RefreshCw,
   AlertCircle
@@ -24,12 +23,16 @@ import { useFormHandler } from "../../hooks/useFormHandler";
 import { createUserSchema, updateUserSchema } from "../../validations/user.validation";
 import FormError from "../../components/FormError";
 import { getTags, assignUserToTag, removeUserFromTag } from "../../services/tag.service";
+import { useConfirm } from "../../context/ConfirmContext";
+import { useToast } from "../../context/ToastContext";
 
 export default function Team() {
+  const confirm = useConfirm();
+  const toast = useToast();
+
   const [agents, setAgents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [feedback, setFeedback] = useState("");
 
   // Tag list state for matching
   const [systemTags, setSystemTags] = useState([]);
@@ -65,8 +68,8 @@ export default function Team() {
     onSubmitService: createTenantUser,
     onSuccess: () => {
       setShowInviteModal(false);
-      inviteForm.reset(); // Clear form fields
-      triggerFeedback("Agent created successfully!");
+      inviteForm.reset();
+      toast.success("Agent created successfully!");
       fetchTeam();
     },
   });
@@ -78,7 +81,7 @@ export default function Team() {
     onSubmitService: (data) => updateTenantUser(editingAgent.id, data),
     onSuccess: () => {
       setShowEditModal(false);
-      triggerFeedback("Teammate updated successfully!");
+      toast.success("Teammate updated successfully!");
       fetchTeam();
     },
   });
@@ -143,11 +146,6 @@ export default function Team() {
     fetchTeam();
   }, []);
 
-  const triggerFeedback = (msg) => {
-    setFeedback(msg);
-    setTimeout(() => setFeedback(""), 4500);
-  };
-
   // Invite Agent Handler
   const handleInvite = async (e) => {
     e.preventDefault();
@@ -165,8 +163,8 @@ export default function Team() {
     if (result.success) {
       setShowInviteModal(false);
       setNewAgent({ name: "", email: "", password: "" });
-      triggerFeedback("Agent created successfully!");
-      fetchTeam(); // Reload
+      toast.success("Agent created successfully!");
+      fetchTeam();
     } else {
       setModalError(result.message);
     }
@@ -189,7 +187,7 @@ export default function Team() {
     if (result.success) {
       setShowEditModal(false);
       setEditingAgent({ id: "", name: "", email: "" });
-      triggerFeedback("Teammate updated successfully!");
+      toast.success("Teammate updated successfully!");
       fetchTeam();
     } else {
       setModalError(result.message);
@@ -200,39 +198,52 @@ export default function Team() {
   // Toggle user activation state (Deactivate / Reactivate)
   const handleToggleActivation = async (agentId, isActive, name) => {
     const action = isActive ? "deactivate" : "reactivate";
-    if (window.confirm(`Are you sure you want to ${action} agent "${name}"?`)) {
+    const ok = await confirm({
+      type: isActive ? "warning" : "info",
+      title: `${isActive ? "Deactivate" : "Reactivate"} Agent?`,
+      message: `Are you sure you want to ${action} agent "${name}"?`,
+      confirmLabel: isActive ? "Deactivate" : "Reactivate",
+    });
+    if (ok) {
       try {
         const res = isActive 
           ? await deactivateTenantUser(agentId)
           : await reactivateTenantUser(agentId);
 
         if (res.success) {
-          triggerFeedback(`Agent "${name}" has been successfully ${isActive ? "deactivated" : "reactivated"}.`);
+          toast.success(`Agent "${name}" ${isActive ? "deactivated" : "reactivated"}.`);
           fetchTeam();
         } else {
-          alert(res.message || `Failed to ${action} user.`);
+          toast.error(res.message || `Failed to ${action} user.`);
         }
       } catch (err) {
         console.error(err);
-        alert(`Error executing user ${action}.`);
+        toast.error(`Error executing user ${action}.`);
       }
     }
   };
 
   // Delete Agent Handler
   const handleDelete = async (agentId, name) => {
-    if (window.confirm(`Are you sure you want to permanently delete agent "${name}"? This action cannot be undone.`)) {
+    const ok = await confirm({
+      type: "danger",
+      title: "Delete Agent?",
+      message: `Permanently delete agent "${name}"?`,
+      detail: "This action cannot be undone.",
+      confirmLabel: "Delete Agent",
+    });
+    if (ok) {
       try {
         const res = await deleteTenantUser(agentId);
         if (res.success) {
-          triggerFeedback(`Agent "${name}" removed successfully.`);
+          toast.success(`Agent "${name}" removed successfully.`);
           fetchTeam();
         } else {
-          alert(res.message || "Failed to delete agent.");
+          toast.error(res.message || "Failed to delete agent.");
         }
       } catch (err) {
         console.error(err);
-        alert("Error executing delete action.");
+        toast.error("Error executing delete action.");
       }
     }
   };
@@ -252,13 +263,6 @@ export default function Team() {
         </div>
         
         <div className="flex items-center gap-2.5 shrink-0">
-          {feedback && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#EAF2FE] border border-[#CFE0FD] rounded-xl text-[#0D47A1] text-xs font-semibold animate-bounce">
-              <CheckCircle2 size={13} className="text-[#125EF2]" />
-              <span>{feedback}</span>
-            </div>
-          )}
-
           <button
             onClick={fetchTeam}
             className="btn-secondary flex items-center justify-center gap-1.5 py-2 px-3.5 text-xs shadow-sm hover:shadow transition"

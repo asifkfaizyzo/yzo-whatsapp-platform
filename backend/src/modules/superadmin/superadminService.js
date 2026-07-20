@@ -264,6 +264,22 @@ export const getAllTenantsService = async () => {
       status: true,
       createdAt: true,
       updatedAt: true,
+      planId: true,
+      planStatus: true,
+      billingType: true,
+      planActivatedAt: true,
+      plan: {
+        select: {
+          id: true,
+          name: true,
+          monthlyPrice: true,
+          annualPrice: true,
+          maxAgents: true,
+          maxBroadcasts: true,
+          maxAutomations: true,
+          maxCampaigns: true,
+        },
+      },
       users: {
         select: {
           id: true,
@@ -271,6 +287,14 @@ export const getAllTenantsService = async () => {
           email: true,
           isActive: true,
           createdAt: true,
+        },
+      },
+      _count: {
+        select: {
+          contacts: true,
+          templates: true,
+          broadcasts: true,
+          flows: true,
         },
       },
     },
@@ -537,27 +561,81 @@ export const deleteTenantByIdService = async (tenantId) => {
 
   const userIds = users.map(user => user.id);
 
-  // 4️⃣ Delete all user refresh tokens
-  if (userIds.length > 0) {
-    await prisma.refreshToken.deleteMany({
-      where: { userId: { in: userIds } },
-    });
-  }
+  // 4️⃣ Delete all associated data in correct sequence to respect foreign keys
+  await prisma.$transaction([
+    // Delete user tags mappings
+    prisma.userTagMapping.deleteMany({
+      where: {
+        OR: [
+          { tenantId: tenantId },
+          { userId: { in: userIds } }
+        ]
+      }
+    }),
 
-  // 5️⃣ Delete tenant's refresh tokens
-  await prisma.refreshToken.deleteMany({
-    where: { tenantId: tenantId },
-  });
+    // Delete refresh tokens
+    prisma.refreshToken.deleteMany({
+      where: {
+        OR: [
+          { tenantId: tenantId },
+          { userId: { in: userIds } }
+        ]
+      }
+    }),
 
-  // 6️⃣ Delete all users under this tenant
-  await prisma.user.deleteMany({
-    where: { tenantId: tenantId },
-  });
+    // Messages and conversation activities
+    prisma.message.deleteMany({ where: { conversation: { tenantId: tenantId } } }),
+    prisma.conversationActivity.deleteMany({ where: { conversation: { tenantId: tenantId } } }),
+    prisma.conversation.deleteMany({ where: { tenantId: tenantId } }),
 
-  // 7️⃣ Delete the tenant
-  await prisma.tenant.delete({
-    where: { id: tenantId },
-  });
+    // Broadcasts
+    prisma.broadcastRecipient.deleteMany({ where: { broadcast: { tenantId: tenantId } } }),
+    prisma.broadcastTag.deleteMany({ where: { broadcast: { tenantId: tenantId } } }),
+    prisma.broadcast.deleteMany({ where: { tenantId: tenantId } }),
+
+    // Templates
+    prisma.template.deleteMany({ where: { tenantId: tenantId } }),
+
+    // Contacts and tags
+    prisma.contactTagMapping.deleteMany({ where: { contact: { tenantId: tenantId } } }),
+    prisma.contact.deleteMany({ where: { tenantId: tenantId } }),
+    prisma.tag.deleteMany({ where: { tenantId: tenantId } }),
+
+    // Flows, nodes and triggers
+    prisma.flowNode.deleteMany({ where: { flow: { tenantId: tenantId } } }),
+    prisma.keywordTrigger.deleteMany({ where: { tenantId: tenantId } }),
+    prisma.flow.deleteMany({ where: { tenantId: tenantId } }),
+
+    // Auto reopen config
+    prisma.autoReopenConfig.deleteMany({ where: { tenantId: tenantId } }),
+
+    // Tickets
+    prisma.ticketMessage.deleteMany({ where: { ticket: { tenantId: tenantId } } }),
+    prisma.ticket.deleteMany({ where: { tenantId: tenantId } }),
+
+    // Billing, invoices, payments, reminders
+    prisma.payment.deleteMany({ where: { tenantId: tenantId } }),
+    prisma.invoice.deleteMany({ where: { tenantId: tenantId } }),
+    prisma.subscriptionReminder.deleteMany({ where: { tenantId: tenantId } }),
+    prisma.cancellationSurvey.deleteMany({ where: { tenantId: tenantId } }),
+    prisma.tenantDataDeletion.deleteMany({ where: { tenantId: tenantId } }),
+
+    // Enterprise Leads
+    prisma.enterpriseLead.deleteMany({ where: { tenantId: tenantId } }),
+
+    // Notifications
+    prisma.notification.deleteMany({ where: { tenantId: tenantId } }),
+
+    // Delete all users under this tenant
+    prisma.user.deleteMany({
+      where: { tenantId: tenantId },
+    }),
+
+    // Finally, delete the tenant
+    prisma.tenant.delete({
+      where: { id: tenantId },
+    }),
+  ]);
 
   return {
     message: 'Tenant and all associated data deleted successfully',

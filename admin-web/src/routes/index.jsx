@@ -14,6 +14,12 @@ import ResetPasswordPage from "../pages/auth/ResetPasswordPage";
 import Revenue from "../pages/dashboard/Revenue";
 import Tickets from "../pages/dashboard/Tickets";
 
+// Enquiries & Enterprise Leads
+import Enquiries from "../pages/dashboard/Enquiries";
+import EnquiryDetail from "../pages/dashboard/EnquiryDetail";
+import EnterpriseLeads from "../pages/dashboard/EnterpriseLeads";
+import EnterpriseLeadDetail from "../pages/dashboard/EnterpriseLeadDetail";
+
 // Landing Layout
 import LandingLayout from "../pages/landing/LandingLayout";
 
@@ -26,6 +32,8 @@ import Contact       from "../pages/landing/Contact";
 import HelpCenter    from "../pages/landing/HelpCenter";
 import PrivacyPolicy from "../pages/landing/PrivacyPolicy";
 import Terms         from "../pages/landing/Terms";
+
+import SubscriptionManagement from "../pages/admin/SubscriptionManagement";
 
 
 function App() {
@@ -64,6 +72,16 @@ function App() {
         <Route path="/dashboard/settings" element={<Settings />} />
         <Route path="/dashboard/tickets" element={<Tickets />} />
         <Route path="/dashboard/revenue" element={<Revenue />} />
+        
+        {/* Enquiry Routes */}
+        <Route path="/dashboard/enquiries" element={<Enquiries />} />
+        <Route path="/dashboard/enquiries/:id" element={<EnquiryDetail />} />
+
+        {/* Enterprise Lead Routes */}
+        <Route path="/dashboard/enterprise-leads" element={<EnterpriseLeads />} />
+        <Route path="/dashboard/enterprise-leads/:id" element={<EnterpriseLeadDetail />} />
+
+        <Route path="/dashboard/subscriptions" element={<SubscriptionManagement />} />
       </Route>
 
       {/* Fallback */}

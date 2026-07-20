@@ -11,13 +11,17 @@ import {
   AlertCircle
 } from "lucide-react";
 import { getTemplates, createTemplate, syncTemplates, deleteTemplate } from "../../services/template.service";
+import { useConfirm } from "../../context/ConfirmContext";
+import { useToast } from "../../context/ToastContext";
 
 export default function Templates() {
+  const confirm = useConfirm();
+  const toast = useToast();
+
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState("");
-  const [feedback, setFeedback] = useState("");
 
   const [showModal, setShowModal] = useState(false);
   const [previewTemplate, setPreviewTemplate] = useState(null);
@@ -46,28 +50,32 @@ export default function Templates() {
 
   const handleSync = async () => {
     setSyncing(true);
-    setFeedback("");
     setError("");
     const res = await syncTemplates();
     if (res.success) {
-      setFeedback(`Synced ${res.count} templates from Meta successfully!`);
-      setTimeout(() => setFeedback(""), 3500);
+      toast.success(`Synced ${res.count} templates from Meta successfully!`);
       loadTemplates();
     } else {
-      setError(res.message);
+      toast.error(res.message || "Failed to sync templates");
     }
     setSyncing(false);
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this template? This will delete it locally and on Meta.")) return;
+    const ok = await confirm({
+      type: "danger",
+      title: "Delete Template?",
+      message: "This will delete the template locally and on Meta.",
+      detail: "This action cannot be undone and may affect active broadcasts using this template.",
+      confirmLabel: "Delete Template",
+    });
+    if (!ok) return;
     const res = await deleteTemplate(id);
     if (res.success) {
-      setFeedback("Template deleted successfully.");
-      setTimeout(() => setFeedback(""), 3000);
+      toast.success("Template deleted successfully.");
       loadTemplates();
     } else {
-      setError(res.message);
+      toast.error(res.message);
     }
   };
 
@@ -95,11 +103,10 @@ export default function Templates() {
     if (res.success) {
       setShowModal(false);
       setNewTemplate({ name: "", category: "MARKETING", body: "" });
-      setFeedback("Template created successfully!");
-      setTimeout(() => setFeedback(""), 3000);
+      toast.success("Template created successfully!");
       loadTemplates();
     } else {
-      alert("Failed to create template: " + res.message);
+      toast.error("Failed to create template: " + res.message);
     }
   };
 
@@ -140,12 +147,6 @@ export default function Templates() {
           </button>
         </div>
       </div>
-
-      {feedback && (
-        <div className="rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-3 text-xs text-emerald-800 font-semibold">
-          {feedback}
-        </div>
-      )}
 
       {error && (
         <div className="rounded-xl bg-rose-50 border border-rose-200 px-4 py-3 text-xs text-rose-800 font-semibold flex items-center gap-2">

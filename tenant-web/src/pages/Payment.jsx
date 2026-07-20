@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams,Link } from "react-router-dom";
 import { useAuthStore } from "../store/useAuthStore";
+import { useToast } from "../context/ToastContext";
 import {
   getPublicPlans,
   createPaymentOrder,
@@ -31,6 +32,7 @@ function loadRazorpayScript() {
 }
 
 export default function Payment() {
+  const toast = useToast();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const planId = searchParams.get("planId");
@@ -84,7 +86,7 @@ export default function Payment() {
       const orderRes = await createPaymentOrder(planId, billingType);
 
       if (!orderRes.success) {
-        alert("Failed to create order: " + orderRes.message);
+        toast.error("Failed to create order: " + orderRes.message);
         setProcessing(false);
         return;
       }
@@ -130,7 +132,7 @@ export default function Payment() {
             }, 2000);
 
           } else {
-            alert("Payment verification failed: " + verifyRes.message);
+            toast.error("Payment verification failed: " + verifyRes.message);
             setProcessing(false);
           }
         },
@@ -161,7 +163,7 @@ export default function Payment() {
 
     } catch (err) {
       console.error("Payment error:", err);
-      alert("Something went wrong. Please try again.");
+      toast.error("Something went wrong. Please try again.");
       setProcessing(false);
     }
   };

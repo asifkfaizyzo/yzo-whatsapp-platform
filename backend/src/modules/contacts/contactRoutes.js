@@ -5,6 +5,7 @@ import { verifyTenantOrUser } from '../../middlewares/authVerfyTenOrUser.js';
 import { verifyTenant } from '../../middlewares/authTenant.js';
 import { upload } from '../../config/multerConfig.js';
 import validate from '../../middlewares/validate.middleware.js';
+import { checkSubscriptionAccess } from '../../middlewares/checkSubscriptionAccess.js';
 // import prisma from '../../config/prisma.js';
 
 // ✅ All controllers from contactController.js
@@ -44,34 +45,34 @@ import { getTagById } from './contactCrudService.js';
 const router = express.Router();
 
 // ===================== CONTACT CRUD =====================
-router.post('/create-contact', verifyTenantOrUser, validate(createContactSchema), createContactController);
+router.post('/create-contact', verifyTenantOrUser, checkSubscriptionAccess, validate(createContactSchema), createContactController);
 
-router.get('/get-all-contacts', verifyTenantOrUser, getAllContactsController);
+router.get('/get-all-contacts', verifyTenantOrUser, checkSubscriptionAccess, getAllContactsController);
 
-router.get('/by-user/:userId', verifyTenant, getContactsByUser);
+router.get('/by-user/:userId', verifyTenant, checkSubscriptionAccess, getContactsByUser);
 
-router.post('/import', verifyTenant, upload.single('file'), importContactsController);
+router.post('/import', verifyTenant, checkSubscriptionAccess, upload.single('file'), importContactsController);
 
-router.get('/get-contact/:id', verifyTenantOrUser, validate(contactIdParamSchema), getContactByIdController);
+router.get('/get-contact/:id', verifyTenantOrUser, checkSubscriptionAccess, validate(contactIdParamSchema), getContactByIdController);
 
-router.put('/update-contact/:id', verifyTenantOrUser, validate(updateContactSchema), updateContactController);
+router.put('/update-contact/:id', verifyTenantOrUser, checkSubscriptionAccess, validate(updateContactSchema), updateContactController);
 
-router.delete('/delete-contact/:id', verifyTenant, validate(contactIdParamSchema), deleteContactController);
+router.delete('/delete-contact/:id', verifyTenant, checkSubscriptionAccess, validate(contactIdParamSchema), deleteContactController);
 
-router.patch('/block-contact/:id', verifyTenantOrUser, validate(contactIdParamSchema), blockContactController);
+router.patch('/block-contact/:id', verifyTenantOrUser, checkSubscriptionAccess, validate(contactIdParamSchema), blockContactController);
 
-router.patch('/unblock-contact/:id', verifyTenantOrUser, validate(contactIdParamSchema), unblockContactController);
+router.patch('/unblock-contact/:id', verifyTenantOrUser, checkSubscriptionAccess, validate(contactIdParamSchema), unblockContactController);
 
 // ===================== PRIORITY ASSIGNMENT =====================
-router.patch('/assign-by-priority', verifyTenant, assignContactsByPriority);
+router.patch('/assign-by-priority', verifyTenant, checkSubscriptionAccess, assignContactsByPriority);
 
 // ===================== TAGS =====================
 // Add tag to contact
-router.post('/:contactId/tags', verifyTenantOrUser, addTagToContactController);
+router.post('/:contactId/tags', verifyTenantOrUser, checkSubscriptionAccess, addTagToContactController);
 
 // Delete tag from contact 
 // router.delete('/:contactId/tags/:tagId', verifyTenantOrUser, removeTagFromContact);
 // ✅ TEST - Remove middleware temporarily
-router.delete('/:contactId/tags/:tagId', verifyTenantOrUser, removeTagFromContactController);
+router.delete('/:contactId/tags/:tagId', verifyTenantOrUser, checkSubscriptionAccess, removeTagFromContactController);
 
 export default router;

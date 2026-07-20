@@ -476,3 +476,161 @@ const numberToWords = (amount) => {
 
   return `Indian Rupees ${result.trim()}`;
 };
+
+
+// ── Generate PDF from new Invoice Model (Append to the end of invoiceService.js) ──
+export const generateInvoicePDFFromModel = (invoice, tenant) => {
+  return new Promise((resolve, reject) => {
+    try {
+      const invoiceNumber = invoice.invoiceNumber;
+      const fileName = `${invoiceNumber}.pdf`;
+      const filePath = path.join(invoicesDir, fileName);
+      const fileUrl = `/uploads/invoices/${fileName}`;
+
+      // ── Create PDF Document ──
+      const doc = new PDFDocument({
+        size: "A4",
+        margin: 50,
+      });
+
+      // ── Pipe to file ──
+      const stream = fs.createWriteStream(filePath);
+      doc.pipe(stream);
+
+      // Header Section (Blue background)
+      doc.rect(0, 0, 595, 120).fill("#125EF2");
+
+      // Company name
+      doc.fillColor("#FFFFFF")
+         .fontSize(24)
+         .font("Helvetica-Bold")
+         .text("SudoReply", 50, 35);
+
+      // Company tagline
+      doc.fillColor("#CFE0FD")
+         .fontSize(10)
+         .font("Helvetica")
+         .text("WhatsApp Business Platform", 50, 65);
+
+      // TAX INVOICE text
+      doc.fillColor("#FFFFFF")
+         .fontSize(20)
+         .font("Helvetica-Bold")
+         .text("TAX INVOICE", 350, 35, { align: "right", width: 195 });
+
+      // Invoice number
+      doc.fillColor("#CFE0FD")
+         .fontSize(10)
+         .font("Helvetica")
+         .text(invoiceNumber, 350, 65, { align: "right", width: 195 });
+
+      // Invoice Meta (Date, Status)
+      doc.rect(0, 120, 595, 50).fill("#F8FAFF");
+
+      doc.fillColor("#125EF2").fontSize(9).font("Helvetica-Bold").text("INVOICE DATE", 50, 135);
+      doc.fillColor("#333333").fontSize(9).font("Helvetica").text(formatDate(invoice.createdAt), 50, 148);
+
+      doc.fillColor("#125EF2").fontSize(9).font("Helvetica-Bold").text("BILLING PERIOD", 200, 135);
+      doc.fillColor("#333333").fontSize(9).font("Helvetica").text(`${formatDate(invoice.billingPeriodStart)} - ${formatDate(invoice.billingPeriodEnd)}`, 200, 148);
+
+      doc.fillColor("#125EF2").fontSize(9).font("Helvetica-Bold").text("STATUS", 420, 135);
+      
+      // Status badge
+      doc.rect(418, 145, 50, 16).fill("#DCFCE7");
+      doc.fillColor("#16A34A").fontSize(8).font("Helvetica-Bold").text(invoice.status.toUpperCase(), 423, 149);
+
+      // Seller & Buyer Info
+      doc.moveDown(4);
+      const infoY = 195;
+
+      // Seller
+      doc.fillColor("#125EF2").fontSize(9).font("Helvetica-Bold").text("FROM", 50, infoY);
+      doc.fillColor("#1A1A1A").fontSize(11).font("Helvetica-Bold").text("SudoReply Technologies Pvt Ltd", 50, infoY + 14);
+      doc.fillColor("#666666").fontSize(9).font("Helvetica")
+         .text("Mumbai, Maharashtra, India", 50, infoY + 30)
+         .text("GSTIN: 27AABCU9603R1ZM", 50, infoY + 43)
+         .text("SAC Code: 998314", 50, infoY + 56)
+         .text("support@sudoreply.com", 50, infoY + 69);
+
+      // Buyer
+      doc.fillColor("#125EF2").fontSize(9).font("Helvetica-Bold").text("BILL TO", 320, infoY);
+      doc.fillColor("#1A1A1A").fontSize(11).font("Helvetica-Bold").text(tenant.tenantName || tenant.email, 320, infoY + 14);
+      doc.fillColor("#666666").fontSize(9).font("Helvetica").text(tenant.email, 320, infoY + 30);
+      if (tenant.phone) doc.text(tenant.phone, 320, infoY + 43);
+      if (tenant.address) doc.text(tenant.address, 320, infoY + 56, { width: 220 });
+
+      // Table
+      const tableY = 310;
+      doc.rect(50, tableY, 495, 30).fill("#125EF2");
+      doc.fillColor("#FFFFFF").fontSize(9).font("Helvetica-Bold")
+         .text("DESCRIPTION", 60, tableY + 10)
+         .text("SAC", 300, tableY + 10)
+         .text("QTY", 370, tableY + 10)
+         .text("AMOUNT", 430, tableY + 10, { width: 100, align: "right" });
+
+      doc.rect(50, tableY + 30, 495, 40).fill("#F8FAFF");
+      doc.fillColor("#1A1A1A").fontSize(10).font("Helvetica-Bold").text(`${invoice.planName} Plan`, 60, tableY + 42);
+      doc.fillColor("#666666").fontSize(8).font("Helvetica").text("WhatsApp Business Platform Access", 60, tableY + 56);
+      doc.fillColor("#1A1A1A").fontSize(10).font("Helvetica")
+         .text("998314", 300, tableY + 42)
+         .text("1", 370, tableY + 42)
+         .text(formatINR(invoice.amount), 430, tableY + 42, { width: 100, align: "right" });
+
+      // Amount Summary
+      const summaryY = tableY + 90;
+      doc.moveTo(50, summaryY - 10).lineTo(545, summaryY - 10).strokeColor("#E2E8F0").lineWidth(1).stroke();
+
+      const summaryX = 380;
+      const summaryValueX = 430;
+
+      doc.fillColor("#666666").fontSize(9).font("Helvetica")
+         .text("Subtotal:", summaryX, summaryY)
+         .text(formatINR(invoice.amount), summaryValueX, summaryY, { width: 110, align: "right" });
+
+      doc.moveTo(summaryX, summaryY + 18).lineTo(545, summaryY + 18).strokeColor("#125EF2").lineWidth(1).stroke();
+
+      doc.rect(summaryX - 5, summaryY + 22, 175, 28).fill("#125EF2");
+      doc.fillColor("#FFFFFF").fontSize(11).font("Helvetica-Bold")
+         .text("TOTAL:", summaryX, summaryY + 30)
+         .text(formatINR(invoice.amount), summaryValueX, summaryY + 30, { width: 110, align: "right" });
+
+      // Payment Info
+      const payInfoY = summaryY + 70;
+      doc.rect(50, payInfoY, 495, 50).fill("#F0F7FF");
+      doc.fillColor("#125EF2").fontSize(10).font("Helvetica-Bold").text("PAYMENT INFORMATION", 65, payInfoY + 10);
+      doc.fillColor("#666666").fontSize(9).font("Helvetica")
+         .text(`Payment Card: ${invoice.paymentMethodBrand || "Online"} ending in ${invoice.paymentMethodLast4 || "XXXX"}`, 65, payInfoY + 26);
+
+      // Amount in words
+      const wordsY = payInfoY + 70;
+      doc.fillColor("#1A1A1A").fontSize(9).font("Helvetica-Bold").text("Amount in Words: ", 50, wordsY, { continued: true })
+         .font("Helvetica").fillColor("#666666").text(`${numberToWords(invoice.amount)} Only`);
+
+      // Large green Paid stamp
+      doc.save();
+      doc.rotate(-15, { origin: [150, 480] });
+      doc.rect(100, 470, 110, 40).lineWidth(3).strokeColor("#16A34A");
+      doc.fillColor("#16A34A").fontSize(18).font("Helvetica-Bold").text("PAID", 135, 482);
+      doc.restore();
+
+      // Footer
+      const noteY = wordsY + 30;
+      doc.fillColor("#125EF2").fontSize(9).font("Helvetica-Bold").text("NOTE:", 50, noteY);
+      doc.fillColor("#888888").fontSize(8).font("Helvetica")
+         .text("This is a computer-generated invoice and does not require a physical signature.", 50, noteY + 14, { width: 495 });
+
+      doc.rect(0, 760, 595, 82).fill("#125EF2");
+      doc.fillColor("#FFFFFF").fontSize(12).font("Helvetica-Bold").text("Thank you for your business!", 0, 778, { align: "center", width: 595 });
+      doc.fillColor("#CFE0FD").fontSize(8).font("Helvetica").text("SudoReply | support@sudoreply.com | www.sudoreply.com", 0, 798, { align: "center", width: 595 });
+
+      doc.end();
+
+      stream.on("finish", () => {
+        resolve({ filePath, fileUrl, invoiceNumber });
+      });
+      stream.on("error", (err) => reject(err));
+    } catch (error) {
+      reject(error);
+    }
+  });
+};

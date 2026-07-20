@@ -22,6 +22,7 @@ import {
   MessageSquare
 } from "lucide-react";
 import { getTags, createTag } from "../../services/tag.service";
+import { useToast } from "../../context/ToastContext";
 import { 
   getAutoReopenConfig, 
   updateAutoReopenConfig, 
@@ -36,6 +37,7 @@ import {
 import WhatsAppConnect from "../../components/whatsapp/WhatsAppConnect";
 
 export default function SettingsPage() {
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState("profile");
   const [copiedKey, setCopiedKey] = useState(false);
   const [userRole, setUserRole] = useState("admin");
@@ -99,7 +101,7 @@ export default function SettingsPage() {
     apiKey: "yzo_live_api_key_8x90a2b1cd34ef5678",
   });
 
-  const [feedback, setFeedback] = useState("");
+
 
   // Password setting/updating states
   const [passwordState, setPasswordState] = useState({
@@ -186,8 +188,7 @@ export default function SettingsPage() {
         accessToken: "",
       });
       setShowConfirmDisconnect(false);
-      setFeedback("WhatsApp disconnected successfully!");
-      setTimeout(() => setFeedback(""), 3500);
+      toast.success("WhatsApp disconnected successfully!");
     } else {
       setDisconnectError(res.message || "Failed to disconnect WhatsApp.");
     }
@@ -224,8 +225,7 @@ export default function SettingsPage() {
       assignmentStrategy: reopenConfig.assignmentStrategy,
     });
     if (res.success) {
-      setFeedback("Auto-reopen rules updated successfully!");
-      setTimeout(() => setFeedback(""), 3000);
+      toast.success("Auto-reopen rules updated successfully!");
       setReopenConfig(res.data);
     } else {
       setReopenError(res.message);
@@ -262,8 +262,7 @@ export default function SettingsPage() {
 
     if (res.success) {
       setNewTag({ name: "", priority: 3, description: "" });
-      setFeedback("Priority tag created!");
-      setTimeout(() => setFeedback(""), 3000);
+      toast.success("Priority tag created!");
       fetchTags();
     } else {
       setTagError(res.message);
@@ -296,12 +295,9 @@ export default function SettingsPage() {
     e.preventDefault();
     if (userRole !== "admin") {
       // Agents don't have update profile permissions in this screen
-      setFeedback("Profile configurations updated!");
-      setTimeout(() => setFeedback(""), 3000);
+      toast.success("Profile configurations updated!");
       return;
     }
-
-    setFeedback("");
     const res = await updateTenantProfile({
       tenantName: profile.name,
       email: profile.email,
@@ -310,8 +306,7 @@ export default function SettingsPage() {
     });
 
     if (res.success) {
-      setFeedback("Profile configurations updated!");
-      setTimeout(() => setFeedback(""), 3000);
+      toast.success("Profile configurations updated!");
 
       // Keep localStorage in sync so other components read updated values
       const stored = localStorage.getItem("user");
@@ -325,7 +320,7 @@ export default function SettingsPage() {
         } catch (err) {}
       }
     } else {
-      alert("Failed to update profile: " + res.message);
+      toast.error("Failed to update profile: " + res.message);
     }
   };
 
@@ -362,7 +357,6 @@ export default function SettingsPage() {
 
   const handleWhatsappSave = async (e) => {
     e.preventDefault();
-    setFeedback("");
     const res = await updateWhatsappConfig({
       phoneId: whatsapp.phoneId,
       wabaId: whatsapp.wabaId,
@@ -370,16 +364,14 @@ export default function SettingsPage() {
       verifyToken: webhook.token,
     });
     if (res.success) {
-      setFeedback("WhatsApp Cloud API details verified & synced!");
-      setTimeout(() => setFeedback(""), 3000);
+      toast.success("WhatsApp Cloud API details verified & synced!");
     } else {
-      alert("Failed to save WhatsApp config: " + res.message);
+      toast.error("Failed to save WhatsApp config: " + res.message);
     }
   };
 
   const handleWebhookSave = async (e) => {
     e.preventDefault();
-    setFeedback("");
     const res = await updateWhatsappConfig({
       phoneId: whatsapp.phoneId,
       wabaId: whatsapp.wabaId,
@@ -387,10 +379,9 @@ export default function SettingsPage() {
       verifyToken: webhook.token,
     });
     if (res.success) {
-      setFeedback("Webhook API triggers saved!");
-      setTimeout(() => setFeedback(""), 3000);
+      toast.success("Webhook API triggers saved!");
     } else {
-      alert("Failed to save Webhook config: " + res.message);
+      toast.error("Failed to save Webhook config: " + res.message);
     }
   };
 
@@ -402,8 +393,7 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-100 pb-5">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
             <Settings className="text-[#125EF2]" size={24} />
@@ -413,12 +403,6 @@ export default function SettingsPage() {
             Configure profile metadata, WhatsApp Cloud integrations, and developer webhooks.
           </p>
         </div>
-        {feedback && (
-          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#EAF2FE] border border-[#CFE0FD] rounded-xl text-[#0D47A1] text-xs font-semibold animate-bounce shrink-0">
-            <CheckCircle2 size={13} className="text-[#125EF2]" />
-            <span>{feedback}</span>
-          </div>
-        )}
       </div>
 
       {/* Main Settings Section */}
@@ -1180,8 +1164,7 @@ export default function SettingsPage() {
             setShowConnectModal(false);
             fetchWhatsappStatusData();
             fetchWhatsappConfig();
-            setFeedback("WhatsApp connected successfully!");
-            setTimeout(() => setFeedback(""), 3500);
+            toast.success("WhatsApp connected successfully!");
           }}
           onClose={() => setShowConnectModal(false)}
         />

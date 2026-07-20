@@ -151,8 +151,9 @@ export const verifyUser = async (req, res, next) => {
 };
 
 // Optional: Check if user is Admin
+// ✅ NEW
 export const isAdmin = (req, res, next) => {
-  if (req.user && req.user.role === 'ADMIN') {
+  if (req.user || req.tenant) {
     return next();
   }
   return res.status(403).json({

@@ -16,14 +16,18 @@ import { getTemplates } from "../../services/template.service";
 import { getTags } from "../../services/tag.service";
 import { io } from "socket.io-client";
 import { useAuthStore } from "../../store/useAuthStore";
+import { useConfirm } from "../../context/ConfirmContext";
+import { useToast } from "../../context/ToastContext";
 
 export default function Broadcasts() {
+  const confirm = useConfirm();
+  const toast = useToast();
+
   const [campaigns, setCampaigns] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [tags, setTags] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [feedback, setFeedback] = useState("");
 
   const [showModal, setShowModal] = useState(false);
   const [newCampaign, setNewCampaign] = useState({
@@ -178,25 +182,29 @@ export default function Broadcasts() {
         scheduledTime: "",
       });
       setParamsMapping({});
-      setFeedback(isScheduled ? "Campaign scheduled successfully!" : "Campaign launched and processing!");
-      setTimeout(() => setFeedback(""), 3500);
+      toast.success(isScheduled ? "Campaign scheduled successfully!" : "Campaign launched and processing!");
       loadData();
     } else {
-      alert("Failed to launch campaign: " + res.message);
+      toast.error("Failed to launch campaign: " + res.message);
     }
   };
 
   // 6. Handle Cancel Scheduled / Active Campaign
   const handleCancelCampaign = async (campaignId) => {
-    if (!window.confirm("Are you sure you want to cancel this campaign? Pending messages will not be sent.")) return;
+    const ok = await confirm({
+      type: "warning",
+      title: "Cancel Campaign?",
+      message: "Pending messages will not be sent. This action cannot be undone.",
+      confirmLabel: "Cancel Campaign",
+    });
+    if (!ok) return;
 
     const res = await cancelBroadcast(campaignId);
     if (res.success) {
-      setFeedback("Campaign cancelled successfully.");
-      setTimeout(() => setFeedback(""), 3500);
+      toast.success("Campaign cancelled successfully.");
       loadData();
     } else {
-      alert("Failed to cancel campaign: " + res.message);
+      toast.error("Failed to cancel campaign: " + res.message);
     }
   };
 
@@ -234,12 +242,6 @@ export default function Broadcasts() {
           <span>New Campaign</span>
         </button>
       </div>
-
-      {feedback && (
-        <div className="rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-3 text-xs text-emerald-800 font-semibold">
-          {feedback}
-        </div>
-      )}
 
       {/* Campaigns Listing */}
       <div className="card border border-slate-100 overflow-hidden bg-white">

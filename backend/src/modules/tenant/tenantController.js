@@ -182,6 +182,7 @@ export const refreshTenantAccessToken = async (req, res) => {
             success: true,
             message: 'Access token refreshed successfully',
             accessToken: result.accessToken,
+            user: result.user,
         });
     } catch (error) {
         return res.status(401).json({
