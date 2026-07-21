@@ -367,16 +367,6 @@ export const disconnectWhatsApp = async (req, res) => {
       });
     }
 
-    // Optional: Delete related templates
-    await prisma.template.deleteMany({
-      where: { tenantId: tenantId }
-    });
-
-    // Optional: Delete related contacts/messages if needed
-    // Be careful with this - might want to keep for records
-    // await prisma.contact.deleteMany({ where: { tenantId } });
-    // await prisma.message.deleteMany({ where: { tenantId } });
-
     // Disconnect WhatsApp
     await prisma.tenant.update({
       where: { id: tenantId },
