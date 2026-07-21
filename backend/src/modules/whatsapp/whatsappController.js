@@ -417,26 +417,48 @@ export const getWabasFromToken = async (req, res) => {
     // If string is an authorization code (doesn't start with 'EAAG'), exchange it for access token
     if (code || !userToken.startsWith('EAAG')) {
       console.log('[WhatsApp] Exchanging code for user access token...');
-      const exchangeParams = new URLSearchParams({
-        client_id: process.env.META_APP_ID,
-        client_secret: process.env.META_APP_SECRET,
-        code: tokenOrCode,
-      });
+      
+      const candidateRedirectUris = [
+        '',
+        'https://www.facebook.com/connect/login_success.html',
+        process.env.META_REDIRECT_URI,
+      ];
 
-      const exchangeRes = await fetch(
-        `https://graph.facebook.com/v25.0/oauth/access_token?${exchangeParams.toString()}`
-      );
-      const exchangeData = await exchangeRes.json();
-      console.log('[WhatsApp] Code exchange response:', JSON.stringify(exchangeData, null, 2));
+      let exchangeData = null;
 
-      if (exchangeData.access_token) {
-        userToken = exchangeData.access_token;
-        console.log('[WhatsApp] ✅ Successfully exchanged code for user access token');
-      } else {
+      for (const uri of candidateRedirectUris) {
+        try {
+          const params = new URLSearchParams({
+            client_id: process.env.META_APP_ID,
+            client_secret: process.env.META_APP_SECRET,
+            code: tokenOrCode,
+          });
+          if (uri !== undefined && uri !== null) {
+            params.append('redirect_uri', uri);
+          }
+
+          const exchangeRes = await fetch(
+            `https://graph.facebook.com/v25.0/oauth/access_token?${params.toString()}`
+          );
+          exchangeData = await exchangeRes.json();
+
+          if (exchangeData.access_token) {
+            userToken = exchangeData.access_token;
+            console.log(`[WhatsApp] ✅ Successfully exchanged code for user access token using redirect_uri="${uri}"`);
+            break;
+          } else {
+            console.warn(`[WhatsApp] Code exchange with redirect_uri="${uri}" returned:`, exchangeData.error?.message);
+          }
+        } catch (e) {
+          console.error(`[WhatsApp] Error with redirect_uri="${uri}":`, e.message);
+        }
+      }
+
+      if (!userToken.startsWith('EAAG')) {
         console.error('❌ Failed to exchange code for token:', exchangeData);
         return res.status(400).json({
           success: false,
-          message: exchangeData.error?.message || 'Failed to exchange authorization code with Meta.'
+          message: exchangeData?.error?.message || 'Failed to exchange authorization code with Meta.'
         });
       }
     }
