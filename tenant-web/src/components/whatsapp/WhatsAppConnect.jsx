@@ -104,83 +104,132 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
     };
   }, []);
 
-  // ✅ Launch Embedded Signup
-  const launchEmbeddedSignup = useCallback(() => {
-    // Guard: check config_id
-    if (!CONFIG_ID) {
-      setError(
-        "Configuration error: Meta Config ID is missing. Please contact support."
-      );
-      console.error(
-        "[EmbeddedSignup] ❌ VITE_META_CONFIG_ID is undefined. Check your .env file."
-      );
-      return;
-    }
+const launchEmbeddedSignup = useCallback(() => {
+  if (!CONFIG_ID) {
+    setError("Configuration error: Meta Config ID is missing.");
+    return;
+  }
 
-    // Guard: check FB SDK loaded
-    if (typeof FB === "undefined") {
-      setError("Meta SDK not loaded. Please refresh the page and try again.");
-      console.error("[EmbeddedSignup] ❌ FB SDK is not loaded.");
-      return;
-    }
+  if (typeof FB === "undefined") {
+    setError("Meta SDK not loaded. Please refresh and try again.");
+    return;
+  }
 
-    console.log("[EmbeddedSignup] 🚀 Launching with config_id:", CONFIG_ID);
+  console.log("[EmbeddedSignup] 🚀 Launching with config_id:", CONFIG_ID);
 
-    setIsLoading(true);
-    setLoadingMessage("Opening Meta window...");
-    setError(null);
-    sessionInfoReceivedRef.current = false;
-    userTokenRef.current = null;
+  setIsLoading(true);
+  setLoadingMessage("Opening Meta window...");
+  setError(null);
+  sessionInfoReceivedRef.current = false;
+  userTokenRef.current = null;
 
-    FB.login(
-      (response) => {
-        console.log("[FB.login] Full response:", response);
+  FB.login(
+    (response) => {
+      console.log("[FB.login] Full response:", response);
 
-        if (response.authResponse) {
-          userTokenRef.current = response.authResponse.accessToken;
-          console.log("[FB.login] ✅ Got user access token");
-        }
+      if (response.authResponse) {
+        userTokenRef.current = response.authResponse.accessToken;
+        const code = response.authResponse.code;
+        console.log("[FB.login] ✅ Got user access token and code:", code);
+      }
 
-        if (response.status === "connected") {
-          console.log(
-            "[FB.login] Status: connected — waiting for FINISH event from popup..."
-          );
-          setLoadingMessage(
-            "Please complete all steps in the Meta window. Do not close it."
-          );
+      if (response.status === "connected") {
+        console.log("[FB.login] Status: connected — waiting for FINISH event...");
+        setLoadingMessage(
+          "Please complete all steps in the Meta window. Do not close it."
+        );
 
-          // ✅ Give user 10 minutes to complete Embedded Signup
-          timeoutRef.current = setTimeout(() => {
-            if (!sessionInfoReceivedRef.current) {
-              console.log(
-                "[FB.login] ⏰ Timeout — no FINISH event after 10 minutes"
-              );
+        // ✅ Wait 30 seconds for FINISH event
+        // If no FINISH → use code to fetch WABAs from backend
+        timeoutRef.current = setTimeout(() => {
+          if (!sessionInfoReceivedRef.current) {
+            console.log("[FB.login] No FINISH event — trying code-based flow...");
+            
+            if (userTokenRef.current) {
+              // ✅ Use access token to fetch WABAs via backend
+              fetchWabasWithToken(userTokenRef.current);
+            } else {
               setError(
-                "Setup timed out. Please try again and make sure to complete all steps in the Meta window."
+                "Setup incomplete. Please try again and complete all steps in the Meta window."
               );
               setIsLoading(false);
             }
-          }, 600000); // 10 minutes
-        } else if (response.status === "not_authorized") {
-          console.log("[FB.login] Status: not_authorized");
-          setError("Please authorize the app to continue.");
+          }
+        }, 30000); // 30 seconds - enough time for FINISH event
+
+      } else if (response.status === "not_authorized") {
+        setError("Please authorize the app to continue.");
+        setIsLoading(false);
+      } else {
+        setError("Login was cancelled. Please try again.");
+        setIsLoading(false);
+      }
+    },
+    {
+      config_id: CONFIG_ID,
+      response_type: "code",
+      override_default_response_type: true,
+      extras: {
+        setup: {},
+      },
+    }
+  );
+}, []);
+
+  // ✅ Fetch WABAs using the USER's access token (not system user token)
+  const fetchWabasWithToken = async (accessToken) => {
+    try {
+      console.log("[WhatsApp] Fetching WABAs with user access token...");
+      setLoadingMessage("Fetching your WhatsApp accounts...");
+
+      const response = await api.post("/whatsapp/wabas-from-token", {
+        accessToken,
+      });
+
+      const data = response.data;
+      console.log("[WhatsApp] WABAs from token:", data);
+
+      if (data.success && data.wabas?.length > 0) {
+        const wabasWithPhones = data.wabas.filter(
+          (w) => w.phones?.length > 0
+        );
+
+        if (wabasWithPhones.length === 0) {
+          setError("No WhatsApp phone numbers found. Please complete the Meta setup.");
           setIsLoading(false);
+          return;
+        }
+
+        // Single WABA + single phone → auto connect
+        if (
+          wabasWithPhones.length === 1 &&
+          wabasWithPhones[0].phones.length === 1
+        ) {
+          const waba = wabasWithPhones[0];
+          const phone = waba.phones[0];
+          console.log("[WhatsApp] Auto-connecting:", phone.id, waba.id);
+          await handleSignupComplete(phone.id, waba.id);
         } else {
-          console.log("[FB.login] Status:", response.status, "— cancelled");
-          setError("Login was cancelled. Please try again.");
+          // Multiple → show selector
+          console.log("[WhatsApp] Multiple WABAs found, showing selector");
+          setAvailableWabas(wabasWithPhones);
+          setShowSelector(true);
           setIsLoading(false);
         }
-      },
-      {
-        config_id: CONFIG_ID,
-        response_type: "code",
-        override_default_response_type: true,
-        extras: {
-          setup: {},
-        },
+      } else {
+        setError(
+          "No WhatsApp Business Accounts found. Please complete the setup in Meta."
+        );
+        setIsLoading(false);
       }
-    );
-  }, []);
+    } catch (err) {
+      console.error("[WhatsApp] Error fetching WABAs:", err);
+      setError(
+        err.response?.data?.message || "Failed to fetch WhatsApp accounts."
+      );
+      setIsLoading(false);
+    }
+  };
 
   // ✅ Only called after FINISH event — never as a fallback
   const handleSignupComplete = async (phoneNumberId, wabaId) => {

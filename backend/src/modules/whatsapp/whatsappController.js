@@ -394,3 +394,75 @@ export const disconnectWhatsApp = async (req, res) => {
     });
   }
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api2/whatsapp/wabas-from-token
+// Fetches WABAs using the user's access token from FB.login
+// ─────────────────────────────────────────────────────────────────────────────
+export const getWabasFromToken = async (req, res) => {
+  try {
+    const { accessToken } = req.body;
+    const tenantId = req.tenantId;
+
+    if (!accessToken) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Access token is required.' 
+      });
+    }
+
+    console.log('[WhatsApp] Fetching WABAs with user token for tenant:', tenantId);
+
+    const response = await fetch(
+      `https://graph.facebook.com/v25.0/me/businesses?fields=id,name,owned_whatsapp_business_accounts{id,name,phone_numbers{id,verified_name,display_phone_number,code_verification_status,quality_rating,platform_type}}&access_token=${accessToken}`
+    );
+
+    const data = await response.json();
+    console.log('[WhatsApp] Businesses response:', JSON.stringify(data, null, 2));
+
+    if (data.error) {
+      return res.status(400).json({
+        success: false,
+        message: data.error.message,
+      });
+    }
+
+    const wabas = [];
+
+    if (data.data && data.data.length > 0) {
+      for (const business of data.data) {
+        if (business.owned_whatsapp_business_accounts?.data) {
+          for (const waba of business.owned_whatsapp_business_accounts.data) {
+            const phones = waba.phone_numbers?.data || [];
+            wabas.push({
+              id: waba.id,
+              name: waba.name,
+              phones: phones.map((p) => ({
+                id: p.id,
+                verified_name: p.verified_name,
+                display_phone_number: p.display_phone_number,
+                code_verification_status: p.code_verification_status,
+                quality_rating: p.quality_rating,
+                platform_type: p.platform_type,
+              })),
+            });
+          }
+        }
+      }
+    }
+
+    console.log('[WhatsApp] Extracted WABAs from user token:', JSON.stringify(wabas, null, 2));
+
+    return res.json({
+      success: true,
+      wabas,
+    });
+  } catch (err) {
+    console.error('❌ Error in getWabasFromToken:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error fetching WABAs',
+    });
+  }
+};
+
