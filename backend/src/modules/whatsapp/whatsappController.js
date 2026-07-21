@@ -417,12 +417,26 @@ export const getWabasFromToken = async (req, res) => {
     // If string is an authorization code (doesn't start with 'EAAG'), exchange it for access token
     if (code || !userToken.startsWith('EAAG')) {
       console.log('[WhatsApp] Exchanging code for user access token...');
-      
+
+      const origin = req.headers.origin || '';
+      const refererOrigin = req.headers.referer ? new URL(req.headers.referer).origin : '';
+      const frontendUri = req.body.redirectUri || '';
+      const href = req.body.href || '';
+
       const candidateRedirectUris = [
+        frontendUri,
+        frontendUri ? frontendUri + '/' : '',
+        href,
+        origin,
+        origin ? origin + '/' : '',
+        refererOrigin,
+        refererOrigin ? refererOrigin + '/' : '',
+        null, // Omit redirect_uri parameter entirely
         '',
         'https://www.facebook.com/connect/login_success.html',
+        'https://www.facebook.com/dialog/return/arbiter',
         process.env.META_REDIRECT_URI,
-      ];
+      ].filter((val, idx, self) => val !== undefined && self.indexOf(val) === idx);
 
       let exchangeData = null;
 
@@ -433,7 +447,8 @@ export const getWabasFromToken = async (req, res) => {
             client_secret: process.env.META_APP_SECRET,
             code: tokenOrCode,
           });
-          if (uri !== undefined && uri !== null) {
+
+          if (uri !== null && uri !== undefined) {
             params.append('redirect_uri', uri);
           }
 
@@ -450,7 +465,7 @@ export const getWabasFromToken = async (req, res) => {
             console.warn(`[WhatsApp] Code exchange with redirect_uri="${uri}" returned:`, exchangeData.error?.message);
           }
         } catch (e) {
-          console.error(`[WhatsApp] Error with redirect_uri="${uri}":`, e.message);
+          console.error(`[WhatsApp] Error testing redirect_uri="${uri}":`, e.message);
         }
       }
 

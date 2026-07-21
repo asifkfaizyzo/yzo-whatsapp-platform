@@ -183,6 +183,9 @@ const launchEmbeddedSignup = useCallback(() => {
 
       const response = await api.post("/whatsapp/wabas-from-token", {
         accessToken,
+        code: accessToken,
+        redirectUri: window.location.origin,
+        href: window.location.href,
       });
 
       const data = response.data;
