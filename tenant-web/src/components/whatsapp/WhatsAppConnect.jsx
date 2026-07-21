@@ -128,9 +128,8 @@ const launchEmbeddedSignup = useCallback(() => {
       console.log("[FB.login] Full response:", response);
 
       if (response.authResponse) {
-        userTokenRef.current = response.authResponse.accessToken;
-        const code = response.authResponse.code;
-        console.log("[FB.login] ✅ Got user access token and code:", code);
+        userTokenRef.current = response.authResponse.code || response.authResponse.accessToken;
+        console.log("[FB.login] ✅ Got user token/code:", userTokenRef.current);
       }
 
       if (response.status === "connected") {

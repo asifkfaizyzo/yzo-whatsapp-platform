@@ -401,20 +401,50 @@ export const disconnectWhatsApp = async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 export const getWabasFromToken = async (req, res) => {
   try {
-    const { accessToken } = req.body;
+    const { accessToken, code } = req.body;
     const tenantId = req.tenantId;
+    const tokenOrCode = accessToken || code;
 
-    if (!accessToken) {
+    if (!tokenOrCode) {
       return res.status(400).json({ 
         success: false, 
-        message: 'Access token is required.' 
+        message: 'Access token or code is required.' 
       });
+    }
+
+    let userToken = tokenOrCode;
+
+    // If string is an authorization code (doesn't start with 'EAAG'), exchange it for access token
+    if (code || !userToken.startsWith('EAAG')) {
+      console.log('[WhatsApp] Exchanging code for user access token...');
+      const exchangeParams = new URLSearchParams({
+        client_id: process.env.META_APP_ID,
+        client_secret: process.env.META_APP_SECRET,
+        code: tokenOrCode,
+      });
+
+      const exchangeRes = await fetch(
+        `https://graph.facebook.com/v25.0/oauth/access_token?${exchangeParams.toString()}`
+      );
+      const exchangeData = await exchangeRes.json();
+      console.log('[WhatsApp] Code exchange response:', JSON.stringify(exchangeData, null, 2));
+
+      if (exchangeData.access_token) {
+        userToken = exchangeData.access_token;
+        console.log('[WhatsApp] ✅ Successfully exchanged code for user access token');
+      } else {
+        console.error('❌ Failed to exchange code for token:', exchangeData);
+        return res.status(400).json({
+          success: false,
+          message: exchangeData.error?.message || 'Failed to exchange authorization code with Meta.'
+        });
+      }
     }
 
     console.log('[WhatsApp] Fetching WABAs with user token for tenant:', tenantId);
 
     const response = await fetch(
-      `https://graph.facebook.com/v25.0/me/businesses?fields=id,name,owned_whatsapp_business_accounts{id,name,phone_numbers{id,verified_name,display_phone_number,code_verification_status,quality_rating,platform_type}}&access_token=${accessToken}`
+      `https://graph.facebook.com/v25.0/me/businesses?fields=id,name,owned_whatsapp_business_accounts{id,name,phone_numbers{id,verified_name,display_phone_number,code_verification_status,quality_rating,platform_type}}&access_token=${userToken}`
     );
 
     const data = await response.json();
