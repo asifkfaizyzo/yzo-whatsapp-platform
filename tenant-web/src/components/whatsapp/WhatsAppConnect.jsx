@@ -175,63 +175,49 @@ const launchEmbeddedSignup = useCallback(() => {
   );
 }, []);
 
-  // ✅ Fetch WABAs using the USER's access token (not system user token)
-  const fetchWabasWithToken = async (accessToken) => {
-    try {
-      console.log("[WhatsApp] Fetching WABAs with user access token...");
-      setLoadingMessage("Fetching your WhatsApp accounts...");
+const fetchWabasWithToken = async (tokenOrCode) => {
+  try {
+    console.log("[WhatsApp] Sending to backend, starts with:", tokenOrCode.substring(0, 10));
+    setLoadingMessage("Fetching your WhatsApp accounts...");
 
-      const response = await api.post("/whatsapp/wabas-from-token", {
-        accessToken,
-        code: accessToken,
-        redirectUri: window.location.origin,
-        href: window.location.href,
-      });
+    // ✅ Always send as 'code' - backend will detect and exchange
+    const response = await api.post("/whatsapp/wabas-from-token", {
+      code: tokenOrCode,
+    });
 
-      const data = response.data;
-      console.log("[WhatsApp] WABAs from token:", data);
+    const data = response.data;
+    console.log("[WhatsApp] WABAs response:", data);
 
-      if (data.success && data.wabas?.length > 0) {
-        const wabasWithPhones = data.wabas.filter(
-          (w) => w.phones?.length > 0
-        );
+    if (data.success && data.wabas?.length > 0) {
+      const wabasWithPhones = data.wabas.filter((w) => w.phones?.length > 0);
 
-        if (wabasWithPhones.length === 0) {
-          setError("No WhatsApp phone numbers found. Please complete the Meta setup.");
-          setIsLoading(false);
-          return;
-        }
+      if (wabasWithPhones.length === 0) {
+        setError("No WhatsApp phone numbers found. Please complete the Meta setup.");
+        setIsLoading(false);
+        return;
+      }
 
-        // Single WABA + single phone → auto connect
-        if (
-          wabasWithPhones.length === 1 &&
-          wabasWithPhones[0].phones.length === 1
-        ) {
-          const waba = wabasWithPhones[0];
-          const phone = waba.phones[0];
-          console.log("[WhatsApp] Auto-connecting:", phone.id, waba.id);
-          await handleSignupComplete(phone.id, waba.id);
-        } else {
-          // Multiple → show selector
-          console.log("[WhatsApp] Multiple WABAs found, showing selector");
-          setAvailableWabas(wabasWithPhones);
-          setShowSelector(true);
-          setIsLoading(false);
-        }
+      if (wabasWithPhones.length === 1 && wabasWithPhones[0].phones.length === 1) {
+        const waba = wabasWithPhones[0];
+        const phone = waba.phones[0];
+        console.log("[WhatsApp] Auto-connecting:", phone.id, waba.id);
+        await handleSignupComplete(phone.id, waba.id);
       } else {
-        setError(
-          "No WhatsApp Business Accounts found. Please complete the setup in Meta."
-        );
+        console.log("[WhatsApp] Multiple options, showing selector");
+        setAvailableWabas(wabasWithPhones);
+        setShowSelector(true);
         setIsLoading(false);
       }
-    } catch (err) {
-      console.error("[WhatsApp] Error fetching WABAs:", err);
-      setError(
-        err.response?.data?.message || "Failed to fetch WhatsApp accounts."
-      );
+    } else {
+      setError("No WhatsApp Business Accounts found. Please complete setup in Meta.");
       setIsLoading(false);
     }
-  };
+  } catch (err) {
+    console.error("[WhatsApp] Error fetching WABAs:", err);
+    setError(err.response?.data?.message || "Failed to fetch WhatsApp accounts.");
+    setIsLoading(false);
+  }
+};
 
   // ✅ Only called after FINISH event — never as a fallback
   const handleSignupComplete = async (phoneNumberId, wabaId) => {

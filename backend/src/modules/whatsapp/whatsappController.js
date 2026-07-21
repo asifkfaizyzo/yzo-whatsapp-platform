@@ -395,103 +395,74 @@ export const disconnectWhatsApp = async (req, res) => {
   }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// POST /api2/whatsapp/wabas-from-token
-// Fetches WABAs using the user's access token from FB.login
-// ─────────────────────────────────────────────────────────────────────────────
 export const getWabasFromToken = async (req, res) => {
   try {
     const { accessToken, code } = req.body;
     const tenantId = req.tenantId;
-    const tokenOrCode = accessToken || code;
 
-    if (!tokenOrCode) {
+    if (!accessToken && !code) {
       return res.status(400).json({ 
         success: false, 
         message: 'Access token or code is required.' 
       });
     }
 
-    let userToken = tokenOrCode;
+    let userToken = accessToken || code;
 
-    // If string is an authorization code (doesn't start with 'EAAG'), exchange it for access token
-    if (code || !userToken.startsWith('EAAG')) {
-      console.log('[WhatsApp] Exchanging code for user access token...');
+    // If it's a code (not an access token), exchange it
+    const isCode = !userToken.startsWith('EAAG') && 
+                   !userToken.startsWith('EAA');
 
-      const origin = req.headers.origin || '';
-      const refererOrigin = req.headers.referer ? new URL(req.headers.referer).origin : '';
-      const frontendUri = req.body.redirectUri || '';
-      const href = req.body.href || '';
+    if (isCode) {
+      console.log('[WhatsApp] Detected authorization code, exchanging...');
+      console.log('[WhatsApp] Code prefix:', userToken.substring(0, 10));
 
-      const candidateRedirectUris = [
-        frontendUri,
-        frontendUri ? frontendUri + '/' : '',
-        href,
-        origin,
-        origin ? origin + '/' : '',
-        refererOrigin,
-        refererOrigin ? refererOrigin + '/' : '',
-        null, // Omit redirect_uri parameter entirely
-        '',
-        'https://www.facebook.com/connect/login_success.html',
-        'https://www.facebook.com/dialog/return/arbiter',
-        process.env.META_REDIRECT_URI,
-      ].filter((val, idx, self) => val !== undefined && self.indexOf(val) === idx);
+      // ✅ For Embedded Signup codes, do NOT send redirect_uri at all
+      const params = new URLSearchParams({
+        client_id: process.env.META_APP_ID,
+        client_secret: process.env.META_APP_SECRET,
+        code: userToken,
+      });
 
-      let exchangeData = null;
+      console.log('[WhatsApp] Exchanging code WITHOUT redirect_uri...');
 
-      for (const uri of candidateRedirectUris) {
-        try {
-          const params = new URLSearchParams({
-            client_id: process.env.META_APP_ID,
-            client_secret: process.env.META_APP_SECRET,
-            code: tokenOrCode,
-          });
+      const exchangeRes = await fetch(
+        `https://graph.facebook.com/v25.0/oauth/access_token?${params.toString()}`
+      );
+      const exchangeData = await exchangeRes.json();
 
-          if (uri !== null && uri !== undefined) {
-            params.append('redirect_uri', uri);
-          }
+      console.log('[WhatsApp] Exchange response:', JSON.stringify(exchangeData, null, 2));
 
-          const exchangeRes = await fetch(
-            `https://graph.facebook.com/v25.0/oauth/access_token?${params.toString()}`
-          );
-          exchangeData = await exchangeRes.json();
-
-          if (exchangeData.access_token) {
-            userToken = exchangeData.access_token;
-            console.log(`[WhatsApp] ✅ Successfully exchanged code for user access token using redirect_uri="${uri}"`);
-            break;
-          } else {
-            console.warn(`[WhatsApp] Code exchange with redirect_uri="${uri}" returned:`, exchangeData.error?.message);
-          }
-        } catch (e) {
-          console.error(`[WhatsApp] Error testing redirect_uri="${uri}":`, e.message);
-        }
-      }
-
-      if (!userToken.startsWith('EAAG')) {
-        console.error('❌ Failed to exchange code for token:', exchangeData);
+      if (exchangeData.access_token) {
+        userToken = exchangeData.access_token;
+        console.log('[WhatsApp] ✅ Got access token from code exchange');
+      } else {
+        console.error('[WhatsApp] ❌ Code exchange failed:', exchangeData);
         return res.status(400).json({
           success: false,
-          message: exchangeData?.error?.message || 'Failed to exchange authorization code with Meta.'
+          message: exchangeData?.error?.message || 'Failed to exchange code.',
+          debug: exchangeData?.error,
         });
       }
     }
 
-    console.log('[WhatsApp] Fetching WABAs with user token for tenant:', tenantId);
+    console.log('[WhatsApp] Fetching WABAs with user token...');
+    console.log('[WhatsApp] Token prefix:', userToken.substring(0, 10));
 
+    // Fetch businesses and WABAs
     const response = await fetch(
-      `https://graph.facebook.com/v25.0/me/businesses?fields=id,name,owned_whatsapp_business_accounts{id,name,phone_numbers{id,verified_name,display_phone_number,code_verification_status,quality_rating,platform_type}}&access_token=${userToken}`
+      `https://graph.facebook.com/v25.0/me/businesses` +
+      `?fields=id,name,owned_whatsapp_business_accounts{id,name,phone_numbers{id,verified_name,display_phone_number,code_verification_status,quality_rating,platform_type}}` +
+      `&access_token=${userToken}`
     );
 
     const data = await response.json();
     console.log('[WhatsApp] Businesses response:', JSON.stringify(data, null, 2));
 
     if (data.error) {
-      return res.status(400).json({
-        success: false,
-        message: data.error.message,
-      });
+      // ✅ If businesses fails, try direct WABA access
+      console.log('[WhatsApp] Businesses API failed, trying direct WABA access...');
+      return await fetchWabasDirectly(userToken, res);
     }
 
     const wabas = [];
@@ -518,17 +489,128 @@ export const getWabasFromToken = async (req, res) => {
       }
     }
 
-    console.log('[WhatsApp] Extracted WABAs from user token:', JSON.stringify(wabas, null, 2));
+    // ✅ If no WABAs found via businesses, try direct approach
+    if (wabas.length === 0) {
+      console.log('[WhatsApp] No WABAs via businesses API, trying direct WABA access...');
+      return await fetchWabasDirectly(userToken, res);
+    }
+
+    console.log('[WhatsApp] ✅ Found WABAs:', JSON.stringify(wabas, null, 2));
 
     return res.json({
       success: true,
       wabas,
     });
+
   } catch (err) {
     console.error('❌ Error in getWabasFromToken:', err);
     return res.status(500).json({
       success: false,
       message: 'Server error fetching WABAs',
+    });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper: Fetch WABAs directly using token debug info
+// ─────────────────────────────────────────────────────────────────────────────
+const fetchWabasDirectly = async (userToken, res) => {
+  try {
+    console.log('[WhatsApp] Fetching WABAs via debug_token...');
+
+    // Use debug_token to get WABA IDs from token scopes
+    const debugRes = await fetch(
+      `https://graph.facebook.com/debug_token` +
+      `?input_token=${userToken}` +
+      `&access_token=${process.env.META_APP_ID}|${process.env.META_APP_SECRET}`
+    );
+    const debugData = await debugRes.json();
+
+    console.log('[WhatsApp] Debug token data:', JSON.stringify(debugData, null, 2));
+
+    if (debugData.error || !debugData.data) {
+      return res.status(400).json({
+        success: false,
+        message: 'Could not validate access token.',
+      });
+    }
+
+    // Extract WABA IDs from granular scopes
+    const wabaIds = debugData.data?.granular_scopes?.find(
+      (s) => s.scope === 'whatsapp_business_management'
+    )?.target_ids || [];
+
+    console.log('[WhatsApp] WABA IDs from token scopes:', wabaIds);
+
+    if (wabaIds.length === 0) {
+      return res.json({
+        success: true,
+        wabas: [],
+        message: 'No WhatsApp Business Accounts found in token scopes.',
+      });
+    }
+
+    const wabas = [];
+
+    for (const wabaId of wabaIds) {
+      try {
+        // Get WABA details
+        const wabaRes = await fetch(
+          `https://graph.facebook.com/v25.0/${wabaId}` +
+          `?fields=id,name` +
+          `&access_token=${userToken}`
+        );
+        const wabaData = await wabaRes.json();
+
+        console.log(`[WhatsApp] WABA ${wabaId}:`, JSON.stringify(wabaData, null, 2));
+
+        if (wabaData.error) {
+          console.error(`[WhatsApp] Error fetching WABA ${wabaId}:`, wabaData.error);
+          continue;
+        }
+
+        // Get phone numbers for this WABA
+        const phoneRes = await fetch(
+          `https://graph.facebook.com/v25.0/${wabaId}/phone_numbers` +
+          `?fields=id,verified_name,display_phone_number,code_verification_status,quality_rating,platform_type` +
+          `&access_token=${userToken}`
+        );
+        const phoneData = await phoneRes.json();
+
+        console.log(`[WhatsApp] Phones for WABA ${wabaId}:`, JSON.stringify(phoneData, null, 2));
+
+        const phones = (phoneData.data || []).map((p) => ({
+          id: p.id,
+          verified_name: p.verified_name,
+          display_phone_number: p.display_phone_number,
+          code_verification_status: p.code_verification_status,
+          quality_rating: p.quality_rating,
+          platform_type: p.platform_type,
+        }));
+
+        wabas.push({
+          id: wabaData.id,
+          name: wabaData.name || `WABA ${wabaId}`,
+          phones,
+        });
+
+      } catch (err) {
+        console.error(`[WhatsApp] Error processing WABA ${wabaId}:`, err);
+      }
+    }
+
+    console.log('[WhatsApp] ✅ WABAs via direct access:', JSON.stringify(wabas, null, 2));
+
+    return res.json({
+      success: true,
+      wabas,
+    });
+
+  } catch (err) {
+    console.error('[WhatsApp] Error in fetchWabasDirectly:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error fetching WABAs directly',
     });
   }
 };
