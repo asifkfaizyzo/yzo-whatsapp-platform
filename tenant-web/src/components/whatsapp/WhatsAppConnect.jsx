@@ -123,101 +123,96 @@ const launchEmbeddedSignup = useCallback(() => {
   sessionInfoReceivedRef.current = false;
   userTokenRef.current = null;
 
-  FB.login(
-    (response) => {
-      console.log("[FB.login] Full response:", response);
+FB.login(
+  (response) => {
+    console.log("[FB.login] Full response:", response);
 
-      if (response.authResponse) {
-        userTokenRef.current = response.authResponse.code || response.authResponse.accessToken;
-        console.log("[FB.login] ✅ Got user token/code:", userTokenRef.current);
-      }
-
-      if (response.status === "connected") {
-        console.log("[FB.login] Status: connected — waiting for FINISH event...");
-        setLoadingMessage(
-          "Please complete all steps in the Meta window. Do not close it."
-        );
-
-        // ✅ Wait 30 seconds for FINISH event
-        // If no FINISH → use code to fetch WABAs from backend
-        timeoutRef.current = setTimeout(() => {
-          if (!sessionInfoReceivedRef.current) {
-            console.log("[FB.login] No FINISH event — trying code-based flow...");
-            
-            if (userTokenRef.current) {
-              // ✅ Use access token to fetch WABAs via backend
-              fetchWabasWithToken(userTokenRef.current);
-            } else {
-              setError(
-                "Setup incomplete. Please try again and complete all steps in the Meta window."
-              );
-              setIsLoading(false);
-            }
-          }
-        }, 30000); // 30 seconds - enough time for FINISH event
-
-      } else if (response.status === "not_authorized") {
-        setError("Please authorize the app to continue.");
-        setIsLoading(false);
-      } else {
-        setError("Login was cancelled. Please try again.");
-        setIsLoading(false);
-      }
-    },
-    {
-      config_id: CONFIG_ID,
-      response_type: "code",
-      override_default_response_type: true,
-      extras: {
-        setup: {},
-      },
+    if (response.authResponse) {
+      // ✅ With response_type: "token", this IS the access token (starts with EAAG)
+      userTokenRef.current = response.authResponse.accessToken;
+      console.log("[FB.login] ✅ Got access token:", userTokenRef.current?.substring(0, 15));
     }
-  );
-}, []);
 
-const fetchWabasWithToken = async (tokenOrCode) => {
-  try {
-    console.log("[WhatsApp] Sending to backend, starts with:", tokenOrCode.substring(0, 10));
-    setLoadingMessage("Fetching your WhatsApp accounts...");
+    if (response.status === "connected") {
+      console.log("[FB.login] Status: connected — waiting for FINISH event...");
+      setLoadingMessage("Please complete all steps in the Meta window. Do not close it.");
 
-    // ✅ Always send as 'code' - backend will detect and exchange
-    const response = await api.post("/whatsapp/wabas-from-token", {
-      code: tokenOrCode,
-    });
+      timeoutRef.current = setTimeout(() => {
+        if (!sessionInfoReceivedRef.current) {
+          console.log("[FB.login] No FINISH event — trying token-based flow...");
+          
+          if (userTokenRef.current) {
+            fetchWabasWithToken(userTokenRef.current);
+          } else {
+            setError("Setup incomplete. Please try again.");
+            setIsLoading(false);
+          }
+        }
+      }, 30000);
 
-    const data = response.data;
-    console.log("[WhatsApp] WABAs response:", data);
-
-    if (data.success && data.wabas?.length > 0) {
-      const wabasWithPhones = data.wabas.filter((w) => w.phones?.length > 0);
-
-      if (wabasWithPhones.length === 0) {
-        setError("No WhatsApp phone numbers found. Please complete the Meta setup.");
-        setIsLoading(false);
-        return;
-      }
-
-      if (wabasWithPhones.length === 1 && wabasWithPhones[0].phones.length === 1) {
-        const waba = wabasWithPhones[0];
-        const phone = waba.phones[0];
-        console.log("[WhatsApp] Auto-connecting:", phone.id, waba.id);
-        await handleSignupComplete(phone.id, waba.id);
-      } else {
-        console.log("[WhatsApp] Multiple options, showing selector");
-        setAvailableWabas(wabasWithPhones);
-        setShowSelector(true);
-        setIsLoading(false);
-      }
+    } else if (response.status === "not_authorized") {
+      setError("Please authorize the app to continue.");
+      setIsLoading(false);
     } else {
-      setError("No WhatsApp Business Accounts found. Please complete setup in Meta.");
+      setError("Login was cancelled. Please try again.");
       setIsLoading(false);
     }
-  } catch (err) {
-    console.error("[WhatsApp] Error fetching WABAs:", err);
-    setError(err.response?.data?.message || "Failed to fetch WhatsApp accounts.");
-    setIsLoading(false);
+  },
+  {
+    config_id: CONFIG_ID,
+    response_type: "token",        // ✅ CHANGED from "code" to "token"
+    override_default_response_type: true,
+    extras: {
+      setup: {},
+    },
   }
-};
+);
+}, []);
+
+FB.login(
+  (response) => {
+    console.log("[FB.login] Full response:", response);
+
+    if (response.authResponse) {
+      // ✅ With response_type: "token", this IS the access token (starts with EAAG)
+      userTokenRef.current = response.authResponse.accessToken;
+      console.log("[FB.login] ✅ Got access token:", userTokenRef.current?.substring(0, 15));
+    }
+
+    if (response.status === "connected") {
+      console.log("[FB.login] Status: connected — waiting for FINISH event...");
+      setLoadingMessage("Please complete all steps in the Meta window. Do not close it.");
+
+      timeoutRef.current = setTimeout(() => {
+        if (!sessionInfoReceivedRef.current) {
+          console.log("[FB.login] No FINISH event — trying token-based flow...");
+          
+          if (userTokenRef.current) {
+            fetchWabasWithToken(userTokenRef.current);
+          } else {
+            setError("Setup incomplete. Please try again.");
+            setIsLoading(false);
+          }
+        }
+      }, 30000);
+
+    } else if (response.status === "not_authorized") {
+      setError("Please authorize the app to continue.");
+      setIsLoading(false);
+    } else {
+      setError("Login was cancelled. Please try again.");
+      setIsLoading(false);
+    }
+  },
+  {
+    config_id: CONFIG_ID,
+    response_type: "token",        // ✅ CHANGED from "code" to "token"
+    override_default_response_type: true,
+    extras: {
+      setup: {},
+    },
+  }
+);
 
   // ✅ Only called after FINISH event — never as a fallback
   const handleSignupComplete = async (phoneNumberId, wabaId) => {
