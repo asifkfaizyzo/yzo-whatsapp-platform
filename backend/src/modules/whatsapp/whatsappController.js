@@ -8,11 +8,17 @@ import prisma from '../../config/prisma.js';
 // with the exact same redirect_uri, which Meta validates and accepts.
 // ─────────────────────────────────────────────────────────────────────────────
 export const exchangeToken = async (req, res) => {
-  const { code, phoneNumberId: reqPhoneId, wabaId: reqWabaId } = req.body;
+  // Accepts EITHER:
+  //  - code       (from popup OAuth flow via whatsapp-callback.html)
+  //  - accessToken (direct token for manual testing via Postman / Meta API Setup)
+  const { code, accessToken: directToken, phoneNumberId: reqPhoneId, wabaId: reqWabaId } = req.body;
   const tenantId = req.tenantId;
 
-  if (!code) {
-    return res.status(400).json({ success: false, message: 'Authorization code is required.' });
+  if (!code && !directToken) {
+    return res.status(400).json({
+      success: false,
+      message: 'Either code (popup flow) or accessToken (direct) is required.',
+    });
   }
 
   const appId = process.env.META_APP_ID?.trim();
@@ -26,53 +32,66 @@ export const exchangeToken = async (req, res) => {
   }
 
   console.log('──────────────────────────────────────────────────');
-  console.log('[WhatsApp] Token exchange started (popup code flow)');
-  console.log('[WhatsApp] Code preview:', code.substring(0, 15) + '...');
-  console.log(`[WhatsApp] redirect_uri: "${REDIRECT_URI}"`);
+  if (directToken) {
+    console.log('[WhatsApp] Token exchange started (DIRECT token — test mode)');
+    console.log('[WhatsApp] Token preview:', directToken.substring(0, 15) + '...');
+  } else {
+    console.log('[WhatsApp] Token exchange started (popup code flow)');
+    console.log('[WhatsApp] Code preview:', code.substring(0, 15) + '...');
+    console.log(`[WhatsApp] redirect_uri: "${REDIRECT_URI}"`);
+  }
   console.log('──────────────────────────────────────────────────');
 
   try {
-    // ─── Step 1: Exchange authorization code for access token ──────────────
-    // redirect_uri MUST exactly match what the popup OAuth dialog used.
-    // Our popup opens: facebook.com/dialog/oauth?...&redirect_uri=.../whatsapp-callback
-    // Meta redirects to: .../whatsapp-callback?code=XXXX
-    // We exchange with: redirect_uri=.../whatsapp-callback  ← exact match ✅
-    const params = new URLSearchParams({
-      client_id:     appId,
-      client_secret: appSecret,
-      code,
-      redirect_uri:  REDIRECT_URI,
-    });
+    let businessToken;
+    let tokenExpiry;
 
-    const tokenRes = await fetch(
-      `https://graph.facebook.com/v25.0/oauth/access_token?${params.toString()}`
-    );
-    const tokenData = await tokenRes.json();
-
-    console.log('[WhatsApp] Token exchange response:', JSON.stringify({
-      success: !!tokenData.access_token,
-      error: tokenData.error || null,
-    }));
-
-    if (!tokenData.access_token) {
-      console.error('❌ Token exchange failed:', tokenData);
-      return res.status(400).json({
-        success: false,
-        message: tokenData.error?.message || 'Failed to exchange authorization code.',
-        debug: {
-          error_code: tokenData.error?.code,
-          error_subcode: tokenData.error?.error_subcode,
-          redirect_uri_used: REDIRECT_URI,
-        }
+    if (directToken) {
+      // ─── Direct token path (Postman / API Setup testing) ──────────────
+      // Use the token as-is. It comes directly from the caller.
+      businessToken = directToken;
+      tokenExpiry = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000); // 60-day default
+      console.log('[WhatsApp] Using direct access token (skipping code exchange).');
+    } else {
+      // ─── Code exchange path (popup OAuth flow) ─────────────────────────
+      // redirect_uri MUST exactly match what the popup OAuth dialog used.
+      const params = new URLSearchParams({
+        client_id:     appId,
+        client_secret: appSecret,
+        code,
+        redirect_uri:  REDIRECT_URI,
       });
+
+      const tokenRes = await fetch(
+        `https://graph.facebook.com/v25.0/oauth/access_token?${params.toString()}`
+      );
+      const tokenData = await tokenRes.json();
+
+      console.log('[WhatsApp] Token exchange response:', JSON.stringify({
+        success: !!tokenData.access_token,
+        error: tokenData.error || null,
+      }));
+
+      if (!tokenData.access_token) {
+        console.error('❌ Token exchange failed:', tokenData);
+        return res.status(400).json({
+          success: false,
+          message: tokenData.error?.message || 'Failed to exchange authorization code.',
+          debug: {
+            error_code: tokenData.error?.code,
+            error_subcode: tokenData.error?.error_subcode,
+            redirect_uri_used: REDIRECT_URI,
+          }
+        });
+      }
+
+      businessToken = tokenData.access_token;
+      tokenExpiry = tokenData.expires_in
+        ? new Date(Date.now() + tokenData.expires_in * 1000)
+        : new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
     }
 
-    const businessToken = tokenData.access_token;
-    const tokenExpiry = tokenData.expires_in
-      ? new Date(Date.now() + tokenData.expires_in * 1000)
-      : new Date(Date.now() + 60 * 24 * 60 * 60 * 1000); // 60-day fallback
-
-    console.log('[WhatsApp] ✅ Access token acquired!');
+    console.log('[WhatsApp] ✅ Access token ready!');
 
     // ─── Resolve WABA ID ──────────────────────────────────────────────
     let wabaId = reqWabaId || null;
