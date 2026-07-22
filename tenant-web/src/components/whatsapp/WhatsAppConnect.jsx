@@ -151,8 +151,6 @@ const handleExchangeToken = async (code, phoneNumberId, wabaId) => {
       code,
       phoneNumberId,
       wabaId,
-      redirectUri: window.location.origin + '/',
-      originUri: window.location.origin
     });
 
     const data = response.data;
