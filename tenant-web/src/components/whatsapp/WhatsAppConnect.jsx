@@ -15,65 +15,77 @@ const [showSelector, setShowSelector] = useState(false);
 // Refs to track state across async operations
 const timeoutRef = useRef(null);
 const sessionInfoReceivedRef = useRef(false);
-const authTokenRef = useRef(null);  // Stores the FB.login accessToken
+const authCodeRef = useRef(null);  // Stores the OAuth code from popup callback
 const sessionDataRef = useRef(null);
 const isExchangingRef = useRef(false);
+const popupTimerRef = useRef(null);
 
-const triggerExchange = (accessToken, phoneId, wabaId) => {
+const triggerExchange = (code, phoneId, wabaId) => {
   if (isExchangingRef.current) return;
   isExchangingRef.current = true;
-  handleExchangeToken(accessToken, phoneId, wabaId);
+  handleExchangeToken(code, phoneId, wabaId);
 };
 
-// Listen for Meta Embedded Signup Response
+// Listen for OAuth callback from our whatsapp-callback.html popup page
+// AND for WA_EMBEDDED_SIGNUP events from Meta's dialog (may fire during the flow)
 useEffect(() => {
   const handleMessage = (event) => {
-    // Accept messages from all facebook.com domains per Meta documentation
-    if (!event.origin || !event.origin.endsWith('facebook.com')) return;
 
+    // ── Our popup callback ──────────────────────────────────────────────
+    if (event.origin === window.location.origin && event.data?.type === 'WA_OAUTH_CALLBACK') {
+      console.log('[WA OAuth Callback] Received from popup:', event.data);
+      const { code, error } = event.data;
+      if (error || !code) {
+        setError(error || 'Authorization was cancelled. Please try again.');
+        setIsLoading(false);
+        return;
+      }
+      authCodeRef.current = code;
+      const phoneId = sessionDataRef.current?.phone_number_id || null;
+      const wabaId = sessionDataRef.current?.waba_id || null;
+      triggerExchange(code, phoneId, wabaId);
+      return;
+    }
+
+    // ── WA_EMBEDDED_SIGNUP events from Meta's dialog ────────────────────
+    if (!event.origin || !event.origin.endsWith('facebook.com')) return;
     try {
       if (typeof event.data !== "string" || !event.data.trim().startsWith("{")) return;
       const data = JSON.parse(event.data);
       console.log("[WA Message]", data);
-      
+
       if (data.type === "WA_EMBEDDED_SIGNUP") {
-        if (data.event === "FINISH" || 
+        if (data.event === "FINISH" ||
             data.event === "FINISH_ONLY_WABA" ||
             data.event === "FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING") {
           const { phone_number_id, waba_id } = data.data || {};
           sessionInfoReceivedRef.current = true;
           sessionDataRef.current = data.data;
-          
-          // Clear fallback timeout
+
           if (timeoutRef.current) {
             clearTimeout(timeoutRef.current);
             timeoutRef.current = null;
           }
-          
-          if (authTokenRef.current) {
-            triggerExchange(authTokenRef.current, phone_number_id, waba_id);
+
+          // If we already have the code from the popup callback, exchange now
+          if (authCodeRef.current) {
+            triggerExchange(authCodeRef.current, phone_number_id, waba_id);
           } else {
-            // Wait 1.5s for FB.login callback token, then fallback to /setup
+            // Wait for popup callback to deliver the code
             setTimeout(() => {
-              if (authTokenRef.current) {
-                triggerExchange(authTokenRef.current, phone_number_id, waba_id);
+              if (authCodeRef.current) {
+                triggerExchange(authCodeRef.current, phone_number_id, waba_id);
               } else if (phone_number_id && waba_id) {
                 handleSignupComplete(phone_number_id, waba_id);
               }
-            }, 1500);
+            }, 2000);
           }
         } else if (data.event === "CANCEL") {
-          if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current);
-            timeoutRef.current = null;
-          }
+          if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
           setError("Setup was cancelled. Please try again.");
           setIsLoading(false);
         } else if (data.event === "ERROR") {
-          if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current);
-            timeoutRef.current = null;
-          }
+          if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
           setError("Something went wrong. Please try again.");
           setIsLoading(false);
         }
@@ -87,6 +99,7 @@ useEffect(() => {
   return () => {
     window.removeEventListener("message", handleMessage);
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    if (popupTimerRef.current) clearInterval(popupTimerRef.current);
   };
 }, []);
 
@@ -94,7 +107,7 @@ const launchEmbeddedSignup = useCallback(() => {
   setIsLoading(true);
   setError(null);
   sessionInfoReceivedRef.current = false;
-  authTokenRef.current = null;
+  authCodeRef.current = null;
   sessionDataRef.current = null;
   isExchangingRef.current = false;
 
@@ -104,63 +117,76 @@ const launchEmbeddedSignup = useCallback(() => {
     return;
   }
 
-  FB.login(
-    (response) => {
-      console.log("[FB.login] Response:", response);
-      
-      if (response.authResponse && response.authResponse.accessToken) {
-        const accessToken = response.authResponse.accessToken;
-        authTokenRef.current = accessToken;
-        console.log("[FB.login] Access token received (short-lived, will extend server-side)");
+  // Open Meta Embedded Signup as a popup using the standard OAuth dialog.
+  // Using our own redirect_uri (whatsapp-callback.html) avoids the FB.login SDK
+  // consuming the code internally, which caused error 36008 on all exchanges.
+  const appId = import.meta.env.VITE_META_APP_ID || '1510944094144775';
+  const callbackUrl = `${window.location.origin}/whatsapp-callback`;
 
-        const phoneId = sessionDataRef.current?.phone_number_id || null;
-        const wabaId = sessionDataRef.current?.waba_id || null;
-        triggerExchange(accessToken, phoneId, wabaId);
-      } else if (response.status === 'not_authorized') {
-        setError("Please authorize the app to continue");
-        setIsLoading(false);
-      } else {
-        setTimeout(() => {
-          if (!sessionInfoReceivedRef.current && !isExchangingRef.current) {
-            setError("Login cancelled. Please try again.");
-            setIsLoading(false);
-          }
-        }, 1500);
-      }
-    },
-    {
-      config_id: CONFIG_ID,
-      // Use default response_type (token). The SDK internally exchanges the auth
-      // code for a user access token — we capture that token directly instead of
-      // trying to re-exchange an already-consumed code (which causes error 36008).
-      extras: {
-        setup: {},
-      }
-    }
+  const params = new URLSearchParams({
+    client_id:     appId,
+    redirect_uri:  callbackUrl,
+    response_type: 'code',
+    config_id:     CONFIG_ID,
+  });
+
+  const oauthUrl = `https://www.facebook.com/v25.0/dialog/oauth?${params.toString()}`;
+  const popupWidth  = 600;
+  const popupHeight = 700;
+  const left = Math.round(window.screenX + (window.outerWidth  - popupWidth)  / 2);
+  const top  = Math.round(window.screenY + (window.outerHeight - popupHeight) / 2);
+
+  console.log('[WhatsApp] Opening Meta OAuth popup:', oauthUrl);
+  const popup = window.open(
+    oauthUrl,
+    'WhatsAppConnect',
+    `width=${popupWidth},height=${popupHeight},left=${left},top=${top},scrollbars=yes,resizable=yes`
   );
+
+  if (!popup || popup.closed) {
+    setError('Popup was blocked. Please allow popups for this site and try again.');
+    setIsLoading(false);
+    return;
+  }
+
+  // Poll for popup close (user cancelled without completing)
+  if (popupTimerRef.current) clearInterval(popupTimerRef.current);
+  popupTimerRef.current = setInterval(() => {
+    if (popup.closed) {
+      clearInterval(popupTimerRef.current);
+      popupTimerRef.current = null;
+      // Give a short window for postMessage to arrive before showing error
+      setTimeout(() => {
+        if (!isExchangingRef.current) {
+          setError('Authorization was cancelled. Please try again.');
+          setIsLoading(false);
+        }
+      }, 2000);
+    }
+  }, 500);
 }, []);
 
-// Exchange token via backend
-const handleExchangeToken = async (accessToken, phoneNumberId, wabaId) => {
+// Exchange code via backend
+const handleExchangeToken = async (code, phoneNumberId, wabaId) => {
   try {
-    console.log("[WhatsApp] Sending access token to backend for setup...", { phoneNumberId, wabaId });
+    console.log("[WhatsApp] Sending code to backend for exchange...", { phoneNumberId, wabaId });
     setIsLoading(true);
 
     const response = await api.post('/whatsapp/exchange-token', {
-      accessToken,
+      code,
       phoneNumberId,
       wabaId,
     });
 
     const data = response.data;
     if (data.success) {
-      console.log("[WhatsApp] ✅ Token Exchanged & WhatsApp Connected successfully");
+      console.log("[WhatsApp] ✅ WhatsApp connected successfully");
       setIsConnected(true);
       setIsLoading(false);
       setShowSelector(false);
       if (onSuccess) onSuccess(data);
     } else {
-      setError(data.message || "Token exchange failed. Please try again.");
+      setError(data.message || "Connection failed. Please try again.");
       setIsLoading(false);
     }
   } catch (err) {

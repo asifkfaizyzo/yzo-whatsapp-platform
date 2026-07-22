@@ -2,63 +2,77 @@ import prisma from '../../config/prisma.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api2/whatsapp/exchange-token
-// Receives the FB.login accessToken from the frontend (Embedded Signup v4).
-// Extends it to a 60-day long-lived token, resolves WABA/Phone IDs,
-// subscribes webhooks, registers phone, and saves to the tenant.
+// Receives an authorization code from the popup OAuth flow (whatsapp-callback.html).
+// The popup opens Meta's OAuth dialog with redirect_uri=.../whatsapp-callback,
+// which redirects the code to our callback page. The code is exchanged here
+// with the exact same redirect_uri, which Meta validates and accepts.
 // ─────────────────────────────────────────────────────────────────────────────
 export const exchangeToken = async (req, res) => {
-  const { accessToken: shortLivedToken, phoneNumberId: reqPhoneId, wabaId: reqWabaId } = req.body;
+  const { code, phoneNumberId: reqPhoneId, wabaId: reqWabaId } = req.body;
   const tenantId = req.tenantId;
 
-  if (!shortLivedToken) {
-    return res.status(400).json({ success: false, message: 'Access token is required.' });
+  if (!code) {
+    return res.status(400).json({ success: false, message: 'Authorization code is required.' });
   }
 
   const appId = process.env.META_APP_ID?.trim();
   const appSecret = process.env.META_APP_SECRET?.trim();
+  // Must match the redirect_uri used in the OAuth popup dialog exactly
+  const FRONTEND_URL = process.env.FRONTEND_URL || 'https://sudoreply.com';
+  const REDIRECT_URI = `${FRONTEND_URL}/whatsapp-callback`;
 
   if (!appId || !appSecret) {
     return res.status(500).json({ success: false, message: 'Meta credentials not configured.' });
   }
 
   console.log('──────────────────────────────────────────────────');
-  console.log('[WhatsApp] Setup started (access token flow)');
-  console.log('[WhatsApp] Token preview:', shortLivedToken.substring(0, 15) + '...');
+  console.log('[WhatsApp] Token exchange started (popup code flow)');
+  console.log('[WhatsApp] Code preview:', code.substring(0, 15) + '...');
+  console.log(`[WhatsApp] redirect_uri: "${REDIRECT_URI}"`);
   console.log('──────────────────────────────────────────────────');
 
   try {
-    // ─── Step 1: Extend short-lived user token to 60-day long-lived token ──
-    // FB.login returns a short-lived (~1h) access token. We extend it to 60 days.
-    console.log('[WhatsApp] Extending short-lived token to long-lived token...');
-    const extendParams = new URLSearchParams({
-      grant_type: 'fb_exchange_token',
-      client_id: appId,
+    // ─── Step 1: Exchange authorization code for access token ──────────────
+    // redirect_uri MUST exactly match what the popup OAuth dialog used.
+    // Our popup opens: facebook.com/dialog/oauth?...&redirect_uri=.../whatsapp-callback
+    // Meta redirects to: .../whatsapp-callback?code=XXXX
+    // We exchange with: redirect_uri=.../whatsapp-callback  ← exact match ✅
+    const params = new URLSearchParams({
+      client_id:     appId,
       client_secret: appSecret,
-      fb_exchange_token: shortLivedToken,
+      code,
+      redirect_uri:  REDIRECT_URI,
     });
 
-    const extendRes = await fetch(
-      `https://graph.facebook.com/v25.0/oauth/access_token?${extendParams.toString()}`
+    const tokenRes = await fetch(
+      `https://graph.facebook.com/v25.0/oauth/access_token?${params.toString()}`
     );
-    const extendData = await extendRes.json();
+    const tokenData = await tokenRes.json();
 
-    console.log('[WhatsApp] Token extension response:', JSON.stringify({
-      success: !!extendData.access_token,
-      expires_in: extendData.expires_in,
-      error: extendData.error || null,
+    console.log('[WhatsApp] Token exchange response:', JSON.stringify({
+      success: !!tokenData.access_token,
+      error: tokenData.error || null,
     }));
 
-    // Use long-lived token if extension succeeded, otherwise fall back to short-lived
-    const businessToken = extendData.access_token || shortLivedToken;
-    const tokenExpiry = extendData.expires_in
-      ? new Date(Date.now() + extendData.expires_in * 1000)
-      : new Date(Date.now() + 60 * 24 * 60 * 60 * 1000); // 60 days fallback
-
-    if (extendData.access_token) {
-      console.log('[WhatsApp] ✅ Long-lived token acquired! Expires in:', Math.floor(extendData.expires_in / 86400), 'days');
-    } else {
-      console.warn('[WhatsApp] ⚠️ Token extension failed, using short-lived token:', extendData.error?.message);
+    if (!tokenData.access_token) {
+      console.error('❌ Token exchange failed:', tokenData);
+      return res.status(400).json({
+        success: false,
+        message: tokenData.error?.message || 'Failed to exchange authorization code.',
+        debug: {
+          error_code: tokenData.error?.code,
+          error_subcode: tokenData.error?.error_subcode,
+          redirect_uri_used: REDIRECT_URI,
+        }
+      });
     }
+
+    const businessToken = tokenData.access_token;
+    const tokenExpiry = tokenData.expires_in
+      ? new Date(Date.now() + tokenData.expires_in * 1000)
+      : new Date(Date.now() + 60 * 24 * 60 * 60 * 1000); // 60-day fallback
+
+    console.log('[WhatsApp] ✅ Access token acquired!');
 
     // ─── Resolve WABA ID ──────────────────────────────────────────────
     let wabaId = reqWabaId || null;
