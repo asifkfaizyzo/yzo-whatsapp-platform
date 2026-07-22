@@ -1,5 +1,4 @@
 import prisma from '../../config/prisma.js';
-import { encrypt, decrypt } from '../../lib/crypto.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api2/whatsapp/exchange-token
@@ -103,7 +102,7 @@ import { encrypt, decrypt } from '../../lib/crypto.js';
 //       );
 //       const phoneData = await phoneRes.json();
 //       console.log('[WhatsApp] Phone numbers:', JSON.stringify(phoneData, null, 2));
-      
+
 //       const firstPhone = phoneData.data?.[0];
 //       phoneNumberId = firstPhone?.id || null;
 //       displayPhoneNumber = firstPhone?.display_phone_number || null;
@@ -171,7 +170,7 @@ export const setupWhatsApp = async (req, res) => {
         Phone: ${phoneNumberId}
         Already used by: ${existingTenant.name} (${existingTenant.id})
         Requested by: ${tenantId}`);
-      
+
       return res.status(400).json({
         success: false,
         message: `This WhatsApp number is already connected to another account (${existingTenant.name}). Please disconnect it there first or use a different number.`,
@@ -194,7 +193,7 @@ export const setupWhatsApp = async (req, res) => {
       `https://graph.facebook.com/v25.0/${phoneNumberId}?access_token=${accessToken}`
     );
     const verifyData = await verifyRes.json();
-    
+
     if (verifyData.error) {
       console.error('[WhatsApp] Verification failed:', verifyData.error);
       return res.status(400).json({
@@ -211,7 +210,7 @@ export const setupWhatsApp = async (req, res) => {
       data: {
         whatsappPhoneId: phoneNumberId,
         whatsappWabaId: wabaId,
-        whatsappAccessToken: encrypt(accessToken),
+        whatsappAccessToken: accessToken,
       },
     });
 
@@ -276,7 +275,7 @@ export const getWhatsAppStatus = async (req, res) => {
 export const getMyWabas = async (req, res) => {
   try {
     const accessToken = process.env.META_SYSTEM_USER_TOKEN;
-    
+
     if (!accessToken) {
       console.error('❌ META_SYSTEM_USER_TOKEN not configured');
       return res.status(500).json({
@@ -297,7 +296,7 @@ export const getMyWabas = async (req, res) => {
           `https://graph.facebook.com/v25.0/${wabaId}?access_token=${accessToken}`
         );
         const wabaData = await wabaRes.json();
-        
+
         if (wabaData.error) {
           console.error(`Error fetching WABA ${wabaId}:`, wabaData.error);
           continue;
