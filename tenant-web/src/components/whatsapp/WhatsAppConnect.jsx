@@ -15,169 +15,230 @@ const [showSelector, setShowSelector] = useState(false);
 // Refs to track state across async operations
 const timeoutRef = useRef(null);
 const sessionInfoReceivedRef = useRef(false);
+const authCodeRef = useRef(null);
+const sessionDataRef = useRef(null);
 
 // Listen for Meta Embedded Signup Response
 useEffect(() => {
-const handleMessage = (event) => {
-// Accept messages from both facebook.com variants
-if (event.origin !== "https://www.facebook.com" &&
-event.origin !== "https://web.facebook.com") return;
+  const handleMessage = (event) => {
+    // Accept messages from both facebook.com variants
+    if (event.origin !== "https://www.facebook.com" && 
+        event.origin !== "https://web.facebook.com") return;
 
-  try {
-    if (typeof event.data !== "string" || !event.data.trim().startsWith("{")) return;
-    const data = JSON.parse(event.data);
-    console.log("[WA Message]", data);
-    
-    if (data.type === "WA_EMBEDDED_SIGNUP") {
-      if (data.event === "FINISH" || 
-          data.event === "FINISH_ONLY_WABA" ||
-          data.event === "FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING") {
-        const { phone_number_id, waba_id } = data.data;
-        sessionInfoReceivedRef.current = true;
-        
-        // Clear fallback timeout
-        if (timeoutRef.current) {
-          clearTimeout(timeoutRef.current);
-          timeoutRef.current = null;
+    try {
+      if (typeof event.data !== "string" || !event.data.trim().startsWith("{")) return;
+      const data = JSON.parse(event.data);
+      console.log("[WA Message]", data);
+      
+      if (data.type === "WA_EMBEDDED_SIGNUP") {
+        if (data.event === "FINISH" || 
+            data.event === "FINISH_ONLY_WABA" ||
+            data.event === "FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING") {
+          const { phone_number_id, waba_id } = data.data;
+          sessionInfoReceivedRef.current = true;
+          sessionDataRef.current = data.data;
+          
+          // Clear fallback timeout
+          if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+            timeoutRef.current = null;
+          }
+          
+          if (authCodeRef.current) {
+            handleExchangeToken(authCodeRef.current, phone_number_id, waba_id);
+          } else {
+            // Wait 1s for FB.login callback code, then fallback to /setup
+            setTimeout(() => {
+              if (authCodeRef.current) {
+                handleExchangeToken(authCodeRef.current, phone_number_id, waba_id);
+              } else {
+                handleSignupComplete(phone_number_id, waba_id);
+              }
+            }, 1000);
+          }
+        } else if (data.event === "CANCEL") {
+          if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+            timeoutRef.current = null;
+          }
+          setError("Setup was cancelled. Please try again.");
+          setIsLoading(false);
+        } else if (data.event === "ERROR") {
+          if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+            timeoutRef.current = null;
+          }
+          setError("Something went wrong. Please try again.");
+          setIsLoading(false);
         }
-        
-        handleSignupComplete(phone_number_id, waba_id);
-      } else if (data.event === "CANCEL") {
-        // Clear fallback timeout
-        if (timeoutRef.current) {
-          clearTimeout(timeoutRef.current);
-          timeoutRef.current = null;
-        }
-        setError("Setup was cancelled. Please try again.");
-        setIsLoading(false);
-      } else if (data.event === "ERROR") {
-        if (timeoutRef.current) {
-          clearTimeout(timeoutRef.current);
-          timeoutRef.current = null;
-        }
-        setError("Something went wrong. Please try again.");
-        setIsLoading(false);
       }
+    } catch (e) {
+      console.error("Error parsing FB message:", e);
     }
-  } catch (e) {
-    console.error("Error parsing FB message:", e);
-  }
-};
+  };
 
-window.addEventListener("message", handleMessage);
-return () => {
-  window.removeEventListener("message", handleMessage);
-  if (timeoutRef.current) clearTimeout(timeoutRef.current);
-};
+  window.addEventListener("message", handleMessage);
+  return () => {
+    window.removeEventListener("message", handleMessage);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+  };
 }, []);
 
 // Launch Embedded Signup
 const launchEmbeddedSignup = useCallback(() => {
-setIsLoading(true);
-setError(null);
-sessionInfoReceivedRef.current = false;
+  setIsLoading(true);
+  setError(null);
+  sessionInfoReceivedRef.current = false;
+  authCodeRef.current = null;
+  sessionDataRef.current = null;
 
-FB.login(
-  (response) => {
-    console.log("[FB.login] Response:", response);
-    
-    if (response.status === 'connected') {
-      console.log("[FB.login] User connected, waiting for FINISH event...");
+  if (!CONFIG_ID) {
+    setError("Configuration ID is missing in environment settings.");
+    setIsLoading(false);
+    return;
+  }
+
+  FB.login(
+    (response) => {
+      console.log("[FB.login] Response:", response);
       
-      // Fallback: If no FINISH event in 3 seconds, fetch existing WABAs
-      timeoutRef.current = setTimeout(() => {
-        if (!sessionInfoReceivedRef.current) {
-          console.log("[FB.login] No FINISH event received, fetching existing WABAs...");
-          fetchAndUseExistingWABA();
+      if (response.authResponse && response.authResponse.code) {
+        const code = response.authResponse.code;
+        authCodeRef.current = code;
+        console.log("[FB.login] Authorization Code received:", code);
+
+        if (sessionDataRef.current) {
+          handleExchangeToken(code, sessionDataRef.current.phone_number_id, sessionDataRef.current.waba_id);
         }
-      }, 3000);
-    } else if (response.status === 'not_authorized') {
-      setError("Please authorize the app to continue");
+      } else if (response.status === 'not_authorized') {
+        setError("Please authorize the app to continue");
+        setIsLoading(false);
+      } else {
+        // If user closes login window without code or cancels
+        setTimeout(() => {
+          if (!sessionInfoReceivedRef.current) {
+            setError("Login cancelled. Please try again.");
+            setIsLoading(false);
+          }
+        }, 1500);
+      }
+    },
+    {
+      config_id: CONFIG_ID,
+      response_type: 'code',
+      override_default_response_type: true,
+      extras: {
+        setup: {},
+      }
+    }
+  );
+}, []);
+
+// Exchange token via backend
+const handleExchangeToken = async (code, phoneNumberId, wabaId) => {
+  try {
+    console.log("[WhatsApp] Exchanging token with backend...", { code: code.substring(0, 10) + "...", phoneNumberId, wabaId });
+    setIsLoading(true);
+
+    const response = await api.post('/whatsapp/exchange-token', {
+      code,
+      phoneNumberId,
+      wabaId
+    });
+
+    const data = response.data;
+    if (data.success) {
+      console.log("[WhatsApp] ✅ Token Exchanged & WhatsApp Connected successfully");
+      setIsConnected(true);
       setIsLoading(false);
+      setShowSelector(false);
+      if (onSuccess) onSuccess(data);
     } else {
-      setError("Login cancelled. Please try again.");
+      setError(data.message || "Token exchange failed. Please try again.");
       setIsLoading(false);
     }
-  },
-  {
-    config_id: CONFIG_ID,
-    response_type: 'code',
-    override_default_response_type: true,
-    extras: {
-      setup: {},
+  } catch (err) {
+    console.error("[WhatsApp] Token Exchange error:", err);
+    // Fallback to setup if exchange fails
+    if (phoneNumberId && wabaId) {
+      console.log("[WhatsApp] Falling back to direct setup...");
+      await handleSignupComplete(phoneNumberId, wabaId);
+    } else {
+      const msg = err.response?.data?.message || "Failed to exchange token with Meta.";
+      setError(msg);
+      setIsLoading(false);
     }
   }
-);
-}, []);
+};
 
 // Fetch existing WABAs as fallback
 const fetchAndUseExistingWABA = async () => {
-try {
-console.log("[WhatsApp] Fetching existing WABAs...");
-const res = await api.get('/whatsapp/my-wabas');
-console.log("[WhatsApp] WABAs response:", res.data);
+  try {
+    console.log("[WhatsApp] Fetching existing WABAs...");
+    const res = await api.get('/whatsapp/my-wabas');
+    console.log("[WhatsApp] WABAs response:", res.data);
 
-  if (res.data.success && res.data.wabas?.length > 0) {
-    const wabasWithPhones = res.data.wabas.filter(w => w.phones?.length > 0);
-    
-    if (wabasWithPhones.length === 0) {
-      setError('No WhatsApp phone numbers found in your account');
-      setIsLoading(false);
-      return;
-    }
-    
-    // If only one WABA with one phone, auto-connect
-    if (wabasWithPhones.length === 1 && wabasWithPhones[0].phones.length === 1) {
-      const waba = wabasWithPhones[0];
-      const phone = waba.phones[0];
-      console.log("[WhatsApp] Auto-connecting single WABA/phone");
-      await handleSignupComplete(phone.id, waba.id);
+    if (res.data.success && res.data.wabas?.length > 0) {
+      const wabasWithPhones = res.data.wabas.filter(w => w.phones?.length > 0);
+      
+      if (wabasWithPhones.length === 0) {
+        setError('No WhatsApp phone numbers found in your account');
+        setIsLoading(false);
+        return;
+      }
+      
+      // If only one WABA with one phone, auto-connect
+      if (wabasWithPhones.length === 1 && wabasWithPhones[0].phones.length === 1) {
+        const waba = wabasWithPhones[0];
+        const phone = waba.phones[0];
+        console.log("[WhatsApp] Auto-connecting single WABA/phone");
+        await handleSignupComplete(phone.id, waba.id);
+      } else {
+        // Multiple options - show selector
+        console.log("[WhatsApp] Multiple options, showing selector");
+        setAvailableWabas(wabasWithPhones);
+        setShowSelector(true);
+        setIsLoading(false);
+      }
     } else {
-      // Multiple options - show selector
-      console.log("[WhatsApp] Multiple options, showing selector");
-      setAvailableWabas(wabasWithPhones);
-      setShowSelector(true);
+      setError('No WhatsApp Business Accounts found');
       setIsLoading(false);
     }
-  } else {
-    setError('No WhatsApp Business Accounts found');
+  } catch (err) {
+    console.error('Error fetching WABAs:', err);
+    setError(err.response?.data?.message || 'Failed to load WhatsApp accounts');
     setIsLoading(false);
   }
-} catch (err) {
-  console.error('Error fetching WABAs:', err);
-  setError(err.response?.data?.message || 'Failed to load WhatsApp accounts');
-  setIsLoading(false);
-}
 };
 
-// Save signup completion to backend
+// Save signup completion to backend (fallback endpoint)
 const handleSignupComplete = async (phoneNumberId, wabaId) => {
-try {
-console.log("[WhatsApp] Saving to backend:", { phoneNumberId, wabaId });
-setIsLoading(true);
+  try {
+    console.log("[WhatsApp] Saving to backend via /setup:", { phoneNumberId, wabaId });
+    setIsLoading(true);
 
-  const response = await api.post('/whatsapp/setup', { 
-    phoneNumberId, 
-    wabaId 
-  });
-  
-  const data = response.data;
-  if (data.success) {
-    console.log("[WhatsApp] ✅ Connected successfully");
-    setIsConnected(true);
-    setIsLoading(false);
-    setShowSelector(false);
-    if (onSuccess) onSuccess(data);
-  } else {
-    setError(data.message || "Setup failed. Please try again.");
+    const response = await api.post('/whatsapp/setup', { 
+      phoneNumberId, 
+      wabaId 
+    });
+    
+    const data = response.data;
+    if (data.success) {
+      console.log("[WhatsApp] ✅ Connected successfully");
+      setIsConnected(true);
+      setIsLoading(false);
+      setShowSelector(false);
+      if (onSuccess) onSuccess(data);
+    } else {
+      setError(data.message || "Setup failed. Please try again.");
+      setIsLoading(false);
+    }
+  } catch (err) {
+    console.error("[WhatsApp] Setup error:", err);
+    const msg = err.response?.data?.message || "Server error. Please try again.";
+    setError(msg);
     setIsLoading(false);
   }
-} catch (err) {
-  console.error("[WhatsApp] Setup error:", err);
-  const msg = err.response?.data?.message || "Server error. Please try again.";
-  setError(msg);
-  setIsLoading(false);
-}
 };
 
 // Success Screen

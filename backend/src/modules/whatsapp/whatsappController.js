@@ -6,138 +6,166 @@ import prisma from '../../config/prisma.js';
 // exchanges it for an access token, extends to long-lived token,
 // fetches WABA/Phone/Business info, and saves to the tenant.
 // ─────────────────────────────────────────────────────────────────────────────
-// export const exchangeToken = async (req, res) => {
-//   const { code } = req.body;
-//   const tenantId = req.tenantId;
+export const exchangeToken = async (req, res) => {
+  const { code, phoneNumberId: reqPhoneId, wabaId: reqWabaId } = req.body;
+  const tenantId = req.tenantId;
 
-//   if (!code) {
-//     return res.status(400).json({ 
-//       success: false, 
-//       message: 'Authorization code is required.' 
-//     });
-//   }
+  if (!code) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'Authorization code is required.' 
+    });
+  }
 
-//   if (!process.env.META_APP_ID || !process.env.META_APP_SECRET) {
-//     console.error('❌ META_APP_ID or META_APP_SECRET not set.');
-//     return res.status(500).json({ 
-//       success: false, 
-//       message: 'Meta credentials not configured.' 
-//     });
-//   }
+  if (!process.env.META_APP_ID || !process.env.META_APP_SECRET) {
+    console.error('❌ META_APP_ID or META_APP_SECRET not set in environment.');
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Meta credentials not configured on backend.' 
+    });
+  }
 
-//   console.log('──────────────────────────────────────────────────');
-//   console.log('[WhatsApp] Exchanging Embedded Signup code for token...');
-//   console.log('──────────────────────────────────────────────────');
+  console.log('──────────────────────────────────────────────────');
+  console.log('[WhatsApp] Exchanging Embedded Signup code for token...');
+  console.log('──────────────────────────────────────────────────');
 
-//   try {
-//     // ─── Step 1: Exchange code for access token (NO redirect_uri) ───
-//     const exchangeParams = new URLSearchParams({
-//       client_id: process.env.META_APP_ID,
-//       client_secret: process.env.META_APP_SECRET,
-//       code,
-//     });
+  try {
+    // ─── Step 1: Exchange code for access token (NO redirect_uri) ───
+    const exchangeParams = new URLSearchParams({
+      client_id: process.env.META_APP_ID,
+      client_secret: process.env.META_APP_SECRET,
+      code,
+    });
 
-//     console.log('[WhatsApp] Making token exchange request...');
+    console.log('[WhatsApp] Exchanging code with Meta Graph API...');
 
-//     const tokenRes = await fetch(
-//       `https://graph.facebook.com/v25.0/oauth/access_token?${exchangeParams.toString()}`
-//     );
-//     const tokenData = await tokenRes.json();
+    const tokenRes = await fetch(
+      `https://graph.facebook.com/v25.0/oauth/access_token?${exchangeParams.toString()}`
+    );
+    const tokenData = await tokenRes.json();
 
-//     console.log('[WhatsApp] Token exchange response:', JSON.stringify(tokenData, null, 2));
+    if (!tokenData.access_token) {
+      console.error('❌ Token exchange failed:', tokenData);
+      return res.status(400).json({
+        success: false,
+        message: tokenData.error?.message || 'Failed to exchange code with Meta.'
+      });
+    }
 
-//     if (!tokenData.access_token) {
-//       console.error('❌ Token exchange failed:', tokenData);
-//       return res.status(400).json({
-//         success: false,
-//         message: tokenData.error?.message || 'Failed to exchange code with Meta.'
-//       });
-//     }
+    let access_token = tokenData.access_token;
+    console.log('[WhatsApp] ✅ Got short-lived access token');
 
-//     let access_token = tokenData.access_token;
-//     console.log('[WhatsApp] ✅ Got access token');
+    // ─── Step 2: Extend to long-lived token ───
+    console.log('[WhatsApp] Extending to long-lived token...');
+    const longLivedParams = new URLSearchParams({
+      grant_type: 'fb_exchange_token',
+      client_id: process.env.META_APP_ID,
+      client_secret: process.env.META_APP_SECRET,
+      fb_exchange_token: access_token,
+    });
 
-//     // ─── Step 2: Long-lived token ───
-//     console.log('[WhatsApp] Extending to long-lived token...');
-//     const longLivedParams = new URLSearchParams({
-//       grant_type: 'fb_exchange_token',
-//       client_id: process.env.META_APP_ID,
-//       client_secret: process.env.META_APP_SECRET,
-//       fb_exchange_token: access_token,
-//     });
+    const longLivedRes = await fetch(
+      `https://graph.facebook.com/v25.0/oauth/access_token?${longLivedParams.toString()}`
+    );
+    const longLivedData = await longLivedRes.json();
 
-//     const longLivedRes = await fetch(
-//       `https://graph.facebook.com/v25.0/oauth/access_token?${longLivedParams.toString()}`
-//     );
-//     const longLivedData = await longLivedRes.json();
+    if (longLivedData.access_token) {
+      access_token = longLivedData.access_token;
+      console.log('[WhatsApp] ✅ Got long-lived access token');
+    }
 
-//     if (longLivedData.access_token) {
-//       access_token = longLivedData.access_token;
-//       console.log('[WhatsApp] ✅ Got long-lived token');
-//     }
+    // ─── Step 3: Determine WABA ID and Phone Number ID ───
+    let wabaId = reqWabaId || null;
+    let phoneNumberId = reqPhoneId || null;
 
-//     // ─── Step 3: Get WABA ID ───
-//     const debugRes = await fetch(
-//       `https://graph.facebook.com/debug_token` +
-//       `?input_token=${access_token}` +
-//       `&access_token=${process.env.META_APP_ID}|${process.env.META_APP_SECRET}`
-//     );
-//     const debugData = await debugRes.json();
-//     console.log('[WhatsApp] Debug token:', JSON.stringify(debugData, null, 2));
+    if (!wabaId) {
+      const debugRes = await fetch(
+        `https://graph.facebook.com/debug_token` +
+        `?input_token=${access_token}` +
+        `&access_token=${process.env.META_APP_ID}|${process.env.META_APP_SECRET}`
+      );
+      const debugData = await debugRes.json();
 
-//     const wabaIds = debugData.data?.granular_scopes?.find(
-//       (s) => s.scope === 'whatsapp_business_management'
-//     )?.target_ids || [];
+      const wabaIds = debugData.data?.granular_scopes?.find(
+        (s) => s.scope === 'whatsapp_business_management'
+      )?.target_ids || [];
 
-//     const wabaId = wabaIds[0] || null;
+      wabaId = wabaIds[0] || null;
+    }
 
-//     // ─── Step 4: Get phone number ───
-//     let phoneNumberId = null;
-//     let displayPhoneNumber = null;
-//     let verifiedName = null;
+    let displayPhoneNumber = null;
+    let verifiedName = null;
 
-//     if (wabaId) {
-//       const phoneRes = await fetch(
-//         `https://graph.facebook.com/v25.0/${wabaId}/phone_numbers?access_token=${access_token}`
-//       );
-//       const phoneData = await phoneRes.json();
-//       console.log('[WhatsApp] Phone numbers:', JSON.stringify(phoneData, null, 2));
+    if (wabaId && !phoneNumberId) {
+      const phoneRes = await fetch(
+        `https://graph.facebook.com/v25.0/${wabaId}/phone_numbers?access_token=${access_token}`
+      );
+      const phoneData = await phoneRes.json();
+      const firstPhone = phoneData.data?.[0];
+      phoneNumberId = firstPhone?.id || null;
+      displayPhoneNumber = firstPhone?.display_phone_number || null;
+      verifiedName = firstPhone?.verified_name || null;
+    } else if (phoneNumberId) {
+      const phoneRes = await fetch(
+        `https://graph.facebook.com/v25.0/${phoneNumberId}?access_token=${access_token}`
+      );
+      const phoneData = await phoneRes.json();
+      displayPhoneNumber = phoneData.display_phone_number || null;
+      verifiedName = phoneData.verified_name || null;
+    }
 
-//       const firstPhone = phoneData.data?.[0];
-//       phoneNumberId = firstPhone?.id || null;
-//       displayPhoneNumber = firstPhone?.display_phone_number || null;
-//       verifiedName = firstPhone?.verified_name || null;
-//     }
+    if (!phoneNumberId || !wabaId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Could not determine WhatsApp Account ID or Phone Number ID.'
+      });
+    }
 
-//     // ─── Step 5: Save to DB ───
-//     await prisma.tenant.update({
-//       where: { id: tenantId },
-//       data: {
-//         whatsappWabaId: wabaId,
-//         whatsappPhoneId: phoneNumberId,
-//         whatsappAccessToken: access_token,
-//       },
-//     });
+    // ─── Step 4: Check for duplicate connection ───
+    const existingTenant = await prisma.tenant.findFirst({
+      where: {
+        whatsappPhoneId: phoneNumberId,
+        NOT: { id: tenantId },
+      },
+      select: { id: true, tenantName: true }
+    });
 
-//     console.log(`✅ WhatsApp connected for tenant ${tenantId}`);
+    if (existingTenant) {
+      return res.status(400).json({
+        success: false,
+        message: `This WhatsApp number is already connected to another tenant (${existingTenant.tenantName}).`
+      });
+    }
 
-//     return res.json({
-//       success: true,
-//       message: 'WhatsApp Business account connected successfully.',
-//       wabaId,
-//       phoneNumberId,
-//       displayPhoneNumber,
-//       verifiedName,
-//     });
+    // ─── Step 5: Save to DB ───
+    await prisma.tenant.update({
+      where: { id: tenantId },
+      data: {
+        whatsappWabaId: wabaId,
+        whatsappPhoneId: phoneNumberId,
+        whatsappAccessToken: access_token,
+      },
+    });
 
-//   } catch (err) {
-//     console.error('❌ exchangeToken error:', err);
-//     return res.status(500).json({ 
-//       success: false, 
-//       message: 'Server error during token exchange.' 
-//     });
-//   }
-// };
+    console.log(`[WhatsApp] ✅ Connected successfully via token exchange for tenant ${tenantId}`);
+
+    return res.json({
+      success: true,
+      message: 'WhatsApp Business account connected successfully.',
+      wabaId,
+      phoneNumberId,
+      displayPhoneNumber,
+      verifiedName,
+    });
+
+  } catch (err) {
+    console.error('❌ exchangeToken error:', err);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Server error during token exchange.' 
+    });
+  }
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api2/whatsapp/setup
