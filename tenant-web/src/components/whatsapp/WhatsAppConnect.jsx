@@ -17,13 +17,19 @@ const timeoutRef = useRef(null);
 const sessionInfoReceivedRef = useRef(false);
 const authCodeRef = useRef(null);
 const sessionDataRef = useRef(null);
+const isExchangingRef = useRef(false);
+
+const triggerExchange = (code, phoneId, wabaId) => {
+  if (isExchangingRef.current) return;
+  isExchangingRef.current = true;
+  handleExchangeToken(code, phoneId, wabaId);
+};
 
 // Listen for Meta Embedded Signup Response
 useEffect(() => {
   const handleMessage = (event) => {
-    // Accept messages from both facebook.com variants
-    if (event.origin !== "https://www.facebook.com" && 
-        event.origin !== "https://web.facebook.com") return;
+    // Accept messages from all facebook.com domains per Meta documentation
+    if (!event.origin || !event.origin.endsWith('facebook.com')) return;
 
     try {
       if (typeof event.data !== "string" || !event.data.trim().startsWith("{")) return;
@@ -34,7 +40,7 @@ useEffect(() => {
         if (data.event === "FINISH" || 
             data.event === "FINISH_ONLY_WABA" ||
             data.event === "FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING") {
-          const { phone_number_id, waba_id } = data.data;
+          const { phone_number_id, waba_id } = data.data || {};
           sessionInfoReceivedRef.current = true;
           sessionDataRef.current = data.data;
           
@@ -45,16 +51,16 @@ useEffect(() => {
           }
           
           if (authCodeRef.current) {
-            handleExchangeToken(authCodeRef.current, phone_number_id, waba_id);
+            triggerExchange(authCodeRef.current, phone_number_id, waba_id);
           } else {
-            // Wait 1s for FB.login callback code, then fallback to /setup
+            // Wait 1.5s for FB.login callback code, then fallback to /setup
             setTimeout(() => {
               if (authCodeRef.current) {
-                handleExchangeToken(authCodeRef.current, phone_number_id, waba_id);
-              } else {
+                triggerExchange(authCodeRef.current, phone_number_id, waba_id);
+              } else if (phone_number_id && waba_id) {
                 handleSignupComplete(phone_number_id, waba_id);
               }
-            }, 1000);
+            }, 1500);
           }
         } else if (data.event === "CANCEL") {
           if (timeoutRef.current) {
@@ -91,6 +97,7 @@ const launchEmbeddedSignup = useCallback(() => {
   sessionInfoReceivedRef.current = false;
   authCodeRef.current = null;
   sessionDataRef.current = null;
+  isExchangingRef.current = false;
 
   if (!CONFIG_ID) {
     setError("Configuration ID is missing in environment settings.");
@@ -107,16 +114,16 @@ const launchEmbeddedSignup = useCallback(() => {
         authCodeRef.current = code;
         console.log("[FB.login] Authorization Code received:", code);
 
-        if (sessionDataRef.current) {
-          handleExchangeToken(code, sessionDataRef.current.phone_number_id, sessionDataRef.current.waba_id);
-        }
+        const phoneId = sessionDataRef.current?.phone_number_id || null;
+        const wabaId = sessionDataRef.current?.waba_id || null;
+        triggerExchange(code, phoneId, wabaId);
       } else if (response.status === 'not_authorized') {
         setError("Please authorize the app to continue");
         setIsLoading(false);
       } else {
         // If user closes login window without code or cancels
         setTimeout(() => {
-          if (!sessionInfoReceivedRef.current) {
+          if (!sessionInfoReceivedRef.current && !isExchangingRef.current) {
             setError("Login cancelled. Please try again.");
             setIsLoading(false);
           }

@@ -30,11 +30,12 @@ export const exchangeToken = async (req, res) => {
   console.log('──────────────────────────────────────────────────');
 
   try {
-    // ─── Step 1: Exchange code for access token (NO redirect_uri) ───
+    // ─── Step 1: Exchange code for access token (redirect_uri must be empty string for JS SDK codes) ───
     const exchangeParams = new URLSearchParams({
       client_id: process.env.META_APP_ID,
       client_secret: process.env.META_APP_SECRET,
       code,
+      redirect_uri: '',
     });
 
     console.log('[WhatsApp] Exchanging code with Meta Graph API...');
