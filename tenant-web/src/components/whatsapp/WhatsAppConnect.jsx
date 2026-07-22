@@ -15,14 +15,14 @@ const [showSelector, setShowSelector] = useState(false);
 // Refs to track state across async operations
 const timeoutRef = useRef(null);
 const sessionInfoReceivedRef = useRef(false);
-const authCodeRef = useRef(null);
+const authTokenRef = useRef(null);  // Stores the FB.login accessToken
 const sessionDataRef = useRef(null);
 const isExchangingRef = useRef(false);
 
-const triggerExchange = (code, phoneId, wabaId) => {
+const triggerExchange = (accessToken, phoneId, wabaId) => {
   if (isExchangingRef.current) return;
   isExchangingRef.current = true;
-  handleExchangeToken(code, phoneId, wabaId);
+  handleExchangeToken(accessToken, phoneId, wabaId);
 };
 
 // Listen for Meta Embedded Signup Response
@@ -50,13 +50,13 @@ useEffect(() => {
             timeoutRef.current = null;
           }
           
-          if (authCodeRef.current) {
-            triggerExchange(authCodeRef.current, phone_number_id, waba_id);
+          if (authTokenRef.current) {
+            triggerExchange(authTokenRef.current, phone_number_id, waba_id);
           } else {
-            // Wait 1.5s for FB.login callback code, then fallback to /setup
+            // Wait 1.5s for FB.login callback token, then fallback to /setup
             setTimeout(() => {
-              if (authCodeRef.current) {
-                triggerExchange(authCodeRef.current, phone_number_id, waba_id);
+              if (authTokenRef.current) {
+                triggerExchange(authTokenRef.current, phone_number_id, waba_id);
               } else if (phone_number_id && waba_id) {
                 handleSignupComplete(phone_number_id, waba_id);
               }
@@ -108,14 +108,14 @@ const launchEmbeddedSignup = useCallback(() => {
     (response) => {
       console.log("[FB.login] Response:", response);
       
-      if (response.authResponse && response.authResponse.code) {
-        const code = response.authResponse.code;
-        authCodeRef.current = code;
-        console.log("[FB.login] Code received:", code.substring(0, 20) + "...");
+      if (response.authResponse && response.authResponse.accessToken) {
+        const accessToken = response.authResponse.accessToken;
+        authTokenRef.current = accessToken;
+        console.log("[FB.login] Access token received (short-lived, will extend server-side)");
 
         const phoneId = sessionDataRef.current?.phone_number_id || null;
         const wabaId = sessionDataRef.current?.waba_id || null;
-        triggerExchange(code, phoneId, wabaId);
+        triggerExchange(accessToken, phoneId, wabaId);
       } else if (response.status === 'not_authorized') {
         setError("Please authorize the app to continue");
         setIsLoading(false);
@@ -130,8 +130,9 @@ const launchEmbeddedSignup = useCallback(() => {
     },
     {
       config_id: CONFIG_ID,
-      response_type: 'code',
-      override_default_response_type: true,
+      // Use default response_type (token). The SDK internally exchanges the auth
+      // code for a user access token — we capture that token directly instead of
+      // trying to re-exchange an already-consumed code (which causes error 36008).
       extras: {
         setup: {},
       }
@@ -140,16 +141,15 @@ const launchEmbeddedSignup = useCallback(() => {
 }, []);
 
 // Exchange token via backend
-const handleExchangeToken = async (code, phoneNumberId, wabaId) => {
+const handleExchangeToken = async (accessToken, phoneNumberId, wabaId) => {
   try {
-    console.log("[WhatsApp] Exchanging token with backend...", { code: code.substring(0, 10) + "...", phoneNumberId, wabaId });
+    console.log("[WhatsApp] Sending access token to backend for setup...", { phoneNumberId, wabaId });
     setIsLoading(true);
 
     const response = await api.post('/whatsapp/exchange-token', {
-      code,
+      accessToken,
       phoneNumberId,
       wabaId,
-      redirectUri: window.location.href.split('#')[0]
     });
 
     const data = response.data;
