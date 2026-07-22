@@ -30,58 +30,35 @@ export const exchangeToken = async (req, res) => {
   console.log('──────────────────────────────────────────────────');
 
   try {
+    const appId = (process.env.META_APP_ID || '').trim();
+    const appSecret = (process.env.META_APP_SECRET || '').trim();
+
+    console.log(`[WhatsApp Tech Provider] App ID: ${appId}, App Secret length: ${appSecret.length}`);
+
     // ─── Step 1: Exchange code for business token (Meta Tech Provider spec) ───
-    const fullPageUrl = req.body.redirectUri || '';
-    const originUrl = req.body.originUri || req.headers.origin || process.env.META_REDIRECT_URI || '';
-    
-    // Candidates for redirect_uri per Meta JS SDK & Tech Provider OAuth variations
-    const redirectCandidates = [
-      undefined, // Standard Tech Provider GET curl request omits redirect_uri
-      fullPageUrl,
-      fullPageUrl.endsWith('/') ? fullPageUrl.slice(0, -1) : `${fullPageUrl}/`,
-      originUrl,
-      originUrl.endsWith('/') ? originUrl.slice(0, -1) : `${originUrl}/`,
-      'https://www.facebook.com/connect/login_success.html',
-      '',
-    ].filter((c, i, arr) => arr.indexOf(c) === i);
+    const exchangeParams = new URLSearchParams({
+      client_id: appId,
+      client_secret: appSecret,
+      code,
+    });
 
-    let tokenData = null;
-    let businessToken = null;
+    console.log('[WhatsApp Tech Provider] Exchanging code via GET /oauth/access_token...');
 
-    for (const candidate of redirectCandidates) {
-      const exchangeParams = new URLSearchParams({
-        client_id: process.env.META_APP_ID,
-        client_secret: process.env.META_APP_SECRET,
-        code,
-      });
+    const tokenRes = await fetch(
+      `https://graph.facebook.com/v21.0/oauth/access_token?${exchangeParams.toString()}`
+    );
+    const tokenData = await tokenRes.json();
 
-      if (candidate !== undefined) {
-        exchangeParams.append('redirect_uri', candidate);
-      }
-
-      console.log(`[WhatsApp] Attempting Tech Provider code exchange (redirect_uri: ${candidate === undefined ? 'OMITTED' : `"${candidate}"`})...`);
-
-      const tokenRes = await fetch(
-        `https://graph.facebook.com/v25.0/oauth/access_token?${exchangeParams.toString()}`
-      );
-      tokenData = await tokenRes.json();
-
-      if (tokenData.access_token) {
-        businessToken = tokenData.access_token;
-        console.log(`[WhatsApp] ✅ Tech Provider code exchange succeeded!`);
-        break;
-      } else {
-        console.log(`[WhatsApp] Attempt (redirect_uri: ${candidate === undefined ? 'OMITTED' : `"${candidate}"`}) failed:`, tokenData.error?.message);
-      }
-    }
-
-    if (!businessToken) {
-      console.error('❌ All token exchange attempts failed. Last error:', tokenData);
+    if (!tokenData.access_token) {
+      console.error('❌ Token exchange failed:', tokenData);
       return res.status(400).json({
         success: false,
-        message: tokenData?.error?.message || 'Failed to exchange authorization code with Meta.'
+        message: tokenData.error?.message || 'Failed to exchange authorization code with Meta.'
       });
     }
+
+    const businessToken = tokenData.access_token;
+    console.log('[WhatsApp Tech Provider] ✅ Business token acquired successfully!');
 
     // ─── Resolve WABA ID and Phone Number ID ───
     let wabaId = reqWabaId || null;
