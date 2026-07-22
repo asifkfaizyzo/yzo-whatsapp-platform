@@ -90,7 +90,6 @@ useEffect(() => {
   };
 }, []);
 
-// Launch Embedded Signup
 const launchEmbeddedSignup = useCallback(() => {
   setIsLoading(true);
   setError(null);
@@ -100,7 +99,7 @@ const launchEmbeddedSignup = useCallback(() => {
   isExchangingRef.current = false;
 
   if (!CONFIG_ID) {
-    setError("Configuration ID is missing in environment settings.");
+    setError("Configuration ID is missing.");
     setIsLoading(false);
     return;
   }
@@ -112,7 +111,7 @@ const launchEmbeddedSignup = useCallback(() => {
       if (response.authResponse && response.authResponse.code) {
         const code = response.authResponse.code;
         authCodeRef.current = code;
-        console.log("[FB.login] Authorization Code received:", code);
+        console.log("[FB.login] Code received:", code.substring(0, 20) + "...");
 
         const phoneId = sessionDataRef.current?.phone_number_id || null;
         const wabaId = sessionDataRef.current?.waba_id || null;
@@ -121,7 +120,6 @@ const launchEmbeddedSignup = useCallback(() => {
         setError("Please authorize the app to continue");
         setIsLoading(false);
       } else {
-        // If user closes login window without code or cancels
         setTimeout(() => {
           if (!sessionInfoReceivedRef.current && !isExchangingRef.current) {
             setError("Login cancelled. Please try again.");
@@ -134,6 +132,7 @@ const launchEmbeddedSignup = useCallback(() => {
       config_id: CONFIG_ID,
       response_type: 'code',
       override_default_response_type: true,
+      redirect_uri: window.location.origin + '/',  // explicitly set redirect_uri
       extras: {
         setup: {},
       }
@@ -151,6 +150,7 @@ const handleExchangeToken = async (code, phoneNumberId, wabaId) => {
       code,
       phoneNumberId,
       wabaId,
+      redirectUri: window.location.origin + '/'
     });
 
     const data = response.data;

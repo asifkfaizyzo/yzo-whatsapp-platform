@@ -7,7 +7,7 @@ import prisma from '../../config/prisma.js';
 // fetches WABA/Phone/Business info, and saves to the tenant.
 // ─────────────────────────────────────────────────────────────────────────────
 export const exchangeToken = async (req, res) => {
-  const { code, phoneNumberId: reqPhoneId, wabaId: reqWabaId } = req.body;
+  const { code, phoneNumberId: reqPhoneId, wabaId: reqWabaId, redirectUri: clientRedirectUri } = req.body;
   const tenantId = req.tenantId;
 
   if (!code) {
@@ -21,19 +21,17 @@ export const exchangeToken = async (req, res) => {
     return res.status(500).json({ success: false, message: 'Meta credentials not configured.' });
   }
 
+  // Determine exact redirect_uri sent from frontend browser tab or request origin
+  const REDIRECT_URI = clientRedirectUri || (req.headers.origin ? `${req.headers.origin}/` : 'https://sudoreply.com/');
+
   console.log('──────────────────────────────────────────────────');
   console.log('[WhatsApp] Token exchange started');
   console.log('[WhatsApp] Code preview:', code.substring(0, 15) + '...');
+  console.log(`[WhatsApp] Exchanging code with redirect_uri: "${REDIRECT_URI}"`);
   console.log('──────────────────────────────────────────────────');
 
   try {
     // ─── Step 1: Exchange code for business token ─────────────────────
-    // redirect_uri MUST match the exact page URL where FB.login() was called
-    // Your dashboard is at: https://sudoreply.com/dashboard
-    const REDIRECT_URI = 'https://sudoreply.com/dashboard';
-
-    console.log(`[WhatsApp] Exchanging code with redirect_uri: "${REDIRECT_URI}"`);
-
     const params = new URLSearchParams({
       client_id: appId,
       client_secret: appSecret,
