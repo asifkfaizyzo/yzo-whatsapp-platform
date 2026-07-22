@@ -40,9 +40,10 @@ export const exchangeToken = async (req, res) => {
       client_id: appId,
       client_secret: appSecret,
       code,
+      redirect_uri: 'https://www.facebook.com/connect/login_success.html',
     });
 
-    console.log('[WhatsApp Tech Provider] Exchanging code via GET /oauth/access_token...');
+    console.log('[WhatsApp Tech Provider] Exchanging code with redirect_uri: https://www.facebook.com/connect/login_success.html...');
 
     const tokenRes = await fetch(
       `https://graph.facebook.com/v21.0/oauth/access_token?${exchangeParams.toString()}`
