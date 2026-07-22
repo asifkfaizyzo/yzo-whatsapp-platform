@@ -132,7 +132,6 @@ const launchEmbeddedSignup = useCallback(() => {
       config_id: CONFIG_ID,
       response_type: 'code',
       override_default_response_type: true,
-      redirect_uri: window.location.origin + '/',  // explicitly set redirect_uri
       extras: {
         setup: {},
       }
@@ -150,7 +149,7 @@ const handleExchangeToken = async (code, phoneNumberId, wabaId) => {
       code,
       phoneNumberId,
       wabaId,
-      redirectUri: window.location.origin + '/'
+      redirectUri: window.location.href.split('#')[0]
     });
 
     const data = response.data;

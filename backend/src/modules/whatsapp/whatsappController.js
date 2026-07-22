@@ -21,8 +21,8 @@ export const exchangeToken = async (req, res) => {
     return res.status(500).json({ success: false, message: 'Meta credentials not configured.' });
   }
 
-  // Determine exact redirect_uri sent from frontend browser tab or request origin
-  const REDIRECT_URI = clientRedirectUri || (req.headers.origin ? `${req.headers.origin}/` : 'https://sudoreply.com/');
+  // Determine exact redirect_uri sent from frontend browser tab or default to /dashboard
+  const REDIRECT_URI = clientRedirectUri || 'https://sudoreply.com/dashboard';
 
   console.log('──────────────────────────────────────────────────');
   console.log('[WhatsApp] Token exchange started');
