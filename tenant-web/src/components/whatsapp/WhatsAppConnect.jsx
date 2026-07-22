@@ -94,7 +94,7 @@ const launchEmbeddedSignup = useCallback(() => {
   setIsLoading(true);
   setError(null);
   sessionInfoReceivedRef.current = false;
-  authCodeRef.current = null;
+  authTokenRef.current = null;
   sessionDataRef.current = null;
   isExchangingRef.current = false;
 
