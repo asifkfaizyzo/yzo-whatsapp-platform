@@ -36,14 +36,15 @@ export const exchangeToken = async (req, res) => {
     console.log(`[WhatsApp Tech Provider] App ID: ${appId}, App Secret length: ${appSecret.length}`);
 
     // ─── Step 1: Exchange code for business token (Meta Tech Provider spec) ───
+    const targetRedirectUri = req.body.redirectUri || req.body.originUri || req.headers.origin || 'https://sudoreply.com/';
+    console.log(`[WhatsApp Tech Provider] Exchanging code with redirect_uri: "${targetRedirectUri}"...`);
+
     const exchangeParams = new URLSearchParams({
       client_id: appId,
       client_secret: appSecret,
       code,
-      redirect_uri: 'https://www.facebook.com/connect/login_success.html',
+      redirect_uri: targetRedirectUri,
     });
-
-    console.log('[WhatsApp Tech Provider] Exchanging code with redirect_uri: https://www.facebook.com/connect/login_success.html...');
 
     const tokenRes = await fetch(
       `https://graph.facebook.com/v21.0/oauth/access_token?${exchangeParams.toString()}`
