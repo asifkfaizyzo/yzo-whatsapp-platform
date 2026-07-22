@@ -26,29 +26,12 @@ const triggerExchange = (code, phoneId, wabaId) => {
   handleExchangeToken(code, phoneId, wabaId);
 };
 
-// Listen for OAuth callback from our whatsapp-callback.html popup page
-// AND for WA_EMBEDDED_SIGNUP events from Meta's dialog (may fire during the flow)
+// Listen for Meta Embedded Signup Response
 useEffect(() => {
   const handleMessage = (event) => {
-
-    // ── Our popup callback ──────────────────────────────────────────────
-    if (event.origin === window.location.origin && event.data?.type === 'WA_OAUTH_CALLBACK') {
-      console.log('[WA OAuth Callback] Received from popup:', event.data);
-      const { code, error } = event.data;
-      if (error || !code) {
-        setError(error || 'Authorization was cancelled. Please try again.');
-        setIsLoading(false);
-        return;
-      }
-      authCodeRef.current = code;
-      const phoneId = sessionDataRef.current?.phone_number_id || null;
-      const wabaId = sessionDataRef.current?.waba_id || null;
-      triggerExchange(code, phoneId, wabaId);
-      return;
-    }
-
-    // ── WA_EMBEDDED_SIGNUP events from Meta's dialog ────────────────────
+    // Accept messages from all facebook.com domains per Meta documentation
     if (!event.origin || !event.origin.endsWith('facebook.com')) return;
+
     try {
       if (typeof event.data !== "string" || !event.data.trim().startsWith("{")) return;
       const data = JSON.parse(event.data);
@@ -67,18 +50,16 @@ useEffect(() => {
             timeoutRef.current = null;
           }
 
-          // If we already have the code from the popup callback, exchange now
           if (authCodeRef.current) {
             triggerExchange(authCodeRef.current, phone_number_id, waba_id);
           } else {
-            // Wait for popup callback to deliver the code
             setTimeout(() => {
               if (authCodeRef.current) {
                 triggerExchange(authCodeRef.current, phone_number_id, waba_id);
               } else if (phone_number_id && waba_id) {
                 handleSignupComplete(phone_number_id, waba_id);
               }
-            }, 2000);
+            }, 1500);
           }
         } else if (data.event === "CANCEL") {
           if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
@@ -99,7 +80,6 @@ useEffect(() => {
   return () => {
     window.removeEventListener("message", handleMessage);
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    if (popupTimerRef.current) clearInterval(popupTimerRef.current);
   };
 }, []);
 
@@ -117,53 +97,39 @@ const launchEmbeddedSignup = useCallback(() => {
     return;
   }
 
-  // Open Meta Embedded Signup as a popup using the standard OAuth dialog.
-  // Using our own redirect_uri (whatsapp-callback.html) avoids the FB.login SDK
-  // consuming the code internally, which caused error 36008 on all exchanges.
-  const appId = import.meta.env.VITE_META_APP_ID || '1510944094144775';
-  const callbackUrl = `${window.location.origin}/whatsapp-callback`;
+  FB.login(
+    (response) => {
+      console.log("[FB.login] Response:", response);
 
-  const params = new URLSearchParams({
-    client_id:     appId,
-    redirect_uri:  callbackUrl,
-    response_type: 'code',
-    config_id:     CONFIG_ID,
-  });
+      if (response.authResponse && response.authResponse.code) {
+        const code = response.authResponse.code;
+        authCodeRef.current = code;
+        console.log("[FB.login] Code received:", code.substring(0, 20) + "...");
 
-  const oauthUrl = `https://www.facebook.com/v25.0/dialog/oauth?${params.toString()}`;
-  const popupWidth  = 600;
-  const popupHeight = 700;
-  const left = Math.round(window.screenX + (window.outerWidth  - popupWidth)  / 2);
-  const top  = Math.round(window.screenY + (window.outerHeight - popupHeight) / 2);
-
-  console.log('[WhatsApp] Opening Meta OAuth popup:', oauthUrl);
-  const popup = window.open(
-    oauthUrl,
-    'WhatsAppConnect',
-    `width=${popupWidth},height=${popupHeight},left=${left},top=${top},scrollbars=yes,resizable=yes`
-  );
-
-  if (!popup || popup.closed) {
-    setError('Popup was blocked. Please allow popups for this site and try again.');
-    setIsLoading(false);
-    return;
-  }
-
-  // Poll for popup close (user cancelled without completing)
-  if (popupTimerRef.current) clearInterval(popupTimerRef.current);
-  popupTimerRef.current = setInterval(() => {
-    if (popup.closed) {
-      clearInterval(popupTimerRef.current);
-      popupTimerRef.current = null;
-      // Give a short window for postMessage to arrive before showing error
-      setTimeout(() => {
-        if (!isExchangingRef.current) {
-          setError('Authorization was cancelled. Please try again.');
-          setIsLoading(false);
-        }
-      }, 2000);
+        const phoneId = sessionDataRef.current?.phone_number_id || null;
+        const wabaId = sessionDataRef.current?.waba_id || null;
+        triggerExchange(code, phoneId, wabaId);
+      } else if (response.status === 'not_authorized') {
+        setError("Please authorize the app to continue");
+        setIsLoading(false);
+      } else {
+        setTimeout(() => {
+          if (!sessionInfoReceivedRef.current && !isExchangingRef.current) {
+            setError("Login cancelled. Please try again.");
+            setIsLoading(false);
+          }
+        }, 1500);
+      }
+    },
+    {
+      config_id: CONFIG_ID,
+      response_type: 'code',
+      override_default_response_type: true,
+      extras: {
+        setup: {},
+      }
     }
-  }, 500);
+  );
 }, []);
 
 // Exchange code via backend

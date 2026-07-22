@@ -9,23 +9,20 @@ import prisma from '../../config/prisma.js';
 // ─────────────────────────────────────────────────────────────────────────────
 export const exchangeToken = async (req, res) => {
   // Accepts EITHER:
-  //  - code       (from popup OAuth flow via whatsapp-callback.html)
+  //  - code       (from standard FB.login Embedded Signup flow)
   //  - accessToken (direct token for manual testing via Postman / Meta API Setup)
-  const { code, accessToken: directToken, phoneNumberId: reqPhoneId, wabaId: reqWabaId } = req.body;
+  const { code, accessToken: directToken, phoneNumberId: reqPhoneId, wabaId: reqWabaId, redirectUri: reqRedirectUri } = req.body;
   const tenantId = req.tenantId;
 
   if (!code && !directToken) {
     return res.status(400).json({
       success: false,
-      message: 'Either code (popup flow) or accessToken (direct) is required.',
+      message: 'Either code or accessToken is required.',
     });
   }
 
   const appId = process.env.META_APP_ID?.trim();
   const appSecret = process.env.META_APP_SECRET?.trim();
-  // Must match the redirect_uri used in the OAuth popup dialog exactly
-  const FRONTEND_URL = process.env.FRONTEND_URL || 'https://sudoreply.com';
-  const REDIRECT_URI = `${FRONTEND_URL}/whatsapp-callback`;
 
   if (!appId || !appSecret) {
     return res.status(500).json({ success: false, message: 'Meta credentials not configured.' });
@@ -36,9 +33,8 @@ export const exchangeToken = async (req, res) => {
     console.log('[WhatsApp] Token exchange started (DIRECT token — test mode)');
     console.log('[WhatsApp] Token preview:', directToken.substring(0, 15) + '...');
   } else {
-    console.log('[WhatsApp] Token exchange started (popup code flow)');
+    console.log('[WhatsApp] Token exchange started (FB.login code flow)');
     console.log('[WhatsApp] Code preview:', code.substring(0, 15) + '...');
-    console.log(`[WhatsApp] redirect_uri: "${REDIRECT_URI}"`);
   }
   console.log('──────────────────────────────────────────────────');
 
@@ -48,19 +44,19 @@ export const exchangeToken = async (req, res) => {
 
     if (directToken) {
       // ─── Direct token path (Postman / API Setup testing) ──────────────
-      // Use the token as-is. It comes directly from the caller.
       businessToken = directToken;
       tokenExpiry = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000); // 60-day default
       console.log('[WhatsApp] Using direct access token (skipping code exchange).');
     } else {
-      // ─── Code exchange path (popup OAuth flow) ─────────────────────────
-      // redirect_uri MUST exactly match what the popup OAuth dialog used.
+      // ─── Code exchange path (FB.login Embedded Signup) ──────────────
       const params = new URLSearchParams({
         client_id:     appId,
         client_secret: appSecret,
         code,
-        redirect_uri:  REDIRECT_URI,
       });
+      if (reqRedirectUri) {
+        params.append('redirect_uri', reqRedirectUri);
+      }
 
       const tokenRes = await fetch(
         `https://graph.facebook.com/v25.0/oauth/access_token?${params.toString()}`
