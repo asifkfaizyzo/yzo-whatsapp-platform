@@ -150,7 +150,9 @@ const handleExchangeToken = async (code, phoneNumberId, wabaId) => {
     const response = await api.post('/whatsapp/exchange-token', {
       code,
       phoneNumberId,
-      wabaId
+      wabaId,
+      redirectUri: window.location.href.split('?')[0].split('#')[0],
+      originUri: window.location.origin
     });
 
     const data = response.data;
