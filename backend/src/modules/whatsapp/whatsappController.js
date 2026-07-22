@@ -11,97 +11,101 @@ export const exchangeToken = async (req, res) => {
   const tenantId = req.tenantId;
 
   if (!code) {
-    return res.status(400).json({ 
-      success: false, 
-      message: 'Authorization code is required.' 
-    });
+    return res.status(400).json({ success: false, message: 'Authorization code is required.' });
   }
 
-  if (!process.env.META_APP_ID || !process.env.META_APP_SECRET) {
-    console.error('❌ META_APP_ID or META_APP_SECRET not set in environment.');
-    return res.status(500).json({ 
-      success: false, 
-      message: 'Meta credentials not configured on backend.' 
-    });
+  const appId = process.env.META_APP_ID?.trim();
+  const appSecret = process.env.META_APP_SECRET?.trim();
+
+  if (!appId || !appSecret) {
+    return res.status(500).json({ success: false, message: 'Meta credentials not configured.' });
   }
 
   console.log('──────────────────────────────────────────────────');
-  console.log('[WhatsApp Tech Provider] Onboarding customer...');
+  console.log('[WhatsApp] Token exchange started');
+  console.log('[WhatsApp] Code preview:', code.substring(0, 15) + '...');
   console.log('──────────────────────────────────────────────────');
 
   try {
-    const appId = (process.env.META_APP_ID || '').trim();
-    const appSecret = (process.env.META_APP_SECRET || '').trim();
+    // ─── Step 1: Exchange code for business token ─────────────────────
+    // redirect_uri MUST match the exact page URL where FB.login() was called
+    // Your dashboard is at: https://sudoreply.com/dashboard
+    const REDIRECT_URI = 'https://sudoreply.com/dashboard';
 
-    // ─── Step 1: Exchange code for business token ───────────────────────────
-    // ⚠️ Do NOT include redirect_uri for Embedded Signup JS SDK popup flow.
-    // Meta's embedded signup uses response_type: 'code' via popup — no redirect URI.
-    console.log(`[WhatsApp Tech Provider] Exchanging authorization code...`);
+    console.log(`[WhatsApp] Exchanging code with redirect_uri: "${REDIRECT_URI}"`);
 
-    const exchangeParams = new URLSearchParams({
+    const params = new URLSearchParams({
       client_id: appId,
       client_secret: appSecret,
       code,
+      redirect_uri: REDIRECT_URI,
     });
 
     const tokenRes = await fetch(
-      `https://graph.facebook.com/v21.0/oauth/access_token?${exchangeParams.toString()}`
+      `https://graph.facebook.com/v21.0/oauth/access_token?${params.toString()}`
     );
     const tokenData = await tokenRes.json();
 
-    console.log('[WhatsApp] Token exchange response:', JSON.stringify(tokenData));
+    console.log('[WhatsApp] Token response:', JSON.stringify({
+      success: !!tokenData.access_token,
+      error: tokenData.error || null,
+    }));
 
     if (!tokenData.access_token) {
       console.error('❌ Token exchange failed:', tokenData);
       return res.status(400).json({
         success: false,
-        message: tokenData.error?.message || 'Failed to exchange authorization code with Meta.'
+        message: tokenData.error?.message || 'Failed to exchange code.',
+        debug: {
+          error_code: tokenData.error?.code,
+          error_subcode: tokenData.error?.error_subcode,
+          fbtrace_id: tokenData.error?.fbtrace_id,
+          redirect_uri_used: REDIRECT_URI,
+        }
       });
     }
 
     const businessToken = tokenData.access_token;
-    console.log('[WhatsApp Tech Provider] ✅ Business token acquired!');
+    console.log('[WhatsApp] ✅ Business token acquired!');
 
-    // ─── Resolve WABA ID and Phone Number ID ───────────────────────────────
+    // ─── Resolve WABA ID ──────────────────────────────────────────────
     let wabaId = reqWabaId || null;
     let phoneNumberId = reqPhoneId || null;
     let displayPhoneNumber = null;
     let verifiedName = null;
 
-    // If wabaId not provided by frontend, debug the token to find it
     if (!wabaId) {
-      console.log('[WhatsApp] No WABA ID provided, debugging token...');
+      console.log('[WhatsApp] Resolving WABA from token debug...');
       const debugRes = await fetch(
         `https://graph.facebook.com/debug_token` +
         `?input_token=${businessToken}` +
         `&access_token=${appId}|${appSecret}`
       );
       const debugData = await debugRes.json();
-      console.log('[WhatsApp] Token debug data:', JSON.stringify(debugData?.data?.granular_scopes));
+      console.log('[WhatsApp] Granular scopes:', JSON.stringify(debugData?.data?.granular_scopes));
 
-      const wabaIds = debugData.data?.granular_scopes?.find(
-        (s) => s.scope === 'whatsapp_business_management'
-      )?.target_ids || [];
+      wabaId = debugData.data?.granular_scopes
+        ?.find(s => s.scope === 'whatsapp_business_management')
+        ?.target_ids?.[0] || null;
 
-      wabaId = wabaIds[0] || null;
-      console.log('[WhatsApp] Resolved WABA ID from token:', wabaId);
+      console.log('[WhatsApp] Resolved WABA ID:', wabaId);
     }
 
-    // If phoneNumberId not provided, fetch from WABA
+    // ─── Resolve Phone Number ─────────────────────────────────────────
     if (wabaId && !phoneNumberId) {
-      console.log(`[WhatsApp] Fetching phone numbers for WABA ${wabaId}...`);
+      console.log(`[WhatsApp] Fetching phones for WABA ${wabaId}...`);
       const phoneRes = await fetch(
         `https://graph.facebook.com/v25.0/${wabaId}/phone_numbers?access_token=${businessToken}`
       );
       const phoneData = await phoneRes.json();
-      console.log('[WhatsApp] Phone numbers response:', JSON.stringify(phoneData));
+      console.log('[WhatsApp] Phones:', JSON.stringify(phoneData));
 
-      const firstPhone = phoneData.data?.[0];
-      phoneNumberId = firstPhone?.id || null;
-      displayPhoneNumber = firstPhone?.display_phone_number || null;
-      verifiedName = firstPhone?.verified_name || null;
+      const first = phoneData.data?.[0];
+      phoneNumberId = first?.id || null;
+      displayPhoneNumber = first?.display_phone_number || null;
+      verifiedName = first?.verified_name || null;
+
     } else if (phoneNumberId) {
-      // Fetch details for known phone number
       const phoneRes = await fetch(
         `https://graph.facebook.com/v25.0/${phoneNumberId}?access_token=${businessToken}`
       );
@@ -111,38 +115,33 @@ export const exchangeToken = async (req, res) => {
     }
 
     if (!phoneNumberId || !wabaId) {
-      console.error('[WhatsApp] Could not resolve phoneNumberId or wabaId:', { phoneNumberId, wabaId });
       return res.status(400).json({
         success: false,
-        message: 'Could not determine WhatsApp Account ID or Phone Number ID.'
+        message: 'Could not determine WhatsApp Account or Phone Number ID.',
       });
     }
 
-    console.log('[WhatsApp] Resolved IDs:', { wabaId, phoneNumberId, displayPhoneNumber });
+    console.log('[WhatsApp] IDs resolved:', { wabaId, phoneNumberId, displayPhoneNumber });
 
-    // ─── Step 2: Subscribe App to Webhooks on Customer WABA ───────────────
-    console.log(`[WhatsApp] Subscribing app to webhooks on WABA ${wabaId}...`);
+    // ─── Step 2: Subscribe to webhooks ───────────────────────────────
     try {
+      console.log(`[WhatsApp] Subscribing to webhooks on WABA ${wabaId}...`);
       const subRes = await fetch(
         `https://graph.facebook.com/v25.0/${wabaId}/subscribed_apps`,
         {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${businessToken}`,
-            'Content-Type': 'application/json'
-          }
+          headers: { 'Authorization': `Bearer ${businessToken}` }
         }
       );
       const subData = await subRes.json();
-      console.log('[WhatsApp] Webhook subscription response:', subData);
-    } catch (subErr) {
-      console.warn('[WhatsApp] Webhook subscription warning:', subErr.message);
-      // Non-fatal, continue
+      console.log('[WhatsApp] Webhook subscription:', subData);
+    } catch (e) {
+      console.warn('[WhatsApp] Webhook subscription failed (non-fatal):', e.message);
     }
 
-    // ─── Step 3: Register Customer Phone Number ────────────────────────────
-    console.log(`[WhatsApp] Registering phone number ${phoneNumberId}...`);
+    // ─── Step 3: Register phone number ───────────────────────────────
     try {
+      console.log(`[WhatsApp] Registering phone ${phoneNumberId}...`);
       const regRes = await fetch(
         `https://graph.facebook.com/v25.0/${phoneNumberId}/register`,
         {
@@ -153,22 +152,21 @@ export const exchangeToken = async (req, res) => {
           },
           body: JSON.stringify({
             messaging_product: 'whatsapp',
-            pin: '123456' // ⚠️ Consider making this dynamic or configurable
+            pin: process.env.WA_DEFAULT_PIN || '123456',
           })
         }
       );
       const regData = await regRes.json();
-      console.log('[WhatsApp] Phone registration response:', regData);
-    } catch (regErr) {
-      console.warn('[WhatsApp] Phone registration warning:', regErr.message);
-      // Non-fatal, continue
+      console.log('[WhatsApp] Registration:', regData);
+    } catch (e) {
+      console.warn('[WhatsApp] Registration failed (non-fatal):', e.message);
     }
 
-    // ─── Step 4: Check for duplicate connection ────────────────────────────
+    // ─── Step 4: Check duplicates ─────────────────────────────────────
     const existingTenant = await prisma.tenant.findFirst({
       where: {
         whatsappPhoneId: phoneNumberId,
-        NOT: { id: tenantId },
+        NOT: { id: tenantId }
       },
       select: { id: true, tenantName: true }
     });
@@ -176,25 +174,26 @@ export const exchangeToken = async (req, res) => {
     if (existingTenant) {
       return res.status(400).json({
         success: false,
-        message: `This WhatsApp number is already connected to another tenant (${existingTenant.tenantName}).`
+        message: `This number is already connected to ${existingTenant.tenantName}.`
       });
     }
 
-    // ─── Step 5: Save to DB ───────────────────────────────────────────────
+    // ─── Step 5: Save to DB ───────────────────────────────────────────
     await prisma.tenant.update({
       where: { id: tenantId },
       data: {
         whatsappWabaId: wabaId,
         whatsappPhoneId: phoneNumberId,
         whatsappAccessToken: businessToken,
+        whatsappTokenExpiresAt: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000), // 60 days
       },
     });
 
-    console.log(`[WhatsApp] ✅ Connected successfully for tenant ${tenantId}`);
+    console.log(`[WhatsApp] ✅ Connected tenant ${tenantId} | ${displayPhoneNumber}`);
 
     return res.json({
       success: true,
-      message: 'WhatsApp Business account connected successfully.',
+      message: 'WhatsApp connected successfully.',
       wabaId,
       phoneNumberId,
       displayPhoneNumber,
@@ -203,10 +202,7 @@ export const exchangeToken = async (req, res) => {
 
   } catch (err) {
     console.error('❌ exchangeToken error:', err);
-    return res.status(500).json({ 
-      success: false, 
-      message: 'Server error during token exchange.' 
-    });
+    return res.status(500).json({ success: false, message: 'Server error during token exchange.' });
   }
 };
 
