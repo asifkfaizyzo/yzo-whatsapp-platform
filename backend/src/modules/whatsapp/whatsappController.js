@@ -21,26 +21,31 @@ export const exchangeToken = async (req, res) => {
     return res.status(500).json({ success: false, message: 'Meta credentials not configured.' });
   }
 
-  // Determine exact redirect_uri sent from frontend browser tab or default to /dashboard
-  const REDIRECT_URI = clientRedirectUri || 'https://sudoreply.com/dashboard';
+
 
   console.log('──────────────────────────────────────────────────');
   console.log('[WhatsApp] Token exchange started');
   console.log('[WhatsApp] Code preview:', code.substring(0, 15) + '...');
-  console.log(`[WhatsApp] Exchanging code with redirect_uri: "${REDIRECT_URI}"`);
+  console.log('[WhatsApp] Exchanging code WITHOUT redirect_uri (FB.login popup flow)');
   console.log('──────────────────────────────────────────────────');
 
   try {
     // ─── Step 1: Exchange code for business token ─────────────────────
+    // ⚠️ Do NOT include redirect_uri. FB.login uses a popup (not a page redirect).
+    // Meta's SDK internally redirects to facebook.com/connect/login_success.html,
+    // which is a Facebook-internal URL. Including any redirect_uri here causes
+    // error subcode 36008 (mismatch). Omitting it is the correct approach per
+    // Meta's Embedded Signup v4 spec for Tech Providers.
     const params = new URLSearchParams({
       client_id: appId,
       client_secret: appSecret,
       code,
-      redirect_uri: REDIRECT_URI,
     });
 
+    console.log('[WhatsApp] Exchange params (no redirect_uri):', params.toString().replace(appSecret, '[SECRET]'));
+
     const tokenRes = await fetch(
-      `https://graph.facebook.com/v21.0/oauth/access_token?${params.toString()}`
+      `https://graph.facebook.com/v25.0/oauth/access_token?${params.toString()}`
     );
     const tokenData = await tokenRes.json();
 
