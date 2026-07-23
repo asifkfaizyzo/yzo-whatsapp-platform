@@ -18,6 +18,9 @@ import whatsappRoutes from './modules/whatsapp/whatsappRoutes.js';
 
 const app = express();
 
+// Trust reverse proxy (Nginx / PM2) for IP rate limiting
+app.set('trust proxy', 1);
+
 // Apply security headers
 app.use(helmet());
 // Configure rate limiter

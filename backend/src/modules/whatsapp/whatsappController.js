@@ -49,34 +49,65 @@ export const exchangeToken = async (req, res) => {
       console.log('[WhatsApp] Using direct access token (skipping code exchange).');
     } else {
       // ─── Code exchange path (FB.login Embedded Signup) ──────────────
-      const params = new URLSearchParams({
-        client_id:     appId,
-        client_secret: appSecret,
-        code,
-      });
-      if (reqRedirectUri) {
-        params.append('redirect_uri', reqRedirectUri);
+      const exchangeWithRedirectUri = async (uri) => {
+        const params = new URLSearchParams({
+          client_id:     appId,
+          client_secret: appSecret,
+          code,
+        });
+        if (uri !== undefined && uri !== null) {
+          params.append('redirect_uri', uri);
+        }
+        const tokenRes = await fetch(
+          `https://graph.facebook.com/v25.0/oauth/access_token?${params.toString()}`
+        );
+        const data = await tokenRes.json();
+        return { data, uriUsed: uri };
+      };
+
+      // Try potential redirect_uri options in order:
+      // 1. reqRedirectUri (if provided)
+      // 2. "" (empty string - standard for FB.login embedded signup)
+      // 3. undefined (omitted)
+      const candidates = [];
+      if (reqRedirectUri) candidates.push(reqRedirectUri);
+      candidates.push('');
+      candidates.push(undefined);
+
+      let tokenData = null;
+      let usedRedirectUri = null;
+
+      for (const uriCandidate of candidates) {
+        console.log(`[WhatsApp] Attempting token exchange with redirect_uri: ${JSON.stringify(uriCandidate)}`);
+        const { data, uriUsed } = await exchangeWithRedirectUri(uriCandidate);
+        tokenData = data;
+        usedRedirectUri = uriUsed;
+
+        if (data.access_token) {
+          console.log('[WhatsApp] ✅ Token exchange succeeded!');
+          break;
+        }
+
+        // If error is NOT subcode 36008 (redirect_uri mismatch), don't bother trying other candidates
+        if (data.error?.error_subcode !== 36008 && data.error?.code !== 100) {
+          break;
+        }
       }
 
-      const tokenRes = await fetch(
-        `https://graph.facebook.com/v25.0/oauth/access_token?${params.toString()}`
-      );
-      const tokenData = await tokenRes.json();
-
-      console.log('[WhatsApp] Token exchange response:', JSON.stringify({
-        success: !!tokenData.access_token,
-        error: tokenData.error || null,
+      console.log('[WhatsApp] Token exchange final response:', JSON.stringify({
+        success: !!tokenData?.access_token,
+        error: tokenData?.error || null,
       }));
 
-      if (!tokenData.access_token) {
+      if (!tokenData?.access_token) {
         console.error('❌ Token exchange failed:', tokenData);
         return res.status(400).json({
           success: false,
-          message: tokenData.error?.message || 'Failed to exchange authorization code.',
+          message: tokenData?.error?.message || 'Failed to exchange authorization code.',
           debug: {
-            error_code: tokenData.error?.code,
-            error_subcode: tokenData.error?.error_subcode,
-            redirect_uri_used: reqRedirectUri || null,
+            error_code: tokenData?.error?.code,
+            error_subcode: tokenData?.error?.error_subcode,
+            redirect_uri_used: usedRedirectUri ?? null,
           }
         });
       }
