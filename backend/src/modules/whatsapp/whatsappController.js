@@ -76,7 +76,7 @@ export const exchangeToken = async (req, res) => {
           debug: {
             error_code: tokenData.error?.code,
             error_subcode: tokenData.error?.error_subcode,
-            redirect_uri_used: REDIRECT_URI,
+            redirect_uri_used: reqRedirectUri || null,
           }
         });
       }
@@ -256,12 +256,12 @@ export const setupWhatsApp = async (req, res) => {
     if (existingTenant) {
       console.log(`⚠️ Duplicate connection attempt:
         Phone: ${phoneNumberId}
-        Already used by: ${existingTenant.name} (${existingTenant.id})
+        Already used by: ${existingTenant.tenantName} (${existingTenant.id})
         Requested by: ${tenantId}`);
 
       return res.status(400).json({
         success: false,
-        message: `This WhatsApp number is already connected to another account (${existingTenant.name}). Please disconnect it there first or use a different number.`,
+        message: `This WhatsApp number is already connected to another account (${existingTenant.tenantName}). Please disconnect it there first or use a different number.`,
       });
     }
 
@@ -465,7 +465,7 @@ export const disconnectWhatsApp = async (req, res) => {
       },
     });
 
-    console.log(`✅ WhatsApp disconnected for tenant ${tenantId} (${tenant.name})`);
+    console.log(`✅ WhatsApp disconnected for tenant ${tenantId} (${tenant.tenantName})`);
     console.log(`   Removed Phone ID: ${tenant.whatsappPhoneId}`);
     console.log(`   Removed WABA ID: ${tenant.whatsappWabaId}`);
 
