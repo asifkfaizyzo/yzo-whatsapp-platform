@@ -346,9 +346,9 @@ export const setupWhatsApp = async (req, res) => {
 
   } catch (err) {
     console.error('❌ setupWhatsApp error:', err);
-    return res.status(500).json({ 
-      success: false, 
-      message: 'Server error' 
+    return res.status(500).json({
+      success: false,
+      message: 'Server error'
     });
   }
 };
@@ -465,10 +465,10 @@ export const disconnectWhatsApp = async (req, res) => {
     // Get tenant info before disconnecting
     const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
-      select: { 
-        tenantName: true, 
-        whatsappPhoneId: true, 
-        whatsappWabaId: true 
+      select: {
+        tenantName: true,
+        whatsappPhoneId: true,
+        whatsappWabaId: true
       }
     });
 

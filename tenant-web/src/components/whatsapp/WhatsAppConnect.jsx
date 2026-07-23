@@ -125,6 +125,7 @@ const launchEmbeddedSignup = useCallback(() => {
       config_id: CONFIG_ID,
       response_type: 'code',
       override_default_response_type: true,
+      redirect_uri: 'https://sudoreply.com/dashboard',
       extras: {
         setup: {},
       }
