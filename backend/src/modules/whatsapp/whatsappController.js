@@ -8,10 +8,13 @@ import prisma from '../../config/prisma.js';
 // with the exact same redirect_uri, which Meta validates and accepts.
 // ─────────────────────────────────────────────────────────────────────────────
 export const exchangeToken = async (req, res) => {
-  // Accepts EITHER:
-  //  - code       (from standard FB.login Embedded Signup flow)
-  //  - accessToken (direct token for manual testing via Postman / Meta API Setup)
-  const { code, accessToken: directToken, phoneNumberId: reqPhoneId, wabaId: reqWabaId, redirectUri: reqRedirectUri } = req.body;
+  const { 
+    code, 
+    accessToken: directToken, 
+    phoneNumberId: reqPhoneId, 
+    wabaId: reqWabaId 
+  } = req.body;
+  
   const tenantId = req.tenantId;
 
   if (!code && !directToken) {
@@ -25,7 +28,10 @@ export const exchangeToken = async (req, res) => {
   const appSecret = process.env.META_APP_SECRET?.trim();
 
   if (!appId || !appSecret) {
-    return res.status(500).json({ success: false, message: 'Meta credentials not configured.' });
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Meta credentials not configured.' 
+    });
   }
 
   console.log('──────────────────────────────────────────────────');
@@ -45,57 +51,30 @@ export const exchangeToken = async (req, res) => {
     if (directToken) {
       // ─── Direct token path (Postman / API Setup testing) ──────────────
       businessToken = directToken;
-      tokenExpiry = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000); // 60-day default
+      tokenExpiry = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
       console.log('[WhatsApp] Using direct access token (skipping code exchange).');
+
     } else {
-      // ─── Code exchange path (FB.login Embedded Signup) ──────────────
-      const exchangeWithRedirectUri = async (uri) => {
-        const params = new URLSearchParams({
-          client_id:     appId,
-          client_secret: appSecret,
-          code,
-        });
-        if (uri !== undefined && uri !== null) {
-          params.append('redirect_uri', uri);
-        }
-        const tokenRes = await fetch(
-          `https://graph.facebook.com/v25.0/oauth/access_token?${params.toString()}`
-        );
-        const data = await tokenRes.json();
-        return { data, uriUsed: uri };
-      };
+      // ─── Code exchange path (FB.login Embedded Signup) ────────────────
+      // Per Meta Tech Provider documentation:
+      // NO redirect_uri is needed in the token exchange request.
+      // https://developers.facebook.com/docs/whatsapp/embedded-signup
+      
+      console.log('[WhatsApp] Exchanging code for business token...');
 
-      // Try potential redirect_uri options in order:
-      // 1. reqRedirectUri (if provided)
-      // 2. "" (empty string - standard for FB.login embedded signup)
-      // 3. undefined (omitted)
-      const candidates = [];
-      candidates.push('');
-      if (reqRedirectUri) candidates.push(reqRedirectUri);
-      candidates.push('');
-      candidates.push(undefined);
+      const params = new URLSearchParams({
+        client_id:     appId,
+        client_secret: appSecret,
+        code,
+      });
 
-      let tokenData = null;
-      let usedRedirectUri = null;
+      const tokenRes = await fetch(
+        `https://graph.facebook.com/v25.0/oauth/access_token?${params.toString()}`
+      );
 
-      for (const uriCandidate of candidates) {
-        console.log(`[WhatsApp] Attempting token exchange with redirect_uri: ${JSON.stringify(uriCandidate)}`);
-        const { data, uriUsed } = await exchangeWithRedirectUri(uriCandidate);
-        tokenData = data;
-        usedRedirectUri = uriUsed;
+      const tokenData = await tokenRes.json();
 
-        if (data.access_token) {
-          console.log('[WhatsApp] ✅ Token exchange succeeded!');
-          break;
-        }
-
-        // If error is NOT subcode 36008 (redirect_uri mismatch), don't bother trying other candidates
-        if (data.error?.error_subcode !== 36008 && data.error?.code !== 100) {
-          break;
-        }
-      }
-
-      console.log('[WhatsApp] Token exchange final response:', JSON.stringify({
+      console.log('[WhatsApp] Token exchange response:', JSON.stringify({
         success: !!tokenData?.access_token,
         error: tokenData?.error || null,
       }));
@@ -108,7 +87,6 @@ export const exchangeToken = async (req, res) => {
           debug: {
             error_code: tokenData?.error?.code,
             error_subcode: tokenData?.error?.error_subcode,
-            redirect_uri_used: usedRedirectUri ?? null,
           }
         });
       }
@@ -255,7 +233,10 @@ export const exchangeToken = async (req, res) => {
 
   } catch (err) {
     console.error('❌ exchangeToken error:', err);
-    return res.status(500).json({ success: false, message: 'Server error during token exchange.' });
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Server error during token exchange.' 
+    });
   }
 };
 

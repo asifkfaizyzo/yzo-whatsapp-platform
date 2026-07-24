@@ -23,7 +23,7 @@ const popupTimerRef = useRef(null);
 const triggerExchange = (code, phoneId, wabaId) => {
   if (isExchangingRef.current) return;
   isExchangingRef.current = true;
-  handleExchangeToken(code, phoneId, wabaId, '');
+  handleExchangeToken(code, phoneId, wabaId);
 };
 
 // Listen for Meta Embedded Signup Response
@@ -133,7 +133,7 @@ const launchEmbeddedSignup = useCallback(() => {
 }, []);
 
 // Exchange code via backend
-const handleExchangeToken = async (code, phoneNumberId, wabaId, redirectUri) => {
+const handleExchangeToken = async (code, phoneNumberId, wabaId) => {
   try {
     console.log("[WhatsApp] Sending code to backend for exchange...", { phoneNumberId, wabaId });
     setIsLoading(true);
@@ -142,7 +142,6 @@ const handleExchangeToken = async (code, phoneNumberId, wabaId, redirectUri) => 
       code,
       phoneNumberId,
       wabaId,
-      redirectUri: redirectUri,
     });
 
     const data = response.data;
