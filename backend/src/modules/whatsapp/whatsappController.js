@@ -70,6 +70,7 @@ export const exchangeToken = async (req, res) => {
       // 2. "" (empty string - standard for FB.login embedded signup)
       // 3. undefined (omitted)
       const candidates = [];
+      candidates.push('');
       if (reqRedirectUri) candidates.push(reqRedirectUri);
       candidates.push('');
       candidates.push(undefined);

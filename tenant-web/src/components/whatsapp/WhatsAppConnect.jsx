@@ -23,7 +23,7 @@ const popupTimerRef = useRef(null);
 const triggerExchange = (code, phoneId, wabaId) => {
   if (isExchangingRef.current) return;
   isExchangingRef.current = true;
-  handleExchangeToken(code, phoneId, wabaId, 'https://sudoreply.com/dashboard');
+  handleExchangeToken(code, phoneId, wabaId, '');
 };
 
 // Listen for Meta Embedded Signup Response
@@ -125,7 +125,6 @@ const launchEmbeddedSignup = useCallback(() => {
       config_id: CONFIG_ID,
       response_type: 'code',
       override_default_response_type: true,
-      redirect_uri: 'https://sudoreply.com/dashboard',
       extras: {
         setup: {},
       }
