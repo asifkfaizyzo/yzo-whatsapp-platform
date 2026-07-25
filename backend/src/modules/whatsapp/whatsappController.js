@@ -212,7 +212,6 @@ export const exchangeToken = async (req, res) => {
         whatsappWabaId: wabaId,
         whatsappPhoneId: phoneNumberId,
         whatsappAccessToken: businessToken,
-        whatsappTokenExpiresAt: tokenExpiry,
       },
     });
 
