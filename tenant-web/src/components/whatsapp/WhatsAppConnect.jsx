@@ -15,12 +15,13 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
   const timeoutRef = useRef(null);
   const sessionInfoReceivedRef = useRef(false);
   const isProcessingRef = useRef(false);
+  const sessionDataRef = useRef(null);
+  const pendingCodeRef = useRef(null);
 
   // ── Listen for Meta FINISH postMessage ──────────────────────────────
   useEffect(() => {
     const handleMessage = (event) => {
       if (!event.origin || !event.origin.endsWith("facebook.com")) return;
-
       try {
         if (
           typeof event.data !== "string" ||
@@ -39,25 +40,23 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
           data.event === "FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING"
         ) {
           sessionInfoReceivedRef.current = true;
+          sessionDataRef.current = data.data;
+          console.log("[WA FINISH] session data:", data.data);
 
           if (timeoutRef.current) {
             clearTimeout(timeoutRef.current);
             timeoutRef.current = null;
           }
 
-          const phone_number_id = data.data?.phone_number_id || null;
-          const waba_id = data.data?.waba_id || null;
-
-          console.log("[WA FINISH]", { phone_number_id, waba_id });
-
-          if (phone_number_id && waba_id) {
-            handleSetup(phone_number_id, waba_id);
-          } else {
-            setError(
-              "Meta did not return phone/WABA info. Please try again."
+          // If code already arrived from FB.login callback, exchange now
+          if (pendingCodeRef.current) {
+            doExchange(
+              pendingCodeRef.current,
+              data.data?.phone_number_id || null,
+              data.data?.waba_id || null
             );
-            setIsLoading(false);
           }
+          // else: FB.login callback will fire next and pick up sessionDataRef
         } else if (data.event === "CANCEL") {
           if (timeoutRef.current) {
             clearTimeout(timeoutRef.current);
@@ -70,7 +69,7 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
             clearTimeout(timeoutRef.current);
             timeoutRef.current = null;
           }
-          setError("Something went wrong with Meta. Please try again.");
+          setError("Something went wrong. Please try again.");
           setIsLoading(false);
         }
       } catch (e) {
@@ -85,31 +84,80 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
     };
   }, []);
 
+  // ── Primary path: exchange code for customer token ───────────────────
+  const doExchange = async (code, phoneNumberId, wabaId) => {
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
+
+    try {
+      console.log("[WhatsApp] Exchanging code:", { phoneNumberId, wabaId });
+      setIsLoading(true);
+
+      const response = await api.post("/whatsapp/exchange-token", {
+        code,
+        phoneNumberId,
+        wabaId,
+      });
+
+      if (response.data.success) {
+        console.log("[WhatsApp] ✅ Connected:", response.data);
+        setIsConnected(true);
+        setShowSelector(false);
+        if (onSuccess) onSuccess(response.data);
+      } else {
+        setError(response.data.message || "Connection failed. Please try again.");
+      }
+    } catch (err) {
+      console.error("[WhatsApp] Exchange error:", err);
+      setError(
+        err.response?.data?.message || "Failed to connect. Please try again."
+      );
+    } finally {
+      setIsLoading(false);
+      isProcessingRef.current = false;
+    }
+  };
+
   // ── Launch Embedded Signup ───────────────────────────────────────────
   const launchEmbeddedSignup = useCallback(() => {
     setIsLoading(true);
     setError(null);
     sessionInfoReceivedRef.current = false;
     isProcessingRef.current = false;
+    sessionDataRef.current = null;
+    pendingCodeRef.current = null;
 
     FB.login(
       (response) => {
         console.log("[FB.login] Response:", response);
 
-        if (response.status === "connected") {
-          console.log("[FB.login] Connected — waiting for FINISH postMessage...");
+        if (response.authResponse?.code) {
+          const code = response.authResponse.code;
+          console.log("[FB.login] Code received:", code.substring(0, 20) + "...");
+          pendingCodeRef.current = code;
 
-          // Fallback if FINISH never arrives within 6 seconds
-          timeoutRef.current = setTimeout(() => {
-            if (!sessionInfoReceivedRef.current) {
-              console.log("[FB.login] No FINISH event — trying WABA fallback");
-              fetchAndUseExistingWABA();
-            }
-          }, 6000);
+          const phoneId = sessionDataRef.current?.phone_number_id || null;
+          const wabaId = sessionDataRef.current?.waba_id || null;
+
+          if (sessionInfoReceivedRef.current) {
+            // FINISH postMessage already fired — exchange immediately
+            doExchange(code, phoneId, wabaId);
+          } else {
+            // Wait up to 2s for FINISH postMessage, then exchange anyway
+            setTimeout(() => {
+              if (!isProcessingRef.current) {
+                const pId = sessionDataRef.current?.phone_number_id || null;
+                const wId = sessionDataRef.current?.waba_id || null;
+                doExchange(code, pId, wId);
+              }
+            }, 2000);
+          }
         } else if (response.status === "not_authorized") {
           setError("Please authorize the app to continue.");
           setIsLoading(false);
         } else {
+          // No code and not authorized — wait briefly to see if
+          // FINISH postMessage arrives before showing error
           setTimeout(() => {
             if (!sessionInfoReceivedRef.current && !isProcessingRef.current) {
               setError("Login cancelled. Please try again.");
@@ -130,59 +178,14 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
     );
   }, []);
 
-  // ── Fallback: fetch WABAs via system token ───────────────────────────
-  const fetchAndUseExistingWABA = async () => {
-    try {
-      console.log("[WhatsApp] Fetching existing WABAs...");
-      const res = await api.get("/whatsapp/my-wabas");
-
-      if (res.data.success && res.data.wabas?.length > 0) {
-        const wabasWithPhones = res.data.wabas.filter(
-          (w) => w.phones?.length > 0
-        );
-
-        if (wabasWithPhones.length === 0) {
-          setError(
-            "No WhatsApp phone numbers found. Please complete setup in Meta."
-          );
-          setIsLoading(false);
-          return;
-        }
-
-        if (
-          wabasWithPhones.length === 1 &&
-          wabasWithPhones[0].phones.length === 1
-        ) {
-          const waba = wabasWithPhones[0];
-          const phone = waba.phones[0];
-          await handleSetup(phone.id, waba.id);
-        } else {
-          setAvailableWabas(wabasWithPhones);
-          setShowSelector(true);
-          setIsLoading(false);
-        }
-      } else {
-        setError(
-          "No WhatsApp Business Accounts found. Please complete the Meta setup first."
-        );
-        setIsLoading(false);
-      }
-    } catch (err) {
-      console.error("Error fetching WABAs:", err);
-      setError(
-        err.response?.data?.message || "Failed to load WhatsApp accounts."
-      );
-      setIsLoading(false);
-    }
-  };
-
-  // ── Core: save to backend via system token ───────────────────────────
+  // ── Fallback: fetch WABAs via system token (WABA selector only) ──────
+  // Only used when showing the multi-WABA selector UI
   const handleSetup = async (phoneNumberId, wabaId) => {
     if (isProcessingRef.current) return;
     isProcessingRef.current = true;
 
     try {
-      console.log("[WhatsApp] Calling /setup:", { phoneNumberId, wabaId });
+      console.log("[WhatsApp] Calling /setup (fallback):", { phoneNumberId, wabaId });
       setIsLoading(true);
 
       const response = await api.post("/whatsapp/setup", {
@@ -191,7 +194,7 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
       });
 
       if (response.data.success) {
-        console.log("[WhatsApp] ✅ Connected successfully");
+        console.log("[WhatsApp] ✅ Connected via fallback");
         setIsConnected(true);
         setShowSelector(false);
         if (onSuccess) onSuccess(response.data);
@@ -200,9 +203,7 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
       }
     } catch (err) {
       console.error("[WhatsApp] Setup error:", err);
-      setError(
-        err.response?.data?.message || "Server error. Please try again."
-      );
+      setError(err.response?.data?.message || "Server error. Please try again.");
     } finally {
       setIsLoading(false);
       isProcessingRef.current = false;
@@ -247,9 +248,7 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
               </svg>
             </button>
           </div>
-          <p className="text-gray-500 mb-6 text-sm">
-            Choose which WhatsApp Business number to connect:
-          </p>
+          <p className="text-gray-500 mb-6 text-sm">Choose which WhatsApp Business number to connect:</p>
           <div className="space-y-4">
             {availableWabas.map((waba) => (
               <div key={waba.id} className="border rounded-lg p-4">
@@ -307,7 +306,6 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-100">
           <div>
@@ -330,7 +328,6 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
           <div className="p-6">
             <p className="text-gray-500 mb-6">Choose how you want to connect your WhatsApp number.</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-
               <div
                 onClick={() => setSelectedType("existing")}
                 className={`border-2 rounded-xl p-5 cursor-pointer transition-all ${

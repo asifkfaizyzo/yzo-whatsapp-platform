@@ -10,17 +10,16 @@ import prisma from "../../config/prisma.js";
 export const exchangeToken = async (req, res) => {
   const {
     code,
-    accessToken: directToken,
     phoneNumberId: reqPhoneId,
     wabaId: reqWabaId,
   } = req.body;
 
   const tenantId = req.tenantId;
 
-  if (!code && !directToken) {
+  if (!code) {
     return res.status(400).json({
       success: false,
-      message: "Either code or accessToken is required.",
+      message: "Authorization code is required.",
     });
   }
 
@@ -35,118 +34,95 @@ export const exchangeToken = async (req, res) => {
   }
 
   console.log("──────────────────────────────────────────────────");
-  if (directToken) {
-    console.log("[WhatsApp] Token exchange started (DIRECT token — test mode)");
-    console.log(
-      "[WhatsApp] Token preview:",
-      directToken.substring(0, 15) + "...",
-    );
-  } else {
-    console.log("[WhatsApp] Token exchange started (FB.login code flow)");
-    console.log("[WhatsApp] Code preview:", code.substring(0, 15) + "...");
-  }
+  console.log("[WhatsApp] exchangeToken started");
+  console.log("[WhatsApp] Code preview:", code.substring(0, 15) + "...");
+  console.log("[WhatsApp] reqPhoneId:", reqPhoneId);
+  console.log("[WhatsApp] reqWabaId:", reqWabaId);
   console.log("──────────────────────────────────────────────────");
 
   try {
-    let businessToken;
-    let tokenExpiry;
+    // ── Step 1: Exchange code for short-lived token ──────────────────
+    // Do NOT include redirect_uri — FB.login code flow does not use it
+    const params = new URLSearchParams({
+      client_id: appId,
+      client_secret: appSecret,
+      code,
+    });
 
-    if (directToken) {
-      businessToken = directToken;
-      tokenExpiry = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
-      console.log(
-        "[WhatsApp] Using direct access token (skipping code exchange).",
-      );
-    } else {
-      console.log("[WhatsApp] Exchanging code for business token...");
+    console.log("[WhatsApp] Calling graph.facebook.com/oauth/access_token...");
 
-      const redirectUri = process.env.META_REDIRECT_URI || "";
+    const tokenRes = await fetch(
+      `https://graph.facebook.com/v22.0/oauth/access_token?${params.toString()}`
+    );
+    const tokenData = await tokenRes.json();
 
-      const params = new URLSearchParams({
-        client_id: appId,
-        client_secret: appSecret,
-        code,
-        ...(redirectUri ? { redirect_uri: redirectUri } : {}),
+    console.log("[WhatsApp] Token exchange raw response:", JSON.stringify(tokenData));
+
+    if (!tokenData?.access_token) {
+      console.error("❌ Token exchange failed:", tokenData);
+      return res.status(400).json({
+        success: false,
+        message: tokenData?.error?.message || "Failed to exchange code.",
+        error_code: tokenData?.error?.code,
+        error_subcode: tokenData?.error?.error_subcode,
       });
-
-      console.log(
-        "[WhatsApp] redirect_uri being used:",
-        redirectUri || "(none)",
-      );
-
-      // Graph API v25.0
-      const tokenRes = await fetch(
-        `https://graph.facebook.com/v25.0/oauth/access_token?${params.toString()}`,
-      );
-
-      const tokenData = await tokenRes.json();
-
-      console.log(
-        "[WhatsApp] Token exchange response:",
-        JSON.stringify({
-          success: !!tokenData?.access_token,
-          error: tokenData?.error || null,
-        }),
-      );
-
-      if (!tokenData?.access_token) {
-        console.error("❌ Token exchange failed:", tokenData);
-        return res.status(400).json({
-          success: false,
-          message:
-            tokenData?.error?.message ||
-            "Failed to exchange authorization code.",
-          debug: {
-            error_code: tokenData?.error?.code,
-            error_subcode: tokenData?.error?.error_subcode,
-          },
-        });
-      }
-
-      businessToken = tokenData.access_token;
-      tokenExpiry = tokenData.expires_in
-        ? new Date(Date.now() + tokenData.expires_in * 1000)
-        : new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
     }
 
-    console.log("[WhatsApp] ✅ Access token ready!");
+    let accessToken = tokenData.access_token;
+    console.log("[WhatsApp] ✅ Short-lived token obtained");
 
-    // ─── Resolve WABA ID ──────────────────────────────────────────────
+    // ── Step 2: Extend to long-lived token ───────────────────────────
+    const llParams = new URLSearchParams({
+      grant_type: "fb_exchange_token",
+      client_id: appId,
+      client_secret: appSecret,
+      fb_exchange_token: accessToken,
+    });
+
+    const llRes = await fetch(
+      `https://graph.facebook.com/v22.0/oauth/access_token?${llParams.toString()}`
+    );
+    const llData = await llRes.json();
+
+    if (llData?.access_token) {
+      accessToken = llData.access_token;
+      console.log("[WhatsApp] ✅ Long-lived token obtained");
+    } else {
+      console.warn("[WhatsApp] Could not extend token, using short-lived:", llData);
+    }
+
+    // ── Step 3: Resolve WABA ID from token if not provided ───────────
     let wabaId = reqWabaId || null;
     let phoneNumberId = reqPhoneId || null;
     let displayPhoneNumber = null;
     let verifiedName = null;
 
     if (!wabaId) {
-      console.log("[WhatsApp] Resolving WABA from token debug...");
-      // ✅ Fixed: No version needed for debug_token
+      console.log("[WhatsApp] Resolving WABA from debug_token...");
       const debugRes = await fetch(
         `https://graph.facebook.com/debug_token` +
-          `?input_token=${businessToken}` +
-          `&access_token=${appId}|${appSecret}`,
+          `?input_token=${accessToken}` +
+          `&access_token=${appId}|${appSecret}`
       );
       const debugData = await debugRes.json();
-      console.log(
-        "[WhatsApp] Granular scopes:",
-        JSON.stringify(debugData?.data?.granular_scopes),
-      );
+      console.log("[WhatsApp] debug_token granular_scopes:", JSON.stringify(debugData?.data?.granular_scopes));
 
       wabaId =
         debugData.data?.granular_scopes?.find(
-          (s) => s.scope === "whatsapp_business_management",
+          (s) => s.scope === "whatsapp_business_management"
         )?.target_ids?.[0] || null;
 
-      console.log("[WhatsApp] Resolved WABA ID:", wabaId);
+      console.log("[WhatsApp] Resolved wabaId:", wabaId);
     }
 
-    // ─── Resolve Phone Number ─────────────────────────────────────────
+    // ── Step 4: Resolve phone number if not provided ─────────────────
     if (wabaId && !phoneNumberId) {
       console.log(`[WhatsApp] Fetching phones for WABA ${wabaId}...`);
       const phoneRes = await fetch(
-        `https://graph.facebook.com/v25.0/${wabaId}/phone_numbers?access_token=${businessToken}`,
+        `https://graph.facebook.com/v22.0/${wabaId}/phone_numbers?access_token=${accessToken}`
       );
       const phoneData = await phoneRes.json();
-      console.log("[WhatsApp] Phones:", JSON.stringify(phoneData));
+      console.log("[WhatsApp] Phones response:", JSON.stringify(phoneData));
 
       const first = phoneData.data?.[0];
       phoneNumberId = first?.id || null;
@@ -154,7 +130,7 @@ export const exchangeToken = async (req, res) => {
       verifiedName = first?.verified_name || null;
     } else if (phoneNumberId) {
       const phoneRes = await fetch(
-        `https://graph.facebook.com/v25.0/${phoneNumberId}?access_token=${businessToken}`,
+        `https://graph.facebook.com/v22.0/${phoneNumberId}?access_token=${accessToken}`
       );
       const phoneData = await phoneRes.json();
       displayPhoneNumber = phoneData.display_phone_number || null;
@@ -162,61 +138,16 @@ export const exchangeToken = async (req, res) => {
     }
 
     if (!phoneNumberId || !wabaId) {
+      console.error("[WhatsApp] Could not resolve phoneNumberId or wabaId");
       return res.status(400).json({
         success: false,
-        message: "Could not determine WhatsApp Account or Phone Number ID.",
+        message: "Could not determine WhatsApp Account or Phone Number. Please complete the Meta setup fully.",
       });
     }
 
-    console.log("[WhatsApp] IDs resolved:", {
-      wabaId,
-      phoneNumberId,
-      displayPhoneNumber,
-    });
+    console.log("[WhatsApp] Final IDs:", { wabaId, phoneNumberId, displayPhoneNumber });
 
-    // ─── Step 2: Subscribe to webhooks ───────────────────────────────
-    try {
-      console.log(`[WhatsApp] Subscribing to webhooks on WABA ${wabaId}...`);
-      const subRes = await fetch(
-        `https://graph.facebook.com/v25.0/${wabaId}/subscribed_apps`,
-        {
-          method: "POST",
-          headers: { Authorization: `Bearer ${businessToken}` },
-        },
-      );
-      const subData = await subRes.json();
-      console.log("[WhatsApp] Webhook subscription:", subData);
-    } catch (e) {
-      console.warn(
-        "[WhatsApp] Webhook subscription failed (non-fatal):",
-        e.message,
-      );
-    }
-
-    // ─── Step 3: Register phone number ───────────────────────────────
-    try {
-      console.log(`[WhatsApp] Registering phone ${phoneNumberId}...`);
-      const regRes = await fetch(
-        `https://graph.facebook.com/v25.0/${phoneNumberId}/register`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${businessToken}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            messaging_product: "whatsapp",
-            pin: process.env.WA_DEFAULT_PIN || "123456",
-          }),
-        },
-      );
-      const regData = await regRes.json();
-      console.log("[WhatsApp] Registration:", regData);
-    } catch (e) {
-      console.warn("[WhatsApp] Registration failed (non-fatal):", e.message);
-    }
-
-    // ─── Step 4: Check duplicates ─────────────────────────────────────
+    // ── Step 5: Check duplicate ───────────────────────────────────────
     const existingTenant = await prisma.tenant.findFirst({
       where: {
         whatsappPhoneId: phoneNumberId,
@@ -232,19 +163,32 @@ export const exchangeToken = async (req, res) => {
       });
     }
 
-    // ─── Step 5: Save to DB ───────────────────────────────────────────
+    // ── Step 6: Subscribe WABA to webhooks ───────────────────────────
+    try {
+      const subRes = await fetch(
+        `https://graph.facebook.com/v22.0/${wabaId}/subscribed_apps`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${accessToken}` },
+        }
+      );
+      const subData = await subRes.json();
+      console.log("[WhatsApp] Webhook subscription:", subData);
+    } catch (e) {
+      console.warn("[WhatsApp] Webhook subscription failed (non-fatal):", e.message);
+    }
+
+    // ── Step 7: Save to DB ────────────────────────────────────────────
     await prisma.tenant.update({
       where: { id: tenantId },
       data: {
         whatsappWabaId: wabaId,
         whatsappPhoneId: phoneNumberId,
-        whatsappAccessToken: businessToken,
+        whatsappAccessToken: accessToken,
       },
     });
 
-    console.log(
-      `[WhatsApp] ✅ Connected tenant ${tenantId} | ${displayPhoneNumber}`,
-    );
+    console.log(`[WhatsApp] ✅ Tenant ${tenantId} connected — ${displayPhoneNumber}`);
 
     return res.json({
       success: true,
@@ -254,6 +198,7 @@ export const exchangeToken = async (req, res) => {
       displayPhoneNumber,
       verifiedName,
     });
+
   } catch (err) {
     console.error("❌ exchangeToken error:", err);
     return res.status(500).json({
