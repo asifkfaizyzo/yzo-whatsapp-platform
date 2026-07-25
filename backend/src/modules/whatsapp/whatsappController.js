@@ -62,9 +62,9 @@ export const exchangeToken = async (req, res) => {
         code,
       });
 
-      // ✅ Fixed: v25.0 → v21.0
+      // Graph API v25.0
       const tokenRes = await fetch(
-        `https://graph.facebook.com/v21.0/oauth/access_token?${params.toString()}`
+        `https://graph.facebook.com/v25.0/oauth/access_token?${params.toString()}`
       );
 
       const tokenData = await tokenRes.json();
@@ -121,9 +121,8 @@ export const exchangeToken = async (req, res) => {
     // ─── Resolve Phone Number ─────────────────────────────────────────
     if (wabaId && !phoneNumberId) {
       console.log(`[WhatsApp] Fetching phones for WABA ${wabaId}...`);
-      // ✅ Fixed: v25.0 → v21.0
       const phoneRes = await fetch(
-        `https://graph.facebook.com/v21.0/${wabaId}/phone_numbers?access_token=${businessToken}`
+        `https://graph.facebook.com/v25.0/${wabaId}/phone_numbers?access_token=${businessToken}`
       );
       const phoneData = await phoneRes.json();
       console.log('[WhatsApp] Phones:', JSON.stringify(phoneData));
@@ -134,9 +133,8 @@ export const exchangeToken = async (req, res) => {
       verifiedName = first?.verified_name || null;
 
     } else if (phoneNumberId) {
-      // ✅ Fixed: v25.0 → v21.0
       const phoneRes = await fetch(
-        `https://graph.facebook.com/v21.0/${phoneNumberId}?access_token=${businessToken}`
+        `https://graph.facebook.com/v25.0/${phoneNumberId}?access_token=${businessToken}`
       );
       const phoneData = await phoneRes.json();
       displayPhoneNumber = phoneData.display_phone_number || null;
@@ -155,9 +153,8 @@ export const exchangeToken = async (req, res) => {
     // ─── Step 2: Subscribe to webhooks ───────────────────────────────
     try {
       console.log(`[WhatsApp] Subscribing to webhooks on WABA ${wabaId}...`);
-      // ✅ Fixed: v25.0 → v21.0
       const subRes = await fetch(
-        `https://graph.facebook.com/v21.0/${wabaId}/subscribed_apps`,
+        `https://graph.facebook.com/v25.0/${wabaId}/subscribed_apps`,
         {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${businessToken}` }
@@ -172,9 +169,8 @@ export const exchangeToken = async (req, res) => {
     // ─── Step 3: Register phone number ───────────────────────────────
     try {
       console.log(`[WhatsApp] Registering phone ${phoneNumberId}...`);
-      // ✅ Fixed: v25.0 → v21.0
       const regRes = await fetch(
-        `https://graph.facebook.com/v21.0/${phoneNumberId}/register`,
+        `https://graph.facebook.com/v25.0/${phoneNumberId}/register`,
         {
           method: 'POST',
           headers: {
