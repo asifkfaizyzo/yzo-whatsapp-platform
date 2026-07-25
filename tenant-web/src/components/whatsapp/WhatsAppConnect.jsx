@@ -11,7 +11,7 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
   const [error, setError] = useState(null);
   const [availableWabas, setAvailableWabas] = useState([]);
   const [showSelector, setShowSelector] = useState(false);
-  
+
   // Refs to track state across async operations
   const timeoutRef = useRef(null);
   const sessionInfoReceivedRef = useRef(false);
@@ -20,27 +20,36 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
   useEffect(() => {
     const handleMessage = (event) => {
       // Accept messages from both facebook.com variants
-      if (event.origin !== "https://www.facebook.com" && 
-          event.origin !== "https://web.facebook.com") return;
-      
+      if (
+        event.origin !== "https://www.facebook.com" &&
+        event.origin !== "https://web.facebook.com"
+      )
+        return;
+
       try {
-        if (typeof event.data !== "string" || !event.data.trim().startsWith("{")) return;
+        if (
+          typeof event.data !== "string" ||
+          !event.data.trim().startsWith("{")
+        )
+          return;
         const data = JSON.parse(event.data);
         console.log("[WA Message]", data);
-        
+
         if (data.type === "WA_EMBEDDED_SIGNUP") {
-          if (data.event === "FINISH" || 
-              data.event === "FINISH_ONLY_WABA" ||
-              data.event === "FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING") {
+          if (
+            data.event === "FINISH" ||
+            data.event === "FINISH_ONLY_WABA" ||
+            data.event === "FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING"
+          ) {
             const { phone_number_id, waba_id } = data.data;
             sessionInfoReceivedRef.current = true;
-            
+
             // Clear fallback timeout
             if (timeoutRef.current) {
               clearTimeout(timeoutRef.current);
               timeoutRef.current = null;
             }
-            
+
             handleSignupComplete(phone_number_id, waba_id);
           } else if (data.event === "CANCEL") {
             // Clear fallback timeout
@@ -63,7 +72,7 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
         console.error("Error parsing FB message:", e);
       }
     };
-    
+
     window.addEventListener("message", handleMessage);
     return () => {
       window.removeEventListener("message", handleMessage);
@@ -80,18 +89,20 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
     FB.login(
       (response) => {
         console.log("[FB.login] Response:", response);
-        
-        if (response.status === 'connected') {
+
+        if (response.status === "connected") {
           console.log("[FB.login] User connected, waiting for FINISH event...");
-          
+
           // Fallback: If no FINISH event in 3 seconds, fetch existing WABAs
           timeoutRef.current = setTimeout(() => {
             if (!sessionInfoReceivedRef.current) {
-              console.log("[FB.login] No FINISH event received, fetching existing WABAs...");
+              console.log(
+                "[FB.login] No FINISH event received, fetching existing WABAs...",
+              );
               fetchAndUseExistingWABA();
             }
           }, 3000);
-        } else if (response.status === 'not_authorized') {
+        } else if (response.status === "not_authorized") {
           setError("Please authorize the app to continue");
           setIsLoading(false);
         } else {
@@ -101,12 +112,14 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
       },
       {
         config_id: CONFIG_ID,
-        response_type: 'code',
+        response_type: "code",
         override_default_response_type: true,
         extras: {
           setup: {},
-        }
-      }
+          featureType: "", // add this
+          sessionInfoVersion: "3",
+        },
+      },
     );
   }, []);
 
@@ -114,20 +127,25 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
   const fetchAndUseExistingWABA = async () => {
     try {
       console.log("[WhatsApp] Fetching existing WABAs...");
-      const res = await api.get('/whatsapp/my-wabas');
+      const res = await api.get("/whatsapp/my-wabas");
       console.log("[WhatsApp] WABAs response:", res.data);
-      
+
       if (res.data.success && res.data.wabas?.length > 0) {
-        const wabasWithPhones = res.data.wabas.filter(w => w.phones?.length > 0);
-        
+        const wabasWithPhones = res.data.wabas.filter(
+          (w) => w.phones?.length > 0,
+        );
+
         if (wabasWithPhones.length === 0) {
-          setError('No WhatsApp phone numbers found in your account');
+          setError("No WhatsApp phone numbers found in your account");
           setIsLoading(false);
           return;
         }
-        
+
         // If only one WABA with one phone, auto-connect
-        if (wabasWithPhones.length === 1 && wabasWithPhones[0].phones.length === 1) {
+        if (
+          wabasWithPhones.length === 1 &&
+          wabasWithPhones[0].phones.length === 1
+        ) {
           const waba = wabasWithPhones[0];
           const phone = waba.phones[0];
           console.log("[WhatsApp] Auto-connecting single WABA/phone");
@@ -140,12 +158,14 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
           setIsLoading(false);
         }
       } else {
-        setError('No WhatsApp Business Accounts found');
+        setError("No WhatsApp Business Accounts found");
         setIsLoading(false);
       }
     } catch (err) {
-      console.error('Error fetching WABAs:', err);
-      setError(err.response?.data?.message || 'Failed to load WhatsApp accounts');
+      console.error("Error fetching WABAs:", err);
+      setError(
+        err.response?.data?.message || "Failed to load WhatsApp accounts",
+      );
       setIsLoading(false);
     }
   };
@@ -155,12 +175,12 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
     try {
       console.log("[WhatsApp] Saving to backend:", { phoneNumberId, wabaId });
       setIsLoading(true);
-      
-      const response = await api.post('/whatsapp/setup', { 
-        phoneNumberId, 
-        wabaId 
+
+      const response = await api.post("/whatsapp/setup", {
+        phoneNumberId,
+        wabaId,
       });
-      
+
       const data = response.data;
       if (data.success) {
         console.log("[WhatsApp] ✅ Connected successfully");
@@ -174,7 +194,8 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
       }
     } catch (err) {
       console.error("[WhatsApp] Setup error:", err);
-      const msg = err.response?.data?.message || "Server error. Please try again.";
+      const msg =
+        err.response?.data?.message || "Server error. Please try again.";
       setError(msg);
       setIsLoading(false);
     }
@@ -186,15 +207,26 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
         <div className="bg-white rounded-2xl p-8 max-w-md w-full text-center shadow-2xl">
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            <svg
+              className="w-8 h-8 text-green-600"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 13l4 4L19 7"
+              />
             </svg>
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
             WhatsApp Connected! 🎉
           </h2>
           <p className="text-gray-500 mb-6">
-            Your WhatsApp Business account has been successfully connected to Sudoreply.
+            Your WhatsApp Business account has been successfully connected to
+            Sudoreply.
           </p>
           <button
             onClick={onClose}
@@ -220,24 +252,34 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
               onClick={onClose}
               className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100"
             >
-              <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <svg
+                className="w-5 h-5 text-gray-500"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
           </div>
-          
+
           <p className="text-gray-500 mb-6 text-sm">
             Choose which WhatsApp Business number to connect:
           </p>
-          
+
           <div className="space-y-4">
-            {availableWabas.map(waba => (
+            {availableWabas.map((waba) => (
               <div key={waba.id} className="border rounded-lg p-4">
                 <h3 className="font-semibold text-gray-900 mb-2">
                   {waba.name}
                 </h3>
                 <div className="space-y-2">
-                  {waba.phones.map(phone => (
+                  {waba.phones.map((phone) => (
                     <button
                       key={phone.id}
                       onClick={() => handleSignupComplete(phone.id, waba.id)}
@@ -247,7 +289,7 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
                         {phone.display_phone_number}
                       </div>
                       <div className="text-sm text-gray-500">
-                        {phone.verified_name || 'Not verified'}
+                        {phone.verified_name || "Not verified"}
                       </div>
                     </button>
                   ))}
@@ -255,13 +297,13 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
               </div>
             ))}
           </div>
-          
+
           {error && (
             <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
               {error}
             </div>
           )}
-          
+
           <button
             onClick={() => {
               setShowSelector(false);
@@ -288,7 +330,8 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
             Connecting WhatsApp...
           </h2>
           <p className="text-gray-500 mb-6">
-            Please complete the setup in the Meta window. Do not close this page.
+            Please complete the setup in the Meta window. Do not close this
+            page.
           </p>
           <div className="w-full bg-gray-200 rounded-full h-2">
             <div className="bg-green-600 h-2 rounded-full animate-pulse w-3/4"></div>
@@ -302,7 +345,6 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-100">
           <div>
@@ -317,8 +359,18 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
           >
-            <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg
+              className="w-5 h-5 text-gray-500"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
@@ -356,7 +408,9 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
                     "Messages sync between Sudoreply & app",
                   ].map((item, i) => (
                     <div key={i} className="flex items-start gap-2">
-                      <span className="text-green-600 mt-0.5 flex-shrink-0 text-xs">✓</span>
+                      <span className="text-green-600 mt-0.5 flex-shrink-0 text-xs">
+                        ✓
+                      </span>
                       <span className="text-xs text-gray-600">{item}</span>
                     </div>
                   ))}
@@ -365,13 +419,17 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
                     "WA Business App v2.24.4+ required",
                   ].map((item, i) => (
                     <div key={i} className="flex items-start gap-2">
-                      <span className="text-orange-500 mt-0.5 flex-shrink-0 text-xs">⚠</span>
+                      <span className="text-orange-500 mt-0.5 flex-shrink-0 text-xs">
+                        ⚠
+                      </span>
                       <span className="text-xs text-gray-600">{item}</span>
                     </div>
                   ))}
                 </div>
                 {selectedType === "existing" && (
-                  <p className="mt-3 text-xs font-semibold text-green-600">✓ Selected</p>
+                  <p className="mt-3 text-xs font-semibold text-green-600">
+                    ✓ Selected
+                  </p>
                 )}
               </div>
 
@@ -404,19 +462,25 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
                     "WhatsApp calling available",
                   ].map((item, i) => (
                     <div key={i} className="flex items-start gap-2">
-                      <span className="text-green-600 mt-0.5 flex-shrink-0 text-xs">✓</span>
+                      <span className="text-green-600 mt-0.5 flex-shrink-0 text-xs">
+                        ✓
+                      </span>
                       <span className="text-xs text-gray-600">{item}</span>
                     </div>
                   ))}
                   {["Cannot use WhatsApp Business App"].map((item, i) => (
                     <div key={i} className="flex items-start gap-2">
-                      <span className="text-red-500 mt-0.5 flex-shrink-0 text-xs">✗</span>
+                      <span className="text-red-500 mt-0.5 flex-shrink-0 text-xs">
+                        ✗
+                      </span>
                       <span className="text-xs text-gray-600">{item}</span>
                     </div>
                   ))}
                 </div>
                 {selectedType === "new" && (
-                  <p className="mt-3 text-xs font-semibold text-green-600">✓ Selected</p>
+                  <p className="mt-3 text-xs font-semibold text-green-600">
+                    ✓ Selected
+                  </p>
                 )}
               </div>
             </div>
@@ -469,7 +533,9 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
                     ]
                 ).map((req, i) => (
                   <div key={i} className="flex items-start gap-2">
-                    <span className="text-green-600 mt-0.5 flex-shrink-0 text-sm">✓</span>
+                    <span className="text-green-600 mt-0.5 flex-shrink-0 text-sm">
+                      ✓
+                    </span>
                     <span className="text-sm text-gray-600">{req}</span>
                   </div>
                 ))}
@@ -478,7 +544,9 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
 
             {/* What happens next */}
             <div className="bg-blue-50 rounded-xl p-4 mb-6">
-              <h3 className="font-semibold text-gray-900 mb-3">What happens next</h3>
+              <h3 className="font-semibold text-gray-900 mb-3">
+                What happens next
+              </h3>
               <div className="space-y-2">
                 {[
                   "A Meta window will open for you to login",
@@ -523,7 +591,8 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
             </div>
 
             <p className="text-center text-xs text-gray-400 mt-4">
-              🔒 Secured by Meta — Sudoreply never stores your Facebook credentials
+              🔒 Secured by Meta — Sudoreply never stores your Facebook
+              credentials
             </p>
           </div>
         )}
