@@ -2,10 +2,6 @@ import prisma from "../../config/prisma.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api2/whatsapp/exchange-token
-// Receives an authorization code from the popup OAuth flow (whatsapp-callback.html).
-// The popup opens Meta's OAuth dialog with redirect_uri=.../whatsapp-callback,
-// which redirects the code to our callback page. The code is exchanged here
-// with the exact same redirect_uri, which Meta validates and accepts.
 // ─────────────────────────────────────────────────────────────────────────────
 export const exchangeToken = async (req, res) => {
   const {
@@ -42,14 +38,18 @@ export const exchangeToken = async (req, res) => {
 
   try {
     // ── Step 1: Exchange code for short-lived token ──────────────────
-    // Do NOT include redirect_uri — FB.login code flow does not use it
+    // FB.login with JS SDK internally uses this URI — must match exactly
+    const REDIRECT_URI = "https://www.facebook.com/connect/login_success.html";
+
     const params = new URLSearchParams({
       client_id: appId,
       client_secret: appSecret,
+      redirect_uri: REDIRECT_URI,
       code,
     });
 
     console.log("[WhatsApp] Calling graph.facebook.com/oauth/access_token...");
+    console.log("[WhatsApp] redirect_uri:", REDIRECT_URI);
 
     const tokenRes = await fetch(
       `https://graph.facebook.com/v22.0/oauth/access_token?${params.toString()}`
@@ -105,7 +105,10 @@ export const exchangeToken = async (req, res) => {
           `&access_token=${appId}|${appSecret}`
       );
       const debugData = await debugRes.json();
-      console.log("[WhatsApp] debug_token granular_scopes:", JSON.stringify(debugData?.data?.granular_scopes));
+      console.log(
+        "[WhatsApp] debug_token granular_scopes:",
+        JSON.stringify(debugData?.data?.granular_scopes)
+      );
 
       wabaId =
         debugData.data?.granular_scopes?.find(
@@ -141,11 +144,16 @@ export const exchangeToken = async (req, res) => {
       console.error("[WhatsApp] Could not resolve phoneNumberId or wabaId");
       return res.status(400).json({
         success: false,
-        message: "Could not determine WhatsApp Account or Phone Number. Please complete the Meta setup fully.",
+        message:
+          "Could not determine WhatsApp Account or Phone Number. Please complete the Meta setup fully.",
       });
     }
 
-    console.log("[WhatsApp] Final IDs:", { wabaId, phoneNumberId, displayPhoneNumber });
+    console.log("[WhatsApp] Final IDs:", {
+      wabaId,
+      phoneNumberId,
+      displayPhoneNumber,
+    });
 
     // ── Step 5: Check duplicate ───────────────────────────────────────
     const existingTenant = await prisma.tenant.findFirst({
@@ -175,7 +183,10 @@ export const exchangeToken = async (req, res) => {
       const subData = await subRes.json();
       console.log("[WhatsApp] Webhook subscription:", subData);
     } catch (e) {
-      console.warn("[WhatsApp] Webhook subscription failed (non-fatal):", e.message);
+      console.warn(
+        "[WhatsApp] Webhook subscription failed (non-fatal):",
+        e.message
+      );
     }
 
     // ── Step 7: Save to DB ────────────────────────────────────────────
@@ -188,7 +199,9 @@ export const exchangeToken = async (req, res) => {
       },
     });
 
-    console.log(`[WhatsApp] ✅ Tenant ${tenantId} connected — ${displayPhoneNumber}`);
+    console.log(
+      `[WhatsApp] ✅ Tenant ${tenantId} connected — ${displayPhoneNumber}`
+    );
 
     return res.json({
       success: true,
@@ -198,7 +211,6 @@ export const exchangeToken = async (req, res) => {
       displayPhoneNumber,
       verifiedName,
     });
-
   } catch (err) {
     console.error("❌ exchangeToken error:", err);
     return res.status(500).json({
@@ -210,8 +222,6 @@ export const exchangeToken = async (req, res) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api2/whatsapp/setup
-// Called when Meta sends a WA_EMBEDDED_SIGNUP FINISH postMessage to the page.
-// Directly saves the phone_number_id and waba_id to the tenant record.
 // ─────────────────────────────────────────────────────────────────────────────
 export const setupWhatsApp = async (req, res) => {
   const { phoneNumberId, wabaId } = req.body;
@@ -225,7 +235,6 @@ export const setupWhatsApp = async (req, res) => {
   }
 
   try {
-    // ✅ Check for existing connection (prevent duplicates)
     const existingTenant = await prisma.tenant.findFirst({
       where: {
         whatsappPhoneId: phoneNumberId,
@@ -256,10 +265,9 @@ export const setupWhatsApp = async (req, res) => {
       });
     }
 
-    // Verify credentials work
     console.log("[WhatsApp] Verifying with system user token...");
     const verifyRes = await fetch(
-      `https://graph.facebook.com/v25.0/${phoneNumberId}?access_token=${accessToken}`,
+      `https://graph.facebook.com/v25.0/${phoneNumberId}?access_token=${accessToken}`
     );
     const verifyData = await verifyRes.json();
 
@@ -273,7 +281,6 @@ export const setupWhatsApp = async (req, res) => {
 
     console.log("[WhatsApp] ✅ Verified:", verifyData.display_phone_number);
 
-    // Save to database
     await prisma.tenant.update({
       where: { id: tenantId },
       data: {
@@ -304,7 +311,6 @@ export const setupWhatsApp = async (req, res) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api2/whatsapp/status
-// Returns whether this tenant already has a WhatsApp number connected.
 // ─────────────────────────────────────────────────────────────────────────────
 export const getWhatsAppStatus = async (req, res) => {
   const tenantId = req.tenantId;
@@ -315,7 +321,6 @@ export const getWhatsAppStatus = async (req, res) => {
       select: {
         whatsappPhoneId: true,
         whatsappWabaId: true,
-        // Never return the access token to the frontend
       },
     });
 
@@ -335,8 +340,6 @@ export const getWhatsAppStatus = async (req, res) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api2/whatsapp/my-wabas
-// Fetches user's existing WABAs using System User token
-// Used as fallback when Embedded Signup popup closes without FINISH event
 // ─────────────────────────────────────────────────────────────────────────────
 export const getMyWabas = async (req, res) => {
   try {
@@ -350,16 +353,13 @@ export const getMyWabas = async (req, res) => {
       });
     }
 
-    // Your known WABA IDs (add more if you have multiple)
     const WABA_IDS = ["1309651157196821"];
-
     const wabas = [];
 
     for (const wabaId of WABA_IDS) {
       try {
-        // Get WABA info
         const wabaRes = await fetch(
-          `https://graph.facebook.com/v25.0/${wabaId}?access_token=${accessToken}`,
+          `https://graph.facebook.com/v25.0/${wabaId}?access_token=${accessToken}`
         );
         const wabaData = await wabaRes.json();
 
@@ -368,9 +368,8 @@ export const getMyWabas = async (req, res) => {
           continue;
         }
 
-        // Get phone numbers
         const phoneRes = await fetch(
-          `https://graph.facebook.com/v25.0/${wabaId}/phone_numbers?access_token=${accessToken}`,
+          `https://graph.facebook.com/v25.0/${wabaId}/phone_numbers?access_token=${accessToken}`
         );
         const phoneData = await phoneRes.json();
 
@@ -401,13 +400,11 @@ export const getMyWabas = async (req, res) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api2/whatsapp/disconnect
-// Disconnects WhatsApp from the current tenant
 // ─────────────────────────────────────────────────────────────────────────────
 export const disconnectWhatsApp = async (req, res) => {
   const tenantId = req.tenantId;
 
   try {
-    // Get tenant info before disconnecting
     const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
       select: {
@@ -431,7 +428,6 @@ export const disconnectWhatsApp = async (req, res) => {
       });
     }
 
-    // Disconnect WhatsApp
     await prisma.tenant.update({
       where: { id: tenantId },
       data: {
@@ -442,7 +438,7 @@ export const disconnectWhatsApp = async (req, res) => {
     });
 
     console.log(
-      `✅ WhatsApp disconnected for tenant ${tenantId} (${tenant.tenantName})`,
+      `✅ WhatsApp disconnected for tenant ${tenantId} (${tenant.tenantName})`
     );
     console.log(`   Removed Phone ID: ${tenant.whatsappPhoneId}`);
     console.log(`   Removed WABA ID: ${tenant.whatsappWabaId}`);
