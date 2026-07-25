@@ -37,19 +37,15 @@ export const exchangeToken = async (req, res) => {
   console.log("──────────────────────────────────────────────────");
 
   try {
-    // ── Step 1: Exchange code for short-lived token ──────────────────
-    // FB.login with JS SDK internally uses this URI — must match exactly
-    const REDIRECT_URI = "https://www.facebook.com/connect/login_success.html";
 
     const params = new URLSearchParams({
-      client_id: appId,
-      client_secret: appSecret,
-      redirect_uri: REDIRECT_URI,
-      code,
-    });
+  client_id: appId,
+  client_secret: appSecret,
+  code,
+});
 
-    console.log("[WhatsApp] Calling graph.facebook.com/oauth/access_token...");
-    console.log("[WhatsApp] redirect_uri:", REDIRECT_URI);
+console.log("[WhatsApp] Calling graph.facebook.com/oauth/access_token...");
+console.log("[WhatsApp] No redirect_uri — Tech Provider flow");
 
     const tokenRes = await fetch(
       `https://graph.facebook.com/v22.0/oauth/access_token?${params.toString()}`
