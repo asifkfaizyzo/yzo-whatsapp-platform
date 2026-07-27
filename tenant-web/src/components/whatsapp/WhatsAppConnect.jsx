@@ -134,14 +134,17 @@ const launchEmbeddedSignup = useCallback(() => {
 
 // Exchange code via backend
 const handleExchangeToken = async (code, phoneNumberId, wabaId) => {
+  const targetPhoneId = phoneNumberId || sessionDataRef.current?.phone_number_id || null;
+  const targetWabaId = wabaId || sessionDataRef.current?.waba_id || null;
+
   try {
-    console.log("[WhatsApp] Sending code to backend for exchange...", { phoneNumberId, wabaId });
+    console.log("[WhatsApp] Sending code to backend for exchange...", { phoneNumberId: targetPhoneId, wabaId: targetWabaId });
     setIsLoading(true);
 
     const response = await api.post('/whatsapp/exchange-token', {
       code,
-      phoneNumberId,
-      wabaId,
+      phoneNumberId: targetPhoneId,
+      wabaId: targetWabaId,
     });
 
     const data = response.data;
@@ -157,14 +160,16 @@ const handleExchangeToken = async (code, phoneNumberId, wabaId) => {
     }
   } catch (err) {
     console.error("[WhatsApp] Token Exchange error:", err);
-    // Fallback to setup if exchange fails
-    if (phoneNumberId && wabaId) {
-      console.log("[WhatsApp] Falling back to direct setup...");
-      await handleSignupComplete(phoneNumberId, wabaId);
+    const finalPhoneId = targetPhoneId || sessionDataRef.current?.phone_number_id || null;
+    const finalWabaId = targetWabaId || sessionDataRef.current?.waba_id || null;
+
+    // Fallback to system user token setup if exchange fails
+    if (finalPhoneId && finalWabaId) {
+      console.log("[WhatsApp] Falling back to direct system user token setup...", { finalPhoneId, finalWabaId });
+      await handleSignupComplete(finalPhoneId, finalWabaId);
     } else {
-      const msg = err.response?.data?.message || "Failed to exchange token with Meta.";
-      setError(msg);
-      setIsLoading(false);
+      console.log("[WhatsApp] Attempting to fetch available WABAs using system token...");
+      await fetchAndUseExistingWABA();
     }
   }
 };

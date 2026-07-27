@@ -75,21 +75,29 @@ export const exchangeToken = async (req, res) => {
       }));
 
       if (!tokenData?.access_token) {
-        console.error('❌ Token exchange failed:', tokenData);
-        return res.status(400).json({
-          success: false,
-          message: tokenData?.error?.message || 'Failed to exchange authorization code.',
-          debug: {
-            error_code: tokenData?.error?.code,
-            error_subcode: tokenData?.error?.error_subcode,
-          }
-        });
+        console.warn('⚠️ Code exchange failed:', tokenData?.error?.message || tokenData);
+        
+        const systemToken = process.env.META_SYSTEM_USER_TOKEN;
+        if (systemToken) {
+          console.log('[WhatsApp] 🔄 Falling back to META_SYSTEM_USER_TOKEN flow...');
+          businessToken = systemToken;
+          tokenExpiry = null;
+        } else {
+          return res.status(400).json({
+            success: false,
+            message: tokenData?.error?.message || 'Failed to exchange authorization code.',
+            debug: {
+              error_code: tokenData?.error?.code,
+              error_subcode: tokenData?.error?.error_subcode,
+            }
+          });
+        }
+      } else {
+        businessToken = tokenData.access_token;
+        tokenExpiry = tokenData.expires_in
+          ? new Date(Date.now() + tokenData.expires_in * 1000)
+          : new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
       }
-
-      businessToken = tokenData.access_token;
-      tokenExpiry = tokenData.expires_in
-        ? new Date(Date.now() + tokenData.expires_in * 1000)
-        : new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
     }
 
     console.log('[WhatsApp] ✅ Access token ready!');
@@ -102,18 +110,34 @@ export const exchangeToken = async (req, res) => {
 
     if (!wabaId) {
       console.log('[WhatsApp] Resolving WABA from token debug...');
-      // ✅ Fixed: No version needed for debug_token
-      const debugRes = await fetch(
-        `https://graph.facebook.com/debug_token` +
-        `?input_token=${businessToken}` +
-        `&access_token=${appId}|${appSecret}`
-      );
-      const debugData = await debugRes.json();
-      console.log('[WhatsApp] Granular scopes:', JSON.stringify(debugData?.data?.granular_scopes));
+      try {
+        const debugRes = await fetch(
+          `https://graph.facebook.com/debug_token` +
+          `?input_token=${businessToken}` +
+          `&access_token=${appId}|${appSecret}`
+        );
+        const debugData = await debugRes.json();
+        console.log('[WhatsApp] Granular scopes:', JSON.stringify(debugData?.data?.granular_scopes));
 
-      wabaId = debugData.data?.granular_scopes
-        ?.find(s => s.scope === 'whatsapp_business_management')
-        ?.target_ids?.[0] || null;
+        wabaId = debugData.data?.granular_scopes
+          ?.find(s => s.scope === 'whatsapp_business_management')
+          ?.target_ids?.[0] || null;
+      } catch (e) {
+        console.warn('[WhatsApp] debug_token lookup failed:', e.message);
+      }
+
+      if (!wabaId) {
+        try {
+          const meRes = await fetch(
+            `https://graph.facebook.com/v25.0/me?fields=whatsapp_business_accounts,client_whatsapp_business_accounts&access_token=${businessToken}`
+          );
+          const meData = await meRes.json();
+          wabaId = meData.whatsapp_business_accounts?.data?.[0]?.id || 
+                 meData.client_whatsapp_business_accounts?.data?.[0]?.id || null;
+        } catch (e) {
+          console.warn('[WhatsApp] me accounts lookup failed:', e.message);
+        }
+      }
 
       console.log('[WhatsApp] Resolved WABA ID:', wabaId);
     }
@@ -380,8 +404,31 @@ export const getMyWabas = async (req, res) => {
       });
     }
 
-    // Your known WABA IDs (add more if you have multiple)
-    const WABA_IDS = ['1309651157196821'];
+    let discoveredWabaIds = [];
+
+    try {
+      const meRes = await fetch(
+        `https://graph.facebook.com/v25.0/me?fields=whatsapp_business_accounts{id,name},client_whatsapp_business_accounts{id,name}&access_token=${accessToken}`
+      );
+      const meData = await meRes.json();
+      if (meData.whatsapp_business_accounts?.data) {
+        discoveredWabaIds.push(...meData.whatsapp_business_accounts.data.map(w => w.id));
+      }
+      if (meData.client_whatsapp_business_accounts?.data) {
+        discoveredWabaIds.push(...meData.client_whatsapp_business_accounts.data.map(w => w.id));
+      }
+    } catch (e) {
+      console.warn('[WhatsApp] Dynamic WABA lookup failed:', e.message);
+    }
+
+    if (discoveredWabaIds.length === 0 && process.env.META_WABA_ID) {
+      discoveredWabaIds.push(process.env.META_WABA_ID);
+    }
+    if (discoveredWabaIds.length === 0) {
+      discoveredWabaIds.push('1309651157196821');
+    }
+
+    const WABA_IDS = [...new Set(discoveredWabaIds)];
 
     const wabas = [];
 
