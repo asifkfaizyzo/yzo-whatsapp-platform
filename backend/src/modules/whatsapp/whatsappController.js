@@ -37,38 +37,32 @@ export const exchangeToken = async (req, res) => {
   console.log("──────────────────────────────────────────────────");
 
   try {
-    let businessToken = directToken || process.env.META_SYSTEM_USER_TOKEN;
 
-    if (!businessToken) {
-      console.error('❌ META_SYSTEM_USER_TOKEN not set');
-      return res.status(500).json({
+    const params = new URLSearchParams({
+  client_id: appId,
+  client_secret: appSecret,
+  code,
+});
+
+console.log("[WhatsApp] Calling graph.facebook.com/oauth/access_token...");
+console.log("[WhatsApp] No redirect_uri — Tech Provider flow");
+
+    const tokenRes = await fetch(
+      `https://graph.facebook.com/v22.0/oauth/access_token?${params.toString()}`
+    );
+    const tokenData = await tokenRes.json();
+
+    console.log("[WhatsApp] Token exchange raw response:", JSON.stringify(tokenData));
+
+    if (!tokenData?.access_token) {
+      console.error("❌ Token exchange failed:", tokenData);
+      return res.status(400).json({
         success: false,
-        message: 'META_SYSTEM_USER_TOKEN is not configured on the server.',
+        message: tokenData?.error?.message || "Failed to exchange code.",
+        error_code: tokenData?.error?.code,
+        error_subcode: tokenData?.error?.error_subcode,
       });
     }
-
-    console.log('[WhatsApp] 🔄 Using System User Access Token flow.');
-
-    /*
-    // ── Code Exchange Flow Disabled ───────────────────────────────────
-    if (!directToken && code) {
-      const redirectUri = process.env.META_REDIRECT_URI || "";
-      const params = new URLSearchParams({
-        client_id: appId,
-        client_secret: appSecret,
-        code,
-        ...(redirectUri ? { redirect_uri: redirectUri } : {}),
-      });
-      const tokenRes = await fetch(
-        `https://graph.facebook.com/v25.0/oauth/access_token?${params.toString()}`
-      );
-      const tokenData = await tokenRes.json();
-      if (tokenData?.access_token) {
-        businessToken = tokenData.access_token;
-      }
-    }
-    // ──────────────────────────────────────────────────────────────────
-    */
 
     let accessToken = tokenData.access_token;
     console.log("[WhatsApp] ✅ Short-lived token obtained");
