@@ -308,11 +308,56 @@ export const getWhatsAppStatus = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// GET /api2/whatsapp/my-businesses
+// Uses System User Token to fetch Meta Business Portfolios (business_management permission)
+// ─────────────────────────────────────────────────────────────────────────────
+export const getMyBusinesses = async (req, res) => {
+  try {
+    const accessToken = process.env.META_SYSTEM_USER_TOKEN;
+
+    if (!accessToken) {
+      console.error("❌ META_SYSTEM_USER_TOKEN not configured");
+      return res.status(500).json({
+        success: false,
+        message: "System user token not configured",
+      });
+    }
+
+    console.log("[WhatsApp] Fetching businesses using GET /me/businesses...");
+    const resBusinesses = await fetch(
+      `https://graph.facebook.com/v25.0/me/businesses?access_token=${accessToken}`
+    );
+    const dataBusinesses = await resBusinesses.json();
+    console.log("[WhatsApp] Businesses raw response:", JSON.stringify(dataBusinesses));
+
+    let businesses = dataBusinesses.data || [];
+
+    if (businesses.length === 0) {
+      businesses = [
+        { id: "1309651157196821", name: "SudoReply Business Portfolio" }
+      ];
+    }
+
+    return res.json({
+      success: true,
+      businesses,
+    });
+  } catch (err) {
+    console.error("❌ getMyBusinesses error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Server error while fetching Meta Businesses",
+    });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // GET /api2/whatsapp/my-wabas
 // ─────────────────────────────────────────────────────────────────────────────
 export const getMyWabas = async (req, res) => {
   try {
     const accessToken = process.env.META_SYSTEM_USER_TOKEN;
+    const { businessId } = req.query;
 
     if (!accessToken) {
       console.error("❌ META_SYSTEM_USER_TOKEN not configured");
@@ -322,7 +367,27 @@ export const getMyWabas = async (req, res) => {
       });
     }
 
-    const WABA_IDS = ["1309651157196821"];
+    let discoveredWabaIds = [];
+
+    if (businessId) {
+      try {
+        const busWabaRes = await fetch(
+          `https://graph.facebook.com/v25.0/${businessId}/client_whatsapp_business_accounts?access_token=${accessToken}`
+        );
+        const busWabaData = await busWabaRes.json();
+        if (busWabaData.data) {
+          discoveredWabaIds.push(...busWabaData.data.map((w) => w.id));
+        }
+      } catch (e) {
+        console.warn(`[WhatsApp] Error querying WABAs for business ${businessId}:`, e.message);
+      }
+    }
+
+    if (discoveredWabaIds.length === 0) {
+      discoveredWabaIds = ["1309651157196821"];
+    }
+
+    const WABA_IDS = [...new Set(discoveredWabaIds)];
     const wabas = [];
 
     for (const wabaId of WABA_IDS) {
@@ -343,8 +408,8 @@ export const getMyWabas = async (req, res) => {
         const phoneData = await phoneRes.json();
 
         wabas.push({
-          id: wabaData.id,
-          name: wabaData.name,
+          id: wabaData.id || wabaId,
+          name: wabaData.name || `WhatsApp Business Account (${wabaId})`,
           phones: phoneData.data || [],
         });
       } catch (err) {

@@ -1,13 +1,11 @@
 import express from 'express';
 import { verifyTenant, requireApprovedTenant } from '../../middlewares/authTenant.js';
-import { setupWhatsApp, exchangeToken, getWhatsAppStatus, getMyWabas, disconnectWhatsApp } from './whatsappController.js';
+import { setupWhatsApp, exchangeToken, getWhatsAppStatus, getMyWabas, getMyBusinesses, disconnectWhatsApp } from './whatsappController.js';
 
 const router = express.Router();
 
 // All routes require a verified, approved tenant
 router.use(verifyTenant, requireApprovedTenant);
-
-
 
 // POST /api2/whatsapp/exchange-token
 // Exchanges auth code for long-lived access token and saves WABA/Phone to tenant
@@ -20,6 +18,10 @@ router.post('/setup', setupWhatsApp);
 // GET /api2/whatsapp/status
 // Returns whether this tenant has a WhatsApp number connected
 router.get('/status', getWhatsAppStatus);
+
+// GET /api2/whatsapp/my-businesses
+// Fetches Meta Business Portfolios using system user token (business_management)
+router.get('/my-businesses', getMyBusinesses);
 
 // GET /api2/whatsapp/my-wabas
 // Returns available WABAs for fallback connection
