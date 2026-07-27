@@ -91,45 +91,25 @@ const launchEmbeddedSignup = useCallback(() => {
   sessionDataRef.current = null;
   isExchangingRef.current = false;
 
-  if (!CONFIG_ID) {
-    setError("Configuration ID is missing.");
-    setIsLoading(false);
-    return;
-  }
+  console.log("[WhatsApp] System User Token flow: Fetching available WABAs...");
+  fetchAndUseExistingWABA();
 
+  /*
+  // ── Code Exchange Flow Disabled (Using System User Token Flow) ──
   FB.login(
     (response) => {
       console.log("[FB.login] Response:", response);
-
       if (response.authResponse && response.authResponse.code) {
         const code = response.authResponse.code;
         authCodeRef.current = code;
-        console.log("[FB.login] Code received:", code.substring(0, 20) + "...");
-
         const phoneId = sessionDataRef.current?.phone_number_id || null;
         const wabaId = sessionDataRef.current?.waba_id || null;
         triggerExchange(code, phoneId, wabaId);
-      } else if (response.status === 'not_authorized') {
-        setError("Please authorize the app to continue");
-        setIsLoading(false);
-      } else {
-        setTimeout(() => {
-          if (!sessionInfoReceivedRef.current && !isExchangingRef.current) {
-            setError("Login cancelled. Please try again.");
-            setIsLoading(false);
-          }
-        }, 1500);
       }
     },
-    {
-      config_id: CONFIG_ID,
-      response_type: 'code',
-      override_default_response_type: true,
-      extras: {
-        setup: {},
-      }
-    }
+    { config_id: CONFIG_ID, response_type: 'code' }
   );
+  */
 }, []);
 
 // Exchange code via backend

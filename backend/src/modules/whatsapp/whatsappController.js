@@ -48,72 +48,38 @@ export const exchangeToken = async (req, res) => {
   console.log("──────────────────────────────────────────────────");
 
   try {
-    let businessToken;
-    let tokenExpiry;
+    let businessToken = directToken || process.env.META_SYSTEM_USER_TOKEN;
 
-    if (directToken) {
-      businessToken = directToken;
-      tokenExpiry = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
-      console.log(
-        "[WhatsApp] Using direct access token (skipping code exchange).",
-      );
-    } else {
-      console.log("[WhatsApp] Exchanging code for business token...");
+    if (!businessToken) {
+      console.error('❌ META_SYSTEM_USER_TOKEN not set');
+      return res.status(500).json({
+        success: false,
+        message: 'META_SYSTEM_USER_TOKEN is not configured on the server.',
+      });
+    }
 
+    console.log('[WhatsApp] 🔄 Using System User Access Token flow.');
+
+    /*
+    // ── Code Exchange Flow Disabled ───────────────────────────────────
+    if (!directToken && code) {
       const redirectUri = process.env.META_REDIRECT_URI || "";
-
       const params = new URLSearchParams({
         client_id: appId,
         client_secret: appSecret,
         code,
         ...(redirectUri ? { redirect_uri: redirectUri } : {}),
       });
-
-      console.log(
-        "[WhatsApp] redirect_uri being used:",
-        redirectUri || "(none)",
-      );
-
-      // Graph API v25.0
       const tokenRes = await fetch(
-        `https://graph.facebook.com/v25.0/oauth/access_token?${params.toString()}`,
+        `https://graph.facebook.com/v25.0/oauth/access_token?${params.toString()}`
       );
-
       const tokenData = await tokenRes.json();
-
-      console.log(
-        "[WhatsApp] Token exchange response:",
-        JSON.stringify({
-          success: !!tokenData?.access_token,
-          error: tokenData?.error || null,
-        }),
-      );
-
-      if (!tokenData?.access_token) {
-        console.warn('⚠️ Code exchange failed:', tokenData?.error?.message || tokenData);
-        
-        const systemToken = process.env.META_SYSTEM_USER_TOKEN;
-        if (systemToken) {
-          console.log('[WhatsApp] 🔄 Falling back to META_SYSTEM_USER_TOKEN flow...');
-          businessToken = systemToken;
-          tokenExpiry = null;
-        } else {
-          return res.status(400).json({
-            success: false,
-            message: tokenData?.error?.message || 'Failed to exchange authorization code.',
-            debug: {
-              error_code: tokenData?.error?.code,
-              error_subcode: tokenData?.error?.error_subcode,
-            }
-          });
-        }
-      } else {
+      if (tokenData?.access_token) {
         businessToken = tokenData.access_token;
-        tokenExpiry = tokenData.expires_in
-          ? new Date(Date.now() + tokenData.expires_in * 1000)
-          : new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
       }
     }
+    // ──────────────────────────────────────────────────────────────────
+    */
 
     console.log("[WhatsApp] ✅ Access token ready!");
 
