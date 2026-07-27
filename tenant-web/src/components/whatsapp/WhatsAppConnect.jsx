@@ -350,7 +350,7 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
           )}
           <button
             onClick={() => {
-              setShowSelector(false);
+              setShowBusinessSelector(false);
               setAvailableWabas([]);
             }}
             className="mt-4 w-full text-gray-600 py-2 hover:text-gray-800"
