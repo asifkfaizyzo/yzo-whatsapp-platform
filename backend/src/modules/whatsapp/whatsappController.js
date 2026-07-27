@@ -9,6 +9,7 @@ export const exchangeToken = async (req, res) => {
     phoneNumberId: reqPhoneId,
     wabaId: reqWabaId,
   } = req.body;
+  const tenantId = req.tenantId;
 
   // ── ACTIVE: System User Access Token Flow ──────────────────────────────
   const systemToken = process.env.META_SYSTEM_USER_TOKEN;
@@ -333,9 +334,11 @@ export const getMyBusinesses = async (req, res) => {
     let businesses = dataBusinesses.data || [];
 
     if (businesses.length === 0) {
-      businesses = [
-        { id: "1309651157196821", name: "SudoReply Business Portfolio" }
-      ];
+      return res.json({
+        success: true,
+        businesses: [],
+        message: "No Meta Business Portfolios found for this system user."
+      });
     }
 
     return res.json({
