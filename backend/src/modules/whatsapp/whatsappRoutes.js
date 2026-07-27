@@ -1,6 +1,6 @@
 import express from 'express';
 import { verifyTenant, requireApprovedTenant } from '../../middlewares/authTenant.js';
-import { setupWhatsApp, exchangeToken, getWhatsAppStatus, getMyWabas, getMyBusinesses, disconnectWhatsApp } from './whatsappController.js';
+import { setupWhatsApp, exchangeToken, getWhatsAppStatus, getMyWabas, disconnectWhatsApp } from './whatsappController.js';
 
 const router = express.Router();
 
@@ -21,7 +21,7 @@ router.get('/status', getWhatsAppStatus);
 
 // GET /api2/whatsapp/my-businesses
 // Fetches Meta Business Portfolios using system user token (business_management)
-router.get('/my-businesses', getMyBusinesses);
+// router.get('/my-businesses', getMyBusinesses);
 
 // GET /api2/whatsapp/my-wabas
 // Returns available WABAs for fallback connection
