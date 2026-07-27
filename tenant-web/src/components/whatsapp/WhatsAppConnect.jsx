@@ -120,7 +120,52 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
     }
   };
 
-  // ── Launch Embedded Signup ───────────────────────────────────────────
+  // ── Fetch existing WABAs via System User Token ─────────────────────────
+  const fetchAndUseExistingWABA = async () => {
+    try {
+      console.log("[WhatsApp] Fetching existing WABAs via System User Token...");
+      setIsLoading(true);
+      const res = await api.get("/whatsapp/my-wabas");
+      console.log("[WhatsApp] WABAs response:", res.data);
+
+      if (res.data.success && res.data.wabas?.length > 0) {
+        const wabasWithPhones = res.data.wabas.filter(
+          (w) => w.phones?.length > 0
+        );
+
+        if (wabasWithPhones.length === 0) {
+          setError("No WhatsApp phone numbers found for the System User Token.");
+          setIsLoading(false);
+          return;
+        }
+
+        // If only one WABA with one phone number, auto-connect
+        if (
+          wabasWithPhones.length === 1 &&
+          wabasWithPhones[0].phones.length === 1
+        ) {
+          const waba = wabasWithPhones[0];
+          const phone = waba.phones[0];
+          console.log("[WhatsApp] Auto-connecting single WABA/phone:", phone.id, waba.id);
+          await handleSetup(phone.id, waba.id);
+        } else {
+          // Show selector
+          setAvailableWabas(wabasWithPhones);
+          setShowSelector(true);
+          setIsLoading(false);
+        }
+      } else {
+        setError("No WhatsApp Business Accounts found for System User Token.");
+        setIsLoading(false);
+      }
+    } catch (err) {
+      console.error("Error fetching WABAs:", err);
+      setError(err.response?.data?.message || "Failed to load WhatsApp accounts.");
+      setIsLoading(false);
+    }
+  };
+
+  // ── Launch WhatsApp Connect ───────────────────────────────────────────
   const launchEmbeddedSignup = useCallback(() => {
     setIsLoading(true);
     setError(null);
@@ -128,6 +173,18 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
     isProcessingRef.current = false;
     sessionDataRef.current = null;
     pendingCodeRef.current = null;
+
+    // ACTIVE: System User Access Token Flow (Server-to-Server)
+    fetchAndUseExistingWABA();
+
+    /*
+    =============================================================================
+    HOW TO RE-ENABLE META EMBEDDED SIGNUP FLOW (AFTER META APP REVIEW APPROVAL):
+    =============================================================================
+    1. Comment out `fetchAndUseExistingWABA();` above.
+    2. Uncomment the `FB.login(...)` block below.
+    3. Ensure `CONFIG_ID` or `VITE_META_CONFIG_ID` matches your Meta Embedded Signup Config ID.
+    =============================================================================
 
     FB.login(
       (response) => {
@@ -141,12 +198,9 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
           );
           pendingCodeRef.current = code;
 
-          // Read whatever session data arrived so far
           const phoneId = sessionDataRef.current?.phone_number_id || null;
           const wabaId = sessionDataRef.current?.waba_id || null;
 
-          // Exchange immediately — do not wait
-          // Code expires in 30s, don't waste time
           doExchange(code, phoneId, wabaId);
         } else if (response.status === "not_authorized") {
           setError("Please authorize the app to continue.");
@@ -164,11 +218,11 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
         config_id: CONFIG_ID,
         response_type: "code",
         override_default_response_type: true,
-        extras: {
-          setup: {},
-        },
+        extras: { setup: {} },
       },
     );
+    =============================================================================
+    */
   }, []);
 
   // ── Fallback: fetch WABAs via system token (WABA selector only) ──────
