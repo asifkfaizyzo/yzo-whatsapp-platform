@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import api from "../../lib/axios";
 
-const CONFIG_ID = "1370366038406885";
+const CONFIG_ID = "1063577526237503";
 
 export default function WhatsAppConnect({ onSuccess, onClose }) {
   const [step, setStep] = useState(1);
