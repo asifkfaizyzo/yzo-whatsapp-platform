@@ -10,55 +10,82 @@ export const exchangeToken = async (req, res) => {
     wabaId: reqWabaId,
   } = req.body;
 
-  // ── ACTIVE: System User Access Token Flow ──────────────────────────────
-  const systemToken = process.env.META_SYSTEM_USER_TOKEN;
-  let accessToken = systemToken;
+  const tenantId = req.tenantId;
 
-  if (!accessToken) {
-    console.error("❌ META_SYSTEM_USER_TOKEN not configured in environment");
+  if (!code) {
+    return res.status(400).json({
+      success: false,
+      message: "Authorization code is required.",
+    });
+  }
+
+  const appId = process.env.META_APP_ID?.trim();
+  const appSecret = process.env.META_APP_SECRET?.trim();
+
+  if (!appId || !appSecret) {
     return res.status(500).json({
       success: false,
-      message: "META_SYSTEM_USER_TOKEN is not configured on server.",
+      message: "Meta credentials not configured.",
     });
   }
 
   console.log("──────────────────────────────────────────────────");
-  console.log("[WhatsApp] exchangeToken started (System User Token mode)");
+  console.log("[WhatsApp] exchangeToken started");
+  console.log("[WhatsApp] Code preview:", code.substring(0, 15) + "...");
   console.log("[WhatsApp] reqPhoneId:", reqPhoneId);
   console.log("[WhatsApp] reqWabaId:", reqWabaId);
   console.log("──────────────────────────────────────────────────");
 
   try {
-    /*
-    =============================================================================
-    HOW TO RE-ENABLE META OAUTH CODE EXCHANGE FLOW (AFTER META APP REVIEW APPROVAL):
-    =============================================================================
-    1. Uncomment the OAuth code exchange block below.
-    2. Comment out `let accessToken = systemToken;` above so `accessToken` comes from Meta OAuth.
-    =============================================================================
 
     const params = new URLSearchParams({
-      client_id: appId,
-      client_secret: appSecret,
-      code,
-    });
+  client_id: appId,
+  client_secret: appSecret,
+  code,
+});
+
+console.log("[WhatsApp] Calling graph.facebook.com/oauth/access_token...");
+console.log("[WhatsApp] No redirect_uri — Tech Provider flow");
 
     const tokenRes = await fetch(
-      `https://graph.facebook.com/v25.0/oauth/access_token?${params.toString()}`
+      `https://graph.facebook.com/v22.0/oauth/access_token?${params.toString()}`
     );
     const tokenData = await tokenRes.json();
+
+    console.log("[WhatsApp] Token exchange raw response:", JSON.stringify(tokenData));
 
     if (!tokenData?.access_token) {
       console.error("❌ Token exchange failed:", tokenData);
       return res.status(400).json({
         success: false,
         message: tokenData?.error?.message || "Failed to exchange code.",
+        error_code: tokenData?.error?.code,
+        error_subcode: tokenData?.error?.error_subcode,
       });
     }
 
-    accessToken = tokenData.access_token;
-    =============================================================================
-    */
+    let accessToken = tokenData.access_token;
+    console.log("[WhatsApp] ✅ Short-lived token obtained");
+
+    // ── Step 2: Extend to long-lived token ───────────────────────────
+    const llParams = new URLSearchParams({
+      grant_type: "fb_exchange_token",
+      client_id: appId,
+      client_secret: appSecret,
+      fb_exchange_token: accessToken,
+    });
+
+    const llRes = await fetch(
+      `https://graph.facebook.com/v22.0/oauth/access_token?${llParams.toString()}`
+    );
+    const llData = await llRes.json();
+
+    if (llData?.access_token) {
+      accessToken = llData.access_token;
+      console.log("[WhatsApp] ✅ Long-lived token obtained");
+    } else {
+      console.warn("[WhatsApp] Could not extend token, using short-lived:", llData);
+    }
 
     // ── Step 3: Resolve WABA ID from token if not provided ───────────
     let wabaId = reqWabaId || null;
