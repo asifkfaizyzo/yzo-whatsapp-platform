@@ -9,83 +9,57 @@ export const exchangeToken = async (req, res) => {
     phoneNumberId: reqPhoneId,
     wabaId: reqWabaId,
   } = req.body;
-
   const tenantId = req.tenantId;
 
-  if (!code) {
-    return res.status(400).json({
-      success: false,
-      message: "Authorization code is required.",
-    });
-  }
+  // ── ACTIVE: System User Access Token Flow ──────────────────────────────
+  const systemToken = process.env.META_SYSTEM_USER_TOKEN;
+  let accessToken = systemToken;
 
-  const appId = process.env.META_APP_ID?.trim();
-  const appSecret = process.env.META_APP_SECRET?.trim();
-
-  if (!appId || !appSecret) {
+  if (!accessToken) {
+    console.error("❌ META_SYSTEM_USER_TOKEN not configured in environment");
     return res.status(500).json({
       success: false,
-      message: "Meta credentials not configured.",
+      message: "META_SYSTEM_USER_TOKEN is not configured on server.",
     });
   }
 
   console.log("──────────────────────────────────────────────────");
-  console.log("[WhatsApp] exchangeToken started");
-  console.log("[WhatsApp] Code preview:", code.substring(0, 15) + "...");
+  console.log("[WhatsApp] exchangeToken started (System User Token mode)");
   console.log("[WhatsApp] reqPhoneId:", reqPhoneId);
   console.log("[WhatsApp] reqWabaId:", reqWabaId);
   console.log("──────────────────────────────────────────────────");
 
   try {
+    /*
+    =============================================================================
+    HOW TO RE-ENABLE META OAUTH CODE EXCHANGE FLOW (AFTER META APP REVIEW APPROVAL):
+    =============================================================================
+    1. Uncomment the OAuth code exchange block below.
+    2. Comment out `let accessToken = systemToken;` above so `accessToken` comes from Meta OAuth.
+    =============================================================================
 
     const params = new URLSearchParams({
-  client_id: appId,
-  client_secret: appSecret,
-  code,
-});
-
-console.log("[WhatsApp] Calling graph.facebook.com/oauth/access_token...");
-console.log("[WhatsApp] No redirect_uri — Tech Provider flow");
+      client_id: appId,
+      client_secret: appSecret,
+      code,
+    });
 
     const tokenRes = await fetch(
-      `https://graph.facebook.com/v22.0/oauth/access_token?${params.toString()}`
+      `https://graph.facebook.com/v25.0/oauth/access_token?${params.toString()}`
     );
     const tokenData = await tokenRes.json();
-
-    console.log("[WhatsApp] Token exchange raw response:", JSON.stringify(tokenData));
 
     if (!tokenData?.access_token) {
       console.error("❌ Token exchange failed:", tokenData);
       return res.status(400).json({
         success: false,
         message: tokenData?.error?.message || "Failed to exchange code.",
-        error_code: tokenData?.error?.code,
-        error_subcode: tokenData?.error?.error_subcode,
       });
     }
 
-    let accessToken = tokenData.access_token;
-    console.log("[WhatsApp] ✅ Short-lived token obtained");
-
-    // ── Step 2: Extend to long-lived token ───────────────────────────
-    const llParams = new URLSearchParams({
-      grant_type: "fb_exchange_token",
-      client_id: appId,
-      client_secret: appSecret,
-      fb_exchange_token: accessToken,
-    });
-
-    const llRes = await fetch(
-      `https://graph.facebook.com/v22.0/oauth/access_token?${llParams.toString()}`
-    );
-    const llData = await llRes.json();
-
-    if (llData?.access_token) {
-      accessToken = llData.access_token;
-      console.log("[WhatsApp] ✅ Long-lived token obtained");
-    } else {
-      console.warn("[WhatsApp] Could not extend token, using short-lived:", llData);
-    }
+    accessToken = tokenData.access_token;
+    =============================================================================
+    */
 
     // ── Step 3: Resolve WABA ID from token if not provided ───────────
     let wabaId = reqWabaId || null;
@@ -335,11 +309,58 @@ export const getWhatsAppStatus = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// GET /api2/whatsapp/my-businesses
+// Uses System User Token to fetch Meta Business Portfolios (business_management permission)
+// ─────────────────────────────────────────────────────────────────────────────
+export const getMyBusinesses = async (req, res) => {
+  try {
+    const accessToken = process.env.META_SYSTEM_USER_TOKEN;
+
+    if (!accessToken) {
+      console.error("❌ META_SYSTEM_USER_TOKEN not configured");
+      return res.status(500).json({
+        success: false,
+        message: "System user token not configured",
+      });
+    }
+
+    console.log("[WhatsApp] Fetching businesses using GET /me/businesses...");
+    const resBusinesses = await fetch(
+      `https://graph.facebook.com/v25.0/me/businesses?access_token=${accessToken}`
+    );
+    const dataBusinesses = await resBusinesses.json();
+    console.log("[WhatsApp] Businesses raw response:", JSON.stringify(dataBusinesses));
+
+    let businesses = dataBusinesses.data || [];
+
+    if (businesses.length === 0) {
+      return res.json({
+        success: true,
+        businesses: [],
+        message: "No Meta Business Portfolios found for this system user."
+      });
+    }
+
+    return res.json({
+      success: true,
+      businesses,
+    });
+  } catch (err) {
+    console.error("❌ getMyBusinesses error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Server error while fetching Meta Businesses",
+    });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // GET /api2/whatsapp/my-wabas
 // ─────────────────────────────────────────────────────────────────────────────
 export const getMyWabas = async (req, res) => {
   try {
     const accessToken = process.env.META_SYSTEM_USER_TOKEN;
+    const { businessId } = req.query;
 
     if (!accessToken) {
       console.error("❌ META_SYSTEM_USER_TOKEN not configured");
@@ -349,7 +370,27 @@ export const getMyWabas = async (req, res) => {
       });
     }
 
-    const WABA_IDS = ["1309651157196821"];
+    let discoveredWabaIds = [];
+
+    if (businessId) {
+      try {
+        const busWabaRes = await fetch(
+          `https://graph.facebook.com/v25.0/${businessId}/client_whatsapp_business_accounts?access_token=${accessToken}`
+        );
+        const busWabaData = await busWabaRes.json();
+        if (busWabaData.data) {
+          discoveredWabaIds.push(...busWabaData.data.map((w) => w.id));
+        }
+      } catch (e) {
+        console.warn(`[WhatsApp] Error querying WABAs for business ${businessId}:`, e.message);
+      }
+    }
+
+    if (discoveredWabaIds.length === 0) {
+      discoveredWabaIds = ["1309651157196821"];
+    }
+
+    const WABA_IDS = [...new Set(discoveredWabaIds)];
     const wabas = [];
 
     for (const wabaId of WABA_IDS) {
@@ -370,8 +411,8 @@ export const getMyWabas = async (req, res) => {
         const phoneData = await phoneRes.json();
 
         wabas.push({
-          id: wabaData.id,
-          name: wabaData.name,
+          id: wabaData.id || wabaId,
+          name: wabaData.name || `WhatsApp Business Account (${wabaId})`,
           phones: phoneData.data || [],
         });
       } catch (err) {
