@@ -10,10 +10,7 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState(null);
   const [availableWabas, setAvailableWabas] = useState([]);
-  const [availableBusinesses, setAvailableBusinesses] = useState([]);
-  const [selectedBusiness, setSelectedBusiness] = useState(null);
-  const [showBusinessSelector, setShowBusinessSelector] = useState(false);
-  const [apiRawResponse, setApiRawResponse] = useState(null);
+  const [showSelector, setShowSelector] = useState(false);
 
   const timeoutRef = useRef(null);
   const sessionInfoReceivedRef = useRef(false);
@@ -87,8 +84,6 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
     };
   }, []);
 
-  const [connectedDetails, setConnectedDetails] = useState(null);
-
   // ── Primary path: exchange code for customer token ───────────────────
   const doExchange = async (code, phoneNumberId, wabaId) => {
     if (isProcessingRef.current) return;
@@ -106,9 +101,8 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
 
       if (response.data.success) {
         console.log("[WhatsApp] ✅ Connected:", response.data);
-        setConnectedDetails(response.data);
         setIsConnected(true);
-        setShowBusinessSelector(false);
+        setShowSelector(false);
         if (onSuccess) onSuccess(response.data);
       } else {
         setError(
@@ -126,41 +120,68 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
     }
   };
 
-  // ── Fetch Available WABAs via System User Token ──────────────────────────
-  const fetchWabas = async () => {
-    try {
-      console.log("[WhatsApp] Fetching WABAs via System User Token...");
-      setIsLoading(true);
-      setError(null);
-
-      const resWabas = await api.get("/whatsapp/my-wabas");
-      const wabasWithPhones = (resWabas.data?.wabas || []).filter(
-        (w) => w.phones?.length > 0
-      );
-      setAvailableWabas(wabasWithPhones);
-      setShowBusinessSelector(true);
-      setIsLoading(false);
-    } catch (err) {
-      console.error("Error fetching WABAs:", err);
-      setError(
-        err.response?.data?.message || "Failed to load WhatsApp accounts."
-      );
-      setIsLoading(false);
-    }
-  };
-
-  // ── Launch WhatsApp Connect ───────────────────────────────────────────
+  // ── Launch Embedded Signup ───────────────────────────────────────────
   const launchEmbeddedSignup = useCallback(() => {
-    fetchWabas();
+    setIsLoading(true);
+    setError(null);
+    sessionInfoReceivedRef.current = false;
+    isProcessingRef.current = false;
+    sessionDataRef.current = null;
+    pendingCodeRef.current = null;
+
+    FB.login(
+      (response) => {
+        console.log("[FB.login] Response:", response);
+
+        if (response.authResponse?.code) {
+          const code = response.authResponse.code;
+          console.log(
+            "[FB.login] Code received:",
+            code.substring(0, 20) + "...",
+          );
+          pendingCodeRef.current = code;
+
+          // Read whatever session data arrived so far
+          const phoneId = sessionDataRef.current?.phone_number_id || null;
+          const wabaId = sessionDataRef.current?.waba_id || null;
+
+          // Exchange immediately — do not wait
+          // Code expires in 30s, don't waste time
+          doExchange(code, phoneId, wabaId);
+        } else if (response.status === "not_authorized") {
+          setError("Please authorize the app to continue.");
+          setIsLoading(false);
+        } else {
+          setTimeout(() => {
+            if (!sessionInfoReceivedRef.current && !isProcessingRef.current) {
+              setError("Login cancelled. Please try again.");
+              setIsLoading(false);
+            }
+          }, 1000);
+        }
+      },
+      {
+        config_id: CONFIG_ID,
+        response_type: "code",
+        override_default_response_type: true,
+        extras: {
+          setup: {},
+        },
+      },
+    );
   }, []);
 
-  // ── Fallback: save phone & WABA via system token ─────────────────────
+  // ── Fallback: fetch WABAs via system token (WABA selector only) ──────
+  // Only used when showing the multi-WABA selector UI
   const handleSetup = async (phoneNumberId, wabaId) => {
     if (isProcessingRef.current) return;
     isProcessingRef.current = true;
 
     try {
-      console.log("[WhatsApp] Calling /setup:", { phoneNumberId, wabaId });
+      console.log("[WhatsApp] Calling /setup (fallback):", {
+        phoneNumberId,
+        wabaId,
+      });
       setIsLoading(true);
 
       const response = await api.post("/whatsapp/setup", {
@@ -169,10 +190,9 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
       });
 
       if (response.data.success) {
-        console.log("[WhatsApp] ✅ Connected successfully", response.data);
-        setConnectedDetails(response.data);
+        console.log("[WhatsApp] ✅ Connected via fallback");
         setIsConnected(true);
-        setShowBusinessSelector(false);
+        setShowSelector(false);
         if (onSuccess) onSuccess(response.data);
       } else {
         setError(response.data.message || "Setup failed. Please try again.");
@@ -208,36 +228,13 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
               />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-1">
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
             WhatsApp Connected! 🎉
           </h2>
-          <p className="text-gray-500 text-xs mb-5">
-            Your WhatsApp Business account is active and connected to Sudoreply.
+          <p className="text-gray-500 mb-6">
+            Your WhatsApp Business account has been successfully connected to
+            Sudoreply.
           </p>
-
-          {connectedDetails && (
-            <div className="bg-gray-50 rounded-xl p-4 text-left border border-gray-200 mb-6 space-y-2 text-xs">
-              <div className="flex justify-between items-center pb-2 border-b border-gray-200">
-                <span className="text-gray-500 font-medium">Display Number:</span>
-                <span className="font-bold text-gray-900">{connectedDetails.displayPhoneNumber || "Connected"}</span>
-              </div>
-              {connectedDetails.verifiedName && (
-                <div className="flex justify-between items-center pb-2 border-b border-gray-200">
-                  <span className="text-gray-500 font-medium">Verified Name:</span>
-                  <span className="font-semibold text-gray-800">{connectedDetails.verifiedName}</span>
-                </div>
-              )}
-              <div className="flex justify-between items-center pb-2 border-b border-gray-200">
-                <span className="text-gray-500 font-medium">Phone Number ID:</span>
-                <span className="font-mono font-bold text-gray-800">{connectedDetails.phoneNumberId}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-500 font-medium">WABA ID:</span>
-                <span className="font-mono font-bold text-gray-800">{connectedDetails.wabaId}</span>
-              </div>
-            </div>
-          )}
-
           <button
             onClick={onClose}
             className="w-full bg-green-600 text-white py-3 px-6 rounded-xl font-semibold hover:bg-green-700 transition-colors"
@@ -249,95 +246,70 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
     );
   }
 
-  // ── WABA & Phone Number Selector Screen ──────────────────────────────
-  if (showBusinessSelector) {
+  // ── WABA Selector ────────────────────────────────────────────────────
+  if (showSelector && availableWabas.length > 0) {
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-2xl p-6 max-w-xl w-full shadow-2xl max-h-[90vh] overflow-y-auto space-y-5">
-          <div className="flex items-center justify-between border-b pb-3">
-            <div>
-              <span className="text-xs bg-green-100 text-green-700 font-bold px-2.5 py-1 rounded-md">
-                Meta System User Token Active
-              </span>
-              <h2 className="text-xl font-bold text-gray-900 mt-2">
-                Select WhatsApp Business Account
-              </h2>
-            </div>
+        <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-gray-900">
+              Select WhatsApp Account
+            </h2>
             <button
               onClick={onClose}
-              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500 font-bold"
+              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100"
             >
-              ✕
+              <svg
+                className="w-5 h-5 text-gray-500"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
             </button>
           </div>
-
-          <p className="text-xs text-gray-600 leading-relaxed font-medium">
-            Select an available WhatsApp Business Account and Phone Number to connect your tenant.
+          <p className="text-gray-500 mb-6 text-sm">
+            Choose which WhatsApp Business number to connect:
           </p>
-
-          {/* Available WABAs */}
-          {availableWabas.length > 0 ? (
-            <div className="space-y-4">
-              {availableWabas.map((waba) => (
-                <div key={waba.id} className="border border-gray-200 rounded-xl p-4 bg-gray-50/80 space-y-3">
-                  <div className="flex items-center justify-between border-b border-gray-200 pb-2">
-                    <div>
-                      <h4 className="font-bold text-sm text-gray-900">{waba.name}</h4>
-                      <p className="text-xs font-mono text-gray-500 mt-0.5">
-                        WABA ID: <span className="font-semibold text-gray-700">{waba.id}</span>
-                      </p>
-                    </div>
-                    <span className="text-xs bg-blue-100 text-blue-700 font-bold px-2 py-0.5 rounded">
-                      Meta WABA
-                    </span>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
-                      Available Phone Numbers:
-                    </label>
-                    {waba.phones.map((phone) => (
-                      <div
-                        key={phone.id}
-                        className="p-3.5 bg-white border border-gray-200 rounded-xl hover:border-green-500 hover:bg-green-50/50 transition flex items-center justify-between shadow-sm"
-                      >
-                        <div className="space-y-0.5">
-                          <div className="font-bold text-gray-900 text-sm">
-                            {phone.display_phone_number}
-                          </div>
-                          <div className="text-xs text-gray-600 font-medium">
-                            {phone.verified_name || "Verified WhatsApp Number"}
-                          </div>
-                          <div className="text-[11px] font-mono text-gray-400">
-                            Phone Number ID: <span className="text-gray-600 font-semibold">{phone.id}</span>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => handleSetup(phone.id, waba.id)}
-                          className="text-xs font-bold text-white bg-green-600 px-4 py-2 rounded-xl hover:bg-green-700 transition shadow-sm"
-                        >
-                          Connect Number →
-                        </button>
+          <div className="space-y-4">
+            {availableWabas.map((waba) => (
+              <div key={waba.id} className="border rounded-lg p-4">
+                <h3 className="font-semibold text-gray-900 mb-2">
+                  {waba.name}
+                </h3>
+                <div className="space-y-2">
+                  {waba.phones.map((phone) => (
+                    <button
+                      key={phone.id}
+                      onClick={() => handleSetup(phone.id, waba.id)}
+                      className="w-full text-left p-3 border border-gray-200 rounded-lg hover:border-green-500 hover:bg-green-50 transition-colors"
+                    >
+                      <div className="font-medium text-gray-900">
+                        {phone.display_phone_number}
                       </div>
-                    ))}
-                  </div>
+                      <div className="text-sm text-gray-500">
+                        {phone.verified_name || "Not verified"}
+                      </div>
+                    </button>
+                  ))}
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8 text-gray-500 text-sm">
-              No WhatsApp accounts found for this system user token.
-            </div>
-          )}
-
+              </div>
+            ))}
+          </div>
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-xs font-semibold">
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
               {error}
             </div>
           )}
           <button
             onClick={() => {
-              setShowBusinessSelector(false);
+              setShowSelector(false);
               setAvailableWabas([]);
             }}
             className="mt-4 w-full text-gray-600 py-2 hover:text-gray-800"
