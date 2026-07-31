@@ -119,9 +119,7 @@ const PaymentRow = ({ payment, index }) => {
     setDownloading(true);
     try {
       const res = await downloadInvoice(payment.id);
-      if (res.success) {
-        window.open(res.data.invoiceUrl, "_blank");
-      } else {
+      if (!res.success) {
         alert(res.message || "Failed to download invoice");
       }
     } catch (err) {

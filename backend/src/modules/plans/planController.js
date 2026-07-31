@@ -7,8 +7,9 @@ import {
 
 import Razorpay from "razorpay";
 import crypto from "crypto";
+import path from "path";
+import fs from "fs";
 import prisma from "../../config/prisma.js";
-
 import { generateInvoicePDF } from "./invoiceService.js";
 import { sendInvoiceEmail } from "../auth/emailService.js";
 
@@ -485,6 +486,8 @@ export const verifyPaymentAndActivate = async (req, res) => {
           cancelRequestedAt: null,
           cancellationReason: null,
           dataDeletionDate: null,
+          ...(req.body.address ? { address: req.body.address } : {}),
+          ...(req.body.phone ? { phone: req.body.phone } : {}),
         },
       });
 
@@ -760,37 +763,51 @@ export const downloadInvoice = async (req, res) => {
       });
     }
 
+    let filePath;
+    let fileName;
+
     // 2. Check if invoice exists
     if (!payment.invoiceUrl) {
       // Generate on the fly if not exists
       const tenant = await prisma.tenant.findUnique({
         where: { id: tenantId },
       });
-      const { filePath, fileUrl, invoiceNumber } = await generateInvoicePDF(
+      const generated = await generateInvoicePDF(
         payment,
         tenant
       );
+      filePath = generated.filePath;
+      fileName = `${generated.invoiceNumber}.pdf`;
+
       // Save URL
       await prisma.payment.update({
         where: { id: paymentId },
-        data: { invoiceUrl: fileUrl },
+        data: { invoiceUrl: generated.fileUrl },
       });
+    } else {
+      filePath = path.join(process.cwd(), payment.invoiceUrl);
+      fileName = path.basename(payment.invoiceUrl);
 
-      payment.invoiceUrl = fileUrl;
+      // If file missing on disk, regenerate
+      if (!fs.existsSync(filePath)) {
+        const tenant = await prisma.tenant.findUnique({
+          where: { id: tenantId },
+        });
+        const generated = await generateInvoicePDF(payment, tenant);
+        filePath = generated.filePath;
+        fileName = `${generated.invoiceNumber}.pdf`;
+      }
     }
-    // 3. Return invoice URL
-    return res.status(200).json({
-      success: true,
-      data: {
-        //Backend URL is set in .env file, if not set, fallback to localhost:5000
-        invoiceUrl: `${process.env.BACKEND_URL || "http://localhost:5000"}${payment.invoiceUrl}`,
-      },
-    });
+
+    // 3. Stream PDF directly
+    return res.download(filePath, fileName);
   } catch (error) {
     console.error("Download invoice error:", error);
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    if (!res.headersSent) {
+      return res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+    }
   }
 };

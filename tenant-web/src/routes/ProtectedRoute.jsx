@@ -5,15 +5,6 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   const { isAuthenticated, user, isLoading, isHydrated } = useAuthStore();
   const location = useLocation();
 
-  // ← ADD THESE
-  console.log('=== ProtectedRoute CHECK ===');
-  console.log('pathname:', location.pathname);
-  console.log('isHydrated:', isHydrated);
-  console.log('isLoading:', isLoading);
-  console.log('isAuthenticated:', isAuthenticated);
-  console.log('user type:', user?.type);
-  console.log('user planId:', user?.planId);
-
   // ⏳ Wait for checkAuth() to finish — don't redirect yet
   if (!isHydrated || isLoading) {
     return (

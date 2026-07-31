@@ -90,7 +90,7 @@ model Tenant {
   keywordTriggers  KeywordTrigger[]
   enterpriseLeads EnterpriseLead[]
 
-  subscriptionStatus   SubscriptionStatus  @default(active)
+  subscriptionStatus   SubscriptionStatus  @default(expired)
   currentPlan          String?
   planPeriodStart      DateTime?
   planPeriodEnd        DateTime?
@@ -102,6 +102,9 @@ model Tenant {
   invoices             Invoice[]
   cancellationSurvey   CancellationSurvey?
   dataDeletions        TenantDataDeletion[]
+
+  @@index([whatsappPhoneId])
+    @@index([status])
 }
 
 

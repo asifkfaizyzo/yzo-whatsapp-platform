@@ -23,7 +23,7 @@ export const loginUser =
       const { accessToken, refreshToken, user } = result;
 
       // Set HTTP-Only Cookie for the refresh token
-      res.cookie('refreshToken', refreshToken, {
+      res.cookie('user_refreshToken', refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
@@ -56,14 +56,14 @@ export const loginUser =
 // ===============User Logout Controller===============
 export const logoutUser = async (req, res) => {
   try {
-    const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
+    const refreshToken = req.cookies.user_refreshToken || req.body.refreshToken;
 
     if (refreshToken) {
       await logoutUserService(refreshToken);
     }
 
     // Clear cookie
-    res.clearCookie('refreshToken', {
+    res.clearCookie('user_refreshToken', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
@@ -86,7 +86,7 @@ export const logoutUser = async (req, res) => {
 //===========user access token refresh controller===========
 export const refreshUserAccessToken = async (req, res) => {
   try {
-    const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
+    const refreshToken = req.cookies.user_refreshToken || req.body.refreshToken;
 
     if (!refreshToken) {
       return res.status(401).json({

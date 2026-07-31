@@ -59,11 +59,22 @@ export const refreshTokenSchema = z.object({
   }),
   cookies: z.object({
     refreshToken: z.string().optional(),
+    admin_refreshToken: z.string().optional(),
+    tenant_refreshToken: z.string().optional(),
+    user_refreshToken: z.string().optional(),
   }).optional(),
-}).refine((data) => data.body?.refreshToken || data.cookies?.refreshToken, {
-  message: 'Refresh token is required in body or cookies',
-  path: ['refreshToken'],
-});
+}).refine(
+  (data) =>
+    data.body?.refreshToken ||
+    data.cookies?.admin_refreshToken ||
+    data.cookies?.tenant_refreshToken ||
+    data.cookies?.user_refreshToken ||
+    data.cookies?.refreshToken,
+  {
+    message: 'Refresh token is required in body or cookies',
+    path: ['refreshToken'],
+  }
+);
 
 // =========== Logout Schema ===========
 export const logoutSchema = z.object({
@@ -72,11 +83,22 @@ export const logoutSchema = z.object({
   }),
   cookies: z.object({
     refreshToken: z.string().optional(),
+    admin_refreshToken: z.string().optional(),
+    tenant_refreshToken: z.string().optional(),
+    user_refreshToken: z.string().optional(),
   }).optional(),
-}).refine((data) => data.body?.refreshToken || data.cookies?.refreshToken, {
-  message: 'Refresh token is required in body or cookies',
-  path: ['refreshToken'],
-});
+}).refine(
+  (data) =>
+    data.body?.refreshToken ||
+    data.cookies?.admin_refreshToken ||
+    data.cookies?.tenant_refreshToken ||
+    data.cookies?.user_refreshToken ||
+    data.cookies?.refreshToken,
+  {
+    message: 'Refresh token is required in body or cookies',
+    path: ['refreshToken'],
+  }
+);
 
 
 // =========== Google Login Schema ===========

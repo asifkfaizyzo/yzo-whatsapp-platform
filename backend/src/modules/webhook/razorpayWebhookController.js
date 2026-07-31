@@ -37,26 +37,42 @@ export const handleRazorpayWebhook = async (req, res) => {
         where: { razorpayOrderId: orderId },
       });
 
-      if (existingPayment && existingPayment.status !== "SUCCESS") {
-        console.log(`[Webhook] Auto-activating plan for order: ${orderId}`);
-        
-        await verifyPaymentAndActivate(
-          {
-            body: {
-              razorpay_order_id: orderId,
-              razorpay_payment_id: paymentId,
-              razorpay_signature: crypto
-                .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-                .update(`${orderId}|${paymentId}`)
-                .digest("hex"),
-              planId: existingPayment.planId,
-              billingType: existingPayment.billingType,
-            },
-            tenantId: existingPayment.tenantId,
-          },
-          { status: () => ({ json: () => {} }) }
-        );
+    if (existingPayment && existingPayment.status !== "SUCCESS") {
+      console.log(`[Webhook] Auto-activating plan for order: ${orderId}`);
+      
+      // 1. Update Payment status
+      await prisma.payment.update({
+        where: { id: existingPayment.id },
+        data: {
+          status: 'SUCCESS',
+          razorpayPaymentId: paymentId,
+          paidAt: new Date(),
+        },
+      });
+
+      // 2. Calculate period end based on billing type
+      const periodEnd = new Date();
+      if (existingPayment.billingType === 'annual') {
+        periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+      } else {
+        periodEnd.setMonth(periodEnd.getMonth() + 1);
       }
+
+      // 3. Update Tenant active plan status
+      await prisma.tenant.update({
+        where: { id: existingPayment.tenantId },
+        data: {
+          planId: existingPayment.planId,
+          planActivatedAt: new Date(),
+          billingType: existingPayment.billingType,
+          planStatus: 'active',
+          subscriptionStatus: 'active',
+          planPeriodStart: new Date(),
+          planPeriodEnd: periodEnd,
+        },
+      });
+      console.log(`[Webhook] Plan activated successfully for tenant ${existingPayment.tenantId}`);
+    }
     }
 
     return res.status(200).json({ status: "ok" });

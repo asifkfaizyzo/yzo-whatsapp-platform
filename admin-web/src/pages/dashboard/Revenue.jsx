@@ -580,12 +580,18 @@ export default function Revenue() {
 
   const handleDownloadInvoice = async (paymentId) => {
     try {
-      const res = await api.get(`/revenue/invoice/${paymentId}`);
-      if (res.data.success) {
-        window.open(res.data.data.invoiceUrl, "_blank");
-      } else {
-        alert("Failed to download invoice");
-      }
+      const res = await api.get(`/revenue/invoice/${paymentId}`, {
+        responseType: "blob",
+      });
+      const blob = new Blob([res.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Invoice-${paymentId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
     } catch (e) {
       alert("Failed to download invoice");
     }

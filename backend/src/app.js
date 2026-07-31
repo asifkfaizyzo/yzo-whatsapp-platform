@@ -21,7 +21,6 @@ import revenueRoutes from "./modules/revenue/revenueRoutes.js";
 import ticketRoutes from "./modules/tickets/ticketRoutes.js";
 import adminTicketRoutes from "./modules/tickets/adminTicketRoutes.js";
 import flowRoutes from './modules/automation/flowRoutes.js'
-import { verifyTenantOrUser } from './middlewares/authVerfyTenOrUser.js';
 import path from "path";
 
 // Enquiries and Enterprise Leads
@@ -66,27 +65,39 @@ const authLimiter = rateLimit({
 
 // ── Body Parser ──
 app.use(express.json({
+  limit: '10mb',
   verify: (req, res, buf) => {
     if (req.originalUrl.startsWith('/api/webhook')) {
       req.rawBody = buf;
     }
   }
 }));
-app.use(express.urlencoded({ extended: true }));
-
-// ── Static Files ──
-app.use("/uploads", verifyTenantOrUser,(req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header("Cross-Origin-Resource-Policy", "cross-origin");
-  next();
-}, express.static(path.join(process.cwd(), "uploads")));
-
-app.use(cookieParser());
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // ── CORS ──
 const allowedOrigins = (process.env.FRONTEND_URLS || '')
   .split(",")
   .map((url) => url.trim());
+
+// ── Static Files ──
+app.use("/uploads", (req, res, next) => {
+  // 🔒 Security: Block direct static web access to invoices
+  if (req.path.startsWith("/invoices")) {
+    return res.status(403).json({
+      success: false,
+      message: "Direct access to invoice files is forbidden. Use the authenticated download API.",
+    });
+  }
+  const requestOrigin = req.headers.origin;
+  if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
+    res.header("Access-Control-Allow-Origin", requestOrigin);
+  }
+  res.header("Cross-Origin-Resource-Policy", "same-site");
+  next();
+}, express.static(path.join(process.cwd(), "uploads")));
+
+app.use(cookieParser());
+
 
 app.use(cors({
   origin: function (origin, callback) {

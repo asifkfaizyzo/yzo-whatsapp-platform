@@ -112,15 +112,23 @@ export const initSocket = (server) => {
 
     // ── Room joining ──
     socket.on('join_tenant', (tenantId) => {
-      if (tenantId) {
+      // Verify socket owner actually belongs to the requested tenantId
+      if (tenantId && socket.tenantId === tenantId) {
         socket.join(tenantId);
         console.log(`👤 Socket ${socket.id} joined tenant room: ${tenantId}`);
+      } else {
+        console.warn(`⚠️ Unauthorized attempt by user ${socket.userId} to join tenant room ${tenantId}`);
       }
     });
 
     socket.on('join_superadmin', () => {
-      socket.join('superadmin_room');
-      console.log(`👑 Socket ${socket.id} joined superadmin room`);
+      // Only allow SUPERADMIN user types to join superadmin_room
+      if (socket.userType === 'SUPERADMIN') {
+        socket.join('superadmin_room');
+        console.log(`👑 Socket ${socket.id} joined superadmin room`);
+      } else {
+        console.warn(`⚠️ Unauthorized attempt by ${socket.userId} (${socket.userType}) to join superadmin_room`);
+      }
     });
 
     socket.on('join_user', (userId) => {

@@ -18,12 +18,23 @@ export const getBillingDetails = async () => {
 // ── Download Invoice ──
 export const downloadInvoice = async (paymentId) => {
   try {
-    const response = await api.get(`/plans/billing/invoice/${paymentId}`);
-    return response.data;
+    const response = await api.get(`/plans/billing/invoice/${paymentId}`, {
+      responseType: "blob",
+    });
+    const blob = new Blob([response.data], { type: "application/pdf" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Invoice-${paymentId}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+    return { success: true };
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || "Failed to get invoice",
+      message: error.response?.data?.message || "Failed to download invoice",
     };
   }
 };

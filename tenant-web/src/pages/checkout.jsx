@@ -105,6 +105,19 @@ export default function Checkout() {
     loadPlan();
   }, [planId]);
 
+  // ── Sync User Data into Billing Details ──
+  useEffect(() => {
+    if (user) {
+      setBillingDetails((prev) => ({
+        ...prev,
+        companyName: prev.companyName || user.tenantName || user.name || "",
+        email: prev.email || user.email || "",
+        phone: prev.phone || user.phone || "",
+        address: prev.address || user.address || "",
+      }));
+    }
+  }, [user]);
+
   // ── Price Calculations ──
   const getBasePrice = () => {
     if (!plan) return 0;
@@ -203,6 +216,8 @@ export default function Checkout() {
             razorpay_signature: response.razorpay_signature,
             planId,
             billingType,
+            address: billingDetails.address,
+            phone: billingDetails.phone,
           });
 
           if (verifyRes.success) {
@@ -214,6 +229,8 @@ export default function Checkout() {
               planId,
               planStatus: "active",
               billingType,
+              address: billingDetails.address,
+              phone: billingDetails.phone,
             };
             login(updatedUser, accessToken);
 

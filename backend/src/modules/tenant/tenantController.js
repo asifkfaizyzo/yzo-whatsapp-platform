@@ -48,7 +48,7 @@ export const registerTenant = async (req, res) => {
         const result = await registerTenantService(req.body);
         const { accessToken, refreshToken, user } = result.data;
 
-        res.cookie('refreshToken', refreshToken, {
+        res.cookie('tenant_refreshToken', refreshToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
@@ -86,18 +86,17 @@ export const loginTenant = async (req, res) => {
         });
 
         let result;
-        let cookieName; // ← add this ABOVE the if block
+        let cookieName='tenant_refreshToken';
 
 
-        // ✅ REPLACE WITH
         if (tenantExists) {
             result = await loginTenantService(req.body);
-            cookieName = 'refreshToken';
+            cookieName = 'tenant_refreshToken';
         } else {
             const userExists = await prisma.user.findUnique({ where: { email } });
             if (userExists) {
                 result = await loginUserService(req.body);
-                cookieName = 'refreshToken';
+                cookieName = 'user_refreshToken';
             } else {
                 return res.status(400).json({
                     success: false,
@@ -106,9 +105,9 @@ export const loginTenant = async (req, res) => {
             }
         }
         const { accessToken, refreshToken, user } = result;
-        // let cookieName; // ← add this ABOVE the if block
 
-        res.cookie('refreshToken', refreshToken, {
+
+        res.cookie(cookieName, refreshToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
@@ -132,20 +131,20 @@ export const loginTenant = async (req, res) => {
 
 export const logoutTenant = async (req, res) => {
     try {
-        const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
+        const refreshToken = req.cookies.tenant_refreshToken || req.cookies.user_refreshToken || req.body.refreshToken;
 
         if (refreshToken) {
             await logoutTenantService(refreshToken);
         }
 
-        res.clearCookie('refreshToken', {
+        res.clearCookie('tenant_refreshToken', {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
             path: '/',
         });
 
-        res.clearCookie('onboarding_token', {
+        res.clearCookie('user_refreshToken', {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
@@ -167,7 +166,7 @@ export const logoutTenant = async (req, res) => {
 
 export const refreshTenantAccessToken = async (req, res) => {
     try {
-        const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
+        const refreshToken = req.cookies.tenant_refreshToken || req.body.refreshToken;
 
         if (!refreshToken) {
             return res.status(401).json({
@@ -831,7 +830,7 @@ export const googleLoginTenant = async (req, res) => {
         const { accessToken, refreshToken, user } = result;
 
         // Set refresh token inside Secure Cookie
-        res.cookie('refreshToken', refreshToken, {
+        res.cookie('tenant_refreshToken', refreshToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
@@ -1169,7 +1168,7 @@ export const onboardingStep5 = async (req, res) => {
         });
 
         // 4️⃣ Set the full refresh token cookie
-        res.cookie('refreshToken', refreshToken, {
+        res.cookie('tenant_refreshToken', refreshToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
@@ -1194,6 +1193,8 @@ export const onboardingStep5 = async (req, res) => {
                     tenantName: updated.tenantName,
                     firstName: updated.firstName,
                     lastName: updated.lastName,
+                    phone: updated.phone,
+                    address: updated.address,
                     onboardingStep: updated.onboardingStep,
                     onboardingCompleted: updated.onboardingCompleted
                 }

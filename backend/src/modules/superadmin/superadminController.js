@@ -1,5 +1,7 @@
 import bcrypt from 'bcrypt';
 import pkg from '@prisma/client';
+import path from 'path';
+import fs from 'fs';
 
 import {generateAccessToken, generateRefreshToken} from '../auth/jwtservice.js';
 import {createSuperAdminService,loginSuperAdminService,logoutSuperAdminService,
@@ -46,7 +48,7 @@ export const loginSuperAdmin =
       const { accessToken, refreshToken, user } = result;
 
       // Set HTTP-Only Cookie for the refresh token
-      res.cookie('refreshToken', refreshToken, {
+      res.cookie('admin_refreshToken', refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
@@ -78,7 +80,7 @@ export const loginSuperAdmin =
   async (req, res) => {
     try {
 
-      const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
+      const refreshToken = req.cookies.admin_refreshToken || req.body.refreshToken;
         console.log("Logout request body/cookie token:", refreshToken);
 
       if (refreshToken) {
@@ -86,7 +88,7 @@ export const loginSuperAdmin =
       }
 
       // Clear cookie
-      res.clearCookie('refreshToken', {
+      res.clearCookie('admin_refreshToken', {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
@@ -116,7 +118,7 @@ export const loginSuperAdmin =
   async (req, res) => {
     try {
       // 1️⃣ Get refresh token from cookie or body
-      const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
+      const refreshToken = req.cookies.admin_refreshToken || req.body.refreshToken;
 
       if (!refreshToken) {
         return res.status(401).json({
@@ -387,30 +389,40 @@ export const adminDownloadInvoice = async (req, res) => {
       });
     }
 
+    let filePath;
+    let fileName;
+
     // Generate invoice if not exists
     if (!payment.invoiceUrl) {
       const { generateInvoicePDF } = await import('../plans/invoiceService.js');
 
-      const { fileUrl } = await generateInvoicePDF(payment, payment.tenant);
+      const generated = await generateInvoicePDF(payment, payment.tenant);
+      filePath = generated.filePath;
+      fileName = `${generated.invoiceNumber}.pdf`;
 
       await prisma.payment.update({
         where: { id: paymentId },
-        data: { invoiceUrl: fileUrl },
+        data: { invoiceUrl: generated.fileUrl },
       });
+    } else {
+      filePath = path.join(process.cwd(), payment.invoiceUrl);
+      fileName = path.basename(payment.invoiceUrl);
 
-      payment.invoiceUrl = fileUrl;
+      if (!fs.existsSync(filePath)) {
+        const { generateInvoicePDF } = await import('../plans/invoiceService.js');
+        const generated = await generateInvoicePDF(payment, payment.tenant);
+        filePath = generated.filePath;
+        fileName = `${generated.invoiceNumber}.pdf`;
+      }
     }
 
-    return res.status(200).json({
-      success: true,
-      data: {
-        invoiceUrl: `${process.env.BACKEND_URL || 'http://localhost:5000'}${payment.invoiceUrl}`,
-      },
-    });
+    return res.download(filePath, fileName);
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    if (!res.headersSent) {
+      return res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+    }
   }
 };
