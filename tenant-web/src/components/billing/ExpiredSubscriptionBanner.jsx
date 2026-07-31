@@ -5,6 +5,8 @@ import { useNavigate } from "react-router-dom";
 export default function ExpiredSubscriptionBanner({ expiredDate, dataDeletionDate }) {
   const navigate = useNavigate();
 
+  if (!expiredDate) return null;
+
   const formatDate = (dateVal) => {
     if (!dateVal || dateVal === "N/A") return "—";
     const d = new Date(dateVal);

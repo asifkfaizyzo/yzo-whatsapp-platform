@@ -54,7 +54,7 @@ export default function SelectPlan() {
         if (billingRes && billingRes.data?.success && billingRes.data?.data) {
           const billingData = billingRes.data.data;
           setBillingDetails(billingData);
-          setIsExpired(billingData.subscriptionStatus === 'expired');
+          setIsExpired(billingData.subscriptionStatus === 'expired' && !!billingData.planPeriodEnd);
         }
       } catch (err) {
         console.error("Failed to load select plan details:", err);

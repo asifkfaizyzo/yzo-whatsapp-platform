@@ -93,7 +93,7 @@ model Tenant {
   keywordTriggers  KeywordTrigger[]
   enterpriseLeads EnterpriseLead[]
 
-  subscriptionStatus   SubscriptionStatus  @default(expired)
+  subscriptionStatus   SubscriptionStatus  @default(trialing)
   currentPlan          String?
   planPeriodStart      DateTime?
   planPeriodEnd        DateTime?
