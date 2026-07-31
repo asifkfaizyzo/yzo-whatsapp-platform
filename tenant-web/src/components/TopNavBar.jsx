@@ -38,6 +38,7 @@ export default function TopNavBar() {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isWhatsappConnected, setIsWhatsappConnected] = useState(false);
+  const [tenantLogo, setTenantLogo] = useState(null); 
 
   const dropdownRef = useRef(null);
   const notifRef = useRef(null);
@@ -54,6 +55,52 @@ export default function TopNavBar() {
       console.error("Failed to parse user:", error);
     }
   }, []);
+
+  // 🆕 Fetch tenant logo (for TENANT role only)
+useEffect(() => {
+  const fetchTenantLogo = async () => {
+    if (!authUser) return;
+    
+    try {
+      let logoUrl = null;
+      if (authUser?.type === "TENANT") {
+
+      const res = await api.get("/me");
+      console.log("🖼️Tenant Logo response:", res.data);
+      if (res.data?.success && res.data?.data?.logo) {
+        logoUrl = res.data.data.logo;
+         }
+           } else if (authUser?.type === "USER") {
+        // 👤 USER: Fetch from user endpoint (returns tenant info too)
+        const res = await api.get(`${import.meta.env.VITE_BACKEND_URL}/api3/me`);
+        console.log("🖼️ User profile response (has tenant logo):", res.data);
+        if (res.data?.success && res.data?.data?.tenant?.logo) {
+          logoUrl = res.data.data.tenant.logo;
+        }
+      }
+      
+      if (logoUrl) {
+        setTenantLogo(logoUrl);
+        console.log("🖼️ Logo set to:", logoUrl);
+      }
+    } catch (err) {
+      console.log("Failed to fetch tenant logo:", err);
+    }
+  };
+  
+  fetchTenantLogo();
+}, [authUser]);
+ 
+
+// 🆕 Listen for logo updates from Settings page
+useEffect(() => {
+  const handleLogoUpdate = (event) => {
+    setTenantLogo(event.detail?.logo || null);
+  };
+  
+  window.addEventListener("tenant_logo_updated", handleLogoUpdate);
+  return () => window.removeEventListener("tenant_logo_updated", handleLogoUpdate);
+}, []);
 
   // ── Load notifications from API ──
   const loadNotifications = async () => {
@@ -518,16 +565,19 @@ export default function TopNavBar() {
                        h-16 relative z-30 shrink-0">
 
       {/* Left: Brand Logo */}
-      <div className="flex items-center gap-2">
-        <img
-          src="/sudo_bg.png"
-          alt="SudoReply Logo"
-          className="h-8 w-auto"
-        />
-        <span className="text-xl font-bold text-gray-800 tracking-tight">
-          {user?.tenantName || user?.companyName}
-        </span>
-      </div>
+    {/* Left: Brand Logo */}
+<div className="flex items-center gap-2">
+  <img
+    src="/sudo_bg.png"
+    alt="SudoReply Logo"
+    className="h-8 w-auto"
+  />
+  <span className="text-xl font-bold text-gray-800 tracking-tight">
+    SudoReply
+  </span>
+</div>
+
+    
 
       {/* Middle: WhatsApp API Status */}
       <div className="hidden sm:flex items-center gap-2 rounded-full px-3.5 py-1.5 border transition-all duration-300">
@@ -697,15 +747,30 @@ export default function TopNavBar() {
                        hover:bg-slate-50 border border-transparent
                        hover:border-slate-100 transition duration-150"
           >
+           
             <div className="w-8 h-8 rounded-xl bg-[#CFE0FD] flex
-                            items-center justify-center text-[#125EF2]
-                            font-semibold text-sm border border-[#CFE0FD]">
-              {user?.name
-                ? user.name.charAt(0).toUpperCase()
-                : user?.tenantName
-                  ? user.tenantName.charAt(0).toUpperCase()
-                  : <User size={16} />}
-            </div>
+                items-center justify-center text-[#125EF2]
+                font-semibold text-sm border border-[#CFE0FD]
+                overflow-hidden">
+  {tenantLogo ? (
+    <img
+      src={`${import.meta.env.VITE_BACKEND_URL}${tenantLogo}`}
+      alt="Logo"
+      className="w-full h-full object-cover"
+      onError={(e) => {
+        console.log("Logo image failed to load");
+        e.target.style.display = "none";
+      }}
+    />
+  ) : user?.name ? (
+    user.name.charAt(0).toUpperCase()
+  ) : user?.tenantName ? (
+    user.tenantName.charAt(0).toUpperCase()
+  ) : (
+    <User size={16} />
+  )}
+</div>
+
             <div className="hidden md:flex flex-col text-left mr-1">
               <span className="text-xs font-semibold text-slate-800
                                leading-none">

@@ -5,8 +5,11 @@ import {
   sendCancellationAdminAlertEmail,
   sendReactivationConfirmedEmail
 } from '../auth/emailService.js';
+import { createAuditLog } from '../audit/auditLogService.js';
+import { extractRequestMeta } from '../../lib/utils/requestMeta.js'; 
 
 export const cancelSubscription = async (req, res) => {
+  const meta = extractRequestMeta(req);
   const { reason, additionalComment } = req.body;
 
   if (!reason) {
@@ -74,6 +77,26 @@ export const cancelSubscription = async (req, res) => {
       return updated;
     });
 
+    // ✅ ADD audit log for PLAN_CANCELLED
+await createAuditLog({
+  actorId:     tenant.id,
+  actorType:   'TENANT',
+  actorName:   tenant.tenantName || tenant.email,
+  actorEmail:  tenant.email,
+  action:      'PLAN_CANCELLED',
+  module:      'BILLING',
+  description: `Tenant "${tenant.tenantName}" cancelled their subscription`,
+  ipAddress:   meta.ipAddress,   
+  userAgent:   meta.userAgent,
+  tenantId:    tenant.id,
+  metadata: {
+    planName:       tenant.currentPlan,
+    reason,
+    additionalComment: additionalComment || null,
+    periodEndDate:  updatedTenant.planPeriodEnd,
+  },
+});
+
     // Send emails asynchronously
     const frontendUrl = process.env.FRONTEND_URLS ? process.env.FRONTEND_URLS.split(',')[1] : 'http://localhost:5174';
     const reactivateLink = `${frontendUrl}/settings/billing`;
@@ -108,8 +131,12 @@ export const cancelSubscription = async (req, res) => {
   }
 };
 
+
+
+//Reactivate Subscription plan
 export const reactivateSubscription = async (req, res) => {
   try {
+    const meta = extractRequestMeta(req);
     const tenant = await prisma.tenant.findUnique({
       where: { id: req.tenantId }
     });
@@ -141,6 +168,25 @@ export const reactivateSubscription = async (req, res) => {
       });
 
       return updated;
+    });
+
+       // ✅ ADD audit log
+    await createAuditLog({
+      actorId:     tenant.id,
+      actorType:   'TENANT',
+      actorName:   tenant.tenantName || tenant.email,
+      actorEmail:  tenant.email,
+      action:      'PLAN_ACTIVATED',
+      module:      'BILLING',
+      description: `Tenant "${tenant.tenantName}" reactivated their subscription (cancelled cancellation)`,
+      tenantId:    tenant.id,
+      ipAddress:   meta.ipAddress,
+      userAgent:   meta.userAgent,
+      metadata: {
+        planName:        tenant.currentPlan,
+        reactivatedAt:   updatedTenant.reactivatedAt,
+        nextBillingDate: updatedTenant.planPeriodEnd,
+      },
     });
 
     // Send reactivation confirmation email

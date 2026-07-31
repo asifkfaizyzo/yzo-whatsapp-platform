@@ -1,191 +1,152 @@
-import bcrypt from 'bcrypt';
+// src/modules/messages/messageService.js
+
 import prisma from '../../config/prisma.js';
 import { decrypt } from '../../lib/crypto.js';
-
 import { getOrCreateConversation } from '../conversations/conversationService.js';
 import { evaluateReopen } from '../auto-reopen/autoReopenService.js';
 import { logActivity } from '../activity/activityService.js';
 import { validateMedia, detectMediaType } from "../../lib/utils/mediaValidator.js";
 import { createNotification } from "../notifications/notificationService.js";
 import flowEngine from '../automation/flowEngineService.js';
+import fs from 'fs';
 
 
-
-// //Send message- user → contact direction
-// export const sendMessage = async ({
-//   conversationId,
-//   senderId,
-//   senderType,
-//   message, 
-//   type = "TEXT",
-// }) => {
-//   console.log("senderId =", senderId);
-//   console.log("senderType =", senderType);
-//   console.log("SERVICE MESSAGE:", message);
-
-
-//   // 1️⃣ Check conversation exists
-//   const conversation = await prisma.conversation.findUnique({
-//     where: { id: conversationId },
-//   });
-
-//   if (!conversation) {
-//     throw new Error("Conversation not found");
-//   }
-
-//   // 2️⃣ Create message
-//   const newMessage = await prisma.message.create({
-//     data: {
-//       conversationId,
-//       senderId,
-//       senderType,
-//       text:message,
-//       type,
-//       isRead: false,
-//     },
-//   });
-
-//   // 3️⃣ Update conversation (IMPORTANT for inbox sorting)
-//   await prisma.conversation.update({
-//     where: { id: conversationId },
-//     data: {
-//       updatedAt: new Date(),
-//     },
-//   });
-
-//   return newMessage;
-// };
-
-
-
-//Handle Incoming Message- contact → user
 const CLOSED_STATUSES = ['RESOLVED', 'CLOSED'];
+
+
+// ─────────────────────────────────────────────────────────────
+// HANDLE INCOMING MESSAGE  (Contact → Platform)
+// ─────────────────────────────────────────────────────────────
 export const handleIncomingMessage = async ({
   contactId,
   tenantId,
   text,
   type = 'TEXT',
-   mediaUrl,
+  mediaUrl,
   mediaName,
   mediaSize,
   mediaMimeType,
   caption,
-  isNewContact = false,  // ✅ Accept the flag (defaults false for agent-sent calls)
+  isNewContact = false,
 }) => {
 
-  // Check if contact is blocked
+  // ── 1. Load contact ──────────────────────────────────────────
   const contact = await prisma.contact.findUnique({
     where: { id: contactId },
   });
 
-  if (!contact) {
-    throw new Error('Contact not found');
-  }
+  if (!contact) throw new Error('Contact not found');
 
   if (contact.isBlocked) {
     throw new Error('Cannot receive message from a blocked contact');
   }
 
-  let conversation = await getOrCreateConversation(contactId, tenantId)
+  // ── 2. Get or create conversation ────────────────────────────
+  let conversation = await getOrCreateConversation(contactId, tenantId);
 
-  let action = 'message_saved'
-  let reason = null
+  let action = 'message_saved';
+  let reason = null;
 
+  // ── 3. Handle closed conversation ────────────────────────────
   if (CLOSED_STATUSES.includes(conversation.status)) {
-    const decision = await evaluateReopen(conversation, text)
+    const decision = await evaluateReopen(conversation, text);
 
     if (decision.shouldReopen) {
       conversation = await prisma.conversation.update({
         where: { id: conversation.id },
         data: {
-          status: 'OPEN',
-          reopenCount: { increment: 1 },
-          reopenedAt: new Date(),
-          resolvedAt: null,
-          closedAt: null,
+          status:        'OPEN',
+          reopenCount:   { increment: 1 },
+          reopenedAt:    new Date(),
+          resolvedAt:    null,
+          closedAt:      null,
           lastMessageAt: new Date(),
-          assignedTo: decision.assignToAgentId,
+          assignedTo:    decision.assignToAgentId,
         },
-      })
+      });
 
-      // Update Contact.assignedTo to match (critical for frontend inbox filters!)
       await prisma.contact.update({
         where: { id: contact.id },
         data: {
           assignedTo: decision.assignToAgentId,
           assignedAt: decision.assignToAgentId ? new Date() : null,
         },
-      })
+      });
 
       await logActivity({
-        conversationId: conversation.id,
-        action: 'auto_reopened',
+        conversationId:  conversation.id,
+        action:          'auto_reopened',
         performedByType: 'system',
-        reason: decision.reason,
-      })
+        reason:          decision.reason,
+      });
 
-      action = 'auto_reopened'
-      reason = decision.reason
+      action = 'auto_reopened';
+      reason = decision.reason;
+
     } else {
       await prisma.conversation.update({
         where: { id: conversation.id },
-        data: { lastMessageAt: new Date() },
-      })
+        data:  { lastMessageAt: new Date() },
+      });
 
-      action = 'saved_without_reopen'
-      reason = decision.reason
+      action = 'saved_without_reopen';
+      reason = decision.reason;
     }
+
   } else {
     await prisma.conversation.update({
       where: { id: conversation.id },
-      data: { lastMessageAt: new Date() },
-    })
+      data:  { lastMessageAt: new Date() },
+    });
 
-    action = 'saved_to_active_conversation'
+    action = 'saved_to_active_conversation';
   }
 
+  // ── 4. Create message ─────────────────────────────────────────
   const message = await prisma.message.create({
     data: {
       conversationId: conversation.id,
-      senderId: null,
-      senderType: "CONTACT",
-      direction: "INBOUND",       
-      text: text || null, 
-      text,
+      senderId:       null,
+      senderType:     'CONTACT',
+      direction:      'INBOUND',
       type,
-      isRead: false,
-      mediaUrl: mediaUrl || null,
-      mediaName: mediaName || null,
-      mediaSize: mediaSize || null,
-      mediaMimeType: mediaMimeType || null,
-      caption: caption || null,
+      text:           text || caption || null,   // ✅ Fixed duplicate
+      isRead:         false,
+      mediaUrl:       mediaUrl       || null,
+      mediaName:      mediaName      || null,
+      mediaSize:      mediaSize      ? Number(mediaSize) : null,
+      mediaMimeType:  mediaMimeType  || null,
+      caption:        caption        || null,
+      status:         'sent',
     },
-  })
+  });
 
-  
-// create notification
-const notification = await createNotification({
-  tenantId,
-  userId:   null, // null = notify all tenant users
-  type:     "new_message",
-  title:    "New Message",
-  message:  `New message from ${contact.name || contact.phone}`,
-  metadata: {
-    conversationId: conversation.id,
-    contactId,
-    contactName: contact.name || contact.phone,
-  },
-});
+  // ── 5. Create notification ────────────────────────────────────
+  await createNotification({
+    tenantId,
+    userId:  null,
+    type:    'new_message',
+    title:   'New Message',
+    message: `New message from ${contact.name || contact.phone}`,
+    metadata: {
+      conversationId: conversation.id,
+      contactId,
+      contactName: contact.name || contact.phone,
+    },
+  });
 
+  // ── 6. Fetch updated conversation ─────────────────────────────
   const updatedConversation = await prisma.conversation.findUnique({
     where: { id: conversation.id },
-  })
+  });
 
-  // Trigger automation flow engine asynchronously
+  // ── 7. Trigger flow engine (text only) ────────────────────────
   if (text) {
-    flowEngine.processIncomingMessage(updatedConversation, contact, text, isNewContact).catch((err) => {
-      console.error('❌ Flow Engine failed to process incoming message:', err);
-    });
+    flowEngine
+      .processIncomingMessage(updatedConversation, contact, text, isNewContact)
+      .catch((err) => {
+        console.error('❌ Flow Engine error:', err);
+      });
   }
 
   return {
@@ -193,13 +154,13 @@ const notification = await createNotification({
     message,
     action,
     reason,
-  }
-}
+  };
+};
 
 
-
-
-//send Message by Tenant to user
+// ─────────────────────────────────────────────────────────────
+// SEND TEXT MESSAGE  (Tenant / Agent → Contact)
+// ─────────────────────────────────────────────────────────────
 export const sendMessageService = async ({
   contactId,
   tenantId,
@@ -208,53 +169,56 @@ export const sendMessageService = async ({
   text,
 }) => {
 
-  // Check if contact is blocked
+  // ── 1. Check contact ──────────────────────────────────────────
   const contact = await prisma.contact.findUnique({
     where: { id: contactId },
   });
 
-  if (!contact) {
-    throw new Error('Contact not found');
-  }
+  if (!contact)          throw new Error('Contact not found');
+  if (contact.isBlocked) throw new Error('Cannot send message to a blocked contact');
 
-  if (contact.isBlocked) {
-    throw new Error('Cannot send message to a blocked contact');
-  }
-
-  // ─── ADDED: Meta WhatsApp API Send Logic ───
+  // ── 2. Send via WhatsApp API ──────────────────────────────────
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
   });
-  if (tenant && tenant.whatsappPhoneId && tenant.whatsappAccessToken) {
-    const cleanPhone = contact.phone.replace('+', ''); // Meta expects the number without '+'
+
+ // AFTER (with try/catch):
+if (tenant?.whatsappPhoneId && tenant?.whatsappAccessToken) {
+  try {                                                        // ← ADD
+    const cleanPhone = contact.phone.replace('+', '');
     const url = `https://graph.facebook.com/v23.0/${tenant.whatsappPhoneId}/messages`;
+
     const response = await fetch(url, {
-      method: 'POST',
+      method:  'POST',
       headers: {
         'Authorization': `Bearer ${decrypt(tenant.whatsappAccessToken)}`,
-        'Content-Type': 'application/json'
+        'Content-Type':  'application/json',
       },
       body: JSON.stringify({
-        messaging_product: "whatsapp",
-        recipient_type: "individual",
-        to: cleanPhone,
-        type: "text",
-        text: { body: text }
-      })
+        messaging_product: 'whatsapp',
+        recipient_type:    'individual',
+        to:                cleanPhone,
+        type:              'text',
+        text:              { body: text },
+      }),
     });
+
     if (!response.ok) {
       const errorData = await response.json();
-      console.error('Meta API Error Payload:', errorData);
-      throw new Error(`Meta API Error: ${errorData.error?.message || 'Unknown error'}`);
+      console.error('⚠️ WhatsApp API Error:', errorData);
+      // ← REMOVED throw, just log
+    } else {
+      console.log('✅ WhatsApp message sent successfully');
     }
-  }
 
-  // Create or get conversation
-  const conversation =
-    await getOrCreateConversation(
-      contactId,
-      tenantId
-    );
+  } catch (waError) {                                          // ← ADD
+    console.error('⚠️ WhatsApp send failed:', waError.message);
+    // continues to save in DB
+  }                                                            // ← ADD
+}
+
+  // ── 3. Get or create conversation ─────────────────────────────
+  const conversation = await getOrCreateConversation(contactId, tenantId);
 
   const isClosed = CLOSED_STATUSES.includes(conversation.status);
 
@@ -262,72 +226,68 @@ export const sendMessageService = async ({
     await prisma.conversation.update({
       where: { id: conversation.id },
       data: {
-        status: 'OPEN',
-        reopenCount: { increment: 1 },
-        reopenedAt: new Date(),
-        resolvedAt: null,
-        closedAt: null,
+        status:        'OPEN',
+        reopenCount:   { increment: 1 },
+        reopenedAt:    new Date(),
+        resolvedAt:    null,
+        closedAt:      null,
         lastMessageAt: new Date(),
       },
     });
 
     await logActivity({
-      conversationId: conversation.id,
-      action: 'opened',
-      performedBy: senderId || null,
+      conversationId:  conversation.id,
+      action:          'opened',
+      performedBy:     senderId || null,
       performedByType: senderType === 'TENANT' ? 'tenant' : 'agent',
     });
+
   } else {
     await prisma.conversation.update({
       where: { id: conversation.id },
-      data: {
-        lastMessageAt: new Date(),
-      },
+      data:  { lastMessageAt: new Date() },
     });
   }
 
-  // Create message
-
-  console.log({
-    senderId,
-    senderType,
-  });
+  // ── 4. Create message ─────────────────────────────────────────
   const message = await prisma.message.create({
     data: {
       conversationId: conversation.id,
       senderId,
       senderType,
+      direction:      'OUTBOUND',
+      type:           'TEXT',
       text,
-      type: "TEXT",
-      status: "sent",
-      isRead: false,
+      status:         'sent',
+      isRead:         false,
     },
   });
 
-  return message;
+  return { ...message, conversationId: conversation.id };
 };
 
 
-
-
-//send Media Message Service
+// ─────────────────────────────────────────────────────────────
+// SEND MEDIA MESSAGE  (Tenant / Agent → Contact)
+// ─────────────────────────────────────────────────────────────
 export const sendMediaMessageService = async ({
   contactId,
   conversationId,
+  tenantId,       // ✅ NOW received
   senderId,
   senderType,
   file,
   caption,
 }) => {
 
-  // 1. Detect media type
+  // ── 1. Detect & validate media ────────────────────────────────
   const mediaType = detectMediaType(file.mimetype);
 
   if (!mediaType) {
-    throw new Error("Unsupported file type");
+    if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+    throw new Error('Unsupported file type');
   }
 
-  // 2. Validate file
   const validation = validateMedia(
     file.originalname,
     file.mimetype,
@@ -336,99 +296,225 @@ export const sendMediaMessageService = async ({
   );
 
   if (!validation.valid) {
+    if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
     throw new Error(validation.error);
   }
 
-  // 3. Build file URL
-  const mediaUrl = `/${file.path.replace(/\\/g, "/")}`;
+  // ── 2. Check contact not blocked ──────────────────────────────
+  const contact = await prisma.contact.findUnique({
+    where: { id: contactId },
+  });
 
-  // 4. Save message in DB
+  if (!contact) {
+    if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+    throw new Error('Contact not found');
+  }
+
+  if (contact.isBlocked) {
+    if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+    throw new Error('Cannot send to blocked contact');
+  }
+
+  // ── 3. Verify conversation ────────────────────────────────────
+  const conversation = await prisma.conversation.findUnique({
+    where: { id: conversationId },
+  });
+
+  if (!conversation) {
+    if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+    throw new Error('Conversation not found');
+  }
+
+  // ── 4. Send via WhatsApp API ──────────────────────────────────
+  // Note: For WhatsApp media, you need to first upload to Meta
+  // then send the media ID. This requires a 2-step process.
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+  });
+
+  if (tenant?.whatsappPhoneId && tenant?.whatsappAccessToken) {
+    try {
+      await sendWhatsAppMedia({
+        tenant,
+        contactPhone: contact.phone,
+        file,
+        caption,
+        mediaType,
+      });
+    } catch (waError) {
+      console.error('⚠️ WhatsApp API media send failed:', waError.message);
+      // Don't throw - still save to DB so agent can see it
+      // In production you may want to handle this differently
+    }
+  }
+
+  // ── 5. Build permanent media URL ──────────────────────────────
+  // file.path = "uploads/tenants/{tid}/contacts/{cid}/outbound/filename.jpg"
+  const mediaUrl = file.path.replace(/\\/g, '/');
+
+// ✅ Validate path before saving to DB
+if (!mediaUrl.startsWith('uploads/')) {
+  if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+  throw new Error('Invalid file path generated');
+}
+
+if (mediaUrl.includes('undefined')) {
+  if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+  throw new Error('Invalid file path - contains undefined');
+}
+
+  // ── 6. Save message to DB ─────────────────────────────────────
   const message = await prisma.message.create({
     data: {
       conversationId,
       senderId,
       senderType,
-      direction:     "OUTBOUND",
-      type:          mediaType,        // IMAGE / FILE / VIDEO / AUDIO
-      text:          null,
-      caption:       caption || null,
-      mediaUrl:      mediaUrl,
-      mediaName:     file.originalname,
-      mediaSize:     file.size,
-      mediaMimeType: file.mimetype,
-      status:"sent",
-      isRead:        false,
+      direction:      'OUTBOUND',
+      type:           mediaType,
+      text:           caption || null,
+      caption:        caption || null,
+      mediaUrl,                          // ✅ permanent absolute URL
+      mediaName:      file.originalname,
+      mediaSize:      file.size,
+      mediaMimeType:  file.mimetype,
+      status:         'sent',
+      isRead:         false,
     },
   });
 
-  return message;
+  // ── 7. Update conversation lastMessageAt ──────────────────────
+  await prisma.conversation.update({
+    where: { id: conversationId },
+    data:  { lastMessageAt: new Date() },
+  });
+
+  // ✅ Return with conversationId for socket emit
+  return { ...message, conversationId };
 };
 
 
+// ── WhatsApp Media Send Helper ────────────────────────────────
+const sendWhatsAppMedia = async ({
+  tenant,
+  contactPhone,
+  file,
+  caption,
+  mediaType,
+}) => {
+  const accessToken  = decrypt(tenant.whatsappAccessToken);
+  const phoneId      = tenant.whatsappPhoneId;
+  const cleanPhone   = contactPhone.replace('+', '');
 
-// Soft Delete Message Service
+  // Step 1: Upload media to Meta
+  const FormData = (await import('form-data')).default;
+  const formData = new FormData();
+  formData.append('file', fs.createReadStream(file.path), {
+    filename:    file.originalname,
+    contentType: file.mimetype,
+  });
+  formData.append('messaging_product', 'whatsapp');
+
+  const uploadRes = await fetch(
+    `https://graph.facebook.com/v23.0/${phoneId}/media`,
+    {
+      method:  'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        ...formData.getHeaders(),
+      },
+      body: formData,
+    }
+  );
+
+  if (!uploadRes.ok) {
+    const err = await uploadRes.json();
+    throw new Error(`Media upload failed: ${err.error?.message}`);
+  }
+
+  const { id: mediaId } = await uploadRes.json();
+
+  // Step 2: Send message with media ID
+  const typeMap = {
+    IMAGE:    'image',
+    VIDEO:    'video',
+    AUDIO:    'audio',
+    FILE:     'document',
+  };
+
+  const waType = typeMap[mediaType] || 'document';
+
+  const sendRes = await fetch(
+    `https://graph.facebook.com/v23.0/${phoneId}/messages`,
+    {
+      method:  'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type':  'application/json',
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        recipient_type:    'individual',
+        to:                cleanPhone,
+        type:              waType,
+        [waType]: {
+          id:      mediaId,
+          caption: caption || undefined,
+        },
+      }),
+    }
+  );
+
+  if (!sendRes.ok) {
+    const err = await sendRes.json();
+    throw new Error(`WhatsApp send failed: ${err.error?.message}`);
+  }
+
+  return await sendRes.json();
+};
+
+
+// ─────────────────────────────────────────────────────────────
+// DELETE MESSAGE  (Soft delete)
+// ─────────────────────────────────────────────────────────────
 export const deleteMessageService = async ({
   messageId,
   requesterId,
-  requesterRole,  // "SUPER_ADMIN" | "TENANT" | "AGENT"
-  tenantId,       // tenant context (from token)
+  requesterRole,
+  tenantId,
 }) => {
 
-  // ── Step 1: Find the message ──────────────────────────────
   const message = await prisma.message.findUnique({
-    where: { id: messageId },
-    include: {
-      conversation: true, // need tenantId from conversation
-    },
+    where:   { id: messageId },
+    include: { conversation: true },
   });
 
-  if (!message) {
-    throw new Error("Message not found");
-  }
-
-  // ── Step 2: Check if already deleted ─────────────────────
-  if (message.isDeleted) {
-    throw new Error("Message already deleted");
-  }
-
-  // ── Step 3: Permission Check ──────────────────────────────
-  /*
-    TENANT      → can delete any message in THEIR tenant
-    AGENT       → can only delete messages THEY sent
-  */
+  if (!message)          throw new Error('Message not found');
+  if (message.isDeleted) throw new Error('Message already deleted');
 
   const messageTenantId = message.conversation.tenantId;
 
-   if (requesterRole === "TENANT") {
-    // ✅ Tenant can delete any message in their own tenant
+  if (requesterRole === 'TENANT') {
     if (messageTenantId !== tenantId) {
-      throw new Error("Unauthorized: This message does not belong to your tenant");
-    }
-    console.log("🔑 Tenant deleting message:", messageId);
-
-  } else if (requesterRole === "AGENT") {
-    // ✅ Agent can only delete their own sent messages
-    if (messageTenantId !== tenantId) {
-      throw new Error("Unauthorized: This message does not belong to your tenant");
+      throw new Error('Unauthorized: This message does not belong to your tenant');
     }
 
-    // Agent cannot delete contact's inbound messages
-    if (message.senderType === "CONTACT") {
+  } else if (requesterRole === 'USER') {
+    if (messageTenantId !== tenantId) {
+      throw new Error('Unauthorized: This message does not belong to your tenant');
+    }
+
+    if (message.senderType === 'CONTACT') {
       throw new Error("Unauthorized: You cannot delete a contact's message");
     }
 
-    // Agent cannot delete another agent's or tenant's message
     if (message.senderId !== requesterId) {
-      throw new Error("Unauthorized: You can only delete your own messages");
+      throw new Error('Unauthorized: You can only delete your own messages');
     }
 
-    console.log("🔑 Agent deleting their own message:", messageId);
-
   } else {
-    throw new Error("Unauthorized: Unknown role");
+    throw new Error('Unauthorized: Unknown role');
   }
 
-  // ── Step 4: Soft Delete ───────────────────────────────────
   const deletedMessage = await prisma.message.update({
     where: { id: messageId },
     data: {
@@ -438,8 +524,6 @@ export const deleteMessageService = async ({
       deletedByRole: requesterRole,
     },
   });
-
-  console.log("🗑️ Message soft deleted:", messageId);
 
   return {
     deletedMessage,

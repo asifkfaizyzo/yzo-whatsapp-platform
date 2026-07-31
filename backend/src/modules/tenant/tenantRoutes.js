@@ -29,9 +29,9 @@ import {
     updateUserSchema,
     userIdParamSchema
 } from '../../validations/user.validation.js';
+import { logoUpload } from '../../config/logoUpload.js';
 
-// ✅ NO contactController import here - it lives in contacts folder
-// ✅ NO contactCrudService import here - it lives in contacts folder
+
 
 const router = express.Router();
 
@@ -56,6 +56,8 @@ router.post('/google-login', validate(googleLoginSchema), tenantController.googl
 router.get('/me', verifyTenant, tenantController.getLoggedInTenant);
 router.put('/update-profile', verifyTenant, validate(updateTenantProfileSchema), tenantController.updateTenantProfile);
 router.put('/change-password', verifyTenant, validate(changePasswordSchema), tenantController.updateTenantPassword);
+router.post('/upload-logo',verifyTenant,logoUpload.single('logo'),tenantController.uploadTenantLogo);
+router.delete('/delete-logo',verifyTenant,tenantController.deleteTenantLogo);
 
 // ===================== USER MANAGEMENT =====================
 router.post('/create-user', verifyTenant, requireApprovedTenant, validate(createUserSchema), tenantController.createUser);

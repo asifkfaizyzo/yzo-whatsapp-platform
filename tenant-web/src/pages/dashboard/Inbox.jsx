@@ -34,8 +34,13 @@ import {
   unarchiveConversation,
   deleteConversation,
   getArchivedConversations,
+  bulkReassignConversations,
 } from "../../services/conversation.service";
-import { sendMessage, sendMediaMessage, deleteMessage } from "../../services/message.service";
+import {
+  sendMessage,
+  sendMediaMessage,
+  deleteMessage,
+} from "../../services/message.service";
 import {
   getContacts,
   addTagToContact,
@@ -44,10 +49,7 @@ import {
 import { useAuthStore } from "../../store/useAuthStore";
 import { io } from "socket.io-client";
 import { getTags } from "../../services/tag.service";
-import {
-  getTenantUsers,
-  assignContact,
-} from "../../services/tenant.service";
+import { getTenantUsers, assignContact } from "../../services/tenant.service";
 import { useConfirm } from "../../context/ConfirmContext";
 import { useToast } from "../../context/ToastContext";
 
@@ -117,6 +119,17 @@ export default function Inbox() {
   const [assigningUser, setAssigningUser] = useState(false);
   const [selectedTag, setSelectedTag] = useState("");
   const [selectedAgent, setSelectedAgent] = useState("");
+
+  // ── Bulk Reassign State ──
+  const [bulkSelectMode, setBulkSelectMode] = useState(false);
+  const [selectedConvIds, setSelectedConvIds] = useState([]);
+  const [showBulkReassignModal, setShowBulkReassignModal] = useState(false);
+  const [bulkTargetUserId, setBulkTargetUserId] = useState("");
+  const [bulkReassigning, setBulkReassigning] = useState(false);
+  const [showSidebarMenu, setShowSidebarMenu] = useState(false);
+  const sidebarMenuRef = useRef(null);
+  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
+  const [deletingAllChats, setDeletingAllChats] = useState(false);
 
   // ── Delete Message State ──
   const [hoveredMessageId, setHoveredMessageId] = useState(null);
@@ -200,7 +213,7 @@ export default function Inbox() {
       }
       if (!silent) setLoading(false);
     },
-    [filter, urlConversationId, setSearchParams]
+    [filter, urlConversationId, setSearchParams],
   );
 
   // ── Initial Load ──
@@ -269,7 +282,7 @@ export default function Inbox() {
       console.log("🔌 Inbox Socket Disconnecting");
       newSocket.disconnect();
     };
-  // FIXED: Added user?.id and user?.type to dependency array
+    // FIXED: Added user?.id and user?.type to dependency array
   }, [activeTenantId, accessToken, user?.id, user?.type]);
 
   // ── Socket Event Listeners ──
@@ -299,7 +312,7 @@ export default function Inbox() {
 
       setChats((prevChats) => {
         const exists = prevChats.some(
-          (c) => String(c.id) === String(conversationId)
+          (c) => String(c.id) === String(conversationId),
         );
         if (!exists) {
           setTimeout(() => {
@@ -349,8 +362,8 @@ export default function Inbox() {
                 mediaUrl: null,
                 caption: null,
               }
-            : m
-        )
+            : m,
+        ),
       );
 
       setChats((prevChats) =>
@@ -361,21 +374,33 @@ export default function Inbox() {
               messages: (c.messages || []).map((m) =>
                 m.id === messageId
                   ? { ...m, text: "🚫 Message deleted", isDeleted: true }
-                  : m
+                  : m,
               ),
             };
           }
           return c;
-        })
+        }),
+      );
+    };
+
+    // ── ADD THIS: Handle bulk reassign ──────────────
+    const handleConversationsReassigned = (data) => {
+      const { conversationIds, newUserId, newUserName, count } = data;
+      // Silently refresh conversations list
+      loadConversations(true);
+      console.log(
+        `🔄 ${count} conversation(s) reassigned to ${newUserName || "unassigned"}`,
       );
     };
 
     socket.on("new_message", handleNewMessage);
     socket.on("message_deleted", handleMessageDeleted);
+    socket.on("conversations_reassigned", handleConversationsReassigned);
 
     return () => {
       socket.off("new_message", handleNewMessage);
       socket.off("message_deleted", handleMessageDeleted);
+      socket.off("conversations_reassigned", handleConversationsReassigned);
     };
   }, [socket, activeChatId, loadConversations]);
 
@@ -384,6 +409,20 @@ export default function Inbox() {
     const handleClickOutside = (e) => {
       if (convMenuRef.current && !convMenuRef.current.contains(e.target)) {
         setShowConvMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // ── Close sidebar menu when clicking outside ──
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (
+        sidebarMenuRef.current &&
+        !sidebarMenuRef.current.contains(e.target)
+      ) {
+        setShowSidebarMenu(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -422,14 +461,14 @@ export default function Inbox() {
     const maxSize = isImage
       ? 5 * 1024 * 1024
       : isVideo || isAudio
-      ? 16 * 1024 * 1024
-      : 100 * 1024 * 1024;
+        ? 16 * 1024 * 1024
+        : 100 * 1024 * 1024;
 
     if (file.size > maxSize) {
       toast.warning(
         `File too large. Max size is ${
           isImage ? "5MB" : isVideo || isAudio ? "16MB" : "100MB"
-        }`
+        }`,
       );
       return;
     }
@@ -487,14 +526,15 @@ export default function Inbox() {
 
     const messageText = typedMessage;
     const isClosedOrResolved = ["RESOLVED", "CLOSED"].includes(
-      activeChat?.status
+      activeChat?.status,
     );
 
     if (isClosedOrResolved) {
       const ok = await confirm({
         type: "info",
         title: "Reopen Conversation?",
-        message: "This conversation is closed/resolved. Sending will reopen it. Proceed?",
+        message:
+          "This conversation is closed/resolved. Sending will reopen it. Proceed?",
         confirmLabel: "Send & Reopen",
       });
       if (!ok) return;
@@ -527,8 +567,8 @@ export default function Inbox() {
                   mediaUrl: null,
                   caption: null,
                 }
-              : m
-          )
+              : m,
+          ),
         );
       } else {
         toast.error("Failed to delete: " + res.message);
@@ -574,8 +614,8 @@ export default function Inbox() {
         prev.map((c) =>
           String(c.id) === String(activeChatId)
             ? { ...c, status: newStatus }
-            : c
-        )
+            : c,
+        ),
       );
     } else {
       toast.error(res.message);
@@ -599,7 +639,7 @@ export default function Inbox() {
       const res = await archiveConversation(activeChatId);
       if (res.success) {
         setChats((prev) =>
-          prev.filter((c) => String(c.id) !== String(activeChatId))
+          prev.filter((c) => String(c.id) !== String(activeChatId)),
         );
         setActiveChatId(null);
         setSearchParams({ filter });
@@ -622,7 +662,7 @@ export default function Inbox() {
       const res = await deleteConversation(activeChatId);
       if (res.success) {
         setChats((prev) =>
-          prev.filter((c) => String(c.id) !== String(activeChatId))
+          prev.filter((c) => String(c.id) !== String(activeChatId)),
         );
         setActiveChatId(null);
         setSearchParams({ filter });
@@ -650,7 +690,7 @@ export default function Inbox() {
             if (String(c.id) === String(activeChatId)) {
               const tagObj = allTags.find((t) => t.id === selectedTag);
               const alreadyHas = (c.contact?.contactTags || []).some(
-                (ct) => ct.tag?.id === selectedTag
+                (ct) => ct.tag?.id === selectedTag,
               );
               if (alreadyHas || !tagObj) return c;
               return {
@@ -665,7 +705,7 @@ export default function Inbox() {
               };
             }
             return c;
-          })
+          }),
         );
         setSelectedTag("");
         toast.success("Tag added successfully!");
@@ -692,13 +732,13 @@ export default function Inbox() {
                 contact: {
                   ...c.contact,
                   contactTags: (c.contact?.contactTags || []).filter(
-                    (ct) => ct.tag?.id !== tagId
+                    (ct) => ct.tag?.id !== tagId,
                   ),
                 },
               };
             }
             return c;
-          })
+          }),
         );
         toast.success("Tag removed successfully!");
       } else {
@@ -728,7 +768,7 @@ export default function Inbox() {
               };
             }
             return c;
-          })
+          }),
         );
         setSelectedAgent("");
         toast.success("Agent assigned successfully!");
@@ -874,14 +914,125 @@ export default function Inbox() {
     const res = await getArchivedConversations(1, 50);
     if (res.success) {
       const list =
-        res.data?.conversations ||
-        res.data?.data?.conversations ||
-        [];
+        res.data?.conversations || res.data?.data?.conversations || [];
       setArchivedChats(list);
     }
     setLoadingArchived(false);
   };
 
+  // ─────────────────────────────────────────────
+  // ── BULK REASSIGN HANDLERS ── ADD FROM HERE ──
+  // ─────────────────────────────────────────────
+
+  // ── Toggle Bulk Select Mode ──
+  const handleToggleBulkSelectMode = () => {
+    setBulkSelectMode((prev) => !prev);
+    setSelectedConvIds([]);
+  };
+
+  // ── Toggle Single Conversation Selection ──
+  const handleToggleConvSelection = (convId) => {
+    setSelectedConvIds((prev) =>
+      prev.includes(convId)
+        ? prev.filter((id) => id !== convId)
+        : [...prev, convId],
+    );
+  };
+
+  // ── Select All Conversations ──
+  const handleSelectAll = () => {
+    if (selectedConvIds.length === tabFilteredChats.length) {
+      setSelectedConvIds([]);
+    } else {
+      setSelectedConvIds(tabFilteredChats.map((c) => c.id));
+    }
+  };
+
+  // ── Bulk Reassign Submit ──
+  const handleBulkReassign = async () => {
+    if (selectedConvIds.length === 0) {
+      toast.warning("Please select at least one conversation");
+      return;
+    }
+
+    const newUserId = bulkTargetUserId || null;
+
+    const targetUserName = newUserId
+      ? allAgents.find((a) => a.id === newUserId)?.name || "selected user"
+      : "no one (unassign)";
+
+    const ok = await confirm({
+      type: "warning",
+      title: "Bulk Reassign Conversations?",
+      message: `Reassign ${selectedConvIds.length} conversation(s) to ${targetUserName}?`,
+      confirmLabel: "Reassign",
+    });
+
+    if (!ok) return;
+
+    setBulkReassigning(true);
+    try {
+      const res = await bulkReassignConversations(selectedConvIds, newUserId);
+
+      if (res.success) {
+        toast.success(
+          res.message || `${selectedConvIds.length} conversation(s) reassigned`,
+        );
+
+        // ── Update local state immediately ──
+        setChats((prev) =>
+          prev.map((c) => {
+            if (selectedConvIds.includes(c.id)) {
+              return {
+                ...c,
+                contact: {
+                  ...c.contact,
+                  assignedTo: newUserId,
+                },
+              };
+            }
+            return c;
+          }),
+        );
+
+        // ── Reset bulk mode ──
+        setSelectedConvIds([]);
+        setBulkSelectMode(false);
+        setShowBulkReassignModal(false);
+        setBulkTargetUserId("");
+      } else {
+        toast.error(res.message || "Failed to reassign conversations");
+      }
+    } catch (err) {
+      toast.error("Something went wrong during bulk reassign");
+    }
+    setBulkReassigning(false);
+  };
+
+  // ── Delete All Chats (Admin Only) ──
+  const handleDeleteAllChats = async () => {
+    if (userRole !== "admin") return;
+
+    setDeletingAllChats(true);
+    try {
+      for (const chat of chats) {
+        await deleteConversation(chat.id);
+      }
+      toast.success(`${chats.length} chat(s) deleted successfully`);
+      setChats([]);
+      setActiveChatId(null);
+      setSearchParams({ filter });
+      setShowDeleteAllConfirm(false);
+      setShowSidebarMenu(false);
+    } catch (err) {
+      toast.error("Failed to delete all chats");
+    }
+    setDeletingAllChats(false);
+  };
+
+  // ─────────────────────────────────────────────
+  // ── BULK REASSIGN HANDLERS END ───────────────
+  // ─────────────────────────────────────────────
   // ── Unarchive Handler ──
   const handleUnarchiveConversation = async (conversationId) => {
     setUnarchivingId(conversationId);
@@ -889,7 +1040,7 @@ export default function Inbox() {
       const res = await unarchiveConversation(conversationId);
       if (res.success) {
         setArchivedChats((prev) =>
-          prev.filter((c) => String(c.id) !== String(conversationId))
+          prev.filter((c) => String(c.id) !== String(conversationId)),
         );
         await loadConversations();
         toast.success("Conversation unarchived.");
@@ -914,12 +1065,11 @@ export default function Inbox() {
 
   const tabCounts = {
     all: chats.length,
-    unread: chats.filter(
-      (c) => c.status === "OPEN" && getUnreadCount(c.id) > 0
-    ).length,
+    unread: chats.filter((c) => c.status === "OPEN" && getUnreadCount(c.id) > 0)
+      .length,
     open: chats.filter((c) => c.status === "OPEN").length,
     closed: chats.filter(
-      (c) => c.status === "RESOLVED" || c.status === "CLOSED"
+      (c) => c.status === "RESOLVED" || c.status === "CLOSED",
     ).length,
   };
 
@@ -976,12 +1126,11 @@ export default function Inbox() {
       data-inbox-mounted="true"
       className="h-[calc(100vh-130px)] flex rounded-3xl overflow-hidden animate-in fade-in duration-200 border border-[#075E54]/10 shadow-lg shadow-[#075E54]/5"
     >
-
       {/* ══════════════════════════════════════
-          LEFT SIDEBAR
-      ══════════════════════════════════════ */}
+    LEFT SIDEBAR
+══════════════════════════════════════ */}
       <div className="w-80 flex flex-col shrink-0 bg-white border-r border-emerald-100">
-
+        {/* Header */}
         {/* Header */}
         <div className="px-4 pt-4 pb-2 flex items-center justify-between bg-gradient-to-r from-[#075E54] to-[#128C7E] rounded-tl-3xl">
           <div className="flex items-center gap-2.5">
@@ -997,20 +1146,68 @@ export default function Inbox() {
               </p>
             </div>
           </div>
-          <button
-            onClick={() => setShowNewChatModal(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white text-xs font-semibold rounded-lg transition duration-150 border border-white/10 shrink-0"
-            title="Start New Conversation"
-          >
-            <MessageSquarePlus size={13} />
-            <span>New Chat</span>
-          </button>
+
+          <div className="flex items-center gap-1.5">
+            {/* ── New Chat Button ── */}
+            <button
+              onClick={() => setShowNewChatModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white text-xs font-semibold rounded-lg transition duration-150 border border-white/10 shrink-0"
+            >
+              <MessageSquarePlus size={13} />
+              <span>New Chat</span>
+            </button>
+
+            {/* ── 3-Dot Menu (Admin Only) ── */}
+            {userRole === "admin" && (
+              <div className="relative" ref={sidebarMenuRef}>
+                <button
+                  onClick={() => setShowSidebarMenu((prev) => !prev)}
+                  className="text-white/70 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition"
+                  title="More options"
+                >
+                  <MoreVertical size={18} />
+                </button>
+
+                {showSidebarMenu && (
+                  <div className="absolute right-0 top-full mt-1 z-50 bg-white rounded-xl shadow-xl border border-emerald-100 overflow-hidden w-52">
+                    {/* Bulk Reassign */}
+                    <button
+                      onClick={() => {
+                        setBulkSelectMode(true);
+                        setShowSidebarMenu(false);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-[#111B21] hover:bg-[#F0F2F5] transition"
+                    >
+                      <UserCheck size={14} className="text-[#075E54]" />
+                      <span>Bulk Reassign</span>
+                    </button>
+
+                    {/* Delete All Chats */}
+                    <div className="h-px bg-[#F0F2F5]" />
+                    <button
+                      onClick={() => {
+                        setShowSidebarMenu(false);
+                        setShowDeleteAllConfirm(true);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-red-500 hover:bg-red-50 transition"
+                    >
+                      <Trash2 size={14} />
+                      <span>Delete All Chats</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Search */}
         <div className="px-4 py-3 bg-[#F0F2F5]">
           <div className="relative">
-            <Search className="absolute left-3 top-2.5 text-[#54656F]" size={14} />
+            <Search
+              className="absolute left-3 top-2.5 text-[#54656F]"
+              size={14}
+            />
             <input
               type="text"
               placeholder="Search or start new chat..."
@@ -1041,8 +1238,8 @@ export default function Inbox() {
                     isTabActive
                       ? "bg-[#25D366]/15 text-[#075E54]"
                       : tab.value === "unread" && tab.count > 0
-                      ? "bg-[#25D366] text-white"
-                      : "bg-[#F0F2F5] text-[#667781]"
+                        ? "bg-[#25D366] text-white"
+                        : "bg-[#F0F2F5] text-[#667781]"
                   }`}
                 >
                   {tab.count > 99 ? "99+" : tab.count}
@@ -1052,8 +1249,38 @@ export default function Inbox() {
           })}
         </div>
 
+        {/* Bulk Action Bar */}
+        {bulkSelectMode && userRole === "admin" && (
+          <div className="px-3 py-2 bg-[#075E54]/10 border-b border-emerald-100 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={
+                  selectedConvIds.length === tabFilteredChats.length &&
+                  tabFilteredChats.length > 0
+                }
+                onChange={handleSelectAll}
+                className="w-3.5 h-3.5 accent-[#075E54] cursor-pointer"
+              />
+              <span className="text-[10px] font-semibold text-[#075E54]">
+                {selectedConvIds.length > 0
+                  ? `${selectedConvIds.length} selected`
+                  : "Select all"}
+              </span>
+            </div>
+            <button
+              onClick={() => setShowBulkReassignModal(true)}
+              disabled={selectedConvIds.length === 0}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#075E54] hover:bg-[#064E47] text-white text-[10px] font-bold rounded-lg transition disabled:opacity-40"
+            >
+              <UserCheck size={12} />
+              <span>Reassign ({selectedConvIds.length})</span>
+            </button>
+          </div>
+        )}
+
         {/* Conversations List */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden">
           {loading ? (
             <div className="p-4 text-center">
               <div className="inline-flex items-center gap-2 text-xs text-[#667781]">
@@ -1067,8 +1294,6 @@ export default function Inbox() {
               const lastMsg = chat.messages?.[0];
               const isActive = String(chat.id) === String(activeChatId);
               const avatarBg = getAvatarStyle(contactName);
-              const contactTags = getContactTags(chat.contact);
-              const primaryTag = contactTags[0] || "Lead";
               const unreadCount = getUnreadCount(chat.id);
               const timeStr = lastMsg
                 ? new Date(lastMsg.createdAt).toLocaleTimeString([], {
@@ -1078,33 +1303,52 @@ export default function Inbox() {
                 : "";
 
               return (
-                <button
+                <div
                   key={chat.id}
-                  onClick={() => {
-                    setActiveChatId(chat.id);
-                    setSearchParams({ filter, conversationId: chat.id });
-                  }}
-                  className={`w-full text-left px-4 py-3.5 flex items-start gap-3 transition duration-150 border-b border-[#F0F2F5] ${
+                  className={`w-full flex items-start gap-3 px-4 py-3.5 border-b border-[#F0F2F5] transition ${
                     isActive ? "bg-[#F0F2F5]" : "hover:bg-[#F5F6F6] bg-white"
+                  } ${
+                    bulkSelectMode && selectedConvIds.includes(chat.id)
+                      ? "bg-emerald-50 border-l-2 border-l-[#25D366]"
+                      : ""
                   }`}
                 >
-                  {/* Avatar */}
-                  <div className="relative shrink-0">
-                    <div
-                      className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm ${avatarBg}`}
-                    >
-                      {contactName.charAt(0)}
+                  {bulkSelectMode && userRole === "admin" && (
+                    <div className="flex items-center justify-center pt-3 shrink-0">
+                      <input
+                        type="checkbox"
+                        checked={selectedConvIds.includes(chat.id)}
+                        onChange={() => handleToggleConvSelection(chat.id)}
+                        className="w-4 h-4 accent-[#075E54] cursor-pointer"
+                      />
                     </div>
-                    {chat.status === "OPEN" && (
-                      <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-[#25D366] border-2 border-white rounded-full" />
-                    )}
-                  </div>
+                  )}
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5 min-w-0">
+                  <button
+                    className="flex-1 text-left flex items-start gap-3"
+                    onClick={() => {
+                      if (bulkSelectMode) handleToggleConvSelection(chat.id);
+                      else {
+                        setActiveChatId(chat.id);
+                        setSearchParams({ filter, conversationId: chat.id });
+                      }
+                    }}
+                  >
+                    <div className="relative shrink-0">
+                      <div
+                        className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm ${avatarBg}`}
+                      >
+                        {contactName.charAt(0)}
+                      </div>
+                      {chat.status === "OPEN" && (
+                        <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-[#25D366] border-2 border-white rounded-full" />
+                      )}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
                         <span
-                          className={`text-sm truncate ${
+                          className={`text-sm truncate max-w-[180px] ${
                             unreadCount > 0
                               ? "font-bold text-[#111B21]"
                               : "font-semibold text-[#111B21]"
@@ -1112,30 +1356,19 @@ export default function Inbox() {
                         >
                           {contactName}
                         </span>
-                        {chat.contact?.isBlocked && (
-                          <span className="px-1.5 py-0.5 bg-red-50 text-red-600 text-[9px] font-bold rounded-md uppercase tracking-wider shrink-0 border border-red-100">
-                            Blocked
-                          </span>
-                        )}
+                        <span
+                          className={`text-[10px] ${
+                            unreadCount > 0
+                              ? "text-[#25D366] font-semibold"
+                              : "text-[#667781]"
+                          }`}
+                        >
+                          {timeStr}
+                        </span>
                       </div>
-                      <span
-                        className={`text-[10px] font-medium shrink-0 ${
-                          unreadCount > 0
-                            ? "text-[#25D366] font-semibold"
-                            : "text-[#667781]"
-                        }`}
-                      >
-                        {timeStr}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between mt-0.5">
-                      <div className="flex items-center gap-1 min-w-0">
-                        {lastMsg && !lastMsg.isFromCustomer && (
-                          <CheckCheck size={14} className="text-[#53BDEB] shrink-0" />
-                        )}
+                      <div className="flex items-center justify-between mt-0.5">
                         <p
-                          className={`text-xs truncate max-w-[160px] ${
+                          className={`text-xs truncate max-w-[200px] ${
                             unreadCount > 0
                               ? "text-[#111B21] font-medium"
                               : "text-[#667781]"
@@ -1143,25 +1376,16 @@ export default function Inbox() {
                         >
                           {lastMsg ? lastMsg.text : "No messages yet"}
                         </p>
-                      </div>
-                      {unreadCount > 0 && (
-                        <span className="ml-2 inline-flex items-center justify-center min-w-[20px] h-[20px] px-1.5 rounded-full bg-[#25D366] text-white text-[10px] font-bold shrink-0">
-                          {unreadCount > 99 ? "99+" : unreadCount}
-                        </span>
-                      )}
-                    </div>
 
-                    <div className="mt-1.5">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-semibold border ${getTagColor(
-                          primaryTag
-                        )}`}
-                      >
-                        {primaryTag}
-                      </span>
+                        {unreadCount > 0 && (
+                          <span className="ml-2 bg-[#25D366] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                            {unreadCount}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </button>
+                  </button>
+                </div>
               );
             })
           )}
@@ -1172,13 +1396,7 @@ export default function Inbox() {
                 <FaWhatsapp className="w-7 h-7 text-[#25D366]" />
               </div>
               <p className="text-sm font-medium text-[#667781]">
-                {activeTab === "unread" && "No unread chats"}
-                {activeTab === "open" && "No open chats"}
-                {activeTab === "closed" && "No closed chats"}
-                {activeTab === "all" && "No chats found"}
-              </p>
-              <p className="text-[11px] text-[#8696A0] mt-1">
-                Messages will appear here
+                No chats found
               </p>
             </div>
           )}
@@ -1190,22 +1408,7 @@ export default function Inbox() {
             onClick={() => setShowArchived(true)}
             className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-[#667781] hover:text-[#075E54] hover:bg-[#F0F2F5] rounded-xl transition duration-150"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <polyline points="21 8 21 21 3 21 3 8" />
-              <rect x="1" y="3" width="22" height="5" />
-              <line x1="10" y1="12" x2="14" y2="12" />
-            </svg>
-            <span>Archived Chats</span>
+            <span>📁 Archived Chats</span>
             {archivedChats.length > 0 && (
               <span className="ml-auto inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[#075E54] text-white text-[9px] font-bold">
                 {archivedChats.length}
@@ -1227,7 +1430,7 @@ export default function Inbox() {
               <div className="flex items-center gap-3">
                 <div
                   className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ring-2 ring-white/20 ${getAvatarStyle(
-                    activeChat.contact?.name
+                    activeChat.contact?.name,
                   )}`}
                 >
                   {(activeChat.contact?.name || "C").charAt(0)}
@@ -1289,7 +1492,10 @@ export default function Inbox() {
                         className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-[#111B21] hover:bg-[#F0F2F5] transition disabled:opacity-50"
                       >
                         {archivingConv ? (
-                          <RefreshCw size={14} className="animate-spin text-[#075E54]" />
+                          <RefreshCw
+                            size={14}
+                            className="animate-spin text-[#075E54]"
+                          />
                         ) : (
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -1346,7 +1552,8 @@ export default function Inbox() {
                       Are you sure you want to delete this conversation?
                     </p>
                     <p className="text-xs text-[#667781] mb-6">
-                      ⚠️ This will permanently delete all messages and cannot be undone.
+                      ⚠️ This will permanently delete all messages and cannot be
+                      undone.
                     </p>
                     <div className="flex gap-3">
                       <button
@@ -1389,7 +1596,7 @@ export default function Inbox() {
                   <span className="px-4 py-1 bg-white/80 backdrop-blur-sm rounded-lg text-[10px] font-semibold text-[#54656F] shadow-sm">
                     {new Date(messages[0]?.createdAt).toLocaleDateString(
                       undefined,
-                      { weekday: "long", month: "short", day: "numeric" }
+                      { weekday: "long", month: "short", day: "numeric" },
                     )}
                   </span>
                 </div>
@@ -1397,16 +1604,18 @@ export default function Inbox() {
 
               {messages.map((msg) => {
                 const isAgent = !msg.isFromCustomer;
-                const timeStr = new Date(msg.createdAt).toLocaleTimeString(
-                  [],
-                  { hour: "2-digit", minute: "2-digit" }
-                );
+                const timeStr = new Date(msg.createdAt).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                });
 
                 const BACKEND_URL =
                   import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
 
                 const getMediaUrl = (mediaUrl) => {
                   if (!mediaUrl) return "";
+                  console.log("📎 Media URL received:", mediaUrl);
+
                   if (
                     mediaUrl.startsWith("http://") ||
                     mediaUrl.startsWith("https://")
@@ -1459,7 +1668,7 @@ export default function Inbox() {
                           <button
                             onClick={() =>
                               setDeleteConfirmId(
-                                deleteConfirmId === msg.id ? null : msg.id
+                                deleteConfirmId === msg.id ? null : msg.id,
                               )
                             }
                             className="p-1.5 rounded-full bg-white/80 hover:bg-red-50 text-[#667781] hover:text-red-500 shadow-sm transition duration-150"
@@ -1487,7 +1696,10 @@ export default function Inbox() {
                                   className="flex-1 py-1 text-[10px] font-semibold rounded-lg bg-red-500 text-white hover:bg-red-600 transition disabled:opacity-50 flex items-center justify-center gap-1"
                                 >
                                   {deletingMessageId === msg.id ? (
-                                    <RefreshCw size={10} className="animate-spin" />
+                                    <RefreshCw
+                                      size={10}
+                                      className="animate-spin"
+                                    />
                                   ) : (
                                     "Delete"
                                   )}
@@ -1523,7 +1735,7 @@ export default function Inbox() {
                             <button
                               onClick={() =>
                                 setDeleteConfirmId(
-                                  deleteConfirmId === msg.id ? null : msg.id
+                                  deleteConfirmId === msg.id ? null : msg.id,
                                 )
                               }
                               className="p-1.5 rounded-full bg-white/80 hover:bg-red-50 text-[#667781] hover:text-red-500 shadow-sm transition duration-150"
@@ -1551,7 +1763,10 @@ export default function Inbox() {
                                     className="flex-1 py-1 text-[10px] font-semibold rounded-lg bg-red-500 text-white hover:bg-red-600 transition disabled:opacity-50 flex items-center justify-center gap-1"
                                   >
                                     {deletingMessageId === msg.id ? (
-                                      <RefreshCw size={10} className="animate-spin" />
+                                      <RefreshCw
+                                        size={10}
+                                        className="animate-spin"
+                                      />
                                     ) : (
                                       "Delete"
                                     )}
@@ -1607,7 +1822,8 @@ export default function Inbox() {
                               {msg.mediaSize
                                 ? msg.mediaSize < 1024 * 1024
                                   ? (msg.mediaSize / 1024).toFixed(1) + " KB"
-                                  : (msg.mediaSize / (1024 * 1024)).toFixed(1) + " MB"
+                                  : (msg.mediaSize / (1024 * 1024)).toFixed(1) +
+                                    " MB"
                                 : ""}
                             </p>
                             {msg.caption && (
@@ -1680,13 +1896,22 @@ export default function Inbox() {
                               <Check size={14} className="text-[#667781]" />
                             )}
                             {msg.status === "delivered" && (
-                              <CheckCheck size={14} className="text-[#667781]" />
+                              <CheckCheck
+                                size={14}
+                                className="text-[#667781]"
+                              />
                             )}
                             {(msg.status === "read" || msg.isRead) && (
-                              <CheckCheck size={14} className="text-[#53BDEB]" />
+                              <CheckCheck
+                                size={14}
+                                className="text-[#53BDEB]"
+                              />
                             )}
                             {!msg.status && !msg.isRead && (
-                              <CheckCheck size={14} className="text-[#667781]" />
+                              <CheckCheck
+                                size={14}
+                                className="text-[#667781]"
+                              />
                             )}
                           </>
                         )}
@@ -1717,7 +1942,8 @@ export default function Inbox() {
               {activeChat.contact?.isBlocked && (
                 <div className="flex items-center justify-between text-xs bg-red-50 text-red-800 px-4 py-2.5 rounded-xl border border-red-100">
                   <span className="font-semibold">
-                    This contact is blocked. You cannot send or receive messages.
+                    This contact is blocked. You cannot send or receive
+                    messages.
                   </span>
                 </div>
               )}
@@ -1765,7 +1991,8 @@ export default function Inbox() {
                     <p className="text-[10px] text-[#667781] mb-1.5">
                       {selectedFile.size < 1024 * 1024
                         ? (selectedFile.size / 1024).toFixed(1) + " KB"
-                        : (selectedFile.size / (1024 * 1024)).toFixed(1) + " MB"}
+                        : (selectedFile.size / (1024 * 1024)).toFixed(1) +
+                          " MB"}
                     </p>
                     <input
                       type="text"
@@ -1833,8 +2060,8 @@ export default function Inbox() {
                       activeChat.contact?.isBlocked
                         ? "Cannot send messages to a blocked contact"
                         : ["RESOLVED", "CLOSED"].includes(activeChat.status)
-                        ? "Type a message to reopen chat..."
-                        : "Type a message"
+                          ? "Type a message to reopen chat..."
+                          : "Type a message"
                     }
                     value={typedMessage}
                     disabled={activeChat.contact?.isBlocked}
@@ -1903,7 +2130,11 @@ export default function Inbox() {
                 conversation to get started.
               </p>
               <div className="flex items-center gap-1.5 text-[10px] text-[#8696A0]">
-                <svg viewBox="0 0 10 10" className="w-3 h-3" fill="currentColor">
+                <svg
+                  viewBox="0 0 10 10"
+                  className="w-3 h-3"
+                  fill="currentColor"
+                >
                   <path d="M5 0a5 5 0 100 10A5 5 0 005 0zm.5 7.5h-1v-1h1v1zm0-2h-1v-3h1v3z" />
                 </svg>
                 End-to-end encrypted
@@ -1919,12 +2150,11 @@ export default function Inbox() {
       ══════════════════════════════════════ */}
       {activeChat && (
         <div className="w-72 border-l border-emerald-100 flex flex-col overflow-y-auto shrink-0 bg-white">
-
           {/* Profile Header */}
           <div className="bg-gradient-to-b from-[#075E54] to-[#128C7E] px-6 pt-6 pb-8 flex flex-col items-center text-center">
             <div
               className={`w-20 h-20 rounded-full flex items-center justify-center font-bold text-xl ring-4 ring-white/20 shadow-lg mb-3 ${getAvatarStyle(
-                activeChat.contact?.name
+                activeChat.contact?.name,
               )}`}
             >
               {(activeChat.contact?.name || "C").charAt(0)}
@@ -1949,7 +2179,6 @@ export default function Inbox() {
 
           {/* Info Sections */}
           <div className="p-4 space-y-3">
-
             {/* Contact Info */}
             <div className="bg-[#F0F2F5] rounded-2xl p-3.5 space-y-2.5">
               <p className="text-[10px] font-bold text-[#075E54] uppercase tracking-wider flex items-center gap-1.5">
@@ -1993,15 +2222,15 @@ export default function Inbox() {
                   <UserCheck size={11} /> Agent
                 </p>
                 <span className="text-[10px] font-semibold text-[#111B21]">
-                  {activeChat.contact?.assignedTo
-                    ? allAgents.find(
-                        (a) => a.id === activeChat.contact?.assignedTo
-                      )?.name || "Assigned"
-                    : (
-                      <span className="text-[#667781] font-normal italic">
-                        Unassigned
-                      </span>
-                    )}
+                  {activeChat.contact?.assignedTo ? (
+                    allAgents.find(
+                      (a) => a.id === activeChat.contact?.assignedTo,
+                    )?.name || "Assigned"
+                  ) : (
+                    <span className="text-[#667781] font-normal italic">
+                      Unassigned
+                    </span>
+                  )}
                 </span>
               </div>
               {userRole === "admin" && (
@@ -2043,7 +2272,7 @@ export default function Inbox() {
                   <span
                     key={ct.tag?.id || i}
                     className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[9px] font-semibold border ${getTagColor(
-                      ct.tag?.name
+                      ct.tag?.name,
                     )}`}
                   >
                     {ct.tag?.name}
@@ -2100,7 +2329,7 @@ export default function Inbox() {
                 <span className="text-[10px] text-[#111B21] font-semibold">
                   {new Date(activeChat.createdAt).toLocaleDateString(
                     undefined,
-                    { month: "short", day: "numeric", year: "numeric" }
+                    { month: "short", day: "numeric", year: "numeric" },
                   )}
                 </span>
               </div>
@@ -2110,7 +2339,7 @@ export default function Inbox() {
                 <span className="text-[10px] text-[#111B21] font-semibold">
                   {new Date(activeChat.updatedAt).toLocaleDateString(
                     undefined,
-                    { month: "short", day: "numeric", year: "numeric" }
+                    { month: "short", day: "numeric", year: "numeric" },
                   )}
                 </span>
               </div>
@@ -2174,7 +2403,7 @@ export default function Inbox() {
                     >
                       <div
                         className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${getAvatarStyle(
-                          contact.name
+                          contact.name,
                         )}`}
                       >
                         {contact.name.charAt(0)}
@@ -2215,7 +2444,6 @@ export default function Inbox() {
       {showArchived && (
         <div className="fixed inset-0 z-50 bg-[#111B21]/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl border border-emerald-100 shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-150">
-
             {/* Header */}
             <div className="px-6 py-4 bg-[#075E54] flex items-center justify-between rounded-t-3xl">
               <div className="flex items-center gap-2.5">
@@ -2310,7 +2538,7 @@ export default function Inbox() {
                     >
                       <div
                         className={`w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${getAvatarStyle(
-                          contactName
+                          contactName,
                         )}`}
                       >
                         {contactName.charAt(0)}
@@ -2393,6 +2621,103 @@ export default function Inbox() {
       )}
       {/* ══ End Archived Modal ══ */}
 
+      {/* ── Bulk Reassign Modal ── */}
+      {showBulkReassignModal && (
+        <div className="fixed inset-0 z-[60] bg-[#111B21]/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl">
+            <div className="px-6 py-4 bg-[#075E54] text-white flex justify-between items-center">
+              <h2 className="font-bold">
+                Bulk Reassign ({selectedConvIds.length})
+              </h2>
+              <button onClick={() => setShowBulkReassignModal(false)}>
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="text-[10px] font-bold text-[#075E54] uppercase">
+                  Assign To
+                </label>
+                <select
+                  className="w-full mt-1 border rounded-xl p-2 text-sm"
+                  value={bulkTargetUserId}
+                  onChange={(e) => setBulkTargetUserId(e.target.value)}
+                >
+                  <option value="">— Unassign —</option>
+                  {allAgents.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  className="flex-1 py-2 bg-gray-100 rounded-xl text-sm"
+                  onClick={() => setShowBulkReassignModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="flex-1 py-2 bg-[#075E54] text-white rounded-xl text-sm font-bold disabled:opacity-50"
+                  disabled={bulkReassigning}
+                  onClick={handleBulkReassign}
+                >
+                  {bulkReassigning ? "Processing..." : "Confirm"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════
+    DELETE ALL CHATS MODAL
+══════════════════════════════════════ */}
+      {showDeleteAllConfirm && userRole === "admin" && (
+        <div className="fixed inset-0 z-[60] bg-[#111B21]/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-red-100 shadow-2xl w-full max-w-sm overflow-hidden">
+            <div className="px-6 py-4 bg-red-500 flex items-center gap-2.5 rounded-t-3xl">
+              <Trash2 size={16} className="text-white" />
+              <h2 className="text-base font-bold text-white">
+                Delete All Chats
+              </h2>
+            </div>
+            <div className="p-6">
+              <p className="text-sm text-[#111B21] font-medium mb-1">
+                Delete all {chats.length} conversation(s)?
+              </p>
+              <p className="text-xs text-[#667781] mb-6">
+                ⚠️ This will permanently delete all messages from all chats.
+                This action cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowDeleteAllConfirm(false)}
+                  disabled={deletingAllChats}
+                  className="flex-1 py-2.5 text-xs font-bold rounded-xl bg-[#F0F2F5] text-[#667781] hover:bg-gray-200 transition disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteAllChats}
+                  disabled={deletingAllChats}
+                  className="flex-1 py-2.5 text-xs font-bold rounded-xl bg-red-500 text-white hover:bg-red-600 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {deletingAllChats ? (
+                    <>
+                      <RefreshCw size={12} className="animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    "Delete All"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

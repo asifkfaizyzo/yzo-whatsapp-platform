@@ -35,6 +35,8 @@ import Terms         from "../pages/landing/Terms";
 
 import SubscriptionManagement from "../pages/admin/SubscriptionManagement";
 
+import AuditLogs from "../pages/dashboard/AuditLogs";
+
 
 function App() {
   return (
@@ -65,13 +67,14 @@ function App() {
       {/* Protected Admin Routes */}
       <Route element={<AdminLayout />}>
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="//dashboard/subscription-plans" element={<SubscriptionPlans />} />
+        <Route path="/dashboard/subscription-plans" element={<SubscriptionPlans />} />
         <Route path="/dashboard/tenants" element={<Tenants />} />
         <Route path="/dashboard/reports" element={<Reports />} />
         <Route path="/dashboard/team" element={<Team />} />
         <Route path="/dashboard/settings" element={<Settings />} />
         <Route path="/dashboard/tickets" element={<Tickets />} />
         <Route path="/dashboard/revenue" element={<Revenue />} />
+        <Route path="/dashboard/audit-logs" element={<AuditLogs />} />
         
         {/* Enquiry Routes */}
         <Route path="/dashboard/enquiries" element={<Enquiries />} />
@@ -82,6 +85,8 @@ function App() {
         <Route path="/dashboard/enterprise-leads/:id" element={<EnterpriseLeadDetail />} />
 
         <Route path="/dashboard/subscriptions" element={<SubscriptionManagement />} />
+
+   
       </Route>
 
       {/* Fallback */}

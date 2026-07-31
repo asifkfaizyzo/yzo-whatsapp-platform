@@ -48,6 +48,9 @@ model Tenant {
   country     String?
   useCase     String?
 
+  logo      String?
+  timezone  String?  @default("Asia/Kolkata")
+
   isEmailVerified          Boolean   @default(false)
   otpHash                  String?
   otpExpiresAt             DateTime?
@@ -105,6 +108,7 @@ model Tenant {
 
   @@index([whatsappPhoneId])
     @@index([status])
+  auditLogs   AuditLog[] @relation("TenantAuditLogs")
 }
 
 
@@ -354,6 +358,7 @@ enum MessageDirection {
   INBOUND       // contact → platform
   OUTBOUND      // platform → contact
 }
+
 
 model Message {
   id             String           @id @default(cuid())
@@ -1171,4 +1176,108 @@ model SubscriptionReminder {
   sentAt       DateTime @default(now())
 
   tenant       Tenant   @relation(fields: [tenantId], references: [id])
+}
+
+
+
+// ──────────────────────────────────────────
+// AUDIT LOG SYSTEM
+// ──────────────────────────────────────────
+
+enum AuditAction {
+  // ── AUTH ──
+  LOGIN
+  LOGOUT
+  LOGIN_FAILED
+  PASSWORD_RESET_REQUESTED
+  PASSWORD_RESET_COMPLETED
+  PASSWORD_CHANGED  
+
+  // ── TENANT MANAGEMENT ──
+  TENANT_CREATED
+  TENANT_UPDATED
+  TENANT_DELETED
+  TENANT_APPROVED
+  TENANT_BLOCKED
+  TENANT_UNBLOCKED
+  TENANT_DEACTIVATED
+  TENANT_REACTIVATED
+
+  // ── USER MANAGEMENT ──
+  USER_DEACTIVATED
+  USER_REACTIVATED
+
+  // ── BILLING ──
+  PAYMENT_SUCCESS
+  PAYMENT_FAILED
+  PLAN_ACTIVATED
+  PLAN_CHANGED
+  PLAN_CANCELLED
+
+  // ── TICKET ──
+  TICKET_CREATED
+  TICKET_ESCALATED
+  TICKET_RESOLVED
+
+  // ── SYSTEM ──
+  SYSTEM_CLEANUP
+
+   // ── CONVERSATIONS ──      
+  BULK_REASSIGN
+  CONVERSATION_ASSIGNED
+}
+
+enum AuditModule {
+  AUTH
+  TENANT
+  USER
+  BILLING
+  TICKET
+  SYSTEM
+  CONVERSATIONS 
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+
+  // ── WHO did it ──
+  actorId     String
+  actorType   SenderType       // reuse your existing enum
+  actorName   String           // snapshot
+  actorEmail  String           // snapshot
+
+  // ── WHAT they did ──
+  action      AuditAction
+  module      AuditModule
+  description String
+
+  // ── ON WHAT (target) ──
+  targetId    String?
+  targetType  String?
+  targetName  String?
+
+  // ── WHERE from ──
+  ipAddress   String?
+  userAgent   String?
+
+  // ── EXTRA DATA ──
+  metadata    Json?
+
+  // ── SCOPE ──
+  // null  = superadmin level action
+  // set   = tenant or user level action
+  tenantId    String?
+  tenant      Tenant?  @relation("TenantAuditLogs", fields: [tenantId], references: [id], onDelete: SetNull)
+
+  createdAt   DateTime @default(now())
+
+  @@index([actorId])
+  @@index([actorType])
+  @@index([action])
+  @@index([module])
+  @@index([tenantId])
+  @@index([createdAt])
+  @@index([actorType, createdAt])
+  @@index([tenantId,  createdAt])
+  @@index([module,    action])
 }

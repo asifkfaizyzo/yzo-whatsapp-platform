@@ -23,4 +23,7 @@ router.patch('/unarchive/:conversationId', verifyTenantOrUser, conversationContr
 router.delete('/delete/:conversationId',   verifyTenantOrUser, conversationController.deleteConversationController);
 router.get('/archived',                    verifyTenantOrUser, conversationController.getArchivedConversationsController);
 
+// ── Bulk Reassign ──────────────────────────────────────────
+router.patch( "/bulk-reassign", verifyTenantOrUser, conversationController.bulkReassignConversationsController);
+
 export default router;

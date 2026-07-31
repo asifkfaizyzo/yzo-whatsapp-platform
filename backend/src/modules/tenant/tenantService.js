@@ -3,6 +3,8 @@ import bcrypt from 'bcrypt';
 import prisma from '../../config/prisma.js';
 import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
+import fs from 'fs';
+import path from 'path';
 
 import { generateAccessToken, generateRefreshToken, verifyAccessToken, verifyRefreshToken } from '../auth/jwtservice.js';
 import { saveRefreshToken, deleteRefreshToken, findRefreshToken } from '../auth/refreshtokenService.js';
@@ -13,6 +15,8 @@ import { AsyncLocalStorage } from 'async_hooks';
 import { emitToTenant } from "../../lib/socket.js";
 import { createNotification } from "../notifications/notificationService.js";
 import { checkLimitAccess } from '../../lib/planLimits.js';
+
+import { createAuditLog } from '../audit/auditLogService.js';
 
 
 // ===========Tenant Registration Service (with Auto-Login)===========
@@ -119,111 +123,209 @@ export const registerTenantService = async (data) => {
 
 
 // ===========Tenant Login Service===========
-export const loginTenantService =
-  async (data) => {
-    const { email, password } = data;
+export const loginTenantService = async (data, meta = {}) => {
+  const { email, password }      = data;
+  const { ipAddress, userAgent } = meta;
 
-    // 1️⃣ Check input
-    if (!email || !password) {
+  if (!email || !password) {
+    throw new Error('Email and password are required');
+  }
 
-      throw new Error('Email and password are required');
-    }
-    // 2️⃣ Find Tenant
-    const tenant =
-      await prisma.tenant.findUnique({
-        where: { email },
-      });
+  const tenant = await prisma.tenant.findUnique({ where: { email } });
 
-    // 3️⃣ Check tenant exists
-    if (!tenant) {
-      throw new Error('Invalid credentials');
-    }
-
-    if (tenant.status === 'BLOCKED') {
-      throw new Error('Your account is blocked. Contact support.');
-    }
-
-    if (!tenant.isActive) {
-      throw new Error('Your account has been deactivated');
-    }
-
-    // 4️⃣ Compare password
-    if (!tenant.password) {
-      throw new Error('This account uses Google Sign-In. Please log in with Google.');
-    }
-
-    const isPasswordMatch = await bcrypt.compare(password, tenant.password);
-
-    if (!isPasswordMatch) {
-      throw new Error('Invalid credentials');
-    }
-
-    // 5️⃣ Generate  Tokens
-    const accessToken = generateAccessToken({
-      id: tenant.id,
-      email: tenant.email,
-      type: 'TENANT',
+  // ── Tenant not found ──
+  if (!tenant) {
+    await createAuditLog({
+      actorId:     'UNKNOWN',
+      actorType:   'TENANT',
+      actorName:   'Unknown',
+      actorEmail:  email,
+      action:      'LOGIN_FAILED',
+      module:      'AUTH',
+      description: `Failed tenant login — email not found: ${email}`,
+      ipAddress,
+      userAgent,
     });
+    throw new Error('Invalid credentials');
+  }
 
-    const refreshToken = generateRefreshToken({
-      id: tenant.id,
-      type: 'TENANT',
+  // ── Tenant blocked ──
+  if (tenant.status === 'BLOCKED') {
+    await createAuditLog({
+      actorId:     tenant.id,
+      actorType:   'TENANT',
+      actorName:   tenant.tenantName || tenant.email,
+      actorEmail:  tenant.email,
+      action:      'LOGIN_FAILED',
+      module:      'AUTH',
+      description: `Blocked tenant tried to login`,
+      ipAddress,
+      userAgent,
+      tenantId:    tenant.id,
     });
+    throw new Error('Your account is blocked. Contact support.');
+  }
 
-    // 7️⃣ Save refresh token
-    await saveRefreshToken({
-      token: refreshToken,
-      tenantId: tenant.id,
+  // ── Tenant deactivated ──
+  if (!tenant.isActive) {
+    await createAuditLog({
+      actorId:     tenant.id,
+      actorType:   'TENANT',
+      actorName:   tenant.tenantName || tenant.email,
+      actorEmail:  tenant.email,
+      action:      'LOGIN_FAILED',
+      module:      'AUTH',
+      description: `Deactivated tenant tried to login`,
+      ipAddress,
+      userAgent,
+      tenantId:    tenant.id,
     });
+    throw new Error('Your account has been deactivated');
+  }
 
-    // 8️⃣ Remove password
-    const { password: _, ...safeTenant } = tenant;
+  if (!tenant.password) {
+    throw new Error('This account uses Google Sign-In. Please log in with Google.');
+  }
 
-    // 9️⃣ Return response
-    return {
-      message: 'Login successful',
-      accessToken,
-      refreshToken,
-      user: {
-        id: safeTenant.id,
-        name: safeTenant.tenantName,
-        tenantName: safeTenant.tenantName,
-        email: safeTenant.email,
-        phone: safeTenant.phone,
-        address: safeTenant.address,
-        type: 'TENANT',
-        status: safeTenant.status,
-        planId: safeTenant.planId,
-        planStatus: safeTenant.planStatus,
-        billingType: safeTenant.billingType,
-        onboardingStep: safeTenant.onboardingStep,
-        onboardingCompleted: safeTenant.onboardingCompleted,
-        firstName: safeTenant.firstName,
-        lastName: safeTenant.lastName,
-      },
-    };
+  const isPasswordMatch = await bcrypt.compare(password, tenant.password);
+
+  console.log('Password match result:', isPasswordMatch);
+  console.log('Password received:', password);
+  console.log('Tenant password hash:', tenant.password);
+  // ── Wrong password ──
+  if (!isPasswordMatch) {
+    await createAuditLog({
+      actorId:     tenant.id,
+      actorType:   'TENANT',
+      actorName:   tenant.tenantName || tenant.email,
+      actorEmail:  tenant.email,
+      action:      'LOGIN_FAILED',
+      module:      'AUTH',
+      description: `Failed tenant login — wrong password`,
+      ipAddress,
+      userAgent,
+      tenantId:    tenant.id,
+    });
+    throw new Error('Invalid credentials');
+  }
+
+  // ── Tokens ──
+  const accessToken = generateAccessToken({
+    id:    tenant.id,
+    email: tenant.email,
+    name:  tenant.tenantName,   // ← ADD name
+    type:  'TENANT',
+  });
+
+  const refreshToken = generateRefreshToken({
+    id:   tenant.id,
+    type: 'TENANT',
+  });
+
+  await saveRefreshToken({ token: refreshToken, tenantId: tenant.id });
+
+  // ── Success audit log ──
+  await createAuditLog({
+    actorId:     tenant.id,
+    actorType:   'TENANT',
+    actorName:   tenant.tenantName || tenant.email,
+    actorEmail:  tenant.email,
+    action:      'LOGIN',
+    module:      'AUTH',
+    description: `Tenant "${tenant.tenantName}" logged in successfully`,
+    ipAddress,
+    userAgent,
+    tenantId:    tenant.id,
+  });
+
+  const { password: _, ...safeTenant } = tenant;
+  return {
+    message: 'Login successful',
+    accessToken,
+    refreshToken,
+    user: {
+      id:                 safeTenant.id,
+      name:               safeTenant.tenantName,
+      email:              safeTenant.email,
+      phone:              safeTenant.phone,
+      address:            safeTenant.address,
+      type:               'TENANT',
+      status:             safeTenant.status,
+      planId:             safeTenant.planId,
+      planStatus:         safeTenant.planStatus,
+      billingType:        safeTenant.billingType,
+      onboardingStep:     safeTenant.onboardingStep,
+      onboardingCompleted: safeTenant.onboardingCompleted,
+      firstName:          safeTenant.firstName,
+      lastName:           safeTenant.lastName,
+    },
   };
-
+};
 
 
 
 //=========== Tenant Logout Service===========
-export const logoutTenantService =
-  async (refreshToken) => {
+export const logoutTenantService = async (refreshToken, meta = {}) => {
+  if (!refreshToken) {
+    throw new Error('Refresh token required');
+  }
 
-    // 1️⃣ Check input
-    if (!refreshToken) {
-      throw new Error('Refresh token required');
-    }
+  // ── Find who owns this refresh token ──
+  const tokenRecord = await prisma.refreshToken.findFirst({
+    where: { token: refreshToken },
+    include: {
+      tenant: {
+        select: {
+          id:         true,
+          tenantName: true,
+          email:      true,
+        },
+      },
+      user: {
+        select: {
+          id:       true,
+          name:     true,
+          email:    true,
+          tenantId: true,
+        },
+      },
+    },
+  });
 
-    // 2️⃣ Delete token
-    await deleteRefreshToken(refreshToken);
+  // ── Delete token ──
+  await deleteRefreshToken(refreshToken);
 
-    return {
-      message:
-        'Logout successful',
-    };
-  };
+  // ── Log based on who owned the token ──
+  if (tokenRecord?.tenant) {
+    await createAuditLog({
+      actorId:     tokenRecord.tenant.id,
+      actorType:   'TENANT',
+      actorName:   tokenRecord.tenant.tenantName || tokenRecord.tenant.email,
+      actorEmail:  tokenRecord.tenant.email,
+      action:      'LOGOUT',
+      module:      'AUTH',
+      description: `Tenant "${tokenRecord.tenant.tenantName}" logged out`,
+      ipAddress:   meta.ipAddress,
+      userAgent:   meta.userAgent,
+      tenantId:    tokenRecord.tenant.id,
+    });
+  } else if (tokenRecord?.user) {
+    await createAuditLog({
+      actorId:     tokenRecord.user.id,
+      actorType:   'USER',
+      actorName:   tokenRecord.user.name,
+      actorEmail:  tokenRecord.user.email,
+      action:      'LOGOUT',
+      module:      'AUTH',
+      description: `User "${tokenRecord.user.name}" logged out`,
+      ipAddress:   meta.ipAddress,
+      userAgent:   meta.userAgent,
+      tenantId:    tokenRecord.user.tenantId,
+    });
+  }
+
+  return { message: 'Logout successful' };
+};
 
 
 
@@ -1145,25 +1247,28 @@ export const loginOrRegisterWithGoogleService = async (credential) => {
   };
 };
 
-// ===================== UPDATE/SET PASSWORD (LOGGED IN) =====================
-export const updateTenantPasswordService = async (tenantId, { currentPassword, newPassword, confirmPassword }) => {
+
+
+//Update tenant password
+export const updateTenantPasswordService = async (
+  tenantId,
+  { currentPassword, newPassword, confirmPassword }
+) => {
   if (!newPassword || !confirmPassword) {
     throw new Error('New password and confirm password are required');
   }
-
   if (newPassword !== confirmPassword) {
     throw new Error('Passwords do not match');
   }
 
   const tenant = await prisma.tenant.findUnique({
-    where: { id: tenantId }
+    where: { id: tenantId },
   });
 
   if (!tenant) {
     throw new Error('Tenant not found');
   }
 
-  // If the tenant already has a password set, they must provide the correct current password
   if (tenant.password) {
     if (!currentPassword) {
       throw new Error('Current password is required to change password');
@@ -1174,16 +1279,126 @@ export const updateTenantPasswordService = async (tenantId, { currentPassword, n
     }
   }
 
-  // Hash new password
   const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-  // Update password in DB
   await prisma.tenant.update({
     where: { id: tenantId },
-    data: {
-      password: hashedPassword
-    }
+    data: { password: hashedPassword },
   });
 
+  // ─────────────────────────────────────────────
+  // 🔍 DEBUG BLOCK - remove after fix confirmed
+  // ─────────────────────────────────────────────
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('🔍 STEP 1 - Reached audit log section');
+  console.log('🔍 tenant.id      :', tenant.id);
+  console.log('🔍 tenant.email   :', tenant.email);
+  console.log('🔍 tenant.tenantName:', tenant.tenantName);
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+  try {
+    const auditPayload = {
+      actorId:     tenant.id,
+      actorType:   'TENANT',
+      actorName:   tenant.tenantName || tenant.email,
+      actorEmail:  tenant.email,
+      action:      'PASSWORD_CHANGED',
+      module:      'AUTH',
+      description: `Tenant "${tenant.tenantName}" changed their password`,
+      tenantId:    tenant.id,
+    };
+
+    console.log('🔍 STEP 2 - Audit payload:', JSON.stringify(auditPayload, null, 2));
+
+    const auditResult = await createAuditLog(auditPayload);
+
+    console.log('✅ STEP 3 - Audit log created:', auditResult?.id ?? auditResult);
+  } catch (auditError) {
+    // ⚠️ THIS will show you the EXACT failure reason
+    console.error('❌ STEP 3 - Audit log FAILED');
+    console.error('❌ Error message :', auditError.message);
+    console.error('❌ Error code    :', auditError.code);    // Prisma error code
+    console.error('❌ Full error    :', auditError);
+  }
+  // ─────────────────────────────────────────────
+
   return { message: 'Password updated successfully' };
+};
+
+
+
+
+// =========== Upload Tenant Logo Service ===========
+export const uploadTenantLogoService = async (tenantId, file) => {
+  if (!tenantId) throw new Error("Tenant ID is required");
+  if (!file) throw new Error("No file uploaded");
+
+  // 1️⃣ Find tenant
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+  });
+  if (!tenant) throw new Error("Tenant not found");
+
+  // 2️⃣ Delete old logo file (if exists)
+  if (tenant.logo) {
+    try {
+      // Extract file path from URL (e.g. /uploads/logos/xyz/logo-123.png)
+      const oldLogoPath = tenant.logo.replace(/^\/+/, ''); // remove leading slash
+      if (fs.existsSync(oldLogoPath)) {
+        fs.unlinkSync(oldLogoPath);
+      }
+    } catch (err) {
+      console.error("Failed to delete old logo:", err.message);
+      // Don't throw — continue with new upload
+    }
+  }
+
+  // 3️⃣ Build public URL for the new logo
+  const logoUrl = `/${file.path.replace(/\\/g, '/')}`; // normalize for Windows
+
+  // 4️⃣ Update tenant with new logo URL
+  const updatedTenant = await prisma.tenant.update({
+    where: { id: tenantId },
+    data: { logo: logoUrl },
+    select: {
+      id: true,
+      tenantName: true,
+      logo: true,
+    },
+  });
+
+  return {
+    message: "Logo uploaded successfully",
+    data: {
+      logoUrl: updatedTenant.logo,
+      tenant: updatedTenant,
+    },
+  };
+};
+
+// =========== Delete Tenant Logo Service ===========
+export const deleteTenantLogoService = async (tenantId) => {
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+  });
+  if (!tenant) throw new Error("Tenant not found");
+  if (!tenant.logo) throw new Error("No logo to delete");
+
+  // Delete file from disk
+  try {
+    const logoPath = tenant.logo.replace(/^\/+/, '');
+    if (fs.existsSync(logoPath)) {
+      fs.unlinkSync(logoPath);
+    }
+  } catch (err) {
+    console.error("Failed to delete logo file:", err.message);
+  }
+
+  // Remove from DB
+  await prisma.tenant.update({
+    where: { id: tenantId },
+    data: { logo: null },
+  });
+
+  return { message: "Logo removed successfully" };
 };

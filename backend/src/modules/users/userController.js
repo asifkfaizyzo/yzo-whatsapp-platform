@@ -3,24 +3,20 @@ import pkg from '@prisma/client';
 
 import { generateAccessToken, generateRefreshToken } from '../auth/jwtservice.js';
 import {
-  loginUserService, logoutUserService, refreshUserAccessTokenService,
-  getAssignedContacts
-} from './userService.js';
-import { forgotPasswordUserService, resetPasswordUserService, } from './userService.js';
+         loginUserService, logoutUserService, refreshUserAccessTokenService,
+         getAssignedContacts,forgotPasswordUserService, resetPasswordUserService, 
+         getUserProfileService, updateUserPasswordService,
+       } from './userService.js';
+
+import { extractRequestMeta } from '../../lib/utils/requestMeta.js';
 
 
 // ===============User Login Controller===============
-export const loginUser =
-  async (req, res) => {
-
+export const loginUser = async (req, res) => {
     try {
-
-      const result =
-        await loginUserService(
-          req.body
-        );
-
-      const { accessToken, refreshToken, user } = result;
+     const meta   = extractRequestMeta(req);               
+    const result = await loginUserService(req.body, meta);
+    const { accessToken, refreshToken, user } = result;
 
       // Set HTTP-Only Cookie for the refresh token
       res.cookie('user_refreshToken', refreshToken, {
@@ -59,15 +55,15 @@ export const logoutUser = async (req, res) => {
     const refreshToken = req.cookies.user_refreshToken || req.body.refreshToken;
 
     if (refreshToken) {
-      await logoutUserService(refreshToken);
+      await logoutUserService(refreshToken, meta); // ← pass meta only
     }
 
     // Clear cookie
     res.clearCookie('user_refreshToken', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure:   process.env.NODE_ENV === 'production',
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-      path: '/',
+      path:     '/',
     });
 
     return res.status(200).json({
@@ -186,6 +182,63 @@ export const getMyAssignedContacts = async (req, res) => {
       success: false,
       message: "Failed to fetch assigned contacts",
       error: error.message,
+    });
+  }
+};
+
+
+// ============================================================
+// GET LOGGED-IN USER PROFILE
+// ============================================================
+export const getUserProfile = async (req, res) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized: User not authenticated',
+      });
+    }
+
+    const user = await getUserProfileService(req.user.id);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Profile fetched successfully',
+      data: user,
+    });
+  } catch (error) {
+    console.error('❌ Error in getUserProfile:', error);
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
+// ============================================================
+// UPDATE USER PASSWORD
+// ============================================================
+export const updateUserPassword = async (req, res) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized: User not authenticated',
+      });
+    }
+
+    const result = await updateUserPasswordService(req.user.id, req.body);
+
+    return res.status(200).json({
+      success: true,
+      ...result,
+    });
+  } catch (error) {
+    console.error('❌ Error in updateUserPassword:', error);
+    return res.status(400).json({
+      success: false,
+      message: error.message,
     });
   }
 };

@@ -21,6 +21,7 @@ import { startBroadcastWorker } from './workers/broadcastWorker.js';
 import { startCleanupWorker } from './workers/cleanupWorker.js';
 import './jobs/checkExpiredSubscriptions.js';
 import './jobs/expiryRemindersJob.js';
+import { startAuditCleanupJob } from './jobs/auditCleanupJob.js';
 
 import { redisConnection } from './config/redis.js';
 
@@ -36,6 +37,7 @@ initSocket(server);
 const webhookWorker = startWebhookWorker();
 const broadcastWorker = startBroadcastWorker();
 startCleanupWorker();
+startAuditCleanupJob(); 
 console.log('👷 Background workers and cleanup tasks started successfully!');
 
 server.listen(port, () => {

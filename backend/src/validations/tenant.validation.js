@@ -162,8 +162,14 @@ export const updateTenantProfileSchema = z.object({
       .or(z.literal("")),
     country: z
       .string()
+      .optional(),
+    logo: z
+      .string()
       .optional()
       .or(z.literal("")),
+    timezone: z
+      .string()
+      .optional(),
   }),
 });
 

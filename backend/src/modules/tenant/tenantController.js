@@ -2,18 +2,10 @@
 
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import prisma from '../../config/prisma.js';
 import { generateAccessToken, generateRefreshToken } from '../auth/jwtservice.js';
 import { loginUserService } from '../users/userService.js';
-import {
-    forgotPasswordTenantService,
-    resetPasswordTenantService,
-} from './tenantService.js';
-import {
-    userGetUnassignedContacts,
-    userAssignMultipleContacts,
-    assignByPriority
-} from '../contacts/userContactService.js';
 import {
     registerTenantService,
     loginTenantService,
@@ -33,16 +25,24 @@ import {
     getAutoReopenConfigService,
     updateAutoReopenConfigService,
     loginOrRegisterWithGoogleService,
-    updateTenantPasswordService
+    updateTenantPasswordService,
+    forgotPasswordTenantService,
+    resetPasswordTenantService,
+    uploadTenantLogoService,
+    deleteTenantLogoService
 } from './tenantService.js';
+import {
+    userGetUnassignedContacts,
+    userAssignMultipleContacts,
+    assignByPriority
+} from '../contacts/userContactService.js';
 import { updateTenantByIdService } from '../superadmin/superadminService.js';
 import { encrypt, decrypt } from '../../lib/crypto.js';
-import crypto from 'crypto';
 import { sendVerificationOtpEmail } from '../auth/emailService.js';
+import { extractRequestMeta } from '../../lib/utils/requestMeta.js';
 
 
 // ===================== TENANT AUTH =====================
-
 export const registerTenant = async (req, res) => {
     try {
         const result = await registerTenantService(req.body);
@@ -73,6 +73,7 @@ export const registerTenant = async (req, res) => {
 export const loginTenant = async (req, res) => {
     try {
         const { email } = req.body;
+        const meta = extractRequestMeta(req);
 
         if (!email) {
             return res.status(400).json({
@@ -84,18 +85,16 @@ export const loginTenant = async (req, res) => {
         const tenantExists = await prisma.tenant.findUnique({
             where: { email }
         });
-
         let result;
-        let cookieName='tenant_refreshToken';
-
+        let cookieName = 'tenant_refreshToken';
 
         if (tenantExists) {
-            result = await loginTenantService(req.body);
+            result = await loginTenantService(req.body, meta);
             cookieName = 'tenant_refreshToken';
         } else {
             const userExists = await prisma.user.findUnique({ where: { email } });
             if (userExists) {
-                result = await loginUserService(req.body);
+                result = await loginUserService(req.body, meta);
                 cookieName = 'user_refreshToken';
             } else {
                 return res.status(400).json({
@@ -105,7 +104,6 @@ export const loginTenant = async (req, res) => {
             }
         }
         const { accessToken, refreshToken, user } = result;
-
 
         res.cookie(cookieName, refreshToken, {
             httpOnly: true,
@@ -131,25 +129,23 @@ export const loginTenant = async (req, res) => {
 
 export const logoutTenant = async (req, res) => {
     try {
-        const refreshToken = req.cookies.tenant_refreshToken || req.cookies.user_refreshToken || req.body.refreshToken;
+        const refreshToken = req.cookies.tenant_refreshToken || req.cookies.user_refreshToken || req.cookies.refreshToken || req.body.refreshToken;
 
         if (refreshToken) {
             await logoutTenantService(refreshToken);
         }
 
-        res.clearCookie('tenant_refreshToken', {
+        const cookieOptions = {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
             path: '/',
-        });
+        };
 
-        res.clearCookie('user_refreshToken', {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-            path: '/',
-        });
+        res.clearCookie('tenant_refreshToken', cookieOptions);
+        res.clearCookie('user_refreshToken', cookieOptions);
+        res.clearCookie('refreshToken', cookieOptions);
+        res.clearCookie('onboarding_token', cookieOptions);
 
         return res.status(200).json({
             success: true,
@@ -166,7 +162,7 @@ export const logoutTenant = async (req, res) => {
 
 export const refreshTenantAccessToken = async (req, res) => {
     try {
-        const refreshToken = req.cookies.tenant_refreshToken || req.body.refreshToken;
+        const refreshToken = req.cookies.tenant_refreshToken || req.cookies.refreshToken || req.body.refreshToken;
 
         if (!refreshToken) {
             return res.status(401).json({
@@ -221,6 +217,13 @@ export const getLoggedInTenant = async (req, res) => {
                 lastName: true,
                 authProvider: true,
                 password: true,
+                websiteUrl: true,
+                industry: true,
+                companySize: true,
+                country: true,
+                useCase: true,
+                logo: true,
+                timezone: true,
             },
         });
 
@@ -250,34 +253,52 @@ export const getLoggedInTenant = async (req, res) => {
 };
 
 
-export const updateTenantProfile = async (req, res, next) => {
-    try {
-        const tenantId = req.tenant?.id;
-        const { tenantName, email, phone, address, websiteUrl, industry, companySize, country } = req.body;
+// ═══════════════════════════════════════════
+// UPDATE TENANT PROFILE — tenant updates themselves
+// ═══════════════════════════════════════════
+export const updateTenantProfile = async (req, res) => {
+  try {
+    const tenantId = req.tenant?.id;
+    const meta     = extractRequestMeta(req);
 
-        const result = await updateTenantByIdService(tenantId, {
-            tenantName,
-            email,
-            phone,
-            address,
-            websiteUrl,
-            industry,
-            companySize,
-            country,
-        });
-
-        return res.status(200).json({
-            success: true,
-            message: 'Tenant profile updated successfully',
-            data: result.tenant,
-        });
-    } catch (error) {
-        return res.status(400).json({
-            success: false,
-            message: error.message
-        });
+    if (!tenantId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Tenant not authenticated',
+      });
     }
+
+    const {
+      tenantName,
+      email,
+      phone,
+      address,
+      websiteUrl,
+      industry,
+      companySize,
+      country,
+    } = req.body;
+
+    const result = await updateTenantByIdService(
+      tenantId,
+      { tenantName, email, phone, address, websiteUrl, industry, companySize, country },
+      null,
+      meta
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Tenant profile updated successfully',
+      data:    result.tenant,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
 };
+
 
 // Complete Onboarding — Step 2 of registration (authenticated, updates company info)
 export const completeOnboarding = async (req, res) => {
@@ -603,7 +624,6 @@ export const assignContactController = async (req, res) => {
         const { contactId } = req.params;
         const { userId } = req.body;
 
-        // ✅ Validate userId
         if (!userId) {
             return res.status(400).json({
                 success: false,
@@ -776,7 +796,6 @@ export const getWhatsappCredentials = async (req, res, next) => {
         });
 
         if (tenant && tenant.whatsappAccessToken) {
-            // Decrypt token so frontend input field displays valid decrypted token
             tenant.whatsappAccessToken = decrypt(tenant.whatsappAccessToken);
         }
 
@@ -803,7 +822,6 @@ export const updateWhatsappCredentials = async (req, res, next) => {
             data: {
                 whatsappPhoneId: phoneId,
                 whatsappWabaId: wabaId,
-                // Encrypt manual token input before saving to database
                 whatsappAccessToken: accessToken ? encrypt(accessToken) : undefined,
                 whatsappVerifyToken: verifyToken,
             },
@@ -829,7 +847,6 @@ export const googleLoginTenant = async (req, res) => {
         const result = await loginOrRegisterWithGoogleService(credential);
         const { accessToken, refreshToken, user } = result;
 
-        // Set refresh token inside Secure Cookie
         res.cookie('tenant_refreshToken', refreshToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
@@ -868,14 +885,12 @@ export const onboardingStep1 = async (req, res) => {
             }
         });
 
-        // Sign token
         const onboardingToken = jwt.sign(
             { id: tenant.id, type: 'TENANT_ONBOARDING' },
             process.env.ACCESS_SECRET,
             { expiresIn: '7d' }
         );
 
-        // Set HttpOnly onboarding token cookie
         res.cookie('onboarding_token', onboardingToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
@@ -909,10 +924,9 @@ export const onboardingStep1 = async (req, res) => {
 // Step 2: Email. Updates email and sends verification OTP.
 export const onboardingStep2 = async (req, res) => {
     try {
-        const tenantId = req.tenantId; // Set by verifyOnboarding middleware
+        const tenantId = req.tenantId;
         const { email } = req.body;
 
-        // Check if email already registered globally
         const [emailExistsInTenant, emailExistsInUser, emailExistsInSuperAdmin] = await Promise.all([
             prisma.tenant.findUnique({ where: { email } }),
             prisma.user.findUnique({ where: { email } }),
@@ -926,11 +940,8 @@ export const onboardingStep2 = async (req, res) => {
             });
         }
 
-        // Generate a random 6-digit numeric OTP code
         const otpCode = crypto.randomInt(100000, 999999).toString();
-        // Hash the OTP code using SHA-256
         const otpHash = crypto.createHash('sha256').update(otpCode).digest('hex');
-        // Expiration date: 10 minutes from now
         const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
         const updated = await prisma.tenant.update({
@@ -939,11 +950,10 @@ export const onboardingStep2 = async (req, res) => {
                 email,
                 otpHash,
                 otpExpiresAt,
-                isEmailVerified: false // Explicitly set to false until verified
+                isEmailVerified: false
             }
         });
 
-        // Send Email containing the raw code
         await sendVerificationOtpEmail(email, otpCode);
 
         return res.status(200).json({
@@ -993,7 +1003,6 @@ export const verifyEmailOtp = async (req, res) => {
             });
         }
 
-        // Verify if OTP has expired
         if (new Date() > tenant.otpExpiresAt) {
             return res.status(400).json({
                 success: false,
@@ -1001,7 +1010,6 @@ export const verifyEmailOtp = async (req, res) => {
             });
         }
 
-        // Compare the SHA-256 hash
         const hashedInput = crypto.createHash('sha256').update(otpCode).digest('hex');
         if (hashedInput !== tenant.otpHash) {
             return res.status(400).json({
@@ -1010,14 +1018,13 @@ export const verifyEmailOtp = async (req, res) => {
             });
         }
 
-        // If correct, update tenant record
         const updated = await prisma.tenant.update({
             where: { id: tenantId },
             data: {
                 isEmailVerified: true,
-                onboardingStep: 3, // Safe to advance to Step 3 now
-                otpHash: null,      // Clear token
-                otpExpiresAt: null  // Clear expiration
+                onboardingStep: 3,
+                otpHash: null,
+                otpExpiresAt: null
             }
         });
 
@@ -1140,7 +1147,6 @@ export const onboardingStep5 = async (req, res) => {
             }
         });
 
-        // 1️⃣ Generate Access Token & Refresh Token for full login session
         const accessToken = generateAccessToken({
             id: updated.id,
             email: updated.email,
@@ -1152,14 +1158,12 @@ export const onboardingStep5 = async (req, res) => {
             type: 'TENANT',
         });
 
-        // 2️⃣ Save refresh token in database
         const { saveRefreshToken } = await import('../auth/refreshtokenService.js');
         await saveRefreshToken({
             token: refreshToken,
             tenantId: updated.id,
         });
 
-        // 3️⃣ Clear the temporary onboarding token cookie
         res.clearCookie('onboarding_token', {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
@@ -1167,7 +1171,6 @@ export const onboardingStep5 = async (req, res) => {
             path: '/'
         });
 
-        // 4️⃣ Set the full refresh token cookie
         res.cookie('tenant_refreshToken', refreshToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
@@ -1215,7 +1218,7 @@ export const getOnboardingStatus = async (req, res) => {
         if (!token) {
             return res.status(200).json({
                 success: true,
-                data: null // No active onboarding session
+                data: null
             });
         }
 
@@ -1258,4 +1261,25 @@ export const getOnboardingStatus = async (req, res) => {
             data: null
         });
     }
+};
+
+
+// =========== Upload Tenant Logo ===========
+export const uploadTenantLogo = async (req, res) => {
+  try {
+    const result = await uploadTenantLogoService(req.tenantId, req.file);
+    res.status(200).json({ success: true, ...result });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+// =========== Delete Tenant Logo ===========
+export const deleteTenantLogo = async (req, res) => {
+  try {
+    const result = await deleteTenantLogoService(req.tenantId);
+    res.status(200).json({ success: true, ...result });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
 };

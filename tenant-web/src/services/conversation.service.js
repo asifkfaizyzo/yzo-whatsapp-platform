@@ -82,8 +82,6 @@ export const updateConversationStatus = async (conversationId, status) => {
 
 
 
-// Add to existing conversation.service.js
-
 // Archive conversation
 export const archiveConversation = async (conversationId) => {
   try {
@@ -140,6 +138,30 @@ export const getArchivedConversations = async (page = 1, limit = 20) => {
     return {
       success: false,
       message: error.response?.data?.message || "Failed to fetch archived conversations",
+    };
+  }
+};
+
+
+
+// Bulk reassign conversations
+export const bulkReassignConversations = async (conversationIds, newUserId) => {
+  try {
+    const response = await api.patch(`${CONV_BASE_URL}/bulk-reassign`, {
+      conversationIds,
+      newUserId: newUserId || null,
+    });
+    return {
+      success: true,
+      data: response.data.data,
+      message: response.data.message,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message:
+        error.response?.data?.message ||
+        "Failed to bulk reassign conversations",
     };
   }
 };
