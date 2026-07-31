@@ -14,6 +14,8 @@ import { sendInvoiceEmail } from "../auth/emailService.js";
 
 import { createSuperAdminNotification } from "../superAdminNotifications/superAdminNotificationService.js";
 import { emitToSuperAdmin } from "../../lib/socket.js";
+import { createAuditLog } from '../audit/auditLogService.js';
+import { extractRequestMeta } from '../../lib/utils/requestMeta.js';
 
 // ✅ Initialize Razorpay
 const razorpay = new Razorpay({
@@ -272,9 +274,12 @@ export const createPaymentOrder = async (req, res) => {
   }
 };
 
+
+
 // ✅ Verify Payment & Activate Plan
 export const verifyPaymentAndActivate = async (req, res) => {
   try {
+      const meta = extractRequestMeta(req);
     const {
       razorpay_order_id,
       razorpay_payment_id,
@@ -363,6 +368,28 @@ export const verifyPaymentAndActivate = async (req, res) => {
             status: "FAILED",
           },
         });
+
+         // ✅ ADD audit log for PAYMENT_FAILED
+    await createAuditLog({
+      actorId:     tenantId,
+      actorType:   'TENANT',
+      actorName:   tenant.tenantName || tenant.email,
+      actorEmail:  tenant.email,
+      action:      'PAYMENT_FAILED',
+      module:      'BILLING',
+      description: `Payment verification failed for tenant "${tenant.tenantName}" — invalid signature`,
+      ipAddress:   meta.ipAddress,
+      userAgent:   meta.userAgent,
+      tenantId:    tenantId,
+      metadata: {
+        planName:        plan.name,
+        billingType:     validBillingType,
+        totalAmount,
+        razorpayOrderId: razorpay_order_id,
+        reason:          'invalid_signature',
+      },
+    });
+
       } catch (logErr) {
         console.error("Failed to log failed payment:", logErr);
       }
@@ -491,6 +518,70 @@ export const verifyPaymentAndActivate = async (req, res) => {
       return { payment: createdPayment, updatedTenant: updated };
     });
 
+    // ─────────────────────────────────────────────
+    // 🔍 TEMP DEBUG — remove after confirmed
+    // ─────────────────────────────────────────────
+    console.log('🔍 About to write PAYMENT_SUCCESS audit log...');
+    console.log('🔍 tenantId    :', tenantId);
+    console.log('🔍 tenant.name :', tenant.tenantName);
+    console.log('🔍 plan.name   :', plan.name);
+    console.log('🔍 totalAmount :', totalAmount);
+    console.log('🔍 meta        :', meta);
+    // ─────────────────────────────────────────────
+
+    // ✅ PAYMENT_SUCCESS audit log
+    const auditResult1 = await createAuditLog({
+      actorId:     tenantId,
+      actorType:   'TENANT',
+      actorName:   tenant.tenantName || tenant.email,
+      actorEmail:  tenant.email,
+      action:      'PAYMENT_SUCCESS',
+      module:      'BILLING',
+      description: `Tenant "${tenant.tenantName}" paid ₹${totalAmount} for ${plan.name} (${validBillingType})`,
+      tenantId:    tenantId,
+      ipAddress:   meta.ipAddress ?? null, // ✅ ADD
+      userAgent:   meta.userAgent ?? null, // ✅ ADD
+      metadata: {
+        planName:          plan.name,
+        billingType:       validBillingType,
+        baseAmount,
+        gstAmount,
+        totalAmount,
+        razorpayOrderId:   razorpay_order_id,
+        razorpayPaymentId: razorpay_payment_id,
+        wasExtended,
+        planPeriodStart:   updatedTenant.planPeriodStart,
+        planPeriodEnd:     updatedTenant.planPeriodEnd,
+      },
+    });
+    console.log('✅ PAYMENT_SUCCESS audit id:', auditResult1?.id ?? 'NULL - FAILED');
+
+    // ✅ PLAN_ACTIVATED audit log
+    const auditResult2 = await createAuditLog({
+      actorId:     tenantId,
+      actorType:   'TENANT',
+      actorName:   tenant.tenantName || tenant.email,
+      actorEmail:  tenant.email,
+      action:      'PLAN_ACTIVATED',
+      module:      'BILLING',
+      description: wasExtended
+        ? `Tenant "${tenant.tenantName}" extended ${plan.name} plan (${validBillingType})`
+        : `Tenant "${tenant.tenantName}" activated ${plan.name} plan (${validBillingType})`,
+      tenantId:    tenantId,
+      ipAddress:   meta.ipAddress ?? null, // ✅ ADD
+      userAgent:   meta.userAgent ?? null, // ✅ ADD
+      metadata: {
+        planName:        plan.name,
+        billingType:     validBillingType,
+        totalAmount,
+        wasExtended,
+        planPeriodStart: updatedTenant.planPeriodStart,
+        planPeriodEnd:   updatedTenant.planPeriodEnd,
+      },
+    });
+    console.log('✅ PLAN_ACTIVATED audit id:', auditResult2?.id ?? 'NULL - FAILED');
+
+
     // 8. Fetch payment method in background (non-blocking)
     razorpay.payments
       .fetch(razorpay_payment_id)
@@ -506,6 +597,7 @@ export const verifyPaymentAndActivate = async (req, res) => {
       .catch((e) => {
         console.warn("⚠️ Could not fetch payment method:", e.message);
       });
+
 
     // 9. SuperAdmin notification (non-blocking)
     try {

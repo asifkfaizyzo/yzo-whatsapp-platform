@@ -2,7 +2,7 @@ import {
        getOrCreateConversation,getConversationByContact,
        getAssignedConversations,getMessages,updateConversationStatus,
        archiveConversation,unarchiveConversation,deleteConversation,
-       getArchivedConversations, 
+       getArchivedConversations,  bulkReassignConversations, 
        } from './conversationService.js';
 
 
@@ -344,5 +344,112 @@ export const getArchivedConversationsController = async (req, res) => {
 
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+
+
+// ────────────── Bulk Reassign Conversations ────────────────────────────
+export const bulkReassignConversationsController = async (req, res) => {
+  try {
+
+    // ── Guard: Only TENANT (admin) can bulk reassign ───────
+    if (req.userType !== "TENANT") {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized: Only admin can bulk reassign conversations",
+      });
+    }
+
+    // ── Extract tenant context ─────────────────────────────
+    const tenantId        = req.tenantId;
+    const performedBy     = req.tenant.id;
+    const performedByName  = req.tenant.tenantName || "Admin";
+    const performedByEmail = req.tenant.email      || "";
+
+    // ── Extract body ───────────────────────────────────────
+    const { conversationIds, newUserId } = req.body;
+
+    // ── Validate: must be array ────────────────────────────
+    if (!Array.isArray(conversationIds)) {
+      return res.status(400).json({
+        success: false,
+        message: "conversationIds must be an array",
+      });
+    }
+
+    // ── Validate: must not be empty ────────────────────────
+    if (conversationIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Please select at least one conversation",
+      });
+    }
+
+    // ── Validate: safety cap ───────────────────────────────
+    if (conversationIds.length > 500) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot reassign more than 500 conversations at once",
+      });
+    }
+
+    // ── Validate: newUserId must be string or null ─────────
+    // null = unassign
+    if (
+      newUserId !== null &&
+      newUserId !== undefined &&
+      typeof newUserId !== "string"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "newUserId must be a valid string ID or null",
+      });
+    }
+
+    // ── Call service ───────────────────────────────────────
+    const result = await bulkReassignConversations({
+      tenantId,
+      conversationIds,
+      newUserId:       newUserId || null,
+      performedBy,
+      performedByName,
+      performedByEmail,
+    });
+
+    // ── Respond ────────────────────────────────────────────
+    return res.status(200).json({
+      success: true,
+      message: newUserId
+        ? `${result.reassignedCount} conversation(s) assigned to ${result.newUserName}`
+        : `${result.reassignedCount} conversation(s) unassigned successfully`,
+      data: result,
+    });
+
+  } catch (error) {
+
+    // User not found / wrong tenant
+    if (
+      error.message.includes("not found") ||
+      error.message.includes("does not belong")
+    ) {
+      return res.status(404).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    // No conversations matched
+    if (error.message.includes("No valid conversations")) {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };

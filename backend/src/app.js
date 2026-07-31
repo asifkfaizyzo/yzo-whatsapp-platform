@@ -32,6 +32,10 @@ import enterpriseLeadAdminRoutes from './modules/enterprise-leads/enterpriseLead
 import billingRoutes from './modules/billing/billingRoutes.js';
 import adminSubscriptionsRoute from './modules/admin-subscriptions/adminSubscriptionsRoute.js';
 
+import auditLogRoutes from './modules/audit/auditLogRoutes.js';
+import dlqRoutes from './modules/webhook/dlqRoutes.js';
+import mediaRoutes from './modules/messages/mediaRoute.js';
+
 const app = express();
 
 app.set('trust proxy', 1);
@@ -50,8 +54,10 @@ app.use(
     crossOriginOpenerPolicy: {
       policy: "same-origin-allow-popups",
     },
+    crossOriginResourcePolicy: false,  // 🆕 Allow cross-origin resources (for logos in <img>)
   })
 );
+
 // Configure rate limiter
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -74,12 +80,36 @@ app.use(express.json({
 }));
 app.use(express.urlencoded({ extended: true }));
 
-// ── Static Files ──
-app.use("/uploads", verifyTenantOrUser,(req, res, next) => {
+// 🔧 ═══════════════════════════════════════════════════════════
+// 🔧 STATIC FILES - UPDATED
+// 🔧 ═══════════════════════════════════════════════════════════
+
+// ✅ PUBLIC: Logos accessible without auth (needed for <img> tags in browser)
+app.use("/uploads/logos", (req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
   res.header("Cross-Origin-Resource-Policy", "cross-origin");
+  res.header("Cross-Origin-Embedder-Policy", "unsafe-none");
+  res.header("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
   next();
-}, express.static(path.join(process.cwd(), "uploads")));
+}, express.static(path.join(process.cwd(), "uploads/logos"), {
+  setHeaders: (res) => {
+    res.set("Cross-Origin-Resource-Policy", "cross-origin");
+    res.set("Access-Control-Allow-Origin", "*");
+  }
+}));
+
+// // 🔒 PROTECTED: All other uploads (tickets, contacts, etc.) require auth
+// app.use("/uploads", verifyTenantOrUser, (req, res, next) => {
+//   res.header("Access-Control-Allow-Origin", "*");
+//   res.header("Cross-Origin-Resource-Policy", "cross-origin");
+//   next();
+// }, express.static(path.join(process.cwd(), "uploads")));
+
+
+app.use('/api/media', mediaRoutes);
+
+// 🔧 ═══════════════════════════════════════════════════════════
 
 app.use(cookieParser());
 
@@ -110,13 +140,9 @@ app.use('/api3/login',           authLimiter);
 
 // ──────────────────────────────────────
 // ⭐ SPECIFIC ROUTES FIRST
-// (before generic /api catches them)
 // ──────────────────────────────────────
 
-// Webhook - always first
 app.use('/api/webhook', webhookRoutes)
-
-// Flow routes - before /api superadmin
 app.use('/api/flows', flowRoutes)
 
 // ──────────────────────────────────────
@@ -157,13 +183,17 @@ app.use("/api/admin/enterprise-leads", enterpriseLeadAdminRoutes);
 
 app.use('/api/billing', billingRoutes);
 app.use('/api2/billing', billingRoutes);
-// Mount admin subscriptions management
 app.use('/api/admin/subscriptions', adminSubscriptionsRoute);
+
+app.use('/api/superadmin/audit-logs', auditLogRoutes);
+app.use('/api/dlq', dlqRoutes);
 
 // ──────────────────────────────────────
 // ERROR HANDLERS
 // ──────────────────────────────────────
 
+
+app.use('/api/media', mediaRoutes);
 // 404
 app.use((req, res, next) => {
   res.status(404).json({
@@ -184,5 +214,7 @@ app.use((err, req, res, next) => {
       : (err.message || 'Internal Server Error')
   });
 });
+
+
 
 export default app;

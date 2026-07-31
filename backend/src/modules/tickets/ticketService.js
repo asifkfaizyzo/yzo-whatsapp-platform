@@ -3,6 +3,7 @@
 import prisma from "../../config/prisma.js";
 import { sendTicketEmail } from "../auth/emailService.js";
 import { emitToTenant, emitToSuperAdmin, emitToUser } from "../../lib/socket.js";
+import { createAuditLog } from '../audit/auditLogService.js';
 
 // ── Generate Ticket Number ──
 const generateTicketNumber = async () => {
@@ -42,6 +43,27 @@ export const createTenantTicketService = async (tenantId, data) => {
       tenantId,
       isEscalated:   true,
       attachmentUrl: data.attachmentUrl || null,
+    },
+  });
+
+   // ✅ ADD audit log
+  await createAuditLog({
+    actorId:     tenantId,
+    actorType:   'TENANT',
+    actorName:   tenant.tenantName,
+    actorEmail:  tenant.email,
+    action:      'TICKET_CREATED',
+    module:      'TICKET',
+    description: `Tenant "${tenant.tenantName}" created ticket ${ticketNumber}: "${data.title}"`,
+    targetId:    ticket.id,
+    targetType:  'TICKET',
+    targetName:  ticket.ticketNumber,
+    tenantId:    tenantId,
+    metadata: {
+      ticketNumber: ticket.ticketNumber,
+      category:     ticket.category,
+      priority:     ticket.priority,
+      title:        ticket.title,
     },
   });
 
@@ -216,6 +238,27 @@ export const createUserTicketService = async (userId, tenantId, data) => {
       userId,
       isEscalated:   false,
       attachmentUrl: data.attachmentUrl || null,
+    },
+  });
+
+    // ✅ ADD audit log
+  await createAuditLog({
+    actorId:     userId,
+    actorType:   'USER',
+    actorName:   user.name,
+    actorEmail:  user.email,
+    action:      'TICKET_CREATED',
+    module:      'TICKET',
+    description: `User "${user.name}" created ticket ${ticketNumber}: "${data.title}"`,
+    targetId:    ticket.id,
+    targetType:  'TICKET',
+    targetName:  ticket.ticketNumber,
+    tenantId:    tenantId,
+    metadata: {
+      ticketNumber: ticket.ticketNumber,
+      category:     ticket.category,
+      priority:     ticket.priority,
+      title:        ticket.title,
     },
   });
 
@@ -469,6 +512,25 @@ export const escalateTicketService = async (ticketId, tenantId) => {
   const updated = await prisma.ticket.update({
     where: { id: ticketId },
     data:  { isEscalated: true, updatedAt: new Date() },
+  });
+
+   // ✅ ADD audit log
+  await createAuditLog({
+    actorId:     tenantId,
+    actorType:   'TENANT',
+    actorName:   tenant.tenantName,
+    actorEmail:  tenant.email,
+    action:      'TICKET_ESCALATED',
+    module:      'TICKET',
+    description: `Tenant "${tenant.tenantName}" escalated ticket ${ticket.ticketNumber} to SuperAdmin`,
+    targetId:    ticket.id,
+    targetType:  'TICKET',
+    targetName:  ticket.ticketNumber,
+    tenantId:    tenantId,
+    metadata: {
+      ticketNumber: ticket.ticketNumber,
+      title:        ticket.title,
+    },
   });
 
   const notification = await prisma.superAdminNotification.create({

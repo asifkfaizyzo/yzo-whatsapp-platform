@@ -1,30 +1,56 @@
-// src/middleware/upload.middleware.js
+// src/middlewares/upload.middleware.js
 
 import multer from "multer";
 import path from "path";
 import fs from "fs";
 
-// Storage config
 const storage = multer.diskStorage({
+
   destination: function (req, file, cb) {
+    const tenantId  = req.tenantId;
     const contactId = req.params.contactId;
-    const tenantId = req.tenantId; // from verifyTenantOrUser
 
-    const uploadPath = `uploads/tenants/${tenantId}/contacts/${contactId}`;
+    // For inbound route, contactId comes from body
+    const resolvedContactId = contactId || req.body?.contactId;
+    const resolvedTenantId  = tenantId  || req.body?.tenantId;
 
-    // Create folder if not exists
+    if (!resolvedTenantId || !resolvedContactId) {
+      const fallback = path.join("uploads", "temp");
+      fs.mkdirSync(fallback, { recursive: true });
+      return cb(null, fallback);
+    }
+
+    // ✅ Detect inbound or outbound
+    const isInbound = req.path.includes('incoming');
+    const direction = isInbound ? 'inbound' : 'outbound';
+
+    const uploadPath = path.join(
+      "uploads",
+      "tenants",
+      resolvedTenantId,
+      "contacts",
+      resolvedContactId,
+      direction          // ✅ /outbound or /inbound
+    );
+
     fs.mkdirSync(uploadPath, { recursive: true });
-
     cb(null, uploadPath);
   },
 
   filename: function (req, file, cb) {
-    const uniqueName = `${Date.now()}_${file.originalname.replace(/\s+/g, "_")}`;
+    // ✅ Sanitize filename
+    const ext      = path.extname(file.originalname);
+    const baseName = path
+      .basename(file.originalname, ext)
+      .replace(/\s+/g, "_")
+      .replace(/[^a-zA-Z0-9_-]/g, "")
+      .substring(0, 50);
+
+    const uniqueName = `${Date.now()}_${baseName}${ext}`;
     cb(null, uniqueName);
   },
 });
 
-// File filter
 const fileFilter = (req, file, cb) => {
   const allowedMimes = [
     // Images
@@ -32,6 +58,7 @@ const fileFilter = (req, file, cb) => {
     "image/jpg",
     "image/png",
     "image/webp",
+    "image/gif",
     // Documents
     "application/pdf",
     "application/msword",
@@ -50,17 +77,16 @@ const fileFilter = (req, file, cb) => {
     "audio/m4a",
     "audio/amr",
     "audio/mp4",
-    "audio/webm", 
+    "audio/webm",
   ];
 
   if (allowedMimes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error("Unsupported file type"), false);
+    cb(new Error(`Unsupported file type: ${file.mimetype}`), false);
   }
 };
 
-// Max size = 100MB (largest limit)
 const upload = multer({
   storage,
   fileFilter,

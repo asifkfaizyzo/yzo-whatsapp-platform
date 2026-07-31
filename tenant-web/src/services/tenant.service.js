@@ -260,3 +260,53 @@ export const disconnectWhatsapp = async () => {
   }
 };
 
+
+
+// Find the base URL pattern used by other tenant functions in this file
+// Look at getTenantProfile or updateTenantProfile — copy the SAME URL pattern
+
+// =========== Upload Tenant Logo ===========
+export const uploadTenantLogo = async (formData) => {
+  try {
+    console.log("🟢 Service: Making API call to upload logo");
+    
+    // ⚠️ REPLACE the URL below to match your other tenant functions
+    const res = await api.post(
+      `${import.meta.env.VITE_BACKEND_URL}/api2/upload-logo`, 
+      formData, 
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
+    
+    console.log("🟢 Service: Response received:", res.data);
+    return { success: true, data: res.data.data };
+  } catch (err) {
+    console.log("🔴 Service: FULL ERROR:", err);
+    console.log("🔴 Service: Response:", err?.response?.data);
+    console.log("🔴 Service: Status:", err?.response?.status);
+    console.log("🔴 Service: URL called:", err?.config?.url);
+    
+    return {
+      success: false,
+      message: err?.response?.data?.message || "Failed to upload logo",
+    };
+  }
+};
+
+// =========== Delete Tenant Logo ===========
+export const deleteTenantLogo = async () => {
+  try {
+    const res = await api.delete(
+      `${import.meta.env.VITE_BACKEND_URL}/api2/delete-logo`
+    );
+    return { success: true, message: res.data.message };
+  } catch (err) {
+    return {
+      success: false,
+      message: err?.response?.data?.message || "Failed to delete logo",
+    };
+  }
+};

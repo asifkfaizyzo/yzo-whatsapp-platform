@@ -8,6 +8,8 @@ import { loginUserService } from '../users/userService.js';
 import {
     forgotPasswordTenantService,
     resetPasswordTenantService,
+    uploadTenantLogoService, 
+    deleteTenantLogoService 
 } from './tenantService.js';
 import {
     userGetUnassignedContacts,
@@ -40,9 +42,10 @@ import { encrypt, decrypt } from '../../lib/crypto.js';
 import crypto from 'crypto';
 import { sendVerificationOtpEmail } from '../auth/emailService.js';
 
+import { extractRequestMeta } from '../../lib/utils/requestMeta.js';
+
 
 // ===================== TENANT AUTH =====================
-
 export const registerTenant = async (req, res) => {
     try {
         const result = await registerTenantService(req.body);
@@ -73,6 +76,7 @@ export const registerTenant = async (req, res) => {
 export const loginTenant = async (req, res) => {
     try {
         const { email } = req.body;
+        const meta = extractRequestMeta(req);
 
         if (!email) {
             return res.status(400).json({
@@ -84,19 +88,18 @@ export const loginTenant = async (req, res) => {
         const tenantExists = await prisma.tenant.findUnique({
             where: { email }
         });
-
         let result;
-        let cookieName; // ← add this ABOVE the if block
+        let cookieName; 
 
 
         // ✅ REPLACE WITH
         if (tenantExists) {
-            result = await loginTenantService(req.body);
+            result = await loginTenantService(req.body, meta);
             cookieName = 'refreshToken';
         } else {
             const userExists = await prisma.user.findUnique({ where: { email } });
             if (userExists) {
-                result = await loginUserService(req.body);
+                result = await loginUserService(req.body, meta);
                 cookieName = 'refreshToken';
             } else {
                 return res.status(400).json({
@@ -131,37 +134,38 @@ export const loginTenant = async (req, res) => {
 
 
 export const logoutTenant = async (req, res) => {
-    try {
-        const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
+  try {
+    const meta         = extractRequestMeta(req); // ← meta
+    const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
 
-        if (refreshToken) {
-            await logoutTenantService(refreshToken);
-        }
-
-        res.clearCookie('refreshToken', {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-            path: '/',
-        });
-
-        res.clearCookie('onboarding_token', {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-            path: '/',
-        });
-
-        return res.status(200).json({
-            success: true,
-            message: 'Logout successful'
-        });
-    } catch (error) {
-        return res.status(400).json({
-            success: false,
-            message: error.message
-        });
+    if (refreshToken) {
+      await logoutTenantService(refreshToken, meta); // ← pass meta only
     }
+
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure:   process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      path:     '/',
+    });
+
+    res.clearCookie('onboarding_token', {
+      httpOnly: true,
+      secure:   process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      path:     '/',
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Logout successful',
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
 };
 
 
@@ -222,6 +226,13 @@ export const getLoggedInTenant = async (req, res) => {
                 lastName: true,
                 authProvider: true,
                 password: true,
+                websiteUrl: true,
+                industry: true,
+                companySize: true,
+                country: true,
+                useCase: true,
+                logo: true,
+                timezone: true,
             },
         });
 
@@ -251,34 +262,53 @@ export const getLoggedInTenant = async (req, res) => {
 };
 
 
-export const updateTenantProfile = async (req, res, next) => {
-    try {
-        const tenantId = req.tenant?.id;
-        const { tenantName, email, phone, address, websiteUrl, industry, companySize, country } = req.body;
 
-        const result = await updateTenantByIdService(tenantId, {
-            tenantName,
-            email,
-            phone,
-            address,
-            websiteUrl,
-            industry,
-            companySize,
-            country,
-        });
+// ═══════════════════════════════════════════
+// UPDATE TENANT PROFILE — tenant updates themselves
+// ═══════════════════════════════════════════
+export const updateTenantProfile = async (req, res) => {
+  try {
+    const tenantId = req.tenant?.id;
+    const meta     = extractRequestMeta(req); // ← ADD
 
-        return res.status(200).json({
-            success: true,
-            message: 'Tenant profile updated successfully',
-            data: result.tenant,
-        });
-    } catch (error) {
-        return res.status(400).json({
-            success: false,
-            message: error.message
-        });
+    if (!tenantId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Tenant not authenticated',
+      });
     }
+
+    const {
+      tenantName,
+      email,
+      phone,
+      address,
+      websiteUrl,
+      industry,
+      companySize,
+      country,
+    } = req.body;
+
+    const result = await updateTenantByIdService(
+      tenantId,
+      { tenantName, email, phone, address, websiteUrl, industry, companySize, country },
+      null, // ← actor = null → tenant updating themselves
+      meta  // ← ADD
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Tenant profile updated successfully',
+      data:    result.tenant,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
 };
+
 
 // Complete Onboarding — Step 2 of registration (authenticated, updates company info)
 export const completeOnboarding = async (req, res) => {
@@ -1257,4 +1287,27 @@ export const getOnboardingStatus = async (req, res) => {
             data: null
         });
     }
+};
+
+
+
+
+// =========== Upload Tenant Logo ===========
+export const uploadTenantLogo = async (req, res) => {
+  try {
+    const result = await uploadTenantLogoService(req.tenantId, req.file);
+    res.status(200).json({ success: true, ...result });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+// =========== Delete Tenant Logo ===========
+export const deleteTenantLogo = async (req, res) => {
+  try {
+    const result = await deleteTenantLogoService(req.tenantId);
+    res.status(200).json({ success: true, ...result });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
 };

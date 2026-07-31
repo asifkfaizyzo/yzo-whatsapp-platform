@@ -13,6 +13,7 @@ import {
   TicketCheck,
   HelpCircle,
   Sparkles,
+  Shield,
 } from "lucide-react";
 
 export default function Sidebar({ userRole = "Super Admin" }) {
@@ -67,6 +68,11 @@ export default function Sidebar({ userRole = "Super Admin" }) {
       label: "Subscriptions",
       path: "/dashboard/subscriptions",
       icon: <Sparkles size={20} />,
+    },
+      {
+      label: "Audit Logs",
+      path: "/dashboard/audit-logs",
+      icon: <Shield size={20} />,
     },
     {
       label: "System Settings",
