@@ -192,16 +192,7 @@ const TopNavbar = () => {
   };
 
   return (
-    <div className="flex items-center justify-between bg-white border-b border-gray-200 px-6 py-3 h-16 relative z-30">
-
-      {/* ── Left: Logo ── */}
-      <div className="flex items-center gap-2">
-        <img
-          src="/sudo_bg.png"
-          alt="SudoReply Logo"
-          className="h-8 w-auto"
-        />
-      </div>
+    <div className="flex items-center justify-end bg-white border-b border-gray-200 px-6 py-3 h-16 relative z-30">
 
       {/* ── Right: Actions ── */}
       <div className="flex items-center gap-4">

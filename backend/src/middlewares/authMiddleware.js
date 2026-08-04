@@ -152,12 +152,7 @@ export const verifyUser = async (req, res, next) => {
 
 // Optional: Check if user is Admin
 // ✅ NEW
-export const isAdmin = (req, res, next) => {
-  if (req.user || req.tenant) {
-    return next();
-  }
-  return res.status(403).json({
-    success: false,
-    message: 'Access denied. Admin only.',
-  });
+export const isTenantAdmin = (req, res, next) => {
+  if (req.tenant && req.userType === 'TENANT') return next();
+  return res.status(403).json({ success: false, message: 'Access denied. Tenant admin only.' });
 };

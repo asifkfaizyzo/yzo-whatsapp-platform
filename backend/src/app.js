@@ -34,6 +34,7 @@ import adminSubscriptionsRoute from './modules/admin-subscriptions/adminSubscrip
 import auditLogRoutes from './modules/audit/auditLogRoutes.js';
 import dlqRoutes from './modules/webhook/dlqRoutes.js';
 import mediaRoutes from './modules/messages/mediaRoute.js';
+import { verifyTenantOrUser } from './middlewares/authVerfyTenOrUser.js';
 
 const app = express();
 
@@ -119,7 +120,7 @@ const allowedOrigins = (process.env.FRONTEND_URLS || '')
   .map((url) => url.trim());
 
 // ── Static Files ──
-app.use("/uploads", (req, res, next) => {
+app.use("/uploads", verifyTenantOrUser, (req, res, next) => {
   // 🔒 Security: Block direct static web access to invoices
   if (req.path.startsWith("/invoices")) {
     return res.status(403).json({
@@ -134,8 +135,6 @@ app.use("/uploads", (req, res, next) => {
   res.header("Cross-Origin-Resource-Policy", "same-site");
   next();
 }, express.static(path.join(process.cwd(), "uploads")));
-
-app.use(cookieParser());
 
 
 app.use(cors({
@@ -212,8 +211,6 @@ app.use('/api/dlq', dlqRoutes);
 // ERROR HANDLERS
 // ──────────────────────────────────────
 
-
-app.use('/api/media', mediaRoutes);
 // 404
 app.use((req, res, next) => {
   res.status(404).json({

@@ -66,14 +66,12 @@ useEffect(() => {
       if (authUser?.type === "TENANT") {
 
       const res = await api.get("/me");
-      console.log("🖼️Tenant Logo response:", res.data);
       if (res.data?.success && res.data?.data?.logo) {
         logoUrl = res.data.data.logo;
          }
            } else if (authUser?.type === "USER") {
         // 👤 USER: Fetch from user endpoint (returns tenant info too)
         const res = await api.get(`${import.meta.env.VITE_BACKEND_URL}/api3/me`);
-        console.log("🖼️ User profile response (has tenant logo):", res.data);
         if (res.data?.success && res.data?.data?.tenant?.logo) {
           logoUrl = res.data.data.tenant.logo;
         }
@@ -81,10 +79,9 @@ useEffect(() => {
       
       if (logoUrl) {
         setTenantLogo(logoUrl);
-        console.log("🖼️ Logo set to:", logoUrl);
       }
     } catch (err) {
-      console.log("Failed to fetch tenant logo:", err);
+      // silent fail — logo is non-critical
     }
   };
   
@@ -128,9 +125,6 @@ useEffect(() => {
 
   // ── Helper: Add notification to state ──
   const addNotification = (notif) => {
-    console.log("📢 addNotification called with:", notif);
-    console.log("📢 notif.type is:", notif.type);
-
     setNotifications((prev) => [notif, ...prev].slice(0, 20));
     setUnreadCount((prev) => prev + 1);
     playNotificationSound();
@@ -141,7 +135,6 @@ useEffect(() => {
       notif.type === "conversation_reopened"
     ) {
       const isInboxMounted = !!document.querySelector('[data-inbox-mounted="true"]');
-      console.log("📊 Is Inbox mounted?", isInboxMounted);
 
       if (!isInboxMounted) {
         const currentCount = parseInt(
@@ -150,14 +143,8 @@ useEffect(() => {
         );
         const newCount = currentCount + 1;
         localStorage.setItem("inbox_unread_count", String(newCount));
-        console.log("📊 Updated inbox_unread_count to:", newCount);
         window.dispatchEvent(new Event("unread_updated"));
-        console.log("📡 Dispatched unread_updated event");
-      } else {
-        console.log("ℹ️ Inbox is mounted, skipping count update (Inbox handles it)");
       }
-    } else {
-      console.log("⚠️ Type NOT matched, skipping sidebar update");
     }
   };
 
@@ -192,12 +179,7 @@ useEffect(() => {
     const userId = authUser?.id; // ✅ Always the real user id
     const userType = authUser?.type;
 
-    console.log("🔌 Setting up socket for:", userType);
-    console.log("tenantId:", tenantId);
-    console.log("userId:", userId);
-
     if (!tenantId) {
-      console.log("❌ No tenantId - socket not connecting");
       return;
     }
 
@@ -211,11 +193,9 @@ useEffect(() => {
       if (userType === "TENANT") {
         // ✅ Tenant admin joins tenant room
         socket.emit("join_tenant", tenantId);
-        console.log("✅ TopNavBar joined tenant room:", tenantId);
       } else if (userType === "USER") {
         // ✅ Agent joins personal room for direct notifications
         socket.emit("join_user", userId);
-        console.log("✅ TopNavBar joined user room:", userId);
         // ❗ Do NOT join tenant room here - Inbox.jsx handles that
       }
 
@@ -229,14 +209,12 @@ useEffect(() => {
 
     // ✅ On connect/reconnect
     socket.on("connect", () => {
-      console.log("✅ Socket connected:", socket.id);
       socketJoined.current = false; // reset on reconnect
       joinRoom();
     });
 
     // ── Notification event ──
     socket.on("new_notification", (data) => {
-      console.log("🔔 new_notification received:", data);
       addNotification(data.notification);
     });
 
@@ -246,7 +224,6 @@ useEffect(() => {
     if (userType === "TENANT") {
 
       socket.on("new_ticket", (data) => {
-        console.log("🎫 new_ticket received:", data);
         addNotification({
           id: `ticket_${Date.now()}`,
           type: "new_ticket",
@@ -262,7 +239,6 @@ useEffect(() => {
       });
 
       socket.on("ticket_reply", (data) => {
-        console.log("💬 ticket_reply received:", data);
         addNotification({
           id: `reply_${Date.now()}`,
           type: "ticket_reply",
@@ -278,7 +254,6 @@ useEffect(() => {
       });
 
       socket.on("ticket_escalated_confirmation", (data) => {
-        console.log("⚠️ ticket_escalated_confirmation received:", data);
         addNotification({
           id: `escalated_${Date.now()}`,
           type: "ticket_escalated",
@@ -294,7 +269,6 @@ useEffect(() => {
       });
 
       socket.on("ticket_status_updated", (data) => {
-        console.log("🔄 ticket_status_updated received:", data);
         addNotification({
           id: `status_${Date.now()}`,
           type: "ticket_status_updated",
@@ -317,7 +291,6 @@ useEffect(() => {
     if (userType === "USER") {
 
       socket.on("ticket_reply_to_user", (data) => {
-        console.log("💬 ticket_reply_to_user received:", data);
         addNotification({
           id: `reply_user_${Date.now()}`,
           type: "ticket_reply",
@@ -333,7 +306,6 @@ useEffect(() => {
       });
 
       socket.on("ticket_reply", (data) => {
-        console.log("💬 ticket_reply (user) received:", data);
         addNotification({
           id: `reply_${Date.now()}`,
           type: "ticket_reply",
@@ -349,7 +321,6 @@ useEffect(() => {
       });
 
       socket.on("ticket_resolved", (data) => {
-        console.log("✅ ticket_resolved received:", data);
         addNotification({
           id: `resolved_${Date.now()}`,
           type: "ticket_resolved",
@@ -365,7 +336,6 @@ useEffect(() => {
       });
 
       socket.on("ticket_status_updated", (data) => {
-        console.log("🔄 ticket_status_updated (user) received:", data);
         addNotification({
           id: `status_${Date.now()}`,
           type: "ticket_status_updated",
@@ -384,7 +354,6 @@ useEffect(() => {
 
     // ── Cleanup: remove listeners only (don't disconnect socket) ──
     return () => {
-      console.log("🧹 Cleaning up socket listeners");
       socket.off("connect");
       socket.off("new_notification");
       socket.off("new_ticket");
@@ -560,43 +529,9 @@ useEffect(() => {
   };
 
   return (
-    <header className="flex items-center justify-between bg-white
+    <header className="flex items-center justify-end bg-white
                        border-b border-[color:var(--border)] px-6 py-3
                        h-16 relative z-30 shrink-0">
-
-      {/* Left: Brand Logo */}
-    {/* Left: Brand Logo */}
-<div className="flex items-center gap-2">
-  <img
-    src="/sudo_bg.png"
-    alt="SudoReply Logo"
-    className="h-8 w-auto"
-  />
-  <span className="text-xl font-bold text-gray-800 tracking-tight">
-    SudoReply
-  </span>
-</div>
-
-    
-
-      {/* Middle: WhatsApp API Status */}
-      <div className="hidden sm:flex items-center gap-2 rounded-full px-3.5 py-1.5 border transition-all duration-300">
-        {isWhatsappConnected ? (
-          <>
-            <CheckCircle2 size={15} className="text-[#125EF2]" />
-            <span className="text-xs font-semibold text-[#0D47A1]">
-              WhatsApp Connected
-            </span>
-          </>
-        ) : (
-          <>
-            <X size={15} className="text-red-500" />
-            <span className="text-xs font-semibold text-red-500">
-              WhatsApp Is not Connected
-            </span>
-          </>
-        )}
-      </div>
 
       {/* Right Actions */}
       <div className="flex items-center gap-4">
@@ -758,7 +693,6 @@ useEffect(() => {
       alt="Logo"
       className="w-full h-full object-cover"
       onError={(e) => {
-        console.log("Logo image failed to load");
         e.target.style.display = "none";
       }}
     />

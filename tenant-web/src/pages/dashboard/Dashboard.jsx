@@ -255,12 +255,7 @@ export default function Dashboard() {
   // 🆕 CHUNK 4: Socket Listener for Assignments & Queue
   // ═════════════════════════════════════════════════════════
   useEffect(() => {
-  console.log("🔧 Dashboard SOCKET EFFECT triggered");
-  console.log("🔧 authUser:", authUser);
-  console.log("🔧 userRole:", userRole);
-  
   if (!authUser || !userRole) {
-    console.log("⛔ Exit: missing authUser or userRole");
     return;
   }
 
@@ -268,19 +263,14 @@ export default function Dashboard() {
   const userId = authUser?.type === "USER" ? authUser?.id : null;
 
   if (!tenantId) {
-    console.log("⛔ Exit: no tenantId");
     return;
   }
 
   const socket = getSocket();
-  console.log("🔧 Socket obtained, connected:", socket.connected);
 
   // ─── AGENT LISTENERS ───
   if (userRole === "agent") {
-    console.log("🎯 Setting up AGENT listeners");
-    
     socket.on("new_assignment", (data) => {
-      console.log("🆕 New assignment received:", data);
       fetchAgentData();
       setNewAssignmentBadge((prev) => prev + 1);
 
@@ -305,10 +295,7 @@ export default function Dashboard() {
 
   // ─── TENANT LISTENERS ───
   if (userRole === "admin") {
-    console.log("🎯 Setting up TENANT listeners");
-    
     socket.on("queue_updated", (data) => {
-      console.log("📊 Queue updated:", data);
       setQueueCount(data.queueCount || 0);
 
       if (data.newlyQueued && "Notification" in window && Notification.permission === "granted") {
@@ -325,7 +312,6 @@ export default function Dashboard() {
   }
 
   return () => {
-    console.log("🧹 Cleaning up Dashboard socket listeners");
     socket.off("new_assignment");
     socket.off("conversation_assigned");
     socket.off("queue_updated");
@@ -552,7 +538,7 @@ export default function Dashboard() {
             </div>
           </div>
           <Link
-            to="/dashboard/settings"
+            to="/dashboard/settings?tab=whatsapp"
             className="relative z-10 shrink-0 flex items-center gap-2 px-5 py-2.5 text-xs font-bold rounded-xl bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-50 transition-all duration-200 shadow-sm"
           >
             <span>Manage Settings</span>

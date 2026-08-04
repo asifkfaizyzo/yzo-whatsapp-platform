@@ -1,6 +1,7 @@
 // src/pages/dashboard/Settings.jsx
 
 import React, { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Settings,
   User,
@@ -106,7 +107,26 @@ const COUNTRY_OPTIONS = [
 
 export default function SettingsPage() {
   const toast = useToast();
-  const [activeTab, setActiveTab] = useState("profile");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") || "profile");
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab) {
+      setActiveTab(tab);
+    } else {
+      setActiveTab("profile");
+    }
+  }, [searchParams]);
+
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    if (tabId === "profile") {
+      setSearchParams({}, { replace: true });
+    } else {
+      setSearchParams({ tab: tabId }, { replace: true });
+    }
+  };
   const [copiedKey, setCopiedKey] = useState(false);
   const [userRole, setUserRole] = useState(null);
   const [showVerifyToken, setShowVerifyToken] = useState(false);
@@ -643,7 +663,7 @@ export default function SettingsPage() {
             .map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => handleTabChange(tab.id)}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition w-full whitespace-nowrap text-left ${
                   activeTab === tab.id
                     ? "bg-slate-100 text-slate-800"

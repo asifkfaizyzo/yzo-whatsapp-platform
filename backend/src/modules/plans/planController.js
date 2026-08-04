@@ -521,17 +521,6 @@ export const verifyPaymentAndActivate = async (req, res) => {
       return { payment: createdPayment, updatedTenant: updated };
     });
 
-    // ─────────────────────────────────────────────
-    // 🔍 TEMP DEBUG — remove after confirmed
-    // ─────────────────────────────────────────────
-    console.log('🔍 About to write PAYMENT_SUCCESS audit log...');
-    console.log('🔍 tenantId    :', tenantId);
-    console.log('🔍 tenant.name :', tenant.tenantName);
-    console.log('🔍 plan.name   :', plan.name);
-    console.log('🔍 totalAmount :', totalAmount);
-    console.log('🔍 meta        :', meta);
-    // ─────────────────────────────────────────────
-
     // ✅ PAYMENT_SUCCESS audit log
     const auditResult1 = await createAuditLog({
       actorId:     tenantId,
@@ -557,7 +546,6 @@ export const verifyPaymentAndActivate = async (req, res) => {
         planPeriodEnd:     updatedTenant.planPeriodEnd,
       },
     });
-    console.log('✅ PAYMENT_SUCCESS audit id:', auditResult1?.id ?? 'NULL - FAILED');
 
     // ✅ PLAN_ACTIVATED audit log
     const auditResult2 = await createAuditLog({
@@ -582,7 +570,6 @@ export const verifyPaymentAndActivate = async (req, res) => {
         planPeriodEnd:   updatedTenant.planPeriodEnd,
       },
     });
-    console.log('✅ PLAN_ACTIVATED audit id:', auditResult2?.id ?? 'NULL - FAILED');
 
 
     // 8. Fetch payment method in background (non-blocking)

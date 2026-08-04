@@ -134,3 +134,21 @@ body {
 .animate-ping-once {
   animation: pingOnce 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.5s forwards;
 }
+
+/* ── Sidebar Scrollbar ── */
+.sidebar-scroll-area::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar-scroll-area::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-scroll-area::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 4px;
+}
+
+.sidebar-scroll-area::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}

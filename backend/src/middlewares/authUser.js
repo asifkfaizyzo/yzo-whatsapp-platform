@@ -19,7 +19,6 @@ export const verifyUser = async (req, res, next) => {
     // 3️⃣ Verify token
     const decoded = jwt.verify(token, process.env.ACCESS_SECRET);
 
-     console.log("TOKEN TYPE:", decoded.type);
 
     // 4️⃣ Check user type
     if (decoded.type !== "USER") {
