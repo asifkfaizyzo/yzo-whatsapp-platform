@@ -130,47 +130,71 @@ export const updateAutoReopenSchema = z.object({
 
 // Validate Tenant Profile Update Payload
 export const updateTenantProfileSchema = z.object({
-  body: z.object({
-    tenantName: z
-      .string()
-      .min(2, "Name must be at least 2 characters")
-      .optional(),
-    email: z
-      .string()
-      .email("Invalid email address")
-      .optional(),
-    phone: z
-      .string()
-      .min(10, "Phone must be at least 10 digits")
-      .optional()
-      .or(z.literal("")),
-    address: z
-      .string()
-      .optional()
-      .or(z.literal("")),
-    websiteUrl: z
-      .string()
-      .optional()
-      .or(z.literal("")),
-    industry: z
-      .string()
-      .optional()
-      .or(z.literal("")),
-    companySize: z
-      .string()
-      .optional()
-      .or(z.literal("")),
-    country: z
-      .string()
-      .optional(),
-    logo: z
-      .string()
-      .optional()
-      .or(z.literal("")),
-    timezone: z
-      .string()
-      .optional(),
-  }),
+  // ✅ REPLACE WITH ENTIRE BLOCK
+body: z.object({
+  tenantName: z
+    .string()
+    .min(2, "Name must be at least 2 characters")
+    .optional()
+    .or(z.literal(""))
+    .nullable(),
+  email: z
+    .string()
+    .email("Invalid email address")
+    .optional()
+    .or(z.literal(""))
+    .nullable(),
+  phone: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .nullable(),
+  address: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .nullable(),
+  websiteUrl: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .nullable(),
+  industry: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .nullable(),
+  companySize: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .nullable(),
+  country: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .nullable(),
+  logo: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .nullable(),
+  timezone: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .nullable(),
+  firstName: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .nullable(),
+  lastName: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .nullable(),
+}),
 });
 
 export const setupWhatsAppSchema = z.object({

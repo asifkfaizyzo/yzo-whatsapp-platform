@@ -53,3 +53,22 @@ export const verifyPayment = async (paymentData) => {
     };
   }
 };
+
+
+// ── Fetch Public GST Settings ──
+export const getPublicTaxSettings = async () => {
+  try {
+    const res = await api.get("/settings/tax/public");
+    return { success: true, data: res.data.data };
+  } catch (err) {
+    // Fallback if API fails
+    return {
+      success: true,
+      data: {
+        gstEnabled: true,
+        gstPercent: 18,
+        gstType: "CGST_SGST",
+      },
+    };
+  }
+};

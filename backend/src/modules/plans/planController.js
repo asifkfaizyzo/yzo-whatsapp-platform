@@ -17,6 +17,7 @@ import { createSuperAdminNotification } from "../superAdminNotifications/superAd
 import { emitToSuperAdmin } from "../../lib/socket.js";
 import { createAuditLog } from '../audit/auditLogService.js';
 import { extractRequestMeta } from '../../lib/utils/requestMeta.js';
+import { calculateGST } from "../superadmin/superadminService.js";
 
 // ✅ Initialize Razorpay
 const razorpay = new Razorpay({
@@ -219,9 +220,10 @@ export const createPaymentOrder = async (req, res) => {
         ? plan.annualPrice
         : plan.monthlyPrice;
 
-    const gstPercent = 18;
-    const gstAmount = parseFloat(((baseAmount * gstPercent) / 100).toFixed(2));
-    const totalAmount = parseFloat((baseAmount + gstAmount).toFixed(2));
+    const gstCalc     = await calculateGST(baseAmount);
+    const gstPercent  = gstCalc.gstPercent;
+    const gstAmount   = gstCalc.gstAmount;
+    const totalAmount = gstCalc.totalAmount;
 
     // Razorpay amount is in PAISE (₹1 = 100 paise)
     const amountInPaise = Math.round(totalAmount * 100);
@@ -335,9 +337,10 @@ export const verifyPaymentAndActivate = async (req, res) => {
         ? plan.annualPrice
         : plan.monthlyPrice;
 
-    const gstPercent = 18;
-    const gstAmount = parseFloat(((baseAmount * gstPercent) / 100).toFixed(2));
-    const totalAmount = parseFloat((baseAmount + gstAmount).toFixed(2));
+    const gstCalc     = await calculateGST(baseAmount);
+    const gstPercent  = gstCalc.gstPercent;
+    const gstAmount   = gstCalc.gstAmount;
+    const totalAmount = gstCalc.totalAmount;
 
     // 4. Verify signature FIRST
     const sigBody = razorpay_order_id + "|" + razorpay_payment_id;
@@ -346,7 +349,6 @@ export const verifyPaymentAndActivate = async (req, res) => {
       .update(sigBody.toString())
       .digest("hex");
 
-    // ✅ NEW
     const expectedBuf = Buffer.from(expectedSignature, 'utf8');
     const sigBuf = Buffer.from(razorpay_signature, 'utf8');
 
@@ -370,7 +372,6 @@ export const verifyPaymentAndActivate = async (req, res) => {
           },
         });
 
-         // ✅ ADD audit log for PAYMENT_FAILED
     await createAuditLog({
       actorId:     tenantId,
       actorType:   'TENANT',
@@ -531,8 +532,8 @@ export const verifyPaymentAndActivate = async (req, res) => {
       module:      'BILLING',
       description: `Tenant "${tenant.tenantName}" paid ₹${totalAmount} for ${plan.name} (${validBillingType})`,
       tenantId:    tenantId,
-      ipAddress:   meta.ipAddress ?? null, // ✅ ADD
-      userAgent:   meta.userAgent ?? null, // ✅ ADD
+      ipAddress:   meta.ipAddress ?? null,
+      userAgent:   meta.userAgent ?? null, 
       metadata: {
         planName:          plan.name,
         billingType:       validBillingType,
@@ -559,8 +560,8 @@ export const verifyPaymentAndActivate = async (req, res) => {
         ? `Tenant "${tenant.tenantName}" extended ${plan.name} plan (${validBillingType})`
         : `Tenant "${tenant.tenantName}" activated ${plan.name} plan (${validBillingType})`,
       tenantId:    tenantId,
-      ipAddress:   meta.ipAddress ?? null, // ✅ ADD
-      userAgent:   meta.userAgent ?? null, // ✅ ADD
+      ipAddress:   meta.ipAddress ?? null,
+      userAgent:   meta.userAgent ?? null, 
       metadata: {
         planName:        plan.name,
         billingType:     validBillingType,
@@ -581,7 +582,6 @@ export const verifyPaymentAndActivate = async (req, res) => {
             where: { id: payment.id },
             data: { paymentMethod: rzpPayment.method },
           });
-          console.log(`✅ Payment method updated: ${rzpPayment.method}`);
         }
       })
       .catch((e) => {
@@ -628,7 +628,6 @@ export const verifyPaymentAndActivate = async (req, res) => {
           invoiceNumber,
           filePath
         );
-        console.log(`✅ Invoice generated: ${invoiceNumber}`);
       })
       .catch((err) => {
         console.error("❌ Invoice generation error:", err);
@@ -757,12 +756,14 @@ export const getBillingDetails = async (req, res) => {
         tenant.billingType === "annual" && tenant.plan.annualPrice
           ? tenant.plan.annualPrice
           : tenant.plan.monthlyPrice;
-      const gstAmount = parseFloat(((baseAmount * 18) / 100).toFixed(2));
-      currentPrice = {
-        base: baseAmount,
-        gst: gstAmount,
-        total: parseFloat((baseAmount + gstAmount).toFixed(2)),
-      };
+    const gstCalc = await calculateGST(baseAmount);
+    currentPrice = {
+    base:       baseAmount,
+    gst:        gstCalc.gstAmount,
+    total:      gstCalc.totalAmount,
+    gstEnabled: gstCalc.gstEnabled,
+    gstPercent: gstCalc.gstPercent,
+    };
     }
 
     let currentPlanResponse = null;

@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import prisma from "../../config/prisma.js";
 import { verifyPaymentAndActivate } from "../plans/planController.js";
+import { calculateGST } from "../superadmin/superadminService.js";
 
 export const handleRazorpayWebhook = async (req, res) => {
   try {
@@ -38,17 +39,30 @@ export const handleRazorpayWebhook = async (req, res) => {
       });
 
     if (existingPayment && existingPayment.status !== "SUCCESS") {
-      console.log(`[Webhook] Auto-activating plan for order: ${orderId}`);
-      
-      // 1. Update Payment status
-      await prisma.payment.update({
-        where: { id: existingPayment.id },
-        data: {
-          status: 'SUCCESS',
-          razorpayPaymentId: paymentId,
-          paidAt: new Date(),
-        },
-      });
+  console.log(`[Webhook] Auto-activating plan for order: ${orderId}`);
+
+  // ── Calculate GST from DB settings ──
+  const gstCalc = await calculateGST(existingPayment.baseAmount);
+
+  // 1. Update Payment status + GST
+  await prisma.payment.update({
+    where: { id: existingPayment.id },
+    data: {
+      status:            "SUCCESS",
+      razorpayPaymentId: paymentId,
+      paidAt:            new Date(),
+      gstPercent:        gstCalc.gstPercent,
+      gstAmount:         gstCalc.gstAmount,
+      totalAmount:       gstCalc.totalAmount,
+    },
+  });
+
+  console.log(
+    `[Webhook] GST: ${gstCalc.gstEnabled ? "ON" : "OFF"} | ` +
+    `Base: ₹${gstCalc.baseAmount} | ` +
+    `GST: ₹${gstCalc.gstAmount} | ` +
+    `Total: ₹${gstCalc.totalAmount}`
+  );
 
       // 2. Calculate period end based on billing type
       const periodEnd = new Date();

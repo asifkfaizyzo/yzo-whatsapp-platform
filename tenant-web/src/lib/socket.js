@@ -26,11 +26,20 @@ export const socket = io(socketUrl, {
 // ── For TopNavBar (stable persistent connection) ──
 let _persistentSocket = null;
 
+// lib/socket.js
+
 export const getSocket = () => {
+  // ✅ Guard: no token = no socket
+  const token = useAuthStore.getState().accessToken;
+  if (!token) {
+    console.log("⏳ getSocket() called with no token — returning null");
+    return null;
+  }
+
   if (!_persistentSocket) {
     _persistentSocket = io(socketUrl, {
       auth: (cb) => {
-        cb({ token: getAuthToken() });
+        cb({ token: useAuthStore.getState().accessToken });
       },
       withCredentials: true,
       transports: ["websocket"],
@@ -45,13 +54,14 @@ export const getSocket = () => {
     });
 
     _persistentSocket.on("connect_error", (err) => {
-      console.error("❌ Persistent socket connection error:", err.message);
+      console.error("❌ Socket error:", err.message);
     });
 
     _persistentSocket.on("disconnect", (reason) => {
-      console.log("🔌 Persistent socket disconnected:", reason);
+      console.log("🔌 Socket disconnected:", reason);
     });
   }
+
   return _persistentSocket;
 };
 

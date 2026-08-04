@@ -27,6 +27,7 @@ const processQueue = (error, token = null) => {
 api.interceptors.request.use(
   (config) => {
     const token = useAdminAuthStore.getState().accessToken;
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }

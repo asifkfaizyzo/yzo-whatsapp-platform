@@ -72,3 +72,37 @@ export const deleteFeature = async (id) => {
     return { success: false, message: err.response?.data?.message || "Failed to delete feature" };
   }
 };
+
+
+
+// ══════════════════════════════════════════
+// TAX / GST SETTINGS
+// ══════════════════════════════════════════
+
+export const getTaxSettings = async () => {
+  try {
+    const res = await api.get("/settings/tax");
+    return { success: true, data: res.data.data };
+  } catch (err) {
+    return {
+      success: false,
+      message: err.response?.data?.message || "Failed to fetch tax settings",
+    };
+  }
+};
+
+export const updateTaxSettings = async (data) => {
+  try {
+     const res = await api.put("/settings/tax", data);
+    return {
+      success: true,
+      data:    res.data.data,
+      message: res.data.message,
+    };
+  } catch (err) {
+    return {
+      success: false,
+      message: err.response?.data?.message || "Failed to update tax settings",
+    };
+  }
+};

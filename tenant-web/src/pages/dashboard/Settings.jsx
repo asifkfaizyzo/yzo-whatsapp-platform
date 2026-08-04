@@ -164,21 +164,21 @@ export default function SettingsPage() {
     if (res.success) {
       setProfile((prev) => ({
         ...prev,
-        name: res.data.tenantName,
-        companyName: res.data.tenantName,
-        email: res.data.email,
-        phone: res.data.phone || "",
-        address: res.data.address || "",
-        authProvider: res.data.authProvider || "LOCAL",
+        name: res.data.tenantName ?? "",
+        companyName: res.data.tenantName ?? "",
+        email: res.data.email ?? "", // ← KEY FIX: null→""
+        phone: res.data.phone ?? "",
+        address: res.data.address ?? "",
+        authProvider: res.data.authProvider ?? "LOCAL",
         hasPassword: res.data.hasPassword ?? true,
-        firstName: res.data.firstName || "",
-        lastName: res.data.lastName || "",
-        websiteUrl: res.data.websiteUrl || "",
-        industry: res.data.industry || "",
-        companySize: res.data.companySize || "",
-        country: res.data.country || "",
-        logo: res.data.logo || "",
-        timezone: res.data.timezone || "Asia/Kolkata",
+        firstName: res.data.firstName ?? "",
+        lastName: res.data.lastName ?? "",
+        websiteUrl: res.data.websiteUrl ?? "",
+        industry: res.data.industry ?? "",
+        companySize: res.data.companySize ?? "",
+        country: res.data.country ?? "",
+        logo: res.data.logo ?? "",
+        timezone: res.data.timezone ?? "Asia/Kolkata",
       }));
     }
   };
@@ -430,19 +430,20 @@ export default function SettingsPage() {
       toast.success("Profile configurations updated!");
       return;
     }
+
     const res = await updateTenantProfile({
-      tenantName: profile.name,
-      email: profile.email,
-      phone: profile.phone,
-      address: profile.address,
-      firstName: profile.firstName,
-      lastName: profile.lastName,
-      websiteUrl: profile.websiteUrl,
-      industry: profile.industry,
-      companySize: profile.companySize,
-      country: profile.country,
-      logo: profile.logo,
-      timezone: profile.timezone,
+      tenantName: profile.name || "",
+      email: profile.email || "",
+      phone: profile.phone || "",
+      address: profile.address || "",
+      firstName: profile.firstName || "",
+      lastName: profile.lastName || "",
+      websiteUrl: profile.websiteUrl || "",
+      industry: profile.industry || "",
+      companySize: profile.companySize || "",
+      country: profile.country || "",
+      logo: profile.logo || "",
+      timezone: profile.timezone || "Asia/Kolkata",
     });
 
     if (res.success) {
@@ -842,9 +843,7 @@ export default function SettingsPage() {
 
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
-                      <label className="label text-xs">
-                        Full Name *
-                      </label>
+                      <label className="label text-xs">Full Name *</label>
                       <input
                         type="text"
                         value={profile.name}
@@ -858,9 +857,10 @@ export default function SettingsPage() {
                     </div>
                     <div>
                       <label className="label text-xs">Email Address *</label>
+
                       <input
                         type="email"
-                        value={profile.email}
+                        value={profile.email ?? ""}
                         onChange={(e) =>
                           setProfile({ ...profile, email: e.target.value })
                         }

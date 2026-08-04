@@ -155,6 +155,7 @@ export const getTenantProfile = async () => {
  */
 export const updateTenantProfile = async (profileData) => {
   try {
+    console.log("📤 Sending to backend:", profileData);
     const response = await api.put(`${TENANT_BASE_URL}/update-profile`, profileData);
     return {
       success: true,

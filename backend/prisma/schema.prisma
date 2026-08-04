@@ -1136,6 +1136,13 @@ model Invoice {
   invoiceNumber        String        @unique
   planName             String
   amount               Decimal       @db.Decimal(10, 2)
+
+  baseAmount           Decimal?      @db.Decimal(10, 2)
+  gstEnabled           Boolean       @default(true)
+  gstPercent           Float?        @default(18)
+  gstAmount            Decimal?      @db.Decimal(10, 2)
+  gstType              String?       @default("CGST_SGST")
+
   currency             String        @default("USD")
   status               InvoiceStatus @default(paid)
   billingPeriodStart   DateTime
@@ -1225,6 +1232,9 @@ enum AuditAction {
    // ── CONVERSATIONS ──      
   BULK_REASSIGN
   CONVERSATION_ASSIGNED
+
+  // ── SETTINGS ──        
+  GST_SETTINGS_UPDATED 
 }
 
 enum AuditModule {
@@ -1235,6 +1245,7 @@ enum AuditModule {
   TICKET
   SYSTEM
   CONVERSATIONS 
+  SETTINGS
 }
 
 model AuditLog {
@@ -1280,4 +1291,29 @@ model AuditLog {
   @@index([actorType, createdAt])
   @@index([tenantId,  createdAt])
   @@index([module,    action])
+}
+
+
+
+//─────────────────PLATFORM SETTING MODEL─────────────────────────
+model PlatformSettings {
+  id               String   @id @default(cuid())
+
+  // ── GST Settings ──
+  gstEnabled       Boolean  @default(true)
+  gstPercent       Float    @default(18.0)
+  gstType          String   @default("CGST_SGST")
+  companyGstNumber String   @default("27AABCU9603R1ZM")
+  pricingType      String   @default("EXCLUSIVE")
+
+  // ── Company Info ──
+  companyName      String   @default("SudoReply Technologies Pvt Ltd")
+  companyEmail     String   @default("support@sudoreply.com")
+  companyAddress   String   @default("Mumbai, Maharashtra, India")
+  sacCode          String   @default("998314")
+
+  updatedAt        DateTime @updatedAt
+  updatedBy        String?
+
+  @@map("platform_settings")
 }

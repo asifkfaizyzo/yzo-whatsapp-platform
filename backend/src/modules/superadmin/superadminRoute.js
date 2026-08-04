@@ -1,7 +1,8 @@
 import express from 'express';
 import * as superAdminController from './superadminController.js';
 import {
-  getAllPayments,getTenantBilling,adminDownloadInvoice,
+  getAllPayments, getTenantBilling, adminDownloadInvoice,
+  getGSTSettings, updateGSTSettings,
 } from './superadminController.js';
 
 import {verifySuperAdmin} from '../../middlewares/authSuperAdmin.js';
@@ -71,5 +72,12 @@ router.patch('/users/:id/reactivate', verifySuperAdmin, superAdminController.rea
 router.get('/revenue/payments', verifySuperAdmin, getAllPayments);
 router.get('/revenue/tenant/:id', verifySuperAdmin, getTenantBilling);
 router.get('/revenue/invoice/:paymentId', verifySuperAdmin, adminDownloadInvoice);
+
+// ══════════════════════════════════════
+// GST / TAX SETTINGS
+// ══════════════════════════════════════
+// ── GST / Tax Settings Routes ──
+router.get('/settings/tax', verifySuperAdmin, getGSTSettings);
+router.put('/settings/tax', verifySuperAdmin, updateGSTSettings);
 
 export default router;

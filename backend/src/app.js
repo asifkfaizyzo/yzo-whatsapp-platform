@@ -36,6 +36,8 @@ import dlqRoutes from './modules/webhook/dlqRoutes.js';
 import mediaRoutes from './modules/messages/mediaRoute.js';
 import { verifyTenantOrUser } from './middlewares/authVerfyTenOrUser.js';
 
+import publicRoutes from './modules/public/publicRoutes.js';
+
 const app = express();
 
 app.set('trust proxy', 1);
@@ -165,6 +167,12 @@ app.use('/api/webhook', webhookRoutes)
 app.use('/api/flows', flowRoutes)
 
 // ──────────────────────────────────────
+// PUBLIC ROUTES — accessible from both frontends
+// ──────────────────────────────────────
+app.use('/api',  publicRoutes);
+app.use('/api2', publicRoutes);
+
+// ──────────────────────────────────────
 // MAIN ROUTES
 // ──────────────────────────────────────
 
@@ -207,10 +215,10 @@ app.use('/api/admin/subscriptions', adminSubscriptionsRoute);
 app.use('/api/superadmin/audit-logs', auditLogRoutes);
 app.use('/api/dlq', dlqRoutes);
 
+
 // ──────────────────────────────────────
 // ERROR HANDLERS
 // ──────────────────────────────────────
-
 // 404
 app.use((req, res, next) => {
   res.status(404).json({
@@ -231,7 +239,6 @@ app.use((err, req, res, next) => {
       : (err.message || 'Internal Server Error')
   });
 });
-
 
 
 export default app;

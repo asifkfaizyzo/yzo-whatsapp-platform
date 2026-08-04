@@ -30,7 +30,7 @@ import api from "../lib/axios";
 
 export default function TopNavBar() {
   const navigate = useNavigate();
-  const { user: authUser } = useAuthStore();
+ const { user: authUser, accessToken } = useAuthStore();
 
   const [user, setUser] = useState(null);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -183,11 +183,31 @@ useEffect(() => {
       return;
     }
 
-    // ✅ Get stable socket
-    const socket = getSocket();
 
-    // ✅ Join correct room only once
-    const joinRoom = () => {
+   // ✅ REPLACE WITH
+if (!tenantId) {
+  console.log("❌ No tenantId - socket not connecting");
+  return;
+}
+
+// ✅ Check token before connecting
+const accessToken = useAuthStore.getState().accessToken;
+if (!accessToken) {
+  console.log("⏳ No accessToken yet — skipping socket setup");
+  return;
+}
+
+// ✅ Get stable socket
+const socket = getSocket();
+
+// ✅ Null check socket
+if (!socket) {
+  console.log("❌ Socket instance is null");
+  return;
+}
+
+// ✅ Join correct room only once
+const joinRoom = () => {
       if (socketJoined.current) return;
 
       if (userType === "TENANT") {
@@ -364,7 +384,7 @@ useEffect(() => {
       socket.off("ticket_resolved");
     };
 
-  }, [authUser?.id, authUser?.type]); // ✅ FIXED: comma not semicolon
+  }, [authUser?.id, authUser?.type, accessToken]);
 
   // ── Disconnect socket on logout ──
   const handleLogout = async () => {

@@ -250,13 +250,17 @@ const PaymentRow = ({ payment, onDownloadInvoice }) => {
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500">CGST (9%)</span>
+                    <span className="text-slate-500">
+  CGST ({payment.gstPercent ? payment.gstPercent / 2 : 9}%)
+</span>
                     <span className="font-semibold text-slate-700">
                       {formatINR(cgst)}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500">SGST (9%)</span>
+                    <span className="text-slate-500">
+  SGST ({payment.gstPercent ? payment.gstPercent / 2 : 9}%)
+</span>
                     <span className="font-semibold text-slate-700">
                       {formatINR(sgst)}
                     </span>
@@ -785,8 +789,11 @@ export default function Revenue() {
               {formatINR(stats.totalGST)}
             </p>
             <p className="text-xs text-slate-400 mt-1">
-              18% GST across all payments
-            </p>
+  {stats.totalGST > 0
+    ? "GST collected across all payments"
+    : "No GST collected yet"
+  }
+</p>
           </div>
 
           {/* ARR */}

@@ -432,3 +432,82 @@ export const adminDownloadInvoice = async (req, res) => {
     }
   }
 };
+
+
+// ══════════════════════════════════════════
+// GST SETTINGS
+// ══════════════════════════════════════════
+
+// ── GET GST Settings ──
+export const getGSTSettings = async (req, res) => {
+  try {
+    const { getGSTSettingsService } = await import('./superadminService.js');
+    const settings = await getGSTSettingsService();
+    return res.status(200).json({
+      success: true,
+      message: "GST settings fetched successfully",
+      data:    settings,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ── UPDATE GST Settings ──
+export const updateGSTSettings = async (req, res) => {
+  try {
+    const { updateGSTSettingsService } = await import('./superadminService.js');
+
+    const actor = {
+      id:    req.superAdmin.id,
+      name:  req.superAdmin.name,
+      email: req.superAdmin.email,
+    };
+    const meta = extractRequestMeta(req);
+
+    const updated = await updateGSTSettingsService(req.body, actor, meta);
+
+    return res.status(200).json({
+      success: true,
+      message: `GST settings updated — GST is now ${updated.gstEnabled ? "ENABLED ✅" : "DISABLED ❌"}`,
+      data:    updated,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
+
+// ══════════════════════════════════════════
+// PUBLIC GST SETTINGS (for tenant checkout)
+// No auth required — returns only safe fields
+// ══════════════════════════════════════════
+export const getPublicGSTSettings = async (req, res) => {
+  try {
+    const { getGSTSettingsService } = await import('./superadminService.js');
+    const settings = await getGSTSettingsService();
+
+    // Only expose safe, non-sensitive fields
+    return res.status(200).json({
+      success: true,
+      data: {
+        gstEnabled:  settings.gstEnabled,
+        gstPercent:  settings.gstPercent,
+        gstType:     settings.gstType,
+        pricingType: settings.pricingType,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};

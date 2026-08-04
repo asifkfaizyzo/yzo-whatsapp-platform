@@ -901,3 +901,192 @@ export const getTenantBillingService = async (tenantId) => {
     totalSpent: parseFloat(totalSpent.toFixed(2)),
   };
 };
+
+
+
+// ══════════════════════════════════════════
+// GST / TAX SETTINGS
+// ══════════════════════════════════════════
+
+// ── Get GST Settings ──
+export const getGSTSettingsService = async () => {
+  let settings = await prisma.platformSettings.findUnique({
+    where: { id: "GLOBAL" },
+  });
+
+  if (!settings) {
+    settings = await prisma.platformSettings.create({
+      data: {
+        id:               "GLOBAL",
+        gstEnabled:       true,
+        gstPercent:       18.0,
+        gstType:          "CGST_SGST",
+        companyGstNumber: "27AABCU9603R1ZM",
+        pricingType:      "EXCLUSIVE",
+        companyName:      "SudoReply Technologies Pvt Ltd",
+        companyEmail:     "support@sudoreply.com",
+        companyAddress:   "Mumbai, Maharashtra, India",
+        sacCode:          "998314",
+      },
+    });
+  }
+
+  return settings;
+};
+
+// ── Update GST Settings ──
+export const updateGSTSettingsService = async (data, actor, meta = {}) => {
+  const {
+    gstEnabled,
+    gstPercent,
+    gstType,
+    companyGstNumber,
+    pricingType,
+    companyName,
+    companyEmail,
+    companyAddress,
+    sacCode,
+  } = data;
+
+  // ── Validate ──
+  if (gstPercent !== undefined) {
+    const pct = parseFloat(gstPercent);
+    if (isNaN(pct) || pct < 0 || pct > 100) {
+      throw new Error("GST percent must be between 0 and 100");
+    }
+  }
+
+  if (gstType && !["CGST_SGST", "IGST"].includes(gstType)) {
+    throw new Error("GST type must be CGST_SGST or IGST");
+  }
+
+  if (pricingType && !["EXCLUSIVE", "INCLUSIVE"].includes(pricingType)) {
+    throw new Error("Pricing type must be EXCLUSIVE or INCLUSIVE");
+  }
+
+  // ── Build update payload ──
+  const updateData = {};
+  if (gstEnabled !== undefined)       updateData.gstEnabled       = Boolean(gstEnabled);
+  if (gstPercent !== undefined)       updateData.gstPercent       = parseFloat(gstPercent);
+  if (gstType !== undefined)          updateData.gstType          = gstType;
+  if (companyGstNumber !== undefined) updateData.companyGstNumber = companyGstNumber;
+  if (pricingType !== undefined)      updateData.pricingType      = pricingType;
+  if (companyName !== undefined)      updateData.companyName      = companyName;
+  if (companyEmail !== undefined)     updateData.companyEmail     = companyEmail;
+  if (companyAddress !== undefined)   updateData.companyAddress   = companyAddress;
+  if (sacCode !== undefined)          updateData.sacCode          = sacCode;
+  if (actor?.id)                      updateData.updatedBy        = actor.id;
+
+  const updated = await prisma.platformSettings.upsert({
+    where:  { id: "GLOBAL" },
+    update: updateData,
+    create: {
+      id:               "GLOBAL",
+      gstEnabled:       gstEnabled !== undefined ? Boolean(gstEnabled) : true,
+      gstPercent:       gstPercent !== undefined ? parseFloat(gstPercent) : 18.0,
+      gstType:          gstType          || "CGST_SGST",
+      companyGstNumber: companyGstNumber || "27AABCU9603R1ZM",
+      pricingType:      pricingType      || "EXCLUSIVE",
+      companyName:      companyName      || "SudoReply Technologies Pvt Ltd",
+      companyEmail:     companyEmail     || "support@sudoreply.com",
+      companyAddress:   companyAddress   || "Mumbai, Maharashtra, India",
+      sacCode:          sacCode          || "998314",
+      updatedBy:        actor?.id        || null,
+    },
+  });
+
+  // ── Audit Log ──
+  if (actor?.id) {
+    await createAuditLog({
+      actorId:     actor.id,
+      actorType:   "SUPER_ADMIN",
+      actorName:   actor.name,
+      actorEmail:  actor.email,
+      action:      "GST_SETTINGS_UPDATED",
+      module:      "SETTINGS",
+      description: `SuperAdmin "${actor.name}" updated GST settings — GST is now ${updated.gstEnabled ? "ENABLED" : "DISABLED"} at ${updated.gstPercent}%`,
+      ipAddress:   meta.ipAddress,
+      userAgent:   meta.userAgent,
+      tenantId:    null,
+      metadata: {
+        gstEnabled:  updated.gstEnabled,
+        gstPercent:  updated.gstPercent,
+        gstType:     updated.gstType,
+        pricingType: updated.pricingType,
+      },
+    });
+  }
+
+  return updated;
+};
+
+// ── Get GST Config Helper (used by other services) ──
+export const getGSTConfig = async () => {
+  try {
+    const settings = await prisma.platformSettings.findUnique({
+      where: { id: "GLOBAL" },
+    });
+
+    if (!settings) {
+      return {
+        gstEnabled:       true,
+        gstPercent:       18,
+        gstType:          "CGST_SGST",
+        pricingType:      "EXCLUSIVE",
+        companyGstNumber: "27AABCU9603R1ZM",
+        companyName:      "SudoReply Technologies Pvt Ltd",
+        companyEmail:     "support@sudoreply.com",
+        companyAddress:   "Mumbai, Maharashtra, India",
+        sacCode:          "998314",
+      };
+    }
+
+    return {
+      gstEnabled:       settings.gstEnabled,
+      gstPercent:       settings.gstPercent,
+      gstType:          settings.gstType,
+      pricingType:      settings.pricingType,
+      companyGstNumber: settings.companyGstNumber,
+      companyName:      settings.companyName,
+      companyEmail:     settings.companyEmail,
+      companyAddress:   settings.companyAddress,
+      sacCode:          settings.sacCode,
+    };
+  } catch {
+    return {
+      gstEnabled:  true,
+      gstPercent:  18,
+      gstType:     "CGST_SGST",
+      pricingType: "EXCLUSIVE",
+    };
+  }
+};
+
+// ── Calculate GST for a base amount ──
+export const calculateGST = async (baseAmount) => {
+  const config = await getGSTConfig();
+  const base   = parseFloat(baseAmount);
+
+  if (!config.gstEnabled) {
+    return {
+      gstEnabled:  false,
+      baseAmount:  base,
+      gstPercent:  0,
+      gstAmount:   0,
+      totalAmount: base,
+      gstType:     config.gstType,
+    };
+  }
+
+  const gstAmount   = parseFloat(((base * config.gstPercent) / 100).toFixed(2));
+  const totalAmount = parseFloat((base + gstAmount).toFixed(2));
+
+  return {
+    gstEnabled:  true,
+    baseAmount:  base,
+    gstPercent:  config.gstPercent,
+    gstAmount,
+    totalAmount,
+    gstType:     config.gstType,
+  };
+};

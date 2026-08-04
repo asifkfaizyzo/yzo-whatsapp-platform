@@ -2,6 +2,7 @@
 import PDFDocument from "pdfkit";
 import fs from "fs";
 import path from "path";
+import prisma from "../../config/prisma.js";
 
 // ── Ensure invoices directory exists ──
 const invoicesDir = path.join(process.cwd(), "uploads", "invoices");
@@ -39,7 +40,9 @@ const formatDate = (date) => {
 // MAIN: Generate Invoice PDF
 // ══════════════════════════════════════════
 export const generateInvoicePDF = (payment, tenant) => {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
+    // ── Fetch GST config ──
+    const gstConfig = await getInvoiceGSTConfig();
     try {
       const invoiceNumber = generateInvoiceNumber(payment.id);
       const fileName = `${invoiceNumber}.pdf`;
@@ -253,59 +256,99 @@ export const generateInvoicePDF = (payment, tenant) => {
         .lineWidth(1)
         .stroke();
 
+
       // Summary rows
-      const summaryX = 380;
-      const summaryValueX = 430;
+const summaryX      = 380;
+const summaryValueX = 430;
 
-      // Base amount
-      doc
-        .fillColor("#666666")
-        .fontSize(9)
-        .font("Helvetica")
-        .text("Subtotal:", summaryX, summaryY)
-        .text(formatINR(payment.baseAmount), summaryValueX, summaryY, {
-          width: 110,
-          align: "right",
-        });
+// Base amount
+doc
+  .fillColor("#666666")
+  .fontSize(9)
+  .font("Helvetica")
+  .text("Subtotal:", summaryX, summaryY)
+  .text(formatINR(payment.baseAmount), summaryValueX, summaryY, {
+    width: 110,
+    align: "right",
+  });
 
-      // CGST
-      const cgst = payment.gstAmount / 2;
-      doc
-        .text(`CGST (9%):`, summaryX, summaryY + 18)
-        .text(formatINR(cgst), summaryValueX, summaryY + 18, {
-          width: 110,
-          align: "right",
-        });
+let currentY = summaryY + 18;
 
-      // SGST
-      const sgst = payment.gstAmount / 2;
-      doc
-        .text(`SGST (9%):`, summaryX, summaryY + 36)
-        .text(formatINR(sgst), summaryValueX, summaryY + 36, {
-          width: 110,
-          align: "right",
-        });
+// ── Dynamic GST Rows ──
+if (gstConfig.gstEnabled && payment.gstAmount > 0) {
+  if (gstConfig.gstType === "CGST_SGST") {
+    const halfPct = gstConfig.gstPercent / 2;
+    const half    = parseFloat((payment.gstAmount / 2).toFixed(2));
 
-      // Divider before total
-      doc
-        .moveTo(summaryX, summaryY + 54)
-        .lineTo(545, summaryY + 54)
-        .strokeColor("#125EF2")
-        .lineWidth(1)
-        .stroke();
+    doc
+      .fillColor("#666666")
+      .fontSize(9)
+      .font("Helvetica")
+      .text(`CGST (${halfPct}%):`, summaryX, currentY)
+      .text(formatINR(half), summaryValueX, currentY, {
+        width: 110,
+        align: "right",
+      });
+    currentY += 18;
 
-      // Total
-      doc.rect(summaryX - 5, summaryY + 58, 175, 28).fill("#125EF2");
+    doc
+      .fillColor("#666666")
+      .fontSize(9)
+      .font("Helvetica")
+      .text(`SGST (${halfPct}%):`, summaryX, currentY)
+      .text(formatINR(half), summaryValueX, currentY, {
+        width: 110,
+        align: "right",
+      });
+    currentY += 18;
 
-      doc
-        .fillColor("#FFFFFF")
-        .fontSize(11)
-        .font("Helvetica-Bold")
-        .text("TOTAL:", summaryX, summaryY + 66)
-        .text(formatINR(payment.totalAmount), summaryValueX, summaryY + 66, {
-          width: 110,
-          align: "right",
-        });
+  } else {
+    // ── IGST ──
+    doc
+      .fillColor("#666666")
+      .fontSize(9)
+      .font("Helvetica")
+      .text(`IGST (${gstConfig.gstPercent}%):`, summaryX, currentY)
+      .text(formatINR(payment.gstAmount), summaryValueX, currentY, {
+        width: 110,
+        align: "right",
+      });
+    currentY += 18;
+  }
+
+} else if (!gstConfig.gstEnabled) {
+  doc
+    .fillColor("#888888")
+    .fontSize(8)
+    .font("Helvetica")
+    .text("Tax: Not Applicable", summaryX, currentY);
+  currentY += 18;
+}
+
+// Divider before total
+doc
+  .moveTo(summaryX, currentY)
+  .lineTo(545, currentY)
+  .strokeColor("#125EF2")
+  .lineWidth(1)
+  .stroke();
+
+currentY += 4;
+
+// Total box
+doc.rect(summaryX - 5, currentY, 175, 28).fill("#125EF2");
+
+doc
+  .fillColor("#FFFFFF")
+  .fontSize(11)
+  .font("Helvetica-Bold")
+  .text("TOTAL:", summaryX, currentY + 8)
+  .text(formatINR(payment.totalAmount), summaryValueX, currentY + 8, {
+    width: 110,
+    align: "right",
+  });
+
+
 
       // ════════════════════════════════
       // PAYMENT INFO
@@ -355,7 +398,7 @@ export const generateInvoicePDF = (payment, tenant) => {
         .text(`${numberToWords(payment.totalAmount)} Only`);
 
       // ════════════════════════════════
-      // NOTES / GST NOTE
+      // NOTES / GST NOTE — Dynamic
       // ════════════════════════════════
       const noteY = wordsY + 30;
 
@@ -374,13 +417,31 @@ export const generateInvoicePDF = (payment, tenant) => {
           50,
           noteY + 14,
           { width: 495 }
-        )
-        .text(
-          "GST charged at 18% (CGST 9% + SGST 9%) as applicable for SaaS services under SAC Code 998314.",
-          50,
-          noteY + 26,
-          { width: 495 }
         );
+
+      if (gstConfig.gstEnabled && payment.gstAmount > 0) {
+        const gstNote = gstConfig.gstType === "CGST_SGST"
+          ? `GST charged at ${gstConfig.gstPercent}% (CGST ${gstConfig.gstPercent / 2}% + SGST ${gstConfig.gstPercent / 2}%) as applicable for SaaS services under SAC Code ${gstConfig.sacCode || "998314"}.`
+          : `IGST charged at ${gstConfig.gstPercent}% as applicable for SaaS services under SAC Code ${gstConfig.sacCode || "998314"}.`;
+
+        doc
+          .fillColor("#888888")
+          .fontSize(8)
+          .font("Helvetica")
+          .text(gstNote, 50, noteY + 26, { width: 495 });
+
+      } else {
+        doc
+          .fillColor("#888888")
+          .fontSize(8)
+          .font("Helvetica")
+          .text(
+            "No GST applicable on this invoice.",
+            50,
+            noteY + 26,
+            { width: 495 }
+          );
+      }
 
       // ════════════════════════════════
       // FOOTER
@@ -633,4 +694,34 @@ export const generateInvoicePDFFromModel = (invoice, tenant) => {
       reject(error);
     }
   });
+};
+
+
+// ── Helper: Fetch GST config from DB ──
+const getInvoiceGSTConfig = async () => {
+  try {
+    const settings = await prisma.platformSettings.findUnique({
+      where: { id: "GLOBAL" },
+    });
+    if (!settings) {
+      return {
+        gstEnabled:       true,
+        gstPercent:       18,
+        gstType:          "CGST_SGST",
+        companyGstNumber: "27AABCU9603R1ZM",
+        companyName:      "SudoReply Technologies Pvt Ltd",
+        companyEmail:     "support@sudoreply.com",
+        companyAddress:   "Mumbai, Maharashtra, India",
+        sacCode:          "998314",
+      };
+    }
+    return settings;
+  } catch {
+    return {
+      gstEnabled:  true,
+      gstPercent:  18,
+      gstType:     "CGST_SGST",
+      sacCode:     "998314",
+    };
+  }
 };
