@@ -461,6 +461,7 @@ model SubscriptionPlan {
   annualPrice  Float?
 
   status       PlanStatus @default(ACTIVE)
+  isPopular    Boolean    @default(false)
 
   // ─── Usage Limits (null = unlimited) ───
   maxAgents      Int

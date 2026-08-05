@@ -19,6 +19,7 @@ export const createPlanSchema = z.object({
     .nullable(),
 
   status: z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE"),
+  isPopular: z.boolean().optional().default(false),
 
   maxAgents: z
     .number({ invalid_type_error: "Max agents must be a number" })

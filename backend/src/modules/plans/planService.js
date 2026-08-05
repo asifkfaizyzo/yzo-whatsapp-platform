@@ -48,6 +48,7 @@ export const createPlan = async (data) => {
     monthlyPrice,
     annualPrice,
     status,
+    isPopular,
     maxAgents,
     maxBroadcasts,
     maxAutomations,
@@ -58,6 +59,12 @@ export const createPlan = async (data) => {
     integrations,
   } = data;
 
+  if (isPopular) {
+    await prisma.subscriptionPlan.updateMany({
+      data: { isPopular: false },
+    });
+  }
+
   return prisma.subscriptionPlan.create({
     data: {
       name,
@@ -65,6 +72,7 @@ export const createPlan = async (data) => {
       monthlyPrice: parseFloat(monthlyPrice),
       annualPrice: annualPrice ? parseFloat(annualPrice) : null,
       status: status || "ACTIVE",
+      isPopular: Boolean(isPopular),
       maxAgents: parseInt(maxAgents),
       maxBroadcasts: maxBroadcasts ? parseInt(maxBroadcasts) : null,
       maxAutomations: maxAutomations ? parseInt(maxAutomations) : null,
@@ -93,6 +101,7 @@ export const updatePlan = async (id, data) => {
     monthlyPrice,
     annualPrice,
     status,
+    isPopular,
     maxAgents,
     maxBroadcasts,
     maxAutomations,
@@ -102,6 +111,13 @@ export const updatePlan = async (id, data) => {
     featureIds,
     integrations,
   } = data;
+
+  if (isPopular) {
+    await prisma.subscriptionPlan.updateMany({
+      where: { id: { not: id } },
+      data: { isPopular: false },
+    });
+  }
 
   // Delete old relations first then recreate
   await prisma.planFeature.deleteMany({ where: { planId: id } });
@@ -115,6 +131,7 @@ export const updatePlan = async (id, data) => {
       monthlyPrice: parseFloat(monthlyPrice),
       annualPrice: annualPrice ? parseFloat(annualPrice) : null,
       status,
+      isPopular: isPopular !== undefined ? Boolean(isPopular) : undefined,
       maxAgents: parseInt(maxAgents),
       maxBroadcasts: maxBroadcasts ? parseInt(maxBroadcasts) : null,
       maxAutomations: maxAutomations ? parseInt(maxAutomations) : null,

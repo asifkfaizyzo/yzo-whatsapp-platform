@@ -107,12 +107,6 @@ export default function Sidebar({ userRole = "Super Admin" }) {
       category: "other",
     },
     {
-      label: "Admins Team",
-      path: "/dashboard/team",
-      icon: <UserCheck size={20} />,
-      category: "other",
-    },
-    {
       label: "Audit Logs",
       path: "/dashboard/audit-logs",
       icon: <Shield size={20} />,

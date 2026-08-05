@@ -24,6 +24,8 @@ import {
   Mic,
   Check,
   Trash2,
+  Eye,
+  AlertTriangle,
 } from "lucide-react";
 import {
   getAssignedConversations,
@@ -73,6 +75,13 @@ export default function Inbox() {
   const [typedMessage, setTypedMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [unreadMap, setUnreadMap] = useState({});
+
+  // ── Presence & Collision State ──
+  const [activeViewers, setActiveViewers] = useState([]);
+  const [typingAgents, setTypingAgents] = useState([]);
+  const typingTimeoutRef = useRef(null);
+  const isTypingRef = useRef(false);
+  const prevChatIdRef = useRef(null);
 
   // ── Media Upload State ──
   const fileInputRef = useRef(null);
@@ -284,6 +293,45 @@ export default function Inbox() {
     };
     // FIXED: Added user?.id and user?.type to dependency array
   }, [activeTenantId, accessToken, user?.id, user?.type]);
+
+  // ── Conversation Presence & Live Typing Listeners ──
+  useEffect(() => {
+    if (!socket) return;
+
+    if (prevChatIdRef.current && String(prevChatIdRef.current) !== String(activeChatId)) {
+      socket.emit("leave_conversation", { conversationId: prevChatIdRef.current });
+    }
+
+    if (activeChatId) {
+      socket.emit("join_conversation", { conversationId: activeChatId });
+      prevChatIdRef.current = activeChatId;
+    } else {
+      prevChatIdRef.current = null;
+    }
+
+    setActiveViewers([]);
+    setTypingAgents([]);
+
+    const handleViewersUpdated = (data) => {
+      if (activeChatId && String(data.conversationId) === String(activeChatId)) {
+        setActiveViewers(data.viewers || []);
+      }
+    };
+
+    const handleTypingUpdated = (data) => {
+      if (activeChatId && String(data.conversationId) === String(activeChatId)) {
+        setTypingAgents(data.typingAgents || []);
+      }
+    };
+
+    socket.on("conversation_viewers_updated", handleViewersUpdated);
+    socket.on("agent_typing_updated", handleTypingUpdated);
+
+    return () => {
+      socket.off("conversation_viewers_updated", handleViewersUpdated);
+      socket.off("agent_typing_updated", handleTypingUpdated);
+    };
+  }, [socket, activeChatId]);
 
   // ── Socket Event Listeners ──
   useEffect(() => {
@@ -541,6 +589,12 @@ export default function Inbox() {
     }
 
     setTypedMessage("");
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    isTypingRef.current = false;
+    if (socket && activeChatId) {
+      socket.emit("agent_typing_stop", { conversationId: activeChatId });
+    }
+
     const res = await sendMessage(activeChat.contact.id, messageText);
     if (res.success) {
       if (isClosedOrResolved) loadConversations();
@@ -1439,7 +1493,7 @@ export default function Inbox() {
                   <p className="font-bold text-white text-sm leading-none">
                     {activeChat.contact?.name}
                   </p>
-                  <div className="flex items-center gap-1.5 mt-1">
+                  <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                     <span
                       className={`w-1.5 h-1.5 rounded-full ${
                         activeChat.status === "OPEN"
@@ -1451,6 +1505,18 @@ export default function Inbox() {
                       {activeChat.contact?.phone} ·{" "}
                       {activeChat.status === "OPEN" ? "Online" : "Offline"}
                     </p>
+                    {activeViewers.filter((v) => String(v.userId) !== String(user?.id)).length > 0 && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#064E47] text-emerald-100 text-[10px] font-medium border border-emerald-400/30 ml-2 shadow-sm">
+                        <Eye size={11} className="text-emerald-300" />
+                        <span>
+                          {activeViewers
+                            .filter((v) => String(v.userId) !== String(user?.id))
+                            .map((v) => v.name)
+                            .join(", ")}{" "}
+                          viewing
+                        </span>
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1536,6 +1602,26 @@ export default function Inbox() {
                 </div>
               </div>
             </div>
+
+            {/* Collision Warning Alert Banner */}
+            {typingAgents.filter((t) => String(t.userId) !== String(user?.id)).length > 0 && (
+              <div className="bg-amber-500 text-white px-5 py-2.5 flex items-center justify-between shadow-md animate-pulse shrink-0 border-b border-amber-600">
+                <div className="flex items-center gap-2 text-xs font-bold">
+                  <AlertTriangle size={16} className="text-amber-100 shrink-0" />
+                  <span>
+                    ⚠️ COLLISION ALERT:{" "}
+                    {typingAgents
+                      .filter((t) => String(t.userId) !== String(user?.id))
+                      .map((t) => t.name)
+                      .join(", ")}{" "}
+                    is currently typing a reply to this customer!
+                  </span>
+                </div>
+                <span className="text-[9px] bg-black/20 text-white px-2 py-0.5 rounded font-mono uppercase font-bold tracking-wider">
+                  Live
+                </span>
+              </div>
+            )}
 
             {/* Delete Conversation Modal */}
             {showDeleteConfirm && (
@@ -1931,6 +2017,24 @@ export default function Inbox() {
                   </p>
                 </div>
               )}
+              {/* Live Typing Indicator Pill */}
+              {typingAgents.filter((t) => String(t.userId) !== String(user?.id)).length > 0 && (
+                <div className="flex items-center gap-2.5 px-4 py-2 bg-white/90 backdrop-blur-md rounded-full w-fit shadow-md border border-emerald-200/60 mb-2 transition-all">
+                  <span className="text-xs text-[#075E54] font-bold">
+                    {typingAgents
+                      .filter((t) => String(t.userId) !== String(user?.id))
+                      .map((t) => t.name)
+                      .join(", ")}{" "}
+                    {typingAgents.filter((t) => String(t.userId) !== String(user?.id)).length === 1 ? "is" : "are"}{" "}
+                    typing
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 bg-[#075E54] rounded-full animate-bounce [animation-delay:-0.3s]" />
+                    <span className="w-1.5 h-1.5 bg-[#075E54] rounded-full animate-bounce [animation-delay:-0.15s]" />
+                    <span className="w-1.5 h-1.5 bg-[#075E54] rounded-full animate-bounce" />
+                  </span>
+                </div>
+              )}
               <div ref={messagesEndRef} />
             </div>
 
@@ -2065,7 +2169,27 @@ export default function Inbox() {
                     }
                     value={typedMessage}
                     disabled={activeChat.contact?.isBlocked}
-                    onChange={(e) => setTypedMessage(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setTypedMessage(val);
+                      if (socket && activeChatId) {
+                        if (val.trim().length > 0) {
+                          if (!isTypingRef.current) {
+                            isTypingRef.current = true;
+                            socket.emit("agent_typing_start", { conversationId: activeChatId });
+                          }
+                          if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+                          typingTimeoutRef.current = setTimeout(() => {
+                            isTypingRef.current = false;
+                            socket.emit("agent_typing_stop", { conversationId: activeChatId });
+                          }, 2500);
+                        } else {
+                          if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+                          isTypingRef.current = false;
+                          socket.emit("agent_typing_stop", { conversationId: activeChatId });
+                        }
+                      }
+                    }}
                     className="flex-1 py-2.5 px-4 bg-white rounded-lg border-0 text-sm text-[#111B21] placeholder-[#667781] focus:outline-none focus:ring-2 focus:ring-[#25D366]/30 disabled:bg-[#F0F2F5] disabled:text-[#667781] disabled:cursor-not-allowed transition"
                   />
                 ) : (

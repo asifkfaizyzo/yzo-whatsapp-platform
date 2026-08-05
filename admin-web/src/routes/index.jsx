@@ -6,7 +6,6 @@ import AdminLayout from "../layouts/AdminLayout";
 import Dashboard from "../pages/dashboard/Dashboard";
 import Tenants from "../pages/dashboard/Tenants";
 import Reports from "../pages/dashboard/Reports";
-import Team from "../pages/dashboard/Team";
 import  SubscriptionPlans from "../pages/dashboard/SubscriptionPlans"
 import Settings from "../pages/dashboard/Settings";
 import NotFound from "../pages/NotFound";
@@ -70,7 +69,6 @@ function App() {
         <Route path="/dashboard/subscription-plans" element={<SubscriptionPlans />} />
         <Route path="/dashboard/tenants" element={<Tenants />} />
         <Route path="/dashboard/reports" element={<Reports />} />
-        <Route path="/dashboard/team" element={<Team />} />
         <Route path="/dashboard/settings" element={<Settings />} />
         <Route path="/dashboard/tickets" element={<Tickets />} />
         <Route path="/dashboard/revenue" element={<Revenue />} />
