@@ -108,9 +108,9 @@ export default function HelpCenter() {
             </p>
             <p className="text-sm text-gray-400">
               Email us at{" "}
-              <a href="mailto:support@sudoreply" 
+              <a href="mailto:info@sudoreply.com" 
                  className="text-[#125EF2] hover:underline">
-                support@sudoreply
+                info@sudoreply.com
               </a>
             </p>
           </div>
