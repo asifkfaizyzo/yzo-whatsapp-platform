@@ -42,9 +42,9 @@ export default function Contact() {
                   </div>
                   <div>
                     <p className="text-xs text-gray-400">Email</p>
-                    <p className="text-sm font-medium text-gray-900">
-                      hello@sudoreply
-                    </p>
+                    <a href="mailto:info@sudoreply.com" className="text-sm font-medium text-gray-900 hover:text-[#125EF2]">
+                      info@sudoreply.com
+                    </a>
                   </div>
                 </div>
 
@@ -55,9 +55,9 @@ export default function Contact() {
                   </div>
                   <div>
                     <p className="text-xs text-gray-400">WhatsApp</p>
-                    <p className="text-sm font-medium text-gray-900">
-                      +1-234-567-8900
-                    </p>
+                    <a href="https://wa.me/919605305453" target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-gray-900 hover:text-[#125EF2]">
+                      +91 9605305453
+                    </a>
                   </div>
                 </div>
 
@@ -68,9 +68,9 @@ export default function Contact() {
                   </div>
                   <div>
                     <p className="text-xs text-gray-400">Phone</p>
-                    <p className="text-sm font-medium text-gray-900">
-                      +1-234-567-8900
-                    </p>
+                    <a href="tel:+919605305453" className="text-sm font-medium text-gray-900 hover:text-[#125EF2]">
+                      +91 9605305453
+                    </a>
                   </div>
                 </div>
 
@@ -82,7 +82,8 @@ export default function Contact() {
                   <div>
                     <p className="text-xs text-gray-400">Office</p>
                     <p className="text-sm font-medium text-gray-900">
-                      Hong Kong, Singapore, India
+                      1st Floor, Valentine Estate<br />
+                      Palachuvadu, Kakkanad – 682030
                     </p>
                   </div>
                 </div>
