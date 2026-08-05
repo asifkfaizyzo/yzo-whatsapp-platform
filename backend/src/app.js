@@ -36,6 +36,8 @@ import dlqRoutes from './modules/webhook/dlqRoutes.js';
 import mediaRoutes from './modules/messages/mediaRoute.js';
 import { verifyTenantOrUser } from './middlewares/authVerfyTenOrUser.js';
 
+import analyticsRoutes from './modules/analytics/analyticsRoutes.js';
+
 import publicRoutes from './modules/public/publicRoutes.js';
 
 const app = express();
@@ -200,6 +202,9 @@ app.use("/api/super-admin/notifications", superAdminNotificationRoutes)
 app.use("/api2", ticketRoutes)
 app.use("/api",  adminTicketRoutes)
 app.use("/api",  revenueRoutes)
+
+// Analytics
+app.use('/api2/analytics', analyticsRoutes);
 
 // Enquiries and Enterprise Leads mounting
 app.use("/api", enquiryRoutes);

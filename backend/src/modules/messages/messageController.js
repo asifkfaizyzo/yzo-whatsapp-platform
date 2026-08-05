@@ -87,31 +87,31 @@ export const incomingMessageController = async (req, res) => {
     });
 
     // ── Socket emit ───────────────────────────────────────────
-    // ✅ Generate signed URL if media exists
-let socketMediaUrl = null;
-if (result.message.mediaUrl) {
-  socketMediaUrl = generateSignedUrl(result.message.mediaUrl, tenantId);
-}
+    const targetTenantId = result.conversation.tenantId;
 
-// ── Socket emit ───────────────────────────────────────────
-emitToTenant(tenantId, "new_message", {
-  conversationId: result.conversation.id,
-  message: {
-    id:             result.message.id,
-    type:           result.message.type,
-    text:           result.message.text,
-    senderId:       result.message.senderId,
-    senderType:     "CONTACT",
-    direction:      "INBOUND",
-    isFromCustomer: true,
-    mediaUrl:       socketMediaUrl,        // ✅ signed URL
-    mediaName:      result.message.mediaName,
-    mediaSize:      result.message.mediaSize,
-    mediaMimeType:  result.message.mediaMimeType,
-    caption:        result.message.caption,
-    createdAt:      result.message.createdAt,
-  },
-});
+    let socketMediaUrl = null;
+    if (result.message.mediaUrl) {
+      socketMediaUrl = generateSignedUrl(result.message.mediaUrl, targetTenantId);
+    }
+
+    emitToTenant(targetTenantId, "new_message", {
+      conversationId: result.conversation.id,
+      message: {
+        id:             result.message.id,
+        type:           result.message.type,
+        text:           result.message.text,
+        senderId:       result.message.senderId,
+        senderType:     "CONTACT",
+        direction:      "INBOUND",
+        isFromCustomer: true,
+        mediaUrl:       socketMediaUrl,        // ✅ signed URL
+        mediaName:      result.message.mediaName,
+        mediaSize:      result.message.mediaSize,
+        mediaMimeType:  result.message.mediaMimeType,
+        caption:        result.message.caption,
+        createdAt:      result.message.createdAt,
+      },
+    });
 
     return res.status(200).json({
       success:            true,

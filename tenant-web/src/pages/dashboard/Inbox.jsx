@@ -100,20 +100,21 @@ export default function Inbox() {
   // ── Scroll ──
   const messagesEndRef = useRef(null);
 
-  const scrollToBottom = () => {
-    if (!messagesEndRef.current) return;
-    const chatContainer = messagesEndRef.current.parentElement;
-    if (chatContainer) {
-      chatContainer.scrollTop = chatContainer.scrollHeight;
+  const scrollToBottom = (smooth = true) => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({
+        behavior: smooth ? "smooth" : "auto",
+        block: "end",
+      });
     }
   };
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      scrollToBottom();
-    }, 50);
+      scrollToBottom(true);
+    }, 100);
     return () => clearTimeout(timer);
-  }, [messages]);
+  }, [messages, activeChatId]);
 
   // ── New Chat Modal ──
   const [showNewChatModal, setShowNewChatModal] = useState(false);
@@ -176,6 +177,25 @@ export default function Inbox() {
 
   const getUnreadCount = (conversationId) =>
     unreadMap[String(conversationId)] || 0;
+
+  const formatTime = (dateVal) => {
+    if (!dateVal) return "";
+    const d = new Date(dateVal);
+    return isNaN(d.getTime())
+      ? ""
+      : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  };
+
+  const formatDate = (dateVal, options) => {
+    if (!dateVal) return "";
+    const d = new Date(dateVal);
+    return isNaN(d.getTime())
+      ? ""
+      : d.toLocaleDateString(
+          undefined,
+          options || { weekday: "long", month: "short", day: "numeric" },
+        );
+  };
 
   // ── Load Tags and Agents ──
   useEffect(() => {
@@ -340,6 +360,11 @@ export default function Inbox() {
     // ── Handle new message ──
     const handleNewMessage = (data) => {
       const { conversationId, message } = data;
+      if (!message || typeof message !== "object" || !message.id) {
+        console.warn("⚠️ Received invalid message in new_message socket event:", data);
+        return;
+      }
+
       const isFromCustomer = message?.isFromCustomer === true;
       const isCurrentChatOpen =
         activeChatId && String(activeChatId) === String(conversationId);
@@ -349,6 +374,7 @@ export default function Inbox() {
           if (prev.some((m) => m.id === message.id)) return prev;
           return [...prev, message];
         });
+        setTimeout(() => scrollToBottom(true), 50);
       }
 
       if (isFromCustomer && !isCurrentChatOpen) {
@@ -369,18 +395,20 @@ export default function Inbox() {
           return prevChats;
         }
 
+        const msgCreatedAt = message.createdAt || new Date().toISOString();
+
         const updated = prevChats.map((c) => {
           if (String(c.id) === String(conversationId)) {
             return {
               ...c,
               status: "OPEN",
-              lastMessageAt: message.createdAt,
-              updatedAt: message.createdAt,
+              lastMessageAt: msgCreatedAt,
+              updatedAt: msgCreatedAt,
               messages: [
                 {
                   id: message.id,
                   text: message.text,
-                  createdAt: message.createdAt,
+                  createdAt: msgCreatedAt,
                 },
               ],
             };
@@ -391,7 +419,9 @@ export default function Inbox() {
         return updated.sort((a, b) => {
           const dateA = a.messages?.[0]?.createdAt || a.updatedAt;
           const dateB = b.messages?.[0]?.createdAt || b.updatedAt;
-          return new Date(dateB) - new Date(dateA);
+          const timeA = dateA ? new Date(dateA).getTime() : 0;
+          const timeB = dateB ? new Date(dateB).getTime() : 0;
+          return (isNaN(timeB) ? 0 : timeB) - (isNaN(timeA) ? 0 : timeA);
         });
       });
     };
@@ -1343,22 +1373,17 @@ export default function Inbox() {
               </div>
             </div>
           ) : (
-            tabFilteredChats.map((chat) => {
+            tabFilteredChats.map((chat, chatIdx) => {
               const contactName = chat.contact?.name || "Unknown Contact";
               const lastMsg = chat.messages?.[0];
               const isActive = String(chat.id) === String(activeChatId);
               const avatarBg = getAvatarStyle(contactName);
               const unreadCount = getUnreadCount(chat.id);
-              const timeStr = lastMsg
-                ? new Date(lastMsg.createdAt).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })
-                : "";
+              const timeStr = lastMsg ? formatTime(lastMsg.createdAt) : "";
 
               return (
                 <div
-                  key={chat.id}
+                  key={chat.id || `chat-${chatIdx}`}
                   className={`w-full flex items-start gap-3 px-4 py-3.5 border-b border-[#F0F2F5] transition ${
                     isActive ? "bg-[#F0F2F5]" : "hover:bg-[#F5F6F6] bg-white"
                   } ${
@@ -1680,20 +1705,14 @@ export default function Inbox() {
               {messages.length > 0 && (
                 <div className="flex items-center justify-center mb-2">
                   <span className="px-4 py-1 bg-white/80 backdrop-blur-sm rounded-lg text-[10px] font-semibold text-[#54656F] shadow-sm">
-                    {new Date(messages[0]?.createdAt).toLocaleDateString(
-                      undefined,
-                      { weekday: "long", month: "short", day: "numeric" },
-                    )}
+                    {formatDate(messages[0]?.createdAt)}
                   </span>
                 </div>
               )}
 
-              {messages.map((msg) => {
+              {messages.map((msg, msgIdx) => {
                 const isAgent = !msg.isFromCustomer;
-                const timeStr = new Date(msg.createdAt).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                });
+                const timeStr = formatTime(msg.createdAt);
 
                 const BACKEND_URL =
                   import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
@@ -1715,7 +1734,7 @@ export default function Inbox() {
                 if (msg.isDeleted) {
                   return (
                     <div
-                      key={msg.id}
+                      key={msg.id || `msg-del-${msgIdx}`}
                       className={`flex ${isAgent ? "justify-end" : "justify-start"}`}
                     >
                       <div
@@ -1741,8 +1760,8 @@ export default function Inbox() {
                 // ── NORMAL MESSAGE UI ──
                 return (
                   <div
-                    key={msg.id}
-                    className={`flex ${isAgent ? "justify-end" : "justify-start"}`}
+                    key={msg.id || `msg-${msgIdx}`}
+                    className={`flex ${isAgent ? "justify-end" : "justify-start"} animate-in fade-in slide-in-from-bottom-2 duration-200`}
                     onMouseEnter={() => setHoveredMessageId(msg.id)}
                     onMouseLeave={() => setHoveredMessageId(null)}
                   >
@@ -2451,20 +2470,22 @@ export default function Inbox() {
               <div className="flex items-center justify-between">
                 <span className="text-[9px] text-[#667781]">Created</span>
                 <span className="text-[10px] text-[#111B21] font-semibold">
-                  {new Date(activeChat.createdAt).toLocaleDateString(
-                    undefined,
-                    { month: "short", day: "numeric", year: "numeric" },
-                  )}
+                  {formatDate(activeChat.createdAt, {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
                 </span>
               </div>
               <div className="h-px bg-emerald-100" />
               <div className="flex items-center justify-between">
                 <span className="text-[9px] text-[#667781]">Last Activity</span>
                 <span className="text-[10px] text-[#111B21] font-semibold">
-                  {new Date(activeChat.updatedAt).toLocaleDateString(
-                    undefined,
-                    { month: "short", day: "numeric", year: "numeric" },
-                  )}
+                  {formatDate(activeChat.updatedAt, {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
                 </span>
               </div>
             </div>
@@ -2644,20 +2665,18 @@ export default function Inbox() {
               )}
 
               {!loadingArchived &&
-                archivedChats.map((chat) => {
+                archivedChats.map((chat, archIdx) => {
                   const contactName = chat.contact?.name || "Unknown";
                   const lastMsg = chat.messages?.[0];
                   const isUnarchiving = unarchivingId === chat.id;
-                  const archivedDate = chat.archivedAt
-                    ? new Date(chat.archivedAt).toLocaleDateString(undefined, {
-                        month: "short",
-                        day: "numeric",
-                      })
-                    : "";
+                  const archivedDate = formatDate(chat.archivedAt, {
+                    month: "short",
+                    day: "numeric",
+                  });
 
                   return (
                     <div
-                      key={chat.id}
+                      key={chat.id || `archived-${archIdx}`}
                       className="flex items-center gap-3 px-4 py-3.5 hover:bg-[#F5F6F6] transition"
                     >
                       <div

@@ -1,19 +1,19 @@
 // src/workers/webhookWorker.js
 
-import { Worker }             from 'bullmq';
+import { Worker } from 'bullmq';
 import { QUEUE_NAME_WEBHOOK } from '../queues/webhookQueue.js';
-import { redisConnection }    from '../config/redis.js';
-import prisma                 from '../config/prisma.js';
+import { redisConnection } from '../config/redis.js';
+import prisma from '../config/prisma.js';
 import { handleIncomingMessage } from '../modules/messages/messageService.js';
 import { emitToTenant, emitToUser } from '../lib/socket.js';
-import { isNewWebhookEvent }  from '../lib/idempotency.js';
-import { dlqQueue }           from '../queues/dlqQueue.js';
+import { isNewWebhookEvent } from '../lib/idempotency.js';
+import { dlqQueue } from '../queues/dlqQueue.js';
 import { generateSignedUrl } from '../lib/utils/signedUrl.js';
-import { decrypt }            from '../lib/crypto.js';
-import fs                     from 'fs';
-import path                   from 'path';
-import https                  from 'https';
-import http                   from 'http';
+import { decrypt } from '../lib/crypto.js';
+import fs from 'fs';
+import path from 'path';
+import https from 'https';
+import http from 'http';
 
 
 // ─────────────────────────────────────────────────────────────
@@ -24,10 +24,10 @@ export const processWebhookJob = async (job) => {
   const body = job.data;
   if (!body || body.object !== 'whatsapp_business_account') return;
 
-  const entry        = body.entry?.[0];
-  const change       = entry?.changes?.[0];
-  const value        = change?.value;
-  const message      = value?.messages?.[0];
+  const entry = body.entry?.[0];
+  const change = entry?.changes?.[0];
+  const value = change?.value;
+  const message = value?.messages?.[0];
   const statusUpdate = value?.statuses?.[0];
 
   // TEMP: test failure simulation
@@ -39,7 +39,7 @@ export const processWebhookJob = async (job) => {
   // A. Handle Delivery Status Receipts (unchanged - working ✅)
   // ═══════════════════════════════════════════════════════════
   if (statusUpdate) {
-    const wamid  = statusUpdate.id;
+    const wamid = statusUpdate.id;
     const status = statusUpdate.status;
 
     const statusEventId = `status:${wamid}:${status}`;
@@ -53,48 +53,67 @@ export const processWebhookJob = async (job) => {
     console.log(`✅ [Dedup] Processing NEW status: ${statusEventId}`);
 
     const recipient = await prisma.broadcastRecipient.findUnique({
-      where:   { wamid },
+      where: { wamid },
       include: { broadcast: true }
     });
 
     if (recipient) {
       let updatedStatus = 'SENT';
-      const updateData  = {};
+      const updateData = {};
 
       if (status === 'delivered') {
-        updatedStatus          = 'DELIVERED';
+        updatedStatus = 'DELIVERED';
         updateData.deliveredAt = new Date();
       } else if (status === 'read') {
-        updatedStatus      = 'READ';
-        updateData.readAt  = new Date();
+        updatedStatus = 'READ';
+        updateData.readAt = new Date();
       } else if (status === 'failed') {
-        updatedStatus           = 'FAILED';
-        updateData.failedAt     = new Date();
+        updatedStatus = 'FAILED';
+        updateData.failedAt = new Date();
         updateData.errorMessage = statusUpdate.errors?.[0]?.title || 'Meta Send Failure';
       }
 
       await prisma.broadcastRecipient.update({
         where: { wamid },
-        data:  { status: updatedStatus, ...updateData }
+        data: { status: updatedStatus, ...updateData }
       });
 
       const broadcastId = recipient.broadcastId;
-      const broadcast   = await prisma.broadcast.update({
+      const broadcast = await prisma.broadcast.update({
         where: { id: broadcastId },
         data: {
           delivered: status === 'delivered' ? { increment: 1 } : undefined,
-          read:      status === 'read'      ? { increment: 1 } : undefined,
-          failed:    status === 'failed'    ? { increment: 1 } : undefined
+          read: status === 'read' ? { increment: 1 } : undefined,
+          failed: status === 'failed' ? { increment: 1 } : undefined
         }
       });
 
       emitToTenant(recipient.broadcast.tenantId, 'broadcast_update', {
         broadcastId,
-        sent:      broadcast.sent,
+        sent: broadcast.sent,
         delivered: broadcast.delivered,
-        read:      broadcast.read,
-        failed:    broadcast.failed
+        read: broadcast.read,
+        failed: broadcast.failed
       });
+    } else {
+      // ── Handle 1-on-1 Message Status Receipt ──
+      const messageToUpdate = await prisma.message.findUnique({
+        where: { wamid },
+      });
+      if (messageToUpdate) {
+        const msgUpdateData = { status };
+        if (status === 'delivered') msgUpdateData.deliveredAt = new Date();
+        if (status === 'read') msgUpdateData.readAt = new Date();
+        if (status === 'failed') {
+          msgUpdateData.failedAt = new Date();
+          msgUpdateData.failureCode = statusUpdate.errors?.[0]?.code || null;
+          msgUpdateData.failureReason = statusUpdate.errors?.[0]?.title || 'Send Failure';
+        }
+        await prisma.message.update({
+          where: { wamid },
+          data: msgUpdateData,
+        });
+      }
     }
 
     return; // ✅ status handled, stop here
@@ -115,9 +134,9 @@ export const processWebhookJob = async (job) => {
     }
     console.log(`✅ [Dedup] Processing NEW message: ${messageId}`);
 
-    const phoneId       = value.metadata?.phone_number_id;
+    const phoneId = value.metadata?.phone_number_id;
     const customerPhone = message.from;
-    const messageType   = message.type; // "text"|"image"|"video"|"audio"|"document"|"sticker"
+    const messageType = message.type; // "text"|"image"|"video"|"audio"|"document"|"sticker"
 
     // ── Find tenant ────────────────────────────────────────
     const tenant = await prisma.tenant.findFirst({
@@ -131,7 +150,7 @@ export const processWebhookJob = async (job) => {
 
     // ── Check subscription ─────────────────────────────────
     const subStatus = tenant.subscriptionStatus;
-    const isActive  =
+    const isActive =
       subStatus === 'active' ||
       subStatus === 'trialing' ||
       subStatus === 'cancel_at_period_end';
@@ -154,9 +173,9 @@ export const processWebhookJob = async (job) => {
       isNewContact = true;
       contact = await prisma.contact.create({
         data: {
-          name:       value.contacts?.[0]?.profile?.name || normalizedPhone,
-          phone:      normalizedPhone,
-          tenantId:   tenant.id,
+          name: value.contacts?.[0]?.profile?.name || normalizedPhone,
+          phone: normalizedPhone,
+          tenantId: tenant.id,
           whatsappId: normalizedPhone.replace(/^\+/, '').slice(-10)
         }
       });
@@ -166,37 +185,37 @@ export const processWebhookJob = async (job) => {
     }
 
     // ── Extract message content based on type ─────────────
-    let text          = null;
-    let type          = 'TEXT';
-    let mediaUrl      = null;
-    let mediaName     = null;
-    let mediaSize     = null;
+    let text = null;
+    let type = 'TEXT';
+    let mediaUrl = null;
+    let mediaName = null;
+    let mediaSize = null;
     let mediaMimeType = null;
-    let caption       = null;
+    let caption = null;
 
     // ── TEXT ───────────────────────────────────────────────
     if (messageType === 'text') {
       text = message.text?.body;
       type = 'TEXT';
 
-    // ── IMAGE ──────────────────────────────────────────────
+      // ── IMAGE ──────────────────────────────────────────────
     } else if (messageType === 'image') {
-      const media   = message.image;
-      caption       = media.caption || null;
+      const media = message.image;
+      caption = media.caption || null;
       mediaMimeType = media.mime_type;
-      type          = 'IMAGE';
+      type = 'IMAGE';
 
       try {
         const downloaded = await downloadWhatsAppMedia({
-          mediaId:     media.id,
-          mimeType:    media.mime_type,
-          fileName:    null,           // images have no filename
-          tenantId:    tenant.id,
-          contactId:   contact.id,
+          mediaId: media.id,
+          mimeType: media.mime_type,
+          fileName: null,           // images have no filename
+          tenantId: tenant.id,
+          contactId: contact.id,
           accessToken: decrypt(tenant.whatsappAccessToken),
         });
 
-        mediaUrl  = downloaded.publicUrl;
+        mediaUrl = downloaded.publicUrl;
         mediaName = downloaded.fileName;
         mediaSize = downloaded.fileSize;
 
@@ -207,24 +226,24 @@ export const processWebhookJob = async (job) => {
         type = 'TEXT';
       }
 
-    // ── VIDEO ──────────────────────────────────────────────
+      // ── VIDEO ──────────────────────────────────────────────
     } else if (messageType === 'video') {
-      const media   = message.video;
-      caption       = media.caption || null;
+      const media = message.video;
+      caption = media.caption || null;
       mediaMimeType = media.mime_type;
-      type          = 'VIDEO';
+      type = 'VIDEO';
 
       try {
         const downloaded = await downloadWhatsAppMedia({
-          mediaId:     media.id,
-          mimeType:    media.mime_type,
-          fileName:    null,
-          tenantId:    tenant.id,
-          contactId:   contact.id,
+          mediaId: media.id,
+          mimeType: media.mime_type,
+          fileName: null,
+          tenantId: tenant.id,
+          contactId: contact.id,
           accessToken: decrypt(tenant.whatsappAccessToken),
         });
 
-        mediaUrl  = downloaded.publicUrl;
+        mediaUrl = downloaded.publicUrl;
         mediaName = downloaded.fileName;
         mediaSize = downloaded.fileSize;
 
@@ -234,23 +253,23 @@ export const processWebhookJob = async (job) => {
         type = 'TEXT';
       }
 
-    // ── AUDIO ──────────────────────────────────────────────
+      // ── AUDIO ──────────────────────────────────────────────
     } else if (messageType === 'audio') {
-      const media   = message.audio;
+      const media = message.audio;
       mediaMimeType = media.mime_type;
-      type          = 'AUDIO';
+      type = 'AUDIO';
 
       try {
         const downloaded = await downloadWhatsAppMedia({
-          mediaId:     media.id,
-          mimeType:    media.mime_type,
-          fileName:    null,
-          tenantId:    tenant.id,
-          contactId:   contact.id,
+          mediaId: media.id,
+          mimeType: media.mime_type,
+          fileName: null,
+          tenantId: tenant.id,
+          contactId: contact.id,
           accessToken: decrypt(tenant.whatsappAccessToken),
         });
 
-        mediaUrl  = downloaded.publicUrl;
+        mediaUrl = downloaded.publicUrl;
         mediaName = downloaded.fileName;
         mediaSize = downloaded.fileSize;
 
@@ -260,24 +279,24 @@ export const processWebhookJob = async (job) => {
         type = 'TEXT';
       }
 
-    // ── DOCUMENT ───────────────────────────────────────────
+      // ── DOCUMENT ───────────────────────────────────────────
     } else if (messageType === 'document') {
-      const media   = message.document;
-      caption       = media.caption   || null;
+      const media = message.document;
+      caption = media.caption || null;
       mediaMimeType = media.mime_type;
-      type          = 'FILE';
+      type = 'FILE';
 
       try {
         const downloaded = await downloadWhatsAppMedia({
-          mediaId:     media.id,
-          mimeType:    media.mime_type,
-          fileName:    media.filename || null,  // documents have filename
-          tenantId:    tenant.id,
-          contactId:   contact.id,
+          mediaId: media.id,
+          mimeType: media.mime_type,
+          fileName: media.filename || null,  // documents have filename
+          tenantId: tenant.id,
+          contactId: contact.id,
           accessToken: decrypt(tenant.whatsappAccessToken),
         });
 
-        mediaUrl  = downloaded.publicUrl;
+        mediaUrl = downloaded.publicUrl;
         mediaName = media.filename || downloaded.fileName;
         mediaSize = downloaded.fileSize;
 
@@ -287,23 +306,23 @@ export const processWebhookJob = async (job) => {
         type = 'TEXT';
       }
 
-    // ── STICKER ────────────────────────────────────────────
+      // ── STICKER ────────────────────────────────────────────
     } else if (messageType === 'sticker') {
-      const media   = message.sticker;
+      const media = message.sticker;
       mediaMimeType = media.mime_type;
-      type          = 'IMAGE';
+      type = 'IMAGE';
 
       try {
         const downloaded = await downloadWhatsAppMedia({
-          mediaId:     media.id,
-          mimeType:    media.mime_type,
-          fileName:    'sticker',
-          tenantId:    tenant.id,
-          contactId:   contact.id,
+          mediaId: media.id,
+          mimeType: media.mime_type,
+          fileName: 'sticker',
+          tenantId: tenant.id,
+          contactId: contact.id,
           accessToken: decrypt(tenant.whatsappAccessToken),
         });
 
-        mediaUrl  = downloaded.publicUrl;
+        mediaUrl = downloaded.publicUrl;
         mediaName = downloaded.fileName;
         mediaSize = downloaded.fileSize;
 
@@ -313,19 +332,19 @@ export const processWebhookJob = async (job) => {
         type = 'TEXT';
       }
 
-    // ── LOCATION ───────────────────────────────────────────
+      // ── LOCATION ───────────────────────────────────────────
     } else if (messageType === 'location') {
       const loc = message.location;
       text = `📍 Location: ${loc.name || ''} (${loc.latitude}, ${loc.longitude})`;
       type = 'TEXT';
 
-    // ── CONTACTS ───────────────────────────────────────────
+      // ── CONTACTS ───────────────────────────────────────────
     } else if (messageType === 'contacts') {
-      const c  = message.contacts?.[0];
+      const c = message.contacts?.[0];
       text = `👤 Contact shared: ${c?.name?.formatted_name || 'Unknown'}`;
       type = 'TEXT';
 
-    // ── UNSUPPORTED ────────────────────────────────────────
+      // ── UNSUPPORTED ────────────────────────────────────────
     } else {
       console.log(`ℹ️ Unsupported message type: ${messageType} - skipping`);
       return;
@@ -339,8 +358,8 @@ export const processWebhookJob = async (job) => {
 
     // ── Save message via service ───────────────────────────
     const result = await handleIncomingMessage({
-      contactId:    contact.id,
-      tenantId:     tenant.id,
+      contactId: contact.id,
+      tenantId: tenant.id,
       text,
       type,
       mediaUrl,
@@ -355,19 +374,19 @@ export const processWebhookJob = async (job) => {
     emitToTenant(tenant.id, 'new_message', {
       conversationId: result.conversation.id,
       message: {
-        id:             result.message.id,
-        type:           result.message.type,        // ✅ correct type now
-        text:           result.message.text,
-        senderId:       result.message.senderId,
-        senderType:     'CONTACT',
-        direction:      'INBOUND',
+        id: result.message.id,
+        type: result.message.type,        // ✅ correct type now
+        text: result.message.text,
+        senderId: result.message.senderId,
+        senderType: 'CONTACT',
+        direction: 'INBOUND',
         isFromCustomer: true,
-        mediaUrl:       socketMediaUrl, 
-        mediaName:      result.message.mediaName,
-        mediaSize:      result.message.mediaSize,
-        mediaMimeType:  result.message.mediaMimeType,
-        caption:        result.message.caption,
-        createdAt:      result.message.createdAt,
+        mediaUrl: socketMediaUrl,
+        mediaName: result.message.mediaName,
+        mediaSize: result.message.mediaSize,
+        mediaMimeType: result.message.mediaMimeType,
+        caption: result.message.caption,
+        createdAt: result.message.createdAt,
       }
     });
 
@@ -378,14 +397,14 @@ export const processWebhookJob = async (job) => {
 
     emitToTenant(tenant.id, 'new_notification', {
       notification: {
-        id:        `msg_tenant_${result.message.id}`,
-        type:      'new_message',
-        title:     `New message from ${contact.name}`,
-        message:   notifMessage,
-        isRead:    false,
+        id: `msg_tenant_${result.message.id}`,
+        type: 'new_message',
+        title: `New message from ${contact.name}`,
+        message: notifMessage,
+        isRead: false,
         createdAt: new Date(),
         metadata: {
-          contactId:      contact.id,
+          contactId: contact.id,
           conversationId: result.conversation.id,
         }
       }
@@ -396,32 +415,32 @@ export const processWebhookJob = async (job) => {
       emitToUser(contact.assignedTo, 'new_message', {
         conversationId: result.conversation.id,
         message: {
-          id:             result.message.id,
-          type:           result.message.type,
-          text:           result.message.text,
-          senderId:       result.message.senderId,
-          senderType:     'CONTACT',
-          direction:      'INBOUND',
+          id: result.message.id,
+          type: result.message.type,
+          text: result.message.text,
+          senderId: result.message.senderId,
+          senderType: 'CONTACT',
+          direction: 'INBOUND',
           isFromCustomer: true,
-          mediaUrl:       result.message.mediaUrl,
-          mediaName:      result.message.mediaName,
-          mediaSize:      result.message.mediaSize,
-          mediaMimeType:  result.message.mediaMimeType,
-          caption:        result.message.caption,
-          createdAt:      result.message.createdAt,
+          mediaUrl: result.message.mediaUrl,
+          mediaName: result.message.mediaName,
+          mediaSize: result.message.mediaSize,
+          mediaMimeType: result.message.mediaMimeType,
+          caption: result.message.caption,
+          createdAt: result.message.createdAt,
         }
       });
 
       emitToUser(contact.assignedTo, 'new_notification', {
         notification: {
-          id:        `msg_${result.message.id}`,
-          type:      'new_message',
-          title:     `New message from ${contact.name}`,
-          message:   notifMessage,
-          isRead:    false,
+          id: `msg_${result.message.id}`,
+          type: 'new_message',
+          title: `New message from ${contact.name}`,
+          message: notifMessage,
+          isRead: false,
           createdAt: new Date(),
           metadata: {
-            contactId:      contact.id,
+            contactId: contact.id,
             conversationId: result.conversation.id,
           }
         }
@@ -466,7 +485,7 @@ const downloadWhatsAppMedia = async ({
     throw new Error(`Meta media URL fetch failed: ${err.error?.message}`);
   }
 
-  const metaData    = await metaRes.json();
+  const metaData = await metaRes.json();
   const downloadUrl = metaData.url;  // temporary, expires soon
 
   if (!downloadUrl) {
@@ -487,27 +506,27 @@ const downloadWhatsAppMedia = async ({
   fs.mkdirSync(saveDir, { recursive: true });
 
   // ── Step 3: Build filename ───────────────────────────────
-  const ext      = getExtFromMime(mimeType);
+  const ext = getExtFromMime(mimeType);
   const baseName = fileName
     ? path.basename(fileName, path.extname(fileName))
-        .replace(/\s+/g, '_')
-        .replace(/[^a-zA-Z0-9_-]/g, '')
-        .substring(0, 50)
+      .replace(/\s+/g, '_')
+      .replace(/[^a-zA-Z0-9_-]/g, '')
+      .substring(0, 50)
     : `media_${mediaId}`;
 
   const uniqueFileName = `${Date.now()}_${baseName}${ext}`;
-  const localPath      = path.join(saveDir, uniqueFileName);
+  const localPath = path.join(saveDir, uniqueFileName);
 
   // ── Step 4: Download file ────────────────────────────────
   await new Promise((resolve, reject) => {
-    const urlObj   = new URL(downloadUrl);
+    const urlObj = new URL(downloadUrl);
     const protocol = urlObj.protocol === 'https:' ? https : http;
 
     const options = {
       hostname: urlObj.hostname,
-      path:     urlObj.pathname + urlObj.search,
-      method:   'GET',
-      headers:  {
+      path: urlObj.pathname + urlObj.search,
+      method: 'GET',
+      headers: {
         Authorization: `Bearer ${accessToken}`,  // ✅ Required for WhatsApp CDN
       },
     };
@@ -553,7 +572,7 @@ const downloadWhatsAppMedia = async ({
   });
 
   // ── Step 5: Get file size ────────────────────────────────
-  const stats    = fs.statSync(localPath);
+  const stats = fs.statSync(localPath);
   const fileSize = stats.size;
 
   // ── Step 6: Build permanent public URL ──────────────────
@@ -567,7 +586,7 @@ const downloadWhatsAppMedia = async ({
 
   return {
     publicUrl,
-    fileName:  uniqueFileName,
+    fileName: uniqueFileName,
     localPath,
     fileSize,
   };
@@ -578,26 +597,26 @@ const downloadWhatsAppMedia = async ({
 // MIME TYPE → FILE EXTENSION
 // ─────────────────────────────────────────────────────────────
 const MIME_TO_EXT = {
-  'image/jpeg':    '.jpg',
-  'image/jpg':     '.jpg',
-  'image/png':     '.png',
-  'image/webp':    '.webp',
-  'image/gif':     '.gif',
-  'video/mp4':     '.mp4',
-  'video/3gpp':    '.3gp',
-  'audio/mpeg':    '.mp3',
-  'audio/ogg':     '.ogg',
+  'image/jpeg': '.jpg',
+  'image/jpg': '.jpg',
+  'image/png': '.png',
+  'image/webp': '.webp',
+  'image/gif': '.gif',
+  'video/mp4': '.mp4',
+  'video/3gpp': '.3gp',
+  'audio/mpeg': '.mp3',
+  'audio/ogg': '.ogg',
   'audio/ogg; codecs=opus': '.ogg',
-  'audio/m4a':     '.m4a',
-  'audio/amr':     '.amr',
-  'audio/mp4':     '.mp4',
-  'audio/webm':    '.webm',
-  'application/pdf':   '.pdf',
+  'audio/m4a': '.m4a',
+  'audio/amr': '.amr',
+  'audio/mp4': '.mp4',
+  'audio/webm': '.webm',
+  'application/pdf': '.pdf',
   'application/msword': '.doc',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
   'application/vnd.ms-excel': '.xls',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
-  'text/plain':    '.txt',
+  'text/plain': '.txt',
   'image/webp; codecs=vp8': '.webp',  // sticker format
 };
 
@@ -617,7 +636,7 @@ export const startWebhookWorker = () => {
     QUEUE_NAME_WEBHOOK,
     processWebhookJob,
     {
-      connection:  redisConnection,
+      connection: redisConnection,
       concurrency: 10,
     }
   );
@@ -634,16 +653,16 @@ export const startWebhookWorker = () => {
         await dlqQueue.add(
           'failed-webhook',
           {
-            originalJobId:   job.id,
+            originalJobId: job.id,
             originalJobName: job.name,
-            originalData:    job.data,
-            failedAt:        new Date().toISOString(),
-            attempts:        job.attemptsMade,
-            errorMessage:    err.message,
-            errorStack:      err.stack,
-            errorName:       err.name,
-            originalQueue:   QUEUE_NAME_WEBHOOK,
-            processingTime:  job.processedOn ? Date.now() - job.processedOn : null,
+            originalData: job.data,
+            failedAt: new Date().toISOString(),
+            attempts: job.attemptsMade,
+            errorMessage: err.message,
+            errorStack: err.stack,
+            errorName: err.name,
+            originalQueue: QUEUE_NAME_WEBHOOK,
+            processingTime: job.processedOn ? Date.now() - job.processedOn : null,
           },
           { jobId: `dlq_${job.id}_${Date.now()}` }
         );

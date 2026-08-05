@@ -751,18 +751,7 @@ await flowEngine.saveBotMessage(
   // ─────────────────────────────────────────
 
   notifyAgents: async (conversation, contact, message) => {
-    // ✅ Using your existing emitToTenant
-    emitToTenant(
-      conversation.tenantId,
-      'new_message',
-      {
-        conversationId: conversation.id,
-        message,
-        contactName: contact.name,
-        contactPhone: contact.phone,
-        assignedTo: conversation.assignedTo
-      }
-    )
+    console.log(`👤 Agent is handling conversation ${conversation.id} - skipping bot flow execution`);
   },
 
   // ─────────────────────────────────────────

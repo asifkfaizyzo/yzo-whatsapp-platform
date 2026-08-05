@@ -322,6 +322,10 @@ model Conversation {
   flowData      Json?    @default("{}")
   botPaused     Boolean  @default(false)
 
+  // ── Analytics Timestamps ──
+  incomingAt       DateTime?
+  firstResponseAt  DateTime?
+
   messages  Message[]
   activities    ConversationActivity[]
 
@@ -386,6 +390,14 @@ model Message {
   // ── Status ──
   isRead         Boolean          @default(false)
   status         String       @default("sent") 
+
+  // ── Analytics & Webhook Receipts ──
+  wamid          String?          @unique
+  deliveredAt    DateTime?
+  readAt         DateTime?
+  failedAt       DateTime?
+  failureCode    Int?
+  failureReason  String?
 
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
