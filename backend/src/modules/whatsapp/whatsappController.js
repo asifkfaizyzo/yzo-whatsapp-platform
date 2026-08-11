@@ -185,6 +185,29 @@ console.log("[WhatsApp] No redirect_uri — Tech Provider flow");
       );
     }
 
+    // ── Step 6.5: Register Phone Number with Meta ─────────────────────
+    try {
+      console.log(`[WhatsApp] Registering phone number ${phoneNumberId}...`);
+      const regRes = await fetch(
+        `https://graph.facebook.com/v22.0/${phoneNumberId}/register`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            messaging_product: "whatsapp",
+            pin: "123456",
+          }),
+        }
+      );
+      const regData = await regRes.json();
+      console.log("[WhatsApp] Phone registration response:", regData);
+    } catch (e) {
+      console.warn("[WhatsApp] Phone registration failed (non-fatal):", e.message);
+    }
+
     // ── Step 7: Save to DB ────────────────────────────────────────────
     await prisma.tenant.update({
       where: { id: tenantId },
@@ -448,6 +471,71 @@ export const disconnectWhatsApp = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error during disconnect",
+    });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api2/whatsapp/register-phone
+// Calls Meta Graph API /{PHONE_NUMBER_ID}/register to activate Cloud API container
+// ─────────────────────────────────────────────────────────────────────────────
+export const registerPhoneNumber = async (req, res) => {
+  const tenantId = req.tenantId;
+  const { pin } = req.body;
+
+  try {
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: {
+        whatsappPhoneId: true,
+        whatsappAccessToken: true,
+      },
+    });
+
+    if (!tenant?.whatsappPhoneId || !tenant?.whatsappAccessToken) {
+      return res.status(400).json({
+        success: false,
+        message: "No connected WhatsApp phone number found for this tenant.",
+      });
+    }
+
+    console.log(`[WhatsApp] Registering phone number ${tenant.whatsappPhoneId} with Meta...`);
+
+    const regRes = await fetch(
+      `https://graph.facebook.com/v22.0/${tenant.whatsappPhoneId}/register`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${tenant.whatsappAccessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          pin: pin || "123456",
+        }),
+      }
+    );
+    const regData = await regRes.json();
+    console.log("[WhatsApp] Phone registration response:", regData);
+
+    if (regData.error) {
+      return res.status(400).json({
+        success: false,
+        message: regData.error.message || "Failed to register phone number with Meta.",
+        error: regData.error,
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "Phone number successfully registered with Meta Cloud API.",
+      data: regData,
+    });
+  } catch (err) {
+    console.error("❌ registerPhoneNumber error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Server error while registering phone number.",
     });
   }
 };
