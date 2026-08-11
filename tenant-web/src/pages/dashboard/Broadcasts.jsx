@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { 
   Megaphone, 
   Plus, 
@@ -332,7 +333,7 @@ export default function Broadcasts() {
       </div>
 
       {/* Launch Campaign Modal */}
-      {showModal && (
+      {showModal && createPortal(
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-lg overflow-y-auto max-h-[90vh] animate-in zoom-in-95 duration-150">
             {/* Modal Header */}
@@ -555,7 +556,8 @@ export default function Broadcasts() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

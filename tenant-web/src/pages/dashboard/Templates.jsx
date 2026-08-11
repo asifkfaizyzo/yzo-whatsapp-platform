@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { 
   FileCode, 
   Plus, 
@@ -221,7 +222,7 @@ export default function Templates() {
       )}
 
       {/* Submit Template Modal */}
-      {showModal && (
+      {showModal && createPortal(
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-150">
             {/* Modal Header */}
@@ -297,11 +298,12 @@ export default function Templates() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Smartphone Preview Modal */}
-      {previewTemplate && (
+      {previewTemplate && createPortal(
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 text-white rounded-[40px] p-4 w-72 border-8 border-slate-800 shadow-2xl relative animate-in zoom-in-95 duration-150 shrink-0">
             <div className="absolute top-2 left-1/2 -translate-x-1/2 w-28 h-4 bg-slate-800 rounded-full"></div>
@@ -325,7 +327,8 @@ export default function Templates() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

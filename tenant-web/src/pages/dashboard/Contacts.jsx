@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Users,
   Plus,
@@ -744,7 +745,7 @@ export default function Contacts() {
       </div>
 
       {/* ── New Contact Modal ── */}
-      {showModal && (
+      {showModal && createPortal(
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-150">
             {/* Modal Header */}
@@ -872,11 +873,12 @@ export default function Contacts() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── CSV Import Summary Modal ── */}
-      {importSummary && (
+      {importSummary && createPortal(
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-150">
             {/* Modal Header */}
@@ -967,7 +969,8 @@ export default function Contacts() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

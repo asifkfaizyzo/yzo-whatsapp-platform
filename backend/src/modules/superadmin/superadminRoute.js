@@ -80,4 +80,15 @@ router.get('/revenue/invoice/:paymentId', verifySuperAdmin, adminDownloadInvoice
 router.get('/settings/tax', verifySuperAdmin, getGSTSettings);
 router.put('/settings/tax', verifySuperAdmin, updateGSTSettings);
 
+// ══════════════════════════════════════
+// OPERATIONAL PLATFORM REPORTS
+// ══════════════════════════════════════
+import * as reportsController from './reportsController.js';
+
+router.get('/reports/kpis', verifySuperAdmin, reportsController.getReportKPIs);
+router.get('/reports/messages', verifySuperAdmin, reportsController.getReportMessages);
+router.get('/reports/delivery', verifySuperAdmin, reportsController.getReportDelivery);
+router.get('/reports/tenants', verifySuperAdmin, reportsController.getReportTenants);
+router.get('/reports/system-health', verifySuperAdmin, reportsController.getReportSystemHealth);
+
 export default router;

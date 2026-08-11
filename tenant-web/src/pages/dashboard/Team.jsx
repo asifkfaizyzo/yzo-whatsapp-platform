@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { 
   UserCheck, 
   Plus, 
@@ -427,7 +428,7 @@ export default function Team() {
       </div>
 
       {/* ── Invite Agent Modal ── */}
-      {showInviteModal && (
+      {showInviteModal && createPortal(
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-150">
             {/* Modal Header */}
@@ -502,11 +503,12 @@ export default function Team() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── Edit Agent Modal ── */}
-      {showEditModal && editingAgent && (
+      {showEditModal && editingAgent && createPortal(
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-150">
             {/* Modal Header */}
@@ -611,7 +613,8 @@ export default function Team() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

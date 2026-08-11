@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import api from "../../lib/axios";
 
 const CONFIG_ID = import.meta.env.VITE_META_CONFIG_ID;
@@ -203,8 +204,8 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
 
   // Success Screen
   if (isConnected) {
-    return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    return createPortal(
+      <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200" style={{ zIndex: 99999 }}>
         <div className="bg-white rounded-2xl p-8 max-w-md w-full text-center shadow-2xl">
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg
@@ -235,14 +236,15 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
             Go to Dashboard →
           </button>
         </div>
-      </div>
+      </div>,
+      document.body
     );
   }
 
   // WABA Selector Screen (when multiple WABAs available)
   if (showSelector && availableWabas.length > 0) {
-    return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    return createPortal(
+      <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200" style={{ zIndex: 99999 }}>
         <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold text-gray-900">
@@ -314,14 +316,15 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
             Cancel
           </button>
         </div>
-      </div>
+      </div>,
+      document.body
     );
   }
 
   // Loading Screen
   if (isLoading) {
-    return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    return createPortal(
+      <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200" style={{ zIndex: 99999 }}>
         <div className="bg-white rounded-2xl p-8 max-w-md w-full text-center shadow-2xl">
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
             <span className="text-2xl">💬</span>
@@ -337,16 +340,17 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
             <div className="bg-green-600 h-2 rounded-full animate-pulse w-3/4"></div>
           </div>
         </div>
-      </div>
+      </div>,
+      document.body
     );
   }
 
   // Main UI (Step 1 & Step 2)
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200" style={{ zIndex: 99999 }}>
+      <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto flex flex-col border border-slate-100">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+        <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-6 border-b border-gray-100 shrink-0">
           <div>
             <p className="text-sm text-green-600 font-semibold mb-1">
               {step === 1 ? "Step 1 of 2" : "Step 2 of 2"}
@@ -386,11 +390,10 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
               {/* Option A - Existing Number */}
               <div
                 onClick={() => setSelectedType("existing")}
-                className={`border-2 rounded-xl p-5 cursor-pointer transition-all ${
-                  selectedType === "existing"
+                className={`border-2 rounded-xl p-5 cursor-pointer transition-all ${selectedType === "existing"
                     ? "border-green-600 bg-green-50"
                     : "border-gray-200 hover:border-green-300"
-                }`}
+                  }`}
               >
                 <div className="flex items-center gap-3 mb-3">
                   <span className="text-2xl">📱</span>
@@ -436,11 +439,10 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
               {/* Option B - New Number */}
               <div
                 onClick={() => setSelectedType("new")}
-                className={`border-2 rounded-xl p-5 cursor-pointer transition-all ${
-                  selectedType === "new"
+                className={`border-2 rounded-xl p-5 cursor-pointer transition-all ${selectedType === "new"
                     ? "border-green-600 bg-green-50"
                     : "border-gray-200 hover:border-green-300"
-                }`}
+                  }`}
               >
                 <div className="flex items-center gap-3 mb-3">
                   <span className="text-2xl">🆕</span>
@@ -520,17 +522,17 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
               <div className="space-y-2">
                 {(selectedType === "existing"
                   ? [
-                      "WhatsApp Business App version 2.24.4 or higher",
-                      "Facebook/Meta account with admin access",
-                      "Active website or GST Certificate for verification",
-                      "Phone number on WhatsApp Business App",
-                    ]
+                    "WhatsApp Business App version 2.24.4 or higher",
+                    "Facebook/Meta account with admin access",
+                    "Active website or GST Certificate for verification",
+                    "Phone number on WhatsApp Business App",
+                  ]
                   : [
-                      "Fresh number not on WhatsApp Personal or Business",
-                      "Able to receive OTP via call or SMS",
-                      "Facebook/Meta account with admin access",
-                      "Active website or GST Certificate for verification",
-                    ]
+                    "Fresh number not on WhatsApp Personal or Business",
+                    "Able to receive OTP via call or SMS",
+                    "Facebook/Meta account with admin access",
+                    "Active website or GST Certificate for verification",
+                  ]
                 ).map((req, i) => (
                   <div key={i} className="flex items-start gap-2">
                     <span className="text-green-600 mt-0.5 flex-shrink-0 text-sm">
@@ -597,6 +599,7 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

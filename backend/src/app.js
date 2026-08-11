@@ -40,6 +40,8 @@ import analyticsRoutes from './modules/analytics/analyticsRoutes.js';
 
 import publicRoutes from './modules/public/publicRoutes.js';
 
+import { serverAdapter } from './config/bullBoard.js';
+
 const app = express();
 
 app.set('trust proxy', 1);
@@ -84,6 +86,9 @@ app.use(express.json({
   }
 }));
 app.use(express.urlencoded({ extended: true }));
+
+// 📊 Bull Board Queue Management Dashboard
+app.use('/admin/queues', serverAdapter.getRouter());
 
 // 🔧 ═══════════════════════════════════════════════════════════
 // 🔧 STATIC FILES - UPDATED
