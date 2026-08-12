@@ -1,40 +1,615 @@
 // admin-web/src/pages/dashboard/Tenants.jsx
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
+import { useConfirm } from "../../context/ConfirmContext";
+import { useToast } from "../../context/ToastContext";
 import {
   Building2,
   Users2,
   Activity,
   Search,
   Plus,
-  Filter,
   CheckCircle,
   AlertCircle,
-  Calendar,
   X,
   RefreshCw,
   Trash2,
   Ban,
   Unlock,
-  ToggleLeft,
-  ToggleRight,
-  MapPin,
   Mail,
   Phone,
   Lock,
-  Edit
+  Edit,
+  MoreHorizontal,
+  Eye,
+  ShieldBan,
+  ShieldCheck,
+  UserCheck,
+  Download,
+  TrendingUp,
+  Clock,
+  Globe,
+  BarChart2,
+  MessageSquare,
+  Zap,
+  HardDrive,
+  UserX,
+  Package,
+  Layers,
+  Sparkles,
+  Crown,
+  Gem,
+  Star,
+  Rocket,
+  CreditCard,
+  CalendarDays,
 } from "lucide-react";
 import api from "../../lib/axios";
 import axios from "axios";
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function getRelativeTime(dateStr) {
+  if (!dateStr) return "Never";
+  const now = new Date();
+  const date = new Date(dateStr);
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays === 0) {
+    if (diffHours === 0) return diffMins === 0 ? "Just now" : `${diffMins}m ago`;
+    return `${diffHours}h ago`;
+  }
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays} days ago`;
+  return date.toLocaleDateString();
+}
+
+function getTenantStatus(tenant) {
+  if (tenant.status === "PENDING") return "Pending";
+  if (tenant.status === "BLOCKED") return "Blocked";
+  if (tenant.status === "APPROVED" && tenant.isActive) return "Active";
+  if (tenant.status === "APPROVED" && !tenant.isActive) return "Suspended";
+  return tenant.status || "Unknown";
+}
+
+function getInitials(name, fallback) {
+  const str = name || fallback || "??";
+  return str.split(" ").map((w) => w.charAt(0)).join("").substring(0, 2).toUpperCase();
+}
+
+// ─── Plan helpers — reads from tenant.plan.name (the real API field) ──────────
+
+function getPlanLabel(tenant) {
+  if (tenant?.planStatus === "enterprise_active") {
+    return "Enterprise";
+  }
+  if (tenant?.planStatus === "enterprise_pending") {
+    return "Enterprise (Pending)";
+  }
+  return tenant?.plan?.name || "Free";
+}
+
+function getPlanStatus(tenant) {
+  return tenant?.planStatus || "inactive";
+}
+
+// ─── Config maps ─────────────────────────────────────────────────────────────
+
+const STATUS_CONFIG = {
+  Active: { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200", dot: "bg-emerald-500", glow: "shadow-emerald-100" },
+  Pending: { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200", dot: "bg-amber-500", glow: "shadow-amber-100" },
+  Suspended: { bg: "bg-slate-100", text: "text-slate-600", border: "border-slate-200", dot: "bg-slate-400", glow: "" },
+  Blocked: { bg: "bg-rose-50", text: "text-rose-700", border: "border-rose-200", dot: "bg-rose-500", glow: "shadow-rose-100" },
+  Trial: { bg: "bg-violet-50", text: "text-violet-700", border: "border-violet-200", dot: "bg-violet-500", glow: "shadow-violet-100" },
+  Expired: { bg: "bg-orange-50", text: "text-orange-700", border: "border-orange-200", dot: "bg-orange-500", glow: "" },
+};
+
+const PLAN_CONFIG = {
+  Free: {
+    gradient: "from-slate-100 to-slate-200",
+    text: "text-slate-600",
+    border: "border-slate-200",
+    icon: Package,
+    iconColor: "text-slate-500",
+    badge: "bg-slate-100 text-slate-600 border-slate-200",
+  },
+  Starter: {
+    gradient: "from-blue-50 to-blue-100",
+    text: "text-blue-700",
+    border: "border-blue-200",
+    icon: Rocket,
+    iconColor: "text-blue-500",
+    badge: "bg-blue-100 text-blue-700 border-blue-200",
+  },
+  Basic: {
+    gradient: "from-blue-50 to-indigo-100",
+    text: "text-blue-700",
+    border: "border-blue-200",
+    icon: Rocket,
+    iconColor: "text-blue-500",
+    badge: "bg-blue-100 text-blue-700 border-blue-200",
+  },
+  Trial: {
+    gradient: "from-violet-50 to-purple-100",
+    text: "text-violet-700",
+    border: "border-violet-200",
+    icon: Sparkles,
+    iconColor: "text-violet-500",
+    badge: "bg-violet-100 text-violet-700 border-violet-200",
+  },
+  Pro: {
+    gradient: "from-indigo-50 to-violet-100",
+    text: "text-indigo-700",
+    border: "border-indigo-200",
+    icon: Star,
+    iconColor: "text-indigo-500",
+    badge: "bg-indigo-100 text-indigo-700 border-indigo-200",
+  },
+  Business: {
+    gradient: "from-purple-50 to-fuchsia-100",
+    text: "text-purple-700",
+    border: "border-purple-200",
+    icon: Gem,
+    iconColor: "text-purple-500",
+    badge: "bg-purple-100 text-purple-700 border-purple-200",
+  },
+  Enterprise: {
+    gradient: "from-amber-50 to-yellow-100",
+    text: "text-amber-800",
+    border: "border-amber-200",
+    icon: Crown,
+    iconColor: "text-amber-600",
+    badge: "bg-gradient-to-r from-amber-100 to-yellow-100 text-amber-800 border-amber-300",
+  },
+};
+
+function resolvePlanConfig(planName) {
+  if (!planName) return PLAN_CONFIG["Free"];
+  const match = Object.keys(PLAN_CONFIG).find(
+    (k) => k.toLowerCase() === planName.toLowerCase()
+  );
+  return PLAN_CONFIG[match] || PLAN_CONFIG["Free"];
+}
+
+// ─── Reusable components ──────────────────────────────────────────────────────
+
+function StatCard({ icon: Icon, title, value, subtitle, iconColor, iconBg, growth }) {
+  return (
+    <div
+      className="relative bg-white rounded-2xl border border-slate-100 p-5 flex flex-col gap-3 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 cursor-default group overflow-hidden"
+      style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(18,95,226,0.04)" }}
+    >
+      <div className="absolute inset-0 bg-gradient-to-br from-transparent to-slate-50/50 pointer-events-none" />
+      <div className="flex items-center justify-between relative">
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${iconBg} group-hover:scale-110 transition-transform duration-200`}>
+          <Icon size={18} className={iconColor} />
+        </div>
+        {growth !== undefined && (
+          <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${growth >= 0 ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"}`}>
+            <TrendingUp size={10} />
+            {growth >= 0 ? "+" : ""}{growth}%
+          </span>
+        )}
+      </div>
+      <div className="relative">
+        <p className="text-2xl font-bold text-slate-900 leading-none">{value}</p>
+        <p className="text-xs font-semibold text-slate-500 mt-1">{title}</p>
+        {subtitle && <p className="text-[10px] text-slate-400 mt-0.5">{subtitle}</p>}
+      </div>
+    </div>
+  );
+}
+
+function StatusBadge({ status }) {
+  const cfg = STATUS_CONFIG[status] || STATUS_CONFIG["Pending"];
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${cfg.bg} ${cfg.text} ${cfg.border}`}>
+      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 animate-pulse ${cfg.dot}`} />
+      {status}
+    </span>
+  );
+}
+
+function PlanBadge({ planName }) {
+  const label = planName || "Free";
+  const cfg = resolvePlanConfig(label);
+  const PlanIcon = cfg.icon;
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border ${cfg.badge}`}>
+      <PlanIcon size={10} className={cfg.iconColor} />
+      {label}
+    </span>
+  );
+}
+
+// ─── 3-dot Action Menu ────────────────────────────────────────────────────────
+
+function ActionMenu({ tenant, onViewDetails, onEdit, onViewUsers, onSuspend, onActivate, onApprove, onBlock, onUnblock, onDelete }) {
+  const [open, setOpen] = useState(false);
+  const [coords, setCoords] = useState({ top: 0, left: 0 });
+  const ref = useRef(null);
+  const dropdownRefVal = useRef(null);
+  const status = getTenantStatus(tenant);
+
+  const dropdownRef = useCallback((node) => {
+    dropdownRefVal.current = node;
+    if (node !== null && ref.current) {
+      const rect = ref.current.getBoundingClientRect();
+      const height = node.offsetHeight;
+      const dropdownWidth = 208;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const showAbove = spaceBelow < height && rect.top > height;
+      setCoords({
+        top: showAbove ? rect.top - height - 6 : rect.bottom + 6,
+        left: Math.max(8, rect.right - dropdownWidth),
+      });
+    }
+  }, [open]);
+
+  useEffect(() => {
+    const handleMousedown = (e) => {
+      if (
+        ref.current && !ref.current.contains(e.target) &&
+        (!dropdownRefVal.current || !dropdownRefVal.current.contains(e.target))
+      ) {
+        setOpen(false);
+      }
+    };
+    const handleScroll = () => {
+      setOpen(false);
+    };
+
+    if (open) {
+      document.addEventListener("mousedown", handleMousedown);
+      window.addEventListener("scroll", handleScroll, true);
+      window.addEventListener("resize", handleScroll);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleMousedown);
+      window.removeEventListener("scroll", handleScroll, true);
+      window.removeEventListener("resize", handleScroll);
+    };
+  }, [open]);
+
+  const MenuItem = ({ icon: Icon, label, onClick, danger }) => (
+    <button
+      onClick={() => { onClick(); setOpen(false); }}
+      className={`w-full flex items-center gap-2.5 px-3 py-2 text-[13px] rounded-lg transition-colors duration-100 text-left font-medium ${danger ? "text-rose-600 hover:bg-rose-50" : "text-slate-700 hover:bg-slate-50"
+        }`}
+    >
+      <Icon size={13} className={danger ? "text-rose-400" : "text-slate-400"} />
+      {label}
+    </button>
+  );
+
+  const Sep = () => <div className="h-px bg-slate-100 my-1" />;
+
+  return (
+    <div className="relative inline-block" ref={ref}>
+      <button
+        onClick={() => setOpen(!open)}
+        className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-150 ${open ? "bg-[#125fe2] text-white shadow-md shadow-blue-200" : "text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+          }`}
+      >
+        <MoreHorizontal size={15} />
+      </button>
+      {open && createPortal(
+        <div
+          ref={dropdownRef}
+          className="fixed w-52 bg-white border border-slate-100 rounded-2xl shadow-2xl z-50 p-1.5"
+          style={{
+            top: coords.top,
+            left: coords.left,
+            boxShadow: "0 8px 40px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.06)"
+          }}
+        >
+          <div className="px-2 py-1.5 mb-1">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate">{tenant.tenantName || tenant.email}</p>
+          </div>
+          <Sep />
+          <MenuItem icon={Eye} label="View Details" onClick={onViewDetails} />
+          <MenuItem icon={Edit} label="Edit Tenant" onClick={onEdit} />
+          <MenuItem icon={Users2} label="View Users" onClick={onViewUsers} />
+          <Sep />
+          {status === "Pending" && <MenuItem icon={UserCheck} label="Approve" onClick={onApprove} />}
+          {status === "Active" && <MenuItem icon={Ban} label="Suspend" onClick={onSuspend} />}
+          {status === "Suspended" && <MenuItem icon={ShieldCheck} label="Activate" onClick={onActivate} />}
+          {status !== "Blocked" && <MenuItem icon={ShieldBan} label="Block" onClick={onBlock} />}
+          {status === "Blocked" && <MenuItem icon={Unlock} label="Unblock" onClick={onUnblock} />}
+          <Sep />
+          <MenuItem icon={Trash2} label="Delete Tenant" onClick={onDelete} danger />
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
+
+// ─── Tenant Details Drawer ────────────────────────────────────────────────────
+
+function TenantDrawer({ tenant, onClose, onEdit, onSuspend, onActivate, onBlock, onDelete }) {
+  if (!tenant) return null;
+  const status = getTenantStatus(tenant);
+  const planName = getPlanLabel(tenant);
+  const planCfg = resolvePlanConfig(planName);
+  const PlanIcon = planCfg.icon;
+
+  const Section = ({ title, children }) => (
+    <div className="border-b border-slate-100 pb-5 mb-5 last:border-0 last:mb-0 last:pb-0">
+      <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">{title}</h4>
+      {children}
+    </div>
+  );
+
+  const Field = ({ label, value, mono }) => (
+    <div className="flex flex-col gap-0.5 mb-3">
+      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</span>
+      <span className={`text-sm font-medium ${mono ? "font-mono text-xs text-slate-600 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-100 inline-block" : "text-slate-800"}`}>
+        {value || <span className="text-slate-300 italic text-xs">Not set</span>}
+      </span>
+    </div>
+  );
+
+  const UsageCard = ({ icon: Icon, label, value, max, bg, iconCls }) => (
+    <div className={`rounded-xl p-3 border ${bg || "bg-slate-50 border-slate-100"}`}>
+      <div className="flex items-center gap-2 mb-1.5">
+        <Icon size={12} className={iconCls || "text-slate-400"} />
+        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">{label}</span>
+      </div>
+      <p className="text-xl font-bold text-slate-900">{value !== undefined && value !== null ? value : "—"}</p>
+      {max !== undefined && typeof value === "number" && (
+        <div className="mt-2">
+          <div className="h-1 rounded-full bg-slate-200 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-[#125fe2] transition-all duration-700"
+              style={{ width: `${Math.min(100, (value / (max || 1)) * 100)}%` }}
+            />
+          </div>
+          <span className="text-[9px] text-slate-400 mt-0.5 block">{value} / {max}</span>
+        </div>
+      )}
+    </div>
+  );
+
+  const TLEvent = ({ icon: Icon, label, time, iconBg, iconColor }) => (
+    <div className="flex gap-3 items-start">
+      <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${iconBg || "bg-blue-50"}`}>
+        <Icon size={12} className={iconColor || "text-blue-500"} />
+      </div>
+      <div>
+        <p className="text-sm font-medium text-slate-800">{label}</p>
+        <p className="text-[10px] text-slate-400 mt-0.5">{time}</p>
+      </div>
+    </div>
+  );
+
+  return createPortal(
+    <>
+      <div className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-[2px]" onClick={onClose} />
+      <div
+        className="fixed right-0 top-0 bottom-0 z-50 flex flex-col bg-white"
+        style={{ width: 520, maxWidth: "100vw", boxShadow: "-4px 0 60px rgba(0,0,0,0.14)" }}
+      >
+        {/* Header — glassmorphism */}
+        <div
+          className="px-6 py-5 border-b border-slate-100 flex-shrink-0 relative overflow-hidden"
+          style={{ background: "linear-gradient(135deg, rgba(18,95,226,0.07) 0%, rgba(255,255,255,1) 70%)" }}
+        >
+          <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full bg-[#125fe2]/5 pointer-events-none" />
+          <div className="flex items-start justify-between gap-4 relative">
+            <div className="flex items-center gap-3">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#125fe2] to-[#3b82f6] flex items-center justify-center text-white font-bold text-base flex-shrink-0 shadow-xl shadow-blue-200">
+                {getInitials(tenant.tenantName, tenant.email)}
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">{tenant.tenantName || tenant.email || "Unknown"}</h3>
+                <p className="text-[10px] text-slate-400 font-mono mt-0.5 truncate max-w-52">{tenant.id}</p>
+                <div className="flex items-center gap-2 mt-2">
+                  <StatusBadge status={status} />
+                  <PlanBadge planName={planName} />
+                </div>
+              </div>
+            </div>
+            <button onClick={onClose}
+              className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors flex-shrink-0 mt-0.5">
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+
+          <Section title="Company Information">
+            <div className="grid grid-cols-2 gap-x-5">
+              <Field label="Company Name" value={tenant.tenantName} />
+              <Field label="Subdomain" value={tenant.subdomain ? `${tenant.subdomain}.sudoreply.com` : "—"} mono />
+              <Field label="Tenant ID" value={tenant.id} mono />
+              <Field label="Industry" value={tenant.industry} />
+              <Field label="Timezone" value={tenant.timezone} />
+              <Field label="Country" value={tenant.country} />
+            </div>
+            <Field label="Business Address" value={tenant.address} />
+          </Section>
+
+          <Section title="Owner Information">
+            <div className="grid grid-cols-2 gap-x-5">
+              <Field label="Owner Name" value={tenant.ownerName || tenant.tenantName} />
+              <Field label="Email" value={tenant.email} />
+              <Field label="Phone" value={tenant.phone} />
+              <Field label="Role" value="Tenant Admin" />
+            </div>
+          </Section>
+
+          {/* Subscription — reads from tenant.plan (real API shape) */}
+          <Section title="Subscription">
+            {tenant.plan || tenant.planStatus === "enterprise_active" || tenant.planStatus === "enterprise_pending" ? (
+              <div className={`rounded-2xl border p-4 mb-3 bg-gradient-to-br ${planCfg.gradient} ${planCfg.border}`}>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-8 h-8 rounded-xl bg-white/70 flex items-center justify-center shadow-sm">
+                    <PlanIcon size={15} className={planCfg.iconColor} />
+                  </div>
+                  <div>
+                    <p className={`text-sm font-bold ${planCfg.text}`}>{planName}</p>
+                    <p className="text-[10px] text-slate-500">
+                      {tenant.plan ? `₹${tenant.plan.monthlyPrice.toLocaleString()}/mo` : "Custom Sizing"} · {tenant.plan ? (tenant.billingType || "monthly") : "custom"}
+                    </p>
+                  </div>
+                  <span className={`ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border bg-white/60 ${tenant.planStatus === "active" || tenant.planStatus === "enterprise_active"
+                      ? "text-emerald-700 border-emerald-200"
+                      : tenant.planStatus === "expired"
+                        ? "text-rose-600 border-rose-200"
+                        : "text-slate-600 border-slate-200"
+                    }`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${tenant.planStatus === "active" || tenant.planStatus === "enterprise_active" ? "bg-emerald-500" : tenant.planStatus === "expired" ? "bg-rose-500" : "bg-slate-400"
+                      }`} />
+                    {tenant.planStatus || "inactive"}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { label: "Max Agents", val: tenant.plan ? (tenant.plan.maxAgents ?? "∞") : "∞" },
+                    { label: "Max Campaigns", val: tenant.plan ? (tenant.plan.maxCampaigns ?? "∞") : "∞" },
+                    { label: "Automations", val: tenant.plan ? (tenant.plan.maxAutomations ?? "∞") : "∞" },
+                  ].map(({ label, val }) => (
+                    <div key={label} className="bg-white/60 rounded-xl px-3 py-2 text-center border border-white/80">
+                      <p className="text-base font-bold text-slate-800">{val}</p>
+                      <p className="text-[9px] text-slate-500 font-semibold uppercase tracking-wide mt-0.5">{label}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 flex items-center gap-3 mb-3">
+                <Package size={18} className="text-slate-400" />
+                <div>
+                  <p className="text-sm font-semibold text-slate-600">Free Plan</p>
+                  <p className="text-xs text-slate-400 mt-0.5">No paid subscription active</p>
+                </div>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-x-5">
+              <Field label="Billing Type" value={tenant.billingType || "—"} />
+              <Field label="Plan Status" value={tenant.planStatus || "inactive"} />
+              <Field label="Plan Activated" value={tenant.planActivatedAt ? new Date(tenant.planActivatedAt).toLocaleDateString() : "—"} />
+            </div>
+          </Section>
+
+          <Section title="Usage Analytics">
+            <div className="grid grid-cols-2 gap-2.5">
+              <UsageCard icon={Users2} label="Users" value={tenant.users?.length || 0} max={tenant.plan?.maxAgents} bg="bg-blue-50 border-blue-100" iconCls="text-blue-400" />
+              <UsageCard icon={MessageSquare} label="Contacts" value={tenant._count?.contacts ?? "—"} bg="bg-indigo-50 border-indigo-100" iconCls="text-indigo-400" />
+              <UsageCard icon={Zap} label="Broadcasts" value={tenant._count?.broadcasts ?? "—"} max={tenant.plan?.maxBroadcasts} bg="bg-purple-50 border-purple-100" iconCls="text-purple-400" />
+              <UsageCard icon={Layers} label="Templates" value={tenant._count?.templates ?? "—"} bg="bg-teal-50 border-teal-100" iconCls="text-teal-400" />
+              <UsageCard icon={Activity} label="Flows" value={tenant._count?.flows ?? "—"} bg="bg-amber-50 border-amber-100" iconCls="text-amber-500" />
+              <UsageCard icon={BarChart2} label="Messages Sent" value={tenant.messagesSent ?? "—"} bg="bg-emerald-50 border-emerald-100" iconCls="text-emerald-500" />
+              <UsageCard icon={HardDrive} label="Storage" value={tenant.storageUsed ? `${tenant.storageUsed} MB` : "—"} bg="bg-orange-50 border-orange-100" iconCls="text-orange-400" />
+              <UsageCard icon={Globe} label="API Calls" value={tenant.apiCalls ?? "—"} max={tenant.plan?.maxApiCalls} bg="bg-pink-50 border-pink-100" iconCls="text-pink-400" />
+            </div>
+          </Section>
+
+          <Section title="WhatsApp">
+            <div className="grid grid-cols-2 gap-x-5">
+              <Field label="Business Name" value={tenant.whatsapp?.businessName || "—"} />
+              <Field label="Phone Number" value={tenant.whatsapp?.phoneNumber || "—"} />
+              <Field label="Quality Rating" value={tenant.whatsapp?.qualityRating || "—"} />
+              <Field label="Verification Status" value={tenant.whatsapp?.verificationStatus || "—"} />
+              <Field label="Embedded Signup" value={tenant.whatsapp?.embeddedSignup ? "Connected" : "Not Connected"} />
+              <Field label="Cloud API Status" value={tenant.whatsapp?.cloudApiStatus || "—"} />
+            </div>
+          </Section>
+
+          <Section title="Activity Timeline">
+            <div className="space-y-3">
+              <TLEvent icon={Building2} label="Tenant Created"
+                time={tenant.createdAt ? new Date(tenant.createdAt).toLocaleString() : "—"}
+                iconBg="bg-blue-50" iconColor="text-blue-500" />
+              {tenant.status === "APPROVED" && (
+                <TLEvent icon={CheckCircle} label="Account Approved"
+                  time={tenant.approvedAt ? new Date(tenant.approvedAt).toLocaleString() : "After registration"}
+                  iconBg="bg-emerald-50" iconColor="text-emerald-500" />
+              )}
+              {tenant.planActivatedAt && (
+                <TLEvent icon={CreditCard} label={`${planName || "Plan"} Activated`}
+                  time={new Date(tenant.planActivatedAt).toLocaleString()}
+                  iconBg="bg-indigo-50" iconColor="text-indigo-500" />
+              )}
+              {tenant.lastLogin ? (
+                <TLEvent icon={Clock} label="Last Login"
+                  time={getRelativeTime(tenant.lastLogin)}
+                  iconBg="bg-slate-50" iconColor="text-slate-400" />
+              ) : (
+                <TLEvent icon={UserX} label="Never Logged In"
+                  time="No login recorded"
+                  iconBg="bg-slate-50" iconColor="text-slate-300" />
+              )}
+            </div>
+          </Section>
+
+          <Section title="Danger Zone">
+            <div className="rounded-2xl border border-rose-100 bg-rose-50/40 p-4">
+              <p className="text-xs text-rose-500 font-medium mb-3">These actions may be irreversible.</p>
+              <div className="flex flex-wrap gap-2">
+                {status === "Active" && (
+                  <button onClick={() => { onSuspend(); onClose(); }}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-amber-200 text-amber-700 hover:bg-amber-50 text-xs font-semibold transition-colors shadow-sm">
+                    <Ban size={13} /> Suspend
+                  </button>
+                )}
+                {status === "Suspended" && (
+                  <button onClick={() => { onActivate(); onClose(); }}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50 text-xs font-semibold transition-colors shadow-sm">
+                    <ShieldCheck size={13} /> Activate
+                  </button>
+                )}
+                {status !== "Blocked" && (
+                  <button onClick={() => { onBlock(); onClose(); }}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-rose-200 text-rose-700 hover:bg-rose-50 text-xs font-semibold transition-colors shadow-sm">
+                    <ShieldBan size={13} /> Block
+                  </button>
+                )}
+                <button onClick={() => { onDelete(); onClose(); }}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-600 text-white hover:bg-rose-700 text-xs font-semibold transition-colors shadow-sm">
+                  <Trash2 size={13} /> Delete Tenant
+                </button>
+              </div>
+            </div>
+          </Section>
+        </div>
+
+        {/* Footer */}
+        <div className="flex-shrink-0 border-t border-slate-100 px-6 py-4 flex items-center justify-between bg-slate-50/60">
+          <p className="text-[10px] text-slate-400">
+            Created {tenant.createdAt ? new Date(tenant.createdAt).toLocaleDateString() : "—"}
+          </p>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="btn-secondary px-4 py-2 text-xs rounded-xl">Close</button>
+            <button onClick={onEdit} className="btn-primary px-4 py-2 text-xs rounded-xl flex items-center gap-1.5">
+              <Edit size={12} /> Edit Tenant
+            </button>
+          </div>
+        </div>
+      </div>
+    </>,
+    document.body
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+
 export default function Tenants() {
+  const confirm = useConfirm();
+  const toast = useToast();
+
   const [tenants, setTenants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [successToast, setSuccessToast] = useState("");
   const [modalError, setModalError] = useState("");
   const [modalLoading, setModalLoading] = useState(false);
 
@@ -46,6 +621,9 @@ export default function Tenants() {
   const [isUsersModalOpen, setIsUsersModalOpen] = useState(false);
   const [selectedTenantForUsers, setSelectedTenantForUsers] = useState(null);
 
+  // Drawer
+  const [drawerTenant, setDrawerTenant] = useState(null);
+
   // New Tenant Form State
   const [newTenant, setNewTenant] = useState({
     tenantName: "",
@@ -55,7 +633,8 @@ export default function Tenants() {
     address: "",
   });
 
-  // Fetch tenants from backend
+  // ── API handlers (unchanged) ──────────────────────────────────────────────
+
   const fetchTenants = async () => {
     setLoading(true);
     setError("");
@@ -74,14 +653,9 @@ export default function Tenants() {
     }
   };
 
-  useEffect(() => {
-    fetchTenants();
-  }, []);
+  useEffect(() => { fetchTenants(); }, []);
 
-  const triggerToast = (msg) => {
-    setSuccessToast(msg);
-    setTimeout(() => setSuccessToast(""), 4000);
-  };
+
 
   const handleInputChange = (e) => {
     setNewTenant({ ...newTenant, [e.target.name]: e.target.value });
@@ -91,29 +665,18 @@ export default function Tenants() {
     e.preventDefault();
     setModalError("");
     setModalLoading(true);
-
     if (!newTenant.tenantName || !newTenant.email || !newTenant.password) {
       setModalError("Please fill in all required fields.");
       setModalLoading(false);
       return;
     }
-
     try {
       const registerBaseURL = `${import.meta.env.VITE_API_URL}/api2`;
       const response = await axios.post(`${registerBaseURL}/register`, newTenant);
-
       if (response.data?.success) {
-        triggerToast(`Tenant "${newTenant.tenantName}" registered successfully!`);
+        toast.success(`Tenant "${newTenant.tenantName}" registered successfully!`);
         setIsModalOpen(false);
-        // Reset Form
-        setNewTenant({
-          tenantName: "",
-          email: "",
-          password: "",
-          phone: "",
-          address: "",
-        });
-        // Re-fetch
+        setNewTenant({ tenantName: "", email: "", password: "", phone: "", address: "" });
         fetchTenants();
       } else {
         setModalError(response.data?.message || "Failed to register tenant.");
@@ -135,13 +698,11 @@ export default function Tenants() {
     e.preventDefault();
     setModalError("");
     setModalLoading(true);
-
     if (!editingTenant.tenantName || !editingTenant.email) {
       setModalError("Please fill in all required fields.");
       setModalLoading(false);
       return;
     }
-
     try {
       const response = await api.put(`/update-tenant/${editingTenant.id}`, {
         tenantName: editingTenant.tenantName,
@@ -149,9 +710,8 @@ export default function Tenants() {
         phone: editingTenant.phone,
         address: editingTenant.address,
       });
-
       if (response.data?.success) {
-        triggerToast(`Tenant "${editingTenant.tenantName}" updated successfully!`);
+        toast.success(`Tenant "${editingTenant.tenantName}" updated successfully!`);
         setIsEditModalOpen(false);
         setEditingTenant(null);
         fetchTenants();
@@ -171,424 +731,386 @@ export default function Tenants() {
     }
   };
 
-  // Toggle individual user activation by Super Admin
   const handleToggleUserActivation = async (userId, isActive, userName) => {
     const action = isActive ? "deactivate" : "reactivate";
-    if (window.confirm(`Are you sure you want to ${action} user "${userName}"?`)) {
+    const ok = await confirm({
+      type: isActive ? "warning" : "info",
+      title: `${isActive ? "Deactivate" : "Reactivate"} User?`,
+      message: `Are you sure you want to ${action} user "${userName}"?`,
+      confirmLabel: isActive ? "Deactivate" : "Reactivate",
+    });
+    if (ok) {
       try {
         const response = await api.patch(`/users/${userId}/${action}`);
         if (response.data?.success) {
-          triggerToast(`User "${userName}" has been successfully ${isActive ? "deactivated" : "activated"}.`);
-
-          // Update local state for immediate feedback
+          toast.success(`User "${userName}" has been ${isActive ? "deactivated" : "activated"}.`);
           const updatedUsers = selectedTenantForUsers.users.map((u) =>
             u.id === userId ? { ...u, isActive: !isActive } : u
           );
-
-          setSelectedTenantForUsers({
-            ...selectedTenantForUsers,
-            users: updatedUsers,
-          });
-
-          setTenants(
-            tenants.map((t) =>
-              t.id === selectedTenantForUsers.id
-                ? { ...t, users: updatedUsers }
-                : t
-            )
-          );
+          setSelectedTenantForUsers({ ...selectedTenantForUsers, users: updatedUsers });
+          setTenants(tenants.map((t) =>
+            t.id === selectedTenantForUsers.id ? { ...t, users: updatedUsers } : t
+          ));
         } else {
-          alert(response.data?.message || `Failed to ${action} user.`);
+          toast.error(response.data?.message || `Failed to ${action} user.`);
         }
       } catch (err) {
         console.error(err);
-        alert(err.response?.data?.message || `Error executing user ${action}.`);
+        toast.error(err.response?.data?.message || `Error executing user ${action}.`);
       }
     }
   };
 
-  // Toggle activation (Deactivate / Reactivate)
   const handleToggleActivation = async (tenantId, isActive, tenantName) => {
     const action = isActive ? "deactivate" : "reactivate";
-    if (window.confirm(`Are you sure you want to ${action} tenant "${tenantName}"?`)) {
+    const ok = await confirm({
+      type: isActive ? "warning" : "info",
+      title: `${isActive ? "Suspend" : "Activate"} Tenant?`,
+      message: `Are you sure you want to ${action} tenant "${tenantName}"?`,
+      confirmLabel: isActive ? "Suspend" : "Activate",
+    });
+    if (ok) {
       try {
         const response = await api.patch(`/${action}-tenant/${tenantId}`);
         if (response.data?.success) {
-          triggerToast(`Tenant "${tenantName}" has been successfully ${isActive ? "suspended" : "activated"}.`);
+          toast.success(`Tenant "${tenantName}" has been ${isActive ? "suspended" : "activated"}.`);
           fetchTenants();
         } else {
-          alert(response.data?.message || `Failed to ${action} tenant.`);
+          toast.error(response.data?.message || `Failed to ${action} tenant.`);
         }
       } catch (err) {
         console.error(err);
-        alert(err.response?.data?.message || `Error executing tenant ${action}.`);
+        toast.error(err.response?.data?.message || `Error executing tenant ${action}.`);
       }
     }
   };
 
-  // Status transitions (Approve / Block / Unblock)
   const handleStatusChange = async (tenantId, action, tenantName) => {
-    let confirmMsg = `Are you sure you want to approve tenant "${tenantName}"?`;
-    if (action === "block") confirmMsg = `Are you sure you want to BLOCK tenant "${tenantName}"? All user sessions will be terminated.`;
-    if (action === "unblock") confirmMsg = `Are you sure you want to unblock tenant "${tenantName}"?`;
-
-    if (window.confirm(confirmMsg)) {
+    const isBlock = action === "block";
+    const isUnblock = action === "unblock";
+    const ok = await confirm({
+      type: isBlock ? "danger" : isUnblock ? "info" : "default",
+      title: isBlock ? `Block Tenant?` : isUnblock ? `Unblock Tenant?` : `Approve Tenant?`,
+      message: isBlock
+        ? `This will permanently block "${tenantName}" and terminate all active user sessions.`
+        : isUnblock
+        ? `Restore access for "${tenantName}"?`
+        : `Approve "${tenantName}" and grant full platform access?`,
+      confirmLabel: isBlock ? "Block" : isUnblock ? "Unblock" : "Approve",
+    });
+    if (ok) {
       try {
         const response = await api.patch(`/${action}-tenant/${tenantId}`);
         if (response.data?.success) {
-          triggerToast(`Tenant "${tenantName}" successfully ${action}ed.`);
+          toast.success(`Tenant "${tenantName}" successfully ${action}ed.`);
           fetchTenants();
         } else {
-          alert(response.data?.message || `Failed to ${action} tenant.`);
+          toast.error(response.data?.message || `Failed to ${action} tenant.`);
         }
       } catch (err) {
         console.error(err);
-        alert(err.response?.data?.message || `Error executing ${action} action.`);
+        toast.error(err.response?.data?.message || `Error executing ${action} action.`);
       }
     }
   };
 
-  // Delete Tenant
   const handleDeleteTenant = async (tenantId, tenantName) => {
-    if (window.confirm(`WARNING: Are you sure you want to permanently delete tenant "${tenantName}"? This will delete all tenant data and users. This action CANNOT be undone.`)) {
+    const ok = await confirm({
+      type: "danger",
+      title: "Delete Tenant?",
+      message: `Permanently delete "${tenantName}"? This cannot be undone.`,
+      detail: "All tenant data, users, contacts, templates, and configurations will be permanently erased.",
+      confirmLabel: "Delete Permanently",
+    });
+    if (ok) {
       try {
         const response = await api.delete(`/delete-tenant/${tenantId}`);
         if (response.data?.success) {
-          triggerToast(`Tenant "${tenantName}" and all associated data deleted.`);
+          toast.success(`Tenant "${tenantName}" and all associated data deleted.`);
           fetchTenants();
         } else {
-          alert(response.data?.message || "Failed to delete tenant.");
+          toast.error(response.data?.message || "Failed to delete tenant.");
         }
       } catch (err) {
         console.error(err);
-        alert(err.response?.data?.message || "Error deleting tenant.");
+        toast.error(err.response?.data?.message || "Error deleting tenant.");
       }
     }
   };
 
-  // Filtering Logic
+  // ── Filtering & Stats ───────────────────────────────────────────────────────
+
   const filteredTenants = tenants.filter((tenant) => {
+    if (!tenant) return false;
+    const q = searchQuery.toLowerCase();
     const matchesSearch =
-      tenant.tenantName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tenant.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (tenant.phone && tenant.phone.toLowerCase().includes(searchQuery.toLowerCase()));
-
+      (tenant.tenantName || "").toLowerCase().includes(q) ||
+      (tenant.email || "").toLowerCase().includes(q) ||
+      (tenant.phone || "").toLowerCase().includes(q) ||
+      (tenant.subdomain || "").toLowerCase().includes(q);
     let matchesStatus = true;
-    if (statusFilter === "Active") {
-      matchesStatus = tenant.status === "APPROVED" && tenant.isActive === true;
-    } else if (statusFilter === "Pending") {
-      matchesStatus = tenant.status === "PENDING";
-    } else if (statusFilter === "Suspended") {
-      matchesStatus = tenant.status === "APPROVED" && tenant.isActive === false;
-    } else if (statusFilter === "Blocked") {
-      matchesStatus = tenant.status === "BLOCKED";
-    }
-
+    if (statusFilter === "Active") matchesStatus = tenant.status === "APPROVED" && tenant.isActive;
+    if (statusFilter === "Pending") matchesStatus = tenant.status === "PENDING";
+    if (statusFilter === "Suspended") matchesStatus = tenant.status === "APPROVED" && !tenant.isActive;
+    if (statusFilter === "Blocked") matchesStatus = tenant.status === "BLOCKED";
     return matchesSearch && matchesStatus;
   });
 
-  return (
-    <div className="space-y-8 animate-in fade-in duration-300">
-      {/* ── Toast Message ── */}
-      {successToast && (
-        <div className="fixed bottom-5 right-5 z-50 flex items-center gap-3 bg-slate-900 text-white px-5 py-3.5 rounded-2xl shadow-2xl border border-slate-800 transition-all duration-300 animate-bounce">
-          <CheckCircle className="text-[#125EF2] w-5 h-5 flex-shrink-0" />
-          <span className="text-sm font-medium">{successToast}</span>
-          <button onClick={() => setSuccessToast("")} className="text-gray-400 hover:text-white ml-2">
-            <X size={16} />
-          </button>
-        </div>
-      )}
+  const stats = {
+    total: tenants.length,
+    active: tenants.filter((t) => t.status === "APPROVED" && t.isActive).length,
+    pending: tenants.filter((t) => t.status === "PENDING").length,
+    suspended: tenants.filter((t) => t.status === "APPROVED" && !t.isActive).length,
+    blocked: tenants.filter((t) => t.status === "BLOCKED").length,
+    totalUsers: tenants.reduce((acc, t) => acc + (t.users?.length || 0), 0),
+  };
 
-      {/* ── Header ── */}
-      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+  const getName = (t) => t.tenantName || t.email || "Unknown Tenant";
+
+  const openEditModal = (tenant) => {
+    setEditingTenant({ id: tenant.id, tenantName: tenant.tenantName || "", email: tenant.email || "", phone: tenant.phone || "", address: tenant.address || "" });
+    setModalError("");
+    setIsEditModalOpen(true);
+  };
+
+  // ── JSX ─────────────────────────────────────────────────────────────────────
+
+  return (
+    <div className="space-y-6 pb-12">
+
+
+      {/* ── Stat Cards ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4">
+        <StatCard icon={Building2} title="Total Tenants" value={stats.total} subtitle="All companies" iconBg="bg-blue-50" iconColor="text-[#125fe2]" growth={12} />
+        <StatCard icon={CheckCircle} title="Active" value={stats.active} subtitle="Currently running" iconBg="bg-emerald-50" iconColor="text-emerald-600" growth={8} />
+        <StatCard icon={Clock} title="Pending" value={stats.pending} subtitle="Awaiting approval" iconBg="bg-amber-50" iconColor="text-amber-600" />
+        <StatCard icon={Ban} title="Suspended" value={stats.suspended} subtitle="Temporarily off" iconBg="bg-slate-100" iconColor="text-slate-500" />
+        <StatCard icon={ShieldBan} title="Blocked" value={stats.blocked} subtitle="Access revoked" iconBg="bg-rose-50" iconColor="text-rose-600" />
+        <StatCard icon={Users2} title="Total Users" value={stats.totalUsers} subtitle="Across all tenants" iconBg="bg-indigo-50" iconColor="text-indigo-600" growth={5} />
+      </div>
+
+      {/* ── Page Header ── */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900 flex items-center gap-2">
-            <Building2 className="text-[#125EF2]" size={28} />
-            <span>Tenant Management</span>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#125fe2] to-blue-500 flex items-center justify-center flex-shrink-0 shadow-md shadow-blue-200">
+              <Building2 size={15} className="text-white" />
+            </div>
+            Tenant Management
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Approve registered tenants, manage account statuses, suspend instances, or delete records.
+          <p className="text-sm text-slate-500 mt-1.5 ml-10">
+            Manage companies, monitor subscriptions, users, and account health.
           </p>
         </div>
-
-        <div className="flex gap-2 self-start md:self-auto">
-          <button
-            onClick={fetchTenants}
-            className="btn-secondary flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl shadow-sm hover:shadow transition duration-150"
-            disabled={loading}
-          >
-            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-            <span>Refresh</span>
+        <div className="flex gap-2 flex-shrink-0">
+          <button onClick={fetchTenants} disabled={loading}
+            className="btn-secondary flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm">
+            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+            Refresh
           </button>
-
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="btn-primary flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl shadow-sm hover:shadow transition duration-150"
-          >
-            <Plus size={18} />
-            <span>Onboard Tenant</span>
+          <button onClick={() => setIsModalOpen(true)}
+            className="btn-primary flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm shadow-lg shadow-blue-200"
+            style={{ background: "linear-gradient(135deg,#125fe2 0%,#2563eb 100%)" }}>
+            <Plus size={16} />
+            Onboard Tenant
           </button>
         </div>
       </div>
 
-      {/* ── main tenant table section ── */}
-      <div className="card overflow-hidden">
-        {/* Table Filter Controls Header */}
-        <div className="p-5 border-b border-gray-100 bg-white flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-3">
-            <h2 className="text-lg font-bold text-gray-800">SaaS Instances</h2>
-            <span className="bg-slate-100 text-slate-700 text-xs font-bold px-2 py-0.5 rounded-full">
-              {filteredTenants.length}
-            </span>
+      {/* ── Table Card ── */}
+      <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden"
+        style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 6px 24px rgba(18,95,226,0.05)" }}>
+
+        {/* Toolbar */}
+        <div className="px-5 py-4 border-b border-slate-100 flex flex-wrap gap-3 items-center">
+          <div className="relative flex-1 min-w-52 max-w-80">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Search company, email, subdomain..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-8 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50/50 placeholder:text-slate-400 focus:outline-none focus:border-[#125fe2] focus:ring-2 focus:ring-blue-100 transition"
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                <X size={13} />
+              </button>
+            )}
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3">
-            {/* Search Input */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Search tenant, email, or phone..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm w-full sm:w-64 focus:outline-none focus:border-[#125EF2] focus:ring-2 focus:ring-[#CFE0FD] transition duration-150"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  <X size={14} />
-                </button>
-              )}
-            </div>
+          {/* Status tabs */}
+          <div className="flex items-center gap-0.5 bg-slate-100 rounded-xl p-1">
+            {["All", "Active", "Pending", "Suspended", "Blocked"].map((tab) => (
+              <button key={tab} onClick={() => setStatusFilter(tab)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 ${statusFilter === tab ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                  }`}>
+                {tab}
+              </button>
+            ))}
+          </div>
 
-            {/* Status Tabs Filter */}
-            <div className="flex items-center border border-gray-200 p-1 rounded-xl bg-gray-50">
-              {["All", "Active", "Pending", "Suspended", "Blocked"].map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setStatusFilter(tab)}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition duration-150 ${statusFilter === tab
-                      ? "bg-white text-slate-800 shadow-sm"
-                      : "text-gray-500 hover:text-slate-800"
-                    }`}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
+          <div className="flex items-center gap-2 ml-auto">
+            <span className="text-xs text-slate-400 font-semibold px-1">
+              {filteredTenants.length} tenant{filteredTenants.length !== 1 ? "s" : ""}
+            </span>
+            <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold transition-colors">
+              <Download size={13} /> Export
+            </button>
           </div>
         </div>
 
-        {/* Tenant Table Body */}
+        {/* Table */}
         <div className="overflow-x-auto">
           {loading ? (
-            <div className="p-12 text-center flex flex-col items-center justify-center">
-              <RefreshCw className="w-10 h-10 text-[#125EF2] animate-spin mb-3" />
-              <p className="text-gray-500 text-sm font-medium">Fetching registered tenants...</p>
+            <div className="p-16 text-center flex flex-col items-center">
+              <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center mb-4">
+                <RefreshCw className="w-6 h-6 text-[#125fe2] animate-spin" />
+              </div>
+              <p className="text-slate-600 font-semibold text-sm">Loading tenants...</p>
+              <p className="text-slate-400 text-xs mt-1">Fetching from database</p>
             </div>
           ) : error ? (
-            <div className="p-12 text-center">
-              <AlertCircle className="mx-auto w-12 h-12 text-red-500 mb-3" />
-              <p className="text-gray-800 font-semibold text-sm">Failed to load tenants</p>
-              <p className="text-red-500 text-xs mt-1">{error}</p>
-              <button onClick={fetchTenants} className="mt-4 btn-secondary py-2 px-4 rounded-xl text-xs">
-                Try Again
-              </button>
+            <div className="p-16 text-center">
+              <div className="w-12 h-12 rounded-2xl bg-rose-50 flex items-center justify-center mx-auto mb-4">
+                <AlertCircle className="w-6 h-6 text-rose-500" />
+              </div>
+              <p className="text-slate-800 font-semibold text-sm">Failed to load</p>
+              <p className="text-rose-500 text-xs mt-1">{error}</p>
+              <button onClick={fetchTenants} className="mt-4 btn-secondary py-2 px-4 rounded-xl text-xs">Try Again</button>
             </div>
           ) : filteredTenants.length === 0 ? (
-            <div className="p-12 text-center">
-              <Building2 className="mx-auto w-12 h-12 text-gray-300 mb-3" />
-              <p className="text-gray-800 font-semibold text-sm">No tenants match the filter</p>
-              <p className="text-gray-500 text-xs mt-1">Try updating your search query or choosing another filter tab.</p>
+            <div className="p-16 text-center">
+              <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
+                <Building2 className="w-6 h-6 text-slate-300" />
+              </div>
+              <p className="text-slate-700 font-semibold text-sm">No tenants found</p>
+              <p className="text-slate-400 text-xs mt-1">Try adjusting your search or filter.</p>
             </div>
           ) : (
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse min-w-[1000px]">
               <thead>
-                <tr className="bg-slate-50 border-b border-gray-100 text-gray-400 uppercase tracking-wider text-[10px] font-bold">
-                  <th className="py-4 px-6">Tenant Name</th>
-                  <th className="py-4 px-6">Email / Phone</th>
-                  <th className="py-4 px-6 text-center">Registered On</th>
-                  <th className="py-4 px-6 text-center">Address</th>
-                  <th className="py-4 px-6 text-center">Users</th>
-                  <th className="py-4 px-6 text-center">Workflow Status</th>
-                  <th className="py-4 px-6 text-right">Actions</th>
+                <tr className="border-b border-slate-100 bg-slate-50/80 text-slate-400 uppercase tracking-widest text-[10px] font-bold">
+                  <th className="py-3 px-5">Company</th>
+                  <th className="py-3 px-5">Owner</th>
+                  <th className="py-3 px-5">Subscription</th>
+                  <th className="py-3 px-5">Usage</th>
+                  <th className="py-3 px-5">Status</th>
+                  <th className="py-3 px-5">Created</th>
+                  <th className="py-3 px-5">Last Login</th>
+                  <th className="py-3 px-5 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 text-sm">
-                {filteredTenants.map((tenant) => {
-                  // Determine status badge colors
-                  let badgeBg = "bg-[#EAF2FE] text-[#0F4FCC] border-[#CFE0FD]";
-                  let badgeDot = "bg-[#125EF2]";
-                  let label = "Active";
-
-                  if (tenant.status === "PENDING") {
-                    badgeBg = "bg-amber-50 text-amber-700 border-amber-100";
-                    badgeDot = "bg-amber-500";
-                    label = "Pending Approval";
-                  } else if (tenant.status === "BLOCKED") {
-                    badgeBg = "bg-rose-50 text-rose-700 border-rose-100";
-                    badgeDot = "bg-rose-500";
-                    label = "Blocked";
-                  } else if (tenant.status === "APPROVED" && !tenant.isActive) {
-                    badgeBg = "bg-slate-100 text-slate-700 border-slate-200";
-                    badgeDot = "bg-slate-500";
-                    label = "Suspended";
-                  }
+              <tbody>
+                {filteredTenants.map((tenant, idx) => {
+                  const status = getTenantStatus(tenant);
+                  const planName = getPlanLabel(tenant);
+                  const planCfg = resolvePlanConfig(planName);
+                  const PlanIcon = planCfg.icon;
+                  const userCount = tenant.users?.length || 0;
 
                   return (
-                    <tr key={tenant.id} className="hover:bg-slate-50/50 transition-colors duration-100">
-                      {/* Tenant Brand / Name */}
-                      <td className="py-4 px-6 font-medium text-gray-900">
+                    <tr key={tenant.id}
+                      className={`border-b border-slate-50 hover:bg-blue-50/25 transition-colors duration-100 ${idx % 2 === 1 ? "bg-slate-50/30" : "bg-white"}`}>
+
+                      {/* Company */}
+                      <td className="py-4 px-5">
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600 font-bold text-xs flex-shrink-0">
-                            {tenant.tenantName
-                              .split(" ")
-                              .map((w) => w.charAt(0))
-                              .join("")
-                              .substring(0, 2)
-                              .toUpperCase()}
+                          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#125fe2]/10 to-[#125fe2]/25 flex items-center justify-center text-[#125fe2] font-bold text-xs flex-shrink-0 border border-[#125fe2]/10">
+                            {getInitials(tenant.tenantName, tenant.email)}
                           </div>
                           <div>
-                            <p className="font-semibold text-gray-900">{tenant.tenantName}</p>
-                            <p className="text-xs text-gray-400 mt-0.5 font-mono">ID: {tenant.id.substring(0, 8)}...</p>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Contact Info */}
-                      <td className="py-4 px-6">
-                        <div className="space-y-1">
-                          <p className="text-gray-800 font-medium flex items-center gap-1.5">
-                            <Mail size={13} className="text-slate-400" />
-                            <span>{tenant.email}</span>
-                          </p>
-                          {tenant.phone && (
-                            <p className="text-xs text-gray-500 flex items-center gap-1.5">
-                              <Phone size={12} className="text-slate-400" />
-                              <span>{tenant.phone}</span>
+                            <p className="font-semibold text-slate-900 text-sm leading-tight">{tenant.tenantName || "Unnamed"}</p>
+                            <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                              {tenant.subdomain ? `${tenant.subdomain}.sudoreply.com` : `${tenant.id?.substring(0, 14)}…`}
                             </p>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* Onboarded Date */}
-                      <td className="py-4 px-6 text-gray-600">
-                        <div className="flex items-center justify-center gap-1.5 text-xs">
-                          <Calendar size={14} className="text-gray-400" />
-                          <span>{new Date(tenant.createdAt).toLocaleDateString()}</span>
-                        </div>
-                      </td>
-
-                      {/* Address */}
-                      <td className="py-4 px-6 text-gray-500 max-w-[150px] truncate text-center">
-                        {tenant.address ? (
-                          <div className="flex items-center justify-center gap-1.5">
-                            <MapPin size={13} className="text-slate-400 flex-shrink-0" />
-                            <span className="truncate">{tenant.address}</span>
                           </div>
-                        ) : (
-                          <span className="text-slate-300 italic text-xs">No address provided</span>
+                        </div>
+                      </td>
+
+                      {/* Owner */}
+                      <td className="py-4 px-5">
+                        <p className="text-sm font-medium text-slate-800 leading-tight">{tenant.tenantName || "—"}</p>
+                        <p className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5"><Mail size={9} /> {tenant.email}</p>
+                        {tenant.phone && <p className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5"><Phone size={9} /> {tenant.phone}</p>}
+                      </td>
+
+                      {/* Subscription — reads tenant.plan.name from API */}
+                      <td className="py-4 px-5">
+                        <div className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold border ${planCfg.badge}`}>
+                          <PlanIcon size={11} className={planCfg.iconColor} />
+                          {planName}
+                        </div>
+                        {/* Plan status pill */}
+                        {tenant.planStatus && (
+                          <div className={`mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold border ${tenant.planStatus === "active"
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              : tenant.planStatus === "expired"
+                                ? "bg-rose-50 text-rose-600 border-rose-200"
+                                : "bg-slate-100 text-slate-500 border-slate-200"
+                            }`}>
+                            {tenant.planStatus}
+                          </div>
+                        )}
+                        {tenant.planActivatedAt && (
+                          <p className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">
+                            <CalendarDays size={8} /> {new Date(tenant.planActivatedAt).toLocaleDateString()}
+                          </p>
                         )}
                       </td>
 
-                      {/* Users Count Column */}
-                      <td className="py-4 px-6 text-center">
-                        <button
-                          onClick={() => {
-                            setSelectedTenantForUsers(tenant);
-                            setIsUsersModalOpen(true);
-                          }}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 font-semibold text-xs transition duration-150"
-                          title="Click to view users list"
-                        >
-                          <Users2 size={13} className="text-slate-500" />
-                          <span>{tenant.users?.length || 0} users</span>
-                        </button>
-                      </td>
-
-                      {/* Status badge */}
-                      <td className="py-4 px-6 text-center">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold border ${badgeBg}`}>
-                          <span className={`h-1.5 w-1.5 rounded-full ${badgeDot}`} />
-                          <span>{label}</span>
-                        </span>
-                      </td>
-
-                      {/* Actions buttons */}
-                      <td className="py-4 px-6 text-right">
-                        <div className="inline-flex gap-2">
-                          {/* Approve Pending */}
-                          {tenant.status === "PENDING" && (
-                            <button
-                              onClick={() => handleStatusChange(tenant.id, "approve", tenant.tenantName)}
-                              className="px-2.5 py-1.5 rounded-lg bg-[#EAF2FE] border border-[#CFE0FD] text-[#0F4FCC] hover:bg-[#CFE0FD] text-xs font-semibold transition duration-150"
-                            >
-                              Approve
-                            </button>
-                          )}
-
-                          {/* Deactivate/Reactivate Approved */}
-                          {tenant.status === "APPROVED" && (
-                            <button
-                              onClick={() => handleToggleActivation(tenant.id, tenant.isActive, tenant.tenantName)}
-                              className={`px-2.5 py-1.5 rounded-lg border text-xs font-medium transition duration-150 ${tenant.isActive
-                                  ? "bg-white hover:bg-amber-50 border-gray-200 text-amber-600 hover:border-amber-200"
-                                  : "bg-white hover:bg-[#EAF2FE] border-gray-200 text-[#0F4FCC] hover:border-[#CFE0FD]"
-                                }`}
-                            >
-                              {tenant.isActive ? "Suspend" : "Activate"}
-                            </button>
-                          )}
-
-                          {/* Block/Unblock */}
-                          {tenant.status === "BLOCKED" ? (
-                            <button
-                              onClick={() => handleStatusChange(tenant.id, "unblock", tenant.tenantName)}
-                              className="px-2.5 py-1.5 rounded-lg bg-white border border-gray-200 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-200 text-xs font-medium transition duration-150"
-                            >
-                              Unblock
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => handleStatusChange(tenant.id, "block", tenant.tenantName)}
-                              className="px-2.5 py-1.5 rounded-lg bg-white border border-gray-200 text-slate-500 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 text-xs font-medium transition duration-150"
-                            >
-                              Block
-                            </button>
-                          )}
-
-                          {/* Edit */}
-                          <button
-                            onClick={() => {
-                              setEditingTenant({
-                                id: tenant.id,
-                                tenantName: tenant.tenantName,
-                                email: tenant.email,
-                                phone: tenant.phone || "",
-                                address: tenant.address || "",
-                              });
-                              setIsEditModalOpen(false);
-                              setModalError("");
-                              setIsEditModalOpen(true);
-                            }}
-                            className="p-1.5 rounded-lg bg-slate-50 border border-gray-200 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 hover:border-indigo-200 transition duration-150 animate-in fade-in"
-                            title="Edit Tenant"
-                          >
-                            <Edit size={14} />
-                          </button>
-
-                          {/* Delete */}
-                          <button
-                            onClick={() => handleDeleteTenant(tenant.id, tenant.tenantName)}
-                            className="p-1.5 rounded-lg bg-slate-50 border border-gray-200 text-gray-400 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition duration-150"
-                            title="Delete Tenant"
-                          >
-                            <Trash2 size={14} />
-                          </button>
+                      {/* Usage */}
+                      <td className="py-4 px-5">
+                        <div className="space-y-0.5 text-[10px]">
+                          <div className="flex items-center gap-1.5">
+                            <Users2 size={10} className="text-slate-400" />
+                            <span className="text-slate-600 font-semibold">{userCount}/{tenant.plan?.maxAgents || 25} users</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <MessageSquare size={10} className="text-slate-400" />
+                            <span className="text-slate-500">{tenant._count?.contacts ?? "—"} contacts</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <Zap size={10} className="text-slate-400" />
+                            <span className="text-slate-500">{tenant._count?.broadcasts ?? "—"} broadcasts</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <Layers size={10} className="text-slate-400" />
+                            <span className="text-slate-500">{tenant._count?.templates ?? "—"} templates</span>
+                          </div>
                         </div>
+                      </td>
+
+                      {/* Status */}
+                      <td className="py-4 px-5"><StatusBadge status={status} /></td>
+
+                      {/* Created */}
+                      <td className="py-4 px-5">
+                        <p className="text-xs text-slate-600 font-medium">{new Date(tenant.createdAt).toLocaleDateString()}</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">{new Date(tenant.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>
+                      </td>
+
+                      {/* Last Login */}
+                      <td className="py-4 px-5">
+                        {tenant.lastLogin
+                          ? <p className="text-xs text-slate-600">{getRelativeTime(tenant.lastLogin)}</p>
+                          : <span className="text-[10px] italic text-slate-400">Never</span>}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="py-4 px-5 text-right">
+                        <ActionMenu
+                          tenant={tenant}
+                          onViewDetails={() => setDrawerTenant(tenant)}
+                          onEdit={() => openEditModal(tenant)}
+                          onViewUsers={() => { setSelectedTenantForUsers(tenant); setIsUsersModalOpen(true); }}
+                          onSuspend={() => handleToggleActivation(tenant.id, true, getName(tenant))}
+                          onActivate={() => handleToggleActivation(tenant.id, false, getName(tenant))}
+                          onApprove={() => handleStatusChange(tenant.id, "approve", getName(tenant))}
+                          onBlock={() => handleStatusChange(tenant.id, "block", getName(tenant))}
+                          onUnblock={() => handleStatusChange(tenant.id, "unblock", getName(tenant))}
+                          onDelete={() => handleDeleteTenant(tenant.id, getName(tenant))}
+                        />
                       </td>
                     </tr>
                   );
@@ -597,326 +1119,249 @@ export default function Tenants() {
             </table>
           )}
         </div>
+
+        {filteredTenants.length > 0 && (
+          <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
+            <p className="text-xs text-slate-400">
+              Showing <span className="font-semibold text-slate-600">{filteredTenants.length}</span> of <span className="font-semibold text-slate-600">{tenants.length}</span> tenants
+            </p>
+            <p className="text-xs text-slate-400">Last refreshed <span className="font-medium">just now</span></p>
+          </div>
+        )}
       </div>
 
-      {/* ── New Tenant Modal (Overlay) ── */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl border border-gray-100 shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
-            {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-slate-50">
-              <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                <Building2 className="text-[#125EF2] w-5 h-5" />
-                <span>Onboard New Tenant</span>
-              </h3>
-              <button
-                onClick={() => {
-                  setIsModalOpen(false);
-                  setModalError("");
-                }}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-150 transition"
-              >
-                <X size={16} />
+      {/* ── Drawer ── */}
+      {drawerTenant && (
+        <TenantDrawer
+          tenant={drawerTenant}
+          onClose={() => setDrawerTenant(null)}
+          onEdit={() => { openEditModal(drawerTenant); setDrawerTenant(null); }}
+          onSuspend={() => handleToggleActivation(drawerTenant.id, true, getName(drawerTenant))}
+          onActivate={() => handleToggleActivation(drawerTenant.id, false, getName(drawerTenant))}
+          onBlock={() => handleStatusChange(drawerTenant.id, "block", getName(drawerTenant))}
+          onDelete={() => handleDeleteTenant(drawerTenant.id, getName(drawerTenant))}
+        />
+      )}
+
+      {/* ── Onboard Tenant Modal ── */}
+      {isModalOpen && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl max-w-md w-full overflow-hidden">
+            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between"
+              style={{ background: "linear-gradient(135deg,rgba(18,95,226,0.06) 0%,#fff 100%)" }}>
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#125fe2] to-blue-500 flex items-center justify-center shadow-md shadow-blue-200">
+                  <Building2 size={16} className="text-white" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm">Onboard New Tenant</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">Register a company on SudoReply</p>
+                </div>
+              </div>
+              <button onClick={() => { setIsModalOpen(false); setModalError(""); }}
+                className="w-8 h-8 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition">
+                <X size={15} />
               </button>
             </div>
-
-            {/* Modal Body / Form */}
             <form onSubmit={handleCreateTenant} className="p-6 space-y-4">
               {modalError && (
-                <div className="rounded-xl bg-rose-50 border border-rose-100 p-3 text-xs text-rose-600 font-semibold flex items-center gap-2">
-                  <AlertCircle size={15} />
-                  <span>{modalError}</span>
+                <div className="rounded-xl bg-rose-50 border border-rose-100 p-3 text-xs text-rose-600 font-medium flex items-center gap-2">
+                  <AlertCircle size={14} /><span>{modalError}</span>
                 </div>
               )}
-
               <div>
-                <label className="label">Tenant Company Name *</label>
-                <input
-                  type="text"
-                  name="tenantName"
-                  required
-                  placeholder="e.g. Acme Sales Corp"
-                  value={newTenant.tenantName}
-                  onChange={handleInputChange}
-                  className="input"
-                />
+                <label className="label text-xs">Company Name <span className="text-rose-400">*</span></label>
+                <input type="text" name="tenantName" required placeholder="e.g. Acme Corp"
+                  value={newTenant.tenantName} onChange={handleInputChange} className="input text-sm" />
               </div>
-
               <div>
-                <label className="label">Admin Email *</label>
-                <input
-                  type="email"
-                  name="email"
-                  required
-                  placeholder="admin@tenantdomain.com"
-                  value={newTenant.email}
-                  onChange={handleInputChange}
-                  className="input"
-                />
+                <label className="label text-xs">Admin Email <span className="text-rose-400">*</span></label>
+                <input type="email" name="email" required placeholder="admin@company.com"
+                  value={newTenant.email} onChange={handleInputChange} className="input text-sm" />
               </div>
-
               <div>
-                <label className="label">Admin Password *</label>
+                <label className="label text-xs">Admin Password <span className="text-rose-400">*</span></label>
                 <div className="relative">
-                  <input
-                    type="password"
-                    name="password"
-                    required
-                    placeholder="••••••••"
-                    value={newTenant.password}
-                    onChange={handleInputChange}
-                    className="input pr-10"
-                  />
-                  <Lock size={15} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input type="password" name="password" required placeholder="••••••••"
+                    value={newTenant.password} onChange={handleInputChange} className="input pr-10 text-sm" />
+                  <Lock size={14} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 </div>
               </div>
-
-              <div>
-                <label className="label">Admin Phone</label>
-                <input
-                  type="text"
-                  name="phone"
-                  placeholder="+1 (555) 000-0000"
-                  value={newTenant.phone}
-                  onChange={handleInputChange}
-                  className="input"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label text-xs">Phone</label>
+                  <input type="text" name="phone" placeholder="+91 98765 43210"
+                    value={newTenant.phone} onChange={handleInputChange} className="input text-sm" />
+                </div>
+                <div>
+                  <label className="label text-xs">Address</label>
+                  <input type="text" name="address" placeholder="City, Country"
+                    value={newTenant.address} onChange={handleInputChange} className="input text-sm" />
+                </div>
               </div>
-
-              <div>
-                <label className="label">Business Address</label>
-                <input
-                  type="text"
-                  name="address"
-                  placeholder="e.g. 123 Main St, New York, NY"
-                  value={newTenant.address}
-                  onChange={handleInputChange}
-                  className="input"
-                />
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-3 justify-end pt-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsModalOpen(false);
-                    setModalError("");
-                  }}
-                  className="btn-secondary px-4 py-2 text-xs font-semibold"
-                  disabled={modalLoading}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn-primary px-5 py-2 text-xs font-semibold shadow-sm hover:shadow flex items-center gap-1.5"
-                  disabled={modalLoading}
-                >
-                  {modalLoading ? "Creating..." : "Onboard Tenant"}
+              <div className="flex gap-3 justify-end pt-2">
+                <button type="button" disabled={modalLoading}
+                  onClick={() => { setIsModalOpen(false); setModalError(""); }}
+                  className="btn-secondary px-4 py-2.5 text-xs font-semibold rounded-xl">Cancel</button>
+                <button type="submit" disabled={modalLoading}
+                  className="btn-primary px-5 py-2.5 text-xs font-semibold rounded-xl shadow-lg shadow-blue-100 flex items-center gap-1.5">
+                  {modalLoading ? <><RefreshCw size={12} className="animate-spin" />Creating…</> : <><Plus size={12} />Onboard Tenant</>}
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {/* ── Edit Tenant Modal (Overlay) ── */}
-      {isEditModalOpen && editingTenant && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl border border-gray-100 shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
-            {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-slate-50">
-              <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                <Edit className="text-[#125EF2] w-5 h-5" />
-                <span>Edit Tenant Details</span>
-              </h3>
-              <button
-                onClick={() => {
-                  setIsEditModalOpen(false);
-                  setEditingTenant(null);
-                  setModalError("");
-                }}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-150 transition"
-              >
-                <X size={16} />
+      {/* ── Edit Tenant Modal ── */}
+      {isEditModalOpen && editingTenant && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl max-w-md w-full overflow-hidden">
+            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between"
+              style={{ background: "linear-gradient(135deg,rgba(18,95,226,0.06) 0%,#fff 100%)" }}>
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center">
+                  <Edit size={15} className="text-white" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm">Edit Tenant</h3>
+                  <p className="text-xs text-slate-400 mt-0.5 truncate max-w-52">{editingTenant.tenantName}</p>
+                </div>
+              </div>
+              <button onClick={() => { setIsEditModalOpen(false); setEditingTenant(null); setModalError(""); }}
+                className="w-8 h-8 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition">
+                <X size={15} />
               </button>
             </div>
-
-            {/* Modal Body / Form */}
             <form onSubmit={handleUpdateTenant} className="p-6 space-y-4">
               {modalError && (
-                <div className="rounded-xl bg-rose-50 border border-rose-100 p-3 text-xs text-rose-600 font-semibold flex items-center gap-2">
-                  <AlertCircle size={15} />
-                  <span>{modalError}</span>
+                <div className="rounded-xl bg-rose-50 border border-rose-100 p-3 text-xs text-rose-600 font-medium flex items-center gap-2">
+                  <AlertCircle size={14} /><span>{modalError}</span>
                 </div>
               )}
-
               <div>
-                <label className="label">Tenant Company Name *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Acme Sales Corp"
+                <label className="label text-xs">Company Name <span className="text-rose-400">*</span></label>
+                <input type="text" required placeholder="e.g. Acme Corp"
                   value={editingTenant.tenantName}
                   onChange={(e) => setEditingTenant({ ...editingTenant, tenantName: e.target.value })}
-                  className="input"
-                />
+                  className="input text-sm" />
               </div>
-
               <div>
-                <label className="label">Admin Email *</label>
-                <input
-                  type="email"
-                  required
-                  placeholder="admin@tenantdomain.com"
+                <label className="label text-xs">Admin Email <span className="text-rose-400">*</span></label>
+                <input type="email" required placeholder="admin@company.com"
                   value={editingTenant.email}
                   onChange={(e) => setEditingTenant({ ...editingTenant, email: e.target.value })}
-                  className="input"
-                />
+                  className="input text-sm" />
               </div>
-
-              <div>
-                <label className="label">Admin Phone</label>
-                <input
-                  type="text"
-                  placeholder="+1 (555) 000-0000"
-                  value={editingTenant.phone}
-                  onChange={(e) => setEditingTenant({ ...editingTenant, phone: e.target.value })}
-                  className="input"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label text-xs">Phone</label>
+                  <input type="text" placeholder="+91 98765 43210"
+                    value={editingTenant.phone}
+                    onChange={(e) => setEditingTenant({ ...editingTenant, phone: e.target.value })}
+                    className="input text-sm" />
+                </div>
+                <div>
+                  <label className="label text-xs">Address</label>
+                  <input type="text" placeholder="City, Country"
+                    value={editingTenant.address}
+                    onChange={(e) => setEditingTenant({ ...editingTenant, address: e.target.value })}
+                    className="input text-sm" />
+                </div>
               </div>
-
-              <div>
-                <label className="label">Business Address</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 123 Main St, New York, NY"
-                  value={editingTenant.address}
-                  onChange={(e) => setEditingTenant({ ...editingTenant, address: e.target.value })}
-                  className="input"
-                />
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-3 justify-end pt-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsEditModalOpen(false);
-                    setEditingTenant(null);
-                    setModalError("");
-                  }}
-                  className="btn-secondary px-4 py-2 text-xs font-semibold"
-                  disabled={modalLoading}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn-primary px-5 py-2 text-xs font-semibold shadow-sm hover:shadow flex items-center gap-1.5"
-                  disabled={modalLoading}
-                >
-                  {modalLoading ? "Saving..." : "Save Changes"}
+              <div className="flex gap-3 justify-end pt-2">
+                <button type="button" disabled={modalLoading}
+                  onClick={() => { setIsEditModalOpen(false); setEditingTenant(null); setModalError(""); }}
+                  className="btn-secondary px-4 py-2.5 text-xs font-semibold rounded-xl">Cancel</button>
+                <button type="submit" disabled={modalLoading}
+                  className="btn-primary px-5 py-2.5 text-xs font-semibold rounded-xl shadow-lg shadow-blue-100 flex items-center gap-1.5">
+                  {modalLoading ? <><RefreshCw size={12} className="animate-spin" />Saving…</> : <><CheckCircle size={12} />Save Changes</>}
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {/* ── View Tenant Users Modal (Overlay) ── */}
-      {isUsersModalOpen && selectedTenantForUsers && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl border border-gray-100 shadow-2xl max-w-lg w-full overflow-hidden animate-in zoom-in-95 duration-200">
-            {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-slate-50">
-              <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                <Users2 className="text-[#125EF2] w-5 h-5" />
-                <span>Users created by: {selectedTenantForUsers.tenantName}</span>
-              </h3>
-              <button
-                onClick={() => {
-                  setIsUsersModalOpen(false);
-                  setSelectedTenantForUsers(null);
-                }}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-150 transition"
-              >
-                <X size={16} />
+      {/* ── View Users Modal ── */}
+      {isUsersModalOpen && selectedTenantForUsers && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl max-w-lg w-full overflow-hidden">
+            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between"
+              style={{ background: "linear-gradient(135deg,rgba(18,95,226,0.06) 0%,#fff 100%)" }}>
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center">
+                  <Users2 size={15} className="text-white" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm">Tenant Users</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">{selectedTenantForUsers.tenantName || selectedTenantForUsers.email}</p>
+                </div>
+              </div>
+              <button onClick={() => { setIsUsersModalOpen(false); setSelectedTenantForUsers(null); }}
+                className="w-8 h-8 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition">
+                <X size={15} />
               </button>
             </div>
-
-            {/* Modal Body */}
-            <div className="p-6 max-h-[400px] overflow-y-auto">
+            <div className="p-5 max-h-[440px] overflow-y-auto">
               {!selectedTenantForUsers.users || selectedTenantForUsers.users.length === 0 ? (
-                <div className="py-8 text-center">
-                  <Users2 className="mx-auto w-12 h-12 text-gray-300 mb-3" />
-                  <p className="text-gray-600 font-semibold text-sm">No users yet</p>
-                  <p className="text-gray-400 text-xs mt-1">This company has not created any team member or agent accounts.</p>
+                <div className="py-10 text-center">
+                  <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3">
+                    <Users2 className="w-6 h-6 text-slate-300" />
+                  </div>
+                  <p className="text-slate-700 font-semibold text-sm">No users yet</p>
+                  <p className="text-slate-400 text-xs mt-1">No team members created.</p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-2">
-                    Registered Users ({selectedTenantForUsers.users.length})
+                <div className="space-y-2">
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-3">
+                    {selectedTenantForUsers.users.length} registered users
                   </p>
-                  <div className="divide-y divide-gray-100 border border-gray-150 rounded-2xl overflow-hidden">
-                    {selectedTenantForUsers.users.map((usr) => (
-                      <div key={usr.id} className="p-4 bg-white hover:bg-slate-50/50 flex items-center justify-between transition duration-150">
-                        <div>
-                          <p className="text-sm font-semibold text-gray-900">{usr.name}</p>
-                          <p className="text-xs text-gray-500 font-medium mt-0.5">{usr.email}</p>
+                  {selectedTenantForUsers.users.map((usr) => (
+                    <div key={usr.id}
+                      className="flex items-center justify-between p-3.5 bg-slate-50 rounded-2xl border border-slate-100 hover:bg-blue-50/30 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center text-slate-600 font-bold text-xs flex-shrink-0">
+                          {getInitials(usr.name)}
                         </div>
-                        <div className="flex items-center gap-3">
-                          {/* Created Date */}
-                          <span className="text-[10px] text-gray-400 font-medium hidden sm:inline">
-                            Joined {new Date(usr.createdAt).toLocaleDateString()}
-                          </span>
-
-                          {/* Status Badge */}
-                          <span
-                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${usr.isActive
-                                ? "bg-[#EAF2FE] text-[#0F4FCC] border border-[#CFE0FD]"
-                                : "bg-slate-100 text-slate-700 border border-slate-200"
-                              }`}
-                          >
-                            <span className={`w-1.5 h-1.5 rounded-full ${usr.isActive ? "bg-[#125EF2]" : "bg-slate-400"}`} />
-                            <span>{usr.isActive ? "Active" : "Inactive"}</span>
-                          </span>
-
-                          {/* Toggle Activation Button */}
-                          <button
-                            onClick={() => handleToggleUserActivation(usr.id, usr.isActive, usr.name)}
-                            className={`px-2 py-1.5 rounded-lg border text-[10px] font-semibold transition duration-150 ${usr.isActive
-                                ? "bg-white hover:bg-amber-50 border-gray-200 text-amber-600 hover:border-amber-200"
-                                : "bg-white hover:bg-[#EAF2FE] border-gray-200 text-[#0F4FCC] hover:border-[#CFE0FD]"
-                              }`}
-                          >
-                            {usr.isActive ? "Deactivate" : "Reactivate"}
-                          </button>
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">{usr.name}</p>
+                          <p className="text-[10px] text-slate-400">{usr.email}</p>
                         </div>
                       </div>
-                    ))}
-                  </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${usr.isActive ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-slate-100 text-slate-600 border-slate-200"
+                          }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${usr.isActive ? "bg-emerald-500" : "bg-slate-400"}`} />
+                          {usr.isActive ? "Active" : "Inactive"}
+                        </span>
+                        <button
+                          onClick={() => handleToggleUserActivation(usr.id, usr.isActive, usr.name)}
+                          className={`px-2.5 py-1.5 rounded-xl border text-[10px] font-semibold transition ${usr.isActive
+                              ? "bg-white hover:bg-amber-50 border-slate-200 text-amber-600 hover:border-amber-200"
+                              : "bg-white hover:bg-blue-50 border-slate-200 text-[#125fe2] hover:border-blue-200"
+                            }`}>
+                          {usr.isActive ? "Deactivate" : "Reactivate"}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
-
-            {/* Modal Footer */}
-            <div className="px-6 py-4 border-t border-gray-100 bg-slate-50 flex justify-end">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsUsersModalOpen(false);
-                  setSelectedTenantForUsers(null);
-                }}
-                className="btn-secondary px-5 py-2 text-xs font-semibold"
-              >
-                Close View
+            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex justify-end">
+              <button onClick={() => { setIsUsersModalOpen(false); setSelectedTenantForUsers(null); }}
+                className="btn-secondary px-5 py-2 text-xs font-semibold rounded-xl">
+                Close
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
 }
+

@@ -29,6 +29,7 @@ export default function Pricing() {
     { plan: "Starter", monthly: "₹1,999", annual: "₹1,499", savings: "₹6,000/year" },
     { plan: "Growth",  monthly: "₹4,999", annual: "₹3,749", savings: "₹15,000/year" },
     { plan: "Scale",   monthly: "₹9,999", annual: "₹7,499", savings: "₹30,000/year" },
+    { plan: "Enterprise", monthly: "Custom Sizing", annual: "Custom Sizing", savings: "Volume Discount" },
   ];
 
   const addons = [
@@ -116,82 +117,117 @@ export default function Pricing() {
 
           {/* Plans */}
           {!loading && !error && (
-            <div className="grid md:grid-cols-3 gap-6 mb-20">
-              {plans.map((plan, index) => {
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-20">
+              {[
+                ...plans,
+                {
+                  id: "enterprise",
+                  name: "Enterprise",
+                  description: "Dedicated resources, custom API volume, and priority enterprise channels.",
+                  monthlyPrice: 0,
+                  isEnterprise: true,
+                  features: [
+                    { id: "e1", feature: { name: "Unlimited Agents" } },
+                    { id: "e2", feature: { name: "Unlimited Broadcasts" } },
+                    { id: "e3", feature: { name: "Official WhatsApp Green Tick" } },
+                    { id: "e4", feature: { name: "Custom API & Webhook limits" } },
+                    { id: "e5", feature: { name: "Dedicated Account Manager" } },
+                    { id: "e6", feature: { name: "24/7 SLA Priority Support" } },
+                    { id: "e7", feature: { name: "Custom integrations" } }
+                  ]
+                }
+              ].map((plan, index) => {
                 const isPopular = index === 1; // middle plan = most popular
                 return (
                   <div
                     key={plan.id}
                     className={
                       isPopular
-                        ? "rounded-2xl p-6 bg-gray-900 text-white ring-2 ring-[#125EF2]"
-                        : "rounded-2xl p-6 bg-gray-50 border border-gray-100"
+                        ? "rounded-2xl p-6 bg-gray-900 text-white ring-2 ring-[#125EF2] flex flex-col justify-between"
+                        : plan.isEnterprise
+                        ? "rounded-2xl p-6 bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 flex flex-col justify-between"
+                        : "rounded-2xl p-6 bg-gray-50 border border-gray-100 flex flex-col justify-between"
                     }
                   >
-                    {/* Popular Badge */}
-                    {isPopular && (
-                      <span
-                        className="inline-block bg-[#125EF2] text-white
-                                   text-xs font-semibold px-3 py-1
-                                   rounded-full mb-4"
-                      >
-                        Most Popular
-                      </span>
-                    )}
+                    <div>
+                      {/* Popular Badge */}
+                      {isPopular && (
+                        <span
+                          className="inline-block bg-[#125EF2] text-white
+                                     text-xs font-semibold px-3 py-1
+                                     rounded-full mb-4"
+                        >
+                          Most Popular
+                        </span>
+                      )}
+                      
+                      {/* Enterprise Badge */}
+                      {plan.isEnterprise && (
+                        <span className="inline-block bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-bold px-3 py-1 rounded-full mb-4 uppercase tracking-wide">
+                          Enterprise
+                        </span>
+                      )}
 
-                    {/* Name */}
-                    <h3 className="text-xl font-bold">{plan.name}</h3>
+                      {/* Name */}
+                      <h3 className="text-xl font-bold">{plan.name}</h3>
 
-                    {/* Price */}
-                    <div className="mt-2 mb-2">
-                      <span className="text-4xl font-bold">
-                        ₹{plan.monthlyPrice.toLocaleString()}
-                      </span>
-                      <span
+                      {/* Price */}
+                      <div className="mt-2 mb-2">
+                        {plan.isEnterprise ? (
+                          <span className="text-3xl font-extrabold text-blue-700">Custom Sizing</span>
+                        ) : (
+                          <>
+                            <span className="text-4xl font-bold">
+                              ₹{plan.monthlyPrice.toLocaleString()}
+                            </span>
+                            <span
+                              className={
+                                isPopular
+                                  ? "text-gray-400 text-sm ml-1"
+                                  : "text-gray-500 text-sm ml-1"
+                              }
+                            >
+                              /month
+                            </span>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Annual */}
+                      {!plan.isEnterprise && plan.annualPrice && (
+                        <p className="text-xs text-[#125EF2] font-medium mb-1">
+                          ₹{plan.annualPrice.toLocaleString()}/mo billed annually
+                        </p>
+                      )}
+
+                      {/* Description */}
+                      <p
                         className={
                           isPopular
-                            ? "text-gray-400 text-sm ml-1"
-                            : "text-gray-500 text-sm ml-1"
+                            ? "text-gray-400 text-sm mb-6"
+                            : "text-gray-500 text-sm mb-6"
                         }
                       >
-                        /month
-                      </span>
-                    </div>
-
-                    {/* Annual */}
-                    {plan.annualPrice && (
-                      <p className="text-xs text-[#125EF2] font-medium mb-1">
-                        ₹{plan.annualPrice.toLocaleString()}/mo billed annually
+                        {plan.description}
                       </p>
-                    )}
 
-                    {/* Description */}
-                    <p
-                      className={
-                        isPopular
-                          ? "text-gray-400 text-sm mb-6"
-                          : "text-gray-500 text-sm mb-6"
-                      }
-                    >
-                      {plan.description}
-                    </p>
-
-                    {/* Features */}
-                    <ul className="space-y-2 mb-8">
-                      {plan.features.map((pf) => (
-                        <li
-                          key={pf.id}
-                          className={
-                            isPopular
-                              ? "flex gap-2 text-sm text-gray-300"
-                              : "flex gap-2 text-sm text-gray-600"
-                          }
-                        >
-                          <span className="text-[#125EF2]">&#10003;</span>
-                          {pf.feature.name}
-                        </li>
-                      ))}
-                    </ul>
+                      {/* Features */}
+                      <ul className="space-y-2 mb-8">
+                        {plan.features?.map((pf) => (
+                          <li
+                            key={pf.id}
+                            className={
+                              isPopular
+                                ? "flex gap-2 text-sm text-gray-300"
+                                : "flex gap-2 text-sm text-gray-600"
+                            }
+                          >
+                            <span className="text-[#125EF2]">&#10003;</span>
+                            {pf.feature?.name}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
 
                     {/* CTA */}
                     <Link
@@ -199,10 +235,12 @@ export default function Pricing() {
                       className={
                         isPopular
                           ? "block text-center py-3 rounded-lg bg-[#125EF2] text-white hover:bg-[#0F4FCC] font-medium text-sm transition-all duration-300 hover:-translate-y-0.5"
+                          : plan.isEnterprise
+                          ? "block text-center py-3 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium text-sm transition-all duration-300 hover:-translate-y-0.5"
                           : "block text-center py-3 rounded-lg bg-white border border-gray-200 hover:shadow-sm font-medium text-sm transition-all duration-300 hover:-translate-y-0.5"
                       }
                     >
-                      Start Free Trial
+                      {plan.isEnterprise ? "Contact Sales" : "Start Free Trial"}
                     </Link>
                   </div>
                 );

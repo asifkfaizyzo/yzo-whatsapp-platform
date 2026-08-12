@@ -22,4 +22,13 @@ export const siteConfig = {
         "Set templates, quick replies, and lightweight no-code workflows.",
     },
   ],
+
+   // ── SOCIAL MEDIA LINKS ──────────────────────────────────────────────
+  social: {
+    facebook:  "https://www.facebook.com/sudoreply",    // ← replace with your real URL
+    instagram: "https://www.instagram.com/sudoreply",   // ← replace with your real URL
+    youtube:   "https://www.youtube.com/@SudoReply",    // ← replace with your real URL
+    linkedin:  "https://www.linkedin.com/company/sudoreply", // ← replace with your real URL
+  },
+  // ────────────────────────────────────────────────────────────────
 };

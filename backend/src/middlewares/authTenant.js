@@ -90,3 +90,66 @@ export const requireApprovedTenant = async (req, res, next) => {
 
   next();
 };
+
+// Middleware to verify active onboarding session cookie
+export const verifyOnboarding = async (req, res, next) => {
+  try {
+    let tenantId;
+    
+    // Check if onboarding_token cookie exists
+    const onboardingToken = req.cookies.onboarding_token;
+    
+    if (onboardingToken) {
+      const decoded = jwt.verify(onboardingToken, process.env.ACCESS_SECRET);
+      if (decoded.type !== 'TENANT_ONBOARDING') {
+        return res.status(401).json({ success: false, message: 'Invalid onboarding session.' });
+      }
+      tenantId = decoded.id;
+    } else {
+      // Fallback: Check if they are authenticated via standard Access Token (e.g. Google Signup)
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const accessToken = authHeader.split(' ')[1];
+        const decodedAccess = jwt.verify(accessToken, process.env.ACCESS_SECRET);
+        if (decodedAccess.type === 'TENANT') {
+          tenantId = decodedAccess.id;
+        }
+      }
+    }
+
+    if (!tenantId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Onboarding session expired or unauthorized. Please start over or log in.',
+      });
+    }
+
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+    });
+
+    if (!tenant) {
+      return res.status(401).json({
+        success: false,
+        message: 'Tenant workspace not found.',
+      });
+    }
+
+    if (tenant.onboardingCompleted && tenant.planId && tenant.planStatus === 'active') {
+      return res.status(400).json({
+        success: false,
+        message: 'Onboarding already completed. Please log in normally.',
+      });
+    }
+
+    // Inject tenant info
+    req.tenantId = tenant.id;
+    req.tenant = tenant;
+    next();
+  } catch (error) {
+    return res.status(401).json({
+      success: false,
+      message: 'Invalid or expired onboarding session.',
+    });
+  }
+};

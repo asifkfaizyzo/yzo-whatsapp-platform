@@ -1,6 +1,9 @@
 import {
        getOrCreateConversation,getConversationByContact,
-       getAssignedConversations,getMessages,updateConversationStatus
+       getAssignedConversations,getMessages,updateConversationStatus,
+       archiveConversation,unarchiveConversation,deleteConversation,
+       getArchivedConversations,  bulkReassignConversations, 
+       markConversationAsRead, 
        } from './conversationService.js';
 
 
@@ -84,6 +87,8 @@ export const getConversationController = async (req, res) => {
 //getAssignedConversations - conversations assigned to the logged in user
 export const getAssignedConversationsController = async (req, res) => {
   try {
+     console.log("🔥 tenantId:", req.tenantId);      
+    console.log("🔥 userType:", req.userType); 
     // 1️⃣ Get logged-in user info
     const userId = req.userType === 'TENANT' ? null : req.user.id;
     const tenantId = req.tenantId;
@@ -117,6 +122,8 @@ if (req.userType === 'TENANT') {
   }
   // filter === 'my' → status stays 'ALL' → returns all their chats
 }
+
+
 
     // 3️⃣ Call service
     const result = await getAssignedConversations({
@@ -213,5 +220,263 @@ export const updateConversationStatusController = async (req, res) => {
       success: false,
       message: error.message,
     });
+  }
+};
+
+
+
+
+// ── Archive Conversation ──────────────────────────────────
+export const archiveConversationController = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const tenantId    = req.tenantId;
+    const requesterId = req.userType === "TENANT" ? req.tenant.id : req.user.id;
+    const requesterRole = req.userType; // "TENANT" or "USER"
+
+    const result = await archiveConversation({
+      conversationId,
+      tenantId,
+      requesterId,
+      requesterRole,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Conversation archived successfully",
+      data:    result,
+    });
+
+  } catch (error) {
+    if (error.message.includes("not found")) {
+      return res.status(404).json({ success: false, message: error.message });
+    }
+    if (error.message.includes("already archived")) {
+      return res.status(400).json({ success: false, message: error.message });
+    }
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+
+// ── Unarchive Conversation ────────────────────────────────
+export const unarchiveConversationController = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const tenantId      = req.tenantId;
+    const requesterId   = req.userType === "TENANT" ? req.tenant.id : req.user.id;
+    const requesterRole = req.userType;
+
+    const result = await unarchiveConversation({
+      conversationId,
+      tenantId,
+      requesterId,
+      requesterRole,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Conversation unarchived successfully",
+      data:    result,
+    });
+
+  } catch (error) {
+    if (error.message.includes("not found")) {
+      return res.status(404).json({ success: false, message: error.message });
+    }
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+
+// ── Delete Conversation ───────────────────────────────────
+export const deleteConversationController = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const tenantId      = req.tenantId;
+    const requesterId   = req.userType === "TENANT" ? req.tenant.id : req.user.id;
+    const requesterRole = req.userType;
+
+    const result = await deleteConversation({
+      conversationId,
+      tenantId,
+      requesterId,
+      requesterRole,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Conversation deleted successfully",
+      data:    result,
+    });
+
+  } catch (error) {
+    if (error.message.includes("Unauthorized")) {
+      return res.status(403).json({ success: false, message: error.message });
+    }
+    if (error.message.includes("not found")) {
+      return res.status(404).json({ success: false, message: error.message });
+    }
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+
+// ── Get Archived Conversations ────────────────────────────
+export const getArchivedConversationsController = async (req, res) => {
+  try {
+    const tenantId = req.tenantId;
+    const userId   = req.userType === "USER" ? req.user.id : null;
+    const page     = parseInt(req.query.page)  || 1;
+    const limit    = parseInt(req.query.limit) || 20;
+
+    const result = await getArchivedConversations({
+      tenantId,
+      userId,
+      page,
+      limit,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Archived conversations fetched successfully",
+      ...result,
+    });
+
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+
+
+// ────────────── Bulk Reassign Conversations ────────────────────────────
+export const bulkReassignConversationsController = async (req, res) => {
+  try {
+
+    // ── Guard: Only TENANT (admin) can bulk reassign ───────
+    if (req.userType !== "TENANT") {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized: Only admin can bulk reassign conversations",
+      });
+    }
+
+    // ── Extract tenant context ─────────────────────────────
+    const tenantId        = req.tenantId;
+    const performedBy     = req.tenant.id;
+    const performedByName  = req.tenant.tenantName || "Admin";
+    const performedByEmail = req.tenant.email      || "";
+
+    // ── Extract body ───────────────────────────────────────
+    const { conversationIds, newUserId } = req.body;
+
+    // ── Validate: must be array ────────────────────────────
+    if (!Array.isArray(conversationIds)) {
+      return res.status(400).json({
+        success: false,
+        message: "conversationIds must be an array",
+      });
+    }
+
+    // ── Validate: must not be empty ────────────────────────
+    if (conversationIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Please select at least one conversation",
+      });
+    }
+
+    // ── Validate: safety cap ───────────────────────────────
+    if (conversationIds.length > 500) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot reassign more than 500 conversations at once",
+      });
+    }
+
+    // ── Validate: newUserId must be string or null ─────────
+    // null = unassign
+    if (
+      newUserId !== null &&
+      newUserId !== undefined &&
+      typeof newUserId !== "string"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "newUserId must be a valid string ID or null",
+      });
+    }
+
+    // ── Call service ───────────────────────────────────────
+    const result = await bulkReassignConversations({
+      tenantId,
+      conversationIds,
+      newUserId:       newUserId || null,
+      performedBy,
+      performedByName,
+      performedByEmail,
+    });
+
+    // ── Respond ────────────────────────────────────────────
+    return res.status(200).json({
+      success: true,
+      message: newUserId
+        ? `${result.reassignedCount} conversation(s) assigned to ${result.newUserName}`
+        : `${result.reassignedCount} conversation(s) unassigned successfully`,
+      data: result,
+    });
+
+  } catch (error) {
+
+    // User not found / wrong tenant
+    if (
+      error.message.includes("not found") ||
+      error.message.includes("does not belong")
+    ) {
+      return res.status(404).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    // No conversations matched
+    if (error.message.includes("No valid conversations")) {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
+// ── Mark Conversation As Read ─────────────────────────────
+export const markConversationAsReadController = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const tenantId = req.tenantId;
+
+    const result = await markConversationAsRead({
+      conversationId,
+      tenantId,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Conversation marked as read",
+      data:    result,
+    });
+
+  } catch (error) {
+    if (error.message.includes("not found")) {
+      return res.status(404).json({ success: false, message: error.message });
+    }
+    return res.status(500).json({ success: false, message: error.message });
   }
 };

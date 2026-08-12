@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Payment Receipt</title>
+</head>
+<body style="font-family: Arial, sans-serif; background-color: #f3f4f6; margin: 0; padding: 30px;">
+  <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden;">
+    <div style="background-color: #1e3a8a; padding: 24px; text-align: center;">
+      <h1 style="color: #ffffff; margin: 0; font-size: 24px;">SudoReply Receipt</h1>
+    </div>
+    <div style="padding: 30px; color: #374151;">
+      <h2 style="color: #111827; margin-top: 0;">Thank you for your payment!</h2>
+      <p>Hi {{tenantName}},</p>
+      <p>We have successfully processed your payment. Find details of the invoice receipt below:</p>
+      
+      <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+        <tr style="border-bottom: 1px solid #e5e7eb;">
+          <td style="padding: 8px 0; font-weight: bold; color: #4b5563;">Invoice Number:</td>
+          <td style="padding: 8px 0; color: #111827;">{{invoiceNumber}}</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #e5e7eb;">
+          <td style="padding: 8px 0; font-weight: bold; color: #4b5563;">Plan:</td>
+          <td style="padding: 8px 0; color: #111827;">{{planName}}</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #e5e7eb;">
+          <td style="padding: 8px 0; font-weight: bold; color: #4b5563;">Amount:</td>
+          <td style="padding: 8px 0; color: #111827; font-weight: bold;">{{currency}} {{amount}}</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #e5e7eb;">
+          <td style="padding: 8px 0; font-weight: bold; color: #4b5563;">Billing Period:</td>
+          <td style="padding: 8px 0; color: #111827;">{{billingPeriodStart}} to {{billingPeriodEnd}}</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #e5e7eb;">
+          <td style="padding: 8px 0; font-weight: bold; color: #4b5563;">Payment Card:</td>
+          <td style="padding: 8px 0; color: #111827;">{{paymentBrand}} ending in {{paymentLast4}}</td>
+        </tr>
+      </table>
+
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="{{downloadLink}}" style="background-color: #1e3a8a; color: #ffffff; padding: 12px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">Download PDF Invoice</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

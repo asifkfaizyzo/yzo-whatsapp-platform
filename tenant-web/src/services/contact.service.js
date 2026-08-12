@@ -171,3 +171,18 @@ export const addTagToContact = async (contactId, tagId) => {
   }
 };
 
+// ── Remove Tag from Contact ──
+export const removeTagFromContact = async (contactId, tagId) => {
+  try {
+    const res = await api.delete(`${CONTACTS_BASE_URL}/${contactId}/tags/${tagId}`);
+    return {
+      success: true,
+      data: res.data
+    };
+  } catch (err) {
+    return {
+      success: false,
+      message: err.response?.data?.message || "Failed to remove tag",
+    };
+  }
+};

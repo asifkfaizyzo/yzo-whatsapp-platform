@@ -114,17 +114,17 @@ export default function MainLayout() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#f8fafc] overflow-hidden">
-      {/* Header */}
-      <TopNavBar />
+    <div className="min-h-screen flex bg-[#f8fafc] overflow-hidden">
+      {/* Sidebar (fixed full-height) + Spacer */}
+      <Sidebar userRole={userRole} tenantStatus={tenantStatus} />
 
-      {/* Main Workspace */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar */}
-        <Sidebar userRole={userRole} tenantStatus={tenantStatus} />
+      {/* Right side: Header + Content */}
+      <div className="flex-1 flex flex-col overflow-hidden min-h-screen">
+        {/* Header */}
+        <TopNavBar />
 
         {/* Dynamic Content Panel */}
-        <main className="flex-1 p-6 lg:p-8 overflow-y-auto max-h-[calc(100vh-64px)]">
+        <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
           <Outlet context={{ tenantStatus }} />
         </main>
       </div>

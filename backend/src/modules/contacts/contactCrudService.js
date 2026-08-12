@@ -61,7 +61,10 @@ export const createContact = async (data, tenantId, userId) => {
         const tag = await prisma.tag.findFirst({
             where: {
                 tenantId,
-                name: { equals: tagIdentifier, mode: 'insensitive' }
+                OR: [
+                    { id: tagIdentifier },
+                    { name: { equals: tagIdentifier, mode: 'insensitive' } }
+                ]
             }
         });
 
@@ -382,9 +385,12 @@ export const deleteContact = async (contactId, tenantId) => {
         throw new Error('Contact not found');
     }
 
-    // Delete tag mappings, conversation, and the contact in a transaction to satisfy foreign key constraints
+    // Delete tag mappings, conversation, broadcast recipient mappings, and the contact in a transaction to satisfy foreign key constraints
     await prisma.$transaction([
         prisma.contactTagMapping.deleteMany({
+            where: { contactId }
+        }),
+        prisma.broadcastRecipient.deleteMany({
             where: { contactId }
         }),
         prisma.conversation.deleteMany({
@@ -481,7 +487,20 @@ export const importContactsFromCSV = async (filePath, tenantId) => {
     if (!filePath) throw new Error('CSV file path is missing');
     if (!tenantId) throw new Error('Tenant ID is missing');
 
+    // ✅ Helper to safely delete the temp file
+    const deleteTempFile = () => {
+        try {
+            if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
+                console.log(`🗑️ Temp file deleted: ${filePath}`);
+            }
+        } catch (err) {
+            console.error(`⚠️ Failed to delete temp file: ${filePath}`, err.message);
+        }
+    };
+
     // 1. Read CSV
+    try{ 
     const rows = await new Promise((resolve, reject) => {
         const results = [];
         fs.createReadStream(filePath)
@@ -675,10 +694,20 @@ if (summary.createdContacts.length > 0) {
         }
     }
 }
-    console.log('🏁 Import Summary:', summary);
+     console.log('🏁 Import Summary:', summary);
+
+    // ✅ Delete the temp file after successful import
+    deleteTempFile();
+
     return { message: 'CSV import completed', summary };
 }
-
+ catch (err) {
+        // ✅ Delete file even if something crashes
+        deleteTempFile();
+        console.error('❌ CSV Import failed:', err.message);
+        throw err;
+    }
+}
 
 // ======== Cascading Priority + Round Robin Assignment ========
 export const assignContactByPriority = async (contactId, tenantId) => {
@@ -737,26 +766,31 @@ export const assignContactByPriority = async (contactId, tenantId) => {
 // ======== Round Robin Helper ========
 // Find the user who currently has the least number of assigned contacts
 // This is the core logic used for balanced distribution
+// ✅ NEW: Fast single-query aggregation
 export const getLeastLoadedUser = async (userIds, tenantId) => {
-    // Count how many contacts each user has
-    const userLoads = await Promise.all(
-        userIds.map(async (userId) => {
-            const count = await prisma.contact.count({
-                where: {
-                    assignedTo: userId,
-                    tenantId: tenantId
-                }
-            });
-            return { userId, count };
-        })
-    );
+    const userCounts = await prisma.contact.groupBy({
+        by: ['assignedTo'],
+        where: {
+            assignedTo: { in: userIds },
+            tenantId: tenantId
+        },
+        _count: {
+            assignedTo: true
+        }
+    });
 
-    console.log('👥 User loads:', userLoads);
+    // Create count map for quick lookup
+    const countMap = {};
+    userIds.forEach(id => { countMap[id] = 0; });
+    userCounts.forEach(item => {
+        if (item.assignedTo) {
+            countMap[item.assignedTo] = item._count.assignedTo;
+        }
+    });
 
-    // Sort by count (ascending) and pick the least loaded
-    userLoads.sort((a, b) => a.count - b.count);
-
-    return userLoads[0].userId; // Return userId with least contacts
+    // Pick the user ID with the lowest contact count
+    const sortedUserIds = [...userIds].sort((a, b) => countMap[a] - countMap[b]);
+    return sortedUserIds[0];
 };
 
 // ======== Get All Active Users Under Tenant (Fallback) ========
@@ -906,4 +940,4 @@ export const getTagById = async (tagId) => {
     return await prisma.tag.findUnique({
         where: { id: tagId }
     });
-};
+}; 

@@ -19,7 +19,6 @@ export const verifyUser = async (req, res, next) => {
     // 3️⃣ Verify token
     const decoded = jwt.verify(token, process.env.ACCESS_SECRET);
 
-     console.log("TOKEN TYPE:", decoded.type);
 
     // 4️⃣ Check user type
     if (decoded.type !== "USER") {
@@ -40,6 +39,7 @@ const user = await prisma.user.findUnique({
     email: true,
     name: true,
     isActive: true,
+    tenant: { select: { status: true, isActive: true } } // Fetch parent tenant
   },
 });
 
@@ -55,6 +55,11 @@ const user = await prisma.user.findUnique({
         success: false,
         message: "User account is inactive",
       });
+    }
+
+    // Ensure parent Tenant is active and approved
+    if (!user.tenant || user.tenant.status === 'BLOCKED' || !user.tenant.isActive) {
+      return res.status(403).json({ success: false, message: "Tenant account is blocked or inactive" });
     }
 
     // 6️⃣ Attach user to request

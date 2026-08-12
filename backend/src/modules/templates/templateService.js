@@ -1,9 +1,10 @@
+import { decrypt } from '../../lib/crypto.js';
 
 // 1. Fetch templates catalog from Meta Business Account (WABA)
 export const fetchMetaTemplates = async (tenant) => {
   const url = `https://graph.facebook.com/v23.0/${tenant.whatsappWabaId}/message_templates?limit=100`;
   const response = await fetch(url, {
-    headers: { 'Authorization': `Bearer ${tenant.whatsappAccessToken}` }
+    headers: { 'Authorization': `Bearer ${decrypt(tenant.whatsappAccessToken)}` }
   });
 
   if (!response.ok) {
@@ -21,7 +22,7 @@ export const submitMetaTemplate = async (tenant, { name, category, language, com
   const response = await fetch(url, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${tenant.whatsappAccessToken}`,
+      'Authorization': `Bearer ${decrypt(tenant.whatsappAccessToken)}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
@@ -45,7 +46,7 @@ export const deleteMetaTemplate = async (tenant, templateName) => {
   const url = `https://graph.facebook.com/v23.0/${tenant.whatsappWabaId}/message_templates?name=${templateName}`;
   const response = await fetch(url, {
     method: 'DELETE',
-    headers: { 'Authorization': `Bearer ${tenant.whatsappAccessToken}` }
+    headers: { 'Authorization': `Bearer ${decrypt(tenant.whatsappAccessToken)}` }
   });
 
   if (!response.ok) {

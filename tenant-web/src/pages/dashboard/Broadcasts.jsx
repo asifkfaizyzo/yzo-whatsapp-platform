@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { 
   Megaphone, 
   Plus, 
@@ -11,18 +12,23 @@ import {
   Clock,
   AlertCircle
 } from "lucide-react";
-import { getBroadcasts, launchBroadcast } from "../../services/broadcast.service";
+import { getBroadcasts, launchBroadcast, cancelBroadcast } from "../../services/broadcast.service";
 import { getTemplates } from "../../services/template.service";
 import { getTags } from "../../services/tag.service";
 import { io } from "socket.io-client";
+import { useAuthStore } from "../../store/useAuthStore";
+import { useConfirm } from "../../context/ConfirmContext";
+import { useToast } from "../../context/ToastContext";
 
 export default function Broadcasts() {
+  const confirm = useConfirm();
+  const toast = useToast();
+
   const [campaigns, setCampaigns] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [tags, setTags] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [feedback, setFeedback] = useState("");
 
   const [showModal, setShowModal] = useState(false);
   const [newCampaign, setNewCampaign] = useState({
@@ -75,7 +81,11 @@ export default function Broadcasts() {
     if (!activeTenantId) return;
 
     const socketUrl = import.meta.env.VITE_BACKEND_URL;
-    const socket = io(socketUrl, { transports: ["websocket"] });
+    const token = useAuthStore.getState().accessToken;
+    const socket = io(socketUrl, {
+      auth: { token },
+      transports: ["websocket"]
+    });
 
     socket.emit("join_tenant", activeTenantId);
 
@@ -153,13 +163,17 @@ export default function Broadcasts() {
       tagIds: newCampaign.targetType === "TAGS" ? newCampaign.tagIds : [],
       defaultParams: {
         body: bodyParams
-      }
+      },
+      scheduledAt: newCampaign.schedule === "later" && newCampaign.scheduledTime
+        ? new Date(newCampaign.scheduledTime).toISOString()
+        : null
     };
 
     const res = await launchBroadcast(payload);
 
     if (res.success) {
       setShowModal(false);
+      const isScheduled = newCampaign.schedule === "later";
       setNewCampaign({
         name: "",
         templateId: "",
@@ -169,11 +183,29 @@ export default function Broadcasts() {
         scheduledTime: "",
       });
       setParamsMapping({});
-      setFeedback("Campaign launched and processing!");
-      setTimeout(() => setFeedback(""), 3500);
+      toast.success(isScheduled ? "Campaign scheduled successfully!" : "Campaign launched and processing!");
       loadData();
     } else {
-      alert("Failed to launch campaign: " + res.message);
+      toast.error("Failed to launch campaign: " + res.message);
+    }
+  };
+
+  // 6. Handle Cancel Scheduled / Active Campaign
+  const handleCancelCampaign = async (campaignId) => {
+    const ok = await confirm({
+      type: "warning",
+      title: "Cancel Campaign?",
+      message: "Pending messages will not be sent. This action cannot be undone.",
+      confirmLabel: "Cancel Campaign",
+    });
+    if (!ok) return;
+
+    const res = await cancelBroadcast(campaignId);
+    if (res.success) {
+      toast.success("Campaign cancelled successfully.");
+      loadData();
+    } else {
+      toast.error("Failed to cancel campaign: " + res.message);
     }
   };
 
@@ -212,12 +244,6 @@ export default function Broadcasts() {
         </button>
       </div>
 
-      {feedback && (
-        <div className="rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-3 text-xs text-emerald-800 font-semibold">
-          {feedback}
-        </div>
-      )}
-
       {/* Campaigns Listing */}
       <div className="card border border-slate-100 overflow-hidden bg-white">
         <div className="overflow-x-auto">
@@ -235,6 +261,7 @@ export default function Broadcasts() {
                   <th className="p-4 font-semibold text-right">Recipients</th>
                   <th className="p-4 font-semibold text-right">Read Rate</th>
                   <th className="p-4 font-semibold text-right">Delivery Success</th>
+                  <th className="p-4 font-semibold text-center">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50 text-xs">
@@ -259,11 +286,20 @@ export default function Broadcasts() {
                         <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${
                           b.status === "COMPLETED" 
                             ? "bg-emerald-50 text-emerald-700 border-emerald-100" 
+                            : b.status === "SCHEDULED"
+                            ? "bg-purple-50 text-purple-700 border-purple-100"
+                            : b.status === "CANCELLED"
+                            ? "bg-rose-50 text-rose-700 border-rose-100"
                             : "bg-amber-50 text-amber-700 border-amber-100"
                         }`}>
-                          {b.status === "COMPLETED" ? <CheckCircle size={10} /> : <Clock size={10} />}
+                          {b.status === "COMPLETED" ? <CheckCircle size={10} /> : b.status === "SCHEDULED" ? <Calendar size={10} /> : b.status === "CANCELLED" ? <AlertCircle size={10} /> : <Clock size={10} />}
                           <span className="capitalize">{b.status.toLowerCase()}</span>
                         </span>
+                        {b.scheduledAt && b.status === "SCHEDULED" && (
+                          <p className="text-[9px] text-purple-600 font-medium mt-1">
+                            {new Date(b.scheduledAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                          </p>
+                        )}
                       </td>
                       <td className="p-4 text-right font-semibold text-slate-800 text-sm">
                         {b.totalRecipients.toLocaleString()}
@@ -273,6 +309,19 @@ export default function Broadcasts() {
                       </td>
                       <td className="p-4 text-right font-semibold text-emerald-600 text-sm">
                         {deliveryPercent}% ({b.delivered})
+                      </td>
+                      <td className="p-4 text-center">
+                        {(b.status === "SCHEDULED" || b.status === "PROCESSING") ? (
+                          <button
+                            onClick={() => handleCancelCampaign(b.id)}
+                            className="px-2.5 py-1 text-[11px] font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-100 rounded-lg transition shadow-2xs"
+                            title="Cancel Campaign"
+                          >
+                            Cancel
+                          </button>
+                        ) : (
+                          <span className="text-slate-300 font-medium">—</span>
+                        )}
                       </td>
                     </tr>
                   );
@@ -284,7 +333,7 @@ export default function Broadcasts() {
       </div>
 
       {/* Launch Campaign Modal */}
-      {showModal && (
+      {showModal && createPortal(
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-lg overflow-y-auto max-h-[90vh] animate-in zoom-in-95 duration-150">
             {/* Modal Header */}
@@ -437,6 +486,54 @@ export default function Broadcasts() {
                 </div>
               )}
 
+              {/* Sending Schedule Selection */}
+              <div>
+                <label className="label text-xs font-semibold text-slate-700">Sending Schedule</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setNewCampaign({ ...newCampaign, schedule: "now", scheduledTime: "" })}
+                    className={`py-2.5 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 transition ${
+                      newCampaign.schedule === "now"
+                        ? "bg-emerald-50 border-emerald-500 text-emerald-700 shadow-xs"
+                        : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    <Send size={13} />
+                    <span>Send Immediately</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewCampaign({ ...newCampaign, schedule: "later" })}
+                    className={`py-2.5 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 transition ${
+                      newCampaign.schedule === "later"
+                        ? "bg-purple-50 border-purple-500 text-purple-700 shadow-xs"
+                        : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    <Calendar size={13} />
+                    <span>Schedule for Later</span>
+                  </button>
+                </div>
+              </div>
+
+              {newCampaign.schedule === "later" && (
+                <div className="p-3.5 bg-purple-50/40 border border-purple-100 rounded-2xl space-y-1.5">
+                  <label className="label text-xs font-semibold text-purple-900">Select Date & Time</label>
+                  <input
+                    type="datetime-local"
+                    required={newCampaign.schedule === "later"}
+                    value={newCampaign.scheduledTime}
+                    min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
+                    onChange={(e) => setNewCampaign({ ...newCampaign, scheduledTime: e.target.value })}
+                    className="input text-xs bg-white border-purple-200 focus:ring-purple-500"
+                  />
+                  {/* <p className="text-[10px] text-purple-600 font-medium">
+                    BullMQ will hold jobs in Redis and automatically launch this broadcast at the chosen time.
+                  </p> */}
+                </div>
+              )}
+
               {/* Actions */}
               <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-100">
                 <button
@@ -448,14 +545,19 @@ export default function Broadcasts() {
                 </button>
                 <button
                   type="submit"
-                  className="btn-primary py-2.5 px-5 text-xs font-bold"
+                  className={`py-2.5 px-5 text-xs font-bold rounded-xl text-white shadow-sm transition ${
+                    newCampaign.schedule === "later"
+                      ? "bg-purple-600 hover:bg-purple-700"
+                      : "bg-[#125EF2] hover:bg-blue-700"
+                  }`}
                 >
-                  Send Now
+                  {newCampaign.schedule === "later" ? "Schedule Campaign" : "Send Now"}
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -25,35 +25,15 @@ export const createConversation = async (contactId) => {
  */
 export const getAssignedConversations = async (page = 1, limit = 20, filter = "all") => {
   try {
-  // Convert frontend filter to backend params
-const params = { page, limit };
+    const response = await api.get(`${CONV_BASE_URL}/assigned`, {
+      params: { page, limit, filter },  // ✅ simple - backend handles filter
+    });
 
-if (filter === "all") {
-  params.status = "ALL";
-  params.assignmentType = "all";
-} else if (filter === "my") {
-  params.status = "ALL";
-  params.assignmentType = "my";
-} else if (filter === "closed") {
-  params.status = "CLOSED";
-  params.assignmentType = "all";
-} else if (filter === "open") {
-  params.status = "OPEN";
-  params.assignmentType = "all";
-} else if (filter === "assigned") {
-  params.status = "ALL";
-  params.assignmentType = "assigned";
-} else if (filter === "unassigned") {
-  params.status = "ALL";
-  params.assignmentType = "unassigned";
-}
+    console.log("🔍 Full API response:", response.data); // ← ADD temporarily
 
-const response = await api.get(`${CONV_BASE_URL}/assigned`, {
-  params: { page, limit, filter },  // keep sending filter
-});
     return {
       success: true,
-      data: response.data.conversations || response.data.data, // Check structure returned by backend
+      data: response.data, // ✅ return FULL response, let Inbox.jsx extract what it needs
     };
   } catch (error) {
     return {
@@ -62,7 +42,6 @@ const response = await api.get(`${CONV_BASE_URL}/assigned`, {
     };
   }
 };
-
 /**
  * Get messages for a specific conversation
  */
@@ -97,6 +76,108 @@ export const updateConversationStatus = async (conversationId, status) => {
     return {
       success: false,
       message: error.response?.data?.message || "Failed to update conversation status",
+    };
+  }
+};
+
+
+
+// Archive conversation
+export const archiveConversation = async (conversationId) => {
+  try {
+    const response = await api.patch(
+      `${CONV_BASE_URL}/archive/${conversationId}`
+    );
+    return { success: true, data: response.data };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to archive conversation",
+    };
+  }
+};
+
+// Unarchive conversation
+export const unarchiveConversation = async (conversationId) => {
+  try {
+    const response = await api.patch(
+      `${CONV_BASE_URL}/unarchive/${conversationId}`
+    );
+    return { success: true, data: response.data };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to unarchive conversation",
+    };
+  }
+};
+
+// Delete conversation (TENANT only)
+export const deleteConversation = async (conversationId) => {
+  try {
+    const response = await api.delete(
+      `${CONV_BASE_URL}/delete/${conversationId}`
+    );
+    return { success: true, data: response.data };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to delete conversation",
+    };
+  }
+};
+
+// Get archived conversations
+export const getArchivedConversations = async (page = 1, limit = 20) => {
+  try {
+    const response = await api.get(`${CONV_BASE_URL}/archived`, {
+      params: { page, limit },
+    });
+    return { success: true, data: response.data };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to fetch archived conversations",
+    };
+  }
+};
+
+
+
+// Bulk reassign conversations
+export const bulkReassignConversations = async (conversationIds, newUserId) => {
+  try {
+    const response = await api.patch(`${CONV_BASE_URL}/bulk-reassign`, {
+      conversationIds,
+      newUserId: newUserId || null,
+    });
+    return {
+      success: true,
+      data: response.data.data,
+      message: response.data.message,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message:
+        error.response?.data?.message ||
+        "Failed to bulk reassign conversations",
+    };
+  }
+};
+
+
+// ── Mark conversation as read ─────────────────────────────
+export const markConversationAsRead = async (conversationId) => {
+  try {
+    const response = await api.patch(
+      `${CONV_BASE_URL}/mark-read/${conversationId}`
+    );
+    return { success: true, data: response.data };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to mark as read",
     };
   }
 };

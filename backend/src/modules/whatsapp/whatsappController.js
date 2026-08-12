@@ -1,4 +1,7 @@
-import prisma from "../../config/prisma.js";
+import prisma from '../../config/prisma.js';
+import { encrypt, decrypt } from '../../lib/crypto.js';
+import { sendLocationService } from './whatsappService.js';
+import { emitToTenant, emitToUser } from '../../lib/socket.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api2/whatsapp/exchange-token
@@ -8,7 +11,15 @@ export const exchangeToken = async (req, res) => {
     code,
     phoneNumberId: reqPhoneId,
     wabaId: reqWabaId,
+    pin,
   } = req.body;
+
+  if (!pin) {
+    return res.status(400).json({
+      success: false,
+      message: "A 6-digit 2FA PIN is required to register your WhatsApp phone number.",
+    });
+  }
 
   const tenantId = req.tenantId;
 
@@ -39,13 +50,13 @@ export const exchangeToken = async (req, res) => {
   try {
 
     const params = new URLSearchParams({
-  client_id: appId,
-  client_secret: appSecret,
-  code,
-});
+      client_id: appId,
+      client_secret: appSecret,
+      code,
+    });
 
-console.log("[WhatsApp] Calling graph.facebook.com/oauth/access_token...");
-console.log("[WhatsApp] No redirect_uri — Tech Provider flow");
+    console.log("[WhatsApp] Calling graph.facebook.com/oauth/access_token...");
+    console.log("[WhatsApp] No redirect_uri — Tech Provider flow");
 
     const tokenRes = await fetch(
       `https://graph.facebook.com/v22.0/oauth/access_token?${params.toString()}`
@@ -97,8 +108,8 @@ console.log("[WhatsApp] No redirect_uri — Tech Provider flow");
       console.log("[WhatsApp] Resolving WABA from debug_token...");
       const debugRes = await fetch(
         `https://graph.facebook.com/debug_token` +
-          `?input_token=${accessToken}` +
-          `&access_token=${appId}|${appSecret}`
+        `?input_token=${accessToken}` +
+        `&access_token=${appId}|${appSecret}`
       );
       const debugData = await debugRes.json();
       console.log(
@@ -198,7 +209,7 @@ console.log("[WhatsApp] No redirect_uri — Tech Provider flow");
           },
           body: JSON.stringify({
             messaging_product: "whatsapp",
-            pin: "123456",
+            pin,
           }),
         }
       );
@@ -208,13 +219,13 @@ console.log("[WhatsApp] No redirect_uri — Tech Provider flow");
       console.warn("[WhatsApp] Phone registration failed (non-fatal):", e.message);
     }
 
-    // ── Step 7: Save to DB ────────────────────────────────────────────
+    // ── Step 7: Save to DB (token encrypted at rest) ─────────────────────────────────
     await prisma.tenant.update({
       where: { id: tenantId },
       data: {
         whatsappWabaId: wabaId,
         whatsappPhoneId: phoneNumberId,
-        whatsappAccessToken: accessToken,
+        whatsappAccessToken: encrypt(accessToken), // ✅ always encrypted at rest
       },
     });
 
@@ -305,7 +316,7 @@ export const setupWhatsApp = async (req, res) => {
       data: {
         whatsappPhoneId: phoneNumberId,
         whatsappWabaId: wabaId,
-        whatsappAccessToken: accessToken,
+        whatsappAccessToken: encrypt(accessToken),
       },
     });
 
@@ -506,12 +517,12 @@ export const registerPhoneNumber = async (req, res) => {
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${tenant.whatsappAccessToken}`,
+          Authorization: `Bearer ${decrypt(tenant.whatsappAccessToken)}`, // ✅ always decrypt before use
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           messaging_product: "whatsapp",
-          pin: pin || "123456",
+          pin,
         }),
       }
     );
@@ -539,3 +550,98 @@ export const registerPhoneNumber = async (req, res) => {
     });
   }
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api2/whatsapp/send-location
+// ─────────────────────────────────────────────────────────────────────────────
+export const sendLocation = async (req, res) => {
+        try {
+          const {
+            to,
+            latitude,
+            longitude,
+            name,
+            address,
+            conversationId,
+          } = req.body;
+
+          const tenantId = req.tenantId;
+          const userType = req.userType;
+
+          // ── Identify sender ──────────────────────────────────────
+          // Same pattern as sendMessage in messageController.js
+          let senderId = null;
+          let senderType = null;
+
+          if (userType === 'TENANT' && req.tenant) {
+            senderId = req.tenant.id;
+            senderType = 'TENANT';
+          } else if (userType === 'USER' && req.user) {
+            senderId = req.user.id;
+            senderType = 'USER';
+          }
+
+          if (!senderId) {
+            return res.status(401).json({
+              success: false,
+              message: 'Unable to identify sender',
+            });
+          }
+
+          // ── Call service ─────────────────────────────────────────
+          const result = await sendLocationService({
+            tenantId,
+            to,
+            latitude,
+            longitude,
+            name,
+            address,
+            conversationId,
+            senderId,
+            senderType,
+          });
+
+          // ── Socket emit ──────────────────────────────────────────
+          if (result.message && conversationId) {
+            const socketPayload = {
+              conversationId,
+              message: {
+                id: result.message.id,
+                type: 'LOCATION',
+                direction: 'OUTBOUND',
+                senderType,
+                senderId,
+                isFromCustomer: false,
+                locLatitude: parseFloat(latitude),
+                locLongitude: parseFloat(longitude),
+                locName: name || null,
+                locAddress: address || null,
+                status: 'sent',
+                createdAt: result.message.createdAt,
+              },
+            };
+
+            emitToTenant(tenantId, 'new_message', socketPayload);
+
+            if (userType === 'USER' && req.user?.id) {
+              emitToUser(req.user.id, 'new_message', socketPayload);
+            }
+          }
+
+          return res.status(200).json({
+            success: true,
+            message: 'Location sent successfully',
+            data: {
+              waMessageId: result.waMessageId,
+              messageId: result.message?.id || null,
+            },
+          });
+
+        } catch (error) {
+          console.error('❌ sendLocation error:', error.message);
+          return res.status(error.statusCode || 500).json({
+            success: false,
+            message: error.message || 'Failed to send location',
+          });
+        }
+      };

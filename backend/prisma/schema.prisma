@@ -18,6 +18,7 @@ model SuperAdmin {
   refreshTokens RefreshToken[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  activatedEnterpriseLeads EnterpriseLead[]
 }
 
 
@@ -34,11 +35,28 @@ enum TenantStatus {
 //──────────────────Model Tenant──────────────────
 model Tenant {
   id          String   @id @default(cuid())
-  tenantName  String
-  email       String   @unique
-  password    String
+  tenantName  String?
+  email       String?   @unique
+  password    String?
   phone       String?
   address     String?
+  firstName   String?
+  lastName    String?
+  websiteUrl  String?
+  industry    String?
+  companySize String?
+  country     String?
+  useCase     String?
+
+  logo      String?
+  timezone  String?  @default("Asia/Kolkata")
+
+  isEmailVerified          Boolean   @default(false)
+  otpHash                  String?
+  otpExpiresAt             DateTime?
+
+  googleId     String?  @unique
+  authProvider String   @default("LOCAL") // "LOCAL" | "GOOGLE"
   
    whatsappPhoneId     String?  
    whatsappWabaId      String?  
@@ -47,10 +65,16 @@ model Tenant {
   
    status      TenantStatus @default(PENDING)
    isActive    Boolean   @default(true) 
+   onboardingStep      Int          @default(1)
+   onboardingCompleted Boolean      @default(false)
 
   planId      String?
   plan        SubscriptionPlan? @relation("TenantSubscription", fields: [planId], references: [id])
 
+  planActivatedAt DateTime?
+  billingType     String?   @default("monthly") // monthly / annual
+  planStatus      String?   @default("inactive") // inactive / active / expired
+  
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -63,6 +87,28 @@ model Tenant {
 
   templates   Template[]
   broadcasts  Broadcast[]
+  payments        Payment[]
+  tickets Ticket[]
+  flows           Flow[]
+  keywordTriggers  KeywordTrigger[]
+  enterpriseLeads EnterpriseLead[]
+
+  subscriptionStatus   SubscriptionStatus  @default(trialing)
+  currentPlan          String?
+  planPeriodStart      DateTime?
+  planPeriodEnd        DateTime?
+  cancelRequestedAt    DateTime?
+  cancellationReason   String?
+  reactivatedAt        DateTime?
+  dataDeletionDate     DateTime?
+  subscriptionReminders SubscriptionReminder[]
+  invoices             Invoice[]
+  cancellationSurvey   CancellationSurvey?
+  dataDeletions        TenantDataDeletion[]
+
+  @@index([whatsappPhoneId])
+    @@index([status])
+  auditLogs   AuditLog[] @relation("TenantAuditLogs")
 }
 
 
@@ -86,6 +132,7 @@ model User {
 
   refreshTokens RefreshToken[]   // ← one user can have many refresh tokens
     userTags   UserTagMapping[]
+    tickets Ticket[]
 
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -172,7 +219,7 @@ model Contact {
 
   @@unique([phone, tenantId])
   @@index([assignedTo])      
-  @@index([tenantId])
+  @@index([tenantId, createdAt])
 }
 
 
@@ -255,13 +302,31 @@ model Conversation {
   status String @default("OPEN")
   // OPEN, RESOLVED, CLOSED
 
-   assignedTo    String?   // agentId
-
+  assignedTo    String?   // agentId
   reopenCount   Int       @default(0)
   resolvedAt    DateTime?
   closedAt      DateTime?
   reopenedAt    DateTime?
   lastMessageAt DateTime?
+
+  unreadCount   Int       @default(0)
+
+   // ── Archive ── 
+  isArchived    Boolean   @default(false)
+  archivedAt    DateTime?
+  archivedBy    String?   // userId or tenantId who archived
+  archivedByRole String?  // "TENANT" | "USER"
+
+  mode          ConversationMode  @default(BOT)
+  currentFlowId String?
+  currentFlow   Flow?    @relation("ConversationFlow", fields: [currentFlowId], references: [id])
+  currentNodeId String?
+  flowData      Json?    @default("{}")
+  botPaused     Boolean  @default(false)
+
+  // ── Analytics Timestamps ──
+  incomingAt       DateTime?
+  firstResponseAt  DateTime?
 
   messages  Message[]
   activities    ConversationActivity[]
@@ -271,28 +336,92 @@ model Conversation {
 
   @@index([contactId])
   @@index([tenantId, status])
+  @@index([tenantId, isArchived])
+  @@index([tenantId, mode])
+  @@index([currentFlowId])
 }
 
 
 
 //──────Model Message──────
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+  VIDEO
+  AUDIO
+  INTERACTIVE_BUTTONS
+  LOCATION 
+}
+
+enum SenderType {
+  SUPER_ADMIN
+  TENANT
+  USER  
+  CONTACT
+  SYSTEM
+}
+
+enum MessageDirection {
+  INBOUND       // contact → platform
+  OUTBOUND      // platform → contact
+}
+
+
 model Message {
-  id             String       @id @default(cuid())
+  id             String           @id @default(cuid())
   conversationId String
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversation   Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
-  senderId       String?      // Agent ID (null = sent by contact/customer)
-  senderType     String      
+  // ── Sender ──
+  senderId       String?          // null if contact
+  senderType     SenderType       // SUPER_ADMIN / TENANT / AGENT / CONTACT / SYSTEM
 
-  text           String
-  type           String @default ("TEXT") // TEXT, IMAGE, FILE
-  isRead         Boolean  @default(false)
+  // ── Direction ──
+  direction      MessageDirection @default(OUTBOUND)
 
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  // ── Content ──
+  text           String?          // optional (media messages may have no text)
+  type           MessageType      @default(TEXT)
 
-  @@index([conversationId])
-  @@index([senderType]) 
+  // ── Media ──
+  mediaUrl       String?          // local file path
+  mediaName      String?          // original filename
+  mediaSize      Int?             // bytes
+  mediaMimeType  String?          // image/jpeg, application/pdf
+  caption        String?          // optional caption
+  // ── Interactive Buttons ──
+  buttons        Json?            // Array of { id, title } for INTERACTIVE_BUTTONS type
+  // ── NEW: Location fields ──────────────────────
+  locLatitude    Float?
+  locLongitude   Float?
+  locName        String?
+  locAddress     String?
+
+  // ── Status ──
+  isRead         Boolean          @default(false)
+  status         String       @default("sent") 
+
+  // ── Analytics & Webhook Receipts ──
+  wamid          String?          @unique
+  deliveredAt    DateTime?
+  readAt         DateTime?
+  failedAt       DateTime?
+  failureCode    Int?
+  failureReason  String?
+
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([conversationId, createdAt])
+  @@index([senderType])
+  @@index([direction])
+
+   // ── Soft Delete ──
+  isDeleted      Boolean          @default(false)
+  deletedAt      DateTime?
+  deletedBy      String?          // id of who deleted
+  deletedByRole  String?          // "TENANT" | "AGENT"
 }
 
 
@@ -355,6 +484,7 @@ model SubscriptionPlan {
   annualPrice  Float?
 
   status       PlanStatus @default(ACTIVE)
+  isPopular    Boolean    @default(false)
 
   // ─── Usage Limits (null = unlimited) ───
   maxAgents      Int
@@ -426,6 +556,53 @@ model PlanIntegration {
   @@index([planId])
 }
 
+
+//──────────────────Model Payment──────────────────
+model Payment {
+  id          String   @id @default(cuid())
+  tenantId    String
+
+  // Razorpay Details
+  razorpayOrderId    String   @unique
+  razorpayPaymentId  String?  @unique
+  razorpaySignature  String?
+
+  // Plan snapshot at time of payment
+  planId       String
+  planName     String
+  billingType  String   // monthly / annual
+
+  // Amount Breakdown
+  baseAmount   Float
+  gstPercent   Float    @default(18)
+  gstAmount    Float
+  totalAmount  Float
+  currency     String   @default("INR")
+
+  // Payment Meta
+  paymentMethod  String?   // card / upi / netbanking
+  status         PaymentStatus @default(PENDING)
+  paidAt         DateTime?
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  invoiceUrl    String? 
+
+  @@index([tenantId])
+  @@index([status])
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+
+
 enum TemplateCategory {
   UTILITY
   MARKETING
@@ -496,8 +673,8 @@ model Template {
   // Quality tracking
   qualityScore    String?          // GREEN, YELLOW, RED from Meta
   
-  createdById     String
-  createdBy       User             @relation(fields: [createdById], references: [id])
+  createdById     String?
+  createdBy       User?            @relation(fields: [createdById], references: [id], onDelete: SetNull)
   
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
@@ -551,8 +728,8 @@ model Broadcast {
   batchSize       Int              @default(50)   // messages per batch
   batchDelayMs    Int              @default(1000)  // delay between batches
   
-  createdById     String
-  createdBy       User             @relation(fields: [createdById], references: [id])
+  createdById     String?
+  createdBy       User?            @relation(fields: [createdById], references: [id], onDelete: SetNull)
   
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
@@ -606,4 +783,562 @@ model BroadcastRecipient {
   @@index([broadcastId, status])
   @@index([wamid])
   @@index([status])
+}
+
+
+
+//──────────────────Model Notification belongs to Tenant──────────────────
+model Notification {
+  id             String   @id @default(cuid())
+  tenantId       String
+  userId         String?  // null = for tenant admin
+  type           String   // new_message / contact_assigned / conversation_reopened / broadcast_completed
+  title          String
+  message        String
+  isRead         Boolean  @default(false)
+  metadata       Json?    // extra data like conversationId, contactId
+  createdAt      DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([isRead])
+}
+
+
+//─────────────Model Notification belongs to SuperAdmin ─────────────
+model SuperAdminNotification {
+  id        String   @id @default(cuid())
+  // NO tenantId   ← superadmin is above all tenants
+  // NO userId     ← not a tenant user
+  type      String   // superadmin-specific types only
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  metadata  Json?    // tenantId, planName, amount stored HERE
+  createdAt DateTime @default(now())
+
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TicketCategory {
+  BILLING
+  TECHNICAL
+  FEATURE
+  GENERAL
+  ACCOUNT
+}
+
+enum TicketRaisedBy {
+  TENANT
+  USER
+}
+
+model Ticket {
+  id           String         @id @default(cuid())
+  ticketNumber String         @unique
+
+  title        String
+  description  String
+
+  category     TicketCategory @default(GENERAL)
+  priority     TicketPriority @default(LOW)
+  status       TicketStatus   @default(OPEN)
+
+  attachmentUrl  String? 
+
+  raisedBy     TicketRaisedBy
+
+  // Which tenant this belongs to
+  tenantId     String
+  tenant       Tenant         @relation(fields: [tenantId], references: [id])
+
+  // If raised by user
+  userId       String?
+  user         User?          @relation(fields: [userId], references: [id])
+
+  // Escalated to superadmin
+  isEscalated  Boolean        @default(false)
+
+  messages     TicketMessage[]
+
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([isEscalated])
+}
+
+model TicketMessage {
+  id         String     @id @default(cuid())
+  ticketId   String
+  ticket     Ticket     @relation(fields: [ticketId], references: [id])
+
+  message    String
+  isInternal Boolean    @default(false)
+
+  sentBy     SenderType // ← existing enum reused
+
+  // Only one filled based on sentBy
+  tenantId     String?
+  userId       String?
+  superAdminId String?
+
+  createdAt  DateTime   @default(now())
+
+  @@index([ticketId])
+}
+
+
+
+// ──────────────────────────────────────────
+// CHAT AUTOMATION - MODEL
+// ──────────────────────────────────────────
+
+enum FlowNodeType {
+  SEND_MESSAGE
+  ASK_QUESTION
+  CONDITION
+  ASSIGN_AGENT
+  END_FLOW
+  INTERACTIVE_BUTTONS
+}
+
+enum ConversationMode {
+  BOT       // bot is handling
+  AGENT     // human agent handling
+  QUEUED    // waiting for agent
+}
+
+// ──────────────────────────────────────────
+// ADD Flow MODEL
+// ──────────────────────────────────────────
+
+model Flow {
+  id             String     @id @default(cuid())
+  tenantId       String
+  tenant         Tenant     @relation(fields: [tenantId], references: [id])
+
+  name           String
+  keywords    KeywordTrigger[]
+  isActive       Boolean    @default(false)
+  isDefault      Boolean    @default(false)
+  // isDefault = true means
+  // this flow runs when no keyword matches
+
+  nodes          FlowNode[]
+
+  conversations  Conversation[] @relation("ConversationFlow")
+
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, isActive])
+}
+
+// ──────────────────────────────────────────
+// ADD FlowNode MODEL
+// ──────────────────────────────────────────
+
+model FlowNode {
+  id          String       @id @default(cuid())
+
+  flowId      String
+  flow        Flow         @relation(fields: [flowId], references: [id], onDelete: Cascade)
+
+  type        FlowNodeType
+  // SEND_MESSAGE → just sends text
+  // ASK_QUESTION → sends text + waits for reply
+  // CONDITION    → checks user reply and branches
+  // ASSIGN_AGENT → hands off to human
+  // END_FLOW     → ends the automation
+
+  content     String?
+  // Text to send (for SEND_MESSAGE / ASK_QUESTION)
+
+  options     Json?
+  // For CONDITION node:
+  // [
+  //   { "value": "1", "nextNodeId": "clx..." },
+  //   { "value": "2", "nextNodeId": "clx..." },
+  //   { "default": true, "nextNodeId": "clx..." }
+  // ]
+  //
+  // For ASK_QUESTION node:
+  // { "saveAs": "customer_name" }
+  // saves user reply as attribute
+
+  nextNodeId  String?
+  // Points to next node id
+  // (used by SEND_MESSAGE and ASK_QUESTION)
+
+  position    Json?
+  // UI position: { "x": 100, "y": 200 }
+  // Only for frontend flow builder display
+
+  order       Int          @default(0)
+  // order of node in flow (1,2,3...)
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([flowId])
+  @@index([flowId, order])
+}
+
+
+// ── KEYWORDTRIGGER MODEL ──
+model KeywordTrigger {
+  id        String   @id @default(cuid())
+
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+
+  flowId    String
+  flow      Flow     @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  // onDelete Cascade = if flow deleted, keywords also deleted
+
+  keyword   String
+  // "hi", "hello", "hey", "support" etc.
+
+  category  String?
+  // "greeting", "support", "sales", "order"
+  // optional - just for organizing
+
+  createdAt DateTime @default(now())
+
+  @@unique([tenantId, keyword])
+  // Same keyword cannot be used in
+  // two different flows of same tenant
+
+  @@index([tenantId])
+  @@index([flowId])
+  @@index([tenantId, keyword])
+}
+
+// ──────────────────────────────────────────
+// PUBLIC ENQUIRY FORM SYSTEM
+// ──────────────────────────────────────────
+
+enum EnquiryStatus {
+  new
+  read
+  replied
+  closed
+}
+
+model Enquiry {
+  id        String        @id @default(uuid())
+  name      String
+  email     String
+  subject   String?
+  message   String        @db.Text
+  status    EnquiryStatus @default(new)
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+
+  @@map("enquiries")
+}
+
+// ──────────────────────────────────────────
+// ENTERPRISE LEAD SYSTEM
+// ──────────────────────────────────────────
+
+enum EnterpriseCompanySize {
+  size_1_10     @map("1-10")
+  size_11_50    @map("11-50")
+  size_51_200   @map("51-200")
+  size_200_plus @map("200+")
+}
+
+enum EnterpriseTimeline {
+  urgent
+  months_1_3 @map("1-3months")
+  exploring
+}
+
+enum EnterprisePreferredContact {
+  email
+  phone
+  video_call
+}
+
+enum EnterpriseLeadStatus {
+  pending
+  contacted
+  negotiating
+  converted
+  rejected
+}
+
+model EnterpriseLead {
+  id                  String                     @id @default(uuid())
+  tenantId            String                     @map("tenant_id")
+  tenant              Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyName         String                     @map("company_name")
+  contactName         String                     @map("contact_name")
+  email               String
+  phone               String?
+  role                String?
+  companySize         EnterpriseCompanySize      @map("company_size")
+  estimatedUsers      Int?                       @map("estimated_users")
+  requirements        String?                    @db.Text
+  timeline            EnterpriseTimeline
+  preferredContact    EnterprisePreferredContact @map("preferred_contact")
+  status              EnterpriseLeadStatus       @default(pending)
+  internalNotes       String?                    @db.Text @map("internal_notes")
+  history             Json?                      @default("[]")
+  
+  activatedAt         DateTime?                  @map("activated_at")
+  activatedByAdminId  String?                    @map("activated_by_admin_id")
+  activatedByAdmin    SuperAdmin?                @relation(fields: [activatedByAdminId], references: [id])
+  
+  createdAt           DateTime                   @default(now()) @map("created_at")
+  updatedAt           DateTime                   @updatedAt @map("updated_at")
+
+  @@map("enterprise_leads")
+}
+
+// ── ADD SUBSCRIPTION & BILLING ENUMS ──
+enum SubscriptionStatus {
+  trialing
+  active
+  cancel_at_period_end
+  expired
+  paused
+}
+enum InvoiceStatus {
+  paid
+  failed
+  refunded
+}
+enum CancellationReason {
+  too_expensive
+  missing_features
+  switching_tool
+  not_using_enough
+  other
+}
+enum CompanySize {
+  size_1_10
+  size_11_50
+  size_51_200
+  size_200_plus
+}
+enum ContactTimeline {
+  urgent
+  one_to_3_months
+  exploring
+}
+enum PreferredContact {
+  email
+  phone
+  video_call
+}
+
+// ── NEW MODEL: Invoice ──
+model Invoice {
+  id                   String        @id @default(uuid())
+  tenantId             String
+  invoiceNumber        String        @unique
+  planName             String
+  amount               Decimal       @db.Decimal(10, 2)
+
+  baseAmount           Decimal?      @db.Decimal(10, 2)
+  gstEnabled           Boolean       @default(true)
+  gstPercent           Float?        @default(18)
+  gstAmount            Decimal?      @db.Decimal(10, 2)
+  gstType              String?       @default("CGST_SGST")
+
+  currency             String        @default("USD")
+  status               InvoiceStatus @default(paid)
+  billingPeriodStart   DateTime
+  billingPeriodEnd     DateTime
+  paymentMethodLast4   String?
+  paymentMethodBrand   String?
+  pdfUrl               String?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  tenant               Tenant        @relation(fields: [tenantId], references: [id])
+}
+
+// ── NEW MODEL: CancellationSurvey ──
+model CancellationSurvey {
+  id                   String              @id @default(uuid())
+  tenantId             String              @unique
+  reason               CancellationReason
+  additionalComment    String?
+  createdAt            DateTime            @default(now())
+  tenant               Tenant              @relation(fields: [tenantId], references: [id])
+}
+
+// ── NEW MODEL: TenantDataDeletion ──
+model TenantDataDeletion {
+  id                   String    @id @default(uuid())
+  tenantId             String
+  deletedAt            DateTime  @default(now())
+  deletedBy            String    @default("system")
+  note                 String?
+  tenant               Tenant    @relation(fields: [tenantId], references: [id])
+}
+
+// ── NEW MODEL: SubscriptionReminder ──
+model SubscriptionReminder {
+  id           String   @id @default(uuid())
+  tenantId     String
+  reminderType String
+  sentAt       DateTime @default(now())
+
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+}
+
+
+
+// ──────────────────────────────────────────
+// AUDIT LOG SYSTEM
+// ──────────────────────────────────────────
+
+enum AuditAction {
+  // ── AUTH ──
+  LOGIN
+  LOGOUT
+  LOGIN_FAILED
+  PASSWORD_RESET_REQUESTED
+  PASSWORD_RESET_COMPLETED
+  PASSWORD_CHANGED  
+
+  // ── TENANT MANAGEMENT ──
+  TENANT_CREATED
+  TENANT_UPDATED
+  TENANT_DELETED
+  TENANT_APPROVED
+  TENANT_BLOCKED
+  TENANT_UNBLOCKED
+  TENANT_DEACTIVATED
+  TENANT_REACTIVATED
+
+  // ── USER MANAGEMENT ──
+  USER_DEACTIVATED
+  USER_REACTIVATED
+
+  // ── BILLING ──
+  PAYMENT_SUCCESS
+  PAYMENT_FAILED
+  PLAN_ACTIVATED
+  PLAN_CHANGED
+  PLAN_CANCELLED
+
+  // ── TICKET ──
+  TICKET_CREATED
+  TICKET_ESCALATED
+  TICKET_RESOLVED
+
+  // ── SYSTEM ──
+  SYSTEM_CLEANUP
+
+   // ── CONVERSATIONS ──      
+  BULK_REASSIGN
+  CONVERSATION_ASSIGNED
+
+  // ── SETTINGS ──        
+  GST_SETTINGS_UPDATED 
+}
+
+enum AuditModule {
+  AUTH
+  TENANT
+  USER
+  BILLING
+  TICKET
+  SYSTEM
+  CONVERSATIONS 
+  SETTINGS
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+
+  // ── WHO did it ──
+  actorId     String
+  actorType   SenderType       // reuse your existing enum
+  actorName   String           // snapshot
+  actorEmail  String           // snapshot
+
+  // ── WHAT they did ──
+  action      AuditAction
+  module      AuditModule
+  description String
+
+  // ── ON WHAT (target) ──
+  targetId    String?
+  targetType  String?
+  targetName  String?
+
+  // ── WHERE from ──
+  ipAddress   String?
+  userAgent   String?
+
+  // ── EXTRA DATA ──
+  metadata    Json?
+
+  // ── SCOPE ──
+  // null  = superadmin level action
+  // set   = tenant or user level action
+  tenantId    String?
+  tenant      Tenant?  @relation("TenantAuditLogs", fields: [tenantId], references: [id], onDelete: SetNull)
+
+  createdAt   DateTime @default(now())
+
+  @@index([actorId])
+  @@index([actorType])
+  @@index([action])
+  @@index([module])
+  @@index([tenantId])
+  @@index([createdAt])
+  @@index([actorType, createdAt])
+  @@index([tenantId,  createdAt])
+  @@index([module,    action])
+}
+
+
+
+//─────────────────PLATFORM SETTING MODEL─────────────────────────
+model PlatformSettings {
+  id               String   @id @default(cuid())
+
+  // ── GST Settings ──
+  gstEnabled       Boolean  @default(true)
+  gstPercent       Float    @default(18.0)
+  gstType          String   @default("CGST_SGST")
+  companyGstNumber String   @default("27AABCU9603R1ZM")
+  pricingType      String   @default("EXCLUSIVE")
+
+  // ── Company Info ──
+  companyName      String   @default("SudoReply Technologies Pvt Ltd")
+  companyEmail     String   @default("support@sudoreply.com")
+  companyAddress   String   @default("Mumbai, Maharashtra, India")
+  sacCode          String   @default("998314")
+
+  updatedAt        DateTime @updatedAt
+  updatedBy        String?
+
+  @@map("platform_settings")
 }

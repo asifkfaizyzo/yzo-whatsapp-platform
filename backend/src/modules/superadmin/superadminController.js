@@ -1,47 +1,37 @@
-import bcrypt from 'bcrypt';
-import pkg from '@prisma/client';
-
-import {generateAccessToken, generateRefreshToken} from '../auth/jwtservice.js';
-import {createSuperAdminService,loginSuperAdminService,logoutSuperAdminService,
-        refreshAccessTokenService,getAllTenantsService,getTenantByIdService,
-        updateTenantByIdService,deactivateTenantService,reactivateTenantService,
-        deleteTenantByIdService,approveTenantService,blockTenantService,
-        unblockTenantService,forgotPasswordSuperAdminService,resetPasswordSuperAdminService
-        ,deactivateUserService,reactivateUserService
-      } from './superadminService.js';
-
-
-
-
-
-// // 1️⃣ Create SuperAdmin
-// export const createSuperAdmin = async (req, res) => {
-//   try {
-//     const result = await createSuperAdminService(req.body);
-//     console.log('SuperAdmin created:', result);
-
-//     return res.status(201).json({
-//       success: true,
-//       message: 'SuperAdmin created successfully',
-//       data: result,
-//     });
-//   } catch (error) {
-//     return res.status(400).json({
-//       success: false,
-//       message: error.message,
-//     });
-//   }
-// };
+import path from 'path';
+import fs from 'fs';
+import prisma from '../../config/prisma.js';
+import { extractRequestMeta } from '../../lib/utils/requestMeta.js';
+import {
+  createSuperAdminService,
+  loginSuperAdminService,
+  logoutSuperAdminService,
+  refreshAccessTokenService,
+  getAllTenantsService,
+  getTenantByIdService,
+  updateTenantByIdService,
+  deactivateTenantService,
+  reactivateTenantService,
+  deleteTenantByIdService,
+  approveTenantService,
+  blockTenantService,
+  unblockTenantService,
+  forgotPasswordSuperAdminService,
+  resetPasswordSuperAdminService,
+  deactivateUserService,
+  reactivateUserService,
+  getRevenueStatsService,
+  getAllPaymentsService,
+  getTenantBillingService,
+} from './superadminService.js';
 
 
-// 2️⃣ SuperAdmin Creation
-export const createSuperAdmin = async (req,res) => {
+// ═══════════════════════════════════════════
+// CREATE SUPERADMIN — no audit needed
+// ═══════════════════════════════════════════
+export const createSuperAdmin = async (req, res) => {
   try {
-    const result =
-      await createSuperAdminService(
-        req.body
-      );
-
+    const result = await createSuperAdminService(req.body);
     return res.status(201).json({
       success: true,
       message: 'SuperAdmin created successfully',
@@ -56,133 +46,28 @@ export const createSuperAdmin = async (req,res) => {
 };
 
 
-// 3️⃣ SuperAdmin Login
-export const loginSuperAdmin =
-  async (req, res) => {
-    try {
-      const result =
-        await loginSuperAdminService(
-          req.body
-        );
-
-      const { accessToken, refreshToken, user } = result;
-
-      // Set HTTP-Only Cookie for the refresh token
-      res.cookie('refreshToken', refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-        path: '/',
-      });
-
-      return res.status(200).json({
-        success: true,
-        message:'SuperAdmin logged in successfully',
-        data: {
-          user,
-          accessToken,
-        },
-      });
-    } catch (error) {
-      return res.status(400).json({
-        success: false,
-        message: error.message,
-      });
-    }
-  };
-
-
-
-
-  // 4️⃣ SuperAdmin Logout 
- export const logoutSuperAdmin =
-  async (req, res) => {
-    try {
-
-      const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
-        console.log("Logout request body/cookie token:", refreshToken);
-
-      if (refreshToken) {
-        await logoutSuperAdminService(refreshToken);
-      }
-
-      // Clear cookie
-      res.clearCookie('refreshToken', {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-        path: '/',
-      });
-
-      return res.status(200).json({
-        success: true,
-        message: 'Logout successful',
-      });
-
-    } catch (error) {
-
-      return res.status(400).json({
-        success: false,
-        message: error.message,
-      });
-
-    }
-  };
-
-  
-  
-
-//generating access token when access token expires
-  export const refreshAccessTokenController =
-  async (req, res) => {
-    try {
-      // 1️⃣ Get refresh token from cookie or body
-      const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
-
-      if (!refreshToken) {
-        return res.status(401).json({
-          success: false,
-          message: 'Refresh token not found in cookies or body',
-        });
-      }
-
-      // 2️⃣ Call service
-      const result =
-        await refreshAccessTokenService(
-          refreshToken
-        );
-
-      // 3️⃣ Send response
-      return res.status(200).json({
-        success: true,
-        message:
-          'Access token refreshed successfully',
-        accessToken:
-          result.accessToken,
-      });
-
-    } catch (error) {
-
-      return res.status(401).json({
-        success: false,
-        message: error.message,
-      });
-
-    }
-  };
-
-
-
-
-// ===================== FORGOT PASSWORD =====================
-export const forgotPasswordSuperAdmin = async (req, res) => {
+// ═══════════════════════════════════════════
+// LOGIN — pass meta for audit
+// ═══════════════════════════════════════════
+export const loginSuperAdmin = async (req, res) => {
   try {
-    const { email } = req.body;
-    const result = await forgotPasswordSuperAdminService(email);
+    const meta = extractRequestMeta(req);
+    const result = await loginSuperAdminService(req.body, meta);
+
+    const { accessToken, refreshToken, user } = result;
+
+    res.cookie('admin_refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/',
+    });
+
     return res.status(200).json({
       success: true,
-      data: result,
+      message: 'SuperAdmin logged in successfully',
+      data: { user, accessToken },
     });
   } catch (error) {
     return res.status(400).json({
@@ -192,7 +77,86 @@ export const forgotPasswordSuperAdmin = async (req, res) => {
   }
 };
 
-// ===================== RESET PASSWORD =====================
+
+// ═══════════════════════════════════════════
+// LOGOUT — pass meta for audit
+// ═══════════════════════════════════════════
+export const logoutSuperAdmin = async (req, res) => {
+  try {
+    const meta = extractRequestMeta(req);
+    const refreshToken = req.cookies.admin_refreshToken || req.cookies.refreshToken || req.body.refreshToken;
+
+    if (refreshToken) {
+      await logoutSuperAdminService(refreshToken, meta);
+    }
+
+    res.clearCookie('admin_refreshToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      path: '/',
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Logout successful',
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
+// ═══════════════════════════════════════════
+// REFRESH TOKEN — no audit needed
+// ═══════════════════════════════════════════
+export const refreshAccessTokenController = async (req, res) => {
+  try {
+    const refreshToken = req.cookies.admin_refreshToken || req.cookies.refreshToken || req.body.refreshToken;
+
+    if (!refreshToken) {
+      return res.status(401).json({
+        success: false,
+        message: 'Refresh token not found in cookies or body',
+      });
+    }
+
+    const result = await refreshAccessTokenService(refreshToken);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Access token refreshed successfully',
+      accessToken: result.accessToken,
+    });
+  } catch (error) {
+    return res.status(401).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
+// ═══════════════════════════════════════════
+// FORGOT PASSWORD — no audit needed
+// ═══════════════════════════════════════════
+export const forgotPasswordSuperAdmin = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const result = await forgotPasswordSuperAdminService(email);
+    return res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+
+// ═══════════════════════════════════════════
+// RESET PASSWORD — no audit needed
+// ═══════════════════════════════════════════
 export const resetPasswordSuperAdmin = async (req, res) => {
   try {
     const { token, newPassword, confirmPassword } = req.body;
@@ -201,21 +165,17 @@ export const resetPasswordSuperAdmin = async (req, res) => {
       newPassword,
       confirmPassword
     );
-    return res.status(200).json({
-      success: true,
-      data: result,
-    });
+    return res.status(200).json({ success: true, data: result });
   } catch (error) {
-    return res.status(400).json({
-      success: false,
-      message: error.message,
-    });
+    return res.status(400).json({ success: false, message: error.message });
   }
 };
 
 
-  //get all tenants by superadmin
-  export const getAllTenants = async (req, res) => {
+// ═══════════════════════════════════════════
+// GET ALL TENANTS — no audit needed (just reading)
+// ═══════════════════════════════════════════
+export const getAllTenants = async (req, res) => {
   try {
     const result = await getAllTenantsService();
     return res.status(200).json({ success: true, data: result });
@@ -225,8 +185,9 @@ export const resetPasswordSuperAdmin = async (req, res) => {
 };
 
 
-
-//Get tenant by id by superadmin
+// ═══════════════════════════════════════════
+// GET TENANT BY ID — no audit needed (just reading)
+// ═══════════════════════════════════════════
 export const getTenantById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -238,28 +199,32 @@ export const getTenantById = async (req, res) => {
 };
 
 
-
-//update tenant by id by superadmin
+// ═══════════════════════════════════════════
+// UPDATE TENANT — pass actor + meta
+// ═══════════════════════════════════════════
 export const updateTenantById = async (req, res) => {
   try {
-    // Tenant ID from URL params
+    const meta = extractRequestMeta(req);
+    const actor = req.superAdmin;
     const { id } = req.params;
-    // Data from request body
     const data = req.body;
-    const result = await updateTenantByIdService(id, data);
-    return res.status(200).json({ success: true, data: result,});
+    const result = await updateTenantByIdService(id, data, actor, meta);
+    return res.status(200).json({ success: true, data: result });
   } catch (error) {
-    return res.status(400).json({ success: false, message: error.message});
+    return res.status(400).json({ success: false, message: error.message });
   }
 };
 
 
-
-//deactivate tenant by id by superadmin
+// ═══════════════════════════════════════════
+// DEACTIVATE TENANT — pass actor + meta
+// ═══════════════════════════════════════════
 export const deactivateTenant = async (req, res) => {
   try {
+    const meta = extractRequestMeta(req);
+    const actor = req.superAdmin;
     const { id } = req.params;
-    const result = await deactivateTenantService(id);
+    const result = await deactivateTenantService(id, actor, meta);
     return res.status(200).json({ success: true, data: result });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
@@ -267,12 +232,15 @@ export const deactivateTenant = async (req, res) => {
 };
 
 
-
-//Reactivate tenant by id by superadmin
+// ═══════════════════════════════════════════
+// REACTIVATE TENANT — pass actor + meta
+// ═══════════════════════════════════════════
 export const reactivateTenant = async (req, res) => {
   try {
+    const meta = extractRequestMeta(req);
+    const actor = req.superAdmin;
     const { id } = req.params;
-    const result = await reactivateTenantService(id);
+    const result = await reactivateTenantService(id, actor, meta);
     return res.status(200).json({ success: true, data: result });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
@@ -280,27 +248,31 @@ export const reactivateTenant = async (req, res) => {
 };
 
 
-
-
-//Delete tenant by id by superadmin
+// ═══════════════════════════════════════════
+// DELETE TENANT — pass actor + meta
+// ═══════════════════════════════════════════
 export const deleteTenantById = async (req, res) => {
   try {
+    const meta = extractRequestMeta(req);
+    const actor = req.superAdmin;
     const { id } = req.params;
-    const result = await deleteTenantByIdService(id);
-    return res.status(200).json({ success: true, data: result,
-    });
+    const result = await deleteTenantByIdService(id, actor, meta);
+    return res.status(200).json({ success: true, data: result });
   } catch (error) {
-    return res.status(400).json({ success: false, message: error.message,});
+    return res.status(400).json({ success: false, message: error.message });
   }
 };
 
 
-
-//Approve Tenant service by superadmin
+// ═══════════════════════════════════════════
+// APPROVE TENANT — pass actor + meta
+// ═══════════════════════════════════════════
 export const approveTenant = async (req, res) => {
   try {
+    const meta = extractRequestMeta(req);
+    const actor = req.superAdmin;
     const { id } = req.params;
-    const result = await approveTenantService(id);
+    const result = await approveTenantService(id, actor, meta);
     return res.status(200).json({ success: true, data: result });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
@@ -308,11 +280,15 @@ export const approveTenant = async (req, res) => {
 };
 
 
-//Block Tenant service by superadmin
+// ═══════════════════════════════════════════
+// BLOCK TENANT — pass actor + meta
+// ═══════════════════════════════════════════
 export const blockTenant = async (req, res) => {
   try {
+    const meta = extractRequestMeta(req);
+    const actor = req.superAdmin;
     const { id } = req.params;
-    const result = await blockTenantService(id);
+    const result = await blockTenantService(id, actor, meta);
     return res.status(200).json({ success: true, data: result });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
@@ -320,11 +296,15 @@ export const blockTenant = async (req, res) => {
 };
 
 
-//Unblock Tenant service by superadmin
+// ═══════════════════════════════════════════
+// UNBLOCK TENANT — pass actor + meta
+// ═══════════════════════════════════════════
 export const unblockTenant = async (req, res) => {
   try {
+    const meta = extractRequestMeta(req);
+    const actor = req.superAdmin;
     const { id } = req.params;
-    const result = await unblockTenantService(id);
+    const result = await unblockTenantService(id, actor, meta);
     return res.status(200).json({ success: true, data: result });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
@@ -332,24 +312,202 @@ export const unblockTenant = async (req, res) => {
 };
 
 
-// Deactivate individual tenant user by Super Admin
+// ═══════════════════════════════════════════
+// DEACTIVATE USER — pass actor + meta
+// ═══════════════════════════════════════════
 export const deactivateUser = async (req, res) => {
   try {
+    const meta = extractRequestMeta(req);
+    const actor = req.superAdmin;
     const { id } = req.params;
-    const result = await deactivateUserService(id);
+    const result = await deactivateUserService(id, actor, meta);
     return res.status(200).json({ success: true, data: result });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
   }
 };
 
-// Reactivate individual tenant user by Super Admin
+
+// ═══════════════════════════════════════════
+// REACTIVATE USER — pass actor + meta
+// ═══════════════════════════════════════════
 export const reactivateUser = async (req, res) => {
   try {
+    const meta = extractRequestMeta(req);
+    const actor = req.superAdmin;
     const { id } = req.params;
-    const result = await reactivateUserService(id);
+    const result = await reactivateUserService(id, actor, meta);
     return res.status(200).json({ success: true, data: result });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+
+// ═══════════════════════════════════════════
+// REVENUE — no audit needed (just reading)
+// ═══════════════════════════════════════════
+export const getRevenueStats = async (req, res) => {
+  try {
+    const result = await getRevenueStatsService();
+    return res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getAllPayments = async (req, res) => {
+  try {
+    const result = await getAllPaymentsService();
+    return res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getTenantBilling = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await getTenantBillingService(id);
+    return res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+
+// ═══════════════════════════════════════════
+// DOWNLOAD INVOICE — no audit needed
+// ═══════════════════════════════════════════
+export const adminDownloadInvoice = async (req, res) => {
+  try {
+    const { paymentId } = req.params;
+
+    const payment = await prisma.payment.findUnique({
+      where: { id: paymentId },
+      include: { tenant: true },
+    });
+
+    if (!payment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Payment not found',
+      });
+    }
+
+    let filePath;
+    let fileName;
+
+    // Generate invoice if not exists
+    if (!payment.invoiceUrl) {
+      const { generateInvoicePDF } = await import('../plans/invoiceService.js');
+
+      const generated = await generateInvoicePDF(payment, payment.tenant);
+      filePath = generated.filePath;
+      fileName = `${generated.invoiceNumber}.pdf`;
+
+      await prisma.payment.update({
+        where: { id: paymentId },
+        data: { invoiceUrl: generated.fileUrl },
+      });
+    } else {
+      filePath = path.join(process.cwd(), payment.invoiceUrl);
+      fileName = path.basename(payment.invoiceUrl);
+
+      if (!fs.existsSync(filePath)) {
+        const { generateInvoicePDF } = await import('../plans/invoiceService.js');
+        const generated = await generateInvoicePDF(payment, payment.tenant);
+        filePath = generated.filePath;
+        fileName = `${generated.invoiceNumber}.pdf`;
+      }
+    }
+
+    return res.download(filePath, fileName);
+  } catch (error) {
+    if (!res.headersSent) {
+      return res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+    }
+  }
+};
+
+
+// ══════════════════════════════════════════
+// GST SETTINGS
+// ══════════════════════════════════════════
+
+// ── GET GST Settings ──
+export const getGSTSettings = async (req, res) => {
+  try {
+    const { getGSTSettingsService } = await import('./superadminService.js');
+    const settings = await getGSTSettingsService();
+    return res.status(200).json({
+      success: true,
+      message: "GST settings fetched successfully",
+      data:    settings,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ── UPDATE GST Settings ──
+export const updateGSTSettings = async (req, res) => {
+  try {
+    const { updateGSTSettingsService } = await import('./superadminService.js');
+
+    const actor = {
+      id:    req.superAdmin.id,
+      name:  req.superAdmin.name,
+      email: req.superAdmin.email,
+    };
+    const meta = extractRequestMeta(req);
+
+    const updated = await updateGSTSettingsService(req.body, actor, meta);
+
+    return res.status(200).json({
+      success: true,
+      message: `GST settings updated — GST is now ${updated.gstEnabled ? "ENABLED ✅" : "DISABLED ❌"}`,
+      data:    updated,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
+
+// ══════════════════════════════════════════
+// PUBLIC GST SETTINGS (for tenant checkout)
+// No auth required — returns only safe fields
+// ══════════════════════════════════════════
+export const getPublicGSTSettings = async (req, res) => {
+  try {
+    const { getGSTSettingsService } = await import('./superadminService.js');
+    const settings = await getGSTSettingsService();
+
+    // Only expose safe, non-sensitive fields
+    return res.status(200).json({
+      success: true,
+      data: {
+        gstEnabled:  settings.gstEnabled,
+        gstPercent:  settings.gstPercent,
+        gstType:     settings.gstType,
+        pricingType: settings.pricingType,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };

@@ -1,5 +1,10 @@
 import express from 'express';
 import * as superAdminController from './superadminController.js';
+import {
+  getAllPayments, getTenantBilling, adminDownloadInvoice,
+  getGSTSettings, updateGSTSettings,
+} from './superadminController.js';
+
 import {verifySuperAdmin} from '../../middlewares/authSuperAdmin.js';
 
 import { createSuperAdminSchema, updateTenantByAdminSchema, superAdminIdParamSchema } from '../../validations/superAdmin.validation.js';
@@ -11,7 +16,7 @@ const router = express.Router();
 
 // router.post('/create',superAdminController.createSuperAdmin);
 //SuperAdmin Auth Routes
-router.post('/create', validate(createSuperAdminSchema), superAdminController.createSuperAdmin);
+router.post('/create',verifySuperAdmin, validate(createSuperAdminSchema), superAdminController.createSuperAdmin);
 
 router.post('/login', validate(loginSchema), superAdminController.loginSuperAdmin);
 
@@ -62,5 +67,28 @@ router.patch('/unblock-tenant/:id', verifySuperAdmin, superAdminController.unblo
 router.patch('/users/:id/deactivate', verifySuperAdmin, superAdminController.deactivateUser);
 
 router.patch('/users/:id/reactivate', verifySuperAdmin, superAdminController.reactivateUser);
+
+// ── Revenue Routes ──
+router.get('/revenue/payments', verifySuperAdmin, getAllPayments);
+router.get('/revenue/tenant/:id', verifySuperAdmin, getTenantBilling);
+router.get('/revenue/invoice/:paymentId', verifySuperAdmin, adminDownloadInvoice);
+
+// ══════════════════════════════════════
+// GST / TAX SETTINGS
+// ══════════════════════════════════════
+// ── GST / Tax Settings Routes ──
+router.get('/settings/tax', verifySuperAdmin, getGSTSettings);
+router.put('/settings/tax', verifySuperAdmin, updateGSTSettings);
+
+// ══════════════════════════════════════
+// OPERATIONAL PLATFORM REPORTS
+// ══════════════════════════════════════
+import * as reportsController from './reportsController.js';
+
+router.get('/reports/kpis', verifySuperAdmin, reportsController.getReportKPIs);
+router.get('/reports/messages', verifySuperAdmin, reportsController.getReportMessages);
+router.get('/reports/delivery', verifySuperAdmin, reportsController.getReportDelivery);
+router.get('/reports/tenants', verifySuperAdmin, reportsController.getReportTenants);
+router.get('/reports/system-health', verifySuperAdmin, reportsController.getReportSystemHealth);
 
 export default router;

@@ -22,14 +22,17 @@ export default function AdminLayout() {
   const userRole = user?.type === "SUPERADMIN" ? "Super Admin" : (user?.name || "Admin");
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#f8fafc] overflow-hidden">
-      {/* Top Navigation Bar */}
-      <TopNavbar />
-      
-      {/* Main Content Layout with Sidebar */}
-      <div className="flex flex-1 overflow-hidden">
-        <Sidebar userRole={userRole} />
-        <main className="flex-1 p-6 lg:p-8 overflow-y-auto max-h-[calc(100vh-64px)]">
+    <div className="min-h-screen flex bg-[#f8fafc] overflow-hidden">
+      {/* Sidebar (fixed full-height) + Spacer */}
+      <Sidebar userRole={userRole} />
+
+      {/* Right side: Header + Content */}
+      <div className="flex-1 flex flex-col overflow-hidden min-h-screen">
+        {/* Top Navigation Bar */}
+        <TopNavbar />
+
+        {/* Dynamic Content Panel */}
+        <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
           <Outlet />
         </main>
       </div>

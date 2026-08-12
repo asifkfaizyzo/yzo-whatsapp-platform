@@ -226,3 +226,28 @@ main()
     process.exit(1);
   })
   .finally(() => prisma.$disconnect());
+
+
+  
+
+  // ══════════════════════════════════════
+// Step 3: Seed Platform Settings (GST)
+// ══════════════════════════════════════
+await prisma.platformSettings.upsert({
+  where:  { id: "GLOBAL" },
+  update: {},
+  create: {
+    id:               "GLOBAL",
+    gstEnabled:       true,
+    gstPercent:       18.0,
+    gstType:          "CGST_SGST",
+    companyGstNumber: "27AABCU9603R1ZM",
+    pricingType:      "EXCLUSIVE",
+    companyName:      "SudoReply Technologies Pvt Ltd",
+    companyEmail:     "support@sudoreply.com",
+    companyAddress:   "Mumbai, Maharashtra, India",
+    sacCode:          "998314",
+  },
+});
+
+console.log("✅ Platform Settings (GST) seeded\n");

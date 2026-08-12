@@ -31,3 +31,13 @@ export const launchBroadcast = async (campaignData) => {
     return { success: false, message: error.response?.data?.message || "Failed to launch broadcast" };
   }
 };
+
+// 4. Cancel a scheduled or processing campaign
+export const cancelBroadcast = async (campaignId) => {
+  try {
+    const response = await api.post(`${BROADCAST_BASE_URL}/${campaignId}/cancel`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, message: error.response?.data?.message || "Failed to cancel broadcast" };
+  }
+};

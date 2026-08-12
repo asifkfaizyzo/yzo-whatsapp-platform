@@ -1,6 +1,8 @@
 import prisma from '../../config/prisma.js';
 import { getOrCreateConversation } from '../conversations/conversationService.js';
 import { emitToTenant } from '../../lib/socket.js';
+import { decrypt } from '../../lib/crypto.js';
+import { broadcastQueue } from '../../queues/broadcastQueue.js';
 
 // Send individual Template request to Meta Cloud API
 const sendMetaTemplateMessage = async (tenant, phone, templateName, languageCode, params) => {
@@ -31,7 +33,7 @@ const sendMetaTemplateMessage = async (tenant, phone, templateName, languageCode
   const response = await fetch(url, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${tenant.whatsappAccessToken}`,
+      'Authorization': `Bearer ${decrypt(tenant.whatsappAccessToken)}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify(payload)
@@ -105,121 +107,41 @@ const simulateRecipientReceipt = (tenantId, broadcastId, recipientId, wamid) => 
   }, 2000);
 };
 
-export const processBroadcastCampaign = async (broadcastId, tenant, contacts, template, defaultParams) => {
-  const hasMetaConfig = tenant.whatsappWabaId && tenant.whatsappAccessToken && tenant.whatsappPhoneId;
-  
-  // Extract body component text from local template model
-  const bodyComp = (template.components || []).find(c => c.type === 'BODY');
-  const templateText = bodyComp ? bodyComp.text : '';
-
-  let sentCount = 0;
-  let failedCount = 0;
-
-  for (const contact of contacts) {
-    const wamid = hasMetaConfig
-      ? null
-      : `wamid.mock_${broadcastId}_${contact.id}_${Date.now()}`;
-
-    // Resolve parameters values (e.g. replace special tags like '{{contact_name}}' with contact.name)
-    const bodyParams = (defaultParams?.body || []).map(val => {
-      if (val === '{{contact_name}}') return contact.name;
-      if (val === '{{contact_phone}}') return contact.phone;
-      if (val === '{{contact_company}}') return contact.company || '';
-      return val;
-    });
-
-    const parsedText = formatMessageText(templateText, bodyParams);
-
-    try {
-      if (hasMetaConfig) {
-        // Send via Real Meta API
-        const metaRes = await sendMetaTemplateMessage(tenant, contact.phone, template.name, template.language, { body: bodyParams });
-        const finalWamid = metaRes.messages?.[0]?.id;
-
-        await prisma.broadcastRecipient.update({
-          where: { broadcastId_contactId: { broadcastId, contactId: contact.id } },
-          data: {
-            status: 'SENT',
-            wamid: finalWamid,
-            sentAt: new Date()
-          }
-        });
-      } else {
-        // Run Sandbox Simulation
-        const recipientRecord = await prisma.broadcastRecipient.update({
-          where: { broadcastId_contactId: { broadcastId, contactId: contact.id } },
-          data: {
-            status: 'SENT',
-            wamid: wamid,
-            sentAt: new Date()
-          }
-        });
-
-        // Trigger asynchronous delayed progress
-        simulateRecipientReceipt(tenant.id, broadcastId, recipientRecord.id, wamid);
-      }
-
-      // Add to normal conversation log so agents see it in Inbox
-      const conversation = await getOrCreateConversation(contact.id, tenant.id);
-      await prisma.message.create({
-        data: {
-          conversationId: conversation.id,
-          senderId: tenant.id, // Associated with the Tenant Admin
-          senderType: 'TENANT',
-          text: parsedText,
-          type: 'TEXT',
-          isRead: true
-        }
-      });
-
-      // Update conversation timestamp
-      await prisma.conversation.update({
-        where: { id: conversation.id },
-        data: { lastMessageAt: new Date() }
-      });
-
-      sentCount++;
-    } catch (error) {
-      console.error(`Failed to send broadcast to recipient contact ${contact.phone}:`, error.message);
-      
-      await prisma.broadcastRecipient.update({
-        where: { broadcastId_contactId: { broadcastId, contactId: contact.id } },
-        data: {
-          status: 'FAILED',
-          failedAt: new Date(),
-          errorMessage: error.message
-        }
-      });
-      failedCount++;
-    }
-
-    // Update denormalized campaign metrics in database and emit websocket progress
-    const updatedCampaign = await prisma.broadcast.update({
+export const processBroadcastCampaign = async (broadcastId, tenant, contacts, template, defaultParams, delayMs = 0) => {
+  if (!contacts || contacts.length === 0) {
+    await prisma.broadcast.update({
       where: { id: broadcastId },
-      data: {
-        sent: { increment: hasMetaConfig ? 1 : 1 }, // both modes increment sent
-        failed: { increment: failedCount > 0 ? 1 : 0 }
-      }
+      data: { status: 'COMPLETED', completedAt: new Date() }
     });
-
-    emitToTenant(tenant.id, 'broadcast_update', {
-      broadcastId,
-      sent: updatedCampaign.sent,
-      delivered: updatedCampaign.delivered,
-      read: updatedCampaign.read,
-      failed: updatedCampaign.failed
-    });
-
-    // Reset loop variables
-    failedCount = 0;
+    return;
   }
 
-  // Update Campaign state to COMPLETED
-  await prisma.broadcast.update({
-    where: { id: broadcastId },
+  // Map contacts to BullMQ job payload format
+  const jobs = contacts.map((contact) => ({
+    name: `broadcast-${broadcastId}-${contact.id}`,
     data: {
-      status: 'COMPLETED',
-      completedAt: new Date()
+      broadcastId,
+      tenant,
+      contact,
+      template,
+      defaultParams
+    },
+    opts: {
+      delay: delayMs > 0 ? delayMs : undefined,
+      attempts: 3,
+      backoff: {
+        type: 'exponential',
+        delay: 3000
+      }
     }
-  });
+  }));
+
+  // Add bulk jobs to BullMQ queue
+  await broadcastQueue.addBulk(jobs);
+
+  if (delayMs > 0) {
+    console.log(`⏰ Scheduled ${jobs.length} broadcast recipient jobs for campaign ${broadcastId} (executing in ${Math.round(delayMs / 1000)} seconds)`);
+  } else {
+    console.log(`🚀 Queued ${jobs.length} broadcast recipient jobs for campaign ${broadcastId}`);
+  }
 };

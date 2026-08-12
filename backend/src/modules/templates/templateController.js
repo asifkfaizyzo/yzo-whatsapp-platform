@@ -91,12 +91,6 @@ export const createTemplate = async (req, res) => {
       }
     }
 
-    // Find a User record matching the tenantId to fulfill Prisma createdBy relation
-    const user = await prisma.user.findFirst({ where: { tenantId } });
-    if (!user) {
-      return res.status(400).json({ success: false, message: 'Please create at least one Agent User for this tenant before creating templates.' });
-    }
-
     // Save Template to Local DB
     const template = await prisma.template.create({
       data: {
@@ -109,7 +103,7 @@ export const createTemplate = async (req, res) => {
         components,
         headerParams,
         bodyParams,
-        createdById: user.id
+        createdById: null
       }
     });
 
@@ -131,11 +125,6 @@ export const syncTemplates = async (req, res) => {
 
     // Fetch from Meta WABA
     const metaTemplates = await fetchMetaTemplates(tenant);
-
-    const user = await prisma.user.findFirst({ where: { tenantId: tenant.id } });
-    if (!user) {
-      return res.status(400).json({ success: false, message: 'Sync requires at least one Agent User in the tenant account.' });
-    }
 
     const synced = [];
 
@@ -186,7 +175,7 @@ export const syncTemplates = async (req, res) => {
           components: mt.components || {},
           headerParams,
           bodyParams,
-          createdById: user.id
+          createdById: null
         }
       });
       synced.push(dbTemp);

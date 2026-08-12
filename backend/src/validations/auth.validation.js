@@ -41,14 +41,14 @@ export const resetPasswordSchema = z.object({
     newPassword: z
       .string({ required_error: 'Password is required' })
       .min(8, 'Password must be at least 8 characters')
-      .regex(/[A-Z]/,       'Must contain at least one uppercase letter')
-      .regex(/[0-9]/,       'Must contain at least one number')
+      .regex(/[A-Z]/, 'Must contain at least one uppercase letter')
+      .regex(/[0-9]/, 'Must contain at least one number')
       .regex(/[!@#$%^&*]/, 'Must contain at least one special character'),
     confirmPassword: z
       .string({ required_error: 'Confirm password is required' }),
   }).refine((data) => data.newPassword === data.confirmPassword, {
     message: 'Passwords do not match',
-    path:    ['confirmPassword'],
+    path: ['confirmPassword'],
   }),
 });
 
@@ -59,11 +59,22 @@ export const refreshTokenSchema = z.object({
   }),
   cookies: z.object({
     refreshToken: z.string().optional(),
+    admin_refreshToken: z.string().optional(),
+    tenant_refreshToken: z.string().optional(),
+    user_refreshToken: z.string().optional(),
   }).optional(),
-}).refine((data) => data.body?.refreshToken || data.cookies?.refreshToken, {
-  message: 'Refresh token is required in body or cookies',
-  path: ['refreshToken'],
-});
+}).refine(
+  (data) =>
+    data.body?.refreshToken ||
+    data.cookies?.admin_refreshToken ||
+    data.cookies?.tenant_refreshToken ||
+    data.cookies?.user_refreshToken ||
+    data.cookies?.refreshToken,
+  {
+    message: 'Refresh token is required in body or cookies',
+    path: ['refreshToken'],
+  }
+);
 
 // =========== Logout Schema ===========
 export const logoutSchema = z.object({
@@ -72,8 +83,45 @@ export const logoutSchema = z.object({
   }),
   cookies: z.object({
     refreshToken: z.string().optional(),
+    admin_refreshToken: z.string().optional(),
+    tenant_refreshToken: z.string().optional(),
+    user_refreshToken: z.string().optional(),
   }).optional(),
-}).refine((data) => data.body?.refreshToken || data.cookies?.refreshToken, {
-  message: 'Refresh token is required in body or cookies',
-  path: ['refreshToken'],
+}).refine(
+  (data) =>
+    data.body?.refreshToken ||
+    data.cookies?.admin_refreshToken ||
+    data.cookies?.tenant_refreshToken ||
+    data.cookies?.user_refreshToken ||
+    data.cookies?.refreshToken,
+  {
+    message: 'Refresh token is required in body or cookies',
+    path: ['refreshToken'],
+  }
+);
+
+
+// =========== Google Login Schema ===========
+export const googleLoginSchema = z.object({
+  body: z.object({
+    credential: z.string({ required_error: 'Google ID Token is required' }),
+  }),
+});
+
+// =========== Change Password Schema ===========
+export const changePasswordSchema = z.object({
+  body: z.object({
+    currentPassword: z.string().optional(),
+    newPassword: z
+      .string({ required_error: 'New password is required' })
+      .min(8, 'Password must be at least 8 characters')
+      .regex(/[A-Z]/, 'Must contain at least one uppercase letter')
+      .regex(/[0-9]/, 'Must contain at least one number')
+      .regex(/[!@#$%^&*]/, 'Must contain at least one special character'),
+    confirmPassword: z
+      .string({ required_error: 'Confirm password is required' }),
+  }).refine((data) => data.newPassword === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  }),
 });

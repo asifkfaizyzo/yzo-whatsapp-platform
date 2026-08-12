@@ -6,13 +6,28 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true,   // important if using cookies
+  withCredentials: true,
 });
 
-// ✅ Attach Access Token to Every Request from Zustand
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
+// ✅ Attach Access Token
 api.interceptors.request.use(
   (config) => {
     const token = useAdminAuthStore.getState().accessToken;
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -21,17 +36,28 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// ✅ Auto Refresh Token if Expired (401 Error)
+// ✅ Queue Concurrent Refresh Requests
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
     if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((token) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            return api(originalRequest);
+          })
+          .catch((err) => Promise.reject(err));
+      }
+
       originalRequest._retry = true;
+      isRefreshing = true;
 
       try {
-        // Send refresh token request (cookies are attached automatically via withCredentials)
         const response = await axios.post(
           `${import.meta.env.VITE_API_URL}/api/refresh-token`,
           {},
@@ -39,19 +65,19 @@ api.interceptors.response.use(
         );
 
         const newAccessToken = response.data.accessToken;
-        
-        // Update the access token in the Zustand store
         useAdminAuthStore.setState({ accessToken: newAccessToken });
 
-        // Retry original request with new token
+        processQueue(null, newAccessToken);
         originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
         return api(originalRequest);
 
       } catch (refreshError) {
-        // Refresh token expired or invalid → clear Zustand store and redirect
+        processQueue(refreshError, null);
         await useAdminAuthStore.getState().logout();
         window.location.href = '/login';
         return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
       }
     }
 

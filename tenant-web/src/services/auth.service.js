@@ -7,30 +7,122 @@ import { useAuthStore } from '../store/useAuthStore';
 
 const USER_API_URL = `${import.meta.env.VITE_BACKEND_URL}/api3`;
 
-// Register Tenant
-export const registerTenant = async (formData) => {
+// Step 1: First name + Last name
+export const registerStep1 = async (formData) => {
   try {
-    const response = await api.post("/register", {
-      tenantName: formData.tenantName,
-      email: formData.email,
-      password: formData.password,
-      phone: formData.phone,
-      address: formData.address,
+    const response = await api.post("/register/step-1", {
+      firstName: formData.firstName,
+      lastName: formData.lastName,
     });
 
-    console.log("REGISTER RESPONSE:", response.data);
-    
-    // Set Zustand store state
-    useAuthStore.getState().login(response.data.data.user, response.data.data.accessToken);
+    // Update state to record the step session
+    const onboardingUser = { ...response.data.data.user, type: 'TENANT' };
+    useAuthStore.getState().login(onboardingUser, null);
 
-    return {
-      success: true,
-      data: response.data,
-    };
+    return { success: true, data: response.data };
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || "Registration failed",
+      message: error.response?.data?.message || "Step 1 failed",
+    };
+  }
+};
+
+// Step 2: Email
+export const registerStep2 = async (formData) => {
+  try {
+    const response = await api.put("/register/step-2", {
+      email: formData.email,
+    });
+
+    const onboardingUser = { ...response.data.data.user, type: 'TENANT' };
+    useAuthStore.getState().login(onboardingUser, null);
+
+    return { success: true, data: response.data };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Step 2 failed",
+    };
+  }
+};
+
+// Step 2.5: Verify Email OTP Code
+export const verifyEmailOtp = async (otpCode) => {
+  try {
+    const response = await api.post("/register/verify-email", {
+      otpCode,
+    });
+
+    const onboardingUser = { ...response.data.data.user, type: 'TENANT' };
+    useAuthStore.getState().login(onboardingUser, null);
+
+    return { success: true, data: response.data };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Verification failed",
+    };
+  }
+};
+
+// Step 3: Password
+export const registerStep3 = async (formData) => {
+  try {
+    const response = await api.put("/register/step-3", {
+      password: formData.password,
+    });
+
+    const onboardingUser = { ...response.data.data.user, type: 'TENANT' };
+    useAuthStore.getState().login(onboardingUser, null);
+
+    return { success: true, data: response.data };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Step 3 failed",
+    };
+  }
+};
+
+// Step 4: Company name + Website
+export const registerStep4 = async (formData) => {
+  try {
+    const response = await api.put("/register/step-4", {
+      tenantName: formData.tenantName,
+      websiteUrl: formData.websiteUrl,
+    });
+
+    const onboardingUser = { ...response.data.data.user, type: 'TENANT' };
+    useAuthStore.getState().login(onboardingUser, null);
+
+    return { success: true, data: response.data };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Step 4 failed",
+    };
+  }
+};
+
+// Step 5: Phone + Team Size + Use Case
+export const registerStep5 = async (formData) => {
+  try {
+    const response = await api.put("/register/step-5", {
+      phone: formData.phone,
+      companySize: formData.companySize,
+      useCase: formData.useCase,
+    });
+
+    // Onboarding complete! Set the actual full login session
+    const loggedInUser = { ...response.data.data.user, type: 'TENANT' };
+    useAuthStore.getState().login(loggedInUser, response.data.data.accessToken);
+
+    return { success: true, data: response.data };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Step 5 failed",
     };
   }
 };
@@ -224,3 +316,22 @@ export const resetPasswordTenant = async (token, newPassword, confirmPassword, r
 };
 
 
+// Google Login
+export const loginWithGoogle = async (credential) => {
+  try {
+    const response = await api.post("/google-login", { credential });
+
+    // Log user details and save in Zustand store
+    useAuthStore.getState().login(response.data.data.user, response.data.data.accessToken);
+
+    return {
+      success: true,
+      data: response.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Google sign-in failed",
+    };
+  }
+};

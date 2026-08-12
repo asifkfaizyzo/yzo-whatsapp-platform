@@ -36,10 +36,17 @@ export const verifyTenantOrUser = async (req, res, next) => {
       }
 
       if (tenant.status === 'PENDING') {
-        return res.status(403).json({
-          success: false,
-          message: 'Your account is pending approval',
-        });
+        const isPaymentRoute =
+          req.originalUrl.includes('/plans/create-order') ||
+          req.originalUrl.includes('/plans/verify-payment') ||
+          req.originalUrl.includes('/plans/public');
+
+        if (!isPaymentRoute) {
+          return res.status(403).json({
+            success: false,
+            message: 'Your account is pending approval',
+          });
+        }
       }
 
       if (tenant.status === 'BLOCKED') {
@@ -68,6 +75,7 @@ export const verifyTenantOrUser = async (req, res, next) => {
           message: 'User not found',
         });
       }
+      
 
       if (!user.isActive) {
         return res.status(403).json({
@@ -111,6 +119,7 @@ export const verifyTenantOrUser = async (req, res, next) => {
       req.user = user;
       req.tenantId = user.tenantId;
       req.userType = 'USER';
+      req.userId   = decoded.id;
 
       return next();
     }

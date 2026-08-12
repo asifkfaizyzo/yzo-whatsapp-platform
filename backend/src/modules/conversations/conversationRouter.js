@@ -16,4 +16,16 @@ router.get('/getmessage/:conversationId', verifyTenantOrUser,conversationControl
 // Update conversation status
 router.patch('/status/:conversationId', verifyTenantOrUser, conversationController.updateConversationStatusController);
 
+
+// ── New Routes ────────────────────────────────────────────
+router.patch('/archive/:conversationId',   verifyTenantOrUser, conversationController.archiveConversationController);
+router.patch('/unarchive/:conversationId', verifyTenantOrUser, conversationController.unarchiveConversationController);
+router.delete('/delete/:conversationId',   verifyTenantOrUser, conversationController.deleteConversationController);
+router.get('/archived',                    verifyTenantOrUser, conversationController.getArchivedConversationsController);
+// ── Mark as Read ──────────────────────────────────────────
+router.patch('/mark-read/:conversationId',verifyTenantOrUser,conversationController.markConversationAsReadController);
+
+// ── Bulk Reassign ──────────────────────────────────────────
+router.patch( "/bulk-reassign", verifyTenantOrUser, conversationController.bulkReassignConversationsController);
+
 export default router;

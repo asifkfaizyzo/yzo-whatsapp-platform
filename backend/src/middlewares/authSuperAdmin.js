@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import prisma from '../config/prisma.js';
 
 export const verifySuperAdmin =
   async (req, res, next) => {
@@ -37,11 +38,23 @@ export const verifySuperAdmin =
         });
       }
 
-      // 6️⃣ Save decoded user info
-      req.superAdmin = decoded;
+    // 6️⃣ Fetch SuperAdmin from Database to verify active status
+    const superAdmin = await prisma.superAdmin.findUnique({
+      where: { id: decoded.id },
+    });
 
-      // 7️⃣ Go to next function
-      next();
+    if (!superAdmin) {
+      return res.status(401).json({
+        success: false,
+        message: 'SuperAdmin account not found or revoked',
+      });
+    }
+
+    // 7️⃣ Save verified user info to request
+    req.superAdmin = superAdmin;
+    req.superAdminId = superAdmin.id;
+
+    next();
 
     } catch (error) {
 

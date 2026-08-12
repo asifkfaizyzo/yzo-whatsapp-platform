@@ -1,10 +1,21 @@
 import express from 'express';
 import { verifyTenant, requireApprovedTenant } from '../../middlewares/authTenant.js';
-import { setupWhatsApp, exchangeToken, getWhatsAppStatus, getMyWabas, disconnectWhatsApp, registerPhoneNumber } from './whatsappController.js';
+import { verifyTenantOrUser } from '../../middlewares/authVerfyTenOrUser.js';
+import { setupWhatsApp, getWhatsAppStatus, getMyWabas, disconnectWhatsApp, sendLocation, exchangeToken, registerPhoneNumber } from './whatsappController.js';
+import { setupWhatsAppSchema } from '../../validations/tenant.validation.js';
+import validate from '../../middlewares/validate.middleware.js';
+import { checkSubscriptionAccess } from '../../middlewares/checkSubscriptionAccess.js';
+import { sendLocationSchema } from '../../validations/whatsapp.validation.js';
 
 const router = express.Router();
 
-// All routes require a verified, approved tenant
+// GET /api2/whatsapp/status - Allowed for both Tenants and Users (Agents)
+router.get('/status', verifyTenantOrUser, getWhatsAppStatus);
+
+// send-location
+router.post('/send-location',verifyTenantOrUser, checkSubscriptionAccess, validate(sendLocationSchema),sendLocation);
+
+// All other routes require a verified, approved tenant admin
 router.use(verifyTenant, requireApprovedTenant);
 
 // POST /api2/whatsapp/exchange-token
@@ -13,7 +24,7 @@ router.post('/exchange-token', exchangeToken);
 
 // POST /api2/whatsapp/setup
 // Saves WABA ID + Phone Number ID directly (fallback system token approach)
-router.post('/setup', setupWhatsApp);
+router.post('/setup',validate(setupWhatsAppSchema), setupWhatsApp);
 
 // POST /api2/whatsapp/register-phone
 // Completes Cloud API phone number registration with Meta
