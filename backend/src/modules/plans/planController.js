@@ -13,7 +13,7 @@ import prisma from "../../config/prisma.js";
 import { generateInvoicePDF } from "./invoiceService.js";
 import { sendInvoiceEmail } from "../auth/emailService.js";
 
-import { createSuperAdminNotification } from "../superAdminNotifications/superAdminNotificationService.js";
+import { createSuperAdminNotification } from "../SuperAdminNotifications/superAdminNotificationService.js";
 import { emitToSuperAdmin } from "../../lib/socket.js";
 import { createAuditLog } from '../audit/auditLogService.js';
 import { extractRequestMeta } from '../../lib/utils/requestMeta.js';
