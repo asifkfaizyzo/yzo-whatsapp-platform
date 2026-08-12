@@ -17,13 +17,13 @@ import { ArrowLeft, Save, Loader2 } from "lucide-react";
 
 import NodePanel from "../../components/automation/NodePanel";
 import NodeConfigPanel from "../../components/automation/NodeConfigPanel";
-import SendMessageNode from "../../components/automation/NodeTypes/SendMessageNode";
+import SendMessageNode from "../../components/automation/NodeTypes/sendMessageNode";
 import AskQuestionNode from "../../components/automation/NodeTypes/AskQuestionNode";
 import ConditionNode from "../../components/automation/NodeTypes/ConditionNode";
 import AssignAgentNode from "../../components/automation/NodeTypes/AssignAgentNode";
 import EndFlowNode from "../../components/automation/NodeTypes/EndFlowNode";
 import flowService from "../../services/flow.service";
-import InteractiveButtonsNode from "../../components/automation/NodeTypes/InteractiveButtonsNode";
+import InteractiveButtonsNode from "../../components/automation/NodeTypes/interactiveButtonsNode";
 
 // Register node types
 const nodeTypes = {
