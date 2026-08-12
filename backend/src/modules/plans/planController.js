@@ -19,10 +19,10 @@ import { createAuditLog } from '../audit/auditLogService.js';
 import { extractRequestMeta } from '../../lib/utils/requestMeta.js';
 import { calculateGST } from "../superadmin/superadminService.js";
 
-// ✅ Initialize Razorpay
+// ✅ Initialize Razorpay with fallback placeholders to prevent startup crashes
 const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
+  key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_placeholder',
+  key_secret: process.env.RAZORPAY_KEY_SECRET || 'placeholder_secret',
 });
 
 // ── Get all plans ──
