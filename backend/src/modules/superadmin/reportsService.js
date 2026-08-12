@@ -449,7 +449,7 @@ export const getReportTenantsService = async ({ startDate, endDate, search, plan
     pct: Number(((p._count.tenants / totalTenantCount) * 100).toFixed(1))
   }));
 
-  const [newTenantsCount, churnedCount] = await Promise.all([
+  const [newTenantsCount, churnedTenants] = await Promise.all([
     prisma.tenant.count({ where: { createdAt: { gte: start, lte: end } } }),
     prisma.tenant.count({ where: { isActive: false, updatedAt: { gte: start, lte: end } } })
   ]);
@@ -459,7 +459,7 @@ export const getReportTenantsService = async ({ startDate, endDate, search, plan
     tenantActivityTable: tenantRows,
     tenantGrowth: {
       newTenants: newTenantsCount,
-      churnedTenants: churnedCount,
+      churnedTenants,
       netGrowth: newTenantsCount - churnedTenants
     },
     planDistribution

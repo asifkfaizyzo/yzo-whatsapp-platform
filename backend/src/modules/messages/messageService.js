@@ -8,6 +8,7 @@ import { logActivity } from '../activity/activityService.js';
 import { validateMedia, detectMediaType } from "../../lib/utils/mediaValidator.js";
 import { createNotification } from "../notifications/notificationService.js";
 import flowEngine from '../automation/flowEngineService.js';
+import { emitToTenant, emitToUser } from '../../lib/socket.js';
 import fs from 'fs';
 
 
@@ -62,6 +63,7 @@ export const handleIncomingMessage = async ({
           closedAt:      null,
           lastMessageAt: new Date(),
           assignedTo:    decision.assignToAgentId,
+          unreadCount:   { increment: 1 }, 
         },
       });
 
@@ -86,19 +88,23 @@ export const handleIncomingMessage = async ({
     } else {
       await prisma.conversation.update({
         where: { id: conversation.id },
-        data:  { lastMessageAt: new Date() },
+        data:  { lastMessageAt: new Date(),
+           unreadCount:   { increment: 1 },
+         },
       });
 
       action = 'saved_without_reopen';
       reason = decision.reason;
     }
 
-  } else {
-    await prisma.conversation.update({
+    } else {
+    const updated = await prisma.conversation.update({
       where: { id: conversation.id },
-      data:  { lastMessageAt: new Date() },
+      data:  { lastMessageAt: new Date(),
+         unreadCount:   { increment: 1 },
+       },
     });
-
+      console.log(`🔴 UNREAD INCREMENTED: contact=${contact.name}, convId=${updated.id}, unreadCount=${updated.unreadCount}`);
     action = 'saved_to_active_conversation';
   }
 
@@ -139,6 +145,93 @@ export const handleIncomingMessage = async ({
   const updatedConversation = await prisma.conversation.findUnique({
     where: { id: conversation.id },
   });
+  console.log(`🔴 EMITTING UNREAD: contact=${contact.name}, unreadCount=${updatedConversation.unreadCount}`);
+
+// ── Emit to tenant room (for admin) ──
+emitToTenant(tenantId, 'unread_count_update', {
+  conversationId: updatedConversation.id,
+  unreadCount:    updatedConversation.unreadCount,
+  contactId:      contact.id,
+  contactName:    contact.name || contact.phone,
+});
+
+// ── Also emit to assigned user (for agent) ──
+// Check BOTH contact.assignedTo AND conversation.assignedTo
+const assignedUserId = contact.assignedTo || updatedConversation.assignedTo;
+
+if (assignedUserId) {
+  console.log(`📤 Emitting unread_count_update to user: ${assignedUserId}`);
+  
+  emitToUser(assignedUserId, 'unread_count_update', {
+    conversationId: updatedConversation.id,
+    unreadCount:    updatedConversation.unreadCount,
+    contactId:      contact.id,
+    contactName:    contact.name || contact.phone,
+  });
+
+  // Also emit the new message so it appears in inbox
+  emitToUser(assignedUserId, 'new_message', {
+    conversationId: updatedConversation.id,
+    message: {
+      id:             message.id,
+      type:           message.type,
+      text:           message.text,
+      senderType:     'CONTACT',
+      direction:      'INBOUND',
+      isFromCustomer: true,
+      mediaUrl:       message.mediaUrl,
+      mediaName:      message.mediaName,
+      mediaSize:      message.mediaSize,
+      mediaMimeType:  message.mediaMimeType,
+      caption:        message.caption,
+      createdAt:      message.createdAt,
+    }
+  });
+}
+
+
+ // ── 6c. ✅ NEW: Notify tenant about unassigned contact ──
+if (!contact.assignedTo) {
+  const unassignedCount = await prisma.contact.count({
+    where: {
+      tenantId,
+      assignedTo: null,
+      isActive:   true,
+    }
+  });
+
+  emitToTenant(tenantId, 'unassigned_contact_update', {
+    unassignedCount,
+    isNew:       isNewContact,
+    contact: {
+      id:    contact.id,
+      name:  contact.name,
+      phone: contact.phone,
+    },
+    conversationId: conversation.id,
+  });
+
+  // Only bell notification for NEW contacts (avoid spam)
+  if (isNewContact) {
+    emitToTenant(tenantId, 'new_notification', {
+      notification: {
+        id:        `unassigned_${contact.id}_${Date.now()}`,
+        type:      'contact_waiting_assignment',
+        title:     '👤 New contact needs assignment',
+        message:   `${contact.name} is waiting to be assigned to an agent`,
+        isRead:    false,
+        createdAt: new Date(),
+        metadata: {
+          contactId:      contact.id,
+          conversationId: conversation.id,
+          unassignedCount,
+        }
+      }
+    });
+  }
+
+  console.log(`📤 Tenant notified: ${unassignedCount} unassigned contact(s)`);
+}
 
   // ── 7. Trigger flow engine (text only) ────────────────────────
   if (text) {

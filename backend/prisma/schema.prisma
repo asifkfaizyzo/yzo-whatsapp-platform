@@ -309,6 +309,8 @@ model Conversation {
   reopenedAt    DateTime?
   lastMessageAt DateTime?
 
+  unreadCount   Int       @default(0)
+
    // ── Archive ── 
   isArchived    Boolean   @default(false)
   archivedAt    DateTime?
@@ -348,6 +350,8 @@ enum MessageType {
   FILE
   VIDEO
   AUDIO
+  INTERACTIVE_BUTTONS
+  LOCATION 
 }
 
 enum SenderType {
@@ -386,6 +390,13 @@ model Message {
   mediaSize      Int?             // bytes
   mediaMimeType  String?          // image/jpeg, application/pdf
   caption        String?          // optional caption
+  // ── Interactive Buttons ──
+  buttons        Json?            // Array of { id, title } for INTERACTIVE_BUTTONS type
+  // ── NEW: Location fields ──────────────────────
+  locLatitude    Float?
+  locLongitude   Float?
+  locName        String?
+  locAddress     String?
 
   // ── Status ──
   isRead         Boolean          @default(false)
@@ -907,6 +918,7 @@ enum FlowNodeType {
   CONDITION
   ASSIGN_AGENT
   END_FLOW
+  INTERACTIVE_BUTTONS
 }
 
 enum ConversationMode {

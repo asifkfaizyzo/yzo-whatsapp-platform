@@ -3,6 +3,7 @@ import {
        getAssignedConversations,getMessages,updateConversationStatus,
        archiveConversation,unarchiveConversation,deleteConversation,
        getArchivedConversations,  bulkReassignConversations, 
+       markConversationAsRead, 
        } from './conversationService.js';
 
 
@@ -451,5 +452,31 @@ export const bulkReassignConversationsController = async (req, res) => {
       success: false,
       message: error.message,
     });
+  }
+};
+
+
+// ── Mark Conversation As Read ─────────────────────────────
+export const markConversationAsReadController = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const tenantId = req.tenantId;
+
+    const result = await markConversationAsRead({
+      conversationId,
+      tenantId,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Conversation marked as read",
+      data:    result,
+    });
+
+  } catch (error) {
+    if (error.message.includes("not found")) {
+      return res.status(404).json({ success: false, message: error.message });
+    }
+    return res.status(500).json({ success: false, message: error.message });
   }
 };

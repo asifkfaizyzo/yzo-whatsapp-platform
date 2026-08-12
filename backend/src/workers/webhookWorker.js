@@ -193,6 +193,11 @@ export const processWebhookJob = async (job) => {
     let mediaMimeType = null;
     let caption = null;
 
+    let locLatitude   = null;
+    let locLongitude  = null;
+    let locName       = null;
+    let locAddress    = null;
+
     // ── TEXT ───────────────────────────────────────────────
     if (messageType === 'text') {
       text = message.text?.body;
@@ -335,8 +340,15 @@ export const processWebhookJob = async (job) => {
       // ── LOCATION ───────────────────────────────────────────
     } else if (messageType === 'location') {
       const loc = message.location;
-      text = `📍 Location: ${loc.name || ''} (${loc.latitude}, ${loc.longitude})`;
-      type = 'TEXT';
+      type         = 'LOCATION';
+      text         = null;  
+
+      locLatitude  = loc.latitude  || null;
+      locLongitude = loc.longitude || null;
+      locName      = loc.name      || null;
+      locAddress   = loc.address   || null;
+
+      console.log(`📍 Location received: lat=${loc.latitude}, lng=${loc.longitude}`);
 
       // ── CONTACTS ───────────────────────────────────────────
     } else if (messageType === 'contacts') {
@@ -344,7 +356,27 @@ export const processWebhookJob = async (job) => {
       text = `👤 Contact shared: ${c?.name?.formatted_name || 'Unknown'}`;
       type = 'TEXT';
 
-      // ── UNSUPPORTED ────────────────────────────────────────
+      } else if (messageType === 'interactive') {
+
+  const interactiveType = message.interactive?.type
+
+  if (interactiveType === 'button_reply') {
+    text = message.interactive.button_reply.title
+    type = 'TEXT'
+    console.log(`🖱️ Button clicked: "${text}"`)
+
+  } else if (interactiveType === 'list_reply') {
+    text = message.interactive.list_reply.title
+    type = 'TEXT'
+    console.log(`📋 List selected: "${text}"`)
+
+  } else {
+    console.log(`ℹ️ Unknown interactive type: ${interactiveType}`)
+    return
+  }
+        
+
+    // ── UNSUPPORTED ────────────────────────────────────────
     } else {
       console.log(`ℹ️ Unsupported message type: ${messageType} - skipping`);
       return;
@@ -368,6 +400,10 @@ export const processWebhookJob = async (job) => {
       mediaMimeType,
       caption,
       isNewContact,
+      locLatitude, 
+      locLongitude,  
+      locName,       
+      locAddress,    
     });
 
     // ── Socket: emit to tenant room ────────────────────────
@@ -381,12 +417,16 @@ export const processWebhookJob = async (job) => {
         senderType: 'CONTACT',
         direction: 'INBOUND',
         isFromCustomer: true,
-        mediaUrl: socketMediaUrl,
-        mediaName: result.message.mediaName,
-        mediaSize: result.message.mediaSize,
-        mediaMimeType: result.message.mediaMimeType,
-        caption: result.message.caption,
-        createdAt: result.message.createdAt,
+        mediaUrl: result.message.mediaUrl, 
+        mediaName:      result.message.mediaName,
+        mediaSize:      result.message.mediaSize,
+        mediaMimeType:  result.message.mediaMimeType,
+        caption:        result.message.caption,
+        locLatitude:    result.message.locLatitude,
+        locLongitude:   result.message.locLongitude,
+        locName:        result.message.locName,
+        locAddress:     result.message.locAddress,
+        createdAt:      result.message.createdAt,
       }
     });
 
@@ -422,12 +462,16 @@ export const processWebhookJob = async (job) => {
           senderType: 'CONTACT',
           direction: 'INBOUND',
           isFromCustomer: true,
-          mediaUrl: result.message.mediaUrl,
-          mediaName: result.message.mediaName,
-          mediaSize: result.message.mediaSize,
-          mediaMimeType: result.message.mediaMimeType,
-          caption: result.message.caption,
-          createdAt: result.message.createdAt,
+          mediaUrl:       result.message.mediaUrl,
+          mediaName:      result.message.mediaName,
+          mediaSize:      result.message.mediaSize,
+          mediaMimeType:  result.message.mediaMimeType,
+          caption:        result.message.caption,
+          locLatitude:    result.message.locLatitude,
+          locLongitude:   result.message.locLongitude,
+          locName:        result.message.locName,
+          locAddress:     result.message.locAddress,
+          createdAt:      result.message.createdAt,
         }
       });
 

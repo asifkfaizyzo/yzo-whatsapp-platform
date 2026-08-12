@@ -5,7 +5,8 @@ import {
   HelpCircle,
   GitBranch,
   UserCheck,
-  StopCircle
+  StopCircle,
+  MousePointerClick,
 } from 'lucide-react'
 
 const nodeTypes = [
@@ -32,6 +33,14 @@ const nodeTypes = [
     icon: <GitBranch size={16} className="text-purple-500" />,
     bg: 'bg-purple-50',
     border: 'border-purple-200',
+  },
+   {
+    type: 'INTERACTIVE_BUTTONS',
+    label: 'Buttons',
+    description: 'Show reply buttons',
+    icon: <MousePointerClick size={16} className="text-green-600" />,
+    bg: 'bg-green-50',
+    border: 'border-green-200',
   },
   {
     type: 'ASSIGN_AGENT',

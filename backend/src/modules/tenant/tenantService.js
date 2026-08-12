@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import prisma from '../../config/prisma.js';
 import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
+import { emitToTenant, emitToUser } from "../../lib/socket.js";
 import fs from 'fs';
 import path from 'path';
 
@@ -12,7 +13,6 @@ import { generateResetToken, getResetTokenExpiry, sendPasswordResetEmail, } from
 import { forgotPasswordService, resetPasswordService, } from '../auth/passwordService.js';
 import { getOrCreateConversation } from "../../modules/conversations/conversationService.js";
 import { AsyncLocalStorage } from 'async_hooks';
-import { emitToTenant } from "../../lib/socket.js";
 import { createNotification } from "../notifications/notificationService.js";
 import { checkLimitAccess } from '../../lib/planLimits.js';
 
@@ -884,29 +884,21 @@ export const getUnassignedContacts = async (tenantId) => {
 
 
 
-//========Assign contact to user under tenant-controller(manual)========
 export const assignContactService = async (contactId, userId, tenantId) => {
-
-  // 1️⃣ Validate contact
+  // ── 1. Validate contact ──
   const contact = await prisma.contact.findFirst({
     where: { id: contactId, tenantId },
   });
+  if (!contact) throw new Error("Contact not found");
 
-  if (!contact) {
-    throw new Error("Contact not found");
-  }
-
-  // 2️⃣ Validate user
+  // ── 2. Validate user ──
   const user = await prisma.user.findFirst({
     where: { id: userId, tenantId },
+    select: { id: true, name: true },
   });
+  if (!user) throw new Error("User not found");
 
-  if (!user) {
-    throw new Error("User not found");
-  }
-
-  // 3️⃣ Assign contact
-  // ✅ FIX: Store in variable, DON'T return yet!
+  // ── 3. Assign contact ──
   const updatedContact = await prisma.contact.update({
     where: { id: contactId },
     data: {
@@ -915,47 +907,92 @@ export const assignContactService = async (contactId, userId, tenantId) => {
     },
   });
 
-  // 4️⃣ Create notification
-  // ✅ Now this RUNS because we didn't return early!
-  try {
-    console.log('🔔 Creating notification for userId:', userId);
+  // ── 4. Also update conversation ──
+  const conversation = await prisma.conversation.findUnique({
+    where: { contactId },
+  });
 
+  if (conversation) {
+    await prisma.conversation.update({
+      where: { id: conversation.id },
+      data: { assignedTo: userId },
+    });
+  }
+
+  // ── 5. Notify agent ──
+  try {
     const notification = await createNotification({
       tenantId,
       userId,
       type: "contact_assigned",
       title: "Contact Assigned",
       message: `${contact.name || contact.phone} has been assigned to you`,
-      metadata: {
-        contactId,
-        contactName: contact.name || contact.phone,
-      },
+      metadata: { contactId, contactName: contact.name || contact.phone },
     });
 
-    console.log('✅ Notification created:', notification);
-
-    // 5️⃣ Emit socket event
     emitToTenant(tenantId, "new_notification", { notification });
 
-    console.log('✅ Socket emitted to tenant:', tenantId);
+    // ── 6. Emit to user so their inbox refreshes ──
+    if (conversation) {
+      // Show unread count
+      if (conversation.unreadCount > 0) {
+        emitToUser(userId, 'unread_count_update', {
+          conversationId: conversation.id,
+          unreadCount:    conversation.unreadCount,
+          contactId:      contact.id,
+          contactName:    contact.name || contact.phone,
+        });
+      }
 
-  } catch (notifyError) {
-    console.error('❌ Notification error:', notifyError.message);
-    console.error('❌ Full error:', notifyError);
+      // Trigger inbox refresh for the user
+      emitToUser(userId, 'conversation_assigned', {
+        conversationId: conversation.id,
+        contactId:      contact.id,
+        contactName:    contact.name || contact.phone,
+      });
+    }
+
+    // ── 7. Update tenant's unassigned count ──
+    const unassignedCount = await prisma.contact.count({
+      where: { tenantId, assignedTo: null, isActive: true }
+    });
+
+    emitToTenant(tenantId, 'unassigned_contact_update', {
+      unassignedCount,
+      isNew: false,
+      contact: { id: contact.id, name: contact.name, phone: contact.phone },
+      conversationId: conversation?.id,
+    });
+
+    // ── 8. Send WhatsApp to customer ──
+    try {
+      const flowEngineModule = await import('../automation/flowEngineService.js');
+      const flowEngine = flowEngineModule.default;
+
+      const customerMsg =
+        `👋 Hi ${contact.name || 'there'}!\n\n` +
+        `You've been connected with *${user.name}*.\n` +
+        `They will respond to you shortly. 💬`;
+
+      await flowEngine.sendWhatsAppMessage(tenantId, contact.phone, customerMsg);
+
+      if (conversation) {
+        await flowEngine.saveBotMessage(conversation.id, customerMsg);
+      }
+    } catch (waError) {
+      console.error('WhatsApp notify failed:', waError.message);
+    }
+
+  } catch (err) {
+    console.error('Assignment notification error:', err.message);
   }
 
-  // 6️⃣ ✅ Return AFTER notification
   return updatedContact;
 };
 
 
 
-
-
-//========Reassign contact to user under tenant-controller========
-
 export const reassignContactService = async (contactId, newUserId, tenantId) => {
-
   const contact = await prisma.contact.findFirst({
     where: { id: contactId, tenantId },
   });
@@ -963,8 +1000,9 @@ export const reassignContactService = async (contactId, newUserId, tenantId) => 
 
   const user = await prisma.user.findFirst({
     where: { id: newUserId, tenantId },
+    select: { id: true, name: true },
   });
-  if (!user) throw new Error('User not found under this tenant');
+  if (!user) throw new Error('User not found');
 
   const updatedContact = await prisma.contact.update({
     where: { id: contactId },
@@ -974,22 +1012,66 @@ export const reassignContactService = async (contactId, newUserId, tenantId) => 
     },
   });
 
+  const conversation = await prisma.conversation.findUnique({
+    where: { contactId },
+  });
+
+  if (conversation) {
+    await prisma.conversation.update({
+      where: { id: conversation.id },
+      data: { assignedTo: newUserId },
+    });
+  }
+
   try {
     const notification = await createNotification({
       tenantId,
-      userId: newUserId,  // ✅ FIXED: was just 'userId' (not defined!)
-      // now 'newUserId' (matches function parameter)
+      userId: newUserId,
       type: 'contact_assigned',
-      title: 'Contact Assigned',
+      title: 'Contact Reassigned',
       message: `${contact.name || contact.phone} has been assigned to you`,
-      metadata: {
-        contactId,
-        contactName: contact.name || contact.phone,
-      },
+      metadata: { contactId, contactName: contact.name || contact.phone },
     });
+
     emitToTenant(tenantId, 'new_notification', { notification });
-  } catch (notifyError) {
-    console.error('Notification error:', notifyError.message);
+
+    if (conversation) {
+      if (conversation.unreadCount > 0) {
+        emitToUser(newUserId, 'unread_count_update', {
+          conversationId: conversation.id,
+          unreadCount:    conversation.unreadCount,
+          contactId:      contact.id,
+          contactName:    contact.name || contact.phone,
+        });
+      }
+
+      emitToUser(newUserId, 'conversation_assigned', {
+        conversationId: conversation.id,
+        contactId:      contact.id,
+        contactName:    contact.name || contact.phone,
+      });
+    }
+
+    try {
+      const flowEngineModule = await import('../automation/flowEngineService.js');
+      const flowEngine = flowEngineModule.default;
+
+      const customerMsg =
+        `👋 Hi ${contact.name || 'there'}!\n\n` +
+        `Your conversation has been transferred to *${user.name}*.\n` +
+        `They will help you from here. 💬`;
+
+      await flowEngine.sendWhatsAppMessage(tenantId, contact.phone, customerMsg);
+
+      if (conversation) {
+        await flowEngine.saveBotMessage(conversation.id, customerMsg);
+      }
+    } catch (waError) {
+      console.error('WhatsApp notify failed:', waError.message);
+    }
+
+  } catch (err) {
+    console.error('Reassign notification error:', err.message);
   }
 
   return updatedContact;

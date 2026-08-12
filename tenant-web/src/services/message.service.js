@@ -73,3 +73,37 @@ export const deleteMessage = async (messageId) => {
     };
   }
 };
+
+
+
+//sendLocation
+const WA_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api2/whatsapp`;
+
+export const sendLocation = async ({
+  to,
+  latitude,
+  longitude,
+  name,
+  address,
+  conversationId,
+}) => {
+  try {
+    const response = await api.post(`${WA_BASE_URL}/send-location`, {
+      to,
+      latitude,
+      longitude,
+      ...(name           && { name }),
+      ...(address        && { address }),
+      ...(conversationId && { conversationId }),
+    });
+    return {
+      success: true,
+      data: response.data.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to send location",
+    };
+  }
+};

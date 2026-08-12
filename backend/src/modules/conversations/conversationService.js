@@ -1,12 +1,11 @@
-import bcrypt from 'bcrypt';
-import pkg from '@prisma/client';
-import prisma from '../../config/prisma.js';
-import { logActivity } from '../activity/activityService.js';
+import bcrypt from "bcrypt";
+import pkg from "@prisma/client";
+import prisma from "../../config/prisma.js";
+import { logActivity } from "../activity/activityService.js";
 import { emitToTenant } from "../../lib/socket.js";
 import { createNotification } from "../notifications/notificationService.js";
-import { generateSignedUrl } from '../../lib/utils/signedUrl.js';
-import { createAuditLog }     from "../audit/auditLogService.js";
-
+import { generateSignedUrl } from "../../lib/utils/signedUrl.js";
+import { createAuditLog } from "../audit/auditLogService.js";
 
 //AUTO / MANUAL: Get or create conversation
 export const getOrCreateConversation = async (contactId, tenantId) => {
@@ -20,6 +19,16 @@ export const getOrCreateConversation = async (contactId, tenantId) => {
     return conversation;
   }
 
+    // ✅ New conversation created
+  // conversation = await prisma.conversation.create({
+  //   data: {
+  //     contactId,
+  //     tenantId,
+  //     status: 'OPEN',
+  //     unreadCount: 0,   // ← Starts at 0
+  //   },
+  // });
+
   // 3️⃣ If not → create new conversation
   conversation = await prisma.conversation.create({
     data: {
@@ -31,8 +40,6 @@ export const getOrCreateConversation = async (contactId, tenantId) => {
 
   return conversation;
 };
-
-
 
 //GET conversation by contactId
 export const getConversationByContact = async (contactId, tenantId) => {
@@ -59,9 +66,6 @@ export const getConversationByContact = async (contactId, tenantId) => {
   return conversation;
 };
 
-
-
-
 // Get assigned conversations for a user
 export const getAssignedConversations = async ({
   userId,
@@ -72,7 +76,12 @@ export const getAssignedConversations = async ({
   assignmentType,
 }) => {
   try {
-    console.log("🔥 SERVICE called with:", { userId, tenantId, status, assignmentType });
+    console.log("🔥 SERVICE called with:", {
+      userId,
+      tenantId,
+      status,
+      assignmentType,
+    });
 
     const skip = (page - 1) * limit;
     const whereClause = {
@@ -82,18 +91,18 @@ export const getAssignedConversations = async ({
 
     console.log("🔥 whereClause:", JSON.stringify(whereClause));
 
-    if (status === 'CLOSED') {
-      whereClause.status = { in: ['CLOSED', 'RESOLVED'] };
-    } else if (status === 'OPEN') {
-      whereClause.status = 'OPEN';
+    if (status === "CLOSED") {
+      whereClause.status = { in: ["CLOSED", "RESOLVED"] };
+    } else if (status === "OPEN") {
+      whereClause.status = "OPEN";
     }
 
-    const assignType = assignmentType || (userId ? 'my' : 'all');
-    if (assignType === 'my' && userId) {
+    const assignType = assignmentType || (userId ? "my" : "all");
+    if (assignType === "my" && userId) {
       whereClause.contact = { assignedTo: userId };
-    } else if (assignType === 'assigned') {
+    } else if (assignType === "assigned") {
       whereClause.contact = { assignedTo: { not: null } };
-    } else if (assignType === 'unassigned') {
+    } else if (assignType === "unassigned") {
       whereClause.contact = { assignedTo: null };
     }
 
@@ -106,12 +115,12 @@ export const getAssignedConversations = async ({
       include: {
         contact: {
           select: {
-            id:        true,
-            name:      true,
-            phone:     true,
+            id: true,
+            name: true,
+            phone: true,
             assignedTo: true,
-            email:     true,
-            company:   true,
+            email: true,
+            company: true,
             isBlocked: true,
             contactTags: {
               include: {
@@ -124,8 +133,8 @@ export const getAssignedConversations = async ({
           orderBy: { createdAt: "desc" },
           take: 1,
           select: {
-            id:        true,
-            text:      true,
+            id: true,
+            text: true,
             createdAt: true,
           },
         },
@@ -134,6 +143,38 @@ export const getAssignedConversations = async ({
       skip,
       take: limit,
     });
+
+    // ✅ ADD THIS - Get counts for tabs
+const allCount = await prisma.conversation.count({
+  where: {
+    tenantId,
+    isArchived: false,
+  },
+});
+
+const unreadCount = await prisma.conversation.count({
+  where: {
+    tenantId,
+    isArchived: false,
+    unreadCount: { gt: 0 },   // ← Has unread messages
+  },
+});
+
+const openCount = await prisma.conversation.count({
+  where: {
+    tenantId,
+    isArchived: false,
+    status: 'OPEN',
+  },
+});
+
+const closedCount = await prisma.conversation.count({
+  where: {
+    tenantId,
+    isArchived: false,
+    status: { in: ['CLOSED', 'RESOLVED'] },
+  },
+});
 
     console.log("🔥 Conversations found:", conversations.length);
 
@@ -147,17 +188,19 @@ export const getAssignedConversations = async ({
       page,
       limit,
       totalPages: Math.ceil(total / limit),
+       counts: {              // ✅ ADD - for tab badges
+    all:    allCount,
+    unread: unreadCount,
+    open:   openCount,
+    closed: closedCount,
+  },
     };
-
   } catch (error) {
     console.error("❌ SERVICE ERROR message:", error.message);
     console.error("❌ SERVICE ERROR stack:", error.stack);
     throw error;
   }
 };
-
-
-
 
 //Get messages for a conversation (pagination + infinite scroll)
 export const getMessages = async (params) => {
@@ -172,7 +215,7 @@ export const getMessages = async (params) => {
     throw new Error("Conversation not found");
   }
 
-  const tenantId = conversation.tenantId;   // ✅ NEW - needed for signing
+  const tenantId = conversation.tenantId; // ✅ NEW - needed for signing
 
   // Step 2: Build filter
   const where = {
@@ -209,66 +252,69 @@ export const getMessages = async (params) => {
 
   // Step 6: Format output
   const formattedMessages = orderedMessages.map((msg) => {
-
     // ✅ NEW: Generate signed URL if media exists
     let signedMediaUrl = null;
 
     // ✅ REPLACE WITH THIS:
 
-if (!msg.isDeleted && msg.mediaUrl) {
-  let relativePath = msg.mediaUrl;
+    if (!msg.isDeleted && msg.mediaUrl) {
+      let relativePath = msg.mediaUrl;
 
-  // 1. Handle full URLs (old format)
-  if (relativePath.startsWith('http')) {
-    try {
-      const url = new URL(relativePath);
-      relativePath = url.pathname.substring(1);
-    } catch (err) {
-      console.error('❌ Invalid mediaUrl format:', relativePath);
-      relativePath = null;
+      // 1. Handle full URLs (old format)
+      if (relativePath.startsWith("http")) {
+        try {
+          const url = new URL(relativePath);
+          relativePath = url.pathname.substring(1);
+        } catch (err) {
+          console.error("❌ Invalid mediaUrl format:", relativePath);
+          relativePath = null;
+        }
+      }
+
+      // 2. Clean up "undefined/" prefix from corrupted records
+      if (relativePath && relativePath.includes("undefined/")) {
+        relativePath = relativePath.replace("undefined/", "");
+      }
+
+      // 3. Remove leading slash
+      if (relativePath && relativePath.startsWith("/")) {
+        relativePath = relativePath.substring(1);
+      }
+
+      // 4. Only sign valid paths starting with 'uploads/'
+      if (relativePath && relativePath.startsWith("uploads/")) {
+        signedMediaUrl = generateSignedUrl(relativePath, tenantId);
+      } else {
+        console.warn("⚠️ Skipping invalid mediaUrl:", msg.mediaUrl);
+        signedMediaUrl = null;
+      }
     }
-  }
-
-  // 2. Clean up "undefined/" prefix from corrupted records
-  if (relativePath && relativePath.includes('undefined/')) {
-    relativePath = relativePath.replace('undefined/', '');
-  }
-
-  // 3. Remove leading slash
-  if (relativePath && relativePath.startsWith('/')) {
-    relativePath = relativePath.substring(1);
-  }
-
-  // 4. Only sign valid paths starting with 'uploads/'
-  if (relativePath && relativePath.startsWith('uploads/')) {
-    signedMediaUrl = generateSignedUrl(relativePath, tenantId);
-  } else {
-    console.warn('⚠️ Skipping invalid mediaUrl:', msg.mediaUrl);
-    signedMediaUrl = null;
-  }
-}
 
     return {
-      id:             msg.id,
-      senderId:       msg.senderId,
+      id: msg.id,
+      senderId: msg.senderId,
       isFromCustomer: msg.senderType === "CONTACT",
-      type:           msg.type || "TEXT",
-      direction:      msg.direction || null,
-      senderType:     msg.senderType || null,
-      isRead:         msg.isRead,
-      status:         msg.status || "sent",
-      createdAt:      msg.createdAt,
+      type: msg.type || "TEXT",
+      direction: msg.direction || null,
+      senderType: msg.senderType || null,
+      isRead: msg.isRead,
+      status: msg.status || "sent",
+      createdAt: msg.createdAt,
 
       // ✅ Deleted messages → null
-      text:          msg.isDeleted ? null : msg.text,
-      mediaUrl:      msg.isDeleted ? null : signedMediaUrl,  // ✅ signed URL
-      mediaName:     msg.isDeleted ? null : (msg.mediaName || null),
-      mediaSize:     msg.isDeleted ? null : (msg.mediaSize || null),
-      mediaMimeType: msg.isDeleted ? null : (msg.mediaMimeType || null),
-      caption:       msg.isDeleted ? null : (msg.caption || null),
+      text: msg.isDeleted ? null : msg.text,
+      mediaUrl: msg.isDeleted ? null : signedMediaUrl, // ✅ signed URL
+      mediaName: msg.isDeleted ? null : msg.mediaName || null,
+      mediaSize: msg.isDeleted ? null : msg.mediaSize || null,
+      mediaMimeType: msg.isDeleted ? null : msg.mediaMimeType || null,
+      caption: msg.isDeleted ? null : msg.caption || null,
 
-      isDeleted:     msg.isDeleted,
-      deletedAt:     msg.deletedAt,
+      // ⭐  Interactive Buttons
+      buttons: msg.isDeleted ? null : msg.buttons || null,
+
+      isDeleted: msg.isDeleted,
+      deletedAt: msg.deletedAt,
+
     };
   });
 
@@ -278,14 +324,18 @@ if (!msg.isDeleted && msg.mediaUrl) {
   };
 };
 
-
-
 // Update conversation status (resolve/close/reopen)
-export const updateConversationStatus = async ({ conversationId, tenantId, status, agentId, userType }) => {
+export const updateConversationStatus = async ({
+  conversationId,
+  tenantId,
+  status,
+  agentId,
+  userType,
+}) => {
   // 1. Validate status
-  const validStatuses = ['OPEN', 'RESOLVED', 'CLOSED'];
+  const validStatuses = ["OPEN", "RESOLVED", "CLOSED"];
   if (!validStatuses.includes(status)) {
-    throw new Error('Invalid conversation status');
+    throw new Error("Invalid conversation status");
   }
 
   // 2. Fetch conversation and check tenant boundary
@@ -294,28 +344,28 @@ export const updateConversationStatus = async ({ conversationId, tenantId, statu
   });
 
   if (!conversation) {
-    throw new Error('Conversation not found');
+    throw new Error("Conversation not found");
   }
 
   // 3. Setup status timestamps
   const updateData = { status };
-  if (status === 'RESOLVED') {
+  if (status === "RESOLVED") {
     updateData.resolvedAt = new Date();
-  } else if (status === 'CLOSED') {
+  } else if (status === "CLOSED") {
     updateData.closedAt = new Date();
-  } else if (status === 'OPEN') {
+  } else if (status === "OPEN") {
     const notification = await createNotification({
-    tenantId,
-    userId:  null,  // notify all
-    type:    "conversation_reopened",
-    title:   "Conversation Reopened",
-    message: `A conversation has been reopened`,
-    metadata: {
-      conversationId,
-    },
-  });
+      tenantId,
+      userId: null, // notify all
+      type: "conversation_reopened",
+      title: "Conversation Reopened",
+      message: `A conversation has been reopened`,
+      metadata: {
+        conversationId,
+      },
+    });
 
-  emitToTenant(tenantId, "new_notification", { notification });
+    emitToTenant(tenantId, "new_notification", { notification });
 
     updateData.resolvedAt = null;
     updateData.closedAt = null;
@@ -329,19 +379,21 @@ export const updateConversationStatus = async ({ conversationId, tenantId, statu
   });
 
   // 5. Log system activity
-  const action = status.toLowerCase() === 'open' ? 'opened' : status.toLowerCase() === 'resolved' ? 'resolved' : 'closed';
+  const action =
+    status.toLowerCase() === "open"
+      ? "opened"
+      : status.toLowerCase() === "resolved"
+        ? "resolved"
+        : "closed";
   await logActivity({
     conversationId,
     action,
     performedBy: agentId || null,
-    performedByType: userType === 'TENANT' ? 'tenant' : 'agent',
+    performedByType: userType === "TENANT" ? "tenant" : "agent",
   });
 
   return updated;
 };
-
-
-
 
 // ── Archive Conversation ──────────────────────────────────
 export const archiveConversation = async ({
@@ -350,11 +402,10 @@ export const archiveConversation = async ({
   requesterId,
   requesterRole,
 }) => {
-
   // Find conversation
   const conversation = await prisma.conversation.findFirst({
     where: {
-      id:       conversationId,
+      id: conversationId,
       tenantId: tenantId,
     },
   });
@@ -371,9 +422,9 @@ export const archiveConversation = async ({
   const archived = await prisma.conversation.update({
     where: { id: conversationId },
     data: {
-      isArchived:    true,
-      archivedAt:    new Date(),
-      archivedBy:    requesterId,
+      isArchived: true,
+      archivedAt: new Date(),
+      archivedBy: requesterId,
       archivedByRole: requesterRole,
     },
   });
@@ -381,14 +432,13 @@ export const archiveConversation = async ({
   // Log activity
   await logActivity({
     conversationId,
-    action:          "archived",
-    performedBy:     requesterId,
+    action: "archived",
+    performedBy: requesterId,
     performedByType: requesterRole === "TENANT" ? "tenant" : "agent",
   });
 
   return archived;
 };
-
 
 // ── Unarchive Conversation ────────────────────────────────
 export const unarchiveConversation = async ({
@@ -397,10 +447,9 @@ export const unarchiveConversation = async ({
   requesterId,
   requesterRole,
 }) => {
-
   const conversation = await prisma.conversation.findFirst({
     where: {
-      id:       conversationId,
+      id: conversationId,
       tenantId: tenantId,
     },
   });
@@ -416,23 +465,22 @@ export const unarchiveConversation = async ({
   const unarchived = await prisma.conversation.update({
     where: { id: conversationId },
     data: {
-      isArchived:    false,
-      archivedAt:    null,
-      archivedBy:    null,
+      isArchived: false,
+      archivedAt: null,
+      archivedBy: null,
       archivedByRole: null,
     },
   });
 
   await logActivity({
     conversationId,
-    action:          "unarchived",
-    performedBy:     requesterId,
+    action: "unarchived",
+    performedBy: requesterId,
     performedByType: requesterRole === "TENANT" ? "tenant" : "agent",
   });
 
   return unarchived;
 };
-
 
 // ── Delete Conversation (TENANT only) ────────────────────
 export const deleteConversation = async ({
@@ -441,7 +489,6 @@ export const deleteConversation = async ({
   requesterId,
   requesterRole,
 }) => {
-
   // Only TENANT can delete
   if (requesterRole !== "TENANT") {
     throw new Error("Unauthorized: Only tenant can delete conversations");
@@ -450,8 +497,8 @@ export const deleteConversation = async ({
   // Find conversation
   const conversation = await prisma.conversation.findFirst({
     where: {
-      id:       conversationId,
-      tenantId: tenantId,   // tenant boundary check
+      id: conversationId,
+      tenantId: tenantId, // tenant boundary check
     },
   });
 
@@ -470,7 +517,6 @@ export const deleteConversation = async ({
   return { deleted: true, conversationId };
 };
 
-
 // ── Get Archived Conversations ────────────────────────────
 export const getArchivedConversations = async ({
   tenantId,
@@ -478,12 +524,11 @@ export const getArchivedConversations = async ({
   page,
   limit,
 }) => {
-
   const skip = (page - 1) * limit;
 
   const whereClause = {
-    tenantId:   tenantId,
-    isArchived: true,       // ← only archived
+    tenantId: tenantId,
+    isArchived: true, // ← only archived
   };
 
   // If USER → only their assigned contacts
@@ -498,12 +543,12 @@ export const getArchivedConversations = async ({
     include: {
       contact: {
         select: {
-          id:        true,
-          name:      true,
-          phone:     true,
+          id: true,
+          name: true,
+          phone: true,
           assignedTo: true,
-          email:     true,
-          company:   true,
+          email: true,
+          company: true,
           isBlocked: true,
           contactTags: {
             include: { tag: true },
@@ -517,8 +562,8 @@ export const getArchivedConversations = async ({
         orderBy: { createdAt: "desc" },
         take: 1,
         select: {
-          id:        true,
-          text:      true,
+          id: true,
+          text: true,
           createdAt: true,
           isDeleted: true,
         },
@@ -542,19 +587,15 @@ export const getArchivedConversations = async ({
   };
 };
 
-
-
-
 // ──────────── Bulk Reassign Conversations ────────────────────────────
 export const bulkReassignConversations = async ({
   tenantId,
   conversationIds,
-  newUserId,          // renamed: agent → user
-  performedBy,        // tenant.id
-  performedByName,    // tenant.tenantName
-  performedByEmail,   // tenant.email
+  newUserId, // renamed: agent → user
+  performedBy, // tenant.id
+  performedByName, // tenant.tenantName
+  performedByEmail, // tenant.email
 }) => {
-
   // ──────────────────────────────────────────
   // STEP 1: Validate new user belongs to tenant
   // ──────────────────────────────────────────
@@ -563,20 +604,18 @@ export const bulkReassignConversations = async ({
   if (newUserId) {
     const user = await prisma.user.findFirst({
       where: {
-        id:       newUserId,
-        tenantId: tenantId,    // must be same tenant
-        isActive: true,        // must be active
+        id: newUserId,
+        tenantId: tenantId, // must be same tenant
+        isActive: true, // must be active
       },
       select: {
-        id:   true,
+        id: true,
         name: true,
       },
     });
 
     if (!user) {
-      throw new Error(
-        "User not found or does not belong to this organization"
-      );
+      throw new Error("User not found or does not belong to this organization");
     }
 
     targetUserName = user.name;
@@ -588,18 +627,18 @@ export const bulkReassignConversations = async ({
   // ──────────────────────────────────────────
   const conversations = await prisma.conversation.findMany({
     where: {
-      id:         { in: conversationIds },
-      tenantId:   tenantId,      // ← never allow cross-tenant
-      isArchived: false,         // ← skip archived conversations
+      id: { in: conversationIds },
+      tenantId: tenantId, // ← never allow cross-tenant
+      isArchived: false, // ← skip archived conversations
     },
     select: {
-      id:         true,
-      contactId:  true,
-      assignedTo: true,          // ← current user on conversation
+      id: true,
+      contactId: true,
+      assignedTo: true, // ← current user on conversation
       contact: {
         select: {
-          id:         true,
-          assignedTo: true,      // ← current user on contact
+          id: true,
+          assignedTo: true, // ← current user on contact
         },
       },
     },
@@ -609,17 +648,13 @@ export const bulkReassignConversations = async ({
   // STEP 3: Guard — nothing valid found
   // ──────────────────────────────────────────
   if (conversations.length === 0) {
-    throw new Error(
-      "No valid conversations found for this organization"
-    );
+    throw new Error("No valid conversations found for this organization");
   }
 
   // ──────────────────────────────────────────
   // STEP 4: Extract unique contact IDs
   // ──────────────────────────────────────────
-  const contactIds = [
-    ...new Set(conversations.map((c) => c.contactId)),
-  ];
+  const contactIds = [...new Set(conversations.map((c) => c.contactId))];
 
   // ──────────────────────────────────────────
   // STEP 5: Track previous user per conversation
@@ -636,7 +671,7 @@ export const bulkReassignConversations = async ({
   // ──────────────────────────────────────────
   await prisma.conversation.updateMany({
     where: {
-      id:       { in: conversationIds },
+      id: { in: conversationIds },
       tenantId: tenantId,
     },
     data: {
@@ -650,7 +685,7 @@ export const bulkReassignConversations = async ({
   // ──────────────────────────────────────────
   await prisma.contact.updateMany({
     where: {
-      id:       { in: contactIds },
+      id: { in: contactIds },
       tenantId: tenantId,
     },
     data: {
@@ -665,21 +700,21 @@ export const bulkReassignConversations = async ({
   // ──────────────────────────────────────────
   const activityPromises = conversations.map((conv) =>
     logActivity({
-      conversationId:  conv.id,
-      action:          newUserId ? "reassigned" : "unassigned",
-      performedBy:     performedBy,
+      conversationId: conv.id,
+      action: newUserId ? "reassigned" : "unassigned",
+      performedBy: performedBy,
       performedByType: "tenant",
       metadata: {
-        fromUserId:   previousUserMap[conv.id] || null,
-        toUserId:     newUserId                || null,
-        toUserName:   targetUserName           || null,
+        fromUserId: previousUserMap[conv.id] || null,
+        toUserId: newUserId || null,
+        toUserName: targetUserName || null,
       },
     }).catch((err) => {
       console.error(
         `[BulkReassign] Activity log failed for conv ${conv.id}:`,
-        err.message
+        err.message,
       );
-    })
+    }),
   );
 
   await Promise.allSettled(activityPromises);
@@ -692,21 +727,18 @@ export const bulkReassignConversations = async ({
   if (newUserId) {
     await createNotification({
       tenantId: tenantId,
-      userId:   newUserId,          // ← user-specific
-      type:     "bulk_reassignment",
-      title:    "New Conversations Assigned",
-      message:  `${conversations.length} conversation(s) have been assigned to you`,
+      userId: newUserId, // ← user-specific
+      type: "bulk_reassignment",
+      title: "New Conversations Assigned",
+      message: `${conversations.length} conversation(s) have been assigned to you`,
       metadata: {
         conversationIds: conversations.map((c) => c.id),
-        assignedBy:      performedBy,
-        assignedByName:  performedByName,
-        count:           conversations.length,
+        assignedBy: performedBy,
+        assignedByName: performedByName,
+        count: conversations.length,
       },
     }).catch((err) => {
-      console.error(
-        "[BulkReassign] Notification failed:",
-        err.message
-      );
+      console.error("[BulkReassign] Notification failed:", err.message);
     });
   }
 
@@ -717,26 +749,26 @@ export const bulkReassignConversations = async ({
   // actorType: TENANT (SenderType enum)
   // ──────────────────────────────────────────
   await createAuditLog({
-    actorId:     performedBy,
-    actorType:   "TENANT",             // SenderType enum
-    actorName:   performedByName  || "Admin",
-    actorEmail:  performedByEmail || "",
-    action:      "BULK_REASSIGN",      // ← add to AuditAction enum
-    module:      "CONVERSATIONS",      // ← add to AuditModule enum
+    actorId: performedBy,
+    actorType: "TENANT", // SenderType enum
+    actorName: performedByName || "Admin",
+    actorEmail: performedByEmail || "",
+    action: "BULK_REASSIGN", // ← add to AuditAction enum
+    module: "CONVERSATIONS", // ← add to AuditModule enum
     description: newUserId
       ? `Admin bulk reassigned ${conversations.length} conversation(s) to user "${targetUserName}"`
       : `Admin bulk unassigned ${conversations.length} conversation(s)`,
-    targetId:   newUserId       || null,
-    targetType: newUserId       ? "USER" : null,
-    targetName: targetUserName  || null,
-    tenantId:   tenantId,
+    targetId: newUserId || null,
+    targetType: newUserId ? "USER" : null,
+    targetName: targetUserName || null,
+    tenantId: tenantId,
     metadata: {
-      conversationIds:  conversations.map((c) => c.id),
-      totalReassigned:  conversations.length,
-      skippedCount:     conversationIds.length - conversations.length,
-      newUserId:        newUserId      || null,
-      newUserName:      targetUserName || null,
-      previousUserMap:  previousUserMap,
+      conversationIds: conversations.map((c) => c.id),
+      totalReassigned: conversations.length,
+      skippedCount: conversationIds.length - conversations.length,
+      newUserId: newUserId || null,
+      newUserName: targetUserName || null,
+      previousUserMap: previousUserMap,
     },
   });
 
@@ -747,11 +779,11 @@ export const bulkReassignConversations = async ({
   // ──────────────────────────────────────────
   emitToTenant(tenantId, "conversations_reassigned", {
     conversationIds: conversations.map((c) => c.id),
-    newUserId:       newUserId      || null,
-    newUserName:     targetUserName || null,
-    assignedBy:      performedBy,
-    assignedByName:  performedByName,
-    count:           conversations.length,
+    newUserId: newUserId || null,
+    newUserName: targetUserName || null,
+    assignedBy: performedBy,
+    assignedByName: performedByName,
+    count: conversations.length,
   });
 
   // ──────────────────────────────────────────
@@ -759,9 +791,48 @@ export const bulkReassignConversations = async ({
   // ──────────────────────────────────────────
   return {
     reassignedCount: conversations.length,
-    skippedCount:    conversationIds.length - conversations.length,
+    skippedCount: conversationIds.length - conversations.length,
     conversationIds: conversations.map((c) => c.id),
-    newUserId:       newUserId      || null,
-    newUserName:     targetUserName || null,
+    newUserId: newUserId || null,
+    newUserName: targetUserName || null,
   };
+};
+
+
+
+// ── Reset unread count when agent opens conversation ──
+export const markConversationAsRead = async ({
+  conversationId,
+  tenantId,
+}) => {
+  const conversation = await prisma.conversation.findFirst({
+    where: { id: conversationId, tenantId },
+  });
+
+  if (!conversation) throw new Error('Conversation not found');
+
+  // Reset unread count
+  await prisma.conversation.update({
+    where: { id: conversationId },
+    data:  { unreadCount: 0 },
+  });
+
+  // Mark inbound messages as read
+  await prisma.message.updateMany({
+    where: {
+      conversationId,
+      direction: 'INBOUND',
+      isRead:    false,
+    },
+    data: { isRead: true },
+  });
+
+  // Emit reset
+  emitToTenant(tenantId, 'unread_count_update', {
+    conversationId,
+    unreadCount: 0,
+    contactId:   conversation.contactId,
+  });
+
+  return { success: true };
 };
