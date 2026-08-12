@@ -73,7 +73,7 @@ services:
     container_name: sudoreply-tenant-web
     restart: always
     ports:
-      - "3000:80"
+      - "3002:80"
 
   # 5. Admin React Web App (admin.sudoreply.com)
   admin-web:
