@@ -165,3 +165,19 @@ export const bulkReassignConversations = async (conversationIds, newUserId) => {
     };
   }
 };
+
+
+// ── Mark conversation as read ─────────────────────────────
+export const markConversationAsRead = async (conversationId) => {
+  try {
+    const response = await api.patch(
+      `${CONV_BASE_URL}/mark-read/${conversationId}`
+    );
+    return { success: true, data: response.data };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to mark as read",
+    };
+  }
+};

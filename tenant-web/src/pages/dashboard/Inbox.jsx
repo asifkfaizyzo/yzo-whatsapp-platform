@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { FaWhatsapp } from "react-icons/fa";
+import api from "../../lib/axios";
 import {
   Search,
   Send,
@@ -24,7 +25,7 @@ import {
   Mic,
   Check,
   Trash2,
-  Eye,
+  Eye,MapPin,
   AlertTriangle,
 } from "lucide-react";
 import {
@@ -37,11 +38,13 @@ import {
   deleteConversation,
   getArchivedConversations,
   bulkReassignConversations,
+  markConversationAsRead,
 } from "../../services/conversation.service";
 import {
   sendMessage,
   sendMediaMessage,
   deleteMessage,
+  sendLocation,
 } from "../../services/message.service";
 import {
   getContacts,
@@ -99,6 +102,21 @@ export default function Inbox() {
 
   // ── Scroll ──
   const messagesEndRef = useRef(null);
+
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
+  const attachMenuRef = useRef(null);
+  const docInputRef = useRef(null);
+
+  // ── Location Modal ──
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [locationForm, setLocationForm] = useState({
+    name:      "",
+    address:   "",
+    latitude:  "",
+    longitude: "",
+  });
+  const [locationError, setLocationError]     = useState("");
+  const [sendingLocation, setSendingLocation] = useState(false);
 
   const scrollToBottom = () => {
     if (!messagesEndRef.current) return;
@@ -174,8 +192,15 @@ export default function Inbox() {
     return [];
   };
 
-  const getUnreadCount = (conversationId) =>
-    unreadMap[String(conversationId)] || 0;
+  const getUnreadCount = (conversationId) => {
+  // Priority 1: Session-only unread (real-time increments)
+  const sessionCount = unreadMap[String(conversationId)];
+  if (sessionCount != null && sessionCount > 0) return sessionCount;
+
+  // Priority 2: Backend-persisted unread count
+  const chat = chats.find((c) => String(c.id) === String(conversationId));
+  return chat?.unreadCount || 0;
+};
 
   // ── Load Tags and Agents ──
   useEffect(() => {
@@ -202,6 +227,12 @@ export default function Inbox() {
           res.data?.data ||
           res.data ||
           [];
+
+           console.log('🔍 API RESPONSE CONVERSATIONS:', convList.map(c => ({
+        id: c.id,
+        name: c.contact?.name,
+        unreadCount: c.unreadCount,
+      })));
 
         setChats(convList);
 
@@ -230,16 +261,35 @@ export default function Inbox() {
     loadConversations();
   }, [loadConversations]);
 
-  // ── Sync URL param → activeChatId ──
-  useEffect(() => {
-    if (urlConversationId) setActiveChatId(urlConversationId);
-  }, [urlConversationId]);
 
-  // ── Clear unread when chat opened ──
-  useEffect(() => {
-    if (!activeChatId) return;
-    setUnreadMap((prev) => ({ ...prev, [String(activeChatId)]: 0 }));
-  }, [activeChatId]);
+// ── Clear unread when chat opened ──
+useEffect(() => {
+  if (!activeChatId) return;
+  
+  // 1. Reset frontend immediately
+  setUnreadMap((prev) => ({ ...prev, [String(activeChatId)]: 0 }));
+  
+  // 2. ✅ ADD: Also reset backend
+  const markAsRead = async () => {
+    try {
+      await api.patch(
+        `${import.meta.env.VITE_BACKEND_URL}/api5/mark-read/${activeChatId}`
+      );
+    } catch (err) {
+      console.error("Failed to mark as read:", err);
+    }
+  };
+  markAsRead();
+  
+  // 3. Update chats state so sidebar count decreases
+  setChats((prev) =>
+    prev.map((c) =>
+      String(c.id) === String(activeChatId)
+        ? { ...c, unreadCount: 0 }
+        : c
+    )
+  );
+}, [activeChatId]);
 
   // ── Reset dropdowns when chat changes ──
   useEffect(() => {
@@ -251,7 +301,10 @@ export default function Inbox() {
   useEffect(() => {
     if (!activeChatId) return;
     const loadMessages = async () => {
-      const res = await getConversationMessages(activeChatId, 50);
+    const res = await getConversationMessages(activeChatId, 50);
+        console.log('🔍 API RESPONSE:', res)                    // ⭐ ADD
+        console.log('🔍 MESSAGES:', res.data?.messages) 
+
       if (res.success) setMessages(res.data.messages || []);
     };
     loadMessages();
@@ -441,14 +494,47 @@ export default function Inbox() {
       );
     };
 
+    // ── Handle unread count update from backend ──
+const handleUnreadCountUpdate = (data) => {
+  const { conversationId, unreadCount } = data;
+  console.log("🔔 Unread update:", data);
+
+  // Update chats list to sync unreadCount
+  setChats((prev) =>
+    prev.map((c) =>
+      String(c.id) === String(conversationId)
+        ? { ...c, unreadCount: unreadCount }
+        : c
+    )
+  );
+
+  // If chat is currently open → keep unreadMap at 0
+  const isCurrentChatOpen =
+    activeChatId && String(activeChatId) === String(conversationId);
+  
+  if (isCurrentChatOpen) {
+    setUnreadMap((prev) => ({ ...prev, [String(conversationId)]: 0 }));
+  }
+};
+
+     // ✅ NEW HANDLER
+  const handleConversationAssigned = (data) => {
+    console.log("🎯 New conversation assigned to me:", data);
+    loadConversations(true);
+  };
+
     socket.on("new_message", handleNewMessage);
     socket.on("message_deleted", handleMessageDeleted);
     socket.on("conversations_reassigned", handleConversationsReassigned);
+    socket.on("unread_count_update", handleUnreadCountUpdate);
+    socket.on("conversation_assigned", handleConversationAssigned); 
 
     return () => {
       socket.off("new_message", handleNewMessage);
       socket.off("message_deleted", handleMessageDeleted);
       socket.off("conversations_reassigned", handleConversationsReassigned);
+      socket.off("unread_count_update", handleUnreadCountUpdate);
+      socket.off("conversation_assigned", handleConversationAssigned);
     };
   }, [socket, activeChatId, loadConversations]);
 
@@ -457,6 +543,17 @@ export default function Inbox() {
     const handleClickOutside = (e) => {
       if (convMenuRef.current && !convMenuRef.current.contains(e.target)) {
         setShowConvMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+    // ── Close attach menu when clicking outside ──
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (attachMenuRef.current && !attachMenuRef.current.contains(e.target)) {
+        setShowAttachMenu(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -937,6 +1034,58 @@ export default function Inbox() {
         .forEach((track) => track.stop());
     }
   };
+
+    // ── Send Location ──
+  const handleSendLocation = async () => {
+    setLocationError("");
+
+    const lat = parseFloat(locationForm.latitude);
+    const lng = parseFloat(locationForm.longitude);
+
+    if (!locationForm.latitude || !locationForm.longitude) {
+      setLocationError("Latitude and longitude are required");
+      return;
+    }
+    if (isNaN(lat) || lat < -90 || lat > 90) {
+      setLocationError("Latitude must be between -90 and 90");
+      return;
+    }
+    if (isNaN(lng) || lng < -180 || lng > 180) {
+      setLocationError("Longitude must be between -180 and 180");
+      return;
+    }
+    if (!activeChat?.contact?.phone) {
+      setLocationError("Contact phone number not found");
+      return;
+    }
+
+    setSendingLocation(true);
+    try {
+      const to = activeChat.contact.phone.replace(/^\+/, "");
+
+      const res = await sendLocation({
+        to,
+        latitude:       lat,
+        longitude:      lng,
+        name:           locationForm.name    || undefined,
+        address:        locationForm.address || undefined,
+        conversationId: activeChatId,
+      });
+
+      if (res.success) {
+        setShowLocationModal(false);
+        setShowAttachMenu(false);
+        setLocationForm({ name: "", address: "", latitude: "", longitude: "" });
+        toast.success("Location sent!");
+      } else {
+        setLocationError(res.message || "Failed to send location");
+      }
+    } catch (err) {
+      setLocationError("Something went wrong");
+    }
+    setSendingLocation(false);
+  };
+
 
   // ── Send Voice Message ──
   const sendVoiceMessage = async (audioBlob) => {
@@ -1428,7 +1577,15 @@ export default function Inbox() {
                               : "text-[#667781]"
                           }`}
                         >
-                          {lastMsg ? lastMsg.text : "No messages yet"}
+                          {lastMsg
+                            ? lastMsg.text ||
+                              (lastMsg.type === "LOCATION" ? "📍 Location"
+                              : lastMsg.type === "IMAGE"   ? "📷 Image"
+                              : lastMsg.type === "VIDEO"   ? "🎥 Video"
+                              : lastMsg.type === "AUDIO"   ? "🎵 Audio"
+                              : lastMsg.type === "FILE"    ? "📄 File"
+                              : "Message")
+                            : "No messages yet"}
                         </p>
 
                         {unreadCount > 0 && (
@@ -1689,6 +1846,13 @@ export default function Inbox() {
               )}
 
               {messages.map((msg) => {
+                  console.log('📩 MSG:', {
+    id: msg.id,
+    type: msg.type,
+    buttons: msg.buttons,
+    text: msg.text?.substring(0, 40)
+  })
+
                 const isAgent = !msg.isFromCustomer;
                 const timeStr = new Date(msg.createdAt).toLocaleTimeString([], {
                   hour: "2-digit",
@@ -1870,6 +2034,49 @@ export default function Inbox() {
                         </p>
                       )}
 
+                      {/* ⭐ INTERACTIVE_BUTTONS */}
+                      {msg.type === "INTERACTIVE_BUTTONS" && (
+                        <div>
+                          {/* Body text */}
+                          <p className="leading-relaxed whitespace-pre-wrap">
+                            {msg.text}
+                          </p>
+
+                          {/* Buttons */}
+                          {msg.buttons &&
+                            Array.isArray(msg.buttons) &&
+                            msg.buttons.length > 0 && (
+                              <div className="mt-3 pt-2 border-t border-[#075E54]/10 space-y-1.5">
+                                {msg.buttons.map((btn, i) => (
+                                  <div
+                                    key={btn.id || i}
+                                    className="flex items-center justify-center gap-2 py-2 px-3
+              bg-white/70 hover:bg-white border border-[#075E54]/20
+              rounded-lg text-[12px] font-semibold text-[#075E54]
+              transition cursor-default"
+                                  >
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      width="12"
+                                      height="12"
+                                      viewBox="0 0 24 24"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      strokeWidth="2.5"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                    >
+                                      <path d="M9 11.24V7.5a2.5 2.5 0 015 0v3.74" />
+                                      <path d="M14 11h1a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2v-6a2 2 0 012-2h1" />
+                                    </svg>
+                                    {btn.title}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                        </div>
+                      )}
+
                       {/* IMAGE */}
                       {msg.type === "IMAGE" && msg.mediaUrl && (
                         <div className="mb-1">
@@ -1970,6 +2177,52 @@ export default function Inbox() {
                             controls
                             style={{ maxWidth: "220px" }}
                           />
+                        </div>
+                      )}
+
+
+                                            {/* LOCATION */}
+                      {msg.type === "LOCATION" && (
+                        <div className="mb-1">
+                          <div className="flex items-start gap-2 p-2.5 bg-white/60 rounded-lg min-w-[200px] max-w-[220px]">
+                            <div className="w-8 h-8 rounded-full bg-[#075E54]/10 flex items-center justify-center shrink-0 mt-0.5">
+                              <MapPin size={16} className="text-[#075E54]" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              {msg.locName && (
+                                <p className="text-[12px] font-bold text-[#111B21] leading-tight truncate">
+                                  {msg.locName}
+                                </p>
+                              )}
+                              {msg.locAddress && (
+                                <p className="text-[10px] text-[#667781] mt-0.5 leading-snug line-clamp-2">
+                                  {msg.locAddress}
+                                </p>
+                              )}
+                              {!msg.locName && !msg.locAddress && (
+                                <p className="text-[11px] font-semibold text-[#111B21]">
+                                  Location
+                                </p>
+                              )}
+                              <p className="text-[9px] text-[#8696A0] mt-1 font-mono">
+                                {Number(msg.locLatitude).toFixed(4)},{" "}
+                                {Number(msg.locLongitude).toFixed(4)}
+                              </p>
+                              <a
+                                href={`https://www.google.com/maps?q=${msg.locLatitude},${msg.locLongitude}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 mt-2 text-[10px] font-bold text-[#075E54] hover:text-[#064E47] transition"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                                  <polyline points="15 3 21 3 21 9"/>
+                                  <line x1="10" y1="14" x2="21" y2="3"/>
+                                </svg>
+                                Open in Google Maps
+                              </a>
+                            </div>
+                          </div>
                         </div>
                       )}
 
@@ -2139,6 +2392,7 @@ export default function Inbox() {
                 >
                   <Smile size={22} />
                 </button>
+
 
                 <input
                   type="file"
@@ -2743,7 +2997,170 @@ export default function Inbox() {
           </div>
         </div>
       )}
-      {/* ══ End Archived Modal ══ */}
+     
+
+            {/* ══ End Archived Modal ══ */}
+
+      {/* ══════════════════════════════════════
+          LOCATION MODAL
+      ══════════════════════════════════════ */}
+      {showLocationModal && (
+        <div className="fixed inset-0 z-50 bg-[#111B21]/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-emerald-100 shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-150">
+
+            {/* Header */}
+            <div className="px-6 py-4 bg-[#075E54] flex items-center justify-between rounded-t-3xl">
+              <div className="flex items-center gap-2.5">
+                <MapPin size={16} className="text-white" />
+                <h2 className="text-base font-bold text-white">Share Location</h2>
+              </div>
+              <button
+                onClick={() => {
+                  setShowLocationModal(false);
+                  setLocationError("");
+                  setLocationForm({ name: "", address: "", latitude: "", longitude: "" });
+                }}
+                className="text-white/60 hover:text-white p-1.5 rounded-xl hover:bg-white/10 transition"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 space-y-4">
+
+              {/* Name */}
+              <div>
+                <label className="text-[10px] font-bold text-[#075E54] uppercase tracking-wider">
+                  Place Name{" "}
+                  <span className="text-[#667781] font-normal normal-case">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Acme Office"
+                  value={locationForm.name}
+                  onChange={(e) =>
+                    setLocationForm((prev) => ({ ...prev, name: e.target.value }))
+                  }
+                  className="mt-1.5 w-full px-3 py-2.5 text-sm bg-[#F0F2F5] rounded-xl border-0 text-[#111B21] placeholder-[#667781] focus:outline-none focus:ring-2 focus:ring-[#25D366]/30 transition"
+                />
+              </div>
+
+              {/* Address */}
+              <div>
+                <label className="text-[10px] font-bold text-[#075E54] uppercase tracking-wider">
+                  Address{" "}
+                  <span className="text-[#667781] font-normal normal-case">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. MG Road, Bangalore"
+                  value={locationForm.address}
+                  onChange={(e) =>
+                    setLocationForm((prev) => ({ ...prev, address: e.target.value }))
+                  }
+                  className="mt-1.5 w-full px-3 py-2.5 text-sm bg-[#F0F2F5] rounded-xl border-0 text-[#111B21] placeholder-[#667781] focus:outline-none focus:ring-2 focus:ring-[#25D366]/30 transition"
+                />
+              </div>
+
+              {/* Lat / Lng */}
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="text-[10px] font-bold text-[#075E54] uppercase tracking-wider">
+                    Latitude <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="e.g. 12.9716"
+                    value={locationForm.latitude}
+                    onChange={(e) =>
+                      setLocationForm((prev) => ({ ...prev, latitude: e.target.value }))
+                    }
+                    step="any"
+                    className="mt-1.5 w-full px-3 py-2.5 text-sm bg-[#F0F2F5] rounded-xl border-0 text-[#111B21] placeholder-[#667781] focus:outline-none focus:ring-2 focus:ring-[#25D366]/30 transition"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="text-[10px] font-bold text-[#075E54] uppercase tracking-wider">
+                    Longitude <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="e.g. 77.5946"
+                    value={locationForm.longitude}
+                    onChange={(e) =>
+                      setLocationForm((prev) => ({ ...prev, longitude: e.target.value }))
+                    }
+                    step="any"
+                    className="mt-1.5 w-full px-3 py-2.5 text-sm bg-[#F0F2F5] rounded-xl border-0 text-[#111B21] placeholder-[#667781] focus:outline-none focus:ring-2 focus:ring-[#25D366]/30 transition"
+                  />
+                </div>
+              </div>
+
+              {/* Helper */}
+              <p className="text-[10px] text-[#667781] flex items-center gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="8" x2="12" y2="12"/>
+                  <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                Find coordinates: Google Maps → right click → copy lat/long
+              </p>
+
+              {/* Error */}
+              {locationError && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-red-50 rounded-xl border border-red-100">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                  </svg>
+                  <p className="text-xs text-red-600 font-medium">{locationError}</p>
+                </div>
+              )}
+
+              {/* Buttons */}
+              <div className="flex gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowLocationModal(false);
+                    setLocationError("");
+                    setLocationForm({ name: "", address: "", latitude: "", longitude: "" });
+                  }}
+                  disabled={sendingLocation}
+                  className="flex-1 py-2.5 text-xs font-bold rounded-xl bg-[#F0F2F5] text-[#667781] hover:bg-gray-200 transition disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSendLocation}
+                  disabled={
+                    sendingLocation ||
+                    !locationForm.latitude ||
+                    !locationForm.longitude
+                  }
+                  className="flex-1 py-2.5 text-xs font-bold rounded-xl bg-[#075E54] hover:bg-[#064E47] text-white transition disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {sendingLocation ? (
+                    <>
+                      <RefreshCw size={12} className="animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <MapPin size={12} />
+                      Send Location
+                    </>
+                  )}
+                </button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Bulk Reassign Modal ── */}
       {showBulkReassignModal && (

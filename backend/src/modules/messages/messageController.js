@@ -10,6 +10,7 @@ import upload from "../../middlewares/upload.middleware.js";
 import { emitToTenant } from "../../lib/socket.js";
 import { generateSignedUrl } from '../../lib/utils/signedUrl.js';
 import fs from "fs";
+import path from "path";
 
 
 // ─────────────────────────────────────────────────────────────
@@ -46,14 +47,47 @@ export const incomingMessageController = async (req, res) => {
 
     // ── Handle uploaded file (inbound media via simulator) ────
     // If file was uploaded directly (not via WhatsApp webhook)
+//     if (req.file) {
+//   const relativePath = req.file.path.replace(/\\/g, "/");
+//   mediaUrl      = relativePath;              // ✅ store relative path only
+//   mediaName     = req.file.originalname;
+//   mediaSize     = req.file.size;
+//   mediaMimeType = req.file.mimetype;
+
+//   console.log("✅ Inbound file saved:", relativePath);
+// }
+
+
     if (req.file) {
-  const relativePath = req.file.path.replace(/\\/g, "/");
-  mediaUrl      = relativePath;              // ✅ store relative path only
+  let filePath = req.file.path.replace(/\\/g, "/");
+
+  // ✅ If file went to temp folder, move it to proper inbound path
+  if (filePath.includes('uploads/temp/')) {
+    const correctDir = path.join(
+      'uploads',
+      'tenants',
+      tenantId,
+      'contacts',
+      contactId,
+      'inbound'
+    );
+    fs.mkdirSync(correctDir, { recursive: true });
+
+    const newPath = path.join(correctDir, req.file.filename).replace(/\\/g, "/");
+    
+    // Move file from temp → inbound
+    fs.renameSync(req.file.path, newPath);
+    filePath = newPath;
+
+    console.log(`📦 Moved file from temp → ${newPath}`);
+  }
+
+  mediaUrl      = filePath;
   mediaName     = req.file.originalname;
   mediaSize     = req.file.size;
   mediaMimeType = req.file.mimetype;
 
-  console.log("✅ Inbound file saved:", relativePath);
+  console.log("✅ Inbound file saved:", filePath);
 }
 
     // ── Validate message content ──────────────────────────────

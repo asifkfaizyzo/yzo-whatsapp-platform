@@ -80,27 +80,61 @@ const flowService = {
       where: { flowId }
     })
 
-    // Build next node map from edges
-    const nextNodeMap = {}
-    if (edges && Array.isArray(edges)) {
-      edges.forEach(edge => {
-        nextNodeMap[edge.source] = edge.target
-      })
+    // ── Build next node map (normal nodes) ──
+const nextNodeMap = {}
+
+// ── Build button edge map (button nodes) ──
+const buttonEdgeMap = {}
+
+if (edges && Array.isArray(edges)) {
+  edges.forEach(edge => {
+    const sourceNode = nodes.find(n => n.id === edge.source)
+
+    if (sourceNode?.type === 'INTERACTIVE_BUTTONS') {
+      // Button node: map by button ID
+      if (!buttonEdgeMap[edge.source]) {
+        buttonEdgeMap[edge.source] = {}
+      }
+      buttonEdgeMap[edge.source][edge.sourceHandle] = edge.target
+
+    } else {
+      // Normal node: single next node
+      nextNodeMap[edge.source] = edge.target
+    }
+  })
+}
+
+// Save new nodes
+await prisma.flowNode.createMany({
+  data: nodes.map((node, index) => {
+
+    let options = node.data?.options || null
+
+    // ⭐ Inject nextNodeId into each button option
+    if (
+      node.type === 'INTERACTIVE_BUTTONS' &&
+      Array.isArray(options)
+    ) {
+      const btnMap = buttonEdgeMap[node.id] || {}
+      options = options.map(btn => ({
+        ...btn,
+        nextNodeId: btnMap[btn.id] || null
+      }))
     }
 
-    // Save new nodes
-    await prisma.flowNode.createMany({
-      data: nodes.map((node, index) => ({
-        id: node.id,
-        flowId,
-        type: node.type,
-        content: node.data?.content || '',
-        options: node.data?.options || null,
-        nextNodeId: nextNodeMap[node.id] || null,
-        position: node.position || null,
-        order: index
-      }))
-    })
+    return {
+      id: node.id,
+      flowId,
+      type: node.type,
+      content: node.data?.content || '',
+      options: options,
+      nextNodeId: nextNodeMap[node.id] || null,
+      position: node.position || null,
+      order: index
+    }
+  })
+})
+
   }
 
     return await prisma.flow.findFirst({

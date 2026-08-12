@@ -26,6 +26,7 @@ import { getBroadcasts } from "../../services/broadcast.service";
 import { getAssignedConversations } from "../../services/conversation.service";
 import { useAuthStore } from "../../store/useAuthStore";
 import { getSocket } from "../../lib/socket";
+import api from "../../lib/axios";
 
 export default function Dashboard() {
   const { user: authUser } = useAuthStore();
@@ -37,6 +38,7 @@ export default function Dashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [newAssignmentBadge, setNewAssignmentBadge] = useState(0);
   const [queueCount, setQueueCount] = useState(0);
+  const [unassignedCount, setUnassignedCount] = useState(0);
 
   const [waStatus, setWaStatus] = useState({
     isConnected: false,
@@ -93,19 +95,19 @@ export default function Dashboard() {
     }
 
     // 🚧 TEMPORARY MOCK — REMOVE BEFORE PRODUCTION
-    setTimeout(() => {
-      setWaStatus({
-        isConnected: true,
-        loading: false,
-        phoneNumberId: "123456789012345",
-        wabaId: "987654321098765",
-        phoneNumber: "+91 98765 43210",
-        businessName: "Acme Corp",
-        qualityRating: "GREEN",
-        messagingTier: "TIER_1000 (1,000 msgs/day)",
-        webhookStatus: "active",
-      });
-    }, 500);
+    // setTimeout(() => {
+    //   setWaStatus({
+    //     isConnected: true,
+    //     loading: false,
+    //     phoneNumberId: "123456789012345",
+    //     wabaId: "987654321098765",
+    //     phoneNumber: "+91 98765 43210",
+    //     businessName: "Acme Corp",
+    //     qualityRating: "GREEN",
+    //     messagingTier: "TIER_1000 (1,000 msgs/day)",
+    //     webhookStatus: "active",
+    //   });
+    // }, 500);
   };
 
   // ═════════════════════════════════════════════════════════
@@ -154,6 +156,15 @@ export default function Dashboard() {
         setQueueCount(queuedCount);
       }
     } catch {}
+
+    try {
+  const r = await api.get(
+   `${import.meta.env.VITE_BACKEND_URL}/api2/unassigned-contacts`
+  );
+  if (r.data?.success) {
+    setUnassignedCount(r.data.data?.count || 0);
+  }
+} catch {}
 
     setAdminCounts({
       contacts: contactsCount,
@@ -294,28 +305,43 @@ export default function Dashboard() {
   }
 
   // ─── TENANT LISTENERS ───
-  if (userRole === "admin") {
-    socket.on("queue_updated", (data) => {
-      setQueueCount(data.queueCount || 0);
+  // ─── TENANT LISTENERS ───
+if (userRole === "admin") {
+  socket.on("queue_updated", (data) => {
+    setQueueCount(data.queueCount || 0);
 
-      if (data.newlyQueued && "Notification" in window && Notification.permission === "granted") {
-        new Notification("⚠️ Customer in queue", {
-          body: `${data.newlyQueued.contactName} is waiting for an agent`,
-          icon: "/vite.svg",
-        });
-      }
-    });
+    if (data.newlyQueued && "Notification" in window && Notification.permission === "granted") {
+      new Notification("⚠️ Customer in queue", {
+        body: `${data.newlyQueued.contactName} is waiting for an agent`,
+        icon: "/vite.svg",
+      });
+    }
+  });
 
-    socket.on("new_message", () => {
-      fetchAdminCounts();
-    });
-  }
+  socket.on("new_message", () => {
+    fetchAdminCounts();
+  });
+
+  // ✅ ADD THIS NEW LISTENER
+  socket.on("unassigned_contact_update", (data) => {
+    console.log("🎯 UNASSIGNED UPDATE RECEIVED:", data);
+    setUnassignedCount(data.unassignedCount || 0);
+
+    if (data.isNew && "Notification" in window && Notification.permission === "granted") {
+      new Notification("👤 New contact waiting", {
+        body: `${data.contact?.name} needs to be assigned`,
+        icon: "/vite.svg",
+      });
+    }
+  });
+}
 
   return () => {
     socket.off("new_assignment");
     socket.off("conversation_assigned");
     socket.off("queue_updated");
     socket.off("new_message");
+    socket.off("unassigned_contact_update");
   };
 }, [authUser, userRole]);
 
@@ -427,6 +453,17 @@ export default function Dashboard() {
     hasBadge: true,
     badgeCount: queueCount,
   } : null;
+
+  const unassignedCard = unassignedCount > 0 ? {
+  label:      "Unassigned",
+  value:      unassignedCount,
+  subtext:    `⚠️ ${unassignedCount} waiting for assignment`,
+  icon:       <Users size={22} className="text-red-600" />,
+  bg:         "bg-red-50 border-red-100",
+  link:       "/dashboard/contacts?filter=unassigned",
+  hasBadge:   true,
+  badgeCount: unassignedCount,
+} : null;
 
   // 🆕 CHUNK 5: Agent cards with badge fields
   const agentResourceCards = [
@@ -573,7 +610,11 @@ export default function Dashboard() {
       )}
 
       {/* 🆕 CHUNK 7: Resource Cards WITH Queue Card */}
-      <div className={`grid gap-6 sm:grid-cols-2 ${queueCard ? 'lg:grid-cols-5' : 'lg:grid-cols-4'}`}>
+      <div className={`grid gap-6 sm:grid-cols-2 ${
+  (queueCard && unassignedCard) ? 'lg:grid-cols-6' : 
+  (queueCard || unassignedCard) ? 'lg:grid-cols-5' : 
+  'lg:grid-cols-4'
+}`}>
         {/* Queue Card (only if count > 0) — appears FIRST for attention */}
         {queueCard && (
           <Link
@@ -592,6 +633,32 @@ export default function Dashboard() {
               <span className="text-3xl font-bold text-red-700">{queueCard.value}</span>
               <p className="mt-1 text-xs text-red-600 font-semibold flex items-center gap-1">
                 <span>{queueCard.subtext}</span>
+                <ArrowUpRight size={12} className="opacity-0 group-hover:opacity-100 transition" />
+              </p>
+            </div>
+          </Link>
+        )}
+
+                {/* ✅ ADD: Unassigned Card (only if count > 0) */}
+        {unassignedCard && (
+          <Link
+            key={unassignedCard.label}
+            to={unassignedCard.link}
+            className="card p-5 border-2 border-red-200 flex flex-col justify-between hover:shadow-md transition-all duration-200 group bg-red-50/30 relative"
+          >
+            <span className="absolute -top-2 -right-2 min-w-[24px] h-6 px-1.5 rounded-full bg-red-500 text-white text-[11px] font-bold flex items-center justify-center shadow-md animate-pulse z-10">
+              {unassignedCard.badgeCount}
+            </span>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-bold text-red-600">{unassignedCard.label}</span>
+              <div className={`p-2.5 rounded-xl border ${unassignedCard.bg}`}>
+                {unassignedCard.icon}
+              </div>
+            </div>
+            <div className="mt-4">
+              <span className="text-3xl font-bold text-red-700">{unassignedCard.value}</span>
+              <p className="mt-1 text-xs text-red-600 font-semibold flex items-center gap-1">
+                <span>{unassignedCard.subtext}</span>
                 <ArrowUpRight size={12} className="opacity-0 group-hover:opacity-100 transition" />
               </p>
             </div>

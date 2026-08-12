@@ -1,5 +1,7 @@
 import prisma from '../../config/prisma.js';
 import { encrypt, decrypt } from '../../lib/crypto.js';
+import { sendLocationService } from './whatsappService.js';
+import { emitToTenant, emitToUser } from '../../lib/socket.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api2/whatsapp/exchange-token
@@ -402,6 +404,101 @@ export const disconnectWhatsApp = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Server error during disconnect',
+    });
+  }
+};
+
+
+
+// send-location  ← NEW
+export const sendLocation = async (req, res) => {
+  try {
+    const {
+      to,
+      latitude,
+      longitude,
+      name,
+      address,
+      conversationId,
+    } = req.body;
+
+    const tenantId = req.tenantId;
+    const userType = req.userType;
+
+    // ── Identify sender ──────────────────────────────────────
+    // Same pattern as sendMessage in messageController.js
+    let senderId   = null;
+    let senderType = null;
+
+    if (userType === 'TENANT' && req.tenant) {
+      senderId   = req.tenant.id;
+      senderType = 'TENANT';
+    } else if (userType === 'USER' && req.user) {
+      senderId   = req.user.id;
+      senderType = 'USER';
+    }
+
+    if (!senderId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Unable to identify sender',
+      });
+    }
+
+    // ── Call service ─────────────────────────────────────────
+    const result = await sendLocationService({
+      tenantId,
+      to,
+      latitude,
+      longitude,
+      name,
+      address,
+      conversationId,
+      senderId,
+      senderType,
+    });
+
+    // ── Socket emit ──────────────────────────────────────────
+    if (result.message && conversationId) {
+      const socketPayload = {
+        conversationId,
+        message: {
+          id:             result.message.id,
+          type:           'LOCATION',
+          direction:      'OUTBOUND',
+          senderType,
+          senderId,
+          isFromCustomer: false,
+          locLatitude:    parseFloat(latitude),
+          locLongitude:   parseFloat(longitude),
+          locName:        name    || null,
+          locAddress:     address || null,
+          status:         'sent',
+          createdAt:      result.message.createdAt,
+        },
+      };
+
+      emitToTenant(tenantId, 'new_message', socketPayload);
+
+      if (userType === 'USER' && req.user?.id) {
+        emitToUser(req.user.id, 'new_message', socketPayload);
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Location sent successfully',
+      data: {
+        waMessageId: result.waMessageId,
+        messageId:   result.message?.id || null,
+      },
+    });
+
+  } catch (error) {
+    console.error('❌ sendLocation error:', error.message);
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Failed to send location',
     });
   }
 };

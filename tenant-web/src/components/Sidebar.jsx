@@ -4,6 +4,10 @@ import React from "react";
 import { NavLink, Link, useLocation } from "react-router-dom";
 import { FaWhatsapp } from "react-icons/fa";
 import api from "../lib/axios";
+// ✅ ADD 1: New imports
+import { getSocket } from "../lib/socket";
+import { useAuthStore } from "../store/useAuthStore";
+import { getAssignedConversations } from "../services/conversation.service";
 import {
   LayoutDashboard,
   Inbox,
@@ -32,6 +36,9 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
   const isPending = tenantStatus === "PENDING";
   const location = useLocation();
 
+  // ✅ ADD 2: Get authUser from store
+  const { user: authUser } = useAuthStore();
+
   const [inboxOpen, setInboxOpen] = React.useState(() =>
     location.pathname.startsWith("/dashboard/inbox")
   );
@@ -43,7 +50,9 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
     parseInt(localStorage.getItem("inbox_unread_count") || "0", 10)
   );
 
-  // Collapse/Expand state persisted in localStorage
+  // ✅ ADD 3: New state for unassigned count
+  const [unassignedCount, setUnassignedCount] = React.useState(0);
+
   const [collapsed, setCollapsed] = React.useState(() => {
     try {
       return localStorage.getItem("sidebar_collapsed") === "true";
@@ -52,7 +61,6 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
     }
   });
 
-  // Mobile overlay state
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
   const toggleCollapse = () => {
@@ -65,7 +73,6 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
     });
   };
 
-  // Close mobile sidebar on route change
   React.useEffect(() => {
     setMobileOpen(false);
   }, [location.pathname]);
@@ -107,6 +114,91 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
       });
   }, [location.pathname]);
 
+  // ═══════════════════════════════════════════════════════════
+  // ✅ ADD 4: FETCH INBOX UNREAD COUNT
+  // ═══════════════════════════════════════════════════════════
+  const fetchInboxUnread = React.useCallback(async () => {
+    try {
+      const res = await getAssignedConversations(1, 100, "all");
+
+        console.log("📊 Sidebar fetchInboxUnread response:", res);
+        
+      if (res.success) {
+        const convs = res.data?.conversations || res.data?.data?.conversations || [];
+
+           console.log("📊 Sidebar got conversations:", convs.length);
+      console.log("📊 Sidebar unread details:", convs.map(c => ({
+        name: c.contact?.name,
+        unreadCount: c.unreadCount
+      })));
+
+        const totalUnread = convs.filter(c => (c.unreadCount || 0) > 0).length;
+        setInboxUnreadCount(totalUnread);
+        localStorage.setItem("inbox_unread_count", String(totalUnread));
+      }
+    } catch (err) {
+      console.error("Sidebar unread fetch failed:", err);
+    }
+  }, []);
+
+  // ═══════════════════════════════════════════════════════════
+  // ✅ ADD 5: FETCH UNASSIGNED CONTACTS COUNT (Admin Only)
+  // ═══════════════════════════════════════════════════════════
+  const fetchUnassignedCount = React.useCallback(async () => {
+    if (!isAdmin) return;
+    try {
+      const res = await api.get(
+         `${import.meta.env.VITE_BACKEND_URL}/api2/unassigned-contacts`
+      );
+      if (res.data?.success) {
+        setUnassignedCount(res.data.data?.count || 0);
+      }
+    } catch (err) {
+      console.error("Sidebar unassigned fetch failed:", err);
+    }
+  }, [isAdmin]);
+
+  // ═══════════════════════════════════════════════════════════
+  // ✅ ADD 6: FETCH ON MOUNT + ROUTE CHANGE
+  // ═══════════════════════════════════════════════════════════
+  React.useEffect(() => {
+    fetchInboxUnread();
+    fetchUnassignedCount();
+  }, [fetchInboxUnread, fetchUnassignedCount, location.pathname]);
+
+  // ═══════════════════════════════════════════════════════════
+  // ✅ ADD 7: SOCKET LISTENERS
+  // ═══════════════════════════════════════════════════════════
+  React.useEffect(() => {
+    if (!authUser) return;
+    const socket = getSocket();
+    if (!socket) return;
+
+    const handleNewMessage = (data) => {
+      if (data.message?.isFromCustomer) {
+        fetchInboxUnread();
+      }
+    };
+
+    const handleUnreadUpdate = () => {
+      fetchInboxUnread();
+    };
+
+    const handleUnassignedUpdate = (data) => {
+      setUnassignedCount(data.unassignedCount || 0);
+    };
+
+    socket.on("new_message", handleNewMessage);
+    socket.on("unread_count_update", handleUnreadUpdate);
+    socket.on("unassigned_contact_update", handleUnassignedUpdate);
+
+    return () => {
+      socket.off("new_message", handleNewMessage);
+      socket.off("unread_count_update", handleUnreadUpdate);
+      socket.off("unassigned_contact_update", handleUnassignedUpdate);
+    };
+  }, [authUser, fetchInboxUnread]);
+
   const isSubItemActive = (path, filterValue) => {
     if (location.pathname !== path) return false;
     const searchParams = new URLSearchParams(location.search);
@@ -141,7 +233,7 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
             label: "WhatsApp",
             path: "/dashboard/inbox?filter=all",
             filterValue: "all",
-            unreadCount : inboxUnreadCount,
+            unreadCount: inboxUnreadCount,
           },
         ]
         : [
@@ -149,7 +241,7 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
             label: "WhatsApp",
             path: "/dashboard/inbox?filter=my",
             filterValue: "my",
-            unreadCount : inboxUnreadCount,
+            unreadCount: inboxUnreadCount,
           },
         ],
     },
@@ -174,7 +266,6 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
       adminOnly: true,
       restrictedForPending: true
     },
-    
     {
       label: "Contacts",
       path: "/dashboard/contacts",
@@ -251,17 +342,14 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
     return true;
   });
 
-  // Split menu items into "Menu" and "Other" groups
   const mainMenuLabels = ["Dashboard", "Inbox", "Broadcasts", "Templates", "Automation", "Contacts", "Team", "Reports"];
   const mainMenu = menuItems.filter(item => mainMenuLabels.includes(item.label));
   const otherMenu = menuItems.filter(item => !mainMenuLabels.includes(item.label));
 
-  // ── Render a menu item ──
   const renderMenuItem = (item) => {
     const isExpired = subStatus === "expired";
     const locked = (item.restrictedForPending && isPending) || (isExpired && item.label !== "Billing");
 
-    // ── Locked Item ──
     if (locked) {
       return (
         <div
@@ -281,7 +369,6 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
             <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
           </svg>
-          {/* Tooltip when collapsed */}
           {collapsed && (
             <div className="sidebar-tooltip pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-md bg-slate-800 text-white text-xs font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-50 shadow-lg">
               {item.label}
@@ -309,7 +396,13 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
               } ${collapsed ? "justify-center px-3" : ""}`}
           >
             <div className="flex items-center gap-3">
-              <span className="flex items-center justify-center w-5 min-w-[20px] h-5">{item.icon}</span>
+              {/* ✅ ADD 8: Add relative + red dot on Inbox icon */}
+              <span className="flex items-center justify-center w-5 min-w-[20px] h-5 relative">
+                {item.icon}
+                {item.label === "Inbox" && isAdmin && unassignedCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-white animate-pulse" />
+                )}
+              </span>
               <span className={`transition-all duration-200 ${collapsed ? "opacity-0 w-0 overflow-hidden absolute" : "opacity-100"}`}>{item.label}</span>
             </div>
             {!collapsed && (
@@ -325,47 +418,50 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
                 {isOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
               </button>
             )}
-            {/* Tooltip when collapsed */}
             {collapsed && (
               <div className="sidebar-tooltip pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-md bg-slate-800 text-white text-xs font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-50 shadow-lg">
                 {item.label}
+                {/* ✅ ADD 9: Show unassigned count in tooltip when collapsed */}
+                {item.label === "Inbox" && isAdmin && unassignedCount > 0 && (
+                  <span className="ml-1 text-red-300">({unassignedCount} waiting)</span>
+                )}
                 <div className="absolute right-full top-1/2 -translate-y-1/2 border-[5px] border-transparent border-r-slate-800" />
               </div>
             )}
           </NavLink>
 
-          {/* Dropdown Sub Items */}
           {isOpen && !collapsed && (
             <div className="pl-6 ml-5 mt-1 border-l border-slate-200 flex flex-col gap-0.5 animate-fade-in-slide">
               {item.dropdownItems.map((subItem) => {
                 const isActive = isSubItemActive(item.path, subItem.filterValue);
                 const isInbox = item.label === "Inbox";
 
-                if (isInbox) {
-                  return (
-                    <Link
-                      key={subItem.path}
-                      to={subItem.path}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-150
-                        ${isActive
-                          ? "bg-[#EAF2FE] text-[#125EF2] font-semibold"
-                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-                        }`}
-                    >
-                      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full shrink-0 bg-green-100 text-green-600">
-                        <FaWhatsapp className="w-3 h-3" />
-                      </span>
-                      <span>{subItem.label}</span>
-                      {subItem.unreadCount > 0 && (
-                        <span className="ml-auto inline-flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full text-[11px] font-bold bg-green-100 text-green-700">
-                          {subItem.unreadCount > 99 ? "99+" : subItem.unreadCount}
-                        </span>
-                      )}
-                    </Link>
-                  );
-                }
-
-                // Contacts sub-item
+              if (isInbox) {
+  return (
+    <Link
+      key={subItem.path}
+      to={subItem.path}
+      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-150
+        ${isActive
+          ? "bg-[#EAF2FE] text-[#125EF2] font-semibold"
+          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+        }`}
+    >
+      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full shrink-0 bg-green-100 text-green-600">
+        <FaWhatsapp className="w-3 h-3" />
+      </span>
+      <span>{subItem.label}</span>
+      
+      {/* ✅ Only unread count (green, no blinking) */}
+      {subItem.unreadCount > 0 && (
+        <span className="ml-auto inline-flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full text-[11px] font-bold bg-green-100 text-green-700">
+          {subItem.unreadCount > 99 ? "99+" : subItem.unreadCount}
+        </span>
+      )}
+    </Link>
+  );
+}
+               
                 return (
                   <Link
                     key={subItem.path}
@@ -389,7 +485,6 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
       );
     }
 
-    // ── Regular Item ──
     return (
       <NavLink
         key={item.path}
@@ -405,7 +500,6 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
       >
         <span className="flex items-center justify-center w-5 min-w-[20px] h-5">{item.icon}</span>
         <span className={`transition-all duration-200 ${collapsed ? "opacity-0 w-0 overflow-hidden absolute" : "opacity-100"}`}>{item.label}</span>
-        {/* Tooltip when collapsed */}
         {collapsed && (
           <div className="sidebar-tooltip pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-md bg-slate-800 text-white text-xs font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-50 shadow-lg">
             {item.label}
@@ -418,18 +512,15 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
 
   return (
     <>
-      {/* Sidebar Spacer — pushes content right */}
       <div
         className={`hidden md:block shrink-0 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${collapsed ? "w-[72px]" : "w-[260px]"}`}
       />
 
-      {/* Mobile Overlay Backdrop */}
       <div
         className={`fixed inset-0 bg-black/50 backdrop-blur-sm z-[45] transition-opacity duration-300 md:hidden ${mobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
         onClick={() => setMobileOpen(false)}
       />
 
-      {/* Mobile Floating Trigger */}
       <button
         className="fixed bottom-5 left-5 z-[44] w-12 h-12 bg-[#125EF2] text-white rounded-[14px] flex items-center justify-center shadow-lg shadow-blue-500/40 hover:scale-105 active:scale-95 transition-transform duration-200 md:hidden"
         onClick={() => setMobileOpen(true)}
@@ -438,14 +529,12 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
         <Menu size={22} />
       </button>
 
-      {/* ── Main Sidebar ── */}
       <aside
         className={`fixed top-0 left-0 h-screen bg-white border-r border-slate-200 flex flex-col z-40 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] overflow-hidden
           ${collapsed ? "w-[72px]" : "w-[260px]"}
           max-md:-translate-x-full max-md:w-[280px] max-md:z-50
           ${mobileOpen ? "max-md:translate-x-0" : ""}`}
       >
-        {/* ── Brand / Logo Area ── */}
         <div className={`flex items-center justify-between px-4 py-5 min-h-[64px] ${collapsed ? "justify-center px-2" : ""}`}>
           <div className="flex items-center gap-2.5 overflow-hidden whitespace-nowrap">
             <img
@@ -457,7 +546,6 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
               SudoReply
             </span>
           </div>
-          {/* Desktop collapse toggle */}
           <button
             className={`hidden md:flex items-center justify-center w-7 h-7 min-w-[28px] rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-all duration-200 ${collapsed ? "!hidden" : ""}`}
             onClick={toggleCollapse}
@@ -465,7 +553,6 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
           >
             <ChevronLeft size={16} />
           </button>
-          {/* Mobile close button */}
           <button
             className="md:hidden flex items-center justify-center w-7 h-7 min-w-[28px] rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-all duration-200"
             onClick={() => setMobileOpen(false)}
@@ -475,7 +562,6 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
           </button>
         </div>
 
-        {/* Collapsed expand button (centered) */}
         {collapsed && (
           <div className="hidden md:flex justify-center pb-2">
             <button
@@ -488,10 +574,7 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
           </div>
         )}
 
-        {/* ── Scrollable Content ── */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 sidebar-scroll-area">
-
-          {/* User Role Indicator Card */}
           {!collapsed ? (
             <div className="mb-3 p-3 bg-slate-50 rounded-xl border border-slate-200/80">
               <p className="text-[11px] text-slate-400 font-medium">Active Role</p>
@@ -513,11 +596,9 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
               </div>
             </div>
           ) : (
-            /* Collapsed: show just a small avatar circle */
             <div className="hidden md:flex justify-center mb-3">
               <div className="group relative w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 text-xs font-bold uppercase">
                 {(userRole || "U").charAt(0)}
-                {/* Tooltip */}
                 <div className="sidebar-tooltip pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-md bg-slate-800 text-white text-xs font-medium whitespace-nowrap opacity-0 transition-opacity duration-150 z-50 shadow-lg">
                   {isPending ? "Pending Review" : isAdmin ? "Admin — Full Access" : "Agent View"}
                   <div className="absolute right-full top-1/2 -translate-y-1/2 border-[5px] border-transparent border-r-slate-800" />
@@ -526,7 +607,6 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
             </div>
           )}
 
-          {/* ── Menu Section ── */}
           {!collapsed ? (
             <p className="text-[11px] font-semibold uppercase text-slate-400 tracking-[0.5px] px-4 pt-3 pb-2">Menu</p>
           ) : (
@@ -536,7 +616,6 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
             {mainMenu.map(renderMenuItem)}
           </nav>
 
-          {/* ── Other Section ── */}
           {otherMenu.length > 0 && (
             <>
               <div className={`my-2 h-px bg-slate-200 ${collapsed ? "mx-2" : "mx-4"}`} />
@@ -552,7 +631,6 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
           )}
         </div>
 
-        {/* ── Footer ── */}
         <div className="border-t border-slate-100 py-3 px-4 text-center">
           <p className={`text-[11px] text-slate-400 font-medium transition-all duration-200 ${collapsed ? "text-[9px]" : ""}`}>
             {collapsed ? "v1.0" : "sudoreply v1.0.0"}
