@@ -3,6 +3,7 @@
 import prisma from '../../config/prisma.js'
 import flowService from './flowService.js'
 import { emitToTenant, emitToUser, isUserOnline } from '../../lib/socket.js'
+import { decrypt } from '../../lib/crypto.js'
 
 const flowEngine = {
 
@@ -1192,7 +1193,7 @@ handleAssignAgent: async (node, conversation, contact) => {
         {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${tenant.whatsappAccessToken}`,
+            'Authorization': `Bearer ${decrypt(tenant.whatsappAccessToken)}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
@@ -1275,7 +1276,7 @@ handleAssignAgent: async (node, conversation, contact) => {
         {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${tenant.whatsappAccessToken}`,
+            'Authorization': `Bearer ${decrypt(tenant.whatsappAccessToken)}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify(payload)
