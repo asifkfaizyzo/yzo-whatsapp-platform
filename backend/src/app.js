@@ -60,7 +60,8 @@ app.use(
     crossOriginOpenerPolicy: {
       policy: "same-origin-allow-popups",
     },
-    crossOriginResourcePolicy: false,  // 🆕 Allow cross-origin resources (for logos in <img>)
+    crossOriginResourcePolicy: false,  // 🆕 Allow cross-origin resources
+    frameguard: false,                 // 🆕 Allow iframe embedding for document previews
   })
 );
 
@@ -137,6 +138,7 @@ app.use("/uploads", (req, res, next) => {
       message: "Direct access to invoice files is forbidden. Use the authenticated download API.",
     });
   }
+  res.removeHeader("X-Frame-Options");
   res.header("Access-Control-Allow-Origin", "*");
   res.header("Cross-Origin-Resource-Policy", "cross-origin");
   res.header("Access-Control-Allow-Methods", "GET, OPTIONS");
