@@ -21,7 +21,6 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
   const isProcessingRef = useRef(false);
   const sessionDataRef = useRef(null);
   const pendingCodeRef = useRef(null);
-  const pinRef = useRef(""); // holds pin across async FB.login callback
 
   // ── Listen for Meta FINISH postMessage ──────────────────────────────
   useEffect(() => {
@@ -102,7 +101,6 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
         code,
         phoneNumberId,
         wabaId,
-        pin: pinRef.current,
       });
 
       if (response.data.success) {
@@ -124,21 +122,6 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
       setIsLoading(false);
       isProcessingRef.current = false;
     }
-  };
-
-  // ── Validate PIN before launching Meta ───────────────────────────────
-  const handleLaunchWithPin = () => {
-    setError(null);
-    if (!pin || pin.length !== 6 || !/^\d{6}$/.test(pin)) {
-      setError("PIN must be exactly 6 digits.");
-      return;
-    }
-    if (pin !== pinConfirm) {
-      setError("PINs do not match. Please re-enter.");
-      return;
-    }
-    pinRef.current = pin;
-    launchEmbeddedSignup();
   };
 
   // ── Launch Embedded Signup ───────────────────────────────────────────
@@ -340,8 +323,8 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
   >
     Cancel
   </button>
-        </div >
-      </div >,
+        </div>
+      </div>,
     document.body
     );
 }
@@ -378,10 +361,10 @@ return createPortal(
           <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-6 border-b border-gray-100 shrink-0">
             <div>
               <p className="text-sm text-green-600 font-semibold mb-1">
-                {step === 1 ? "Step 1 of 3" : step === 2 ? "Step 2 of 3" : "Step 3 of 3"}
+                {step === 1 ? "Step 1 of 2" : "Step 2 of 2"}
               </p>
               <h2 className="text-xl font-bold text-gray-900">
-                {step === 1 ? "Choose Your Setup Type" : step === 2 ? "Set Your 2FA PIN" : "Connect with Meta"}
+                {step === 1 ? "Choose Your Setup Type" : "Connect with Meta"}
               </h2>
             </div>
             <button
@@ -531,88 +514,8 @@ return createPortal(
             </div>
           )}
 
-          {/* Step 2 — PIN Setup */}
+          {/* Step 2 — Launch Meta */}
           {step === 2 && (
-            <div className="p-6">
-              <div className="mb-6">
-                <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mb-4">
-                  <span className="text-2xl">🔐</span>
-                </div>
-                <h3 className="text-lg font-bold text-gray-900 mb-1">Set Your 2FA PIN</h3>
-                <p className="text-sm text-gray-500">
-                  Choose a 6-digit PIN for your WhatsApp account. You'll need this PIN if you ever re-register your number. Keep it safe.
-                </p>
-              </div>
-
-              <div className="space-y-4 mb-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">6-Digit PIN</label>
-                  <input
-                    type="password"
-                    inputMode="numeric"
-                    maxLength={6}
-                    value={pin}
-                    onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                    placeholder="••••••"
-                    className="w-full border border-gray-300 rounded-xl px-4 py-3 text-center text-2xl tracking-widest focus:outline-none focus:ring-2 focus:ring-green-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Confirm PIN</label>
-                  <input
-                    type="password"
-                    inputMode="numeric"
-                    maxLength={6}
-                    value={pinConfirm}
-                    onChange={(e) => setPinConfirm(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                    placeholder="••••••"
-                    className="w-full border border-gray-300 rounded-xl px-4 py-3 text-center text-2xl tracking-widest focus:outline-none focus:ring-2 focus:ring-green-500"
-                  />
-                </div>
-              </div>
-
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-6">
-                <p className="text-xs text-amber-700">
-                  ⚠️ <strong>Important:</strong> Save this PIN somewhere safe. If you lose it and need to re-register your number, you'll need it.
-                </p>
-              </div>
-
-              {error && (
-                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
-                  {error}
-                </div>
-              )}
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => { setStep(1); setError(null); }}
-                  className="flex-1 border-2 border-gray-200 text-gray-700 py-3 px-6 rounded-xl font-semibold hover:border-gray-300 transition-colors"
-                >
-                  ← Back
-                </button>
-                <button
-                  onClick={() => {
-                    setError(null);
-                    if (!pin || pin.length !== 6 || !/^\d{6}$/.test(pin)) {
-                      setError("PIN must be exactly 6 digits.");
-                      return;
-                    }
-                    if (pin !== pinConfirm) {
-                      setError("PINs do not match. Please re-enter.");
-                      return;
-                    }
-                    setStep(3);
-                  }}
-                  className="flex-1 bg-green-600 text-white py-3 px-6 rounded-xl font-semibold hover:bg-green-700 transition-colors"
-                >
-                  Continue →
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Step 3 — Launch Meta */}
-          {step === 3 && (
             <div className="p-6">
               <p className="text-gray-500 mb-6">
                 Make sure you have everything ready before connecting.
@@ -671,13 +574,13 @@ return createPortal(
 
               <div className="flex gap-3">
                 <button
-                  onClick={() => { setStep(2); setError(null); }}
+                  onClick={() => { setStep(1); setError(null); }}
                   className="flex-1 border-2 border-gray-200 text-gray-700 py-3 px-6 rounded-xl font-semibold hover:border-gray-300 transition-colors"
                 >
                   ← Back
                 </button>
                 <button
-                  onClick={handleLaunchWithPin}
+                  onClick={launchEmbeddedSignup}
                   className="flex-1 bg-green-600 text-white py-3 px-6 rounded-xl font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
                 >
                   <span>💬</span>

@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import prisma from '../../config/prisma.js';
 import { encrypt, decrypt } from '../../lib/crypto.js';
 import { sendLocationService } from './whatsappService.js';
@@ -14,12 +15,8 @@ export const exchangeToken = async (req, res) => {
     pin,
   } = req.body;
 
-  if (!pin) {
-    return res.status(400).json({
-      success: false,
-      message: "A 6-digit 2FA PIN is required to register your WhatsApp phone number.",
-    });
-  }
+  // Auto-generate 6-digit 2FA PIN if not provided by frontend (WATI-style seamless onboarding)
+  const regPin = pin || crypto.randomInt(100000, 999999).toString();
 
   const tenantId = req.tenantId;
 
@@ -209,7 +206,7 @@ export const exchangeToken = async (req, res) => {
           },
           body: JSON.stringify({
             messaging_product: "whatsapp",
-            pin,
+            pin: regPin,
           }),
         }
       );
@@ -226,6 +223,7 @@ export const exchangeToken = async (req, res) => {
         whatsappWabaId: wabaId,
         whatsappPhoneId: phoneNumberId,
         whatsappAccessToken: encrypt(accessToken), // ✅ always encrypted at rest
+        whatsappPin: encrypt(regPin),               // ✅ auto-generated PIN stored encrypted
       },
     });
 

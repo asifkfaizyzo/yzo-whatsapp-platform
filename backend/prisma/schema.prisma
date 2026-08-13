@@ -62,6 +62,7 @@ model Tenant {
    whatsappWabaId      String?  
    whatsappAccessToken String?  
    whatsappVerifyToken String?  @default("yzo_default_verification_token")
+   whatsappPin         String?
   
    status      TenantStatus @default(PENDING)
    isActive    Boolean   @default(true) 
