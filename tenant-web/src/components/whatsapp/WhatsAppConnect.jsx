@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import api from "../../lib/axios";
 
-const CONFIG_ID = import.meta.env.VITE_META_CONFIG_ID;
+const CONFIG_ID = "1063577526237503";
 
 export default function WhatsAppConnect({ onSuccess, onClose }) {
   const [step, setStep] = useState(1);
@@ -16,58 +16,63 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
   // Refs to track state across async operations
   const timeoutRef = useRef(null);
   const sessionInfoReceivedRef = useRef(false);
+  const isProcessingRef = useRef(false);
+  const sessionDataRef = useRef(null);
+  const pendingCodeRef = useRef(null);
 
-  // Listen for Meta Embedded Signup Response
+  // ── Listen for Meta FINISH postMessage ──────────────────────────────
   useEffect(() => {
     const handleMessage = (event) => {
-      // Accept messages from both facebook.com variants
-      if (
-        event.origin !== "https://www.facebook.com" &&
-        event.origin !== "https://web.facebook.com"
-      )
-        return;
-
+      if (!event.origin || !event.origin.endsWith("facebook.com")) return;
       try {
         if (
           typeof event.data !== "string" ||
           !event.data.trim().startsWith("{")
         )
           return;
+
         const data = JSON.parse(event.data);
         console.log("[WA Message]", data);
 
-        if (data.type === "WA_EMBEDDED_SIGNUP") {
-          if (
-            data.event === "FINISH" ||
-            data.event === "FINISH_ONLY_WABA" ||
-            data.event === "FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING"
-          ) {
-            const { phone_number_id, waba_id } = data.data;
-            sessionInfoReceivedRef.current = true;
+        if (data.type !== "WA_EMBEDDED_SIGNUP") return;
 
-            // Clear fallback timeout
-            if (timeoutRef.current) {
-              clearTimeout(timeoutRef.current);
-              timeoutRef.current = null;
-            }
+        if (
+          data.event === "FINISH" ||
+          data.event === "FINISH_ONLY_WABA" ||
+          data.event === "FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING"
+        ) {
+          sessionInfoReceivedRef.current = true;
+          sessionDataRef.current = data.data;
+          console.log("[WA FINISH] session data:", data.data);
 
-            handleSignupComplete(phone_number_id, waba_id);
-          } else if (data.event === "CANCEL") {
-            // Clear fallback timeout
-            if (timeoutRef.current) {
-              clearTimeout(timeoutRef.current);
-              timeoutRef.current = null;
-            }
-            setError("Setup was cancelled. Please try again.");
-            setIsLoading(false);
-          } else if (data.event === "ERROR") {
-            if (timeoutRef.current) {
-              clearTimeout(timeoutRef.current);
-              timeoutRef.current = null;
-            }
-            setError("Something went wrong. Please try again.");
-            setIsLoading(false);
+          if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+            timeoutRef.current = null;
           }
+
+          // If code already arrived from FB.login callback, exchange now
+          if (pendingCodeRef.current) {
+            doExchange(
+              pendingCodeRef.current,
+              data.data?.phone_number_id || null,
+              data.data?.waba_id || null,
+            );
+          }
+          // else: FB.login callback will fire next and pick up sessionDataRef
+        } else if (data.event === "CANCEL") {
+          if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+            timeoutRef.current = null;
+          }
+          setError("Setup was cancelled. Please try again.");
+          setIsLoading(false);
+        } else if (data.event === "ERROR") {
+          if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+            timeoutRef.current = null;
+          }
+          setError("Something went wrong. Please try again.");
+          setIsLoading(false);
         }
       } catch (e) {
         console.error("Error parsing FB message:", e);
@@ -81,34 +86,80 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
     };
   }, []);
 
-  // Launch Embedded Signup
+  // ── Primary path: exchange code for customer token ───────────────────
+  const doExchange = async (code, phoneNumberId, wabaId) => {
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
+
+    try {
+      console.log("[WhatsApp] Exchanging code:", { phoneNumberId, wabaId });
+      setIsLoading(true);
+
+      const response = await api.post("/whatsapp/exchange-token", {
+        code,
+        phoneNumberId,
+        wabaId,
+      });
+
+      if (response.data.success) {
+        console.log("[WhatsApp] ✅ Connected:", response.data);
+        setIsConnected(true);
+        setShowSelector(false);
+        if (onSuccess) onSuccess(response.data);
+      } else {
+        setError(
+          response.data.message || "Connection failed. Please try again.",
+        );
+      }
+    } catch (err) {
+      console.error("[WhatsApp] Exchange error:", err);
+      setError(
+        err.response?.data?.message || "Failed to connect. Please try again.",
+      );
+    } finally {
+      setIsLoading(false);
+      isProcessingRef.current = false;
+    }
+  };
+
+  // ── Launch Embedded Signup ───────────────────────────────────────────
   const launchEmbeddedSignup = useCallback(() => {
     setIsLoading(true);
     setError(null);
     sessionInfoReceivedRef.current = false;
+    isProcessingRef.current = false;
+    sessionDataRef.current = null;
+    pendingCodeRef.current = null;
 
     FB.login(
       (response) => {
         console.log("[FB.login] Response:", response);
 
-        if (response.status === "connected") {
-          console.log("[FB.login] User connected, waiting for FINISH event...");
+        if (response.authResponse?.code) {
+          const code = response.authResponse.code;
+          console.log(
+            "[FB.login] Code received:",
+            code.substring(0, 20) + "...",
+          );
+          pendingCodeRef.current = code;
 
-          // Fallback: If no FINISH event in 3 seconds, fetch existing WABAs
-          timeoutRef.current = setTimeout(() => {
-            if (!sessionInfoReceivedRef.current) {
-              console.log(
-                "[FB.login] No FINISH event received, fetching existing WABAs...",
-              );
-              fetchAndUseExistingWABA();
-            }
-          }, 3000);
+          // Read whatever session data arrived so far
+          const phoneId = sessionDataRef.current?.phone_number_id || null;
+          const wabaId = sessionDataRef.current?.waba_id || null;
+
+          // Exchange immediately — do not wait
+          // Code expires in 30s, don't waste time
+          doExchange(code, phoneId, wabaId);
         } else if (response.status === "not_authorized") {
-          setError("Please authorize the app to continue");
+          setError("Please authorize the app to continue.");
           setIsLoading(false);
         } else {
-          setError("Login cancelled. Please try again.");
-          setIsLoading(false);
+          setTimeout(() => {
+            if (!sessionInfoReceivedRef.current && !isProcessingRef.current) {
+              setError("Login cancelled. Please try again.");
+              setIsLoading(false);
+            }
+          }, 1000);
         }
       },
       {
@@ -124,57 +175,17 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
     );
   }, []);
 
-  // Fetch existing WABAs as fallback
-  const fetchAndUseExistingWABA = async () => {
+  // ── Fallback: fetch WABAs via system token (WABA selector only) ──────
+  // Only used when showing the multi-WABA selector UI
+  const handleSetup = async (phoneNumberId, wabaId) => {
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
+
     try {
-      console.log("[WhatsApp] Fetching existing WABAs...");
-      const res = await api.get("/whatsapp/my-wabas");
-      console.log("[WhatsApp] WABAs response:", res.data);
-
-      if (res.data.success && res.data.wabas?.length > 0) {
-        const wabasWithPhones = res.data.wabas.filter(
-          (w) => w.phones?.length > 0,
-        );
-
-        if (wabasWithPhones.length === 0) {
-          setError("No WhatsApp phone numbers found in your account");
-          setIsLoading(false);
-          return;
-        }
-
-        // If only one WABA with one phone, auto-connect
-        if (
-          wabasWithPhones.length === 1 &&
-          wabasWithPhones[0].phones.length === 1
-        ) {
-          const waba = wabasWithPhones[0];
-          const phone = waba.phones[0];
-          console.log("[WhatsApp] Auto-connecting single WABA/phone");
-          await handleSignupComplete(phone.id, waba.id);
-        } else {
-          // Multiple options - show selector
-          console.log("[WhatsApp] Multiple options, showing selector");
-          setAvailableWabas(wabasWithPhones);
-          setShowSelector(true);
-          setIsLoading(false);
-        }
-      } else {
-        setError("No WhatsApp Business Accounts found");
-        setIsLoading(false);
-      }
-    } catch (err) {
-      console.error("Error fetching WABAs:", err);
-      setError(
-        err.response?.data?.message || "Failed to load WhatsApp accounts",
-      );
-      setIsLoading(false);
-    }
-  };
-
-  // Save signup completion to backend
-  const handleSignupComplete = async (phoneNumberId, wabaId) => {
-    try {
-      console.log("[WhatsApp] Saving to backend:", { phoneNumberId, wabaId });
+      console.log("[WhatsApp] Calling /setup (fallback):", {
+        phoneNumberId,
+        wabaId,
+      });
       setIsLoading(true);
 
       const response = await api.post("/whatsapp/setup", {
@@ -182,27 +193,26 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
         wabaId,
       });
 
-      const data = response.data;
-      if (data.success) {
-        console.log("[WhatsApp] ✅ Connected successfully");
+      if (response.data.success) {
+        console.log("[WhatsApp] ✅ Connected via fallback");
         setIsConnected(true);
-        setIsLoading(false);
         setShowSelector(false);
-        if (onSuccess) onSuccess(data);
+        if (onSuccess) onSuccess(response.data);
       } else {
-        setError(data.message || "Setup failed. Please try again.");
-        setIsLoading(false);
+        setError(response.data.message || "Setup failed. Please try again.");
       }
     } catch (err) {
       console.error("[WhatsApp] Setup error:", err);
-      const msg =
-        err.response?.data?.message || "Server error. Please try again.";
-      setError(msg);
+      setError(
+        err.response?.data?.message || "Server error. Please try again.",
+      );
+    } finally {
       setIsLoading(false);
+      isProcessingRef.current = false;
     }
   };
 
-  // Success Screen
+  // ── Success Screen ───────────────────────────────────────────────────
   if (isConnected) {
     return createPortal(
       <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200" style={{ zIndex: 99999 }}>
@@ -241,7 +251,7 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
     );
   }
 
-  // WABA Selector Screen (when multiple WABAs available)
+  // ── WABA Selector ────────────────────────────────────────────────────
   if (showSelector && availableWabas.length > 0) {
     return createPortal(
       <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200" style={{ zIndex: 99999 }}>
@@ -269,11 +279,9 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
               </svg>
             </button>
           </div>
-
           <p className="text-gray-500 mb-6 text-sm">
             Choose which WhatsApp Business number to connect:
           </p>
-
           <div className="space-y-4">
             {availableWabas.map((waba) => (
               <div key={waba.id} className="border rounded-lg p-4">
@@ -284,7 +292,7 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
                   {waba.phones.map((phone) => (
                     <button
                       key={phone.id}
-                      onClick={() => handleSignupComplete(phone.id, waba.id)}
+                      onClick={() => handleSetup(phone.id, waba.id)}
                       className="w-full text-left p-3 border border-gray-200 rounded-lg hover:border-green-500 hover:bg-green-50 transition-colors"
                     >
                       <div className="font-medium text-gray-900">
@@ -299,307 +307,292 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
               </div>
             ))}
           </div>
-
-          {error && (
-            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
-              {error}
-            </div>
-          )}
-
-          <button
-            onClick={() => {
-              setShowSelector(false);
-              setAvailableWabas([]);
-            }}
-            className="mt-4 w-full text-gray-600 py-2 hover:text-gray-800"
-          >
-            Cancel
-          </button>
+          { error && (
+        <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+          {error}
+        </div>
+      )}
+  <button
+    onClick={() => {
+      setShowSelector(false);
+      setAvailableWabas([]);
+    }}
+    className="mt-4 w-full text-gray-600 py-2 hover:text-gray-800"
+  >
+    Cancel
+  </button>
         </div>
       </div>,
-      document.body
+    document.body
     );
-  }
+}
 
-  // Loading Screen
-  if (isLoading) {
-    return createPortal(
-      <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200" style={{ zIndex: 99999 }}>
-        <div className="bg-white rounded-2xl p-8 max-w-md w-full text-center shadow-2xl">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
-            <span className="text-2xl">💬</span>
-          </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">
-            Connecting WhatsApp...
-          </h2>
-          <p className="text-gray-500 mb-6">
-            Please complete the setup in the Meta window. Do not close this
-            page.
-          </p>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div className="bg-green-600 h-2 rounded-full animate-pulse w-3/4"></div>
-          </div>
-        </div>
-      </div>,
-      document.body
-    );
-  }
-
-  // Main UI (Step 1 & Step 2)
+// ── Loading Screen ───────────────────────────────────────────────────
+if (isLoading) {
   return createPortal(
     <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200" style={{ zIndex: 99999 }}>
-      <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto flex flex-col border border-slate-100">
-        {/* Header */}
-        <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-6 border-b border-gray-100 shrink-0">
-          <div>
-            <p className="text-sm text-green-600 font-semibold mb-1">
-              {step === 1 ? "Step 1 of 2" : "Step 2 of 2"}
-            </p>
-            <h2 className="text-xl font-bold text-gray-900">
-              {step === 1 ? "Choose Your Setup Type" : "Connect with Meta"}
-            </h2>
-          </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
-          >
-            <svg
-              className="w-5 h-5 text-gray-500"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
+      <div className="bg-white rounded-2xl p-8 max-w-md w-full text-center shadow-2xl">
+        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+          <span className="text-2xl">💬</span>
         </div>
-
-        {/* Step 1 - Choose Type */}
-        {step === 1 && (
-          <div className="p-6">
-            <p className="text-gray-500 mb-6">
-              Choose how you want to connect your WhatsApp number.
-            </p>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              {/* Option A - Existing Number */}
-              <div
-                onClick={() => setSelectedType("existing")}
-                className={`border-2 rounded-xl p-5 cursor-pointer transition-all ${selectedType === "existing"
-                    ? "border-green-600 bg-green-50"
-                    : "border-gray-200 hover:border-green-300"
-                  }`}
-              >
-                <div className="flex items-center gap-3 mb-3">
-                  <span className="text-2xl">📱</span>
-                  <h3 className="font-bold text-gray-900">
-                    Existing WA Business Number
-                  </h3>
-                </div>
-                <p className="text-xs text-gray-500 mb-4">
-                  Use your current WhatsApp Business App number
-                </p>
-                <div className="space-y-2">
-                  {[
-                    "No new number needed",
-                    "Continue using WhatsApp Business App",
-                    "Messages sync between Sudoreply & app",
-                  ].map((item, i) => (
-                    <div key={i} className="flex items-start gap-2">
-                      <span className="text-green-600 mt-0.5 flex-shrink-0 text-xs">
-                        ✓
-                      </span>
-                      <span className="text-xs text-gray-600">{item}</span>
-                    </div>
-                  ))}
-                  {[
-                    "Slower broadcast speeds",
-                    "WA Business App v2.24.4+ required",
-                  ].map((item, i) => (
-                    <div key={i} className="flex items-start gap-2">
-                      <span className="text-orange-500 mt-0.5 flex-shrink-0 text-xs">
-                        ⚠
-                      </span>
-                      <span className="text-xs text-gray-600">{item}</span>
-                    </div>
-                  ))}
-                </div>
-                {selectedType === "existing" && (
-                  <p className="mt-3 text-xs font-semibold text-green-600">
-                    ✓ Selected
-                  </p>
-                )}
-              </div>
-
-              {/* Option B - New Number */}
-              <div
-                onClick={() => setSelectedType("new")}
-                className={`border-2 rounded-xl p-5 cursor-pointer transition-all ${selectedType === "new"
-                    ? "border-green-600 bg-green-50"
-                    : "border-gray-200 hover:border-green-300"
-                  }`}
-              >
-                <div className="flex items-center gap-3 mb-3">
-                  <span className="text-2xl">🆕</span>
-                  <div>
-                    <h3 className="font-bold text-gray-900">New Number</h3>
-                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
-                      Recommended
-                    </span>
-                  </div>
-                </div>
-                <p className="text-xs text-gray-500 mb-4">
-                  Fresh number not registered on WhatsApp
-                </p>
-                <div className="space-y-2">
-                  {[
-                    "Faster broadcast speeds",
-                    "Full API control via Sudoreply",
-                    "Business name shown to all customers",
-                    "WhatsApp calling available",
-                  ].map((item, i) => (
-                    <div key={i} className="flex items-start gap-2">
-                      <span className="text-green-600 mt-0.5 flex-shrink-0 text-xs">
-                        ✓
-                      </span>
-                      <span className="text-xs text-gray-600">{item}</span>
-                    </div>
-                  ))}
-                  {["Cannot use WhatsApp Business App"].map((item, i) => (
-                    <div key={i} className="flex items-start gap-2">
-                      <span className="text-red-500 mt-0.5 flex-shrink-0 text-xs">
-                        ✗
-                      </span>
-                      <span className="text-xs text-gray-600">{item}</span>
-                    </div>
-                  ))}
-                </div>
-                {selectedType === "new" && (
-                  <p className="mt-3 text-xs font-semibold text-green-600">
-                    ✓ Selected
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {error && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
-                {error}
-              </div>
-            )}
-
-            <button
-              onClick={() => {
-                if (!selectedType) {
-                  setError("Please select a setup type to continue.");
-                  return;
-                }
-                setError(null);
-                setStep(2);
-              }}
-              className="w-full bg-green-600 text-white py-3 px-6 rounded-xl font-semibold hover:bg-green-700 transition-colors"
-            >
-              Continue →
-            </button>
-          </div>
-        )}
-
-        {/* Step 2 - Connect with Meta */}
-        {step === 2 && (
-          <div className="p-6">
-            <p className="text-gray-500 mb-6">
-              Make sure you have everything ready before connecting.
-            </p>
-
-            {/* Requirements */}
-            <div className="bg-gray-50 rounded-xl p-4 mb-4">
-              <h3 className="font-semibold text-gray-900 mb-3">Requirements</h3>
-              <div className="space-y-2">
-                {(selectedType === "existing"
-                  ? [
-                    "WhatsApp Business App version 2.24.4 or higher",
-                    "Facebook/Meta account with admin access",
-                    "Active website or GST Certificate for verification",
-                    "Phone number on WhatsApp Business App",
-                  ]
-                  : [
-                    "Fresh number not on WhatsApp Personal or Business",
-                    "Able to receive OTP via call or SMS",
-                    "Facebook/Meta account with admin access",
-                    "Active website or GST Certificate for verification",
-                  ]
-                ).map((req, i) => (
-                  <div key={i} className="flex items-start gap-2">
-                    <span className="text-green-600 mt-0.5 flex-shrink-0 text-sm">
-                      ✓
-                    </span>
-                    <span className="text-sm text-gray-600">{req}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* What happens next */}
-            <div className="bg-blue-50 rounded-xl p-4 mb-6">
-              <h3 className="font-semibold text-gray-900 mb-3">
-                What happens next
-              </h3>
-              <div className="space-y-2">
-                {[
-                  "A Meta window will open for you to login",
-                  "Select or create your Business Portfolio",
-                  "Select or create your WhatsApp Business Account",
-                  "Add and verify your phone number",
-                  "Your account will be connected to Sudoreply",
-                ].map((item, i) => (
-                  <div key={i} className="flex items-start gap-2">
-                    <span className="w-5 h-5 bg-blue-200 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
-                      {i + 1}
-                    </span>
-                    <span className="text-sm text-gray-600">{item}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {error && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
-                {error}
-              </div>
-            )}
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setStep(1);
-                  setError(null);
-                }}
-                className="flex-1 border-2 border-gray-200 text-gray-700 py-3 px-6 rounded-xl font-semibold hover:border-gray-300 transition-colors"
-              >
-                ← Back
-              </button>
-              <button
-                onClick={launchEmbeddedSignup}
-                className="flex-1 bg-green-600 text-white py-3 px-6 rounded-xl font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
-              >
-                <span>💬</span>
-                Connect with Meta
-              </button>
-            </div>
-
-            <p className="text-center text-xs text-gray-400 mt-4">
-              🔒 Secured by Meta — Sudoreply never stores your Facebook
-              credentials
-            </p>
-          </div>
-        )}
+        <h2 className="text-xl font-bold text-gray-900 mb-2">
+          Connecting WhatsApp...
+        </h2>
+        <p className="text-gray-500 mb-6">
+          Please complete the setup in the Meta window. Do not close this
+          page.
+        </p>
+        <div className="w-full bg-gray-200 rounded-full h-2">
+          <div className="bg-green-600 h-2 rounded-full animate-pulse w-3/4"></div>
+        </div>
       </div>
     </div>,
     document.body
   );
+}
+
+// ── Main UI ──────────────────────────────────────────────────────────
+return createPortal(
+  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" style={{ zIndex: 99999 }}>
+    <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+          {/* Header */}
+          <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-6 border-b border-gray-100 shrink-0">
+            <div>
+              <p className="text-sm text-green-600 font-semibold mb-1">
+                {step === 1 ? "Step 1 of 2" : "Step 2 of 2"}
+              </p>
+              <h2 className="text-xl font-bold text-gray-900">
+                {step === 1 ? "Choose Your Setup Type" : "Connect with Meta"}
+              </h2>
+            </div>
+            <button
+              onClick={onClose}
+              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+            >
+              <svg
+                className="w-5 h-5 text-gray-500"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+
+          {/* Step 1 */}
+          {step === 1 && (
+            <div className="p-6">
+              <p className="text-gray-500 mb-6">
+                Choose how you want to connect your WhatsApp number.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div
+                  onClick={() => setSelectedType("existing")}
+                  className={`border-2 rounded-xl p-5 cursor-pointer transition-all ${selectedType === "existing"
+                    ? "border-green-600 bg-green-50"
+                    : "border-gray-200 hover:border-green-300"
+                    }`}
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className="text-2xl">📱</span>
+                    <h3 className="font-bold text-gray-900">
+                      Existing WA Business Number
+                    </h3>
+                  </div>
+                  <p className="text-xs text-gray-500 mb-4">
+                    Use your current WhatsApp Business App number
+                  </p>
+                  <div className="space-y-2">
+                    {[
+                      "No new number needed",
+                      "Continue using WhatsApp Business App",
+                      "Messages sync between Sudoreply & app",
+                    ].map((item, i) => (
+                      <div key={i} className="flex items-start gap-2">
+                        <span className="text-green-600 mt-0.5 flex-shrink-0 text-xs">
+                          ✓
+                        </span>
+                        <span className="text-xs text-gray-600">{item}</span>
+                      </div>
+                    ))}
+                    {[
+                      "Slower broadcast speeds",
+                      "WA Business App v2.24.4+ required",
+                    ].map((item, i) => (
+                      <div key={i} className="flex items-start gap-2">
+                        <span className="text-orange-500 mt-0.5 flex-shrink-0 text-xs">
+                          ⚠
+                        </span>
+                        <span className="text-xs text-gray-600">{item}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {selectedType === "existing" && (
+                    <p className="mt-3 text-xs font-semibold text-green-600">
+                      ✓ Selected
+                    </p>
+                  )}
+                </div>
+
+                <div
+                  onClick={() => setSelectedType("new")}
+                  className={`border-2 rounded-xl p-5 cursor-pointer transition-all ${selectedType === "new"
+                    ? "border-green-600 bg-green-50"
+                    : "border-gray-200 hover:border-green-300"
+                    }`}
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className="text-2xl">🆕</span>
+                    <div>
+                      <h3 className="font-bold text-gray-900">New Number</h3>
+                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                        Recommended
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 mb-4">
+                    Fresh number not registered on WhatsApp
+                  </p>
+                  <div className="space-y-2">
+                    {[
+                      "Faster broadcast speeds",
+                      "Full API control via Sudoreply",
+                      "Business name shown to all customers",
+                      "WhatsApp calling available",
+                    ].map((item, i) => (
+                      <div key={i} className="flex items-start gap-2">
+                        <span className="text-green-600 mt-0.5 flex-shrink-0 text-xs">
+                          ✓
+                        </span>
+                        <span className="text-xs text-gray-600">{item}</span>
+                      </div>
+                    ))}
+                    {["Cannot use WhatsApp Business App"].map((item, i) => (
+                      <div key={i} className="flex items-start gap-2">
+                        <span className="text-red-500 mt-0.5 flex-shrink-0 text-xs">
+                          ✗
+                        </span>
+                        <span className="text-xs text-gray-600">{item}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {selectedType === "new" && (
+                    <p className="mt-3 text-xs font-semibold text-green-600">
+                      ✓ Selected
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {error && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+                  {error}
+                </div>
+              )}
+
+              <button
+                onClick={() => {
+                  if (!selectedType) {
+                    setError("Please select a setup type to continue.");
+                    return;
+                  }
+                  setError(null);
+                  setStep(2);
+                }}
+                className="w-full bg-green-600 text-white py-3 px-6 rounded-xl font-semibold hover:bg-green-700 transition-colors"
+              >
+                Continue →
+              </button>
+            </div>
+          )}
+
+          {/* Step 2 — Launch Meta */}
+          {step === 2 && (
+            <div className="p-6">
+              <p className="text-gray-500 mb-6">
+                Make sure you have everything ready before connecting.
+              </p>
+
+              <div className="bg-gray-50 rounded-xl p-4 mb-4">
+                <h3 className="font-semibold text-gray-900 mb-3">Requirements</h3>
+                <div className="space-y-2">
+                  {(selectedType === "existing"
+                    ? [
+                      "WhatsApp Business App version 2.24.4 or higher",
+                      "Facebook/Meta account with admin access",
+                      "Active website or GST Certificate for verification",
+                      "Phone number on WhatsApp Business App",
+                    ]
+                    : [
+                      "Fresh number not on WhatsApp Personal or Business",
+                      "Able to receive OTP via call or SMS",
+                      "Facebook/Meta account with admin access",
+                      "Active website or GST Certificate for verification",
+                    ]
+                  ).map((req, i) => (
+                    <div key={i} className="flex items-start gap-2">
+                      <span className="text-green-600 mt-0.5 flex-shrink-0 text-sm">✓</span>
+                      <span className="text-sm text-gray-600">{req}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-blue-50 rounded-xl p-4 mb-6">
+                <h3 className="font-semibold text-gray-900 mb-3">What happens next</h3>
+                <div className="space-y-2">
+                  {[
+                    "A Meta window will open for you to login",
+                    "Select or create your Business Portfolio",
+                    "Select or create your WhatsApp Business Account",
+                    "Add and verify your phone number",
+                    "Your account will be connected to Sudoreply",
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-start gap-2">
+                      <span className="w-5 h-5 bg-blue-200 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                        {i + 1}
+                      </span>
+                      <span className="text-sm text-gray-600">{item}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {error && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+                  {error}
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setStep(1); setError(null); }}
+                  className="flex-1 border-2 border-gray-200 text-gray-700 py-3 px-6 rounded-xl font-semibold hover:border-gray-300 transition-colors"
+                >
+                  ← Back
+                </button>
+                <button
+                  onClick={launchEmbeddedSignup}
+                  className="flex-1 bg-green-600 text-white py-3 px-6 rounded-xl font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <span>💬</span>
+                  Connect with Meta
+                </button>
+              </div>
+
+              <p className="text-center text-xs text-gray-400 mt-4">
+                🔒 Secured by Meta — Sudoreply never stores your Facebook credentials
+              </p>
+            </div>
+          )}
+        </div>
+      </div>,
+      document.body
+      );
 }
