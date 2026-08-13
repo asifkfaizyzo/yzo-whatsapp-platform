@@ -1,10 +1,29 @@
 // prisma/seed.js
 import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcrypt";
 
 const prisma = new PrismaClient();
 
 async function main() {
   console.log("🌱 Starting seed...\n");
+
+  // ══════════════════════════════════════
+  // Step 0: Seed SuperAdmin
+  // ══════════════════════════════════════
+  const adminEmail = process.env.SUPERADMIN_EMAIL || "ananthukrishna1963@gmail.com";
+  const adminPass  = process.env.SUPERADMIN_PASSWORD || "Admin@123";
+  const hashedPassword = await bcrypt.hash(adminPass, 10);
+
+  const superAdmin = await prisma.superAdmin.upsert({
+    where: { email: adminEmail },
+    update: {},
+    create: {
+      email: adminEmail,
+      name: "Super Admin",
+      password: hashedPassword,
+    },
+  });
+  console.log(`✅ SuperAdmin account seeded: ${superAdmin.email}\n`);
 
   // ══════════════════════════════════════
   // Step 1: Seed Features
@@ -213,10 +232,33 @@ async function main() {
     );
   }
 
+  // ══════════════════════════════════════
+  // Step 3: Seed Platform Settings (GST)
+  // ══════════════════════════════════════
+  await prisma.platformSettings.upsert({
+    where:  { id: "GLOBAL" },
+    update: {},
+    create: {
+      id:               "GLOBAL",
+      gstEnabled:       true,
+      gstPercent:       18.0,
+      gstType:          "CGST_SGST",
+      companyGstNumber: "27AABCU9603R1ZM",
+      pricingType:      "EXCLUSIVE",
+      companyName:      "SudoReply Technologies Pvt Ltd",
+      companyEmail:     "support@sudoreply.com",
+      companyAddress:   "Mumbai, Maharashtra, India",
+      sacCode:          "998314",
+    },
+  });
+
+  console.log("\n✅ Platform Settings (GST) seeded");
+
   console.log("\n=================================");
   console.log("🎉 SEED COMPLETE!");
-  console.log(`📦 Features : ${featureNames.length}`);
-  console.log(`📋 Plans    : ${plans.length}`);
+  console.log(`👑 SuperAdmin: ${superAdmin.email}`);
+  console.log(`📦 Features  : ${featureNames.length}`);
+  console.log(`📋 Plans     : ${plans.length}`);
   console.log("=================================\n");
 }
 
@@ -226,28 +268,3 @@ main()
     process.exit(1);
   })
   .finally(() => prisma.$disconnect());
-
-
-  
-
-  // ══════════════════════════════════════
-// Step 3: Seed Platform Settings (GST)
-// ══════════════════════════════════════
-await prisma.platformSettings.upsert({
-  where:  { id: "GLOBAL" },
-  update: {},
-  create: {
-    id:               "GLOBAL",
-    gstEnabled:       true,
-    gstPercent:       18.0,
-    gstType:          "CGST_SGST",
-    companyGstNumber: "27AABCU9603R1ZM",
-    pricingType:      "EXCLUSIVE",
-    companyName:      "SudoReply Technologies Pvt Ltd",
-    companyEmail:     "support@sudoreply.com",
-    companyAddress:   "Mumbai, Maharashtra, India",
-    sacCode:          "998314",
-  },
-});
-
-console.log("✅ Platform Settings (GST) seeded\n");
