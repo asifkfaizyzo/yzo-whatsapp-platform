@@ -279,7 +279,7 @@ export const sendMessageService = async ({
 if (tenant?.whatsappPhoneId && tenant?.whatsappAccessToken) {
   try {                                                        // ← ADD
     const cleanPhone = contact.phone.replace('+', '');
-    const url = `https://graph.facebook.com/v23.0/${tenant.whatsappPhoneId}/messages`;
+    const url = `https://graph.facebook.com/v18.0/${tenant.whatsappPhoneId}/messages`;
 
     const response = await fetch(url, {
       method:  'POST',
@@ -499,21 +499,19 @@ const sendWhatsAppMedia = async ({
   const cleanPhone   = contactPhone.replace('+', '');
 
   // Step 1: Upload media to Meta
-  const FormData = (await import('form-data')).default;
-  const formData = new FormData();
-  formData.append('file', fs.createReadStream(file.path), {
-    filename:    file.originalname,
-    contentType: file.mimetype,
-  });
+  const fileBuffer = fs.readFileSync(file.path);
+  const blob = new Blob([fileBuffer], { type: file.mimetype });
+
+  const formData = new globalThis.FormData();
+  formData.append('file', blob, file.originalname);
   formData.append('messaging_product', 'whatsapp');
 
   const uploadRes = await fetch(
-    `https://graph.facebook.com/v23.0/${phoneId}/media`,
+    `https://graph.facebook.com/v18.0/${phoneId}/media`,
     {
       method:  'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
-        ...formData.getHeaders(),
       },
       body: formData,
     }
@@ -521,7 +519,8 @@ const sendWhatsAppMedia = async ({
 
   if (!uploadRes.ok) {
     const err = await uploadRes.json();
-    throw new Error(`Media upload failed: ${err.error?.message}`);
+    console.error('❌ Meta media upload error details:', err);
+    throw new Error(`Media upload failed: ${err.error?.message || JSON.stringify(err)}`);
   }
 
   const { id: mediaId } = await uploadRes.json();
@@ -545,7 +544,7 @@ const sendWhatsAppMedia = async ({
   }
 
   const sendRes = await fetch(
-    `https://graph.facebook.com/v23.0/${phoneId}/messages`,
+    `https://graph.facebook.com/v18.0/${phoneId}/messages`,
     {
       method:  'POST',
       headers: {
