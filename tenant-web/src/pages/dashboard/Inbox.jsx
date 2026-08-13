@@ -1882,15 +1882,24 @@ const handleUnreadCountUpdate = (data) => {
 
                 const getMediaUrl = (mediaUrl) => {
                   if (!mediaUrl) return "";
-                  console.log("📎 Media URL received:", mediaUrl);
+                  
+                  let cleaned = mediaUrl;
+                  if (cleaned.startsWith("undefined/")) {
+                    cleaned = cleaned.replace("undefined/", "");
+                  }
+                  if (cleaned.includes("localhost") || cleaned.includes("backend:5000")) {
+                    cleaned = cleaned.replace(/^https?:\/\/[^\/]+/, "").replace(/^\/+/, "");
+                  }
 
                   if (
-                    mediaUrl.startsWith("http://") ||
-                    mediaUrl.startsWith("https://")
+                    cleaned.startsWith("http://") ||
+                    cleaned.startsWith("https://")
                   ) {
-                    return mediaUrl;
+                    return cleaned;
                   }
-                  return `${BACKEND_URL}${mediaUrl}`;
+
+                  const cleanPath = cleaned.startsWith("/") ? cleaned : `/${cleaned}`;
+                  return `${BACKEND_URL.replace(/\/+$/, '')}${cleanPath}`;
                 };
 
                 // ── DELETED MESSAGE UI ──

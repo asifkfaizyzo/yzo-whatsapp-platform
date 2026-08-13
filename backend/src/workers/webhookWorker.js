@@ -624,7 +624,9 @@ const downloadWhatsAppMedia = async ({
     .join('uploads', 'tenants', tenantId, 'contacts', contactId, 'inbound', uniqueFileName)
     .replace(/\\/g, '/');
 
-  const publicUrl = `${process.env.BASE_URL}/${relativePath}`;
+  const publicUrl = process.env.BASE_URL && process.env.BASE_URL.startsWith('http') && !process.env.BASE_URL.includes('localhost')
+    ? `${process.env.BASE_URL.replace(/\/+$/, '')}/${relativePath}`
+    : relativePath;
 
   console.log(`✅ Media saved: ${localPath} (${fileSize} bytes)`);
 
