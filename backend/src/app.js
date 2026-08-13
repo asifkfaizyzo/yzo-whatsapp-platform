@@ -130,7 +130,7 @@ const allowedOrigins = (process.env.FRONTEND_URLS || '')
   .map((url) => url.trim());
 
 // ── Static Files ──
-app.use("/uploads", verifyTenantOrUser, (req, res, next) => {
+app.use("/uploads", (req, res, next) => {
   // 🔒 Security: Block direct static web access to invoices
   if (req.path.startsWith("/invoices")) {
     return res.status(403).json({
@@ -138,11 +138,9 @@ app.use("/uploads", verifyTenantOrUser, (req, res, next) => {
       message: "Direct access to invoice files is forbidden. Use the authenticated download API.",
     });
   }
-  const requestOrigin = req.headers.origin;
-  if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
-    res.header("Access-Control-Allow-Origin", requestOrigin);
-  }
-  res.header("Cross-Origin-Resource-Policy", "same-site");
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Cross-Origin-Resource-Policy", "cross-origin");
+  res.header("Access-Control-Allow-Methods", "GET, OPTIONS");
   next();
 }, express.static(path.join(process.cwd(), "uploads")));
 

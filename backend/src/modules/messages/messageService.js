@@ -536,6 +536,14 @@ const sendWhatsAppMedia = async ({
 
   const waType = typeMap[mediaType] || 'document';
 
+  const mediaPayload = { id: mediaId };
+  if (waType === 'document' && file.originalname) {
+    mediaPayload.filename = file.originalname;
+  }
+  if ((waType === 'image' || waType === 'video' || waType === 'document') && caption) {
+    mediaPayload.caption = caption;
+  }
+
   const sendRes = await fetch(
     `https://graph.facebook.com/v23.0/${phoneId}/messages`,
     {
@@ -549,10 +557,7 @@ const sendWhatsAppMedia = async ({
         recipient_type:    'individual',
         to:                cleanPhone,
         type:              waType,
-        [waType]: {
-          id:      mediaId,
-          caption: caption || undefined,
-        },
+        [waType]:          mediaPayload,
       }),
     }
   );
