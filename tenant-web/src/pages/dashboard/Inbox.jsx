@@ -163,6 +163,9 @@ export default function Inbox() {
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const [deletingMessageId, setDeletingMessageId] = useState(null);
 
+  // ── Image Preview Lightbox State ──
+  const [previewImageModal, setPreviewImageModal] = useState(null);
+
   // ── Archived State ──
   const [showArchived, setShowArchived] = useState(false);
   const [archivedChats, setArchivedChats] = useState([]);
@@ -2107,19 +2110,32 @@ const handleUnreadCountUpdate = (data) => {
                       {/* IMAGE */}
                       {msg.type === "IMAGE" && msg.mediaUrl && (
                         <div className="mb-1">
-                          <img
-                            src={getMediaUrl(msg.mediaUrl)}
-                            alt={msg.mediaName || "image"}
-                            className="rounded-lg max-w-full"
-                            style={{
-                              maxWidth: "220px",
-                              maxHeight: "200px",
-                              objectFit: "cover",
-                            }}
-                            onError={(e) => {
-                              e.target.style.display = "none";
-                            }}
-                          />
+                          <div
+                            onClick={() =>
+                              setPreviewImageModal({
+                                type: "IMAGE",
+                                url: getMediaUrl(msg.mediaUrl),
+                                name: msg.mediaName,
+                                caption: msg.caption,
+                              })
+                            }
+                            className="block relative group cursor-pointer"
+                            title="Click to preview image"
+                          >
+                            <img
+                              src={getMediaUrl(msg.mediaUrl)}
+                              alt={msg.mediaName || "image"}
+                              className="rounded-lg max-w-full hover:opacity-90 transition shadow-sm"
+                              style={{
+                                maxWidth: "220px",
+                                maxHeight: "200px",
+                                objectFit: "cover",
+                              }}
+                              onError={(e) => {
+                                e.target.style.display = "none";
+                              }}
+                            />
+                          </div>
                           {msg.caption && (
                             <p className="text-xs mt-1 text-[#111B21]">
                               {msg.caption}
@@ -2130,12 +2146,23 @@ const handleUnreadCountUpdate = (data) => {
 
                       {/* FILE */}
                       {msg.type === "FILE" && msg.mediaUrl && (
-                        <div className="flex items-center gap-2 p-2 bg-white/60 rounded-lg mb-1 min-w-[180px]">
+                        <div
+                          onClick={() =>
+                            setPreviewImageModal({
+                              type: "FILE",
+                              url: getMediaUrl(msg.mediaUrl),
+                              name: msg.mediaName,
+                              caption: msg.caption,
+                            })
+                          }
+                          className="flex items-center gap-2 p-2 bg-white/60 hover:bg-white/90 rounded-lg mb-1 min-w-[180px] transition cursor-pointer group shadow-sm"
+                          title="Click to preview/view file"
+                        >
                           <div className="w-9 h-9 rounded-lg bg-[#075E54]/10 flex items-center justify-center shrink-0">
                             <Paperclip size={16} className="text-[#075E54]" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-[11px] font-semibold text-[#111B21] truncate">
+                            <p className="text-[11px] font-semibold text-[#111B21] truncate group-hover:text-[#075E54] transition">
                               {msg.mediaName || "File"}
                             </p>
                             <p className="text-[9px] text-[#667781]">
@@ -2152,42 +2179,34 @@ const handleUnreadCountUpdate = (data) => {
                               </p>
                             )}
                           </div>
-                          <a
-                            href={getMediaUrl(msg.mediaUrl)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            download={msg.mediaName}
-                            className="text-[#075E54] hover:text-[#064E47] transition shrink-0"
-                            title="Download"
-                          >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              width="16"
-                              height="16"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                              <polyline points="7 10 12 15 17 10" />
-                              <line x1="12" y1="15" x2="12" y2="3" />
-                            </svg>
-                          </a>
+                          <div className="text-[#075E54] hover:text-[#064E47] transition shrink-0 p-1">
+                            <Eye size={16} />
+                          </div>
                         </div>
                       )}
 
                       {/* VIDEO */}
                       {msg.type === "VIDEO" && msg.mediaUrl && (
                         <div className="mb-1">
-                          <video
-                            src={getMediaUrl(msg.mediaUrl)}
-                            controls
-                            className="rounded-lg"
-                            style={{ maxWidth: "220px" }}
-                          />
+                          <div
+                            onClick={() =>
+                              setPreviewImageModal({
+                                type: "VIDEO",
+                                url: getMediaUrl(msg.mediaUrl),
+                                name: msg.mediaName,
+                                caption: msg.caption,
+                              })
+                            }
+                            className="relative group cursor-pointer"
+                            title="Click for full-screen video player"
+                          >
+                            <video
+                              src={getMediaUrl(msg.mediaUrl)}
+                              controls
+                              className="rounded-lg"
+                              style={{ maxWidth: "220px" }}
+                            />
+                          </div>
                           {msg.caption && (
                             <p className="text-xs mt-1 text-[#111B21]">
                               {msg.caption}
@@ -3283,6 +3302,100 @@ const handleUnreadCountUpdate = (data) => {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── ALL MEDIA PREVIEW LIGHTBOX MODAL ── */}
+      {previewImageModal && (
+        <div
+          className="fixed inset-0 z-[9999] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setPreviewImageModal(null)}
+        >
+          <div
+            className="relative max-w-4xl max-h-[90vh] w-full flex flex-col items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close Button */}
+            <button
+              onClick={() => setPreviewImageModal(null)}
+              className="absolute -top-12 right-0 p-2 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-full transition shadow-lg z-10"
+              title="Close (Esc)"
+            >
+              <X size={20} />
+            </button>
+
+            {/* IMAGE PREVIEW */}
+            {(previewImageModal.type === "IMAGE" || !previewImageModal.type) && (
+              <img
+                src={previewImageModal.url}
+                alt={previewImageModal.name || "Preview"}
+                className="max-w-full max-h-[80vh] rounded-2xl shadow-2xl object-contain border border-white/10"
+              />
+            )}
+
+            {/* VIDEO PREVIEW */}
+            {previewImageModal.type === "VIDEO" && (
+              <video
+                src={previewImageModal.url}
+                controls
+                autoPlay
+                className="max-w-full max-h-[80vh] rounded-2xl shadow-2xl object-contain border border-white/10"
+              />
+            )}
+
+            {/* AUDIO PREVIEW */}
+            {previewImageModal.type === "AUDIO" && (
+              <div className="bg-white/10 backdrop-blur-md border border-white/20 p-6 rounded-2xl text-center shadow-2xl min-w-[320px]">
+                <div className="w-12 h-12 rounded-full bg-[#25D366]/20 flex items-center justify-center mx-auto mb-3 text-[#25D366]">
+                  <Mic size={24} />
+                </div>
+                <p className="text-white text-sm font-semibold mb-4 truncate max-w-xs mx-auto">
+                  {previewMediaModal?.name || "Voice / Audio Message"}
+                </p>
+                <audio src={previewImageModal.url} controls autoPlay className="w-full" />
+              </div>
+            )}
+
+            {/* FILE / DOCUMENT PREVIEW */}
+            {previewImageModal.type === "FILE" && (
+              <div className="w-full h-[80vh] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col border border-white/10">
+                <div className="px-4 py-3 bg-[#075E54] text-white flex items-center justify-between">
+                  <div className="flex items-center gap-2 truncate">
+                    <Paperclip size={18} />
+                    <span className="font-semibold text-sm truncate">
+                      {previewImageModal.name || "Document Viewer"}
+                    </span>
+                  </div>
+                  <a
+                    href={previewImageModal.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    download={previewImageModal.name}
+                    className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition text-white shrink-0"
+                  >
+                    Download
+                  </a>
+                </div>
+                <iframe
+                  src={previewImageModal.url}
+                  title={previewImageModal.name || "Document"}
+                  className="w-full flex-1 border-none"
+                />
+              </div>
+            )}
+
+            {/* Caption & Filename footer (for IMAGE/VIDEO/AUDIO) */}
+            {(previewImageModal.caption || previewImageModal.name) && previewImageModal.type !== "FILE" && (
+              <div className="mt-4 text-center px-4 py-2.5 bg-black/60 rounded-xl text-white/90 text-sm backdrop-blur-md max-w-xl shadow-lg border border-white/10">
+                {previewImageModal.caption && (
+                  <p className="font-semibold text-white">{previewImageModal.caption}</p>
+                )}
+                {previewImageModal.name && (
+                  <p className="text-xs text-white/60 mt-0.5">{previewImageModal.name}</p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
