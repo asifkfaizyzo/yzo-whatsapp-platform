@@ -66,6 +66,7 @@ export const serveMediaFile = async (req, res) => {
     const fileName = path.basename(absolutePath);
 
     // 7. Set response headers
+    res.removeHeader('X-Frame-Options');
     res.setHeader('Content-Type',        mimeType);
     res.setHeader('Content-Length',      stat.size);
     res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);

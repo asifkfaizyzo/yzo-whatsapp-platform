@@ -187,6 +187,17 @@ export default function Inbox() {
     chats.find((c) => String(c.id) === String(activeChatId)) || null;
 
   // ── Helpers ──
+  const formatLastMessagePreview = (msg) => {
+    if (!msg) return "No messages yet";
+    if (msg.type === "IMAGE") return msg.caption ? `📷 ${msg.caption}` : "📷 Photo";
+    if (msg.type === "VIDEO") return msg.caption ? `🎥 ${msg.caption}` : "🎥 Video";
+    if (msg.type === "AUDIO") return "🎵 Voice message";
+    if (msg.type === "FILE")  return msg.mediaName ? `📄 ${msg.mediaName}` : "📄 Document";
+    if (msg.type === "LOCATION") return "📍 Location";
+    if (msg.type === "INTERACTIVE_BUTTONS") return msg.text || "Interactive Message";
+    return msg.text || "Message";
+  };
+
   const getContactTags = (contact) => {
     if (!contact) return [];
     if (Array.isArray(contact.tags)) return contact.tags;
@@ -1604,15 +1615,7 @@ const handleUnreadCountUpdate = (data) => {
                               : "text-[#667781]"
                           }`}
                         >
-                          {lastMsg
-                            ? lastMsg.text ||
-                              (lastMsg.type === "LOCATION" ? "📍 Location"
-                              : lastMsg.type === "IMAGE"   ? "📷 Image"
-                              : lastMsg.type === "VIDEO"   ? "🎥 Video"
-                              : lastMsg.type === "AUDIO"   ? "🎵 Audio"
-                              : lastMsg.type === "FILE"    ? "📄 File"
-                              : "Message")
-                            : "No messages yet"}
+                          {formatLastMessagePreview(lastMsg)}
                         </p>
 
                         {unreadCount > 0 && (
@@ -2978,7 +2981,7 @@ const handleUnreadCountUpdate = (data) => {
                           </span>
                         </div>
                         <p className="text-xs text-[#667781] truncate mt-0.5">
-                          {lastMsg?.text || "No messages"}
+                          {formatLastMessagePreview(lastMsg)}
                         </p>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-[9px] text-[#8696A0] font-mono">

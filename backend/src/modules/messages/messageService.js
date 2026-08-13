@@ -533,7 +533,14 @@ const sendWhatsAppMedia = async ({
     FILE:     'document',
   };
 
-  const waType = typeMap[mediaType] || 'document';
+  let waType = typeMap[mediaType] || 'document';
+
+  // Meta Cloud API audio spec requires AAC, MP4, MP3, AMR, OGG.
+  // Web browser recordings are typically audio/webm or audio/wav.
+  const supportedAudioMimeTypes = ['audio/aac', 'audio/mp4', 'audio/mpeg', 'audio/amr', 'audio/ogg'];
+  if (waType === 'audio' && file.mimetype && !supportedAudioMimeTypes.some(m => file.mimetype.includes(m))) {
+    waType = 'document';
+  }
 
   const mediaPayload = { id: mediaId };
   if (waType === 'document' && file.originalname) {
