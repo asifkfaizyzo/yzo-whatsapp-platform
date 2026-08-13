@@ -189,13 +189,17 @@ export default function Inbox() {
   // ── Helpers ──
   const formatLastMessagePreview = (msg) => {
     if (!msg) return "No messages yet";
-    if (msg.type === "IMAGE") return msg.caption ? `📷 ${msg.caption}` : "📷 Photo";
-    if (msg.type === "VIDEO") return msg.caption ? `🎥 ${msg.caption}` : "🎥 Video";
-    if (msg.type === "AUDIO") return "🎵 Voice message";
-    if (msg.type === "FILE")  return msg.mediaName ? `📄 ${msg.mediaName}` : "📄 Document";
-    if (msg.type === "LOCATION") return "📍 Location";
-    if (msg.type === "INTERACTIVE_BUTTONS") return msg.text || "Interactive Message";
-    return msg.text || "Message";
+    const type = msg.type?.toUpperCase();
+
+    if (type === "AUDIO") return "🎵 Voice message";
+    if (type === "IMAGE") return msg.caption ? `📷 ${msg.caption}` : "📷 Photo";
+    if (type === "VIDEO") return msg.caption ? `🎥 ${msg.caption}` : "🎥 Video";
+    if (type === "FILE")  return msg.mediaName ? `📄 ${msg.mediaName}` : "📄 Document";
+    if (type === "LOCATION") return "📍 Location";
+    if (type === "INTERACTIVE_BUTTONS") return msg.text || "Interactive Message";
+
+    if (!msg.text || msg.text === "Message") return "Text Message";
+    return msg.text;
   };
 
   const getContactTags = (contact) => {
@@ -3370,20 +3374,30 @@ const handleUnreadCountUpdate = (data) => {
                       {previewImageModal.name || "Document Viewer"}
                     </span>
                   </div>
-                  <a
-                    href={previewImageModal.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    download={previewImageModal.name}
-                    className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition text-white shrink-0"
-                  >
-                    Download
-                  </a>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <a
+                      href={previewImageModal.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition text-white"
+                    >
+                      Open in New Tab
+                    </a>
+                    <a
+                      href={previewImageModal.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      download={previewImageModal.name}
+                      className="px-3 py-1.5 bg-white text-[#075E54] hover:bg-gray-100 rounded-lg text-xs font-bold flex items-center gap-1.5 transition shadow-sm"
+                    >
+                      Download
+                    </a>
+                  </div>
                 </div>
                 <iframe
                   src={previewImageModal.url}
                   title={previewImageModal.name || "Document"}
-                  className="w-full flex-1 border-none"
+                  className="w-full flex-1 border-none bg-gray-50"
                 />
               </div>
             )}
