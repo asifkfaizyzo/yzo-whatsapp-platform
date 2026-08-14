@@ -180,6 +180,8 @@ export const processBroadcastRecipientJob = async (job) => {
         senderType: 'TENANT',
         text: parsedText,
         type: 'TEXT',
+        status: 'sent',
+        wamid: finalWamid || wamid || null,
         isRead: true
       }
     });
