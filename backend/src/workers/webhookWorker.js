@@ -78,6 +78,21 @@ export const processWebhookJob = async (job) => {
         data: { status: updatedStatus, ...updateData }
       });
 
+      // Also keep corresponding conversation Message status in sync if wamid matches
+      try {
+        await prisma.message.updateMany({
+          where: { wamid },
+          data: {
+            status: updatedStatus.toLowerCase(),
+            ...(updateData.deliveredAt ? { deliveredAt: updateData.deliveredAt } : {}),
+            ...(updateData.readAt ? { readAt: updateData.readAt } : {}),
+            ...(updateData.failedAt ? { failedAt: updateData.failedAt } : {}),
+          }
+        });
+      } catch (err) {
+        console.warn(`[webhookWorker] Could not sync message status for wamid ${wamid}:`, err.message);
+      }
+
       const broadcastId = recipient.broadcastId;
       const broadcast = await prisma.broadcast.update({
         where: { id: broadcastId },
