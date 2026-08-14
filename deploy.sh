@@ -5,21 +5,27 @@ set -e
 
 echo "🚀 Starting Automated Deployment for SudoReply Platform..."
 
-# 1. Ensure .env file exists
-if [ ! -f .env ]; then
-  echo "⚠️ Warning: .env file not found! Copying from .env.example..."
-  cp .env.example .env
-  echo "❗ Please update your .env file with actual production secrets."
+# 1. Check for separate environment files
+if [ ! -f ./backend/.env ]; then
+  echo "⚠️ Warning: ./backend/.env file not found! Please create it before deploying."
 fi
 
-# Load variables from .env for summary display
-if [ -f .env ]; then
-  export $(grep -v '^#' .env | xargs)
+if [ ! -f ./admin-web/.env ]; then
+  echo "⚠️ Warning: ./admin-web/.env file not found! Please create it before deploying."
+fi
+
+if [ ! -f ./tenant-web/.env ]; then
+  echo "⚠️ Warning: ./tenant-web/.env file not found! Please create it before deploying."
+fi
+
+# Load tenant-web env for display if available
+if [ -f ./tenant-web/.env ]; then
+  export $(grep -v '^#' ./tenant-web/.env | xargs)
 fi
 
 # 2. Pull latest code from Git
 echo "📥 Pulling latest code from Git repository..."
-git pull origin main || echo "⚠️ Git pull failed or not a git repo branch, proceeding with local code..."
+git pull origin prod || git pull origin main || echo "⚠️ Git pull failed or not a git repo branch, proceeding with local code..."
 
 # 3. Build and recreate Docker containers with limits
 echo "🔨 Building Docker images & starting containers with resource limits..."
@@ -35,7 +41,7 @@ docker compose ps
 
 echo "--------------------------------------------------------"
 echo "🎉 Platform is up and running with 8GB RAM resource limits!"
-echo "📍 Backend API: ${VITE_BACKEND_URL:-http://localhost:5000}"
-echo "📍 Tenant Web:  ${VITE_APP_URL:-http://localhost:3002}"
-echo "📍 Admin Web:   Port ${ADMIN_WEB_PORT:-3001}"
+echo "📍 Backend API: Port 5000"
+echo "📍 Tenant Web:  ${VITE_APP_URL:-Port 3002}"
+echo "📍 Admin Web:   Port 3001"
 echo "--------------------------------------------------------"
