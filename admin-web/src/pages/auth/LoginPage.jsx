@@ -199,13 +199,14 @@ export default function LoginPage() {
               </button>
             </form>
 
-            {/* Switch Mode */}
+            {/* Switch Mode - Commented out for Admin Portal
             <p className="mt-8 text-center text-sm text-slate-500">
               Need a tenant account?{" "}
               <Link to="/register" className="font-semibold text-[#125fe2] hover:text-[#0e4bc0] hover:underline underline-offset-2">
                 Sign up
               </Link>
             </p>
+            */}
           </div>
         </div>
       </div>
