@@ -42,6 +42,7 @@ import analyticsRoutes from './modules/analytics/analyticsRoutes.js';
 import publicRoutes from './modules/public/publicRoutes.js';
 
 import { serverAdapter } from './config/bullBoard.js';
+import { bullBoardAuth } from './middlewares/bullBoardAuth.js';
 
 const app = express();
 
@@ -89,8 +90,8 @@ app.use(express.json({
 }));
 app.use(express.urlencoded({ extended: true }));
 
-// 📊 Bull Board Queue Management Dashboard — SuperAdmin only
-app.use('/admin/queues', verifySuperAdmin, serverAdapter.getRouter());
+// 📊 Bull Board Queue Management Dashboard (Secured with Basic Auth)
+app.use('/admin/queues', bullBoardAuth, serverAdapter.getRouter());
 
 // 🔧 ═══════════════════════════════════════════════════════════
 // 🔧 STATIC FILES - UPDATED
