@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { FaWhatsapp } from "react-icons/fa";
 import api from "../../lib/axios";
+import EmojiPicker from "emoji-picker-react";
 import {
   Search,
   Send,
@@ -27,6 +28,8 @@ import {
   Trash2,
   Eye,MapPin,
   AlertTriangle,
+  ChevronLeft, 
+  ChevronRight,          
 } from "lucide-react";
 import {
   getAssignedConversations,
@@ -62,6 +65,9 @@ export default function Inbox() {
   const confirm = useConfirm();
   const toast = useToast();
   const { user, accessToken } = useAuthStore();
+
+   console.log("🔄 INBOX RE-RENDERED at:", new Date().toLocaleTimeString()); 
+
   const userRole = user?.type === "TENANT" ? "admin" : "agent";
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -106,6 +112,22 @@ export default function Inbox() {
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const attachMenuRef = useRef(null);
   const docInputRef = useRef(null);
+
+    // ── Emoji Picker State ──
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const emojiPickerRef = useRef(null);
+
+  // ── Contact Picker Modal State ──
+  const [showContactPickerModal, setShowContactPickerModal] = useState(false);
+  const [contactPickerSearch, setContactPickerSearch] = useState("");
+  const [selectedContactsToShare, setSelectedContactsToShare] = useState([]);
+  const [sendingContact, setSendingContact] = useState(false);
+
+  // ── New Media File Input Refs (WhatsApp-style) ──
+  const documentInputRef = useRef(null);
+  const photoVideoInputRef = useRef(null);
+  const audioInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
 
   // ── Location Modal ──
   const [showLocationModal, setShowLocationModal] = useState(false);
@@ -166,6 +188,17 @@ export default function Inbox() {
   // ── Image Preview Lightbox State ──
   const [previewImageModal, setPreviewImageModal] = useState(null);
 
+  // ── Right Contact Panel State ──
+const [showContactPanel, setShowContactPanel] = useState(() => {
+  const saved = localStorage.getItem("inbox_contact_panel_open");
+  return saved === "true"; // default: closed
+});
+
+// Persist panel state
+useEffect(() => {
+  localStorage.setItem("inbox_contact_panel_open", String(showContactPanel));
+}, [showContactPanel]);
+
   // ── Archived State ──
   const [showArchived, setShowArchived] = useState(false);
   const [archivedChats, setArchivedChats] = useState([]);
@@ -202,7 +235,7 @@ export default function Inbox() {
     return msg.text;
   };
 
-  const getContactTags = (contact) => {
+    const getContactTags = (contact) => {
     if (!contact) return [];
     if (Array.isArray(contact.tags)) return contact.tags;
     if (Array.isArray(contact.contactTags))
@@ -210,15 +243,21 @@ export default function Inbox() {
     return [];
   };
 
+  // ⭐ Get unread count for a conversation
   const getUnreadCount = (conversationId) => {
-  // Priority 1: Session-only unread (real-time increments)
-  const sessionCount = unreadMap[String(conversationId)];
-  if (sessionCount != null && sessionCount > 0) return sessionCount;
+    // If chat is currently OPEN → always 0 (never show badge for open chat)
+    if (activeChatId && String(activeChatId) === String(conversationId)) {
+      return 0;
+    }
 
-  // Priority 2: Backend-persisted unread count
-  const chat = chats.find((c) => String(c.id) === String(conversationId));
-  return chat?.unreadCount || 0;
-};
+    // Priority 1: Session-only unread (real-time increments)
+    const sessionCount = unreadMap[String(conversationId)];
+    if (sessionCount != null && sessionCount > 0) return sessionCount;
+
+    // Priority 2: Backend-persisted unread count
+    const chat = chats.find((c) => String(c.id) === String(conversationId));
+    return chat?.unreadCount || 0;
+  };
 
   const formatTime = (dateVal) => {
     if (!dateVal) return "";
@@ -281,17 +320,19 @@ export default function Inbox() {
           return next;
         });
 
-        if (!urlConversationId && convList.length > 0) {
-          setActiveChatId(convList[0].id);
-          setSearchParams({ filter, conversationId: convList[0].id });
-        } else if (convList.length === 0) {
-          setActiveChatId(null);
-        }
+     // ⭐ Use URL param at call time, not as dependency
+      const currentUrlConvId = new URLSearchParams(window.location.search).get("conversationId");
+      if (!currentUrlConvId && convList.length > 0) {
+        setActiveChatId(convList[0].id);
+        setSearchParams({ filter, conversationId: convList[0].id });
+      } else if (convList.length === 0) {
+        setActiveChatId(null);
       }
-      if (!silent) setLoading(false);
-    },
-    [filter, urlConversationId, setSearchParams],
-  );
+    }
+    if (!silent) setLoading(false);
+  },
+  [filter, setSearchParams],  // ⭐ REMOVED urlConversationId
+);
 
   // ── Initial Load ──
   useEffect(() => {
@@ -302,6 +343,7 @@ export default function Inbox() {
 // ── Clear unread when chat opened ──
 useEffect(() => {
   if (!activeChatId) return;
+  console.log("👆 Chat clicked - mark as read for:", activeChatId);
   
   // 1. Reset frontend immediately
   setUnreadMap((prev) => ({ ...prev, [String(activeChatId)]: 0 }));
@@ -318,7 +360,7 @@ useEffect(() => {
   };
   markAsRead();
   
-  // 3. Update chats state so sidebar count decreases
+    // 3. Update chats state so sidebar count decreases
   setChats((prev) =>
     prev.map((c) =>
       String(c.id) === String(activeChatId)
@@ -428,10 +470,20 @@ useEffect(() => {
     if (!socket) return;
 
     // ── Handle new message ──
+ 
     const handleNewMessage = (data) => {
       const { conversationId, message } = data;
+
+      // ⭐⭐⭐ CRITICAL LOG - keep this to confirm
+      console.log("🟢 new_message received:", {
+        conversationId,
+        messageId: message?.id,
+        text: message?.text?.substring(0, 30),
+        isFromCustomer: message?.isFromCustomer,
+      });
+
       if (!message || typeof message !== "object" || !message.id) {
-        console.warn("⚠️ Received invalid message in new_message socket event:", data);
+        console.warn("⚠️ Invalid message in new_message socket event:", data);
         return;
       }
 
@@ -439,14 +491,35 @@ useEffect(() => {
       const isCurrentChatOpen =
         activeChatId && String(activeChatId) === String(conversationId);
 
+      // Add message to open chat
       if (isCurrentChatOpen) {
         setMessages((prev) => {
-          if (prev.some((m) => m.id === message.id)) return prev;
+          if (prev.some((m) => m.id === message.id)) {
+            console.log("⏸️ Message already in list, skipping");
+            return prev;
+          }
           return [...prev, message];
         });
         setTimeout(() => scrollToBottom(true), 50);
+
+        // Mark as read for open chat
+        if (isFromCustomer) {
+          setUnreadMap((prev) => ({ ...prev, [String(conversationId)]: 0 }));
+          setChats((prev) =>
+            prev.map((c) =>
+              String(c.id) === String(conversationId)
+                ? { ...c, unreadCount: 0 }
+                : c
+            )
+          );
+
+          api.patch(
+            `${import.meta.env.VITE_BACKEND_URL}/api5/mark-read/${conversationId}`
+          ).catch((err) => console.error("Mark read failed:", err));
+        }
       }
 
+      // Update unread count for non-open chats
       if (isFromCustomer && !isCurrentChatOpen) {
         setUnreadMap((prev) => ({
           ...prev,
@@ -454,6 +527,7 @@ useEffect(() => {
         }));
       }
 
+      // ⭐⭐⭐ CRITICAL FIX: Update chats WITHOUT reordering unless truly new
       setChats((prevChats) => {
         const exists = prevChats.some(
           (c) => String(c.id) === String(conversationId),
@@ -465,8 +539,29 @@ useEffect(() => {
           return prevChats;
         }
 
+        // ⭐ CHECK: Is this message already the latest in the chat?
+        const currentChat = prevChats.find(
+          (c) => String(c.id) === String(conversationId)
+        );
+        const currentLatestMsgId = currentChat?.messages?.[0]?.id;
+
+        // ⭐ CHECK: Is this message OLDER than what we have?
+        const currentLatestTime = currentChat?.messages?.[0]?.createdAt
+          ? new Date(currentChat.messages[0].createdAt).getTime()
+          : 0;
+        const newMessageTime = message.createdAt
+          ? new Date(message.createdAt).getTime()
+          : Date.now();
+
+        // If duplicate OR older message → don't touch the list
+        if (currentLatestMsgId === message.id || newMessageTime < currentLatestTime) {
+          console.log("⏸️ Skipping reorder - message is duplicate or older");
+          return prevChats;
+        }
+
         const msgCreatedAt = message.createdAt || new Date().toISOString();
 
+        // Update the specific chat
         const updated = prevChats.map((c) => {
           if (String(c.id) === String(conversationId)) {
             return {
@@ -486,6 +581,9 @@ useEffect(() => {
           return c;
         });
 
+        console.log("♻️ Reordering chats due to NEW message:", message.id);
+
+        // Reorder (only when we have a truly new message)
         return updated.sort((a, b) => {
           const dateA = a.messages?.[0]?.createdAt || a.updatedAt;
           const dateB = b.messages?.[0]?.createdAt || b.updatedAt;
@@ -496,7 +594,8 @@ useEffect(() => {
       });
     };
 
-    // ── Handle deleted message ──
+
+// ── Handle deleted message ──
     const handleMessageDeleted = ({ messageId, conversationId: convId }) => {
       console.log("🗑️ message_deleted received:", messageId);
 
@@ -532,42 +631,62 @@ useEffect(() => {
     };
 
     // ── ADD THIS: Handle bulk reassign ──────────────
-    const handleConversationsReassigned = (data) => {
-      const { conversationIds, newUserId, newUserName, count } = data;
-      // Silently refresh conversations list
-      loadConversations(true);
-      console.log(
-        `🔄 ${count} conversation(s) reassigned to ${newUserName || "unassigned"}`,
-      );
-    };
-
-    // ── Handle unread count update from backend ──
-const handleUnreadCountUpdate = (data) => {
-  const { conversationId, unreadCount } = data;
-  console.log("🔔 Unread update:", data);
-
-  // Update chats list to sync unreadCount
+  const handleConversationsReassigned = (data) => {
+  const { conversationIds, newUserId, newUserName, count } = data;
+  console.log(`🔄 ${count} conversation(s) reassigned to ${newUserName || "unassigned"}`);
+  
+  // Update assignedTo locally without reload
   setChats((prev) =>
     prev.map((c) =>
-      String(c.id) === String(conversationId)
-        ? { ...c, unreadCount: unreadCount }
+      conversationIds.includes(c.id)
+        ? { ...c, contact: { ...c.contact, assignedTo: newUserId } }
         : c
     )
   );
-
-  // If chat is currently open → keep unreadMap at 0
-  const isCurrentChatOpen =
-    activeChatId && String(activeChatId) === String(conversationId);
-  
-  if (isCurrentChatOpen) {
-    setUnreadMap((prev) => ({ ...prev, [String(conversationId)]: 0 }));
-  }
 };
+
+
+        const handleUnreadCountUpdate = (data) => {
+      const { conversationId, unreadCount } = data;
+      console.log("🔔 Unread update:", data);
+
+      const isCurrentChatOpen =
+        activeChatId && String(activeChatId) === String(conversationId);
+
+      // ⭐ If chat is currently OPEN → force count to 0, never show badge
+      if (isCurrentChatOpen) {
+        setChats((prev) =>
+          prev.map((c) =>
+            String(c.id) === String(conversationId)
+              ? { ...c, unreadCount: 0 }
+              : c
+          )
+        );
+        setUnreadMap((prev) => ({ ...prev, [String(conversationId)]: 0 }));
+        return;
+      }
+
+      // Chat NOT open → update badge normally
+      setChats((prev) =>
+        prev.map((c) =>
+          String(c.id) === String(conversationId)
+            ? { ...c, unreadCount: unreadCount }
+            : c
+        )
+      );
+    };
+   
 
      // ✅ NEW HANDLER
   const handleConversationAssigned = (data) => {
     console.log("🎯 New conversation assigned to me:", data);
-    loadConversations(true);
+     if (data.conversation) {
+    setChats((prev) => {
+      const exists = prev.some((c) => String(c.id) === String(data.conversation.id));
+      if (exists) return prev;
+      return [data.conversation, ...prev];  // Add to top
+    });
+  }
   };
 
     socket.on("new_message", handleNewMessage);
@@ -607,6 +726,19 @@ const handleUnreadCountUpdate = (data) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+    // ── Close emoji picker when clicking outside ──
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target)) {
+        setShowEmojiPicker(false);
+      }
+    };
+    if (showEmojiPicker) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showEmojiPicker]);
+
   // ── Close sidebar menu when clicking outside ──
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -642,6 +774,7 @@ const handleUnreadCountUpdate = (data) => {
   }, [showArchived]);
 
   // ── Handle File Select ──
+    // ── Handle File Select (works for all media types) ──
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -650,32 +783,38 @@ const handleUnreadCountUpdate = (data) => {
     const isVideo = file.type.startsWith("video/");
     const isAudio = file.type.startsWith("audio/");
 
+    // WhatsApp size limits
     const maxSize = isImage
-      ? 5 * 1024 * 1024
+      ? 5 * 1024 * 1024 // 5MB
       : isVideo || isAudio
-        ? 16 * 1024 * 1024
-        : 100 * 1024 * 1024;
+        ? 16 * 1024 * 1024 // 16MB
+        : 100 * 1024 * 1024; // 100MB for documents
 
     if (file.size > maxSize) {
       toast.warning(
         `File too large. Max size is ${
           isImage ? "5MB" : isVideo || isAudio ? "16MB" : "100MB"
-        }`,
+        }`
       );
+      e.target.value = "";
       return;
     }
 
     setSelectedFile(file);
 
+    // Generate preview for images
     if (isImage) {
       const reader = new FileReader();
-      reader.onload = (e) => setFilePreview(e.target.result);
+      reader.onload = (ev) => setFilePreview(ev.target.result);
       reader.readAsDataURL(file);
+    } else if (isVideo) {
+      // Video thumbnail preview using object URL
+      setFilePreview(URL.createObjectURL(file));
     } else {
       setFilePreview(null);
     }
 
-    e.target.value = "";
+    e.target.value = ""; // Reset input
   };
 
   // ── Cancel File ──
@@ -1081,6 +1220,98 @@ const handleUnreadCountUpdate = (data) => {
         .forEach((track) => track.stop());
     }
   };
+
+
+    // ── Handle Emoji Select ──
+  const handleEmojiClick = (emojiData) => {
+    setTypedMessage((prev) => prev + emojiData.emoji);
+  };
+
+  // ── Handle Attach Menu Item Click ──
+  const handleAttachMenuClick = (type) => {
+    setShowAttachMenu(false);
+
+    switch (type) {
+      case "document":
+        documentInputRef.current?.click();
+        break;
+      case "photos":
+        photoVideoInputRef.current?.click();
+        break;
+      case "camera":
+        cameraInputRef.current?.click();
+        break;
+      case "audio":
+        audioInputRef.current?.click();
+        break;
+      case "contact":
+        setShowContactPickerModal(true);
+        break;
+      case "location":
+        setShowLocationModal(true);
+        break;
+      default:
+        break;
+    }
+  };
+
+  // ── Handle Contact Share ──
+  const handleShareContacts = async () => {
+    if (selectedContactsToShare.length === 0) {
+      toast.warning("Please select at least one contact to share");
+      return;
+    }
+    if (!activeChat?.contact?.phone) {
+      toast.error("Contact phone number not found");
+      return;
+    }
+
+    setSendingContact(true);
+    try {
+      const to = activeChat.contact.phone.replace(/^\+/, "");
+      const contactsToSend = selectedContactsToShare.map((c) => ({
+        name: c.name,
+        phone: c.phone,
+        email: c.email || undefined,
+      }));
+
+      const res = await api.post(
+        `${import.meta.env.VITE_BACKEND_URL}/api5/send-contact`,
+        {
+          to,
+          contacts: contactsToSend,
+          conversationId: activeChatId,
+        }
+      );
+
+      if (res.data?.success) {
+        setShowContactPickerModal(false);
+        setSelectedContactsToShare([]);
+        setContactPickerSearch("");
+        toast.success(
+          `${contactsToSend.length} contact(s) shared successfully!`
+        );
+      } else {
+        toast.error(res.data?.message || "Failed to share contact");
+      }
+    } catch (err) {
+      console.error("Share contact error:", err);
+      toast.error(
+        err.response?.data?.message || "Failed to share contact"
+      );
+    }
+    setSendingContact(false);
+  };
+
+  // ── Toggle Contact Selection ──
+  const toggleContactSelection = (contact) => {
+    setSelectedContactsToShare((prev) => {
+      const exists = prev.some((c) => c.id === contact.id);
+      if (exists) return prev.filter((c) => c.id !== contact.id);
+      return [...prev, contact];
+    });
+  };
+
 
     // ── Send Location ──
   const handleSendLocation = async () => {
@@ -1711,7 +1942,11 @@ const handleUnreadCountUpdate = (data) => {
                   </div>
                 </div>
               </div>
+
+
+              
               <div className="flex items-center gap-2">
+
                 {activeChat.status === "OPEN" ? (
                   <button
                     onClick={() => handleUpdateStatus("RESOLVED")}
@@ -1791,7 +2026,26 @@ const handleUnreadCountUpdate = (data) => {
                     </div>
                   )}
                 </div>
+                   {/* ⭐ NEW: Details Toggle Button ⭐ */}
+                <button
+                  onClick={() => setShowContactPanel((prev) => !prev)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/15 hover:bg-white/25 backdrop-blur-sm border border-white/10 rounded-xl text-white text-xs font-semibold transition duration-150"
+                  title={showContactPanel ? "Hide contact details" : "Show contact details"}
+                >
+                  <span>Details</span>
+                  {showContactPanel ? (
+                    <ChevronRight size={13} />
+                  ) : (
+                    <ChevronLeft size={13} />
+                  )}
+                </button>
+
+
               </div>
+
+
+
+
             </div>
 
             {/* Collision Warning Alert Banner */}
@@ -2438,13 +2692,45 @@ const handleUnreadCountUpdate = (data) => {
 
               {/* Input Row */}
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  disabled={activeChat.contact?.isBlocked}
-                  className="text-[#54656F] hover:text-[#075E54] p-2 rounded-full hover:bg-white transition disabled:opacity-50"
-                >
-                  <Smile size={22} />
-                </button>
+              
+
+                              {/* ── Emoji Picker Button ── */}
+                <div className="relative" ref={emojiPickerRef}>
+                  <button
+                    type="button"
+                    disabled={activeChat.contact?.isBlocked}
+                    onClick={() => setShowEmojiPicker((prev) => !prev)}
+                    className="text-[#54656F] hover:text-[#075E54] p-2 rounded-full hover:bg-white transition disabled:opacity-50"
+                    title="Emoji"
+                  >
+                    <Smile size={22} />
+                  </button>
+
+                                  {/* Emoji Picker Popup - Ultra Compact */}
+                  {showEmojiPicker && (
+                    <div className="absolute bottom-full left-0 mb-2 z-50 shadow-2xl rounded-xl overflow-hidden border border-emerald-100 animate-in fade-in slide-in-from-bottom-2 duration-150">
+                      <EmojiPicker
+                        onEmojiClick={handleEmojiClick}
+                        width={260}
+                        height={320}
+                        searchDisabled={false}
+                        skinTonesDisabled={true}
+                        previewConfig={{ showPreview: false }}
+                        lazyLoadEmojis={true}
+                        emojiStyle="native"
+                        style={{
+                          fontSize: "12px",
+                          "--epr-emoji-size": "20px",
+                          "--epr-category-navigation-button-size": "24px",
+                          "--epr-header-padding": "8px",
+                          "--epr-search-input-height": "32px",
+                          "--epr-emoji-padding": "4px",
+                          "--epr-category-label-height": "24px",
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
 
 
                 <input
@@ -2455,14 +2741,151 @@ const handleUnreadCountUpdate = (data) => {
                   onChange={handleFileSelect}
                 />
 
-                <button
-                  type="button"
-                  disabled={activeChat.contact?.isBlocked}
-                  onClick={() => fileInputRef.current?.click()}
-                  className="text-[#54656F] hover:text-[#075E54] p-2 rounded-full hover:bg-white transition disabled:opacity-50"
-                >
-                  <Paperclip size={20} className="rotate-45" />
-                </button>
+                                {/* ── WhatsApp-Style Hidden File Inputs ── */}
+                <input
+                  type="file"
+                  ref={documentInputRef}
+                  className="hidden"
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar,.csv"
+                  onChange={handleFileSelect}
+                />
+                <input
+                  type="file"
+                  ref={photoVideoInputRef}
+                  className="hidden"
+                  accept="image/*,video/*"
+                  onChange={handleFileSelect}
+                />
+                <input
+                  type="file"
+                  ref={audioInputRef}
+                  className="hidden"
+                  accept="audio/*"
+                  onChange={handleFileSelect}
+                />
+                <input
+                  type="file"
+                  ref={cameraInputRef}
+                  className="hidden"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleFileSelect}
+                />
+
+                              {/* ── NEW WhatsApp-Style Attach Button with Menu ── */}
+                <div className="relative" ref={attachMenuRef}>
+                  <button
+                    type="button"
+                    disabled={activeChat.contact?.isBlocked}
+                    onClick={() => setShowAttachMenu((prev) => !prev)}
+                    className="text-[#54656F] hover:text-[#075E54] p-2 rounded-full hover:bg-white transition disabled:opacity-50"
+                    title="Attach"
+                  >
+                    <Paperclip size={20} className="rotate-45" />
+                  </button>
+
+                                    {/* ── Popup Attach Menu - Compact ── */}
+                  {showAttachMenu && (
+                    <div className="absolute bottom-full left-0 mb-2 z-50 bg-white rounded-xl shadow-2xl border border-emerald-100 overflow-hidden min-w-[200px] animate-in fade-in slide-in-from-bottom-2 duration-150">
+                      {/* Document */}
+                      <button
+                        type="button"
+                        onClick={() => handleAttachMenuClick("document")}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-[#F0F2F5] transition text-left"
+                      >
+                        <div className="w-7 h-7 rounded-full bg-[#7F66FF]/10 flex items-center justify-center shrink-0">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7F66FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                            <line x1="16" y1="13" x2="8" y2="13"/>
+                            <line x1="16" y1="17" x2="8" y2="17"/>
+                            <polyline points="10 9 9 9 8 9"/>
+                          </svg>
+                        </div>
+                        <span className="text-xs font-medium text-[#111B21]">Document</span>
+                      </button>
+
+                      {/* Photos & Videos */}
+                      <button
+                        type="button"
+                        onClick={() => handleAttachMenuClick("photos")}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-[#F0F2F5] transition text-left"
+                      >
+                        <div className="w-7 h-7 rounded-full bg-[#007BFC]/10 flex items-center justify-center shrink-0">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#007BFC" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                            <circle cx="8.5" cy="8.5" r="1.5"/>
+                            <polyline points="21 15 16 10 5 21"/>
+                          </svg>
+                        </div>
+                        <span className="text-xs font-medium text-[#111B21]">Photos & videos</span>
+                      </button>
+
+                      {/* Camera */}
+                      {/*
+                      <button
+                        type="button"
+                        onClick={() => handleAttachMenuClick("camera")}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-[#F0F2F5] transition text-left"
+                      >
+                        <div className="w-7 h-7 rounded-full bg-[#FF2E74]/10 flex items-center justify-center shrink-0">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF2E74" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                            <circle cx="12" cy="13" r="4"/>
+                          </svg>
+                        </div>
+                        <span className="text-xs font-medium text-[#111B21]">Camera</span>
+                      </button>
+                      */}
+
+
+                      {/* Audio */}
+                      <button
+                        type="button"
+                        onClick={() => handleAttachMenuClick("audio")}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-[#F0F2F5] transition text-left"
+                      >
+                        <div className="w-7 h-7 rounded-full bg-[#F7943D]/10 flex items-center justify-center shrink-0">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F7943D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M3 18v-6a9 9 0 0 1 18 0v6"/>
+                            <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/>
+                          </svg>
+                        </div>
+                        <span className="text-xs font-medium text-[#111B21]">Audio</span>
+                      </button>
+
+                      {/* Contact */}
+                      {/*
+                      <button
+                        type="button"
+                        onClick={() => handleAttachMenuClick("contact")}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-[#F0F2F5] transition text-left"
+                      >
+                        <div className="w-7 h-7 rounded-full bg-[#009DE1]/10 flex items-center justify-center shrink-0">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#009DE1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                            <circle cx="12" cy="7" r="4"/>
+                          </svg>
+                        </div>
+                        <span className="text-xs font-medium text-[#111B21]">Contact</span>
+                      </button>
+                      */}
+
+                      {/* Location */}
+                      <button
+                        type="button"
+                        onClick={() => handleAttachMenuClick("location")}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-[#F0F2F5] transition text-left"
+                      >
+                        <div className="w-7 h-7 rounded-full bg-[#00A884]/10 flex items-center justify-center shrink-0">
+                          <MapPin size={14} className="text-[#00A884]" />
+                        </div>
+                        <span className="text-xs font-medium text-[#111B21]">Location</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
 
                 {!isRecording ? (
                   <input
@@ -2579,10 +3002,25 @@ const handleUnreadCountUpdate = (data) => {
       {/* ══════════════════════════════════════
           RIGHT PANEL
       ══════════════════════════════════════ */}
-      {activeChat && (
-        <div className="w-72 border-l border-emerald-100 flex flex-col overflow-y-auto shrink-0 bg-white">
-          {/* Profile Header */}
-          <div className="bg-gradient-to-b from-[#075E54] to-[#128C7E] px-6 pt-6 pb-8 flex flex-col items-center text-center">
+           {activeChat && (
+  <div
+    className={`border-l border-emerald-100 flex flex-col overflow-y-auto shrink-0 bg-white transition-all duration-300 ease-in-out ${
+      showContactPanel ? "w-72 opacity-100" : "w-0 opacity-0 border-l-0"
+    }`}
+  >
+    {/* Profile Header */}
+    <div className="bg-gradient-to-b from-[#075E54] to-[#128C7E] px-6 pt-6 pb-8 flex flex-col items-center text-center relative">
+
+        {/* ⭐ NEW: Close Button (X) ⭐ */}
+  <button
+    onClick={() => setShowContactPanel(false)}
+    className="absolute top-3 right-3 p-1.5 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition"
+    title="Close panel"
+  >
+    <X size={16} />
+  </button>
+  {/* ⭐ END NEW BUTTON ⭐ */}
+
             <div
               className={`w-20 h-20 rounded-full flex items-center justify-center font-bold text-xl ring-4 ring-white/20 shadow-lg mb-3 ${getAvatarStyle(
                 activeChat.contact?.name,
