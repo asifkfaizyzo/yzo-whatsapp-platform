@@ -1,24 +1,28 @@
-FROM node:20-alpine
+# ==========================================
+# Backend Production Dockerfile
+# ==========================================
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install OpenSSL for Prisma compatibility on Alpine Linux
-RUN apk add --no-cache openssl
+# Install dependencies and OpenSSL (required by Prisma)
+RUN apk add --no-linux-headers --no-cache openssl
 
-# Copy package lock and dependencies definition
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Install dependencies (including devDependencies for build/prisma)
+# Install exact dependencies
 RUN npm ci
 
 # Generate Prisma Client
 RUN npx prisma generate
 
-# Copy the rest of the application code
+# Copy source code
 COPY . .
 
+# Environment setup
+ENV NODE_ENV=production
 EXPOSE 5000
 
-# Run migrations and start server automatically
+# Run Prisma migrations & start Express server
 CMD ["sh", "-c", "npx prisma migrate deploy && node src/server.js"]

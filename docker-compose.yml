@@ -1,93 +1,158 @@
 version: '3.8'
 
 services:
-  # 1. PostgreSQL Database
+  # ==========================================
+  # 1. PostgreSQL Database Service
+  # ==========================================
   postgres:
     image: postgres:16-alpine
     container_name: sudoreply-postgres
-    restart: always
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: yzoadmin
-      POSTGRES_PASSWORD: Sibilissy@5453
-      POSTGRES_DB: fullweb
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres_password}
+      POSTGRES_DB: ${POSTGRES_DB:-yzo_whatsapp}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U yzoadmin -d fullweb"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 2G
+        reservations:
+          memory: 512M
 
-  # 2. Redis Cache & BullMQ Queue Server
+  # ==========================================
+  # 2. Redis Cache & Queue Service
+  # ==========================================
   redis:
     image: redis:7-alpine
     container_name: sudoreply-redis
-    restart: always
-    command: redis-server --maxmemory-policy noeviction
+    restart: unless-stopped
+    command: redis-server --maxmemory 2gb --maxmemory-policy noeviction --appendonly yes
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
+      interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+        reservations:
+          memory: 256M
 
+  # ==========================================
   # 3. Node.js Backend API & Workers
+  # ==========================================
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: sudoreply-backend
-    restart: always
+    restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    env_file:
-      - ./backend/.env
-    environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-yzoadmin}:${POSTGRES_PASSWORD:-Sibilissy@5453}@postgres:5432/${POSTGRES_DB:-fullweb}?schema=public
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      PORT: 5000
-      FRONTEND_URLS: ${FRONTEND_URLS:-https://sudoreply.com,https://www.sudoreply.com,https://admin.sudoreply.com}
     ports:
-      - "5000:5000"
+      - "${BACKEND_PORT:-5000}:5000"
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - NODE_OPTIONS=--max-old-space-size=2048
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres_password}@postgres:5432/${POSTGRES_DB:-yzo_whatsapp}?schema=public
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - ACCESS_SECRET=${ACCESS_SECRET}
+      - REFRESH_SECRET=${REFRESH_SECRET}
+      - FRONTEND_URLS=${FRONTEND_URLS}
+      - EMAIL_USER=${EMAIL_USER}
+      - EMAIL_PASS=${EMAIL_PASS}
+      - META_VERIFY_TOKEN=${META_VERIFY_TOKEN}
+      - META_APP_ID=${META_APP_ID}
+      - META_APP_SECRET=${META_APP_SECRET}
+      - META_REDIRECT_URI=${META_REDIRECT_URI}
+      - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID}
+      - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET}
+      - RAZORPAY_WEBHOOK_SECRET=${RAZORPAY_WEBHOOK_SECRET}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - MEDIA_SIGN_SECRET=${MEDIA_SIGN_SECRET}
     volumes:
       - backend_uploads:/app/uploads
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 2G
+        reservations:
+          memory: 512M
 
-  # 4. Tenant React Web App (sudoreply.com / www.sudoreply.com)
-  tenant-web:
-    build:
-      context: ./tenant-web
-      dockerfile: Dockerfile
-      args:
-        VITE_BACKEND_URL: ${VITE_BACKEND_URL:-https://api.sudoreply.com}
-        VITE_API_URL: ${VITE_API_URL:-https://api.sudoreply.com}
-        VITE_SOCKET_URL: ${VITE_SOCKET_URL:-https://api.sudoreply.com}
-    container_name: sudoreply-tenant-web
-    restart: always
-    ports:
-      - "3002:80"
-
-  # 5. Admin React Web App (admin.sudoreply.com)
+  # ==========================================
+  # 4. Admin Web Frontend (Nginx SPA)
+  # ==========================================
   admin-web:
     build:
       context: ./admin-web
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: ${VITE_API_URL:-https://api.sudoreply.com}
+        VITE_API_URL: ${VITE_BACKEND_URL:-http://localhost:5000}
     container_name: sudoreply-admin-web
-    restart: always
+    restart: unless-stopped
     ports:
-      - "3001:80"
+      - "${ADMIN_WEB_PORT:-3001}:80"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          memory: 64M
 
+  # ==========================================
+  # 5. Tenant Web Frontend (Nginx SPA)
+  # ==========================================
+  tenant-web:
+    build:
+      context: ./tenant-web
+      dockerfile: Dockerfile
+      args:
+        VITE_BACKEND_URL: ${VITE_BACKEND_URL:-http://localhost:5000}
+        VITE_META_APP_ID: ${META_APP_ID}
+        VITE_META_CONFIG_ID: ${VITE_META_CONFIG_ID}
+        VITE_APP_URL: ${VITE_APP_URL}
+        VITE_RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID}
+        VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+    container_name: sudoreply-tenant-web
+    restart: unless-stopped
+    ports:
+      - "${TENANT_WEB_PORT:-3002}:80"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          memory: 64M
+
+# Persistent Named Volumes
 volumes:
   postgres_data:
+    driver: local
   redis_data:
+    driver: local
   backend_uploads:
+    driver: local
