@@ -24,5 +24,5 @@ COPY . .
 ENV NODE_ENV=production
 EXPOSE 5000
 
-# Run Prisma migrations & start Express server
-CMD ["sh", "-c", "npx prisma migrate deploy && node src/server.js"]
+# Run Prisma generate, migrations & start Express server
+CMD ["sh", "-c", "npx prisma generate && npx prisma migrate deploy && node src/server.js"]
