@@ -617,7 +617,7 @@ export default function SettingsPage() {
           <p className="text-xs text-[color:var(--muted)] font-medium mt-1">
             {userRole === "agent"
               ? "Manage your personal profile and account security."
-              : "Configure profile metadata, WhatsApp Cloud integrations, and developer webhooks."}
+              : "Configure business profile, WhatsApp Cloud connection, and routing rules."}
           </p>
         </div>
       </div>
@@ -651,12 +651,6 @@ export default function SettingsPage() {
               id: "whatsapp",
               label: "WhatsApp API",
               icon: <Smartphone size={15} />,
-              adminOnly: true,
-            },
-            {
-              id: "developer",
-              label: "Webhooks & Sockets",
-              icon: <Code size={15} />,
               adminOnly: true,
             },
           ]
@@ -1307,6 +1301,7 @@ export default function SettingsPage() {
                 </div>
               )}
 
+              {/* 
               <form
                 onSubmit={handleWhatsappSave}
                 className="space-y-4 pt-2 border-t border-slate-100"
@@ -1389,6 +1384,7 @@ export default function SettingsPage() {
                   </button>
                 </div>
               </form>
+              */}
 
               <div className="border border-rose-200 bg-rose-50/40 rounded-2xl p-5 space-y-4">
                 <div className="flex items-center gap-2 text-rose-700">
@@ -1470,7 +1466,7 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* Tab 3: Developer Settings - UNCHANGED */}
+          {/* Tab 3: Developer Settings (Webhooks & Sockets) - Commented out
           {activeTab === "developer" && (
             <form onSubmit={handleWebhookSave} className="space-y-4">
               <h2 className="text-base font-bold text-slate-800 pb-3 border-b border-slate-50">
@@ -1550,6 +1546,7 @@ export default function SettingsPage() {
               </div>
             </form>
           )}
+          */}
 
           {/* Tab 4: Tags Management - UNCHANGED */}
           {activeTab === "tags" && (

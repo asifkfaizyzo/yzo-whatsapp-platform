@@ -70,7 +70,9 @@ export const processWebhookJob = async (job) => {
       } else if (status === 'failed') {
         updatedStatus = 'FAILED';
         updateData.failedAt = new Date();
-        updateData.errorMessage = statusUpdate.errors?.[0]?.title || 'Meta Send Failure';
+        const errObj = statusUpdate.errors?.[0];
+        updateData.errorCode = errObj?.code ? String(errObj.code) : null;
+        updateData.errorMessage = errObj?.details || errObj?.message || errObj?.title || 'Meta Send Failure';
       }
 
       await prisma.broadcastRecipient.update({
