@@ -30,41 +30,82 @@ const calcPctChange = (current, previous) => {
 export const getReportKPIsService = async ({ startDate, endDate }) => {
   const { start, end, prevStart, prevEnd } = getPeriodDates(startDate, endDate);
 
-  // Current & Prev total messages
+  // Status conditions matching uppercase/lowercase strings as well as explicit timestamp fields
+  const deliveredCondition = {
+    direction: 'OUTBOUND',
+    OR: [
+      { status: { in: ['delivered', 'DELIVERED', 'read', 'READ'] } },
+      { deliveredAt: { not: null } },
+      { readAt: { not: null } }
+    ]
+  };
+
+  const readCondition = {
+    direction: 'OUTBOUND',
+    OR: [
+      { status: { in: ['read', 'READ'] } },
+      { readAt: { not: null } }
+    ]
+  };
+
+  const failedCondition = {
+    direction: 'OUTBOUND',
+    OR: [
+      { status: { in: ['failed', 'FAILED'] } },
+      { failedAt: { not: null } }
+    ]
+  };
+
+  // Current & Prev total outbound messages dispatched
   const [currTotalMsgs, prevTotalMsgs] = await Promise.all([
     prisma.message.count({
-      where: { createdAt: { gte: start, lte: end } }
+      where: { createdAt: { gte: start, lte: end }, direction: 'OUTBOUND' }
     }),
     prisma.message.count({
-      where: { createdAt: { gte: prevStart, lte: prevEnd } }
+      where: { createdAt: { gte: prevStart, lte: prevEnd }, direction: 'OUTBOUND' }
     })
   ]);
 
   // Delivery rate stats (current vs prev)
-  const [currDelivered, currRead, currFailed, prevDelivered, prevRead] = await Promise.all([
+  const [currDelivered, currRead, currFailed, prevDelivered, prevRead, prevFailed] = await Promise.all([
     prisma.message.count({
-      where: { createdAt: { gte: start, lte: end }, status: { in: ['delivered', 'DELIVERED'] } }
+      where: { createdAt: { gte: start, lte: end }, ...deliveredCondition }
     }),
     prisma.message.count({
-      where: { createdAt: { gte: start, lte: end }, status: { in: ['read', 'READ'] } }
+      where: { createdAt: { gte: start, lte: end }, ...readCondition }
     }),
     prisma.message.count({
-      where: { createdAt: { gte: start, lte: end }, status: { in: ['failed', 'FAILED'] } }
+      where: { createdAt: { gte: start, lte: end }, ...failedCondition }
     }),
     prisma.message.count({
-      where: { createdAt: { gte: prevStart, lte: prevEnd }, status: { in: ['delivered', 'DELIVERED'] } }
+      where: { createdAt: { gte: prevStart, lte: prevEnd }, ...deliveredCondition }
     }),
     prisma.message.count({
-      where: { createdAt: { gte: prevStart, lte: prevEnd }, status: { in: ['read', 'READ'] } }
+      where: { createdAt: { gte: prevStart, lte: prevEnd }, ...readCondition }
+    }),
+    prisma.message.count({
+      where: { createdAt: { gte: prevStart, lte: prevEnd }, ...failedCondition }
     })
   ]);
 
-  const currSuccessMsgs = currDelivered + currRead;
-  // If no messages sent in period, delivery rate is 0 (or N/A), NOT 100%
-  const currDeliveryRate = currTotalMsgs > 0 ? Number(((currSuccessMsgs / currTotalMsgs) * 100).toFixed(1)) : 0;
+  // Factor in BroadcastRecipient statuses
+  const [currBDelivered, currBRead, currBFailed, prevBDelivered, prevBRead, prevBFailed] = await Promise.all([
+    prisma.broadcastRecipient.count({ where: { createdAt: { gte: start, lte: end }, status: { in: ['DELIVERED', 'READ'] } } }),
+    prisma.broadcastRecipient.count({ where: { createdAt: { gte: start, lte: end }, status: 'READ' } }),
+    prisma.broadcastRecipient.count({ where: { createdAt: { gte: start, lte: end }, status: 'FAILED' } }),
+    prisma.broadcastRecipient.count({ where: { createdAt: { gte: prevStart, lte: prevEnd }, status: { in: ['DELIVERED', 'READ'] } } }),
+    prisma.broadcastRecipient.count({ where: { createdAt: { gte: prevStart, lte: prevEnd }, status: 'READ' } }),
+    prisma.broadcastRecipient.count({ where: { createdAt: { gte: prevStart, lte: prevEnd }, status: 'FAILED' } }),
+  ]);
 
-  const prevSuccessMsgs = prevDelivered + prevRead;
-  const prevDeliveryRate = prevTotalMsgs > 0 ? Number(((prevSuccessMsgs / prevTotalMsgs) * 100).toFixed(1)) : 0;
+  const finalDelivered = Math.max(currDelivered, currBDelivered);
+  const finalFailed = Math.max(currFailed, currBFailed);
+  const finalPrevDelivered = Math.max(prevDelivered, prevBDelivered);
+  const finalPrevFailed = Math.max(prevFailed, prevBFailed);
+
+  // If no messages sent in period, delivery rate is 0 (or N/A), NOT 100%
+  const currDeliveryRate = currTotalMsgs > 0 ? Number(((finalDelivered / currTotalMsgs) * 100).toFixed(1)) : 0;
+  const prevDeliveryRate = prevTotalMsgs > 0 ? Number(((finalPrevDelivered / prevTotalMsgs) * 100).toFixed(1)) : 0;
   const deliveryRateChange = Number((currDeliveryRate - prevDeliveryRate).toFixed(1));
 
   // Active tenants count
@@ -99,7 +140,7 @@ export const getReportKPIsService = async ({ startDate, endDate }) => {
   }
 
   // Failed messages & rate
-  const failedRate = currTotalMsgs > 0 ? Number(((currFailed / currTotalMsgs) * 100).toFixed(1)) : 0;
+  const failedRate = currTotalMsgs > 0 ? Number(((finalFailed / currTotalMsgs) * 100).toFixed(1)) : 0;
 
   // Average msgs per tenant
   const avgMsgsPerTenant = activeTenantsCount > 0 ? Math.round(currTotalMsgs / activeTenantsCount) : 0;
@@ -149,7 +190,7 @@ export const getReportKPIsService = async ({ startDate, endDate }) => {
       changePct: hasAvgResponse ? -0.8 : 0
     },
     failedMessages: {
-      value: currFailed,
+      value: finalFailed,
       ratePct: failedRate
     },
     msgsPerTenant: {
@@ -176,7 +217,7 @@ export const getReportMessagesService = async ({ startDate, endDate }) => {
 
   const messages = await prisma.message.findMany({
     where: { createdAt: { gte: start, lte: end } },
-    select: { createdAt: true, status: true, type: true }
+    select: { createdAt: true, status: true, type: true, deliveredAt: true, readAt: true, failedAt: true, direction: true }
   });
 
   // Group by Date for Volume Over Time Chart
@@ -197,13 +238,18 @@ export const getReportMessagesService = async ({ startDate, endDate }) => {
     const dateStr = d.toISOString().split('T')[0];
 
     if (dateMap[dateStr]) {
-      dateMap[dateStr].Sent += 1;
-      const st = (msg.status || '').toLowerCase();
-      if (st === 'delivered') dateMap[dateStr].Delivered += 1;
-      else if (st === 'read') {
-        dateMap[dateStr].Delivered += 1;
-        dateMap[dateStr].Read += 1;
-      } else if (st === 'failed') dateMap[dateStr].Failed += 1;
+      if (msg.direction === 'OUTBOUND') {
+        dateMap[dateStr].Sent += 1;
+        const st = (msg.status || '').toLowerCase();
+        if (st === 'delivered' || msg.deliveredAt) {
+          dateMap[dateStr].Delivered += 1;
+        } else if (st === 'read' || msg.readAt) {
+          dateMap[dateStr].Delivered += 1;
+          dateMap[dateStr].Read += 1;
+        } else if (st === 'failed' || msg.failedAt) {
+          dateMap[dateStr].Failed += 1;
+        }
+      }
     }
 
     const t = msg.type || 'TEXT';
@@ -214,6 +260,27 @@ export const getReportMessagesService = async ({ startDate, endDate }) => {
     const day = d.getDay();
     const hour = d.getHours();
     heatmap[day][hour] += 1;
+  });
+
+  // Also include broadcast recipient counts in daily metrics
+  const broadcastRecipients = await prisma.broadcastRecipient.findMany({
+    where: { createdAt: { gte: start, lte: end } },
+    select: { createdAt: true, status: true }
+  });
+
+  broadcastRecipients.forEach(r => {
+    const dateStr = new Date(r.createdAt).toISOString().split('T')[0];
+    if (dateMap[dateStr]) {
+      if (r.status === 'DELIVERED' || r.status === 'READ') {
+        dateMap[dateStr].Delivered = Math.max(dateMap[dateStr].Delivered, dateMap[dateStr].Sent);
+      }
+      if (r.status === 'READ') {
+        dateMap[dateStr].Read = Math.max(dateMap[dateStr].Read, dateMap[dateStr].Delivered);
+      }
+      if (r.status === 'FAILED') {
+        dateMap[dateStr].Failed += 1;
+      }
+    }
   });
 
   const volumeOverTime = Object.values(dateMap);
@@ -258,12 +325,44 @@ export const getReportMessagesService = async ({ startDate, endDate }) => {
 export const getReportDeliveryService = async ({ startDate, endDate }) => {
   const { start, end } = getPeriodDates(startDate, endDate);
 
-  const [totalSent, totalDelivered, totalRead, totalFailed] = await Promise.all([
-    prisma.message.count({ where: { createdAt: { gte: start, lte: end } } }),
-    prisma.message.count({ where: { createdAt: { gte: start, lte: end }, status: { in: ['delivered', 'DELIVERED', 'read', 'READ'] } } }),
-    prisma.message.count({ where: { createdAt: { gte: start, lte: end }, status: { in: ['read', 'READ'] } } }),
-    prisma.message.count({ where: { createdAt: { gte: start, lte: end }, status: { in: ['failed', 'FAILED'] } } })
+  const deliveredCondition = {
+    direction: 'OUTBOUND',
+    OR: [
+      { status: { in: ['delivered', 'DELIVERED', 'read', 'READ'] } },
+      { deliveredAt: { not: null } },
+      { readAt: { not: null } }
+    ]
+  };
+
+  const readCondition = {
+    direction: 'OUTBOUND',
+    OR: [
+      { status: { in: ['read', 'READ'] } },
+      { readAt: { not: null } }
+    ]
+  };
+
+  const failedCondition = {
+    direction: 'OUTBOUND',
+    OR: [
+      { status: { in: ['failed', 'FAILED'] } },
+      { failedAt: { not: null } }
+    ]
+  };
+
+  const [totalSent, totalDelivered, totalRead, totalFailed, bDelivered, bRead, bFailed] = await Promise.all([
+    prisma.message.count({ where: { createdAt: { gte: start, lte: end }, direction: 'OUTBOUND' } }),
+    prisma.message.count({ where: { createdAt: { gte: start, lte: end }, ...deliveredCondition } }),
+    prisma.message.count({ where: { createdAt: { gte: start, lte: end }, ...readCondition } }),
+    prisma.message.count({ where: { createdAt: { gte: start, lte: end }, ...failedCondition } }),
+    prisma.broadcastRecipient.count({ where: { createdAt: { gte: start, lte: end }, status: { in: ['DELIVERED', 'READ'] } } }),
+    prisma.broadcastRecipient.count({ where: { createdAt: { gte: start, lte: end }, status: 'READ' } }),
+    prisma.broadcastRecipient.count({ where: { createdAt: { gte: start, lte: end }, status: 'FAILED' } })
   ]);
+
+  const finalDelivered = Math.max(totalDelivered, bDelivered);
+  const finalRead = Math.max(totalRead, bRead);
+  const finalFailed = Math.max(totalFailed, bFailed);
 
   // STAGE PERCENTAGES MUST BE STRICTLY CALCULATED FROM ACTUAL COUNTS
   const funnel = {
@@ -272,22 +371,29 @@ export const getReportDeliveryService = async ({ startDate, endDate }) => {
       pct: 100
     },
     delivered: {
-      count: totalDelivered,
-      pct: totalSent > 0 ? Number(((totalDelivered / totalSent) * 100).toFixed(1)) : 0
+      count: finalDelivered,
+      pct: totalSent > 0 ? Number(((finalDelivered / totalSent) * 100).toFixed(1)) : 0
     },
     read: {
-      count: totalRead,
-      pct: totalSent > 0 ? Number(((totalRead / totalSent) * 100).toFixed(1)) : 0
+      count: finalRead,
+      pct: totalSent > 0 ? Number(((finalRead / totalSent) * 100).toFixed(1)) : 0
     },
     failed: {
-      count: totalFailed,
-      pct: totalSent > 0 ? Number(((totalFailed / totalSent) * 100).toFixed(1)) : 0
+      count: finalFailed,
+      pct: totalSent > 0 ? Number(((finalFailed / totalSent) * 100).toFixed(1)) : 0
     }
   };
 
   // Grouped failure reasons
   const failedMessages = await prisma.message.findMany({
-    where: { createdAt: { gte: start, lte: end }, status: { in: ['failed', 'FAILED'] } },
+    where: {
+      createdAt: { gte: start, lte: end },
+      direction: 'OUTBOUND',
+      OR: [
+        { status: { in: ['failed', 'FAILED'] } },
+        { failedAt: { not: null } }
+      ]
+    },
     select: { failureReason: true, failureCode: true }
   });
 
@@ -304,12 +410,12 @@ export const getReportDeliveryService = async ({ startDate, endDate }) => {
         count,
         pct: Number(((count / totalFailedCount) * 100).toFixed(1))
       }))
-    : []; // Empty array when zero failures exist to prevent misleading hardcoded stats
+    : [];
 
   // Delivery rate trend by date
   const messagesByDate = await prisma.message.findMany({
-    where: { createdAt: { gte: start, lte: end } },
-    select: { createdAt: true, status: true }
+    where: { createdAt: { gte: start, lte: end }, direction: 'OUTBOUND' },
+    select: { createdAt: true, status: true, deliveredAt: true, readAt: true }
   });
 
   const dateRates = {};
@@ -318,7 +424,9 @@ export const getReportDeliveryService = async ({ startDate, endDate }) => {
     if (!dateRates[date]) dateRates[date] = { total: 0, success: 0 };
     dateRates[date].total += 1;
     const st = (m.status || '').toLowerCase();
-    if (st === 'delivered' || st === 'read') dateRates[date].success += 1;
+    if (st === 'delivered' || st === 'read' || m.deliveredAt || m.readAt) {
+      dateRates[date].success += 1;
+    }
   });
 
   const deliveryRateTrend = Object.entries(dateRates).map(([date, data]) => ({
@@ -337,18 +445,30 @@ export const getReportDeliveryService = async ({ startDate, endDate }) => {
     const tMsgs = await prisma.message.count({
       where: {
         createdAt: { gte: start, lte: end },
-        conversation: { tenantId: tenant.id }
+        conversation: { tenantId: tenant.id },
+        direction: 'OUTBOUND'
       }
     });
 
     if (tMsgs >= 5) {
-      const tSuccess = await prisma.message.count({
-        where: {
-          createdAt: { gte: start, lte: end },
-          conversation: { tenantId: tenant.id },
-          status: { in: ['delivered', 'DELIVERED', 'read', 'READ'] }
-        }
-      });
+      const [tSuccessMsgs, tBSuccess] = await Promise.all([
+        prisma.message.count({
+          where: {
+            createdAt: { gte: start, lte: end },
+            conversation: { tenantId: tenant.id },
+            ...deliveredCondition
+          }
+        }),
+        prisma.broadcastRecipient.count({
+          where: {
+            createdAt: { gte: start, lte: end },
+            broadcast: { tenantId: tenant.id },
+            status: { in: ['DELIVERED', 'READ'] }
+          }
+        })
+      ]);
+
+      const tSuccess = Math.max(tSuccessMsgs, tBSuccess);
       const rate = Number(((tSuccess / tMsgs) * 100).toFixed(1));
       if (rate < 85.0) {
         lowDeliveryTenants.push({
@@ -401,20 +521,37 @@ export const getReportTenantsService = async ({ startDate, endDate, search, plan
       const totalMsgs = await prisma.message.count({
         where: {
           createdAt: { gte: start, lte: end },
-          conversation: { tenantId: t.id }
+          conversation: { tenantId: t.id },
+          direction: 'OUTBOUND'
         }
       });
 
-      const successMsgs = await prisma.message.count({
-        where: {
-          createdAt: { gte: start, lte: end },
-          conversation: { tenantId: t.id },
-          status: { in: ['delivered', 'DELIVERED', 'read', 'READ'] }
-        }
-      });
+      const [successMsgs, bSuccessMsgs] = await Promise.all([
+        prisma.message.count({
+          where: {
+            createdAt: { gte: start, lte: end },
+            conversation: { tenantId: t.id },
+            direction: 'OUTBOUND',
+            OR: [
+              { status: { in: ['delivered', 'DELIVERED', 'read', 'READ'] } },
+              { deliveredAt: { not: null } },
+              { readAt: { not: null } }
+            ]
+          }
+        }),
+        prisma.broadcastRecipient.count({
+          where: {
+            createdAt: { gte: start, lte: end },
+            broadcast: { tenantId: t.id },
+            status: { in: ['DELIVERED', 'READ'] }
+          }
+        })
+      ]);
+
+      const totalSuccess = Math.max(successMsgs, bSuccessMsgs);
 
       // If totalMsgs === 0, return null (N/A) instead of misleading 100%
-      const deliveryPct = totalMsgs > 0 ? Number(((successMsgs / totalMsgs) * 100).toFixed(1)) : null;
+      const deliveryPct = totalMsgs > 0 ? Number(((totalSuccess / totalMsgs) * 100).toFixed(1)) : null;
 
       const latestMsg = await prisma.message.findFirst({
         where: { conversation: { tenantId: t.id } },
