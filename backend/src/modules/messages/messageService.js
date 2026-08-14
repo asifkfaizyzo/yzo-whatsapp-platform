@@ -500,7 +500,32 @@ const sendWhatsAppMedia = async ({
 
   // Step 1: Upload media to Meta
   const fileBuffer = fs.readFileSync(file.path);
-  const blob = new Blob([fileBuffer], { type: file.mimetype });
+  
+  let uploadMimeType = file.mimetype || 'application/octet-stream';
+  const metaAllowedTypes = [
+    'audio/aac', 'audio/mp4', 'audio/mpeg', 'audio/amr', 'audio/ogg', 'audio/opus',
+    'image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/3gpp',
+    'application/pdf', 'text/plain', 'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+  ];
+
+  if (!metaAllowedTypes.includes(uploadMimeType)) {
+    if (uploadMimeType.startsWith('audio/')) {
+      uploadMimeType = 'audio/ogg';
+    } else if (uploadMimeType.startsWith('image/')) {
+      uploadMimeType = 'image/jpeg';
+    } else if (uploadMimeType.startsWith('video/')) {
+      uploadMimeType = 'video/mp4';
+    } else {
+      uploadMimeType = 'application/pdf';
+    }
+  }
+
+  const blob = new Blob([fileBuffer], { type: uploadMimeType });
 
   const formData = new globalThis.FormData();
   formData.append('file', blob, file.originalname);
