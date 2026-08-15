@@ -54,41 +54,44 @@ export const createTemplate = async (req, res) => {
 
     // Check if Tenant has WhatsApp Credentials configured
     const tenant = req.tenant;
-    const hasMetaConfig = tenant.whatsappWabaId && tenant.whatsappAccessToken;
+    if (!tenant.whatsappWabaId || !tenant.whatsappAccessToken) {
+      return res.status(400).json({
+        success: false,
+        requiresWhatsApp: true,
+        message: 'Please connect your WhatsApp Business Account in Settings before creating message templates.',
+      });
+    }
 
     let metaTemplateId = null;
-    let initialStatus = 'APPROVED'; // Sandbox simulation auto-approves templates!
+    let initialStatus = 'PENDING'; // Submitted to Meta, starts as PENDING review
 
-    if (hasMetaConfig) {
-      // Meta requires sample values for placeholders like {{1}} inside BODY components
-      const enrichedComponents = components.map(comp => {
-        const copy = { ...comp };
-        if (copy.type === 'BODY') {
-          const placeholders = copy.text.match(/\{\{(\d+)\}\}/g);
-          if (placeholders) {
-            const count = new Set(placeholders).size;
-            const samples = Array.from({ length: count }, (_, i) => `sample_${i + 1}`);
-            copy.example = {
-              body_text: [samples]
-            };
-          }
+    // Meta requires sample values for placeholders like {{1}} inside BODY components
+    const enrichedComponents = components.map(comp => {
+      const copy = { ...comp };
+      if (copy.type === 'BODY') {
+        const placeholders = copy.text.match(/\{\{(\d+)\}\}/g);
+        if (placeholders) {
+          const count = new Set(placeholders).size;
+          const samples = Array.from({ length: count }, (_, i) => `sample_${i + 1}`);
+          copy.example = {
+            body_text: [samples]
+          };
         }
-        return copy;
-      });
-
-      // Create on Meta Cloud API
-      try {
-        const metaRes = await submitMetaTemplate(tenant, {
-          name: cleanName,
-          category,
-          language: language || 'en_US',
-          components: enrichedComponents
-        });
-        metaTemplateId = metaRes.id;
-        initialStatus = 'PENDING'; // real Meta starts as PENDING review
-      } catch (err) {
-        return res.status(400).json({ success: false, message: `Meta API Submission Error: ${err.message}` });
       }
+      return copy;
+    });
+
+    // Create on Meta Cloud API
+    try {
+      const metaRes = await submitMetaTemplate(tenant, {
+        name: cleanName,
+        category,
+        language: language || 'en_US',
+        components: enrichedComponents
+      });
+      metaTemplateId = metaRes.id;
+    } catch (err) {
+      return res.status(400).json({ success: false, message: `Meta API Submission Error: ${err.message}` });
     }
 
     // Save Template to Local DB

@@ -67,6 +67,15 @@ export const launchBroadcast = async (req, res) => {
     const tenant = req.tenant;
     const { name, templateId, targetType, tagIds, defaultParams, scheduledAt } = req.body;
 
+    // Check if Tenant has WhatsApp Credentials & Phone Number configured
+    if (!tenant.whatsappPhoneId || !tenant.whatsappWabaId || !tenant.whatsappAccessToken) {
+      return res.status(400).json({
+        success: false,
+        requiresWhatsApp: true,
+        message: 'Please connect your WhatsApp Business Account and Phone Number in Settings before launching broadcast campaigns.',
+      });
+    }
+
     if (!name || !templateId || !targetType) {
       return res.status(400).json({ success: false, message: 'Name, Template ID, and Target Type are required.' });
     }

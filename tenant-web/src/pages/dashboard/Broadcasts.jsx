@@ -15,10 +15,13 @@ import {
 import { getBroadcasts, launchBroadcast, cancelBroadcast } from "../../services/broadcast.service";
 import { getTemplates } from "../../services/template.service";
 import { getTags } from "../../services/tag.service";
+import { getWhatsappStatus } from "../../services/tenant.service";
 import { io } from "socket.io-client";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useConfirm } from "../../context/ConfirmContext";
 import { useToast } from "../../context/ToastContext";
+import WhatsAppRequiredModal from "../../components/whatsapp/WhatsAppRequiredModal";
+import WhatsAppConnect from "../../components/whatsapp/WhatsAppConnect";
 
 export default function Broadcasts() {
   const confirm = useConfirm();
@@ -29,6 +32,9 @@ export default function Broadcasts() {
   const [tags, setTags] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [isWhatsAppConnected, setIsWhatsAppConnected] = useState(true);
+  const [showConnectModal, setShowConnectModal] = useState(false);
+  const [showWhatsAppSetup, setShowWhatsAppSetup] = useState(false);
 
   const [showModal, setShowModal] = useState(false);
   const [newCampaign, setNewCampaign] = useState({
@@ -43,13 +49,14 @@ export default function Broadcasts() {
   // Dynamic variable parameters mappings state
   const [paramsMapping, setParamsMapping] = useState({});
 
-  // 1. Fetch campaigns, templates, tags
+  // 1. Fetch campaigns, templates, tags, whatsapp status
   const loadData = async () => {
     setLoading(true);
-    const [bRes, tRes, tagRes] = await Promise.all([
+    const [bRes, tRes, tagRes, statusRes] = await Promise.all([
       getBroadcasts(),
       getTemplates(),
-      getTags()
+      getTags(),
+      getWhatsappStatus()
     ]);
 
     if (bRes.success) setCampaigns(bRes.data);
@@ -58,6 +65,9 @@ export default function Broadcasts() {
       setTemplates(tRes.data.filter(t => t.status === "APPROVED"));
     }
     if (tagRes.success) setTags(tagRes.data);
+    if (statusRes.success) {
+      setIsWhatsAppConnected(!!statusRes.data?.isConnected);
+    }
     setLoading(false);
   };
 
@@ -231,8 +241,12 @@ export default function Broadcasts() {
         </div>
         <button
           onClick={() => {
+            if (!isWhatsAppConnected) {
+              setShowConnectModal(true);
+              return;
+            }
             if (templates.length === 0) {
-              alert("You must have at least one approved template before launching a broadcast campaign.");
+              toast.error("You must have at least one approved template before launching a broadcast campaign.");
               return;
             }
             setShowModal(true);
@@ -243,6 +257,30 @@ export default function Broadcasts() {
           <span>New Campaign</span>
         </button>
       </div>
+
+      {/* WhatsApp Disconnected Warning Banner */}
+      {!isWhatsAppConnected && !loading && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50/90 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-start gap-3.5">
+            <div className="p-2.5 rounded-xl bg-amber-100 text-amber-700 shrink-0">
+              <AlertCircle size={20} />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-amber-900">WhatsApp Account Not Connected</h4>
+              <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
+                Connect your WhatsApp Business Number in Settings to launch broadcast campaigns and send messages via Meta Cloud API.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowWhatsAppSetup(true)}
+            className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 text-white text-xs font-bold rounded-xl transition shadow-sm whitespace-nowrap self-start sm:self-auto shrink-0"
+          >
+            Connect WhatsApp
+          </button>
+        </div>
+      )}
 
       {/* Campaigns Listing */}
       <div className="card border border-slate-100 overflow-hidden bg-white">
@@ -558,6 +596,29 @@ export default function Broadcasts() {
           </div>
         </div>,
         document.body
+      )}
+
+      {/* WhatsApp Connection Required Modal */}
+      <WhatsAppRequiredModal
+        isOpen={showConnectModal}
+        onClose={() => setShowConnectModal(false)}
+        onConnect={() => setShowWhatsAppSetup(true)}
+        title="WhatsApp Number Required"
+        description="To launch broadcast campaigns, you need to connect your official WhatsApp Business Number first."
+        feature="Broadcasts"
+      />
+
+      {/* WhatsApp Setup / Connect Modal ("Choose Your Setup Type") */}
+      {showWhatsAppSetup && (
+        <WhatsAppConnect
+          onSuccess={() => {
+            setShowWhatsAppSetup(false);
+            setIsWhatsAppConnected(true);
+            loadData();
+            toast.success("WhatsApp connected successfully!");
+          }}
+          onClose={() => setShowWhatsAppSetup(false)}
+        />
       )}
     </div>
   );

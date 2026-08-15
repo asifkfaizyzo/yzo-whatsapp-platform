@@ -57,22 +57,57 @@ export const startCleanupWorker = () => {
       // ═══════════════════════════════════════════
       await prisma.$transaction([
         // ── Auth ──
+        prisma.userTagMapping.deleteMany({ 
+          where: { tenantId: { in: tenantIds } } 
+        }),
         prisma.refreshToken.deleteMany({ 
           where: { tenantId: { in: tenantIds } } 
         }),
 
-        // ── Tag mappings ──
-        prisma.userTagMapping.deleteMany({ 
-          where: { tenantId: { in: tenantIds } } 
+        // ── Conversations & Messages ──
+        prisma.message.deleteMany({ 
+          where: { 
+            OR: [
+              { conversation: { tenantId: { in: tenantIds } } },
+              { conversation: { contact: { tenantId: { in: tenantIds } } } },
+            ]
+          } 
+        }),
+        prisma.conversationActivity.deleteMany({ 
+          where: { 
+            OR: [
+              { conversation: { tenantId: { in: tenantIds } } },
+              { conversation: { contact: { tenantId: { in: tenantIds } } } },
+            ]
+          } 
+        }),
+        prisma.conversation.deleteMany({ 
+          where: { 
+            OR: [
+              { tenantId: { in: tenantIds } },
+              { contact: { tenantId: { in: tenantIds } } },
+            ]
+          } 
         }),
 
-        // ── Users ──
-        prisma.user.deleteMany({ 
-          where: { tenantId: { in: tenantIds } } 
+        // ── Broadcasts & Recipients ──
+        prisma.broadcastRecipient.deleteMany({ 
+          where: { 
+            OR: [
+              { broadcast: { tenantId: { in: tenantIds } } },
+              { contact: { tenantId: { in: tenantIds } } },
+            ]
+          } 
         }),
-
-        // ── Contacts ──
-        prisma.contact.deleteMany({ 
+        prisma.broadcastTag.deleteMany({ 
+          where: { 
+            OR: [
+              { broadcast: { tenantId: { in: tenantIds } } },
+              { tag: { tenantId: { in: tenantIds } } },
+            ]
+          } 
+        }),
+        prisma.broadcast.deleteMany({ 
           where: { tenantId: { in: tenantIds } } 
         }),
 
@@ -81,26 +116,41 @@ export const startCleanupWorker = () => {
           where: { tenantId: { in: tenantIds } } 
         }),
 
-        // ── Broadcasts ──
-        prisma.broadcast.deleteMany({ 
+        // ── Contacts & Tags ──
+        prisma.contactTagMapping.deleteMany({ 
+          where: { OR: [{ contact: { tenantId: { in: tenantIds } } }, { tag: { tenantId: { in: tenantIds } } }] } 
+        }),
+        prisma.contact.deleteMany({ 
           where: { tenantId: { in: tenantIds } } 
         }),
-
-        // ── Tags (must come after mappings) ──
         prisma.tag.deleteMany({ 
           where: { tenantId: { in: tenantIds } } 
         }),
 
-        // ── Tickets ──
-        prisma.ticket.deleteMany({ 
-          where: { tenantId: { in: tenantIds } } 
+        // ── Chat Automation & Flows ──
+        prisma.flowNode.deleteMany({ 
+          where: { flow: { tenantId: { in: tenantIds } } } 
         }),
-
-        // ── Flows ──
         prisma.keywordTrigger.deleteMany({ 
           where: { tenantId: { in: tenantIds } } 
         }),
         prisma.flow.deleteMany({ 
+          where: { tenantId: { in: tenantIds } } 
+        }),
+        prisma.autoReopenConfig.deleteMany({ 
+          where: { tenantId: { in: tenantIds } } 
+        }),
+
+        // ── Support Tickets ──
+        prisma.ticketMessage.deleteMany({ 
+          where: { OR: [{ ticket: { tenantId: { in: tenantIds } } }, { tenantId: { in: tenantIds } }] } 
+        }),
+        prisma.ticket.deleteMany({ 
+          where: { tenantId: { in: tenantIds } } 
+        }),
+
+        // ── Notifications ──
+        prisma.notification.deleteMany({ 
           where: { tenantId: { in: tenantIds } } 
         }),
 
@@ -109,7 +159,7 @@ export const startCleanupWorker = () => {
           where: { tenantId: { in: tenantIds } } 
         }),
 
-        // ── Subscription related ──
+        // ── Subscription, Invoices & Payments ──
         prisma.subscriptionReminder.deleteMany({ 
           where: { tenantId: { in: tenantIds } } 
         }),
@@ -119,11 +169,22 @@ export const startCleanupWorker = () => {
         prisma.tenantDataDeletion.deleteMany({ 
           where: { tenantId: { in: tenantIds } } 
         }),
+        prisma.invoice.deleteMany({ 
+          where: { tenantId: { in: tenantIds } } 
+        }),
+        prisma.payment.deleteMany({ 
+          where: { tenantId: { in: tenantIds } } 
+        }),
 
         // ── Audit logs → unlink but preserve ──
         prisma.auditLog.updateMany({
           where: { tenantId: { in: tenantIds } },
           data:  { tenantId: null }
+        }),
+
+        // ── Users ──
+        prisma.user.deleteMany({ 
+          where: { tenantId: { in: tenantIds } } 
         }),
 
         // ── Finally delete tenants ──
