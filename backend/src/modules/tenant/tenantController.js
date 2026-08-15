@@ -941,7 +941,7 @@ export const onboardingStep2 = async (req, res) => {
             prisma.superAdmin.findUnique({ where: { email } }),
         ]);
 
-        if (emailExistsInTenant || emailExistsInUser || emailExistsInSuperAdmin) {
+        if ((emailExistsInTenant && emailExistsInTenant.id !== tenantId) || emailExistsInUser || emailExistsInSuperAdmin) {
             return res.status(400).json({
                 success: false,
                 message: 'Email is already registered on the platform'

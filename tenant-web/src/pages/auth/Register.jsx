@@ -30,6 +30,7 @@ import {
   loginWithGoogle,
 } from "../../services/auth.service";
 import { useAuthStore } from "../../store/useAuthStore";
+import { useToast } from "../../context/ToastContext";
 import FormError from "../../components/FormError";
 import { GoogleLogin } from "@react-oauth/google";
 
@@ -83,7 +84,7 @@ const step4Schema = z.object({
 const step5Schema = z.object({
   phone: z.string().min(10, "Phone number must be at least 10 digits"),
   companySize: z.string().min(1, "Company size selection is required"),
-  useCase: z.string().min(1, "Use case description is required"),
+  useCase: z.string().optional().or(z.literal("")),
 });
 
 const companySizes = [
@@ -131,6 +132,7 @@ export default function Register() {
   const navigate = useNavigate();
   const { logout, user, isAuthenticated, isHydrated } = useAuthStore();
 
+  const toast = useToast();
   const [showOtpInput, setShowOtpInput] = useState(false);
   const [step, setStep] = useState(1);
   const [generalError, setGeneralError] = useState("");
@@ -198,6 +200,7 @@ export default function Register() {
     register: reg2,
     handleSubmit: handleSub2,
     setValue: setVal2,
+    getValues: getVal2,
     formState: { errors: err2 },
   } = useForm({
     resolver: zodResolver(step2Schema),
@@ -276,15 +279,21 @@ export default function Register() {
     }
   };
 
-  const onStep2Submit = async (data) => {
+  const onStep2Submit = async (data, isResend = false) => {
     setGeneralError("");
     setIsLoading(true);
     const result = await registerStep2(data);
     setIsLoading(false);
     if (result.success) {
       setShowOtpInput(true); // <-- Show the OTP input container
+      if (isResend) {
+        toast.success("A new verification code has been sent to your email.");
+      }
     } else {
       setGeneralError(result.message || "Step 2 failed.");
+      if (isResend) {
+        toast.error(result.message || "Failed to resend verification code.");
+      }
     }
   };
 
@@ -625,9 +634,16 @@ export default function Register() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => onStep2Submit({ email: watch3("email") || user?.email })}
+                            onClick={() => {
+                              const emailToResend = getVal2("email") || user?.email;
+                              if (!emailToResend) {
+                                setGeneralError("Please enter your email address first.");
+                                return;
+                              }
+                              onStep2Submit({ email: emailToResend }, true);
+                            }}
                             disabled={isLoading}
-                            className="text-slate-500 hover:text-slate-700 hover:underline font-medium"
+                            className="text-slate-500 hover:text-slate-700 hover:underline font-medium disabled:opacity-50"
                           >
                             Resend Code
                           </button>
@@ -837,7 +853,7 @@ export default function Register() {
                     <FormError message={err5.companySize?.message} />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-600 mb-1.5">Primary use case <span className="text-red-500">*</span></label>
+                    <label className="block text-sm font-medium text-slate-600 mb-1.5">Primary use case <span className="text-xs text-slate-400 font-normal">(Optional)</span></label>
                     <div className="relative">
                       <span className="absolute left-0 pl-3.5 pt-3.5 flex items-start text-slate-400 pointer-events-none">
                         <MessageSquare className="h-4 w-4" />

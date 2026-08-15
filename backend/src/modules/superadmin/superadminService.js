@@ -510,34 +510,96 @@ export const deleteTenantByIdService = async (tenantId, actor, meta = {}) => {
   const users   = await prisma.user.findMany({ where: { tenantId }, select: { id: true } });
   const userIds = users.map(u => u.id);
 
+  const contacts   = await prisma.contact.findMany({ where: { tenantId }, select: { id: true } });
+  const contactIds = contacts.map(c => c.id);
+
   await prisma.$transaction([
+    // 1. Tag mappings & tokens
     prisma.userTagMapping.deleteMany({ where: { OR: [{ tenantId }, { userId: { in: userIds } }] } }),
     prisma.refreshToken.deleteMany({  where: { OR: [{ tenantId }, { userId: { in: userIds } }] } }),
-    prisma.message.deleteMany({ where: { conversation: { tenantId } } }),
-    prisma.conversationActivity.deleteMany({ where: { conversation: { tenantId } } }),
-    prisma.conversation.deleteMany({ where: { tenantId } }),
-    prisma.broadcastRecipient.deleteMany({ where: { broadcast: { tenantId } } }),
-    prisma.broadcastTag.deleteMany({ where: { broadcast: { tenantId } } }),
-    prisma.broadcast.deleteMany({ where: { tenantId } }),
-    prisma.template.deleteMany({ where: { tenantId } }),
-    prisma.contactTagMapping.deleteMany({ where: { contact: { tenantId } } }),
-    prisma.contact.deleteMany({ where: { tenantId } }),
+
+    // 2. Messages, activities & conversations (checked by tenantId, contactId, and contact relation)
+    prisma.message.deleteMany({
+      where: {
+        OR: [
+          { conversation: { tenantId } },
+          { conversation: { contactId: { in: contactIds } } },
+          { conversation: { contact: { tenantId } } },
+        ],
+      },
+    }),
+    prisma.conversationActivity.deleteMany({
+      where: {
+        OR: [
+          { conversation: { tenantId } },
+          { conversation: { contactId: { in: contactIds } } },
+          { conversation: { contact: { tenantId } } },
+        ],
+      },
+    }),
+    prisma.conversation.deleteMany({
+      where: {
+        OR: [
+          { tenantId },
+          { contactId: { in: contactIds } },
+          { contact: { tenantId } },
+        ],
+      },
+    }),
+
+    // 3. Broadcasts & recipients
+    prisma.broadcastRecipient.deleteMany({
+      where: {
+        OR: [
+          { broadcast: { tenantId } },
+          { contactId: { in: contactIds } },
+          { contact: { tenantId } },
+        ],
+      },
+    }),
+    prisma.broadcastTag.deleteMany({ where: { OR: [{ broadcast: { tenantId } }, { tag: { tenantId } }] } }),
+    prisma.broadcast.deleteMany({ where: { OR: [{ tenantId }, { createdById: { in: userIds } }] } }),
+    prisma.template.deleteMany({ where: { OR: [{ tenantId }, { createdById: { in: userIds } }] } }),
+
+    // 4. Contacts & Tags
+    prisma.contactTagMapping.deleteMany({
+      where: {
+        OR: [
+          { contactId: { in: contactIds } },
+          { contact: { tenantId } },
+          { tag: { tenantId } },
+        ],
+      },
+    }),
+    prisma.contact.deleteMany({ where: { OR: [{ tenantId }, { id: { in: contactIds } }] } }),
     prisma.tag.deleteMany({ where: { tenantId } }),
+
+    // 5. Automation / Flows
     prisma.flowNode.deleteMany({ where: { flow: { tenantId } } }),
-    prisma.keywordTrigger.deleteMany({ where: { tenantId } }),
+    prisma.keywordTrigger.deleteMany({ where: { OR: [{ tenantId }, { flow: { tenantId } }] } }),
     prisma.flow.deleteMany({ where: { tenantId } }),
     prisma.autoReopenConfig.deleteMany({ where: { tenantId } }),
-    prisma.ticketMessage.deleteMany({ where: { ticket: { tenantId } } }),
-    prisma.ticket.deleteMany({ where: { tenantId } }),
+
+    // 6. Tickets
+    prisma.ticketMessage.deleteMany({ where: { OR: [{ ticket: { tenantId } }, { tenantId }, { userId: { in: userIds } }] } }),
+    prisma.ticket.deleteMany({ where: { OR: [{ tenantId }, { userId: { in: userIds } }] } }),
+
+    // 7. Subscriptions, Invoices & Payments
     prisma.subscriptionReminder.deleteMany({ where: { tenantId } }),
     prisma.cancellationSurvey.deleteMany({ where: { tenantId } }),
     prisma.tenantDataDeletion.deleteMany({ where: { tenantId } }),
     prisma.enterpriseLead.deleteMany({ where: { tenantId } }),
-    prisma.notification.deleteMany({ where: { tenantId } }),
+    prisma.notification.deleteMany({ where: { OR: [{ tenantId }, { userId: { in: userIds } }] } }),
+    prisma.invoice.deleteMany({ where: { tenantId } }),
+    prisma.payment.deleteMany({ where: { tenantId } }),
+
+    // 8. Audit logs
     prisma.auditLog.updateMany({
       where: { tenantId },
       data:  { tenantId: null },
     }),
+
+    // 9. Users & Root Tenant
     prisma.user.deleteMany({ where: { tenantId } }),
     prisma.tenant.delete({ where: { id: tenantId } }),
   ]);

@@ -53,7 +53,7 @@ export const step5Schema = z.object({
   body: z.object({
     phone: z.string().min(10, "Phone number must be at least 10 digits"),
     companySize: z.string().min(1, "Company size selection is required"),
-    useCase: z.string().min(1, "Use case description is required"),
+    useCase: z.string().optional().or(z.literal("")),
   }),
 });
 

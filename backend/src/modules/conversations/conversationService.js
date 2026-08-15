@@ -800,7 +800,6 @@ export const bulkReassignConversations = async ({
 
 
 
-// ── Reset unread count when agent opens conversation ──
 export const markConversationAsRead = async ({
   conversationId,
   tenantId,
@@ -811,23 +810,26 @@ export const markConversationAsRead = async ({
 
   if (!conversation) throw new Error('Conversation not found');
 
-  // Reset unread count
-  await prisma.conversation.update({
-    where: { id: conversationId },
-    data:  { unreadCount: 0 },
-  });
+  // ⭐ Only update if unread > 0 (skip unnecessary DB writes)
+  if (conversation.unreadCount > 0) {
+    await prisma.conversation.update({
+      where: { id: conversationId },
+      data: {
+        unreadCount: 0,
+        updatedAt: conversation.updatedAt,  // ⭐ Keep original timestamp — prevents chat jump
+      },
+    });
 
-  // Mark inbound messages as read
-  await prisma.message.updateMany({
-    where: {
-      conversationId,
-      direction: 'INBOUND',
-      isRead:    false,
-    },
-    data: { isRead: true },
-  });
+    await prisma.message.updateMany({
+      where: {
+        conversationId,
+        direction: 'INBOUND',
+        isRead:    false,
+      },
+      data: { isRead: true },
+    });
+  }
 
-  // Emit reset
   emitToTenant(tenantId, 'unread_count_update', {
     conversationId,
     unreadCount: 0,

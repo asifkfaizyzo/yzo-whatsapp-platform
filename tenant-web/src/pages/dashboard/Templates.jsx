@@ -12,8 +12,11 @@ import {
   AlertCircle
 } from "lucide-react";
 import { getTemplates, createTemplate, syncTemplates, deleteTemplate } from "../../services/template.service";
+import { getWhatsappStatus } from "../../services/tenant.service";
 import { useConfirm } from "../../context/ConfirmContext";
 import { useToast } from "../../context/ToastContext";
+import WhatsAppRequiredModal from "../../components/whatsapp/WhatsAppRequiredModal";
+import WhatsAppConnect from "../../components/whatsapp/WhatsAppConnect";
 
 export default function Templates() {
   const confirm = useConfirm();
@@ -23,6 +26,9 @@ export default function Templates() {
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState("");
+  const [isWhatsAppConnected, setIsWhatsAppConnected] = useState(true);
+  const [showConnectModal, setShowConnectModal] = useState(false);
+  const [showWhatsAppSetup, setShowWhatsAppSetup] = useState(false);
 
   const [showModal, setShowModal] = useState(false);
   const [previewTemplate, setPreviewTemplate] = useState(null);
@@ -36,11 +42,17 @@ export default function Templates() {
   const loadTemplates = async () => {
     setLoading(true);
     setError("");
-    const res = await getTemplates();
+    const [res, statusRes] = await Promise.all([
+      getTemplates(),
+      getWhatsappStatus()
+    ]);
     if (res.success) {
       setTemplates(res.data);
     } else {
       setError(res.message);
+    }
+    if (statusRes.success) {
+      setIsWhatsAppConnected(!!statusRes.data?.isConnected);
     }
     setLoading(false);
   };
@@ -50,6 +62,10 @@ export default function Templates() {
   }, []);
 
   const handleSync = async () => {
+    if (!isWhatsAppConnected) {
+      setShowConnectModal(true);
+      return;
+    }
     setSyncing(true);
     setError("");
     const res = await syncTemplates();
@@ -140,7 +156,13 @@ export default function Templates() {
             <span>Sync from Meta</span>
           </button>
           <button
-            onClick={() => setShowModal(true)}
+            onClick={() => {
+              if (!isWhatsAppConnected) {
+                setShowConnectModal(true);
+              } else {
+                setShowModal(true);
+              }
+            }}
             className="btn-primary flex items-center justify-center gap-2 text-sm shadow-sm"
           >
             <Plus size={16} />
@@ -148,6 +170,30 @@ export default function Templates() {
           </button>
         </div>
       </div>
+
+      {/* WhatsApp Disconnected Warning Banner */}
+      {!isWhatsAppConnected && !loading && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50/90 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-start gap-3.5">
+            <div className="p-2.5 rounded-xl bg-amber-100 text-amber-700 shrink-0">
+              <AlertCircle size={20} />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-amber-900">WhatsApp Account Not Connected</h4>
+              <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
+                Connect your WhatsApp Business Account (WABA) in Settings to create, register, and sync approved message templates with Meta.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowWhatsAppSetup(true)}
+            className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 text-white text-xs font-bold rounded-xl transition shadow-sm whitespace-nowrap self-start sm:self-auto shrink-0"
+          >
+            Connect WhatsApp
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="rounded-xl bg-rose-50 border border-rose-200 px-4 py-3 text-xs text-rose-800 font-semibold flex items-center gap-2">
@@ -329,6 +375,29 @@ export default function Templates() {
           </div>
         </div>,
         document.body
+      )}
+
+      {/* WhatsApp Connection Required Modal */}
+      <WhatsAppRequiredModal
+        isOpen={showConnectModal}
+        onClose={() => setShowConnectModal(false)}
+        onConnect={() => setShowWhatsAppSetup(true)}
+        title="WhatsApp Account Required"
+        description="To create and submit message templates to Meta, you need to connect your official WhatsApp Business Account (WABA) first."
+        feature="Templates"
+      />
+
+      {/* WhatsApp Setup / Connect Modal ("Choose Your Setup Type") */}
+      {showWhatsAppSetup && (
+        <WhatsAppConnect
+          onSuccess={() => {
+            setShowWhatsAppSetup(false);
+            setIsWhatsAppConnected(true);
+            loadTemplates();
+            toast.success("WhatsApp connected successfully!");
+          }}
+          onClose={() => setShowWhatsAppSetup(false)}
+        />
       )}
     </div>
   );
