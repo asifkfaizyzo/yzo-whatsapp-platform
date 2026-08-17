@@ -24,6 +24,8 @@ import AssignAgentNode from "../../components/automation/NodeTypes/AssignAgentNo
 import EndFlowNode from "../../components/automation/NodeTypes/EndFlowNode";
 import flowService from "../../services/flow.service";
 import InteractiveButtonsNode from "../../components/automation/NodeTypes/interactiveButtonsNode";
+import { getWhatsappStatus } from "../../services/tenant.service";
+import { useToast } from "../../context/ToastContext";
 
 // Register node types
 const nodeTypes = {
@@ -40,6 +42,9 @@ function FlowBuilderInner() {
   const navigate = useNavigate();
   const wrapperRef = useRef(null);
 
+  const toast = useToast();
+  const [whatsappChecked, setWhatsappChecked] = useState(false);
+
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [selectedNode, setSelectedNode] = useState(null);
@@ -47,9 +52,21 @@ function FlowBuilderInner() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadFlow();
+    useEffect(() => {
+    checkAccessAndLoad();
   }, [flowId]);
+
+  // ✅ Guard: Check WhatsApp before loading builder
+  const checkAccessAndLoad = async () => {
+    const statusRes = await getWhatsappStatus();
+    if (statusRes.success && !statusRes.data?.isConnected) {
+      toast.error("Please connect WhatsApp before editing automation flows.");
+      navigate("/dashboard/automation");
+      return;
+    }
+    setWhatsappChecked(true);
+    loadFlow();
+  };
 
   const loadFlow = async () => {
     try {

@@ -273,6 +273,8 @@ export const updateTenantProfile = async (req, res) => {
 
     const {
       tenantName,
+      firstName,
+      lastName,
       email,
       phone,
       address,
@@ -280,11 +282,26 @@ export const updateTenantProfile = async (req, res) => {
       industry,
       companySize,
       country,
+      timezone,
+      logo,
     } = req.body;
 
     const result = await updateTenantByIdService(
       tenantId,
-      { tenantName, email, phone, address, websiteUrl, industry, companySize, country },
+      {
+        tenantName,
+        firstName,
+        lastName,
+        email,
+        phone,
+        address,
+        websiteUrl,
+        industry,
+        companySize,
+        country,
+        timezone,
+        logo,
+      },
       null,
       meta
     );

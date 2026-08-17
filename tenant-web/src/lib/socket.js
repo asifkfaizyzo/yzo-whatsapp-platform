@@ -9,7 +9,6 @@ const socketUrl = import.meta.env.VITE_BACKEND_URL;
 // ═══════════════════════════════════════════════════════════
 const getAuthToken = () => {
   const token = useAuthStore.getState().accessToken;
-  console.log("🔑 Socket getting token:", !!token);
   return token;
 };
 

@@ -91,7 +91,7 @@ export default function EnterpriseLeadDetail() {
     try {
       const response = await api.delete(`/admin/enterprise-leads/${id}`);
       if (response.data.success) {
-        navigate("/dashboard/enterprise-leads");
+        navigate("/dashboard/enquiries?tab=enterprise");
       }
     } catch (err) {
       console.error("Error deleting lead:", err);
@@ -114,7 +114,7 @@ export default function EnterpriseLeadDetail() {
         <span className="text-4xl">⚠️</span>
         <h3 className="text-lg font-bold text-slate-700">Failed to load</h3>
         <p className="text-sm text-slate-500">{error || "Lead not found."}</p>
-        <Link to="/dashboard/enterprise-leads" className="inline-block bg-[#125EF2] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-blue-600 transition">
+        <Link to="/dashboard/enquiries?tab=enterprise" className="inline-block bg-[#125EF2] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-blue-600 transition">
           Back to Leads
         </Link>
       </div>
@@ -139,7 +139,7 @@ export default function EnterpriseLeadDetail() {
     <div className="space-y-6 max-w-5xl mx-auto animate-in fade-in duration-200">
       {/* Header back link */}
       <div className="flex items-center justify-between">
-        <Link to="/dashboard/enterprise-leads" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 font-medium">
+        <Link to="/dashboard/enquiries?tab=enterprise" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 font-medium">
           <ArrowLeft size={16} />
           <span>Back to Leads</span>
         </Link>

@@ -66,8 +66,6 @@ export default function Inbox() {
   const toast = useToast();
   const { user, accessToken } = useAuthStore();
 
-   console.log("🔄 INBOX RE-RENDERED at:", new Date().toLocaleTimeString()); 
-
   const userRole = user?.type === "TENANT" ? "admin" : "agent";
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -304,12 +302,6 @@ useEffect(() => {
           res.data ||
           [];
 
-           console.log('🔍 API RESPONSE CONVERSATIONS:', convList.map(c => ({
-        id: c.id,
-        name: c.contact?.name,
-        unreadCount: c.unreadCount,
-      })));
-
         setChats(convList);
 
         setUnreadMap((prev) => {
@@ -343,7 +335,6 @@ useEffect(() => {
 // ── Clear unread when chat opened ──
 useEffect(() => {
   if (!activeChatId) return;
-  console.log("👆 Chat clicked - mark as read for:", activeChatId);
   
   // 1. Reset frontend immediately
   setUnreadMap((prev) => ({ ...prev, [String(activeChatId)]: 0 }));
@@ -380,11 +371,8 @@ useEffect(() => {
   useEffect(() => {
     if (!activeChatId) return;
     const loadMessages = async () => {
-    const res = await getConversationMessages(activeChatId, 50);
-        console.log('🔍 API RESPONSE:', res)                    // ⭐ ADD
-        console.log('🔍 MESSAGES:', res.data?.messages) 
-
-      if (res.success) setMessages(res.data.messages || []);
+      const res = await getConversationMessages(activeChatId, 50);
+      if (res.success) setMessages(res.data?.messages || []);
     };
     loadMessages();
   }, [activeChatId]);
@@ -401,26 +389,20 @@ useEffect(() => {
     });
 
     newSocket.on("connect", () => {
-      console.log("🔌 Inbox Socket Connected:", newSocket.id);
-
       // Always join tenant room (needed for new_message events for everyone)
       if (activeTenantId) {
         newSocket.emit("join_tenant", activeTenantId);
-        console.log("👥 Inbox joined tenant room:", activeTenantId);
       }
 
-      // FIXED: If USER (agent), also join personal user room
-      // This ensures new_notification events from emitToUser() are received
+      // If USER (agent), also join personal user room
       if (user?.type === "USER" && user?.id) {
         newSocket.emit("join_user", user.id);
-        console.log("👤 Inbox joined user room:", user.id);
       }
     });
 
     setSocket(newSocket);
 
     return () => {
-      console.log("🔌 Inbox Socket Disconnecting");
       newSocket.disconnect();
     };
     // FIXED: Added user?.id and user?.type to dependency array
@@ -474,16 +456,7 @@ useEffect(() => {
     const handleNewMessage = (data) => {
       const { conversationId, message } = data;
 
-      // ⭐⭐⭐ CRITICAL LOG - keep this to confirm
-      console.log("🟢 new_message received:", {
-        conversationId,
-        messageId: message?.id,
-        text: message?.text?.substring(0, 30),
-        isFromCustomer: message?.isFromCustomer,
-      });
-
       if (!message || typeof message !== "object" || !message.id) {
-        console.warn("⚠️ Invalid message in new_message socket event:", data);
         return;
       }
 
@@ -495,7 +468,6 @@ useEffect(() => {
       if (isCurrentChatOpen) {
         setMessages((prev) => {
           if (prev.some((m) => m.id === message.id)) {
-            console.log("⏸️ Message already in list, skipping");
             return prev;
           }
           return [...prev, message];
@@ -555,7 +527,6 @@ useEffect(() => {
 
         // If duplicate OR older message → don't touch the list
         if (currentLatestMsgId === message.id || newMessageTime < currentLatestTime) {
-          console.log("⏸️ Skipping reorder - message is duplicate or older");
           return prevChats;
         }
 
@@ -581,8 +552,6 @@ useEffect(() => {
           return c;
         });
 
-        console.log("♻️ Reordering chats due to NEW message:", message.id);
-
         // Reorder (only when we have a truly new message)
         return updated.sort((a, b) => {
           const dateA = a.messages?.[0]?.createdAt || a.updatedAt;
@@ -597,8 +566,6 @@ useEffect(() => {
 
 // ── Handle deleted message ──
     const handleMessageDeleted = ({ messageId, conversationId: convId }) => {
-      console.log("🗑️ message_deleted received:", messageId);
-
       setMessages((prev) =>
         prev.map((m) =>
           m.id === messageId
@@ -630,10 +597,9 @@ useEffect(() => {
       );
     };
 
-    // ── ADD THIS: Handle bulk reassign ──────────────
+    // ── Handle bulk reassign ──────────────
   const handleConversationsReassigned = (data) => {
-  const { conversationIds, newUserId, newUserName, count } = data;
-  console.log(`🔄 ${count} conversation(s) reassigned to ${newUserName || "unassigned"}`);
+  const { conversationIds, newUserId } = data;
   
   // Update assignedTo locally without reload
   setChats((prev) =>
@@ -645,15 +611,13 @@ useEffect(() => {
   );
 };
 
-
-        const handleUnreadCountUpdate = (data) => {
+  const handleUnreadCountUpdate = (data) => {
       const { conversationId, unreadCount } = data;
-      console.log("🔔 Unread update:", data);
 
       const isCurrentChatOpen =
         activeChatId && String(activeChatId) === String(conversationId);
 
-      // ⭐ If chat is currently OPEN → force count to 0, never show badge
+      // If chat is currently OPEN → force count to 0, never show badge
       if (isCurrentChatOpen) {
         setChats((prev) =>
           prev.map((c) =>
@@ -675,11 +639,8 @@ useEffect(() => {
         )
       );
     };
-   
 
-     // ✅ NEW HANDLER
   const handleConversationAssigned = (data) => {
-    console.log("🎯 New conversation assigned to me:", data);
      if (data.conversation) {
     setChats((prev) => {
       const exists = prev.some((c) => String(c.id) === String(data.conversation.id));
@@ -2131,13 +2092,6 @@ useEffect(() => {
               )}
 
               {messages.map((msg) => {
-                  console.log('📩 MSG:', {
-    id: msg.id,
-    type: msg.type,
-    buttons: msg.buttons,
-    text: msg.text?.substring(0, 40)
-  })
-
                 const isAgent = !msg.isFromCustomer;
                 const timeStr = formatTime(msg.createdAt);
 

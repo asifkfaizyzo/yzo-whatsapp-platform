@@ -29,8 +29,6 @@ export const getAssignedConversations = async (page = 1, limit = 20, filter = "a
       params: { page, limit, filter },  // ✅ simple - backend handles filter
     });
 
-    console.log("🔍 Full API response:", response.data); // ← ADD temporarily
-
     return {
       success: true,
       data: response.data, // ✅ return FULL response, let Inbox.jsx extract what it needs
