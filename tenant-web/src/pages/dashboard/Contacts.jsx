@@ -13,6 +13,11 @@ import {
   Unlock,
   Upload,
   MessageSquare,
+  UsersRound,
+  UserCheck2,
+  UserX,
+  ShieldOff,
+  AlertCircle,
 } from "lucide-react";
 import {
   getContacts,
@@ -40,6 +45,9 @@ import {
 } from "../../services/tenant.service";
 import { useConfirm } from "../../context/ConfirmContext";
 import { useToast } from "../../context/ToastContext";
+import { getWhatsappStatus } from "../../services/tenant.service";
+import WhatsAppRequiredModal from "../../components/whatsapp/WhatsAppRequiredModal";
+import WhatsAppConnect from "../../components/whatsapp/WhatsAppConnect";
 
 export default function Contacts() {
   const confirm = useConfirm();
@@ -55,8 +63,27 @@ export default function Contacts() {
   const [editingContact, setEditingContact] = useState(null);
   const [agents, setAgents] = useState([]);
   const navigate = useNavigate();
+
+  // ✅ WhatsApp connection states (mirrors Automation.jsx)
+  const [isWhatsAppConnected, setIsWhatsAppConnected] = useState(true);
+  const [showConnectModal, setShowConnectModal] = useState(false);
+  const [showWhatsAppSetup, setShowWhatsAppSetup] = useState(false);
+
   const [searchParams, setSearchParams] = useSearchParams();
-  const filter = searchParams.get("filter") || "all";
+const filter = searchParams.get("filter") || "all";
+
+// Filter tabs config (Wati.io style)
+const filterTabs = [
+  { key: "all", label: "All Contacts", icon: <UsersRound size={14} />, activeColor: "text-[#125EF2] border-[#125EF2]", badge: "bg-blue-50 text-blue-600" },
+  { key: "assigned", label: "Assigned", icon: <UserCheck2 size={14} />, activeColor: "text-green-600 border-green-600", badge: "bg-green-50 text-green-600" },
+  { key: "unassigned", label: "Unassigned", icon: <UserX size={14} />, activeColor: "text-amber-600 border-amber-600", badge: "bg-amber-50 text-amber-600" },
+  { key: "blocked", label: "Blocked", icon: <ShieldOff size={14} />, activeColor: "text-red-600 border-red-600", badge: "bg-red-50 text-red-500" },
+];
+
+const handleFilterChange = (key) => {
+  setSearchParams({ filter: key });
+  setPage(1);
+};
   
   // Dynamic tags list
   const [systemTags, setSystemTags] = useState([]);
@@ -148,6 +175,13 @@ export default function Contacts() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+  // ✅ Double safety — block CSV import if WA not connected
+  if (!isWhatsAppConnected) {
+    setShowConnectModal(true);
+    e.target.value = "";
+    return;
+  }
+
     if (!file.name.endsWith(".csv")) {
       toast.error("Please upload a valid CSV file.");
       e.target.value = "";
@@ -224,9 +258,13 @@ export default function Contacts() {
   };
 
   const handleEditClick = (contact) => {
-    setEditingContact(contact);
+  if (!isWhatsAppConnected) {
+    setShowConnectModal(true);
+    return;
+  }
+  setEditingContact(contact);
 
-    const cleanCC = (contact.countryCode || "").replace(/\D/g, "");
+  const cleanCC = (contact.countryCode || "").replace(/\D/g, "");
     const cleanPh = (contact.phone || "").replace(/\D/g, "");
     let local = cleanPh;
     if (cleanCC && cleanPh.startsWith(cleanCC)) {
@@ -245,8 +283,12 @@ export default function Contacts() {
   };
 
   const handleToggleBlock = async (contact) => {
-    const action = contact.isBlocked ? "unblock" : "block";
-    const ok = await confirm({
+  if (!isWhatsAppConnected) {
+    setShowConnectModal(true);
+    return;
+  }
+  const action = contact.isBlocked ? "unblock" : "block";
+  const ok = await confirm({
       type: contact.isBlocked ? "info" : "warning",
       title: contact.isBlocked ? "Unblock Contact?" : "Block Contact?",
       message: `Are you sure you want to ${action} this contact?`,
@@ -312,13 +354,17 @@ export default function Contacts() {
   };
 
   const handleAssignmentChange = async (
-    contactId,
-    currentUserId,
-    newUserId,
-  ) => {
-    let res;
+  contactId,
+  currentUserId,
+  newUserId,
+) => {
+  if (!isWhatsAppConnected) {
+    setShowConnectModal(true);
+    return;
+  }
+  let res;
 
-    if (!newUserId) {
+  if (!newUserId) {
       // 1. Unassign contact
       res = await unassignContact(contactId);
     } else if (!currentUserId) {
@@ -342,21 +388,28 @@ export default function Contacts() {
     }
   };
 
-  const handleStartChat = async (contact) => {
-    const res = await createConversation(contact.id);
-    if (res.success) {
-      // Navigate to the inbox page passing the conversation ID in query string
-      navigate(`/dashboard/inbox?conversationId=${res.data.id}`);
-    } else {
-      toast.error(res.message);
-    }
-  };
+ const handleStartChat = async (contact) => {
+  if (!isWhatsAppConnected) {
+    setShowConnectModal(true);
+    return;
+  }
+  const res = await createConversation(contact.id);
+  if (res.success) {
+    navigate(`/dashboard/inbox?conversationId=${res.data.id}`);
+  } else {
+    toast.error(res.message);
+  }
+};
 
   const handleBulkAssignSubmit = async () => {
-    if (!bulkAgentId) {
-      toast.warning("Please select an agent.");
-      return;
-    }
+  if (!isWhatsAppConnected) {
+    setShowConnectModal(true);
+    return;
+  }
+  if (!bulkAgentId) {
+    toast.warning("Please select an agent.");
+    return;
+  }
     if (selectedContactIds.length === 0) {
       toast.warning("Please select at least one contact.");
       return;
@@ -385,6 +438,17 @@ export default function Contacts() {
     fetchAgents();
   }, [isAdmin]);
 
+  // ✅ Load WhatsApp connection status
+useEffect(() => {
+  const loadWAStatus = async () => {
+    const res = await getWhatsappStatus();
+    if (res.success) {
+      setIsWhatsAppConnected(!!res.data?.isConnected);
+    }
+  };
+  loadWAStatus();
+}, []);
+
   const activeContacts = contacts.filter((c) => !c.isBlocked);
 
   return (
@@ -412,43 +476,107 @@ export default function Contacts() {
                 disabled={importing}
               />
               <label
-                htmlFor="csv-file-input"
-                className={`btn-secondary flex items-center justify-center gap-2 text-sm shadow-sm cursor-pointer ${importing ? "opacity-60 cursor-not-allowed" : ""}`}
-              >
+  onClick={(e) => {
+    if (!isWhatsAppConnected) {
+      e.preventDefault();
+      setShowConnectModal(true);
+    }
+  }}
+  htmlFor={isWhatsAppConnected ? "csv-file-input" : undefined}
+  className={`btn-secondary flex items-center justify-center gap-2 text-sm shadow-sm cursor-pointer ${importing ? "opacity-60 cursor-not-allowed" : ""}`}
+>
                 <Upload size={16} className={importing ? "animate-spin" : ""} />
                 <span>{importing ? "Importing..." : "Import CSV"}</span>
               </label>
             </>
           )}
-          <button
-            onClick={() => setShowModal(true)}
-            className="btn-primary flex items-center justify-center gap-2 text-sm shadow-sm"
-            disabled={importing}
-          >
-            <UserPlus size={16} />
-            <span>Add Contact</span>
-          </button>
+        <button
+  onClick={() => {
+    if (!isWhatsAppConnected) {
+      setShowConnectModal(true);
+      return;
+    }
+    setShowModal(true);
+  }}
+  className="btn-primary flex items-center justify-center gap-2 text-sm shadow-sm"
+  disabled={importing}
+>
+  <UserPlus size={16} />
+  <span>Add Contact</span>
+</button>
         </div>
       </div>
 
+      {/* ✅ WhatsApp Disconnected Warning Banner */}
+{!isWhatsAppConnected && (
+  <div className="rounded-2xl border border-amber-200 bg-amber-50/90 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+    <div className="flex items-start gap-3.5">
+      <div className="p-2.5 rounded-xl bg-amber-100 text-amber-700 shrink-0">
+        <AlertCircle size={20} />
+      </div>
+      <div>
+        <h4 className="text-sm font-bold text-amber-900">WhatsApp Account Not Connected</h4>
+        <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
+          Connect your WhatsApp Business Number in Settings to add contacts, import CSV, and start conversations.
+        </p>
+      </div>
+    </div>
+    <button
+      type="button"
+      onClick={() => setShowWhatsAppSetup(true)}
+      className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 text-white text-xs font-bold rounded-xl transition shadow-sm whitespace-nowrap self-start sm:self-auto shrink-0"
+    >
+      Connect WhatsApp
+    </button>
+  </div>
+)}
+
       {/* Directory Grid */}
       <div className="card border border-slate-100 overflow-hidden">
-        {/* Search/Filter Bar */}
-        <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="relative max-w-xs w-full">
-            <Search
-              className="absolute left-3 top-2.5 text-slate-400"
-              size={15}
-            />
-            <input
-              type="text"
-              placeholder="Search by name or number..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="input pl-9 py-1.5 text-xs bg-white"
-            />
-          </div>
-        </div>
+        
+        {/* Filter Tabs (Wati.io Style) — Admin only */}
+{isAdmin && (
+  <div className="flex items-center gap-1 px-4 pt-3 border-b border-slate-100 bg-white overflow-x-auto">
+    {filterTabs.map((tab) => {
+      const isActive = filter === tab.key;
+      return (
+        <button
+          key={tab.key}
+          onClick={() => handleFilterChange(tab.key)}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-all whitespace-nowrap
+            ${isActive
+              ? tab.activeColor
+              : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+            }`}
+        >
+          <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full ${isActive ? tab.badge : "bg-slate-100 text-slate-500"}`}>
+            {tab.icon}
+          </span>
+          {tab.label}
+          {isActive && totalContacts > 0 && (
+            <span className={`ml-1 inline-flex items-center justify-center min-w-[20px] h-[18px] px-1.5 rounded-full text-[10px] font-bold ${tab.badge}`}>
+              {totalContacts}
+            </span>
+          )}
+        </button>
+      );
+    })}
+  </div>
+)}
+
+{/* Search Bar */}
+<div className="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+  <div className="relative max-w-xs w-full">
+    <Search className="absolute left-3 top-2.5 text-slate-400" size={15} />
+    <input
+      type="text"
+      placeholder="Search by name or number..."
+      value={search}
+      onChange={(e) => setSearch(e.target.value)}
+      className="input pl-9 py-1.5 text-xs bg-white"
+    />
+  </div>
+</div>
 
         {/* Bulk Actions Panel */}
         {isAdmin && selectedContactIds.length > 0 && (
@@ -972,6 +1100,29 @@ export default function Contacts() {
         </div>,
         document.body
       )}
+
+      {/* ✅ WhatsApp Connection Required Modal */}
+<WhatsAppRequiredModal
+  isOpen={showConnectModal}
+  onClose={() => setShowConnectModal(false)}
+  onConnect={() => setShowWhatsAppSetup(true)}
+  title="WhatsApp Number Required"
+  description="To add contacts, import CSV, or start conversations, you need to connect your official WhatsApp Business Number first."
+  feature="Contacts"
+/>
+
+{/* ✅ WhatsApp Setup / Connect Modal */}
+{showWhatsAppSetup && (
+  <WhatsAppConnect
+    onSuccess={() => {
+      setShowWhatsAppSetup(false);
+      setIsWhatsAppConnected(true);
+      toast.success("WhatsApp connected successfully!");
+    }}
+    onClose={() => setShowWhatsAppSetup(false)}
+  />
+)}
+
     </div>
   );
 }

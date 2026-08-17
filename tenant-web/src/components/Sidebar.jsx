@@ -42,9 +42,9 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
   const [inboxOpen, setInboxOpen] = React.useState(() =>
     location.pathname.startsWith("/dashboard/inbox")
   );
-  const [contactsOpen, setContactsOpen] = React.useState(() =>
-    location.pathname.startsWith("/dashboard/contacts")
-  );
+  // const [contactsOpen, setContactsOpen] = React.useState(() =>
+  //   location.pathname.startsWith("/dashboard/contacts")
+  // );
 
   const [inboxUnreadCount, setInboxUnreadCount] = React.useState(
     parseInt(localStorage.getItem("inbox_unread_count") || "0", 10)
@@ -95,9 +95,9 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
     if (location.pathname.startsWith("/dashboard/inbox")) {
       setInboxOpen(true);
     }
-    if (location.pathname.startsWith("/dashboard/contacts")) {
-      setContactsOpen(true);
-    }
+    // if (location.pathname.startsWith("/dashboard/contacts")) {
+    //   setContactsOpen(true);
+    // }
   }, [location.pathname]);
 
   const [subStatus, setSubStatus] = React.useState(null);
@@ -267,46 +267,13 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
       restrictedForPending: true
     },
     {
-      label: "Contacts",
-      path: "/dashboard/contacts",
-      icon: <Users size={20} />,
-      adminOnly: false,
-      restrictedForPending: true,
-      hasDropdown: isAdmin,
-      dropdownItems: isAdmin
-        ? [
-            {
-              label: "All Contacts",
-              path: "/dashboard/contacts?filter=all",
-              filterValue: "all",
-              icon: <UsersRound size={13} />,
-              badgeClass: "bg-blue-50 text-blue-600",
-            },
-            {
-              label: "Assigned",
-              path: "/dashboard/contacts?filter=assigned",
-              filterValue: "assigned",
-              icon: <UserCheck2 size={13} />,
-              badgeClass: "bg-green-50 text-green-600",
-            },
-            {
-              label: "Unassigned",
-              path: "/dashboard/contacts?filter=unassigned",
-              filterValue: "unassigned",
-              icon: <UserX size={13} />,
-              badgeClass: "bg-amber-50 text-amber-600",
-            },
-            {
-              label: "Blocked",
-              path: "/dashboard/contacts?filter=blocked",
-              filterValue: "blocked",
-              icon: <ShieldOff size={13} />,
-              badgeClass: "bg-red-50 text-red-500",
-            },
-          ]
-        : null,
-    },
-    {
+  label: "Contacts",
+  path: "/dashboard/contacts",
+  icon: <Users size={20} />,
+  adminOnly: false,
+  restrictedForPending: true,
+  },
+  {
       label: "Team",
       path: "/dashboard/team",
       icon: <UserCheck size={20} />,
@@ -381,7 +348,8 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
 
     // ── Dropdown Item ──
     if (item.hasDropdown) {
-      const isOpen = item.label === "Inbox" ? inboxOpen : contactsOpen;
+      const isOpen = inboxOpen;
+      // const isOpen = item.label === "Inbox" ? inboxOpen : contactsOpen;
       const isParentActive = location.pathname.startsWith(item.path);
       const defaultSubPath = item.dropdownItems[0].path;
 
@@ -412,7 +380,7 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
                   e.preventDefault();
                   e.stopPropagation();
                   if (item.label === "Inbox") setInboxOpen(!inboxOpen);
-                  if (item.label === "Contacts") setContactsOpen(!contactsOpen);
+                  // if (item.label === "Contacts") setContactsOpen(!contactsOpen);
                 }}
               >
                 {isOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}

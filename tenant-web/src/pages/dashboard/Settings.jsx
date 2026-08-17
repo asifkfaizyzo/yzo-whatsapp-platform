@@ -24,6 +24,7 @@ import {
   Upload,
   X,
   Loader2,
+   Lock, 
   Image as ImageIcon,
 } from "lucide-react";
 import { getTags, createTag } from "../../services/tag.service";
@@ -333,6 +334,13 @@ export default function SettingsPage() {
     }
   }, [activeTab]);
 
+  // ✅ Fetch WhatsApp status globally (needed for locking profile fields)
+useEffect(() => {
+  if (userRole === "admin") {
+    fetchWhatsappStatusData();
+  }
+}, [userRole]);
+
   const fetchReopenConfig = async () => {
     setLoadingReopen(true);
     setReopenError("");
@@ -431,36 +439,46 @@ export default function SettingsPage() {
       return;
     }
 
-    const res = await updateTenantProfile({
-      tenantName: profile.name || "",
-      email: profile.email || "",
-      phone: profile.phone || "",
-      address: profile.address || "",
-      firstName: profile.firstName || "",
-      lastName: profile.lastName || "",
-      websiteUrl: profile.websiteUrl || "",
-      industry: profile.industry || "",
-      companySize: profile.companySize || "",
-      country: profile.country || "",
-      logo: profile.logo || "",
-      timezone: profile.timezone || "Asia/Kolkata",
-    });
+    // ✅ Never send email — it's read-only and managed separately
+// ✅ Never send tenantName if WhatsApp is connected — synced from WABA
+const payload = {
+  phone: profile.phone || "",
+  address: profile.address || "",
+  firstName: profile.firstName || "",
+  lastName: profile.lastName || "",
+  websiteUrl: profile.websiteUrl || "",
+  industry: profile.industry || "",
+  companySize: profile.companySize || "",
+  country: profile.country || "",
+  logo: profile.logo || "",
+  timezone: profile.timezone || "Asia/Kolkata",
+};
 
-    if (res.success) {
-      toast.success("Profile configurations updated!");
-      const stored = localStorage.getItem("user");
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          parsed.tenantName = res.data.tenantName;
-          parsed.name = res.data.tenantName;
-          parsed.email = res.data.email;
-          localStorage.setItem("user", JSON.stringify(parsed));
-        } catch (err) {}
+// Only allow tenantName update if WA is NOT connected
+if (!whatsappStatus.isConnected) {
+  payload.tenantName = profile.name || "";
+}
+
+const res = await updateTenantProfile(payload);
+
+   if (res.success) {
+  toast.success("Profile configurations updated!");
+  const stored = localStorage.getItem("user");
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored);
+      // ✅ Only update tenantName in localStorage if backend returned it
+      if (res.data.tenantName) {
+        parsed.tenantName = res.data.tenantName;
+        parsed.name = res.data.tenantName;
       }
-    } else {
-      toast.error("Failed to update profile: " + res.message);
-    }
+      // ✅ Email never changes — keep existing value
+      localStorage.setItem("user", JSON.stringify(parsed));
+    } catch (err) {}
+  }
+} else {
+  toast.error("Failed to update profile: " + res.message);
+}
   };
 
   // 🆕 ═══════════════════════════════════════════════════════
@@ -836,33 +854,74 @@ export default function SettingsPage() {
                   </h3>
 
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <label className="label text-xs">Full Name *</label>
-                      <input
-                        type="text"
-                        value={profile.name}
-                        onChange={(e) =>
-                          setProfile({ ...profile, name: e.target.value })
-                        }
-                        className="input text-xs"
-                        required
-                        disabled={userRole !== "admin"}
-                      />
-                    </div>
-                    <div>
-                      <label className="label text-xs">Email Address *</label>
+                   <div>
+  <label className="label text-xs flex items-center gap-1.5">
+    <span>Full Name *</span>
+    {userRole === "admin" && whatsappStatus.isConnected && (
+      <span
+        className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-400"
+        title="Company name is synced with your WhatsApp Business Account and cannot be changed here."
+      >
+        <Lock size={10} />
+        <span>Locked</span>
+      </span>
+    )}
+  </label>
+  <input
+    type="text"
+    value={profile.name}
+    onChange={(e) =>
+      setProfile({ ...profile, name: e.target.value })
+    }
+    className={`input text-xs ${
+      userRole === "admin" && whatsappStatus.isConnected
+        ? "bg-slate-50 cursor-not-allowed text-slate-500"
+        : ""
+    }`}
+    required
+    disabled={
+      userRole !== "admin" ||
+      (userRole === "admin" && whatsappStatus.isConnected)
+    }
+    title={
+      whatsappStatus.isConnected
+        ? "Company name is managed by your WhatsApp Business Account."
+        : ""
+    }
+  />
+  {userRole === "admin" && whatsappStatus.isConnected && (
+    <p className="text-[10px] text-slate-400 mt-1 font-medium">
+      🔒 Managed by your connected WhatsApp Business Account.
+    </p>
+  )}
+</div>
 
-                      <input
-                        type="email"
-                        value={profile.email ?? ""}
-                        onChange={(e) =>
-                          setProfile({ ...profile, email: e.target.value })
-                        }
-                        className="input text-xs"
-                        required
-                        disabled={userRole !== "admin"}
-                      />
-                    </div>
+                  <div>
+  <label className="label text-xs flex items-center gap-1.5">
+    <span>Email Address *</span>
+    {userRole === "admin" && (
+      <span
+        className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-400"
+        title="Email is your login identity and cannot be changed here. Contact support to update."
+      >
+        <Lock size={10} />
+        <span>Locked</span>
+      </span>
+    )}
+  </label>
+  <input
+    type="email"
+    value={profile.email ?? ""}
+    className="input text-xs bg-slate-50 cursor-not-allowed text-slate-500"
+    disabled
+    title="Email is your login identity and cannot be changed here. Contact support to update."
+  />
+  {userRole === "admin" && (
+    <p className="text-[10px] text-slate-400 mt-1 font-medium">
+      🔒 Your login email cannot be changed. Contact support for assistance.
+    </p>
+  )}
+</div>
                   </div>
 
                   {userRole === "admin" && (
