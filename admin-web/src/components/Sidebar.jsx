@@ -71,12 +71,6 @@ export default function Sidebar({ userRole = "Super Admin" }) {
       category: "main",
     },
     {
-      label: "Subscriptions",
-      path: "/dashboard/subscriptions",
-      icon: <Sparkles size={20} />,
-      category: "main",
-    },
-    {
       label: "Revenue",
       path: "/dashboard/revenue",
       icon: <BadgeIndianRupee size={20} />,
@@ -89,15 +83,9 @@ export default function Sidebar({ userRole = "Super Admin" }) {
       category: "main",
     },
     {
-      label: "Marketing Enquiries",
+      label: "Enquiries & Leads",
       path: "/dashboard/enquiries",
       icon: <HelpCircle size={20} />,
-      category: "main",
-    },
-    {
-      label: "Enterprise Leads",
-      path: "/dashboard/enterprise-leads",
-      icon: <Sparkles size={20} />,
       category: "main",
     },
     {

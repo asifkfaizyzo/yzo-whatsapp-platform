@@ -24,7 +24,7 @@ import {
   Upload,
   X,
   Loader2,
-   Lock, 
+  Lock,
   Image as ImageIcon,
 } from "lucide-react";
 import { getTags, createTag } from "../../services/tag.service";
@@ -132,9 +132,10 @@ export default function SettingsPage() {
   const [userRole, setUserRole] = useState(null);
   const [showVerifyToken, setShowVerifyToken] = useState(false);
   const [showAccessToken, setShowAccessToken] = useState(false);
-  const [uploadingLogo, setUploadingLogo] = useState(false); // 🆕 NEW
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [initialProfile, setInitialProfile] = useState(null);
 
-  // 🔧 FIXED: Removed duplicate `timezone` key
   const [profile, setProfile] = useState({
     name: "Admin Member",
     companyName: "WhatsApp Tenant Corp",
@@ -150,8 +151,8 @@ export default function SettingsPage() {
     companySize: "",
     country: "",
     logo: "",
-    timezone: "Asia/Kolkata", // ✅ Only ONE timezone key now
-    tenantName: "", // 🆕 For AGENT view - shows tenant info
+    timezone: "Asia/Kolkata",
+    tenantName: "",
     tenantLogo: "",
   });
 
@@ -159,15 +160,11 @@ export default function SettingsPage() {
     if (userRole !== "admin") return;
     const res = await getTenantProfile();
 
-    console.log("📥 Profile from backend:", res);
-    console.log("📥 Logo value from backend:", res.data?.logo);
-
     if (res.success) {
-      setProfile((prev) => ({
-        ...prev,
+      const loaded = {
         name: res.data.tenantName ?? "",
         companyName: res.data.tenantName ?? "",
-        email: res.data.email ?? "", // ← KEY FIX: null→""
+        email: res.data.email ?? "",
         phone: res.data.phone ?? "",
         address: res.data.address ?? "",
         authProvider: res.data.authProvider ?? "LOCAL",
@@ -180,25 +177,33 @@ export default function SettingsPage() {
         country: res.data.country ?? "",
         logo: res.data.logo ?? "",
         timezone: res.data.timezone ?? "Asia/Kolkata",
+      };
+      setProfile((prev) => ({
+        ...prev,
+        ...loaded,
       }));
+      setInitialProfile(loaded);
     }
   };
 
-  // 🆕 Fetch user profile (for AGENT role)
+  // Fetch user profile (for AGENT role)
   const fetchUserProfile = async () => {
     if (userRole !== "agent") return;
 
     const res = await getUserProfile();
-    console.log("📥 User profile:", res);
 
     if (res.success) {
-      setProfile((prev) => ({
-        ...prev,
+      const loaded = {
         name: res.data.name || "",
         email: res.data.email || "",
         tenantName: res.data.tenant?.tenantName || "",
         tenantLogo: res.data.tenant?.logo || "",
+      };
+      setProfile((prev) => ({
+        ...prev,
+        ...loaded,
       }));
+      setInitialProfile(loaded);
     }
   };
 
@@ -335,11 +340,11 @@ export default function SettingsPage() {
   }, [activeTab]);
 
   // ✅ Fetch WhatsApp status globally (needed for locking profile fields)
-useEffect(() => {
-  if (userRole === "admin") {
-    fetchWhatsappStatusData();
-  }
-}, [userRole]);
+  useEffect(() => {
+    if (userRole === "admin") {
+      fetchWhatsappStatusData();
+    }
+  }, [userRole]);
 
   const fetchReopenConfig = async () => {
     setLoadingReopen(true);
@@ -428,57 +433,115 @@ useEffect(() => {
           email: parsed.email || prev.email,
         }));
         setUserRole(parsed.type === "TENANT" ? "admin" : "agent");
-      } catch (e) {}
+      } catch (e) { }
     }
   }, []);
+
+  const isProfileChanged = () => {
+    if (!initialProfile) return false;
+
+    const nameChanged =
+      !whatsappStatus.isConnected &&
+      (profile.name || "").trim() !== (initialProfile.name || "").trim();
+    const firstNameChanged =
+      (profile.firstName || "").trim() !== (initialProfile.firstName || "").trim();
+    const lastNameChanged =
+      (profile.lastName || "").trim() !== (initialProfile.lastName || "").trim();
+    const phoneChanged =
+      (profile.phone || "").trim() !== (initialProfile.phone || "").trim();
+    const addressChanged =
+      (profile.address || "").trim() !== (initialProfile.address || "").trim();
+    const websiteUrlChanged =
+      (profile.websiteUrl || "").trim() !== (initialProfile.websiteUrl || "").trim();
+    const industryChanged =
+      (profile.industry || "") !== (initialProfile.industry || "");
+    const companySizeChanged =
+      (profile.companySize || "") !== (initialProfile.companySize || "");
+    const countryChanged =
+      (profile.country || "") !== (initialProfile.country || "");
+    const timezoneChanged =
+      (profile.timezone || "Asia/Kolkata") !==
+      (initialProfile.timezone || "Asia/Kolkata");
+
+    return (
+      nameChanged ||
+      firstNameChanged ||
+      lastNameChanged ||
+      phoneChanged ||
+      addressChanged ||
+      websiteUrlChanged ||
+      industryChanged ||
+      companySizeChanged ||
+      countryChanged ||
+      timezoneChanged
+    );
+  };
 
   const handleProfileSave = async (e) => {
     e.preventDefault();
     if (userRole !== "admin") {
-      toast.success("Profile configurations updated!");
+      toast.info("Agent profiles are managed by your administrator.");
       return;
     }
 
-    // ✅ Never send email — it's read-only and managed separately
-// ✅ Never send tenantName if WhatsApp is connected — synced from WABA
-const payload = {
-  phone: profile.phone || "",
-  address: profile.address || "",
-  firstName: profile.firstName || "",
-  lastName: profile.lastName || "",
-  websiteUrl: profile.websiteUrl || "",
-  industry: profile.industry || "",
-  companySize: profile.companySize || "",
-  country: profile.country || "",
-  logo: profile.logo || "",
-  timezone: profile.timezone || "Asia/Kolkata",
-};
+    if (!isProfileChanged()) {
+      toast.info("No changes were made to the profile.");
+      return;
+    }
 
-// Only allow tenantName update if WA is NOT connected
-if (!whatsappStatus.isConnected) {
-  payload.tenantName = profile.name || "";
-}
+    setSavingProfile(true);
 
-const res = await updateTenantProfile(payload);
-
-   if (res.success) {
-  toast.success("Profile configurations updated!");
-  const stored = localStorage.getItem("user");
-  if (stored) {
     try {
-      const parsed = JSON.parse(stored);
-      // ✅ Only update tenantName in localStorage if backend returned it
-      if (res.data.tenantName) {
-        parsed.tenantName = res.data.tenantName;
-        parsed.name = res.data.tenantName;
+      const payload = {
+        phone: profile.phone || "",
+        address: profile.address || "",
+        firstName: profile.firstName || "",
+        lastName: profile.lastName || "",
+        websiteUrl: profile.websiteUrl || "",
+        industry: profile.industry || "",
+        companySize: profile.companySize || "",
+        country: profile.country || "",
+        logo: profile.logo || "",
+        timezone: profile.timezone || "Asia/Kolkata",
+      };
+
+      // Only allow tenantName update if WA is NOT connected
+      if (!whatsappStatus.isConnected) {
+        payload.tenantName = profile.name || "";
       }
-      // ✅ Email never changes — keep existing value
-      localStorage.setItem("user", JSON.stringify(parsed));
-    } catch (err) {}
-  }
-} else {
-  toast.error("Failed to update profile: " + res.message);
-}
+
+      const res = await updateTenantProfile(payload);
+
+      if (res.success) {
+        toast.success("Profile configurations updated!");
+        // Sync initialProfile to the newly saved values
+        setInitialProfile((prev) => ({
+          ...(prev || {}),
+          ...payload,
+          name: payload.tenantName || prev?.name || profile.name,
+        }));
+
+        const stored = localStorage.getItem("user");
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored);
+            if (res.data?.tenantName) {
+              parsed.tenantName = res.data.tenantName;
+              parsed.name = res.data.tenantName;
+            }
+            if (res.data?.firstName) parsed.firstName = res.data.firstName;
+            if (res.data?.lastName) parsed.lastName = res.data.lastName;
+            localStorage.setItem("user", JSON.stringify(parsed));
+          } catch (err) { }
+        }
+      } else {
+        toast.error("Failed to update profile: " + res.message);
+      }
+    } catch (err) {
+      toast.error("Failed to update profile: " + (err.message || "Unknown error"));
+    } finally {
+      setSavingProfile(false);
+    }
   };
 
   // 🆕 ═══════════════════════════════════════════════════════
@@ -512,8 +575,9 @@ const res = await updateTenantProfile(payload);
 
       if (res.success) {
         setProfile({ ...profile, logo: res.data.logoUrl });
+        setInitialProfile((prev) => (prev ? { ...prev, logo: res.data.logoUrl } : prev));
         toast.success("Logo uploaded successfully!");
-        // 🆕 Notify TopNavBar to update logo instantly
+        // Notify TopNavBar to update logo instantly
         window.dispatchEvent(
           new CustomEvent("tenant_logo_updated", {
             detail: { logo: res.data.logoUrl },
@@ -536,9 +600,10 @@ const res = await updateTenantProfile(payload);
     const res = await deleteTenantLogo();
     if (res.success) {
       setProfile({ ...profile, logo: "" });
+      setInitialProfile((prev) => (prev ? { ...prev, logo: "" } : prev));
       toast.success("Logo removed");
 
-      // 🆕 Notify TopNavBar to remove logo instantly
+      // Notify TopNavBar to remove logo instantly
       window.dispatchEvent(
         new CustomEvent("tenant_logo_updated", {
           detail: { logo: null },
@@ -677,11 +742,10 @@ const res = await updateTenantProfile(payload);
               <button
                 key={tab.id}
                 onClick={() => handleTabChange(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition w-full whitespace-nowrap text-left ${
-                  activeTab === tab.id
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition w-full whitespace-nowrap text-left ${activeTab === tab.id
                     ? "bg-slate-100 text-slate-800"
                     : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
-                }`}
+                  }`}
               >
                 {tab.icon}
                 <span>{tab.label}</span>
@@ -854,74 +918,73 @@ const res = await updateTenantProfile(payload);
                   </h3>
 
                   <div className="grid gap-4 sm:grid-cols-2">
-                   <div>
-  <label className="label text-xs flex items-center gap-1.5">
-    <span>Full Name *</span>
-    {userRole === "admin" && whatsappStatus.isConnected && (
-      <span
-        className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-400"
-        title="Company name is synced with your WhatsApp Business Account and cannot be changed here."
-      >
-        <Lock size={10} />
-        <span>Locked</span>
-      </span>
-    )}
-  </label>
-  <input
-    type="text"
-    value={profile.name}
-    onChange={(e) =>
-      setProfile({ ...profile, name: e.target.value })
-    }
-    className={`input text-xs ${
-      userRole === "admin" && whatsappStatus.isConnected
-        ? "bg-slate-50 cursor-not-allowed text-slate-500"
-        : ""
-    }`}
-    required
-    disabled={
-      userRole !== "admin" ||
-      (userRole === "admin" && whatsappStatus.isConnected)
-    }
-    title={
-      whatsappStatus.isConnected
-        ? "Company name is managed by your WhatsApp Business Account."
-        : ""
-    }
-  />
-  {userRole === "admin" && whatsappStatus.isConnected && (
-    <p className="text-[10px] text-slate-400 mt-1 font-medium">
-      🔒 Managed by your connected WhatsApp Business Account.
-    </p>
-  )}
-</div>
+                    <div>
+                      <label className="label text-xs flex items-center gap-1.5">
+                        <span>Full Name *</span>
+                        {userRole === "admin" && whatsappStatus.isConnected && (
+                          <span
+                            className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-400"
+                            title="Company name is synced with your WhatsApp Business Account and cannot be changed here."
+                          >
+                            <Lock size={10} />
+                            <span>Locked</span>
+                          </span>
+                        )}
+                      </label>
+                      <input
+                        type="text"
+                        value={profile.name}
+                        onChange={(e) =>
+                          setProfile({ ...profile, name: e.target.value })
+                        }
+                        className={`input text-xs ${userRole === "admin" && whatsappStatus.isConnected
+                            ? "bg-slate-50 cursor-not-allowed text-slate-500"
+                            : ""
+                          }`}
+                        required
+                        disabled={
+                          userRole !== "admin" ||
+                          (userRole === "admin" && whatsappStatus.isConnected)
+                        }
+                        title={
+                          whatsappStatus.isConnected
+                            ? "Company name is managed by your WhatsApp Business Account."
+                            : ""
+                        }
+                      />
+                      {userRole === "admin" && whatsappStatus.isConnected && (
+                        <p className="text-[10px] text-slate-400 mt-1 font-medium">
+                          🔒 Managed by your connected WhatsApp Business Account.
+                        </p>
+                      )}
+                    </div>
 
-                  <div>
-  <label className="label text-xs flex items-center gap-1.5">
-    <span>Email Address *</span>
-    {userRole === "admin" && (
-      <span
-        className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-400"
-        title="Email is your login identity and cannot be changed here. Contact support to update."
-      >
-        <Lock size={10} />
-        <span>Locked</span>
-      </span>
-    )}
-  </label>
-  <input
-    type="email"
-    value={profile.email ?? ""}
-    className="input text-xs bg-slate-50 cursor-not-allowed text-slate-500"
-    disabled
-    title="Email is your login identity and cannot be changed here. Contact support to update."
-  />
-  {userRole === "admin" && (
-    <p className="text-[10px] text-slate-400 mt-1 font-medium">
-      🔒 Your login email cannot be changed. Contact support for assistance.
-    </p>
-  )}
-</div>
+                    <div>
+                      <label className="label text-xs flex items-center gap-1.5">
+                        <span>Email Address *</span>
+                        {userRole === "admin" && (
+                          <span
+                            className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-400"
+                            title="Email is your login identity and cannot be changed here. Contact support to update."
+                          >
+                            <Lock size={10} />
+                            <span>Locked</span>
+                          </span>
+                        )}
+                      </label>
+                      <input
+                        type="email"
+                        value={profile.email ?? ""}
+                        className="input text-xs bg-slate-50 cursor-not-allowed text-slate-500"
+                        disabled
+                        title="Email is your login identity and cannot be changed here. Contact support to update."
+                      />
+                      {userRole === "admin" && (
+                        <p className="text-[10px] text-slate-400 mt-1 font-medium">
+                          🔒 Your login email cannot be changed. Contact support for assistance.
+                        </p>
+                      )}
+                    </div>
                   </div>
 
                   {userRole === "admin" && (
@@ -1083,16 +1146,20 @@ const res = await updateTenantProfile(payload);
                   </div>
                 )}
 
-                {/* Save Button */}
                 {/* Save Button (only for admin) */}
                 {userRole === "admin" && (
                   <div className="pt-4 flex items-center justify-end border-t border-slate-50">
                     <button
                       type="submit"
-                      className="btn-primary py-2 px-4 text-xs font-bold flex items-center gap-1.5"
+                      disabled={savingProfile}
+                      className="btn-primary py-2 px-4 text-xs font-bold flex items-center gap-1.5 disabled:opacity-60"
                     >
-                      <Save size={14} />
-                      <span>Save Profile</span>
+                      {savingProfile ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <Save size={14} />
+                      )}
+                      <span>{savingProfile ? "Saving..." : "Save Profile"}</span>
                     </button>
                   </div>
                 )}

@@ -49,10 +49,11 @@ function App() {
         <Route path="/dashboard/enquiries/:id" element={<EnquiryDetail />} />
 
         {/* Enterprise Lead Routes */}
-        <Route path="/dashboard/enterprise-leads" element={<EnterpriseLeads />} />
+        <Route path="/dashboard/enterprise-leads" element={<Navigate to="/dashboard/enquiries?tab=enterprise" replace />} />
         <Route path="/dashboard/enterprise-leads/:id" element={<EnterpriseLeadDetail />} />
 
-        <Route path="/dashboard/subscriptions" element={<SubscriptionManagement />} />
+        {/* Subscriptions unified with Tenants */}
+        <Route path="/dashboard/subscriptions" element={<Navigate to="/dashboard/tenants" replace />} />
 
    
       </Route>

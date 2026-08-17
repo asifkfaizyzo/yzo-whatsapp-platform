@@ -236,6 +236,14 @@ export const getAllTenantsService = async () => {
       email:          true,
       phone:          true,
       address:        true,
+      firstName:      true,
+      lastName:       true,
+      websiteUrl:     true,
+      industry:       true,
+      companySize:    true,
+      country:        true,
+      useCase:        true,
+      timezone:       true,
       isActive:       true,
       status:         true,
       createdAt:      true,
@@ -244,6 +252,16 @@ export const getAllTenantsService = async () => {
       planStatus:     true,
       billingType:    true,
       planActivatedAt: true,
+      subscriptionStatus: true,
+      currentPlan:    true,
+      planPeriodStart: true,
+      planPeriodEnd:  true,
+      cancelRequestedAt: true,
+      cancellationReason: true,
+      reactivatedAt:  true,
+      dataDeletionDate: true,
+      whatsappPhoneId: true,
+      whatsappWabaId: true,
       plan: {
         select: {
           id:             true,
@@ -254,6 +272,8 @@ export const getAllTenantsService = async () => {
           maxBroadcasts:  true,
           maxAutomations: true,
           maxCampaigns:   true,
+          maxApiCalls:    true,
+          maxAiCredits:   true,
         },
       },
       users: {
@@ -321,13 +341,17 @@ export const updateTenantByIdService = async (tenantId, data, actor = null, meta
 
   const updateData = {};
 
-  if (data.tenantName)               updateData.tenantName  = data.tenantName;
-  if (data.phone !== undefined)      updateData.phone       = data.phone;
-  if (data.address !== undefined)    updateData.address     = data.address;
-  if (data.websiteUrl !== undefined) updateData.websiteUrl  = data.websiteUrl;
-  if (data.industry !== undefined)   updateData.industry    = data.industry;
+  if (data.tenantName)                updateData.tenantName  = data.tenantName;
+  if (data.firstName !== undefined)   updateData.firstName   = data.firstName;
+  if (data.lastName !== undefined)    updateData.lastName    = data.lastName;
+  if (data.phone !== undefined)       updateData.phone       = data.phone;
+  if (data.address !== undefined)     updateData.address     = data.address;
+  if (data.websiteUrl !== undefined)  updateData.websiteUrl  = data.websiteUrl;
+  if (data.industry !== undefined)    updateData.industry    = data.industry;
   if (data.companySize !== undefined) updateData.companySize = data.companySize;
-  if (data.country !== undefined)    updateData.country     = data.country;
+  if (data.country !== undefined)     updateData.country     = data.country;
+  if (data.timezone !== undefined)    updateData.timezone    = data.timezone;
+  if (data.logo !== undefined)        updateData.logo        = data.logo;
 
   if (data.email) {
     const emailExists = await prisma.tenant.findFirst({
@@ -347,6 +371,8 @@ export const updateTenantByIdService = async (tenantId, data, actor = null, meta
     select: {
       id:          true,
       tenantName:  true,
+      firstName:   true,
+      lastName:    true,
       email:       true,
       phone:       true,
       address:     true,
@@ -354,6 +380,8 @@ export const updateTenantByIdService = async (tenantId, data, actor = null, meta
       industry:    true,
       companySize: true,
       country:     true,
+      timezone:    true,
+      logo:        true,
       isActive:    true,
       createdAt:   true,
       updatedAt:   true,

@@ -120,18 +120,8 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
   const fetchInboxUnread = React.useCallback(async () => {
     try {
       const res = await getAssignedConversations(1, 100, "all");
-
-        console.log("📊 Sidebar fetchInboxUnread response:", res);
-        
       if (res.success) {
         const convs = res.data?.conversations || res.data?.data?.conversations || [];
-
-           console.log("📊 Sidebar got conversations:", convs.length);
-      console.log("📊 Sidebar unread details:", convs.map(c => ({
-        name: c.contact?.name,
-        unreadCount: c.unreadCount
-      })));
-
         const totalUnread = convs.filter(c => (c.unreadCount || 0) > 0).length;
         setInboxUnreadCount(totalUnread);
         localStorage.setItem("inbox_unread_count", String(totalUnread));
