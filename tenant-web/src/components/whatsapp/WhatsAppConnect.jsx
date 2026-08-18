@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import api from "../../lib/axios";
+import { WhatsAppLoader } from "../CustomLoader";
 
 const CONFIG_ID = "1063577526237503";
 
@@ -212,6 +213,9 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
     }
   };
 
+  // ── Custom Loader (shown while connecting) ──────────────────────────
+  // Rendered as a portal overlay; does not block other UI returns below.
+
   // ── Success Screen ───────────────────────────────────────────────────
   if (isConnected) {
     return createPortal(
@@ -327,28 +331,9 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
     );
 }
 
-// ── Loading Screen ───────────────────────────────────────────────────
+// ── Loading Screen (custom animated loader) ─────────────────────────
 if (isLoading) {
-  return createPortal(
-    <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200" style={{ zIndex: 99999 }}>
-      <div className="bg-white rounded-2xl p-8 max-w-md w-full text-center shadow-2xl">
-        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
-          <span className="text-2xl">💬</span>
-        </div>
-        <h2 className="text-xl font-bold text-gray-900 mb-2">
-          Connecting WhatsApp...
-        </h2>
-        <p className="text-gray-500 mb-6">
-          Please complete the setup in the Meta window. Do not close this
-          page.
-        </p>
-        <div className="w-full bg-gray-200 rounded-full h-2">
-          <div className="bg-green-600 h-2 rounded-full animate-pulse w-3/4"></div>
-        </div>
-      </div>
-    </div>,
-    document.body
-  );
+  return <WhatsAppLoader visible={true} />;
 }
 
 // ── Main UI ──────────────────────────────────────────────────────────

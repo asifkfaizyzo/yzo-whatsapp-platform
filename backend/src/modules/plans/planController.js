@@ -402,7 +402,7 @@ export const verifyPaymentAndActivate = async (req, res) => {
       });
     }
 
-        // 4.5 SECURITY CHECK: Verify order exists and planId matches original order
+    // 4.5 SECURITY CHECK: Verify order exists, belongs to tenant, and planId matches original order
     const pendingPayment = await prisma.payment.findUnique({
       where: { razorpayOrderId: razorpay_order_id },
     });
@@ -411,6 +411,16 @@ export const verifyPaymentAndActivate = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Order record not found or expired.",
+      });
+    }
+
+    if (pendingPayment.tenantId !== tenantId) {
+      console.error(
+        `[SECURITY ALERT] Tenant ID mismatch for order ${razorpay_order_id}. Expected: ${pendingPayment.tenantId}, Attempted by: ${tenantId}`
+      );
+      return res.status(403).json({
+        success: false,
+        message: "Security Error: You are not authorized to verify this payment order.",
       });
     }
 
@@ -425,6 +435,24 @@ export const verifyPaymentAndActivate = async (req, res) => {
     }
 
     // 5. Idempotency check (AFTER signature passes)
+    if (pendingPayment.status === "SUCCESS") {
+      return res.status(200).json({
+        success: true,
+        message: "Payment already verified! Plan is active.",
+        data: {
+          planId: pendingPayment.planId,
+          planName: pendingPayment.planName,
+          planStatus: tenant.planStatus,
+          currentPlan: tenant.currentPlan,
+          billingType: pendingPayment.billingType,
+          planPeriodStart: tenant.planPeriodStart,
+          planPeriodEnd: tenant.planPeriodEnd,
+          paymentId: pendingPayment.id,
+          totalAmount: Number(pendingPayment.totalAmount),
+        },
+      });
+    }
+
     const existingPayment = await prisma.payment.findFirst({
       where: {
         razorpayPaymentId: razorpay_payment_id,
@@ -488,7 +516,16 @@ export const verifyPaymentAndActivate = async (req, res) => {
     }
 
     // 7. Atomic transaction
-    const { payment, updatedTenant } = await prisma.$transaction(async (tx) => {
+    const { payment, updatedTenant, alreadyProcessed } = await prisma.$transaction(async (tx) => {
+      const currentP = await tx.payment.findUnique({
+        where: { razorpayOrderId: razorpay_order_id },
+      });
+
+      if (currentP && currentP.status === "SUCCESS") {
+        const currentT = await tx.tenant.findUnique({ where: { id: tenantId } });
+        return { payment: currentP, updatedTenant: currentT, alreadyProcessed: true };
+      }
+
       const createdPayment = await tx.payment.update({
         where: { razorpayOrderId: razorpay_order_id },
         data: {
@@ -519,8 +556,26 @@ export const verifyPaymentAndActivate = async (req, res) => {
         },
       });
 
-      return { payment: createdPayment, updatedTenant: updated };
+      return { payment: createdPayment, updatedTenant: updated, alreadyProcessed: false };
     });
+
+    if (alreadyProcessed) {
+      return res.status(200).json({
+        success: true,
+        message: "Payment already verified! Plan is active.",
+        data: {
+          planId: payment.planId,
+          planName: payment.planName,
+          planStatus: updatedTenant.planStatus,
+          currentPlan: updatedTenant.currentPlan,
+          billingType: payment.billingType,
+          planPeriodStart: updatedTenant.planPeriodStart,
+          planPeriodEnd: updatedTenant.planPeriodEnd,
+          paymentId: payment.id,
+          totalAmount: Number(payment.totalAmount),
+        },
+      });
+    }
 
     // ✅ PAYMENT_SUCCESS audit log
     const auditResult1 = await createAuditLog({

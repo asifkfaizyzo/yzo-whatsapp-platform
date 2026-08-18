@@ -9,6 +9,7 @@ import {
   verifyPayment,
   getPublicTaxSettings,   // ← ADD
 } from "../services/plan.service";
+import { PaymentVerifyingLoader, PaymentSuccessScreen } from "../components/CustomLoader";
 
 
 
@@ -71,6 +72,7 @@ export default function Checkout() {
   const [plan, setPlan] = useState(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const [paid, setPaid] = useState(false);
 
   // ── GST Config from Backend ──
@@ -224,9 +226,11 @@ export default function Checkout() {
         currency,
         name: "SudoReply",
         description: `${plan.name} Plan - ${billingType}`,
-        image: "/sudo2.png",
+        image: window.location.protocol === "https:" ? `${window.location.origin}/sudo2.png` : undefined,
         order_id: orderId,
         handler: async function (response) {
+          setProcessing(false);
+          setVerifying(true);
           const verifyRes = await verifyPayment({
             razorpay_order_id: response.razorpay_order_id,
             razorpay_payment_id: response.razorpay_payment_id,
@@ -238,6 +242,7 @@ export default function Checkout() {
           });
 
           if (verifyRes.success) {
+            setVerifying(false);
             setPaid(true);
             const updatedUser = {
               ...user,
@@ -252,6 +257,7 @@ export default function Checkout() {
               navigate("/dashboard/billing");
             }, 2500);
           } else {
+            setVerifying(false);
             toast.error("Payment verification failed: " + verifyRes.message);
             setProcessing(false);
           }
@@ -270,6 +276,11 @@ export default function Checkout() {
       };
 
       const razorpayInstance = new window.Razorpay(options);
+      razorpayInstance.on("payment.failed", function (response) {
+        console.error("Razorpay payment failed:", response.error);
+        toast.error(response.error?.description || "Payment failed at bank. Please try again.");
+        setProcessing(false);
+      });
       razorpayInstance.open();
     } catch (err) {
       console.error("Payment error:", err);
@@ -289,37 +300,14 @@ export default function Checkout() {
 
   // ── PAYMENT SUCCESS ──
   if (paid) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
-        <div className="bg-white rounded-3xl p-10 shadow-lg text-center max-w-sm w-full mx-4">
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5">
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Payment Successful! 🎉
-          </h2>
-          <p className="text-gray-500 text-sm mb-1">
-            Welcome to <strong>{plan?.name}</strong> plan.
-          </p>
-          <p className="text-gray-400 text-xs mb-1">
-            Invoice has been sent to <strong>{billingDetails.email}</strong>
-          </p>
-          <p className="text-gray-400 text-xs mb-4">
-            Redirecting to billing page...
-          </p>
-          <div className="flex justify-center">
-            <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-[#125EF2]" />
-          </div>
-        </div>
-      </div>
-    );
+    return <PaymentSuccessScreen planName={plan?.name} email={billingDetails.email} />;
   }
 
   // ── MAIN CHECKOUT ──
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Payment Verifying Overlay */}
+      <PaymentVerifyingLoader visible={verifying} />
 
       {/* Header */}
       <div className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">

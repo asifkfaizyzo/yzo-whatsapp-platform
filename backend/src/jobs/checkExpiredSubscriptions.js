@@ -38,13 +38,33 @@ const checkExpiredSubscriptions = async () => {
   const timestamp = new Date().toISOString();
   console.log(`[${timestamp}] ── CRON: Starting Subscription Expiry checks ──`);
 
-  // Task 1: Mark expired subscriptions
+  // Task 0: Cleanup abandoned PENDING orders (> 48 hours old)
   try {
+    const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
+    const staleResult = await prisma.payment.updateMany({
+      where: {
+        status: 'PENDING',
+        createdAt: { lte: twoDaysAgo },
+      },
+      data: {
+        status: 'FAILED',
+      },
+    });
+    if (staleResult.count > 0) {
+      console.log(`[${timestamp}] Cleaned up ${staleResult.count} abandoned PENDING payments`);
+    }
+  } catch (err) {
+    console.error(`[${timestamp}] Task 0 (Stale cleanup) failed:`, err);
+  }
+
+  // Task 1: Mark expired subscriptions after 3-day grace period
+  try {
+    const gracePeriodThreshold = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000); // 3 days grace
     const expiredTenants = await prisma.tenant.findMany({
       where: {
-        subscriptionStatus: 'cancel_at_period_end',
-        planPeriodEnd: { lte: new Date() }
-      }
+        subscriptionStatus: { in: ['active', 'cancel_at_period_end'] },
+        planPeriodEnd: { lte: gracePeriodThreshold },
+      },
     });
 
     for (const tenant of expiredTenants) {
@@ -54,8 +74,9 @@ const checkExpiredSubscriptions = async () => {
           where: { id: tenant.id },
           data: {
             subscriptionStatus: 'expired',
-            dataDeletionDate: deletionDate
-          }
+            planStatus: 'inactive',
+            dataDeletionDate: deletionDate,
+          },
         });
         console.log(`[${timestamp}] Tenant ${tenant.id} expired. Deletion set to ${deletionDate.toLocaleDateString()}`);
 
@@ -65,7 +86,7 @@ const checkExpiredSubscriptions = async () => {
           expiredDate: new Date().toLocaleDateString(),
           dataDeletionDate: deletionDate.toLocaleDateString(),
           resubscribeLink: `${frontendUrl}/plans`,
-          billingLink: `${frontendUrl}/settings/billing`
+          billingLink: `${frontendUrl}/settings/billing`,
         });
       } catch (innerErr) {
         console.error(`[${timestamp}] Error expiring tenant ${tenant.id}:`, innerErr);
