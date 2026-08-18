@@ -113,3 +113,101 @@ export const clearAllNotifications = async (tenantId, userId, userType) => {
 
   return await prisma.notification.deleteMany({ where });
 };
+
+
+
+
+// ── 🆕 Get paginated notifications with filters ──
+export const getPaginatedNotifications = async (
+  tenantId,
+  userId,
+  userType,
+  { page = 1, limit = 20, filter = "all", type = "all" }
+) => {
+  // Base where clause: apply role-based filtering (same as getNotifications)
+  let where = { tenantId };
+
+  if (userType === "TENANT") {
+    where = { tenantId, userId: null };
+  } else if (userType === "USER") {
+    where = { tenantId, userId: userId };
+  }
+
+  // Apply read/unread filter
+  if (filter === "unread") {
+    where.isRead = false;
+  } else if (filter === "read") {
+    where.isRead = true;
+  }
+
+  // Apply type filter
+  if (type && type !== "all") {
+    where.type = type;
+  }
+
+  // Parse pagination
+  const pageNum = Math.max(1, parseInt(page));
+  const limitNum = Math.max(1, Math.min(100, parseInt(limit)));
+  const skip = (pageNum - 1) * limitNum;
+
+  // Unread count uses same role filter but ignores read/type filters
+  let unreadWhere = { tenantId, isRead: false };
+  if (userType === "TENANT") {
+    unreadWhere.userId = null;
+  } else if (userType === "USER") {
+    unreadWhere.userId = userId;
+  }
+
+  // Run queries in parallel
+  const [notifications, total, unreadCount] = await Promise.all([
+    prisma.notification.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limitNum,
+    }),
+    prisma.notification.count({ where }),
+    prisma.notification.count({ where: unreadWhere }),
+  ]);
+
+  const totalPages = Math.ceil(total / limitNum) || 1;
+
+  return {
+    notifications,
+    total,
+    totalPages,
+    currentPage: pageNum,
+    unreadCount,
+  };
+};
+
+// ── 🆕 Delete a single notification (with role validation) ──
+export const deleteNotification = async (id, tenantId, userId, userType) => {
+  // First find the notification to verify ownership
+  const notif = await prisma.notification.findUnique({
+    where: { id },
+  });
+
+  if (!notif) {
+    throw new Error("Notification not found");
+  }
+
+  // Verify tenant match
+  if (notif.tenantId !== tenantId) {
+    throw new Error("Unauthorized");
+  }
+
+  // TENANT can only delete tenant-wide (userId: null)
+  if (userType === "TENANT" && notif.userId !== null) {
+    throw new Error("Unauthorized");
+  }
+
+  // USER can only delete their own
+  if (userType === "USER" && notif.userId !== userId) {
+    throw new Error("Unauthorized");
+  }
+
+  return await prisma.notification.delete({
+    where: { id },
+  });
+};

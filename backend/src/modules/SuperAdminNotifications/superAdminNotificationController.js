@@ -62,3 +62,43 @@ export const clearAll = async (req, res) => {
     });
   }
 };
+
+
+
+// ── 🆕 Get paginated notifications ──
+export const getPaginatedNotifications = async (req, res) => {
+  try {
+    const { page = 1, limit = 20, filter = "all", type = "all" } = req.query;
+
+    const data = await notificationService.getPaginatedNotifications({
+      page,
+      limit,
+      filter,
+      type,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// ── 🆕 Delete a single notification ──
+export const deleteNotification = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await notificationService.deleteNotification(id);
+    return res.status(200).json({ success: true });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};

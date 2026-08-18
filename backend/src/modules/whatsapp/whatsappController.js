@@ -2,7 +2,98 @@ import crypto from 'crypto';
 import prisma from '../../config/prisma.js';
 import { encrypt, decrypt } from '../../lib/crypto.js';
 import { sendLocationService } from './whatsappService.js';
-import { emitToTenant, emitToUser } from '../../lib/socket.js';
+import { emitToTenant, emitToUser,emitToSuperAdmin } from '../../lib/socket.js';
+import { createSuperAdminNotification } from '../SuperAdminNotifications/superAdminNotificationService.js';
+import { createAuditLog } from '../audit/auditLogService.js';
+import { sendWhatsAppStatusAlertEmail } from '../auth/emailService.js';
+
+
+
+// ═══════════════════════════════════════════════════
+// HELPER — Notify SuperAdmin on WhatsApp status change
+// Used by both connect and disconnect
+// ═══════════════════════════════════════════════════
+const notifySuperAdminWhatsAppStatus = async ({
+  tenantId,
+  tenantName,
+  tenantEmail,
+  phoneNumberId,
+  wabaId,
+  action, // 'CONNECTED' | 'DISCONNECTED'
+}) => {
+  try {
+    // 1️⃣ Get superadmin email from DB
+    const superAdmin = await prisma.superAdmin.findFirst({
+      select: { id: true, name: true, email: true },
+    });
+
+    if (!superAdmin) {
+      console.warn('⚠️ No superadmin found — skipping WhatsApp status notification');
+      return;
+    }
+
+    const isConnected = action === 'CONNECTED';
+
+    // 2️⃣ Create audit log
+    await createAuditLog({
+      actorId:     tenantId,
+      actorType:   'TENANT',
+      actorName:   tenantName,
+      actorEmail:  tenantEmail,
+      action:      isConnected ? 'WHATSAPP_CONNECTED' : 'WHATSAPP_DISCONNECTED',
+      module:      'WHATSAPP',
+      description: `Tenant "${tenantName}" ${isConnected ? 'connected' : 'disconnected'} WhatsApp${phoneNumberId ? ` — Phone ID: ${phoneNumberId}` : ''}`,
+      targetId:    phoneNumberId || null,
+      targetType:  'WHATSAPP',
+      targetName:  phoneNumberId || null,
+      tenantId,
+      metadata: {
+        phoneNumberId: phoneNumberId || null,
+        wabaId:        wabaId        || null,
+        action,
+      },
+    });
+
+    // 3️⃣ Create DB notification for superadmin
+    const notification = await createSuperAdminNotification({
+      type:    isConnected ? 'whatsapp_connected' : 'whatsapp_disconnected',
+      title:   isConnected
+        ? `📱 WhatsApp Connected — ${tenantName}`
+        : `🔴 WhatsApp Disconnected — ${tenantName}`,
+      message: isConnected
+        ? `${tenantName} successfully connected their WhatsApp account (Phone ID: ${phoneNumberId})`
+        : `${tenantName} disconnected their WhatsApp account (Phone ID: ${phoneNumberId || 'N/A'})`,
+      metadata: {
+        tenantId,
+        tenantName,
+        tenantEmail,
+        phoneNumberId: phoneNumberId || null,
+        wabaId:        wabaId        || null,
+        action,
+      },
+    });
+
+    // 4️⃣ Emit real-time socket to superadmin
+    emitToSuperAdmin('superadmin_notification', { notification });
+
+    // 5️⃣ Send email alert to superadmin
+    await sendWhatsAppStatusAlertEmail({
+      superAdminEmail: superAdmin.email,
+      tenantName,
+      tenantEmail,
+      phoneNumber: phoneNumberId,
+      wabaId,
+      action,
+    });
+
+    console.log(`✅ SuperAdmin notified — WhatsApp ${action} for tenant: ${tenantEmail}`);
+  } catch (err) {
+    // Non-blocking — never crash the main flow
+    console.error(`❌ SuperAdmin WhatsApp notification failed: ${err.message}`);
+  }
+};
+
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api2/whatsapp/exchange-token
@@ -228,9 +319,24 @@ export const exchangeToken = async (req, res) => {
     });
 
     console.log(
-      `[WhatsApp] ✅ Tenant ${tenantId} connected — ${displayPhoneNumber}`
-    );
+  `[WhatsApp] ✅ Tenant ${tenantId} connected — ${displayPhoneNumber}`
+);
 
+// ══════ TASK 3 — SuperAdmin Notification + Email + Audit Log ══════
+const tenantData = await prisma.tenant.findUnique({
+  where:  { id: tenantId },
+  select: { tenantName: true, email: true },
+});
+
+await notifySuperAdminWhatsAppStatus({
+  tenantId,
+  tenantName:   tenantData?.tenantName || 'Unknown Tenant',
+  tenantEmail:  tenantData?.email      || 'unknown@email.com',
+  phoneNumberId,
+  wabaId,
+  action: 'CONNECTED',
+});
+// ═════════════════════════════════════════════════════════════════
     return res.json({
       success: true,
       message: "WhatsApp connected successfully.",
@@ -239,6 +345,9 @@ export const exchangeToken = async (req, res) => {
       displayPhoneNumber,
       verifiedName,
     });
+
+
+
   } catch (err) {
     console.error("❌ exchangeToken error:", err);
     return res.status(500).json({
@@ -320,14 +429,32 @@ export const setupWhatsApp = async (req, res) => {
 
     console.log(`✅ WhatsApp connected for tenant ${tenantId}`);
 
-    return res.json({
-      success: true,
-      message: "WhatsApp connected successfully",
-      wabaId,
-      phoneNumberId,
-      displayPhoneNumber: verifyData.display_phone_number,
-      verifiedName: verifyData.verified_name,
-    });
+// ══════ TASK 3 — SuperAdmin Notification + Email + Audit Log ══════
+const tenantInfo = await prisma.tenant.findUnique({
+  where:  { id: tenantId },
+  select: { tenantName: true, email: true },
+});
+
+await notifySuperAdminWhatsAppStatus({
+  tenantId,
+  tenantName:   tenantInfo?.tenantName || 'Unknown Tenant',
+  tenantEmail:  tenantInfo?.email      || 'unknown@email.com',
+  phoneNumberId,
+  wabaId,
+  action: 'CONNECTED',
+});
+// ═════════════════════════════════════════════════════════════════
+
+return res.json({
+  success: true,
+  message: "WhatsApp connected successfully",
+  wabaId,
+  phoneNumberId,
+  displayPhoneNumber: verifyData.display_phone_number,
+  verifiedName: verifyData.verified_name,
+});
+
+
   } catch (err) {
     console.error("❌ setupWhatsApp error:", err);
     return res.status(500).json({
@@ -437,6 +564,7 @@ export const disconnectWhatsApp = async (req, res) => {
       where: { id: tenantId },
       select: {
         tenantName: true,
+        email: true, 
         whatsappPhoneId: true,
         whatsappWabaId: true,
       },
@@ -465,17 +593,29 @@ export const disconnectWhatsApp = async (req, res) => {
       },
     });
 
-    console.log(
-      `✅ WhatsApp disconnected for tenant ${tenantId} (${tenant.tenantName})`
-    );
-    console.log(`   Removed Phone ID: ${tenant.whatsappPhoneId}`);
-    console.log(`   Removed WABA ID: ${tenant.whatsappWabaId}`);
+  console.log(
+  `✅ WhatsApp disconnected for tenant ${tenantId} (${tenant.tenantName})`
+);
+console.log(`   Removed Phone ID: ${tenant.whatsappPhoneId}`);
+console.log(`   Removed WABA ID: ${tenant.whatsappWabaId}`);
 
-    return res.json({
-      success: true,
-      message: "WhatsApp disconnected successfully",
-    });
-  } catch (err) {
+// ══════ TASK 4 — SuperAdmin Notification + Email + Audit Log ══════
+await notifySuperAdminWhatsAppStatus({
+  tenantId,
+  tenantName:    tenant.tenantName,
+  tenantEmail:   tenant.email,           // ← directly from existing fetch
+  phoneNumberId: tenant.whatsappPhoneId,
+  wabaId:        tenant.whatsappWabaId,
+  action: 'DISCONNECTED',
+});
+// ═════════════════════════════════════════════════════════════════
+
+return res.json({
+  success: true,
+  message: "WhatsApp disconnected successfully",
+});
+
+} catch (err) {
     console.error("❌ disconnectWhatsApp error:", err);
     return res.status(500).json({
       success: false,

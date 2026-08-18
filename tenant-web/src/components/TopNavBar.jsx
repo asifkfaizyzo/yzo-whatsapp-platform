@@ -679,14 +679,33 @@ const joinRoom = () => {
               </div>
 
               {/* Footer */}
-              {notifications.length > 0 && (
-                <div className="px-4 py-2 border-t border-slate-100
-                                text-center">
-                  <p className="text-[10px] text-slate-400">
+                       {/* Footer with View All - 🆕 UPDATED */}
+              <div className="border-t border-slate-100 bg-slate-50/50">
+                {notifications.length > 0 && (
+                  <p className="text-[10px] text-slate-400 text-center pt-2">
                     Showing last {notifications.length} notifications
                   </p>
-                </div>
-              )}
+                )}
+                <button
+                  onClick={() => {
+                    setShowNotifications(false);
+                    navigate("/dashboard/notifications");
+                  }}
+                  className="w-full px-4 py-2.5 text-xs font-bold text-[#125EF2] hover:bg-blue-50 transition flex items-center justify-center gap-1.5 group"
+                >
+                  View All Notifications
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-3 w-3 group-hover:translate-x-0.5 transition-transform"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2.5}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
             </div>
           )}
         </div>

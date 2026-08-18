@@ -49,3 +49,41 @@ export const clearAll = async () => {
     return { success: false };
   }
 };
+
+
+
+// 🆕 Get paginated notifications (for full page)
+export const getPaginatedNotifications = async ({
+  page = 1,
+  limit = 20,
+  filter = "all",
+  type = "all",
+} = {}) => {
+  try {
+    const res = await api.get(`${BASE_URL}/paginated`, {
+      params: { page, limit, filter, type },
+    });
+    return {
+      success: true,
+      data: res.data.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to fetch notifications",
+    };
+  }
+};
+
+// 🆕 Delete a single notification
+export const deleteNotification = async (id) => {
+  try {
+    await api.delete(`${BASE_URL}/${id}`);
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to delete",
+    };
+  }
+};
