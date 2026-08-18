@@ -50,3 +50,59 @@ export const markAllAsRead = async () => {
 export const clearAllNotifications = async () => {
   return await prisma.superAdminNotification.deleteMany({});
 };
+
+
+// ── 🆕 Get paginated notifications with filters ──
+export const getPaginatedNotifications = async ({
+  page = 1,
+  limit = 20,
+  filter = "all",   // all | unread | read
+  type = "all",     // all | tenant_payment | tenant_registered | etc.
+}) => {
+  // Build where clause based on filters
+  const where = {};
+
+  if (filter === "unread") {
+    where.isRead = false;
+  } else if (filter === "read") {
+    where.isRead = true;
+  }
+
+  if (type && type !== "all") {
+    where.type = type;
+  }
+
+  // Parse pagination values
+  const pageNum = Math.max(1, parseInt(page));
+  const limitNum = Math.max(1, Math.min(100, parseInt(limit))); // cap at 100
+  const skip = (pageNum - 1) * limitNum;
+
+  // Run queries in parallel for performance
+  const [notifications, total, unreadCount] = await Promise.all([
+    prisma.superAdminNotification.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limitNum,
+    }),
+    prisma.superAdminNotification.count({ where }),
+    prisma.superAdminNotification.count({ where: { isRead: false } }),
+  ]);
+
+  const totalPages = Math.ceil(total / limitNum) || 1;
+
+  return {
+    notifications,
+    total,
+    totalPages,
+    currentPage: pageNum,
+    unreadCount,
+  };
+};
+
+// ── 🆕 Delete a single notification ──
+export const deleteNotification = async (id) => {
+  return await prisma.superAdminNotification.delete({
+    where: { id },
+  });
+};

@@ -20,7 +20,6 @@ import { createAuditLog } from '../audit/auditLogService.js';
 
 
 // ===========Tenant Registration Service (with Auto-Login)===========
-// ===========Tenant Registration Service (with Auto-Login)===========
 export const registerTenantService = async (data) => {
   const {
     tenantName,

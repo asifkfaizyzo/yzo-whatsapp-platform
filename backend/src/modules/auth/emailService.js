@@ -684,3 +684,171 @@ export const sendExpiryReminderEmail = async (email, templateName, subject, data
     console.error(`Error sending reminder email (${templateName}):`, err);
   }
 };
+
+
+
+// ===================== SEND TENANT WELCOME EMAIL =====================
+export const sendTenantWelcomeEmail = async ({ 
+  email, 
+  firstName, 
+  lastName,
+  tenantName 
+}) => {
+  try {
+   const loginUrl = process.env.FRONTEND_URLS
+      ? `${process.env.FRONTEND_URLS.split(',')[1].trim()}/login`
+      : 'http://localhost:5174/login';
+
+    const htmlContent = getTemplateHTML('tenant_onboarded', {
+      firstName:  firstName  || 'there',
+      lastName:   lastName   || '',
+      tenantName: tenantName || 'Your Workspace',
+      email,
+      loginUrl,
+    });
+
+    await transporter.sendMail({
+      from:    `"SudoReply" <${process.env.EMAIL_USER}>`,
+      to:      email,
+      subject: '🎉 Welcome to SudoReply — Your account is ready!',
+      html:    htmlContent,
+    });
+
+    console.log(`✅ Welcome email sent to: ${email}`);
+  } catch (error) {
+    // ⚠️ Non-blocking — onboarding still completes even if email fails
+    console.error(`❌ Welcome email FAILED to: ${email}`);
+    console.error(`❌ Error: ${error.message}`);
+  }
+};
+
+
+
+// ===================== SEND WHATSAPP CONNECT/DISCONNECT ALERT TO SUPERADMIN =====================
+export const sendWhatsAppStatusAlertEmail = async ({
+  superAdminEmail,
+  tenantName,
+  tenantEmail,
+  phoneNumber,
+  wabaId,
+  action, // 'CONNECTED' | 'DISCONNECTED'
+}) => {
+  try {
+    const isConnected = action === 'CONNECTED';
+
+    await transporter.sendMail({
+      from:    `"SudoReply Alerts" <${process.env.EMAIL_USER}>`,
+      to:      superAdminEmail,
+      subject: `⚡ WhatsApp ${isConnected ? 'Connected' : 'Disconnected'} — ${tenantName}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; 
+                    margin: 0 auto; border: 1px solid #e2e8f0; 
+                    border-radius: 12px; overflow: hidden;">
+
+          <!-- Header -->
+          <div style="background: ${isConnected ? '#125EF2' : '#ef4444'}; 
+                      padding: 24px; text-align: center;">
+            <h1 style="color: white; margin: 0; font-size: 20px; font-weight: bold;">
+              ${isConnected ? '✅ WhatsApp Connected' : '🔴 WhatsApp Disconnected'}
+            </h1>
+          </div>
+
+          <!-- Body -->
+          <div style="padding: 30px; color: #334155; line-height: 1.6;">
+            <p style="margin: 0 0 20px 0;">
+              A tenant has <strong>${isConnected ? 'connected' : 'disconnected'}</strong> 
+              their WhatsApp account on the platform.
+            </p>
+
+            <!-- Details Box -->
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; 
+                        border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="color: #888; font-size: 13px; 
+                             padding: 6px 0; width: 160px;">
+                    Tenant Name
+                  </td>
+                  <td style="color: #1a1a1a; font-size: 13px; font-weight: bold;">
+                    ${tenantName}
+                  </td>
+                </tr>
+                <tr>
+                  <td style="color: #888; font-size: 13px; padding: 6px 0;">
+                    Tenant Email
+                  </td>
+                  <td style="color: #1a1a1a; font-size: 13px; font-weight: bold;">
+                    ${tenantEmail}
+                  </td>
+                </tr>
+                <tr>
+                  <td style="color: #888; font-size: 13px; padding: 6px 0;">
+                    Phone Number ID
+                  </td>
+                  <td style="color: #1a1a1a; font-size: 13px; font-weight: bold;">
+                    ${phoneNumber || 'N/A'}
+                  </td>
+                </tr>
+                <tr>
+                  <td style="color: #888; font-size: 13px; padding: 6px 0;">
+                    WABA ID
+                  </td>
+                  <td style="color: #1a1a1a; font-size: 13px; font-weight: bold;">
+                    ${wabaId || 'N/A'}
+                  </td>
+                </tr>
+                <tr>
+                  <td style="color: #888; font-size: 13px; padding: 6px 0;">
+                    Action
+                  </td>
+                  <td style="font-size: 13px;">
+                    <span style="
+                      background: ${isConnected ? '#dcfce7' : '#fee2e2'};
+                      color: ${isConnected ? '#16a34a' : '#dc2626'};
+                      padding: 2px 10px;
+                      border-radius: 20px;
+                      font-size: 12px;
+                      font-weight: bold;
+                    ">
+                      ${action}
+                    </span>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="color: #888; font-size: 13px; padding: 6px 0;">
+                    Time
+                  </td>
+                  <td style="color: #1a1a1a; font-size: 13px; font-weight: bold;">
+                    ${new Date().toLocaleString('en-IN', { 
+                      timeZone: 'Asia/Kolkata',
+                      dateStyle: 'medium',
+                      timeStyle: 'short'
+                    })} IST
+                  </td>
+                </tr>
+              </table>
+            </div>
+
+            <p style="font-size: 13px; color: #64748b; margin: 0;">
+              Log in to the admin dashboard to view more details.
+            </p>
+          </div>
+
+          <!-- Footer -->
+          <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; 
+                      padding: 16px; text-align: center;">
+            <p style="color: #64748b; font-size: 12px; margin: 0;">
+              SudoReply | info@sudoreply.com | www.sudoreply.com
+            </p>
+          </div>
+
+        </div>
+      `,
+    });
+
+    console.log(`✅ WhatsApp ${action} alert email sent to superadmin: ${superAdminEmail}`);
+  } catch (error) {
+    // Non-blocking
+    console.error(`❌ WhatsApp alert email FAILED: ${error.message}`);
+  }
+};
