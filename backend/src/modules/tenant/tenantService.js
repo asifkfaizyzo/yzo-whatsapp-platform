@@ -1229,9 +1229,14 @@ export const loginOrRegisterWithGoogleService = async (credential) => {
 
   const { email, name, given_name: firstName, family_name: lastName, sub: googleId } = payload;
 
-  // 2. Check if user or tenant already exists by email
+  // 2. Check if user or tenant already exists by email OR googleId
   let tenant = await prisma.tenant.findUnique({ where: { email } });
   let user = await prisma.user.findUnique({ where: { email } });
+
+  // Also look up tenant by googleId in case email differs or onboarding was partial
+  if (!tenant) {
+    tenant = await prisma.tenant.findUnique({ where: { googleId } });
+  }
 
   // Scenario A: User (Agent) already exists with this email
   if (user) {
@@ -1278,13 +1283,15 @@ export const loginOrRegisterWithGoogleService = async (credential) => {
       },
     });
   } else {
-    // Scenario C: Tenant exists but doesn't have Google linked yet
-    if (tenant.authProvider !== 'GOOGLE') {
+    // Scenario C: Tenant exists but doesn't have Google linked yet (or was found by googleId)
+    if (tenant.authProvider !== 'GOOGLE' || !tenant.googleId) {
       tenant = await prisma.tenant.update({
         where: { id: tenant.id },
         data: {
           googleId,
           authProvider: 'GOOGLE',
+          // Update email if it was missing (e.g. partial onboarding record)
+          ...(tenant.email ? {} : { email }),
         },
       });
     }
