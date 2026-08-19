@@ -1,3 +1,6 @@
+import fs from 'fs';
+import path from 'path';
+import mime from 'mime-types';
 import { Worker } from 'bullmq';
 import { QUEUE_NAME_BROADCAST } from '../queues/broadcastQueue.js';
 import { redisConnection } from '../config/redis.js';
@@ -5,16 +8,77 @@ import prisma from '../config/prisma.js';
 import { getOrCreateConversation } from '../modules/conversations/conversationService.js';
 import { emitToTenant } from '../lib/socket.js';
 import { decrypt } from '../lib/crypto.js';
+import { generateSignedUrl } from '../lib/utils/signedUrl.js';
 
-// Send Meta Cloud API request
-const sendMetaTemplateMessage = async (tenant, phone, templateName, languageCode, params) => {
+const MEDIA_HEADER_TYPES = ['IMAGE', 'VIDEO', 'DOCUMENT'];
+
+
+const sendMetaTemplateMessage = async (tenant, phone, templateName, languageCode, params, template) => {
   const cleanPhone = phone.replace('+', '');
   const url = `https://graph.facebook.com/v23.0/${tenant.whatsappPhoneId}/messages`;
 
+  const templateComponents = [];
+
+  // ── HEADER component ─────────────────────────────────────────────────────
+  const headerType = template?.headerType || 'NONE';
+
+  if (headerType === 'TEXT' && template.headerText) {
+    templateComponents.push({
+      type: 'header',
+      parameters: [{ type: 'text', text: template.headerText }]
+    });
+
+  } else if (headerType === 'IMAGE' && template.headerMediaHandle) {
+    templateComponents.push({
+      type: 'header',
+      parameters: [{ type: 'image', image: { id: template.headerMediaHandle } }]
+    });
+
+  } else if (headerType === 'VIDEO' && template.headerMediaHandle) {
+    templateComponents.push({
+      type: 'header',
+      parameters: [{ type: 'video', video: { id: template.headerMediaHandle } }]
+    });
+
+  } else if (headerType === 'DOCUMENT' && template.headerMediaHandle) {
+    templateComponents.push({
+      type: 'header',
+      parameters: [{ type: 'document', document: { id: template.headerMediaHandle } }]
+    });
+
+  } else if (headerType === 'LOCATION') {
+    // Location data can be overridden per-broadcast via params.location
+    const loc = params?.location || {};
+    templateComponents.push({
+      type: 'header',
+      parameters: [{
+        type: 'location',
+        location: {
+          latitude:  String(loc.lat  ?? template.headerLocationLat  ?? 0),
+          longitude: String(loc.lng  ?? template.headerLocationLng  ?? 0),
+          name:      loc.name    ?? template.headerLocationName    ?? '',
+          address:   loc.address ?? template.headerLocationAddress ?? '',
+        }
+      }]
+    });
+
+  } else if (MEDIA_HEADER_TYPES.includes(headerType) && !template.headerMediaHandle) {
+    // Guard: media template with no handle — log and skip sending to avoid Meta error
+    throw new Error(`Template "${templateName}" has ${headerType} header but no media handle stored. Cannot send.`);
+  }
+
+  // ── BODY component ───────────────────────────────────────────────────────
   const bodyParameters = (params?.body || []).map(val => ({
     type: 'text',
     text: String(val)
   }));
+
+  if (bodyParameters.length > 0) {
+    templateComponents.push({
+      type: 'body',
+      parameters: bodyParameters
+    });
+  }
 
   const payload = {
     messaging_product: 'whatsapp',
@@ -24,10 +88,7 @@ const sendMetaTemplateMessage = async (tenant, phone, templateName, languageCode
     template: {
       name: templateName,
       language: { code: languageCode || 'en_US' },
-      components: bodyParameters.length > 0 ? [{
-        type: 'body',
-        parameters: bodyParameters
-      }] : []
+      components: templateComponents
     }
   };
 
@@ -125,7 +186,9 @@ export const processBroadcastRecipientJob = async (job) => {
     data: { status: 'PROCESSING', startedAt: new Date() }
   });
 
-  const hasMetaConfig = tenant.whatsappWabaId && tenant.whatsappAccessToken && tenant.whatsappPhoneId;
+  const hasMetaConfig = process.env.MOCK_WHATSAPP === 'true'
+    ? false
+    : (tenant.whatsappWabaId && tenant.whatsappAccessToken && tenant.whatsappPhoneId);
 
   const bodyComp = (template.components || []).find(c => c.type === 'BODY');
   const templateText = bodyComp ? bodyComp.text : '';
@@ -147,7 +210,14 @@ export const processBroadcastRecipientJob = async (job) => {
     let finalWamid = wamid;
 
     if (hasMetaConfig) {
-      const metaRes = await sendMetaTemplateMessage(tenant, contact.phone, template.name, template.language, { body: bodyParams });
+      const metaRes = await sendMetaTemplateMessage(
+        tenant,
+        contact.phone,
+        template.name,
+        template.language,
+        { body: bodyParams },
+        template  // ← pass full template object for header component construction
+      );
       finalWamid = metaRes.messages?.[0]?.id;
 
       await prisma.broadcastRecipient.update({
@@ -171,15 +241,88 @@ export const processBroadcastRecipientJob = async (job) => {
       simulateRecipientReceipt(tenant.id, broadcastId, recipientRecord.id, wamid);
     }
 
+    // Determine Message Type & Media / Location fields from template.headerType
+    const headerType = template?.headerType || 'NONE';
+    let messageType = 'TEXT';
+    let mediaUrl = null;
+    let mediaName = null;
+    let mediaSize = null;
+    let mediaMimeType = null;
+    let locLatitude = null;
+    let locLongitude = null;
+    let locName = null;
+    let locAddress = null;
+
+    if (headerType === 'IMAGE') {
+      messageType = 'IMAGE';
+      mediaUrl = template.headerMediaUrl || null;
+      if (mediaUrl) {
+        mediaName = path.basename(mediaUrl);
+        mediaMimeType = mime.lookup(mediaUrl) || 'image/jpeg';
+        try {
+          if (fs.existsSync(mediaUrl)) {
+            mediaSize = fs.statSync(mediaUrl).size;
+          }
+        } catch (e) {}
+      }
+    } else if (headerType === 'VIDEO') {
+      messageType = 'VIDEO';
+      mediaUrl = template.headerMediaUrl || null;
+      if (mediaUrl) {
+        mediaName = path.basename(mediaUrl);
+        mediaMimeType = mime.lookup(mediaUrl) || 'video/mp4';
+        try {
+          if (fs.existsSync(mediaUrl)) {
+            mediaSize = fs.statSync(mediaUrl).size;
+          }
+        } catch (e) {}
+      }
+    } else if (headerType === 'DOCUMENT') {
+      messageType = 'FILE';
+      mediaUrl = template.headerMediaUrl || null;
+      if (mediaUrl) {
+        mediaName = path.basename(mediaUrl);
+        mediaMimeType = mime.lookup(mediaUrl) || 'application/pdf';
+        try {
+          if (fs.existsSync(mediaUrl)) {
+            mediaSize = fs.statSync(mediaUrl).size;
+          }
+        } catch (e) {}
+      }
+    } else if (headerType === 'LOCATION') {
+      messageType = 'LOCATION';
+      locLatitude = defaultParams?.location?.lat != null ? parseFloat(defaultParams.location.lat) : (template.headerLocationLat != null ? template.headerLocationLat : null);
+      locLongitude = defaultParams?.location?.lng != null ? parseFloat(defaultParams.location.lng) : (template.headerLocationLng != null ? template.headerLocationLng : null);
+      locName = defaultParams?.location?.name || template.headerLocationName || null;
+      locAddress = defaultParams?.location?.address || template.headerLocationAddress || null;
+    }
+
+    // Format display text (include header text if TEXT header type)
+    let messageText = parsedText;
+    if (headerType === 'TEXT' && template.headerText) {
+      messageText = `*${template.headerText}*\n\n${parsedText}`;
+    }
+
     // Add to normal conversation log so agents see it in Inbox
     const conversation = await getOrCreateConversation(contact.id, tenant.id);
-    await prisma.message.create({
+    const createdMessage = await prisma.message.create({
       data: {
         conversationId: conversation.id,
         senderId: tenant.id,
         senderType: 'TENANT',
-        text: parsedText,
-        type: 'TEXT',
+        direction: 'OUTBOUND',
+        type: messageType,
+        text: messageText || null,
+        caption: (messageType !== 'TEXT') ? (parsedText || null) : null,
+        mediaUrl,
+        mediaName,
+        mediaSize,
+        mediaMimeType,
+        locLatitude,
+        locLongitude,
+        locName,
+        locAddress,
+        buttons: template.buttons || (Array.isArray(template.components) ? template.components.find(c => c.type === 'BUTTONS')?.buttons : null) || null,
         status: 'sent',
         wamid: finalWamid || wamid || null,
         isRead: true
@@ -191,10 +334,41 @@ export const processBroadcastRecipientJob = async (job) => {
       data: { lastMessageAt: new Date() }
     });
 
+    // Real-time socket emission for live Inbox updates
+    let socketMediaUrl = null;
+    if (createdMessage.mediaUrl) {
+      socketMediaUrl = generateSignedUrl(createdMessage.mediaUrl, tenant.id);
+    }
+
+    emitToTenant(tenant.id, 'new_message', {
+      conversationId: conversation.id,
+      message: {
+        id:             createdMessage.id,
+        type:           createdMessage.type,
+        text:           createdMessage.text,
+        caption:        createdMessage.caption,
+        senderId:       createdMessage.senderId,
+        senderType:     createdMessage.senderType,
+        direction:      'OUTBOUND',
+        isFromCustomer: false,
+        mediaUrl:       socketMediaUrl || createdMessage.mediaUrl,
+        mediaName:      createdMessage.mediaName,
+        mediaSize:      createdMessage.mediaSize,
+        mediaMimeType:  createdMessage.mediaMimeType,
+        locLatitude:    createdMessage.locLatitude,
+        locLongitude:   createdMessage.locLongitude,
+        locName:        createdMessage.locName,
+        locAddress:     createdMessage.locAddress,
+        buttons:        createdMessage.buttons,
+        createdAt:      createdMessage.createdAt,
+      },
+    });
+
     const updatedCampaign = await prisma.broadcast.update({
       where: { id: broadcastId },
       data: { sent: { increment: 1 } }
     });
+
 
     emitToTenant(tenant.id, 'broadcast_update', {
       broadcastId,

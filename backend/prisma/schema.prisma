@@ -604,6 +604,15 @@ enum PaymentStatus {
 
 
 
+enum TemplateHeaderType {
+  NONE
+  TEXT
+  IMAGE
+  VIDEO
+  DOCUMENT
+  LOCATION
+}
+
 enum TemplateCategory {
   UTILITY
   MARKETING
@@ -663,7 +672,21 @@ model Template {
   
   // Template structure
   components      Json             // Full Meta components array: body text, headers, buttons
-  
+
+  // ── Header fields (typed for querying, validation, and send-time use) ──
+  headerType            TemplateHeaderType @default(NONE)
+  headerText            String?            // TEXT header content (max 60 chars per Meta)
+  headerMediaUrl        String?            // local file path for IMAGE / VIDEO / DOCUMENT
+  headerMediaHandle     String?            // Meta resumable-upload handle (used at send time)
+  headerLocationName    String?            // default location name (LOCATION templates)
+  headerLocationAddress String?            // default location address (LOCATION templates)
+  headerLocationLat     Float?             // default latitude  (-90 … 90)
+  headerLocationLng     Float?             // default longitude (-180 … 180)
+
+  // ── Footer & Buttons ──
+  footerText      String?            // FOOTER component text (max 60 chars per Meta)
+  buttons         Json?              // BUTTONS component array (Meta structure)
+
   // Parameter metadata (for UI rendering)
   headerParams    Int              @default(0)  // count of {{n}} in header
   bodyParams      Int              @default(0)  // count of {{n}} in body
