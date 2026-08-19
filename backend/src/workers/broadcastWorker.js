@@ -465,31 +465,34 @@ export const processBroadcastRecipientJob = async (job) => {
     });
 
   } catch (error) {
-    console.error(`Failed to send broadcast to contact ${contact.phone}:`, error.message);
+    const isFinalAttempt = (job.attemptsMade + 1) >= (job.opts?.attempts || 1);
+    console.error(`Failed to send broadcast to contact ${contact.phone} (attempt ${job.attemptsMade + 1}/${job.opts?.attempts || 1}):`, error.message);
 
-    await prisma.broadcastRecipient.update({
-      where: { broadcastId_contactId: { broadcastId, contactId: contact.id } },
-      data: {
-        status: 'FAILED',
-        failedAt: new Date(),
-        errorMessage: error.message
-      }
-    });
+    if (isFinalAttempt) {
+      await prisma.broadcastRecipient.update({
+        where: { broadcastId_contactId: { broadcastId, contactId: contact.id } },
+        data: {
+          status: 'FAILED',
+          failedAt: new Date(),
+          errorMessage: error.message
+        }
+      });
 
-    const updatedCampaign = await prisma.broadcast.update({
-      where: { id: broadcastId },
-      data: { failed: { increment: 1 } }
-    });
+      const updatedCampaign = await prisma.broadcast.update({
+        where: { id: broadcastId },
+        data: { failed: { increment: 1 } }
+      });
 
-    emitToTenant(tenant.id, 'broadcast_update', {
-      broadcastId,
-      sent: updatedCampaign.sent,
-      delivered: updatedCampaign.delivered,
-      read: updatedCampaign.read,
-      failed: updatedCampaign.failed
-    });
+      emitToTenant(tenant.id, 'broadcast_update', {
+        broadcastId,
+        sent: updatedCampaign.sent,
+        delivered: updatedCampaign.delivered,
+        read: updatedCampaign.read,
+        failed: updatedCampaign.failed
+      });
+    }
 
-    throw error; // Rethrow so BullMQ records job failure and retries if configured
+    throw error; // Rethrow so BullMQ records job failure and retries if attempts remain
   }
 };
 
@@ -508,7 +511,7 @@ export const startBroadcastWorker = () => {
   );
 
   worker.on('active', (job) => {
-    console.log(`📩 Processing broadcast job [${job.id}] for recipient: ${job.data?.contact?.phone}`);
+    console.log(`📩 Processing broadcast job [${job.id}] (attempt ${(job.attemptsMade || 0) + 1}/${job.opts?.attempts || 1}) for recipient: ${job.data?.contact?.phone}`);
   });
 
   worker.on('completed', (job) => {
@@ -518,8 +521,9 @@ export const startBroadcastWorker = () => {
   });
 
   worker.on('failed', (job, err) => {
-    console.error(`❌ Broadcast Job [${job?.id}] failed:`, err.message);
-    if (job?.data?.broadcastId) {
+    const isFinal = (job.attemptsMade) >= (job.opts?.attempts || 1);
+    console.error(`❌ Broadcast Job [${job?.id}] failed (attempt ${job.attemptsMade}/${job.opts?.attempts || 1}):`, err.message);
+    if (isFinal && job?.data?.broadcastId) {
       checkCampaignCompletion(job.data.broadcastId);
     }
   });
