@@ -195,7 +195,12 @@ export const buildTemplateComponents = ({
       return { components: null, validationError };
     }
 
-    const buttonComps = buttons.map((btn) => {
+    // Auto-group CTA buttons (URL, PHONE_NUMBER) and QUICK_REPLY buttons to satisfy Meta API requirements
+    const ctaButtons = buttons.filter(b => b.type !== 'QUICK_REPLY');
+    const qrButtons  = buttons.filter(b => b.type === 'QUICK_REPLY');
+    const groupedButtons = [...ctaButtons, ...qrButtons];
+
+    const buttonComps = groupedButtons.map((btn) => {
       if (btn.type === 'QUICK_REPLY') {
         return { type: 'QUICK_REPLY', text: btn.text };
       }
@@ -255,20 +260,6 @@ function validateButtons(buttons) {
       if (!btn.phoneNumber || btn.phoneNumber.trim().length === 0) {
         return 'Phone number buttons must have a phone number.';
       }
-    }
-  }
-
-  // Validate QUICK_REPLY grouping — they must not be interleaved with other types
-  const types = buttons.map(b => b.type === 'QUICK_REPLY' ? 'QR' : 'OTHER');
-  const firstQR   = types.indexOf('QR');
-  const lastQR    = types.lastIndexOf('QR');
-  const firstOther = types.indexOf('OTHER');
-  const lastOther  = types.lastIndexOf('OTHER');
-
-  if (firstQR !== -1 && firstOther !== -1) {
-    // interleaving check: if QR and OTHER both exist, QRs must be contiguous
-    if (lastOther > firstQR && firstOther < lastQR) {
-      return 'Quick Reply buttons cannot be mixed with other button types in an interleaved order. Group all Quick Reply buttons together.';
     }
   }
 
