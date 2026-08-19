@@ -154,10 +154,13 @@ const sendMetaTemplateMessage = async (tenant, phone, templateName, languageCode
 
 
   // ── BODY component ───────────────────────────────────────────────────────
-  const bodyParameters = (params?.body || []).map(val => ({
-    type: 'text',
-    text: String(val)
-  }));
+  const bodyParameters = (params?.body || []).map(val => {
+    const textVal = (val != null && String(val).trim().length > 0) ? String(val).trim() : '-';
+    return {
+      type: 'text',
+      text: textVal
+    };
+  });
 
   if (bodyParameters.length > 0) {
     templateComponents.push({
@@ -284,10 +287,20 @@ export const processBroadcastRecipientJob = async (job) => {
     : `wamid.mock_${broadcastId}_${contact.id}_${Date.now()}`;
 
   const bodyParams = (defaultParams?.body || []).map(val => {
-    if (val === '{{contact_name}}') return contact.name;
-    if (val === '{{contact_phone}}') return contact.phone;
-    if (val === '{{contact_company}}') return contact.company || '';
-    return val;
+    let resolved = val;
+    if (val === '{{contact_name}}') {
+      resolved = contact.name?.trim() || 'Valued Customer';
+    } else if (val === '{{contact_phone}}') {
+      resolved = contact.phone?.trim() || '-';
+    } else if (val === '{{contact_company}}') {
+      resolved = contact.company?.trim() || 'your organization';
+    }
+
+    if (!resolved || typeof resolved !== 'string' || !resolved.trim()) {
+      resolved = '-';
+    }
+
+    return resolved.trim();
   });
 
   const parsedText = formatMessageText(templateText, bodyParams);
