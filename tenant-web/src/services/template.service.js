@@ -13,14 +13,20 @@ export const getTemplates = async () => {
 };
 
 // 2. Submit new template
+// Accepts either a plain object (JSON) or a FormData instance (for media uploads).
+// When FormData is passed, axios will automatically set the correct multipart boundary.
 export const createTemplate = async (templateData) => {
   try {
-    const response = await api.post(`${TEMPLATE_BASE_URL}/create`, templateData);
+    const isMultipart = templateData instanceof FormData;
+    const response = await api.post(`${TEMPLATE_BASE_URL}/create`, templateData, {
+      headers: isMultipart ? { 'Content-Type': 'multipart/form-data' } : {},
+    });
     return { success: true, data: response.data.data };
   } catch (error) {
     return { success: false, message: error.response?.data?.message || "Failed to create template" };
   }
 };
+
 
 // 3. Sync from Meta Account
 export const syncTemplates = async () => {

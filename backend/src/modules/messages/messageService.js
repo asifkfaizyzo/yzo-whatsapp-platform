@@ -276,7 +276,7 @@ export const sendMessageService = async ({
   });
 
  // AFTER (with try/catch):
-if (tenant?.whatsappPhoneId && tenant?.whatsappAccessToken) {
+if (process.env.MOCK_WHATSAPP !== 'true' && tenant?.whatsappPhoneId && tenant?.whatsappAccessToken) {
   try {                                                        // ← ADD
     const cleanPhone = contact.phone.replace('+', '');
     const url = `https://graph.facebook.com/v18.0/${tenant.whatsappPhoneId}/messages`;
@@ -425,7 +425,7 @@ export const sendMediaMessageService = async ({
     where: { id: tenantId },
   });
 
-  if (tenant?.whatsappPhoneId && tenant?.whatsappAccessToken) {
+  if (process.env.MOCK_WHATSAPP !== 'true' && tenant?.whatsappPhoneId && tenant?.whatsappAccessToken) {
     try {
       await sendWhatsAppMedia({
         tenant,

@@ -2272,55 +2272,14 @@ useEffect(() => {
                           </div>
                         )}
 
-                      {/* TEXT */}
-                      {(msg.type === "TEXT" || (!msg.type && msg.text)) && (
+                      {/* TEXT / INTERACTIVE BODY */}
+                      {(msg.type === "TEXT" || msg.type === "INTERACTIVE_BUTTONS" || (!msg.type && msg.text)) && (
                         <p className="leading-relaxed whitespace-pre-wrap">
                           {msg.text}
                         </p>
                       )}
 
-                      {/* ⭐ INTERACTIVE_BUTTONS */}
-                      {msg.type === "INTERACTIVE_BUTTONS" && (
-                        <div>
-                          {/* Body text */}
-                          <p className="leading-relaxed whitespace-pre-wrap">
-                            {msg.text}
-                          </p>
 
-                          {/* Buttons */}
-                          {msg.buttons &&
-                            Array.isArray(msg.buttons) &&
-                            msg.buttons.length > 0 && (
-                              <div className="mt-3 pt-2 border-t border-[#075E54]/10 space-y-1.5">
-                                {msg.buttons.map((btn, i) => (
-                                  <div
-                                    key={btn.id || i}
-                                    className="flex items-center justify-center gap-2 py-2 px-3
-              bg-white/70 hover:bg-white border border-[#075E54]/20
-              rounded-lg text-[12px] font-semibold text-[#075E54]
-              transition cursor-default"
-                                  >
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      width="12"
-                                      height="12"
-                                      viewBox="0 0 24 24"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      strokeWidth="2.5"
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                    >
-                                      <path d="M9 11.24V7.5a2.5 2.5 0 015 0v3.74" />
-                                      <path d="M14 11h1a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2v-6a2 2 0 012-2h1" />
-                                    </svg>
-                                    {btn.title}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                        </div>
-                      )}
 
                       {/* IMAGE */}
                       {msg.type === "IMAGE" && msg.mediaUrl && (
@@ -2486,6 +2445,78 @@ useEffect(() => {
                           </div>
                         </div>
                       )}
+                      {/* ⭐ BUTTONS (Interactive / Template buttons) */}
+                      {(() => {
+                        let btns = null;
+                        if (Array.isArray(msg.buttons)) {
+                          btns = msg.buttons;
+                        } else if (typeof msg.buttons === "string") {
+                          try {
+                            btns = JSON.parse(msg.buttons);
+                          } catch (e) {
+                            btns = null;
+                          }
+                        }
+                        if (!btns || !Array.isArray(btns) || btns.length === 0) return null;
+
+                        return (
+                          <div className="mt-2.5 pt-2 border-t border-[#075E54]/10 space-y-1.5">
+                            {btns.map((btn, i) => {
+                              const title = btn.title || btn.text || `Button ${i + 1}`;
+                              const type = (btn.type || "").toUpperCase();
+                              const url = btn.url || btn.url_link;
+                              const phone = btn.phoneNumber || btn.phone_number;
+
+                              if (type === "URL" && url) {
+                                return (
+                                  <a
+                                    key={btn.id || i}
+                                    href={url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center justify-center gap-1.5 py-1.5 px-3 bg-white/70 hover:bg-white border border-[#075E54]/20 rounded-lg text-[12px] font-semibold text-[#075E54] hover:text-[#064E47] transition shadow-xs"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                                      <polyline points="15 3 21 3 21 9"/>
+                                      <line x1="10" y1="14" x2="21" y2="3"/>
+                                    </svg>
+                                    <span>{title}</span>
+                                  </a>
+                                );
+                              }
+
+                              if (type === "PHONE_NUMBER" && phone) {
+                                return (
+                                  <a
+                                    key={btn.id || i}
+                                    href={`tel:${phone}`}
+                                    className="flex items-center justify-center gap-1.5 py-1.5 px-3 bg-white/70 hover:bg-white border border-[#075E54]/20 rounded-lg text-[12px] font-semibold text-[#075E54] hover:text-[#064E47] transition shadow-xs"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                                    </svg>
+                                    <span>{title}</span>
+                                  </a>
+                                );
+                              }
+
+                              return (
+                                <div
+                                  key={btn.id || i}
+                                  className="flex items-center justify-center gap-1.5 py-1.5 px-3 bg-white/70 hover:bg-white border border-[#075E54]/20 rounded-lg text-[12px] font-semibold text-[#075E54] transition cursor-default shadow-xs"
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M9 11.24V7.5a2.5 2.5 0 015 0v3.74" />
+                                    <path d="M14 11h1a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2v-6a2 2 0 012-2h1" />
+                                  </svg>
+                                  <span>{title}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
 
                       {/* Time + Ticks */}
                       <div className="mt-1 flex items-center gap-1 justify-end text-[10px] text-[#667781]">
