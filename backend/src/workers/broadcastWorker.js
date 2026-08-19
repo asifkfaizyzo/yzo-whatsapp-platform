@@ -13,6 +13,58 @@ import { generateSignedUrl } from '../lib/utils/signedUrl.js';
 const MEDIA_HEADER_TYPES = ['IMAGE', 'VIDEO', 'DOCUMENT'];
 
 
+// In-memory cache for uploaded WhatsApp media IDs so we don't upload the same file 1000 times in a broadcast
+const mediaIdCache = new Map();
+
+const getOrUploadWhatsAppMediaId = async (tenant, filePath, mimeType, templateId) => {
+  const cacheKey = `${tenant.id}:${templateId || filePath}`;
+  if (mediaIdCache.has(cacheKey)) {
+    const cached = mediaIdCache.get(cacheKey);
+    // Cache valid for 24 hours (Meta media IDs are valid for 30 days)
+    if (Date.now() - cached.time < 24 * 60 * 60 * 1000) {
+      return cached.mediaId;
+    }
+  }
+
+  // Ensure file exists
+  const absolutePath = path.isAbsolute(filePath) ? filePath : path.join(process.cwd(), filePath);
+  if (!fs.existsSync(absolutePath)) {
+    throw new Error(`Template media file not found on disk at: ${filePath}`);
+  }
+
+  const accessToken = decrypt(tenant.whatsappAccessToken);
+  const phoneId     = tenant.whatsappPhoneId;
+  const fileBuffer  = fs.readFileSync(absolutePath);
+  const fileName    = path.basename(absolutePath);
+
+  let uploadMimeType = mimeType || mime.lookup(absolutePath) || 'application/octet-stream';
+  const blob = new Blob([fileBuffer], { type: uploadMimeType });
+  const formData = new globalThis.FormData();
+  formData.append('file', blob, fileName);
+  formData.append('messaging_product', 'whatsapp');
+
+  const uploadRes = await fetch(
+    `https://graph.facebook.com/v23.0/${phoneId}/media`,
+    {
+      method:  'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+      body: formData,
+    }
+  );
+
+  const resJson = await uploadRes.json();
+  if (!uploadRes.ok || !resJson.id) {
+    console.error('❌ Meta media upload error for broadcast template:', resJson);
+    throw new Error(`Failed to upload template media to WhatsApp Cloud API: ${resJson.error?.message || JSON.stringify(resJson)}`);
+  }
+
+  const mediaId = String(resJson.id);
+  mediaIdCache.set(cacheKey, { mediaId, time: Date.now() });
+  return mediaId;
+};
+
 const sendMetaTemplateMessage = async (tenant, phone, templateName, languageCode, params, template) => {
   const cleanPhone = phone.replace('+', '');
   const url = `https://graph.facebook.com/v23.0/${tenant.whatsappPhoneId}/messages`;
@@ -28,22 +80,59 @@ const sendMetaTemplateMessage = async (tenant, phone, templateName, languageCode
       parameters: [{ type: 'text', text: template.headerText }]
     });
 
-  } else if (headerType === 'IMAGE' && template.headerMediaHandle) {
+  } else if (headerType === 'IMAGE') {
+    let imageParam = {};
+    if (template.headerMediaUrl && template.headerMediaUrl.startsWith('http')) {
+      imageParam = { link: template.headerMediaUrl };
+    } else if (process.env.BASE_URL && process.env.BASE_URL.startsWith('https://')) {
+      imageParam = { link: `${process.env.BASE_URL.replace(/\/+$/, '')}/${template.headerMediaUrl.replace(/\\/g, '/')}` };
+    } else if (template.headerMediaUrl) {
+      const mediaId = await getOrUploadWhatsAppMediaId(tenant, template.headerMediaUrl, 'image/jpeg', template.id);
+      imageParam = { id: mediaId };
+    } else {
+      throw new Error(`Template "${templateName}" has IMAGE header but no media file found. Cannot send.`);
+    }
+
     templateComponents.push({
       type: 'header',
-      parameters: [{ type: 'image', image: { id: template.headerMediaHandle } }]
+      parameters: [{ type: 'image', image: imageParam }]
     });
 
-  } else if (headerType === 'VIDEO' && template.headerMediaHandle) {
+  } else if (headerType === 'VIDEO') {
+    let videoParam = {};
+    if (template.headerMediaUrl && template.headerMediaUrl.startsWith('http')) {
+      videoParam = { link: template.headerMediaUrl };
+    } else if (process.env.BASE_URL && process.env.BASE_URL.startsWith('https://')) {
+      videoParam = { link: `${process.env.BASE_URL.replace(/\/+$/, '')}/${template.headerMediaUrl.replace(/\\/g, '/')}` };
+    } else if (template.headerMediaUrl) {
+      const mediaId = await getOrUploadWhatsAppMediaId(tenant, template.headerMediaUrl, 'video/mp4', template.id);
+      videoParam = { id: mediaId };
+    } else {
+      throw new Error(`Template "${templateName}" has VIDEO header but no media file found. Cannot send.`);
+    }
+
     templateComponents.push({
       type: 'header',
-      parameters: [{ type: 'video', video: { id: template.headerMediaHandle } }]
+      parameters: [{ type: 'video', video: videoParam }]
     });
 
-  } else if (headerType === 'DOCUMENT' && template.headerMediaHandle) {
+  } else if (headerType === 'DOCUMENT') {
+    let docParam = {};
+    const filename = template.headerMediaUrl ? path.basename(template.headerMediaUrl) : 'document.pdf';
+    if (template.headerMediaUrl && template.headerMediaUrl.startsWith('http')) {
+      docParam = { link: template.headerMediaUrl, filename };
+    } else if (process.env.BASE_URL && process.env.BASE_URL.startsWith('https://')) {
+      docParam = { link: `${process.env.BASE_URL.replace(/\/+$/, '')}/${template.headerMediaUrl.replace(/\\/g, '/')}`, filename };
+    } else if (template.headerMediaUrl) {
+      const mediaId = await getOrUploadWhatsAppMediaId(tenant, template.headerMediaUrl, 'application/pdf', template.id);
+      docParam = { id: mediaId, filename };
+    } else {
+      throw new Error(`Template "${templateName}" has DOCUMENT header but no media file found. Cannot send.`);
+    }
+
     templateComponents.push({
       type: 'header',
-      parameters: [{ type: 'document', document: { id: template.headerMediaHandle } }]
+      parameters: [{ type: 'document', document: docParam }]
     });
 
   } else if (headerType === 'LOCATION') {
@@ -61,11 +150,8 @@ const sendMetaTemplateMessage = async (tenant, phone, templateName, languageCode
         }
       }]
     });
-
-  } else if (MEDIA_HEADER_TYPES.includes(headerType) && !template.headerMediaHandle) {
-    // Guard: media template with no handle — log and skip sending to avoid Meta error
-    throw new Error(`Template "${templateName}" has ${headerType} header but no media handle stored. Cannot send.`);
   }
+
 
   // ── BODY component ───────────────────────────────────────────────────────
   const bodyParameters = (params?.body || []).map(val => ({
