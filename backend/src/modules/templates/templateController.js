@@ -224,14 +224,17 @@ export const createTemplate = async (req, res) => {
       headerMediaUrl = uploadedFile.path.replace(/\\/g, '/');
     }
 
+    // Sanitize bodyText (convert literal \n if copy-pasted into real line breaks)
+    const sanitizedBodyText = (bodyText || '').replace(/\\n/g, '\n').replace(/\\r/g, '').trim();
+
     // ── Build Meta components array ───────────────────────────
     const { components, validationError } = buildTemplateComponents({
       headerType,
       headerText:          headerType === 'TEXT'     ? headerText     : null,
       headerHandle:        headerMediaHandle,
-      bodyText,
+      bodyText:            sanitizedBodyText,
       bodyExampleValues,
-      footerText,
+      footerText:          footerText?.trim() || null,
       buttons,
     });
 

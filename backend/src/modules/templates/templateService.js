@@ -26,6 +26,8 @@ export const fetchMetaTemplates = async (tenant) => {
 // ─────────────────────────────────────────────────────────────
 export const submitMetaTemplate = async (tenant, { name, category, language, components }) => {
   const url = `https://graph.facebook.com/${META_API_VERSION}/${tenant.whatsappWabaId}/message_templates`;
+  console.log('📤 Submitting template to Meta:', JSON.stringify({ name, category, language, components }, null, 2));
+
   const response = await fetch(url, {
     method: 'POST',
     headers: {
@@ -35,12 +37,18 @@ export const submitMetaTemplate = async (tenant, { name, category, language, com
     body: JSON.stringify({ name, category, language, components })
   });
 
+  const data = await response.json();
+
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error?.message || 'Meta template submission failed');
+    console.error('❌ Meta template submission error response:', JSON.stringify(data, null, 2));
+    const details = data.error?.error_user_msg 
+      || data.error?.error_data?.details 
+      || data.error?.message 
+      || 'Meta template submission failed';
+    throw new Error(details);
   }
 
-  return response.json();
+  return data;
 };
 
 // ─────────────────────────────────────────────────────────────
