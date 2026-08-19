@@ -84,8 +84,6 @@ const sendMetaTemplateMessage = async (tenant, phone, templateName, languageCode
     let imageParam = {};
     if (template.headerMediaUrl && template.headerMediaUrl.startsWith('http')) {
       imageParam = { link: template.headerMediaUrl };
-    } else if (process.env.BASE_URL && process.env.BASE_URL.startsWith('https://')) {
-      imageParam = { link: `${process.env.BASE_URL.replace(/\/+$/, '')}/${template.headerMediaUrl.replace(/\\/g, '/')}` };
     } else if (template.headerMediaUrl) {
       const mediaId = await getOrUploadWhatsAppMediaId(tenant, template.headerMediaUrl, 'image/jpeg', template.id);
       imageParam = { id: mediaId };
@@ -102,8 +100,6 @@ const sendMetaTemplateMessage = async (tenant, phone, templateName, languageCode
     let videoParam = {};
     if (template.headerMediaUrl && template.headerMediaUrl.startsWith('http')) {
       videoParam = { link: template.headerMediaUrl };
-    } else if (process.env.BASE_URL && process.env.BASE_URL.startsWith('https://')) {
-      videoParam = { link: `${process.env.BASE_URL.replace(/\/+$/, '')}/${template.headerMediaUrl.replace(/\\/g, '/')}` };
     } else if (template.headerMediaUrl) {
       const mediaId = await getOrUploadWhatsAppMediaId(tenant, template.headerMediaUrl, 'video/mp4', template.id);
       videoParam = { id: mediaId };
@@ -121,8 +117,6 @@ const sendMetaTemplateMessage = async (tenant, phone, templateName, languageCode
     const filename = template.headerMediaUrl ? path.basename(template.headerMediaUrl) : 'document.pdf';
     if (template.headerMediaUrl && template.headerMediaUrl.startsWith('http')) {
       docParam = { link: template.headerMediaUrl, filename };
-    } else if (process.env.BASE_URL && process.env.BASE_URL.startsWith('https://')) {
-      docParam = { link: `${process.env.BASE_URL.replace(/\/+$/, '')}/${template.headerMediaUrl.replace(/\\/g, '/')}`, filename };
     } else if (template.headerMediaUrl) {
       const mediaId = await getOrUploadWhatsAppMediaId(tenant, template.headerMediaUrl, 'application/pdf', template.id);
       docParam = { id: mediaId, filename };

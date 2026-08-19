@@ -73,6 +73,7 @@ export const processWebhookJob = async (job) => {
         const errObj = statusUpdate.errors?.[0];
         updateData.errorCode = errObj?.code ? String(errObj.code) : null;
         updateData.errorMessage = errObj?.details || errObj?.message || errObj?.title || 'Meta Send Failure';
+        console.error(`❌ Meta webhook reported delivery failure for wamid ${wamid} (code ${errObj?.code}): ${updateData.errorMessage}`);
       }
 
       await prisma.broadcastRecipient.update({
