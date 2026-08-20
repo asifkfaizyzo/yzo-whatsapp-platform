@@ -115,8 +115,6 @@ export const clearAllNotifications = async (tenantId, userId, userType) => {
 };
 
 
-
-
 // ── 🆕 Get paginated notifications with filters ──
 export const getPaginatedNotifications = async (
   tenantId,

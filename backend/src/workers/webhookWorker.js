@@ -5,6 +5,7 @@ import { QUEUE_NAME_WEBHOOK } from '../queues/webhookQueue.js';
 import { redisConnection } from '../config/redis.js';
 import prisma from '../config/prisma.js';
 import { handleIncomingMessage } from '../modules/messages/messageService.js';
+import { createNotification } from '../modules/notifications/notificationService.js';
 import { emitToTenant, emitToUser } from '../lib/socket.js';
 import { isNewWebhookEvent } from '../lib/idempotency.js';
 import { dlqQueue } from '../queues/dlqQueue.js';
@@ -15,6 +16,7 @@ import fs from 'fs';
 import path from 'path';
 import https from 'https';
 import http from 'http';
+
 
 
 // ─────────────────────────────────────────────────────────────
@@ -553,29 +555,53 @@ export const processWebhookJob = async (job) => {
       }
     });
 
+
+
     // ── Socket: emit notification to tenant ────────────────
+  
+    // ── Save + Emit notification ───────────────────────────
     const notifMessage = text
       ? text.substring(0, 100)
       : `Sent a ${type.toLowerCase()}`;
 
-    emitToTenant(tenant.id, 'new_notification', {
-      notification: {
-        id: `msg_tenant_${result.message.id}`,
-        type: 'new_message',
-        title: `New message from ${contact.name}`,
-        message: notifMessage,
-        isRead: false,
-        createdAt: new Date(),
-        metadata: {
-          contactId: contact.id,
-          conversationId: result.conversation.id,
-        }
-      }
-    });
+    const notifTitle   = `New message from ${contact.name}`;
+    const notifMeta    = {
+      contactId:      contact.id,
+      conversationId: result.conversation.id,
+      messageId:      result.message.id,
+    };
+
+    // ✅ Save tenant notification to DB then emit
+    try {
+      const tenantNotif = await createNotification({
+        tenantId: tenant.id,
+        userId:   null,           // tenant-wide
+        type:     'new_message',
+        title:    notifTitle,
+        message:  notifMessage,
+        metadata: notifMeta,
+      });
+
+      emitToTenant(tenant.id, 'new_notification', {
+        notification: {
+          id:        tenantNotif.id,
+          type:      tenantNotif.type,
+          title:     tenantNotif.title,
+          message:   tenantNotif.message,
+          isRead:    tenantNotif.isRead,
+          createdAt: tenantNotif.createdAt,
+          metadata:  tenantNotif.metadata,
+        },
+      });
+      console.log(`📤 Tenant notif saved+emitted: ${tenantNotif.id}`);
+    } catch (err) {
+      console.error('❌ Tenant notification failed:', err.message);
+    }
 
     // ── Socket: emit to assigned user ──────────────────────
     if (contact.assignedTo) {
       emitToUser(contact.assignedTo, 'new_message', {
+
         conversationId: result.conversation.id,
         message: {
           id: result.message.id,
@@ -598,22 +624,33 @@ export const processWebhookJob = async (job) => {
         }
       });
 
-      emitToUser(contact.assignedTo, 'new_notification', {
-        notification: {
-          id: `msg_${result.message.id}`,
-          type: 'new_message',
-          title: `New message from ${contact.name}`,
-          message: notifMessage,
-          isRead: false,
-          createdAt: new Date(),
-          metadata: {
-            contactId: contact.id,
-            conversationId: result.conversation.id,
-          }
-        }
-      });
+          // ✅ Save user notification to DB then emit
+      try {
+        const userNotif = await createNotification({
+          tenantId: tenant.id,
+          userId:   contact.assignedTo,   // user-specific
+          type:     'new_message',
+          title:    notifTitle,
+          message:  notifMessage,
+          metadata: notifMeta,
+        });
 
-      console.log(`📤 Notified assigned user: ${contact.assignedTo}`);
+        emitToUser(contact.assignedTo, 'new_notification', {
+          notification: {
+            id:        userNotif.id,
+            type:      userNotif.type,
+            title:     userNotif.title,
+            message:   userNotif.message,
+            isRead:    userNotif.isRead,
+            createdAt: userNotif.createdAt,
+            metadata:  userNotif.metadata,
+          },
+        });
+        console.log(`📤 User notif saved+emitted to: ${contact.assignedTo}`);
+      } catch (err) {
+        console.error('❌ User notification failed:', err.message);
+      }
+
     } else {
       console.log(`ℹ️ Contact unassigned - tenant room notified only`);
     }

@@ -23,6 +23,7 @@ import {
   clearAll,
   deleteNotification,
 } from "../../services/notification.service";
+import { getSocket } from "../../lib/socket";
 
 // Notification types available for tenant/user
 const NOTIF_TYPES_TENANT = [
@@ -83,6 +84,53 @@ export default function Notifications() {
   useEffect(() => {
     loadNotifications();
   }, [page, filter, typeFilter]);
+
+  // ✅ Live socket listener for real-time updates on this page
+  useEffect(() => {
+    const token = useAuthStore.getState().accessToken;
+    if (!token) return;
+
+    const socket = getSocket();
+    if (!socket) return;
+
+    const handleLiveNotification = (data) => {
+      if (!data?.notification) return;
+
+      const newNotif = data.notification;
+      console.log("🔔 Live notification received on page:", newNotif);
+
+      // Check if incoming notif matches the active filters
+      const matchesFilter =
+        filter === "all" ||
+        (filter === "unread" && !newNotif.isRead) ||
+        (filter === "read" && newNotif.isRead);
+
+      const matchesType =
+        typeFilter === "all" || typeFilter === newNotif.type;
+
+      // Only insert into the current list view if on Page 1 & matches filters
+      if (matchesFilter && matchesType && page === 1) {
+        setNotifications((prev) => {
+          // Avoid duplicate entries
+          if (prev.some((n) => n.id === newNotif.id)) return prev;
+          return [newNotif, ...prev].slice(0, LIMIT);
+        });
+      }
+
+      // Always increment counts if unread
+      if (!newNotif.isRead) {
+        setUnreadCount((c) => c + 1);
+        setTotal((t) => t + 1);
+      }
+    };
+
+    socket.on("new_notification", handleLiveNotification);
+
+    return () => {
+      socket.off("new_notification", handleLiveNotification);
+    };
+  }, [filter, typeFilter, page]);
+
 
   // ── Client-side search ──
   const filteredNotifs = notifications.filter((n) => {

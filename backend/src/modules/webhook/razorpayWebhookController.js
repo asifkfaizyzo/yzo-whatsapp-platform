@@ -4,6 +4,10 @@ import { calculateGST } from "../superadmin/superadminService.js";
 import { generateInvoicePDF } from "../plans/invoiceService.js";
 import { sendInvoiceEmail } from "../auth/emailService.js";
 
+import { createSuperAdminNotification } from "../superAdminNotifications/superAdminNotificationService.js";
+import { createNotification } from "../notifications/notificationService.js";
+import { emitToSuperAdmin, emitToTenant } from "../../lib/socket.js";
+
 export const handleRazorpayWebhook = async (req, res) => {
   try {
     const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
@@ -126,6 +130,88 @@ export const handleRazorpayWebhook = async (req, res) => {
         });
 
         console.log(`[Webhook] Plan activated successfully for tenant ${existingPayment.tenantId}`);
+        
+        // ── Format amount & label for display ──
+        const amountDisplay = `₹${((existingPayment.totalAmount || existingPayment.baseAmount) / 100).toLocaleString("en-IN")}`;
+        const planLabel = `${existingPayment.planName} (${existingPayment.billingType})`;
+
+        // ✅ 1. Notify SuperAdmin about successful payment
+        try {
+          const superAdminNotif = await createSuperAdminNotification({
+            type: "tenant_payment",
+            title: "💳 Payment Received",
+            message: `${tenant?.tenantName || "A tenant"} paid ${amountDisplay} for ${planLabel}`,
+            metadata: {
+              tenantId: existingPayment.tenantId,
+              tenantName: tenant?.tenantName,
+              tenantEmail: tenant?.email,
+              planName: existingPayment.planName,
+              billingType: existingPayment.billingType,
+              amount: existingPayment.totalAmount || existingPayment.baseAmount,
+              orderId,
+              paymentId,
+            },
+          });
+
+          emitToSuperAdmin("superadmin_notification", {
+            notification: {
+              id: superAdminNotif.id,
+              type: superAdminNotif.type,
+              title: superAdminNotif.title,
+              message: superAdminNotif.message,
+              isRead: superAdminNotif.isRead,
+              createdAt: superAdminNotif.createdAt,
+              metadata: superAdminNotif.metadata,
+            },
+          });
+          console.log(`📤 SuperAdmin payment notification emitted: ${superAdminNotif.id}`);
+        } catch (err) {
+          console.error("❌ SuperAdmin payment notification failed:", err.message);
+        }
+
+        // ✅ 2. Notify Tenant about plan activation
+        if (tenant) {
+          try {
+            const tenantNotif = await createNotification({
+              tenantId: existingPayment.tenantId,
+              userId: null, // tenant-wide
+              type: "plan_activated",
+              title: "✅ Plan Activated",
+              message: `Your ${planLabel} plan is now active. Valid until ${periodEnd.toLocaleDateString("en-IN")}`,
+              metadata: {
+                planName: existingPayment.planName,
+                billingType: existingPayment.billingType,
+                amount: existingPayment.totalAmount || existingPayment.baseAmount,
+                periodEnd: periodEnd.toISOString(),
+                orderId,
+              },
+            });
+
+            emitToTenant(existingPayment.tenantId, "new_notification", {
+              notification: {
+                id: tenantNotif.id,
+                type: tenantNotif.type,
+                title: tenantNotif.title,
+                message: tenantNotif.message,
+                isRead: tenantNotif.isRead,
+                createdAt: tenantNotif.createdAt,
+                metadata: tenantNotif.metadata,
+              },
+            });
+
+            // Emit live plan update event for dashboard banners
+            emitToTenant(existingPayment.tenantId, "plan_activated", {
+              planName: existingPayment.planName,
+              billingType: existingPayment.billingType,
+              subscriptionStatus: "active",
+              planPeriodEnd: periodEnd.toISOString(),
+            });
+
+            console.log(`📤 Tenant plan notification emitted: ${tenantNotif.id}`);
+          } catch (err) {
+            console.error("❌ Tenant plan notification failed:", err.message);
+          }
+        }
 
         // Generate Invoice PDF & Send Email asynchronously
         if (tenant) {
@@ -162,7 +248,7 @@ export const handleRazorpayWebhook = async (req, res) => {
           where: { razorpayOrderId: orderId },
         });
 
-        if (existingPayment && existingPayment.status === "PENDING") {
+              if (existingPayment && existingPayment.status === "PENDING") {
           console.warn(`[Webhook] Marking payment as FAILED for order: ${orderId}`);
           await prisma.payment.update({
             where: { id: existingPayment.id },
@@ -171,6 +257,72 @@ export const handleRazorpayWebhook = async (req, res) => {
               razorpayPaymentId: paymentId || existingPayment.razorpayPaymentId,
             },
           });
+
+          const tenant = await prisma.tenant.findUnique({
+            where: { id: existingPayment.tenantId },
+          });
+
+          // ✅ Notify SuperAdmin
+          try {
+            const failedNotif = await createSuperAdminNotification({
+              type: "tenant_payment_failed",
+              title: "❌ Payment Failed",
+              message: `${tenant?.tenantName || "A tenant"} payment failed for ${existingPayment.planName}`,
+              metadata: {
+                tenantId: existingPayment.tenantId,
+                tenantName: tenant?.tenantName,
+                tenantEmail: tenant?.email,
+                planName: existingPayment.planName,
+                orderId,
+                paymentId,
+              },
+            });
+
+            emitToSuperAdmin("superadmin_notification", {
+              notification: {
+                id: failedNotif.id,
+                type: failedNotif.type,
+                title: failedNotif.title,
+                message: failedNotif.message,
+                isRead: failedNotif.isRead,
+                createdAt: failedNotif.createdAt,
+                metadata: failedNotif.metadata,
+              },
+            });
+          } catch (err) {
+            console.error("❌ SuperAdmin payment failed notification error:", err.message);
+          }
+
+          // ✅ Notify Tenant
+          if (tenant) {
+            try {
+              const tenantFailNotif = await createNotification({
+                tenantId: existingPayment.tenantId,
+                userId: null,
+                type: "payment_failed",
+                title: "❌ Payment Failed",
+                message: `Your payment for ${existingPayment.planName} failed. Please try again.`,
+                metadata: {
+                  planName: existingPayment.planName,
+                  orderId,
+                },
+              });
+
+              emitToTenant(existingPayment.tenantId, "new_notification", {
+                notification: {
+                  id: tenantFailNotif.id,
+                  type: tenantFailNotif.type,
+                  title: tenantFailNotif.title,
+                  message: tenantFailNotif.message,
+                  isRead: tenantFailNotif.isRead,
+                  createdAt: tenantFailNotif.createdAt,
+                  metadata: tenantFailNotif.metadata,
+                },
+              });
+            } catch (err) {
+              console.error("❌ Tenant payment failed notification error:", err.message);
+            }
+          }
         }
       }
     }

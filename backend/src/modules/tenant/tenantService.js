@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt';
 import prisma from '../../config/prisma.js';
 import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
-import { emitToTenant, emitToUser } from "../../lib/socket.js";
+import { emitToTenant, emitToUser,emitToSuperAdmin,} from "../../lib/socket.js";
 import fs from 'fs';
 import path from 'path';
 
@@ -15,7 +15,7 @@ import { getOrCreateConversation } from "../../modules/conversations/conversatio
 import { AsyncLocalStorage } from 'async_hooks';
 import { createNotification } from "../notifications/notificationService.js";
 import { checkLimitAccess } from '../../lib/planLimits.js';
-
+import { createSuperAdminNotification } from '../superAdminNotifications/superAdminNotificationService.js';
 import { createAuditLog } from '../audit/auditLogService.js';
 
 
@@ -72,6 +72,35 @@ export const registerTenantService = async (data) => {
       status: 'PENDING', // New tenants start as PENDING
     },
   });
+
+  // ✅ Notify SuperAdmin about new tenant registration
+  try {
+    const superAdminNotif = await createSuperAdminNotification({
+      type: 'tenant_registered',
+      title: '🆕 New Tenant Registered',
+      message: `${resolvedTenantName} (${email}) just signed up`,
+      metadata: {
+        tenantId: tenant.id,
+        tenantName: resolvedTenantName,
+        email: tenant.email,
+      },
+    });
+
+    emitToSuperAdmin('superadmin_notification', {
+      notification: {
+        id: superAdminNotif.id,
+        type: superAdminNotif.type,
+        title: superAdminNotif.title,
+        message: superAdminNotif.message,
+        isRead: superAdminNotif.isRead,
+        createdAt: superAdminNotif.createdAt,
+        metadata: superAdminNotif.metadata,
+      },
+    });
+    console.log(`📤 SuperAdmin notified: new tenant ${resolvedTenantName}`);
+  } catch (err) {
+    console.error('❌ SuperAdmin notification failed:', err.message);
+  }
 
   // 5️⃣ Generate JWT Tokens
   const accessToken = generateAccessToken({
@@ -918,7 +947,7 @@ export const assignContactService = async (contactId, userId, tenantId) => {
     });
   }
 
-  // ── 5. Notify agent ──
+    // ── 5. Notify agent ──
   try {
     const notification = await createNotification({
       tenantId,
@@ -929,7 +958,22 @@ export const assignContactService = async (contactId, userId, tenantId) => {
       metadata: { contactId, contactName: contact.name || contact.phone },
     });
 
-    emitToTenant(tenantId, "new_notification", { notification });
+    const notifPayload = {
+      id: notification.id,
+      type: notification.type,
+      title: notification.title,
+      message: notification.message,
+      isRead: notification.isRead,
+      createdAt: notification.createdAt,
+      metadata: notification.metadata,
+    };
+
+    // ✅ Emit to tenant room (for admin dashboard)
+    emitToTenant(tenantId, "new_notification", { notification: notifPayload });
+
+    // ✅ Emit directly to assigned user (for agent's notification bell)
+    emitToUser(userId, "new_notification", { notification: notifPayload });
+  
 
     // ── 6. Emit to user so their inbox refreshes ──
     if (conversation) {
@@ -1022,7 +1066,7 @@ export const reassignContactService = async (contactId, newUserId, tenantId) => 
     });
   }
 
-  try {
+    try {
     const notification = await createNotification({
       tenantId,
       userId: newUserId,
@@ -1032,7 +1076,21 @@ export const reassignContactService = async (contactId, newUserId, tenantId) => 
       metadata: { contactId, contactName: contact.name || contact.phone },
     });
 
-    emitToTenant(tenantId, 'new_notification', { notification });
+    const notifPayload = {
+      id: notification.id,
+      type: notification.type,
+      title: notification.title,
+      message: notification.message,
+      isRead: notification.isRead,
+      createdAt: notification.createdAt,
+      metadata: notification.metadata,
+    };
+
+    // ✅ Emit to tenant room
+    emitToTenant(tenantId, 'new_notification', { notification: notifPayload });
+
+    // ✅ Emit to new agent's room
+    emitToUser(newUserId, 'new_notification', { notification: notifPayload });
 
     if (conversation) {
       if (conversation.unreadCount > 0) {

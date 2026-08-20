@@ -121,6 +121,17 @@ const flowService = {
 getKeywords: async (flowId) => {
     const res = await flowApi.get(`/api/flows/${flowId}/keywords`)
     return res.data
+  },
+
+  // ✅ NEW: Upload media (image/video) for flow node
+  uploadFlowMedia: async (file) => {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const res = await flowApi.post('/api/flows/media/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    return res.data
   }
 }
 
