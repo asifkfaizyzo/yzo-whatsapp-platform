@@ -577,9 +577,10 @@ export const getWhatsAppStatus = async (req, res) => {
     try {
       const accessToken = decrypt(tenant.whatsappAccessToken);
       const metaRes = await fetch(
-        `https://graph.facebook.com/v23.0/${tenant.whatsappPhoneId}?fields=display_phone_number,verified_name,quality_rating,messaging_limit_tier,status,code_verification_status,health_status&access_token=${accessToken}`
+        `https://graph.facebook.com/v23.0/${tenant.whatsappPhoneId}?fields=display_phone_number,verified_name,quality_rating,messaging_limit_tier,status,code_verification_status,health_status,throughput&access_token=${accessToken}`
       );
       const metaData = await metaRes.json();
+      console.log("📱 META DATA RAW RESPONSE:", JSON.stringify(metaData, null, 2));
 
       if (!metaData.error) {
         // Parse Meta tier dynamically
@@ -635,6 +636,8 @@ export const getWhatsAppStatus = async (req, res) => {
             errors.push(...entity.errors);
           }
         }
+        
+        const throughput = metaData.throughput || null;
 
         metaHealth = {
           displayPhoneNumber: metaData.display_phone_number || null,
@@ -648,6 +651,7 @@ export const getWhatsAppStatus = async (req, res) => {
           canSendMessage,
           limitations,
           errors,
+          throughput,
           sentLast24h,
           remaining24h: Math.max(0, limitNumber - sentLast24h),
           isMock: false,
