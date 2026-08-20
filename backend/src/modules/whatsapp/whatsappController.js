@@ -525,15 +525,26 @@ export const getWhatsAppStatus = async (req, res) => {
       });
     }
 
-    // Calculate unique 24-hour broadcast recipients sent by this tenant
+    // Calculate unique 24-hour & 7-day broadcast recipients sent by this tenant
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const sentLast24h = await prisma.broadcastRecipient.count({
-      where: {
-        broadcast: { tenantId },
-        createdAt: { gte: twentyFourHoursAgo },
-        status: { in: ['SENT', 'DELIVERED', 'READ'] },
-      },
-    });
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    const [sentLast24h, sentLast7d] = await Promise.all([
+      prisma.broadcastRecipient.count({
+        where: {
+          broadcast: { tenantId },
+          createdAt: { gte: twentyFourHoursAgo },
+          status: { in: ['SENT', 'DELIVERED', 'READ'] },
+        },
+      }),
+      prisma.broadcastRecipient.count({
+        where: {
+          broadcast: { tenantId },
+          createdAt: { gte: sevenDaysAgo },
+          status: { in: ['SENT', 'DELIVERED', 'READ'] },
+        },
+      }),
+    ]);
 
     // Mock WhatsApp mode: return rich simulated health data
     if (process.env.MOCK_WHATSAPP === 'true') {
@@ -553,6 +564,9 @@ export const getWhatsAppStatus = async (req, res) => {
           codeVerificationStatus: 'VERIFIED',
           sentLast24h,
           remaining24h: Math.max(0, 1000 - sentLast24h),
+          sentLast7d,
+          nextTier: 'Tier 10K (10,000 / 24 hrs)',
+          nextTierTarget: 1000,
           isMock: true,
         },
       });
@@ -568,28 +582,42 @@ export const getWhatsAppStatus = async (req, res) => {
       const metaData = await metaRes.json();
 
       if (!metaData.error) {
-        const tier = metaData.messaging_limit_tier || 'TIER_1K';
+        // Parse Meta tier dynamically
         let limitNumber = 1000;
-        let tierName = 'Tier 1K (1,000 / 24 hrs)';
+        let tierName = `${tier} / 24 hrs`;
 
-        if (tier === 'TIER_50') {
-          limitNumber = 50;
-          tierName = 'Tier 50 (50 / 24 hrs)';
-        } else if (tier === 'TIER_250') {
-          limitNumber = 250;
-          tierName = 'Tier 250 (Trial Limit)';
-        } else if (tier === 'TIER_1K') {
-          limitNumber = 1000;
-          tierName = 'Tier 1K (1,000 / 24 hrs)';
-        } else if (tier === 'TIER_10K') {
-          limitNumber = 10000;
-          tierName = 'Tier 10K (10,000 / 24 hrs)';
-        } else if (tier === 'TIER_100K') {
-          limitNumber = 100000;
-          tierName = 'Tier 100K (100,000 / 24 hrs)';
-        } else if (tier === 'TIER_UNLIMITED') {
-          limitNumber = 1000000;
-          tierName = 'Tier Unlimited (Unlimited / 24 hrs)';
+        if (typeof tier === 'string') {
+          const upperTier = tier.toUpperCase();
+          if (upperTier.includes('50') && !upperTier.includes('50000') && !upperTier.includes('250')) {
+            limitNumber = 50;
+            tierName = 'Tier 50 (50 / 24 hrs)';
+          } else if (upperTier.includes('250')) {
+            limitNumber = 250;
+            tierName = 'Tier 250 (250 / 24 hrs)';
+          } else if (upperTier.includes('2K') || upperTier.includes('2000')) {
+            limitNumber = 2000;
+            tierName = 'Tier 2K (2,000 / 24 hrs)';
+          } else if (upperTier.includes('1K') || upperTier.includes('1000')) {
+            limitNumber = 1000;
+            tierName = 'Tier 1K (1,000 / 24 hrs)';
+          } else if (upperTier.includes('10K') || upperTier.includes('10000')) {
+            limitNumber = 10000;
+            tierName = 'Tier 10K (10,000 / 24 hrs)';
+          } else if (upperTier.includes('100K') || upperTier.includes('100000')) {
+            limitNumber = 100000;
+            tierName = 'Tier 100K (100,000 / 24 hrs)';
+          } else if (upperTier.includes('UNLIMITED')) {
+            limitNumber = 1000000;
+            tierName = 'Tier Unlimited (Unlimited / 24 hrs)';
+          } else {
+            const num = parseInt(tier.replace(/\D/g, ''), 10);
+            if (!isNaN(num) && num > 0) {
+              limitNumber = num;
+              tierName = `Tier ${num.toLocaleString()} (${num.toLocaleString()} / 24 hrs)`;
+            } else {
+              tierName = `Tier ${tier} / 24 hrs`;
+            }
+          }
         }
 
         metaHealth = {
