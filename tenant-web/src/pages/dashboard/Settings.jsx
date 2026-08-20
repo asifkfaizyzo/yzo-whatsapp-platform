@@ -26,6 +26,11 @@ import {
   Loader2,
   Lock,
   Image as ImageIcon,
+  Activity,
+  Zap,
+  BarChart3,
+  ShieldCheck,
+  Sparkles,
 } from "lucide-react";
 import { getTags, createTag } from "../../services/tag.service";
 import { useToast } from "../../context/ToastContext";
@@ -227,6 +232,7 @@ export default function SettingsPage() {
     isConnected: false,
     phoneNumberId: null,
     wabaId: null,
+    health: null,
   });
   const [loadingStatus, setLoadingStatus] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
@@ -297,6 +303,7 @@ export default function SettingsPage() {
         isConnected: !!res.data.isConnected,
         phoneNumberId: res.data.phoneNumberId || null,
         wabaId: res.data.wabaId || null,
+        health: res.data.health || null,
       });
       if (res.data.phoneNumberId || res.data.wabaId) {
         setWhatsapp((prev) => ({
@@ -1360,43 +1367,159 @@ export default function SettingsPage() {
                   <span>Checking WhatsApp connection status...</span>
                 </div>
               ) : whatsappStatus.isConnected ? (
-                <div className="bg-emerald-50/60 border border-emerald-200/80 rounded-2xl p-5 shadow-sm space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-emerald-500 text-white rounded-xl flex items-center justify-center shadow-sm">
-                        <CheckCircle2 size={20} />
+                <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-6">
+                  {/* Header info & actions */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-100">
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-12 h-12 bg-emerald-500 text-white rounded-2xl flex items-center justify-center shadow-md shadow-emerald-500/20">
+                        <CheckCircle2 size={24} />
                       </div>
                       <div>
-                        <h3 className="text-sm font-bold text-emerald-950 flex items-center gap-2">
-                          <span>WhatsApp Connected</span>
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-200 text-emerald-900">
-                            ACTIVE
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-base font-bold text-slate-900">
+                            {whatsappStatus.health?.verifiedName || "WhatsApp Business Account"}
+                          </h3>
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200/60">
+                            CONNECTED & ACTIVE
                           </span>
-                        </h3>
-                        <p className="text-xs text-emerald-800/80 font-medium">
-                          Your WhatsApp Business Cloud API integration is active
-                          and receiving messages.
+                          {whatsappStatus.health?.isMock && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200/60">
+                              MOCK MODE
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500 font-medium mt-0.5">
+                          {whatsappStatus.health?.displayPhoneNumber || "Meta Cloud API Connected"} · Verified by Meta
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={fetchWhatsappStatusData}
+                        className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700"
+                        title="Refresh live Meta health & limits"
+                      >
+                        <RefreshCw size={13} className={loadingStatus ? "animate-spin text-[#125EF2]" : ""} />
+                        <span>Refresh</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmDisconnect(true)}
+                        className="py-1.5 px-3 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-semibold transition"
+                      >
+                        Disconnect
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 4-Card Metrics Grid */}
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* 1. Quality Rating */}
+                    <div className="bg-slate-50/80 border border-slate-200/60 rounded-2xl p-4 flex flex-col justify-between">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Phone Quality</span>
+                        <Activity size={15} className="text-slate-400" />
+                      </div>
+                      <div className="mt-3">
+                        {whatsappStatus.health?.qualityRating === "GREEN" ? (
+                          <div className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <span className="text-sm font-extrabold text-emerald-700">High Quality (GREEN)</span>
+                          </div>
+                        ) : whatsappStatus.health?.qualityRating === "YELLOW" ? (
+                          <div className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                            <span className="text-sm font-extrabold text-amber-700">Medium Quality (YELLOW)</span>
+                          </div>
+                        ) : whatsappStatus.health?.qualityRating === "RED" ? (
+                          <div className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+                            <span className="text-sm font-extrabold text-rose-700">Low Quality (RED)</span>
+                          </div>
+                        ) : (
+                          <span className="text-sm font-bold text-slate-700">Good</span>
+                        )}
+                        <p className="text-[10px] text-slate-400 font-medium mt-1">Calculated by Meta from customer feedback</p>
+                      </div>
+                    </div>
+
+                    {/* 2. Daily Messaging Tier */}
+                    <div className="bg-slate-50/80 border border-slate-200/60 rounded-2xl p-4 flex flex-col justify-between">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Daily Messaging Limit</span>
+                        <Zap size={15} className="text-slate-400" />
+                      </div>
+                      <div className="mt-3">
+                        <div className="text-sm font-extrabold text-slate-900">
+                          {whatsappStatus.health?.tierName || "Tier 1K (1,000 / 24 hrs)"}
+                        </div>
+                        <p className="text-[10px] text-slate-400 font-medium mt-1">Unique recipients per rolling 24h</p>
+                      </div>
+                    </div>
+
+                    {/* 3. 24h Broadcast Usage */}
+                    <div className="bg-slate-50/80 border border-slate-200/60 rounded-2xl p-4 flex flex-col justify-between">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">24h Broadcasts Sent</span>
+                        <BarChart3 size={15} className="text-slate-400" />
+                      </div>
+                      <div className="mt-3">
+                        <div className="text-sm font-extrabold text-slate-900 flex items-baseline justify-between">
+                          <span>{whatsappStatus.health?.sentLast24h || 0}</span>
+                          <span className="text-[11px] font-semibold text-slate-400">
+                            Limit: {whatsappStatus.health?.messagingLimitNumber || 1000}
+                          </span>
+                        </div>
+                        <div className="w-full bg-slate-200 rounded-full h-1.5 mt-2 overflow-hidden">
+                          <div
+                            className="bg-[#125EF2] h-1.5 rounded-full transition-all"
+                            style={{
+                              width: `${Math.min(
+                                100,
+                                Math.round(
+                                  ((whatsappStatus.health?.sentLast24h || 0) /
+                                    (whatsappStatus.health?.messagingLimitNumber || 1000)) *
+                                    100
+                                )
+                              )}%`,
+                            }}
+                          />
+                        </div>
+                        <p className="text-[10px] text-slate-400 font-medium mt-1">
+                          {whatsappStatus.health?.remaining24h ?? 1000} remaining today
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* 4. Verification & IDs */}
+                    <div className="bg-slate-50/80 border border-slate-200/60 rounded-2xl p-4 flex flex-col justify-between">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Meta Verification</span>
+                        <ShieldCheck size={15} className="text-slate-400" />
+                      </div>
+                      <div className="mt-3">
+                        <div className="text-sm font-extrabold text-emerald-700 flex items-center gap-1.5">
+                          <CheckCircle2 size={15} />
+                          <span>Meta Cloud Verified</span>
+                        </div>
+                        <p className="text-[10px] font-mono text-slate-400 truncate mt-1" title={whatsappStatus.phoneNumberId || ""}>
+                          Phone ID: {whatsappStatus.phoneNumberId ? `${whatsappStatus.phoneNumberId.slice(0, 10)}...` : "Configured"}
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="border-t border-emerald-200/60 pt-3 grid sm:grid-cols-2 gap-3 text-xs font-medium text-emerald-900">
-                    <div className="flex items-center justify-between bg-white/80 px-3 py-2 rounded-xl border border-emerald-100">
-                      <span className="text-emerald-700 font-semibold">
-                        Phone Number ID:
-                      </span>
-                      <span className="font-mono font-bold text-slate-800">
-                        {whatsappStatus.phoneNumberId || whatsapp.phoneId}
-                      </span>
+                  {/* Tier Upgrade Tip Banner */}
+                  <div className="rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 p-4 flex items-start gap-3">
+                    <div className="p-2 rounded-xl bg-blue-100 text-blue-700 shrink-0 mt-0.5">
+                      <Sparkles size={16} />
                     </div>
-                    <div className="flex items-center justify-between bg-white/80 px-3 py-2 rounded-xl border border-emerald-100">
-                      <span className="text-emerald-700 font-semibold">
-                        WABA ID:
-                      </span>
-                      <span className="font-mono font-bold text-slate-800">
-                        {whatsappStatus.wabaId || whatsapp.wabaId}
-                      </span>
+                    <div className="text-xs text-blue-950">
+                      <span className="font-bold text-blue-900">How Meta automatically increases your messaging limit:</span>
+                      <p className="mt-1 text-blue-800/80 leading-relaxed">
+                        Meta automatically promotes your account to the next tier (e.g. 1K ➔ 10K, and 10K ➔ 100K) within 48 hours when you maintain a <strong>High Quality (GREEN)</strong> score and broadcast to at least 50% of your daily limit over a 7-day period. No manual review or forms required.
+                      </p>
                     </div>
                   </div>
                 </div>

@@ -10,7 +10,12 @@ import {
   CheckCircle, 
   Info,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Activity,
+  Zap,
+  BarChart3,
+  ShieldCheck,
+  Sparkles,
 } from "lucide-react";
 import { getBroadcasts, launchBroadcast, cancelBroadcast } from "../../services/broadcast.service";
 import { getTemplates } from "../../services/template.service";
@@ -33,6 +38,7 @@ export default function Broadcasts() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [isWhatsAppConnected, setIsWhatsAppConnected] = useState(true);
+  const [whatsappHealth, setWhatsappHealth] = useState(null);
   const [showConnectModal, setShowConnectModal] = useState(false);
   const [showWhatsAppSetup, setShowWhatsAppSetup] = useState(false);
 
@@ -65,8 +71,9 @@ export default function Broadcasts() {
       setTemplates(tRes.data.filter(t => t.status === "APPROVED"));
     }
     if (tagRes.success) setTags(tagRes.data);
-    if (statusRes.success) {
-      setIsWhatsAppConnected(!!statusRes.data?.isConnected);
+    if (statusRes.success && statusRes.data) {
+      setIsWhatsAppConnected(!!statusRes.data.isConnected);
+      setWhatsappHealth(statusRes.data.health || null);
     }
     setLoading(false);
   };
@@ -257,6 +264,76 @@ export default function Broadcasts() {
           <span>New Campaign</span>
         </button>
       </div>
+
+      {/* Live Meta Account Health & Messaging Limit Status Bar */}
+      {isWhatsAppConnected && whatsappHealth && (
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center shrink-0">
+              <Zap size={20} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold text-slate-800">
+                  {whatsappHealth.tierName || "Tier 1K (1,000 / 24 hrs)"}
+                </span>
+                {whatsappHealth.qualityRating === "GREEN" ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    High Quality (GREEN)
+                  </span>
+                ) : whatsappHealth.qualityRating === "YELLOW" ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-50 text-amber-700 border border-amber-200/60">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                    Medium Quality (YELLOW)
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-50 text-rose-700 border border-rose-200/60">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                    Low Quality (RED)
+                  </span>
+                )}
+                {whatsappHealth.isMock && (
+                  <span className="text-[10px] bg-slate-100 text-slate-600 font-bold px-2 py-0.5 rounded border border-slate-200">
+                    MOCK
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                {whatsappHealth.displayPhoneNumber || "WhatsApp Business Number"} · Meta Cloud API
+              </p>
+            </div>
+          </div>
+
+          {/* Daily Limit Usage Bar */}
+          <div className="flex flex-col sm:items-end gap-1 min-w-[240px]">
+            <div className="flex items-center justify-between w-full text-xs font-bold text-slate-700">
+              <span className="text-[11px] text-slate-500 font-semibold">24h Broadcast Usage:</span>
+              <span>
+                {whatsappHealth.sentLast24h || 0} / {whatsappHealth.messagingLimitNumber || 1000}
+              </span>
+            </div>
+            <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200/60">
+              <div
+                className="bg-[#125EF2] h-2 rounded-full transition-all"
+                style={{
+                  width: `${Math.min(
+                    100,
+                    Math.round(
+                      ((whatsappHealth.sentLast24h || 0) /
+                        (whatsappHealth.messagingLimitNumber || 1000)) *
+                        100
+                    )
+                  )}%`,
+                }}
+              />
+            </div>
+            <span className="text-[10px] text-slate-400 font-medium">
+              {whatsappHealth.remaining24h ?? 1000} messages remaining today
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* WhatsApp Disconnected Warning Banner */}
       {!isWhatsAppConnected && !loading && (
@@ -566,9 +643,21 @@ export default function Broadcasts() {
                     onChange={(e) => setNewCampaign({ ...newCampaign, scheduledTime: e.target.value })}
                     className="input text-xs bg-white border-purple-200 focus:ring-purple-500"
                   />
-                  {/* <p className="text-[10px] text-purple-600 font-medium">
-                    BullMQ will hold jobs in Redis and automatically launch this broadcast at the chosen time.
-                  </p> */}
+                </div>
+              )}
+
+              {/* Messaging Limit Quota Info */}
+              {whatsappHealth && (
+                <div className="p-3 bg-blue-50/80 border border-blue-100 rounded-2xl flex items-center justify-between text-xs text-blue-950">
+                  <div className="flex items-center gap-2">
+                    <Zap size={15} className="text-[#125EF2]" />
+                    <span className="font-semibold text-blue-900">
+                      Daily Tier: <strong>{whatsappHealth.tierName}</strong>
+                    </span>
+                  </div>
+                  <span className="font-bold text-[#125EF2] bg-white px-2 py-0.5 rounded-lg border border-blue-100 shadow-2xs">
+                    {whatsappHealth.remaining24h ?? 1000} remaining today
+                  </span>
                 </div>
               )}
 
