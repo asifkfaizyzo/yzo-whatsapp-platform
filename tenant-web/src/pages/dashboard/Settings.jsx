@@ -1510,15 +1510,17 @@ export default function SettingsPage() {
                     </div>
                   </div>
 
-                  {/* Tier Upgrade Tip Banner */}
+                  {/* Current Tier & Automatic Upgrades Note */}
                   <div className="rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 p-4 flex items-start gap-3">
                     <div className="p-2 rounded-xl bg-blue-100 text-blue-700 shrink-0 mt-0.5">
                       <Sparkles size={16} />
                     </div>
                     <div className="text-xs text-blue-950">
-                      <span className="font-bold text-blue-900">How Meta automatically increases your messaging limit:</span>
+                      <span className="font-bold text-blue-900">
+                        Current Messaging Limit: {whatsappStatus.health?.tierName || "Tier 1K (1,000 / 24 hrs)"}
+                      </span>
                       <p className="mt-1 text-blue-800/80 leading-relaxed">
-                        Meta automatically promotes your account to the next tier (e.g. 1K ➔ 10K, and 10K ➔ 100K) within 48 hours when you maintain a <strong>High Quality (GREEN)</strong> score and broadcast to at least 50% of your daily limit over a 7-day period. No manual review or forms required.
+                        Meta calculates this tier based on your business verification and sending history. When you maintain a <strong>High Quality (GREEN)</strong> rating and actively send campaigns, Meta automatically upgrades your daily tier limit (from 250 ➔ 1K/2K ➔ 10K ➔ 100K ➔ Unlimited).
                       </p>
                     </div>
                   </div>
