@@ -10,6 +10,7 @@ import { isNewWebhookEvent } from '../lib/idempotency.js';
 import { dlqQueue } from '../queues/dlqQueue.js';
 import { generateSignedUrl } from '../lib/utils/signedUrl.js';
 import { decrypt } from '../lib/crypto.js';
+import { sendTemplateStatusEmail } from '../modules/auth/emailService.js';
 import fs from 'fs';
 import path from 'path';
 import https from 'https';
@@ -33,6 +34,110 @@ export const processWebhookJob = async (job) => {
   // TEMP: test failure simulation
   if (message && message.text?.body === 'FAIL_TEST') {
     throw new Error('Simulated failure for DLQ test');
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // A0. Handle Template Status Updates (Meta approval/rejection)
+  // ═══════════════════════════════════════════════════════════
+  const isTemplateStatusEvent = change?.field === 'message_template_status_update' || (value?.event && value?.message_template_name);
+
+  if (isTemplateStatusEvent) {
+    const wabaId = entry?.id;
+    const event = value?.event; // 'APPROVED' | 'REJECTED' | 'PAUSED' | 'PENDING_DELETION' | 'DISABLED'
+    const templateName = value?.message_template_name;
+    const language = value?.message_template_language || 'en_US';
+    const metaTemplateId = value?.message_template_id ? String(value.message_template_id) : null;
+    const reason = value?.reason;
+
+    const templateEventId = `template_status:${wabaId}:${templateName}:${language}:${event}`;
+    const isNew = await isNewWebhookEvent(templateEventId);
+
+    if (!isNew) {
+      console.log(`⚠️ [Dedup] Skipping duplicate template status event: ${templateEventId}`);
+      return;
+    }
+
+    console.log(`📋 [Webhook] Processing template status update: "${templateName}" (${language}) -> ${event} [WABA: ${wabaId}]`);
+
+    // 1. Find Tenant by whatsappWabaId
+    let tenant = null;
+    if (wabaId) {
+      tenant = await prisma.tenant.findFirst({
+        where: { whatsappWabaId: String(wabaId) }
+      });
+    }
+
+    // 2. Find Template in DB
+    let template = null;
+    if (tenant) {
+      template = await prisma.template.findUnique({
+        where: {
+          name_language_tenantId: {
+            name: templateName,
+            language: language,
+            tenantId: tenant.id,
+          }
+        }
+      });
+    }
+
+    if (!template && metaTemplateId) {
+      template = await prisma.template.findFirst({
+        where: { metaTemplateId: String(metaTemplateId) }
+      });
+      if (template && !tenant) {
+        tenant = await prisma.tenant.findUnique({ where: { id: template.tenantId } });
+      }
+    }
+
+    if (template && tenant) {
+      let newStatus = 'PENDING';
+      if (event === 'APPROVED') newStatus = 'APPROVED';
+      else if (event === 'REJECTED') newStatus = 'REJECTED';
+      else if (event === 'PAUSED') newStatus = 'PAUSED';
+      else if (event === 'PENDING_DELETION' || event === 'DELETED') newStatus = 'DELETED';
+      else if (event === 'DISABLED') newStatus = 'DISABLED';
+
+      await prisma.template.update({
+        where: { id: template.id },
+        data: {
+          status: newStatus,
+          ...(metaTemplateId ? { metaTemplateId } : {}),
+        }
+      });
+
+      console.log(`✅ Template "${template.name}" status updated to ${newStatus} for tenant ${tenant.id}`);
+
+      // Emit live socket event to tenant room
+      emitToTenant(tenant.id, 'template_status_update', {
+        templateId: template.id,
+        name: template.name,
+        language: template.language,
+        status: newStatus,
+        reason: reason || null,
+        category: template.category,
+        headerType: template.headerType,
+      });
+
+      // Send email notification on approval (or rejection)
+      const recipientEmail = tenant.email;
+      if (recipientEmail && (newStatus === 'APPROVED' || newStatus === 'REJECTED')) {
+        await sendTemplateStatusEmail({
+          toEmail: recipientEmail,
+          tenantName: tenant.tenantName || tenant.firstName || 'Valued Partner',
+          templateName: template.name,
+          language: template.language,
+          category: template.category,
+          headerType: template.headerType,
+          status: newStatus,
+          reason: reason || null,
+        });
+      }
+    } else {
+      console.warn(`⚠️ Template "${templateName}" (${language}) not found in DB for WABA ${wabaId}`);
+    }
+
+    return; // template status handled, stop here
   }
 
   // ═══════════════════════════════════════════════════════════

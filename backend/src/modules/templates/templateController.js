@@ -9,6 +9,7 @@ import {
   inferHeaderTypeFromComponents,
 } from './templateService.js';
 import { validateTemplateMediaSize } from '../../middlewares/templateUpload.middleware.js';
+import { sendTemplateStatusEmail } from '../auth/emailService.js';
 
 // ── Valid values ────────────────────────────────────────────────────────────
 const VALID_HEADER_TYPES = ['NONE', 'TEXT', 'IMAGE', 'VIDEO', 'DOCUMENT', 'LOCATION'];
@@ -48,7 +49,14 @@ export const getTemplates = async (req, res) => {
       orderBy: { createdAt: 'desc' }
     });
 
-    return res.status(200).json({ success: true, data: templates });
+    const latestSync = templates.reduce((latest, t) => {
+      if (t.lastSyncedAt && (!latest || new Date(t.lastSyncedAt) > new Date(latest))) {
+        return t.lastSyncedAt;
+      }
+      return latest;
+    }, null);
+
+    return res.status(200).json({ success: true, data: templates, lastSyncedAt: latestSync });
   } catch (error) {
     console.error('Error fetching templates:', error);
     return res.status(500).json({ success: false, message: 'Failed to fetch templates' });
@@ -317,6 +325,21 @@ export const createTemplate = async (req, res) => {
       });
     }
 
+    // ── If MOCK_WHATSAPP=true, simulate instant Meta approval webhook email ──
+    if (process.env.MOCK_WHATSAPP === 'true' && tenant?.email) {
+      console.log(`📧 [Mock WhatsApp] Triggering instant template approval email for ${tenant.email}...`);
+      sendTemplateStatusEmail({
+        toEmail: tenant.email,
+        tenantName: tenant.tenantName || tenant.firstName || 'Valued Partner',
+        templateName: template.name,
+        language: template.language,
+        category: template.category,
+        headerType: template.headerType,
+        status: 'APPROVED',
+        reason: null,
+      }).catch((err) => console.error('❌ Mock template email error:', err.message));
+    }
+
     return res.status(201).json({ success: true, data: template });
   } catch (error) {
     // P2002 = Prisma unique constraint violation fallback
@@ -337,6 +360,102 @@ export const createTemplate = async (req, res) => {
 // ─────────────────────────────────────────────────────────────
 // 3. POST: Sync Templates from Meta Business Account (WABA)
 // ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// Core helper: Sync templates from Meta for a given tenant object
+// ─────────────────────────────────────────────────────────────
+export const performTemplateSync = async (tenant) => {
+  if (!tenant.whatsappWabaId || !tenant.whatsappAccessToken) {
+    throw new Error('WhatsApp Business Credentials are not configured in settings.');
+  }
+
+  if (process.env.MOCK_WHATSAPP === 'true') {
+    console.log('⚠️  MOCK_WHATSAPP=true → skipping Meta template sync, returning local templates');
+    const localTemplates = await prisma.template.findMany({ where: { tenantId: tenant.id, status: { not: 'DELETED' } } });
+    return localTemplates;
+  }
+
+  const metaTemplates = await fetchMetaTemplates(tenant);
+  const synced = [];
+  const now = new Date();
+
+  for (const mt of metaTemplates) {
+    const components = mt.components || [];
+
+    // Infer typed header values from components
+    const derivedHeaderType = inferHeaderTypeFromComponents(components);
+
+    const headerComp   = components.find(c => c.type === 'HEADER');
+    const footerComp   = components.find(c => c.type === 'FOOTER');
+    const buttonsComp  = components.find(c => c.type === 'BUTTONS');
+    const bodyComp     = components.find(c => c.type === 'BODY');
+
+    const derivedHeaderText         = derivedHeaderType === 'TEXT' ? (headerComp?.text || null) : null;
+    const derivedHeaderMediaHandle  = MEDIA_HEADER_TYPES.includes(derivedHeaderType)
+      ? (headerComp?.example?.header_handle?.[0] || null)
+      : null;
+    const derivedFooterText = footerComp?.text || null;
+    const derivedButtons    = buttonsComp?.buttons || null;
+
+    const headerParams = derivedHeaderType === 'TEXT' ? countPlaceholders(derivedHeaderText) : 0;
+    const bodyParams   = countPlaceholders(bodyComp?.text);
+
+    // Map Meta status to Prisma enum
+    let localStatus = 'APPROVED';
+    if (mt.status === 'PENDING')  localStatus = 'PENDING';
+    if (mt.status === 'REJECTED') localStatus = 'REJECTED';
+    if (mt.status === 'PAUSED')   localStatus = 'PAUSED';
+    if (mt.status === 'DISABLED') localStatus = 'DISABLED';
+
+    const dbTemp = await prisma.template.upsert({
+      where: {
+        name_language_tenantId: {
+          name: mt.name,
+          language: mt.language,
+          tenantId: tenant.id
+        }
+      },
+      update: {
+        metaTemplateId:       mt.id,
+        status:               localStatus,
+        components,
+        headerParams,
+        bodyParams,
+        headerType:           derivedHeaderType,
+        headerText:           derivedHeaderText,
+        headerMediaHandle:    derivedHeaderMediaHandle,
+        footerText:           derivedFooterText,
+        buttons:              derivedButtons,
+        lastSyncedAt:         now,
+      },
+      create: {
+        tenantId:             tenant.id,
+        metaTemplateId:       mt.id,
+        name:                 mt.name,
+        language:             mt.language,
+        category:             mt.category,
+        status:               localStatus,
+        components,
+        headerParams,
+        bodyParams,
+        headerType:           derivedHeaderType,
+        headerText:           derivedHeaderText,
+        headerMediaHandle:    derivedHeaderMediaHandle,
+        footerText:           derivedFooterText,
+        buttons:              derivedButtons,
+        createdById:          null,
+        lastSyncedAt:         now,
+      }
+    });
+
+    synced.push(dbTemp);
+  }
+
+  return synced;
+};
+
+// ─────────────────────────────────────────────────────────────
+// 3. POST: Sync all templates from Meta for the logged-in tenant
+// ─────────────────────────────────────────────────────────────
 export const syncTemplates = async (req, res) => {
   try {
     const tenant = req.tenant;
@@ -345,87 +464,8 @@ export const syncTemplates = async (req, res) => {
       return res.status(400).json({ success: false, message: 'WhatsApp Business Credentials are not configured in settings.' });
     }
 
-    if (process.env.MOCK_WHATSAPP === 'true') {
-      console.log('⚠️  MOCK_WHATSAPP=true → skipping Meta template sync, returning local templates');
-      const localTemplates = await prisma.template.findMany({ where: { tenantId: tenant.id } });
-      return res.status(200).json({ success: true, count: localTemplates.length, data: localTemplates });
-    }
-
-    const metaTemplates = await fetchMetaTemplates(tenant);
-    const synced = [];
-
-    for (const mt of metaTemplates) {
-      const components = mt.components || [];
-
-      // Infer typed header values from components
-      const derivedHeaderType = inferHeaderTypeFromComponents(components);
-
-      const headerComp   = components.find(c => c.type === 'HEADER');
-      const footerComp   = components.find(c => c.type === 'FOOTER');
-      const buttonsComp  = components.find(c => c.type === 'BUTTONS');
-      const bodyComp     = components.find(c => c.type === 'BODY');
-
-      const derivedHeaderText         = derivedHeaderType === 'TEXT' ? (headerComp?.text || null) : null;
-      const derivedHeaderMediaHandle  = MEDIA_HEADER_TYPES.includes(derivedHeaderType)
-        ? (headerComp?.example?.header_handle?.[0] || null)
-        : null;
-      const derivedFooterText = footerComp?.text || null;
-      const derivedButtons    = buttonsComp?.buttons || null;
-
-      const headerParams = derivedHeaderType === 'TEXT' ? countPlaceholders(derivedHeaderText) : 0;
-      const bodyParams   = countPlaceholders(bodyComp?.text);
-
-      // Map Meta status to Prisma enum
-      let localStatus = 'APPROVED';
-      if (mt.status === 'PENDING')  localStatus = 'PENDING';
-      if (mt.status === 'REJECTED') localStatus = 'REJECTED';
-      if (mt.status === 'PAUSED')   localStatus = 'PAUSED';
-      if (mt.status === 'DISABLED') localStatus = 'DISABLED';
-
-      const dbTemp = await prisma.template.upsert({
-        where: {
-          name_language_tenantId: {
-            name: mt.name,
-            language: mt.language,
-            tenantId: tenant.id
-          }
-        },
-        update: {
-          metaTemplateId:       mt.id,
-          status:               localStatus,
-          components,
-          headerParams,
-          bodyParams,
-          headerType:           derivedHeaderType,
-          headerText:           derivedHeaderText,
-          headerMediaHandle:    derivedHeaderMediaHandle,
-          footerText:           derivedFooterText,
-          buttons:              derivedButtons,
-          lastSyncedAt:         new Date(),
-        },
-        create: {
-          tenantId:             tenant.id,
-          metaTemplateId:       mt.id,
-          name:                 mt.name,
-          language:             mt.language,
-          category:             mt.category,
-          status:               localStatus,
-          components,
-          headerParams,
-          bodyParams,
-          headerType:           derivedHeaderType,
-          headerText:           derivedHeaderText,
-          headerMediaHandle:    derivedHeaderMediaHandle,
-          footerText:           derivedFooterText,
-          buttons:              derivedButtons,
-          createdById:          null,
-        }
-      });
-
-      synced.push(dbTemp);
-    }
-
-    return res.status(200).json({ success: true, count: synced.length, data: synced });
+    const synced = await performTemplateSync(tenant);
+    return res.status(200).json({ success: true, count: synced.length, data: synced, lastSyncedAt: new Date() });
   } catch (error) {
     console.error('Error syncing templates:', error);
     return res.status(500).json({ success: false, message: `Sync failed: ${error.message}` });
