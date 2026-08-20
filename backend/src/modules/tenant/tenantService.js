@@ -15,7 +15,7 @@ import { getOrCreateConversation } from "../../modules/conversations/conversatio
 import { AsyncLocalStorage } from 'async_hooks';
 import { createNotification } from "../notifications/notificationService.js";
 import { checkLimitAccess } from '../../lib/planLimits.js';
-import { createSuperAdminNotification } from '../superAdminNotifications/superAdminNotificationService.js';
+import { createSuperAdminNotification } from '../SuperAdminNotifications/superAdminNotificationService.js';
 import { createAuditLog } from '../audit/auditLogService.js';
 
 
