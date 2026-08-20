@@ -4,7 +4,7 @@ import { calculateGST } from "../superadmin/superadminService.js";
 import { generateInvoicePDF } from "../plans/invoiceService.js";
 import { sendInvoiceEmail } from "../auth/emailService.js";
 
-import { createSuperAdminNotification } from "../superAdminNotifications/superAdminNotificationService.js";
+import { createSuperAdminNotification } from "../SuperAdminNotifications/superAdminNotificationService.js";
 import { createNotification } from "../notifications/notificationService.js";
 import { emitToSuperAdmin, emitToTenant } from "../../lib/socket.js";
 
