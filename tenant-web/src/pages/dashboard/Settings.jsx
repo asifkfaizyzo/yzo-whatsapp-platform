@@ -1510,6 +1510,42 @@ export default function SettingsPage() {
                     </div>
                   </div>
 
+                  {/* Meta Health Status / Limitation Alert if any */}
+                  {whatsappStatus.health?.canSendMessage === "LIMITED" && whatsappStatus.health?.limitations?.length > 0 && (
+                    <div className="rounded-2xl bg-amber-50 border border-amber-200 p-4 flex items-start gap-3">
+                      <div className="p-2 rounded-xl bg-amber-100 text-amber-700 shrink-0 mt-0.5">
+                        <AlertTriangle size={16} />
+                      </div>
+                      <div className="text-xs text-amber-900">
+                        <span className="font-bold">Meta Account Limitation Active:</span>
+                        <ul className="mt-1 list-disc list-inside space-y-0.5 text-amber-800">
+                          {whatsappStatus.health.limitations.map((info, idx) => (
+                            <li key={idx}>{info}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  )}
+
+                  {whatsappStatus.health?.canSendMessage === "BLOCKED" && (
+                    <div className="rounded-2xl bg-rose-50 border border-rose-200 p-4 flex items-start gap-3">
+                      <div className="p-2 rounded-xl bg-rose-100 text-rose-700 shrink-0 mt-0.5">
+                        <AlertCircle size={16} />
+                      </div>
+                      <div className="text-xs text-rose-900">
+                        <span className="font-bold">Meta Messaging Blocked:</span>
+                        <p className="mt-1 text-rose-800">
+                          {whatsappStatus.health?.errors?.[0]?.error_description || "One or more nodes are blocked by Meta. Please check your Meta Business Suite."}
+                        </p>
+                        {whatsappStatus.health?.errors?.[0]?.possible_solution && (
+                          <p className="mt-0.5 text-rose-700 font-medium">
+                            Solution: {whatsappStatus.health.errors[0].possible_solution}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Current Tier & Automatic Upgrades Note */}
                   <div className="rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 p-4 flex items-start gap-3">
                     <div className="p-2 rounded-xl bg-blue-100 text-blue-700 shrink-0 mt-0.5">

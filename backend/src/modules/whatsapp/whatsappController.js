@@ -577,12 +577,13 @@ export const getWhatsAppStatus = async (req, res) => {
     try {
       const accessToken = decrypt(tenant.whatsappAccessToken);
       const metaRes = await fetch(
-        `https://graph.facebook.com/v23.0/${tenant.whatsappPhoneId}?fields=display_phone_number,verified_name,quality_rating,messaging_limit_tier,status,code_verification_status&access_token=${accessToken}`
+        `https://graph.facebook.com/v23.0/${tenant.whatsappPhoneId}?fields=display_phone_number,verified_name,quality_rating,messaging_limit_tier,status,code_verification_status,health_status&access_token=${accessToken}`
       );
       const metaData = await metaRes.json();
 
       if (!metaData.error) {
         // Parse Meta tier dynamically
+        const tier = metaData.messaging_limit_tier || 'TIER_1K';
         let limitNumber = 1000;
         let tierName = `${tier} / 24 hrs`;
 
@@ -620,6 +621,21 @@ export const getWhatsAppStatus = async (req, res) => {
           }
         }
 
+        // Extract official Meta health status & limitations
+        const canSendMessage = metaData.health_status?.can_send_message || 'AVAILABLE';
+        const entities = metaData.health_status?.entities || [];
+        const limitations = [];
+        const errors = [];
+
+        for (const entity of entities) {
+          if (Array.isArray(entity.additional_info)) {
+            limitations.push(...entity.additional_info);
+          }
+          if (Array.isArray(entity.errors)) {
+            errors.push(...entity.errors);
+          }
+        }
+
         metaHealth = {
           displayPhoneNumber: metaData.display_phone_number || null,
           verifiedName: metaData.verified_name || null,
@@ -629,6 +645,9 @@ export const getWhatsAppStatus = async (req, res) => {
           tierName,
           status: metaData.status || 'CONNECTED',
           codeVerificationStatus: metaData.code_verification_status || 'VERIFIED',
+          canSendMessage,
+          limitations,
+          errors,
           sentLast24h,
           remaining24h: Math.max(0, limitNumber - sentLast24h),
           isMock: false,
