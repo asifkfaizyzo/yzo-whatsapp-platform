@@ -13,7 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { io } from "socket.io-client";
+import { getAdminSocket, disconnectAdminSocket } from "../lib/socket";
 import { logoutSuperAdmin } from "../lib/authApi";
 import { useAdminAuthStore } from "../store/useAdminAuthStore";
 import { useNotificationStore } from "../store/useNotificationStore";
@@ -43,36 +43,57 @@ const TopNavbar = () => {
     fetchNotifications();
   }, []);
 
-  // ── Socket: join superadmin room + listen for payment events ──
+  // ── Socket: join superadmin room + listen for events ──
+  const socketJoined = useRef(false);
+
   useEffect(() => {
-    const socket = io(import.meta.env.VITE_API_URL, {
-      withCredentials: true,
-      transports: ["websocket"],
-    });
+    const token = useAdminAuthStore.getState().accessToken;
+    if (!token) {
+      console.log("⏳ No admin token yet — skipping socket setup");
+      return;
+    }
 
-    socket.on("connect", () => {
-      console.log("✅ Admin socket connected:", socket.id);
-      // Join dedicated superadmin room
+    const socket = getAdminSocket();
+    if (!socket) {
+      console.log("❌ Admin socket is null");
+      return;
+    }
+
+    const joinSuperAdminRoom = () => {
+      if (socketJoined.current) return;
       socket.emit("join_superadmin");
-      console.log("✅ Joined superadmin room");
-    });
+      socketJoined.current = true;
+      console.log("👑 Joined superadmin_room");
+    };
 
-    // ── Listen for tenant payment notification ──
-    socket.on("superadmin_notification", (data) => {
+    if (socket.connected) {
+      joinSuperAdminRoom();
+    }
+
+    const handleConnect = () => {
+      console.log("🔌 Admin socket connected:", socket.id);
+      socketJoined.current = false;
+      joinSuperAdminRoom();
+    };
+
+    const handleSuperAdminNotification = (data) => {
       console.log("🔔 SuperAdmin notification received:", data);
-      const { notification } = data;
-      addNotification(notification);
-      playNotificationSound();
-    });
+      if (data?.notification) {
+        addNotification(data.notification);
+        playNotificationSound();
+      }
+    };
 
-    socket.on("disconnect", () => {
-      console.log("🔌 Admin socket disconnected");
-    });
+    socket.on("connect", handleConnect);
+    socket.on("superadmin_notification", handleSuperAdminNotification);
 
     return () => {
-      socket.disconnect();
+      socket.off("connect", handleConnect);
+      socket.off("superadmin_notification", handleSuperAdminNotification);
+      socketJoined.current = false;
     };
   }, []);
+
 
   // ── Notification sound ──
   const playNotificationSound = () => {
@@ -102,6 +123,7 @@ const TopNavbar = () => {
   // ── Handlers ──
   const handleLogout = async () => {
     setShowDropdown(false);
+    disconnectAdminSocket(); // ✅ Disconnect admin socket on logout
     await logoutSuperAdmin();
     navigate("/login");
   };

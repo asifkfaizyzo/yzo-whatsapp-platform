@@ -168,11 +168,12 @@ function FlowBuilderInner() {
 
         setEdges(rfEdges);
       }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
+   } catch (err) {
+  console.error(err);
+  toast.error('Failed to load flow');
+} finally {
+  setLoading(false);
+}
   };
 
   // Connect two nodes with an edge
@@ -261,8 +262,10 @@ if (nodeType === 'INTERACTIVE_BUTTONS') {
     );
   };
 
-  // ✅ Save flow — handle CONDITION multi-branch edges
-  const handleSave = async () => {
+
+
+// ✅ Save flow — handle CONDITION multi-branch edges
+const handleSave = async () => {
   try {
     setSaving(true)
 
@@ -291,7 +294,6 @@ if (nodeType === 'INTERACTIVE_BUTTONS') {
       if (node.type === 'INTERACTIVE_BUTTONS') {
         const buttons = node.data?.options || []
         const updatedButtons = buttons.map((btn) => {
-          // Find edge where sourceHandle = button ID
           const edge = edges.find(
             e => e.source === node.id &&
                  e.sourceHandle === btn.id
@@ -316,17 +318,20 @@ if (nodeType === 'INTERACTIVE_BUTTONS') {
       edges,
     })
 
-    alert('✅ Flow saved successfully!')
+    // ✅ CHANGED: alert → toast
+    toast.success('Flow saved successfully!')
 
   } catch (err) {
     console.error(err)
-    alert('❌ Failed to save flow')
+    // ✅ CHANGED: alert → toast
+    toast.error(err?.response?.data?.message || 'Failed to save flow')
   } finally {
     setSaving(false)
   }
 }
 
-  if (loading) {
+
+ if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
         <Loader2 className="animate-spin text-[#125EF2]" size={32} />

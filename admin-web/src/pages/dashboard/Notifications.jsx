@@ -21,6 +21,8 @@ import {
   deleteAdminNotif,
 } from "../../services/notification.service";
 import { useNotificationStore } from "../../store/useNotificationStore";
+import { getAdminSocket } from "../../lib/socket";
+import { useAdminAuthStore } from "../../store/useAdminAuthStore";
 
 const NOTIF_TYPES = [
   { value: "all", label: "All Types" },
@@ -69,6 +71,52 @@ const Notifications = () => {
   useEffect(() => {
     loadNotifications();
   }, [page, filter, typeFilter]);
+
+    // ✅ Live socket listener for real-time SuperAdmin notifications on this page
+  useEffect(() => {
+    const token = useAdminAuthStore.getState().accessToken;
+    if (!token) return;
+
+    const socket = getAdminSocket();
+    if (!socket) return;
+
+    const handleLiveAdminNotification = (data) => {
+      if (!data?.notification) return;
+
+      const newNotif = data.notification;
+      console.log("🔔 Live SuperAdmin notification received on page:", newNotif);
+
+      // Check if incoming notification matches active filters
+      const matchesFilter =
+        filter === "all" ||
+        (filter === "unread" && !newNotif.isRead) ||
+        (filter === "read" && newNotif.isRead);
+
+      const matchesType =
+        typeFilter === "all" || typeFilter === newNotif.type;
+
+      // Only insert into the current list view if on Page 1 & matches filters
+      if (matchesFilter && matchesType && page === 1) {
+        setNotifications((prev) => {
+          // Prevent duplicates
+          if (prev.some((n) => n.id === newNotif.id)) return prev;
+          return [newNotif, ...prev].slice(0, LIMIT);
+        });
+      }
+
+      // Always increment counts if unread
+      if (!newNotif.isRead) {
+        setUnreadCount((c) => c + 1);
+        setTotal((t) => t + 1);
+      }
+    };
+
+    socket.on("superadmin_notification", handleLiveAdminNotification);
+
+    return () => {
+      socket.off("superadmin_notification", handleLiveAdminNotification);
+    };
+  }, [filter, typeFilter, page]);
 
   // ── Filtered notifications (client-side search) ──
   const filteredNotifs = notifications.filter((n) => {

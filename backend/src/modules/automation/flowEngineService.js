@@ -4,6 +4,7 @@ import prisma from '../../config/prisma.js'
 import flowService from './flowService.js'
 import { emitToTenant, emitToUser, isUserOnline } from '../../lib/socket.js'
 import { decrypt } from '../../lib/crypto.js'
+import { sendWhatsAppMedia } from '../../lib/utils/whatsappMediaSender.js' 
 
 const flowEngine = {
 
@@ -343,7 +344,45 @@ if (conversation.mode === 'QUEUED') {
   // ─────────────────────────────────────────
   // SEND_MESSAGE Node
   // ─────────────────────────────────────────
-  handleSendMessage: async (node, conversation, contact, userMessage, isNewContact = false) => {
+// ─────────────────────────────────────────
+// SEND_MESSAGE Node (with media support)
+// ─────────────────────────────────────────
+handleSendMessage: async (node, conversation, contact, userMessage, isNewContact = false) => {
+
+  const options  = node.options || {}
+  const hasMedia = options.mediaUrl && options.mediaType
+
+  if (hasMedia) {
+    // ── Send MEDIA message (image/video) ──
+    console.log(`📎 Sending media: ${options.mediaType} → ${options.mediaUrl}`)
+
+    await flowEngine.sendBotMediaMessage(
+      conversation.tenantId,
+      contact.phone,
+      {
+        mediaType:     options.mediaType,
+        mediaUrl:      options.mediaUrl,
+        mediaName:     options.mediaName,
+        mediaMimeType: options.mediaMimeType,
+        mediaSize:     options.mediaSize,
+        caption:       node.content || null,
+      }
+    )
+
+    await flowEngine.saveBotMediaMessage(
+      conversation.id,
+      {
+        mediaType:     options.mediaType,
+        mediaUrl:      options.mediaUrl,
+        mediaName:     options.mediaName,
+        mediaMimeType: options.mediaMimeType,
+        mediaSize:     options.mediaSize,
+        caption:       node.content || null,
+      }
+    )
+
+  } else {
+    // ── Send TEXT message (existing behavior) ──
     console.log(`📨 Sending message: "${node.content}"`)
 
     await flowEngine.sendWhatsAppMessage(
@@ -353,36 +392,41 @@ if (conversation.mode === 'QUEUED') {
     )
 
     await flowEngine.saveBotMessage(conversation.id, node.content)
+  }
 
-    if (node.nextNodeId) {
-      const nextNode = await flowService.getNodeById(node.nextNodeId)
+  // ── Move to next node (same as before) ──
+  if (node.nextNodeId) {
+    const nextNode = await flowService.getNodeById(node.nextNodeId)
 
-      if (nextNode) {
-        await prisma.conversation.update({
-          where: { id: conversation.id },
-          data: { currentNodeId: nextNode.id }
-        })
+    if (nextNode) {
+      await prisma.conversation.update({
+        where: { id: conversation.id },
+        data: { currentNodeId: nextNode.id }
+      })
 
-        const updatedConversation = {
-          ...conversation,
-          currentNodeId: null
-        }
-
-        await flowEngine.executeNode(
-          nextNode,
-          updatedConversation,
-          contact,
-          userMessage,
-          isNewContact
-        )
-      } else {
-        await flowEngine.endFlow(conversation)
+      const updatedConversation = {
+        ...conversation,
+        currentNodeId: null
       }
 
+      await flowEngine.executeNode(
+        nextNode,
+        updatedConversation,
+        contact,
+        userMessage,
+        isNewContact
+      )
     } else {
       await flowEngine.endFlow(conversation)
     }
-  },
+
+  } else {
+    await flowEngine.endFlow(conversation)
+  }
+},
+
+
+
 
   // ─────────────────────────────────────────
   // ASK_QUESTION Node
@@ -1158,6 +1202,121 @@ handleAssignAgent: async (node, conversation, contact) => {
       }
     )
   },
+
+
+  // ─────────────────────────────────────────
+// Send Media Message via WhatsApp (NEW)
+// ─────────────────────────────────────────
+sendBotMediaMessage: async (tenantId, phone, mediaData) => {
+  try {
+    if (process.env.MOCK_WHATSAPP === 'true') {
+      console.log('\n╔══════════════════════════════════════╗')
+      console.log('║  📱 MOCK WHATSAPP - MEDIA           ║')
+      console.log('╠══════════════════════════════════════╣')
+      console.log(`║  To     : ${phone}`)
+      console.log(`║  Type   : ${mediaData.mediaType}`)
+      console.log(`║  URL    : ${mediaData.mediaUrl}`)
+      console.log(`║  Caption: ${mediaData.caption || '(none)'}`)
+      console.log('╚══════════════════════════════════════╝\n')
+      return { messages: [{ id: 'mock_media_' + Date.now() }] }
+    }
+
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: {
+        whatsappPhoneId:     true,
+        whatsappAccessToken: true,
+      }
+    })
+
+    if (!tenant?.whatsappPhoneId || !tenant?.whatsappAccessToken) {
+      console.error('❌ Tenant WhatsApp credentials not configured')
+      return
+    }
+
+    // Build "file" object expected by shared helper
+    const file = {
+      path:         mediaData.mediaUrl,
+      originalname: mediaData.mediaName || 'media',
+      mimetype:     mediaData.mediaMimeType,
+      size:         mediaData.mediaSize,
+    }
+
+    const result = await sendWhatsAppMedia({
+      tenant,
+      contactPhone: phone,
+      file,
+      caption:      mediaData.caption,
+      mediaType:    mediaData.mediaType,
+    })
+
+    console.log(`📤 Media sent: ${result.waMessageId}`)
+    return result
+
+  } catch (error) {
+    console.error('❌ sendBotMediaMessage error:', error)
+  }
+},
+
+// ─────────────────────────────────────────
+// Save bot MEDIA message to DB (NEW)
+// ─────────────────────────────────────────
+saveBotMediaMessage: async (conversationId, mediaData) => {
+  try {
+    const message = await prisma.message.create({
+      data: {
+        conversationId,
+        senderType:    'SYSTEM',
+        direction:     'OUTBOUND',
+        type:          mediaData.mediaType,        // IMAGE / VIDEO
+        text:          mediaData.caption || null,
+        caption:       mediaData.caption || null,
+        mediaUrl:      mediaData.mediaUrl,
+        mediaName:     mediaData.mediaName,
+        mediaSize:     mediaData.mediaSize,
+        mediaMimeType: mediaData.mediaMimeType,
+        status:        'sent',
+      },
+      include: {
+        conversation: {
+          include: { contact: true }
+        }
+      }
+    })
+
+    const messagePayload = {
+      conversationId: message.conversationId,
+      message: {
+        id:             message.id,
+        type:           message.type,
+        text:           message.text,
+        caption:        message.caption,
+        mediaUrl:       message.mediaUrl,
+        mediaName:      message.mediaName,
+        mediaSize:      message.mediaSize,
+        mediaMimeType:  message.mediaMimeType,
+        senderType:     message.senderType,
+        isFromCustomer: false,
+        createdAt:      message.createdAt,
+      }
+    }
+
+    emitToTenant(message.conversation.tenantId, 'new_message', messagePayload)
+
+    const assignedTo = message.conversation.assignedTo ||
+                       message.conversation.contact?.assignedTo
+
+    if (assignedTo) {
+      emitToUser(assignedTo, 'new_message', messagePayload)
+      console.log(`📤 Bot media emitted to user_${assignedTo}`)
+    }
+
+  } catch (error) {
+    console.error('❌ saveBotMediaMessage error:', error)
+  }
+},
+
+
 
   // ─────────────────────────────────────────
   // Send WhatsApp Message via Meta API

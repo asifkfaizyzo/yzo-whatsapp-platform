@@ -1,11 +1,27 @@
 // src/components/automation/NodeConfigPanel.jsx
 
-import { useState, useEffect } from "react";
-import { X, Plus, Trash2 } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import {
+  X,
+  Plus,
+  Trash2,
+  Upload,
+  Image as ImageIcon,
+  Video,
+  FileText,
+  File,
+  Loader2,
+} from "lucide-react";
 import { useReactFlow } from "reactflow";
+import { useToast } from "../../context/ToastContext";
+import { useConfirm } from "../../context/ConfirmContext";
+import flowService from "../../services/flow.service";
 
 export default function NodeConfigPanel({ node, onUpdate, onClose }) {
   const { deleteElements } = useReactFlow();
+  const toast = useToast();
+  const confirm = useConfirm();
+  const fileInputRef = useRef(null);
 
   const [content, setContent] = useState("");
   const [saveAs, setSaveAs] = useState("");
@@ -13,26 +29,233 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
   const [assignType, setAssignType] = useState("auto");
   const [buttons, setButtons] = useState([]);
 
+  const [mediaType, setMediaType] = useState("text"); // "text" | "image" | "video"
+  const [mediaData, setMediaData] = useState(null); // { mediaUrl, mediaName, mediaSize, mediaMimeType }
+  const [uploading, setUploading] = useState(false);
+
   useEffect(() => {
     if (!node) return;
     setContent(node.data?.content || "");
     setSaveAs(node.data?.options?.saveAs || "");
-    // ✅ FIX: options is a plain array on node.data.options, NOT nested under .conditions
+
     const rawOptions = node.data?.options;
     setOptions(Array.isArray(rawOptions) ? rawOptions : []);
     setAssignType(node.data?.assign_type || "auto");
 
-    // ⭐ Load buttons for INTERACTIVE_BUTTONS node
     if (node.type === "INTERACTIVE_BUTTONS") {
       const rawButtons = node.data?.options;
       setButtons(Array.isArray(rawButtons) ? rawButtons : []);
     }
+
+    // ✅ NEW: Load existing media for SEND_MESSAGE nodes
+    if (node.type === "SEND_MESSAGE") {
+      const opts = node.data?.options;
+      if (opts && !Array.isArray(opts) && opts.mediaUrl) {
+        let type = "image";
+        if (opts.mediaType === "VIDEO") type = "video";
+        if (opts.mediaType === "FILE") type = "document";
+
+        setMediaType(type);
+        setMediaData({
+          mediaType: opts.mediaType,
+          mediaUrl: opts.mediaUrl,
+          mediaName: opts.mediaName,
+          mediaSize: opts.mediaSize,
+          mediaMimeType: opts.mediaMimeType,
+        });
+      } else {
+        setMediaType("text");
+        setMediaData(null);
+      }
+    }
   }, [node?.id]);
+
+  // ✅ Close panel on Escape key
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [onClose]);
+
+  // ✅ NEW: Handle file upload
+  const handleFileUpload = async (file) => {
+    if (!file) return;
+
+    // Client-side validation
+    const isImage = file.type.startsWith("image/");
+    const isVideo = file.type.startsWith("video/");
+    const isDoc = [
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/vnd.ms-powerpoint",
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      "text/plain",
+    ].includes(file.type);
+
+    if (mediaType === "image" && !isImage) {
+      toast.error("Please select an image file");
+      return;
+    }
+    if (mediaType === "video" && !isVideo) {
+      toast.error("Please select a video file");
+      return;
+    }
+    if (mediaType === "document" && !isDoc) {
+      toast.error(
+        "Please select a valid document (PDF, Word, Excel, PPT, TXT)",
+      );
+      return;
+    }
+
+    let maxSize = 5 * 1024 * 1024; // 5MB for images
+    if (mediaType === "video") maxSize = 16 * 1024 * 1024; // 16MB for video
+    if (mediaType === "document") maxSize = 25 * 1024 * 1024; // 25MB for docs
+
+    if (file.size > maxSize) {
+      const limitLabel =
+        mediaType === "image" ? "5MB" : mediaType === "video" ? "16MB" : "25MB";
+      toast.error(`File too large. Max limit is ${limitLabel}`);
+      return;
+    }
+
+    if (file.size > maxSize) {
+      toast.error(
+        `File too large. Max ${mediaType === "image" ? "5MB" : "16MB"}`,
+      );
+      return;
+    }
+
+    try {
+      setUploading(true);
+      const res = await flowService.uploadFlowMedia(file);
+      setMediaData(res.data);
+      toast.success("Media uploaded successfully");
+    } catch (err) {
+      console.error(err);
+      toast.error(err?.response?.data?.message || "Failed to upload media");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // ✅ NEW: Handle file input change
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) handleFileUpload(file);
+  };
+
+  // ✅ NEW: Handle drag & drop
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleFileUpload(file);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  // ✅ NEW: Remove uploaded media
+  const handleRemoveMedia = async () => {
+    const ok = await confirm({
+      type: "warning",
+      title: "Remove Media",
+      message: "Are you sure you want to remove this media?",
+      confirmLabel: "Remove",
+      cancelLabel: "Cancel",
+    });
+    if (!ok) return;
+    setMediaData(null);
+    toast.success("Media removed");
+  };
+
+  // ✅ NEW: Format file size
+  const formatFileSize = (bytes) => {
+    if (!bytes) return "";
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+  };
 
   const handleUpdate = () => {
     if (!node) return;
+
+    // ── Validation for each node type ──
+    if (node.type === "SEND_MESSAGE") {
+      // For text-only, content is required
+      if (mediaType === "text" && !content.trim()) {
+        toast.warning("Please enter a message");
+        return;
+      }
+      // For media, file must be uploaded
+      if ((mediaType === "image" || mediaType === "video") && !mediaData) {
+        toast.warning(
+          `Please upload ${mediaType === "image" ? "an image" : "a video"}`,
+        );
+        return;
+      }
+    }
+
+    if (node.type === "ASK_QUESTION") {
+      if (!content.trim()) {
+        toast.warning("Please enter a question");
+        return;
+      }
+      if (!saveAs.trim()) {
+        toast.warning("Please provide a variable name to save the answer");
+        return;
+      }
+    }
+
+    if (node.type === "CONDITION" && options.length === 0) {
+      toast.warning("Please add at least one branch");
+      return;
+    }
+
+    if (node.type === "INTERACTIVE_BUTTONS") {
+      if (!content.trim()) {
+        toast.warning("Please enter a message");
+        return;
+      }
+      if (buttons.length === 0) {
+        toast.warning("Please add at least one button");
+        return;
+      }
+      const emptyBtn = buttons.find((b) => !b.title?.trim());
+      if (emptyBtn) {
+        toast.warning("All buttons must have a label");
+        return;
+      }
+    }
+
+    // ── Build updated data ──
     let newData = { ...node.data };
-    if (node.type === "SEND_MESSAGE") newData.content = content;
+    if (node.type === "SEND_MESSAGE") {
+      newData.content = content;
+      if (mediaType === "text") {
+        newData.options = null;
+      } else if (mediaData) {
+        let finalType = "IMAGE";
+        if (mediaType === "video") finalType = "VIDEO";
+        if (mediaType === "document") finalType = "FILE";
+
+        newData.options = {
+          mediaType: finalType,
+          mediaUrl: mediaData.mediaUrl,
+          mediaName: mediaData.mediaName,
+          mediaSize: mediaData.mediaSize,
+          mediaMimeType: mediaData.mediaMimeType,
+        };
+      }
+    }
+
     if (node.type === "ASK_QUESTION") {
       newData.content = content;
       newData.options = { saveAs };
@@ -41,18 +264,38 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
     if (node.type === "ASSIGN_AGENT") {
       newData.assign_type = assignType;
     }
-    // ⭐ NEW: Save buttons
+    if (node.type === "INTERACTIVE_BUTTONS") {
+      newData.content = content;
+      newData.options = buttons;
+    }
+
+    if (node.type === "ASK_QUESTION") {
+      newData.content = content;
+      newData.options = { saveAs };
+    }
+    if (node.type === "CONDITION") newData.options = options;
+    if (node.type === "ASSIGN_AGENT") {
+      newData.assign_type = assignType;
+    }
     if (node.type === "INTERACTIVE_BUTTONS") {
       newData.content = content;
       newData.options = buttons;
     }
 
     onUpdate(node.id, newData);
+
+    // ✅ Show success toast
+    toast.success("Node updated successfully");
+
+    // ✅ Auto-close panel
+    onClose();
   };
 
   // Delete node from config panel
+  // Delete node from config panel
   const handleDeleteNode = () => {
     deleteElements({ nodes: [{ id: node.id }] });
+    toast.success("Node deleted successfully");
     onClose();
   };
   //Condition node options management
@@ -89,20 +332,190 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
       {/* Config Content */}
       <div className="p-4 flex-1 overflow-y-auto space-y-4">
         {/* SEND_MESSAGE */}
+        {/* SEND_MESSAGE */}
         {node.type === "SEND_MESSAGE" && (
-          <div>
-            <label className="text-xs font-semibold text-slate-600 block mb-1.5">
-              Message
-            </label>
-            <textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="Type your message..."
-              rows={5}
-              className="w-full text-sm border border-slate-200 rounded-xl 
-                p-3 resize-none focus:outline-none 
-                focus:border-[#125EF2] transition"
-            />
+          <div className="space-y-3">
+            {/* Message Type Tabs */}
+            <div>
+              <label className="text-xs font-semibold text-slate-600 block mb-1.5">
+                Message Type
+              </label>
+
+              <div className="grid grid-cols-4 gap-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMediaType("text");
+                    setMediaData(null);
+                  }}
+                  className={`flex items-center justify-center gap-1 py-2 rounded-lg text-[11px] font-semibold border transition ${
+                    mediaType === "text"
+                      ? "bg-[#125EF2] text-white border-[#125EF2]"
+                      : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  <FileText size={11} />
+                  Text
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMediaType("image")}
+                  className={`flex items-center justify-center gap-1 py-2 rounded-lg text-[11px] font-semibold border transition ${
+                    mediaType === "image"
+                      ? "bg-[#125EF2] text-white border-[#125EF2]"
+                      : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  <ImageIcon size={11} />
+                  Image
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMediaType("video")}
+                  className={`flex items-center justify-center gap-1 py-2 rounded-lg text-[11px] font-semibold border transition ${
+                    mediaType === "video"
+                      ? "bg-[#125EF2] text-white border-[#125EF2]"
+                      : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  <Video size={11} />
+                  Video
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMediaType("document")}
+                  className={`flex items-center justify-center gap-1 py-2 rounded-lg text-[11px] font-semibold border transition ${
+                    mediaType === "document"
+                      ? "bg-[#125EF2] text-white border-[#125EF2]"
+                      : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  <File size={11} />
+                  Doc
+                </button>
+              </div>
+            </div>
+
+            {(mediaType === "image" ||
+              mediaType === "video" ||
+              mediaType === "document") && (
+              <div>
+                <label className="text-xs font-semibold text-slate-600 block mb-1.5">
+                  {mediaType === "image"
+                    ? "Image"
+                    : mediaType === "video"
+                      ? "Video"
+                      : "Document"}
+                </label>
+
+                {!mediaData ? (
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    onDrop={handleDrop}
+                    onDragOver={handleDragOver}
+                    className="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center cursor-pointer hover:border-[#125EF2] hover:bg-blue-50/30 transition"
+                  >
+                    {uploading ? (
+                      <div className="flex flex-col items-center gap-2">
+                        <Loader2
+                          size={20}
+                          className="animate-spin text-[#125EF2]"
+                        />
+                        <p className="text-xs text-slate-500">Uploading...</p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-1.5">
+                        <Upload size={20} className="text-slate-400" />
+                        <p className="text-xs font-semibold text-slate-600">
+                          Click to upload {mediaType}
+                        </p>
+                        <p className="text-[10px] text-slate-400">
+                          or drag & drop
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-1">
+                          {mediaType === "image" && "PNG, JPG, WebP (max 5MB)"}
+                          {mediaType === "video" && "MP4, 3GP (max 16MB)"}
+                          {mediaType === "document" &&
+                            "PDF, DOCX, XLSX, TXT (max 25MB)"}
+                        </p>
+                      </div>
+                    )}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept={
+                        mediaType === "image"
+                          ? "image/*"
+                          : mediaType === "video"
+                            ? "video/*"
+                            : ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
+                      }
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                  </div>
+                ) : (
+                  <div className="border border-slate-200 rounded-xl p-2.5 bg-slate-50">
+                    <div className="flex items-start gap-2">
+                      {/* Preview icon */}
+                      <div className="w-12 h-12 rounded-lg bg-white border border-slate-200 flex items-center justify-center shrink-0">
+                        {mediaType === "image" && (
+                          <ImageIcon size={20} className="text-[#125EF2]" />
+                        )}
+                        {mediaType === "video" && (
+                          <Video size={20} className="text-[#125EF2]" />
+                        )}
+                        {mediaType === "document" && (
+                          <File size={20} className="text-[#125EF2]" />
+                        )}
+                      </div>
+
+                      {/* File info */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-slate-700 truncate">
+                          {mediaData.mediaName}
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">
+                          {formatFileSize(mediaData.mediaSize)}
+                        </p>
+                        <p className="text-[10px] text-emerald-600 font-medium mt-0.5">
+                          ✓ Uploaded
+                        </p>
+                      </div>
+
+                      {/* Remove button */}
+                      <button
+                        type="button"
+                        onClick={handleRemoveMedia}
+                        className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition"
+                        title="Remove media"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            {/* Message / Caption */}
+            <div>
+              <label className="text-xs font-semibold text-slate-600 block mb-1.5">
+                {mediaType === "text" ? "Message" : "Caption (optional)"}
+              </label>
+              <textarea
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder={
+                  mediaType === "text"
+                    ? "Type your message..."
+                    : "Add a caption for your media..."
+                }
+                rows={mediaType === "text" ? 5 : 3}
+                className="w-full text-sm border border-slate-200 rounded-xl
+                  p-3 resize-none focus:outline-none
+                  focus:border-[#125EF2] transition"
+              />
+            </div>
           </div>
         )}
 
