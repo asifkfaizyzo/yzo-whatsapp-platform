@@ -499,6 +499,8 @@ return res.json({
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api2/whatsapp/status
 // ─────────────────────────────────────────────────────────────────────────────
+// GET /api2/whatsapp/status
+// ─────────────────────────────────────────────────────────────────────────────
 export const getWhatsAppStatus = async (req, res) => {
   const tenantId = req.tenantId;
 
@@ -508,16 +510,112 @@ export const getWhatsAppStatus = async (req, res) => {
       select: {
         whatsappPhoneId: true,
         whatsappWabaId: true,
+        whatsappAccessToken: true,
       },
     });
 
     const isConnected = !!(tenant?.whatsappPhoneId && tenant?.whatsappWabaId);
+    if (!isConnected) {
+      return res.json({
+        success: true,
+        isConnected: false,
+        phoneNumberId: null,
+        wabaId: null,
+        health: null,
+      });
+    }
+
+    // Calculate unique 24-hour broadcast recipients sent by this tenant
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const sentLast24h = await prisma.broadcastRecipient.count({
+      where: {
+        broadcast: { tenantId },
+        createdAt: { gte: twentyFourHoursAgo },
+        status: { in: ['SENT', 'DELIVERED', 'READ'] },
+      },
+    });
+
+    // Mock WhatsApp mode: return rich simulated health data
+    if (process.env.MOCK_WHATSAPP === 'true') {
+      return res.json({
+        success: true,
+        isConnected: true,
+        phoneNumberId: tenant.whatsappPhoneId,
+        wabaId: tenant.whatsappWabaId,
+        health: {
+          displayPhoneNumber: '+91 98475 63246',
+          verifiedName: 'YourZerosandOnes (Demo)',
+          qualityRating: 'GREEN', // 'GREEN' | 'YELLOW' | 'RED' | 'UNKNOWN'
+          messagingLimitTier: 'TIER_1K',
+          messagingLimitNumber: 1000,
+          tierName: 'Tier 1K (1,000 / 24 hrs)',
+          status: 'CONNECTED',
+          codeVerificationStatus: 'VERIFIED',
+          sentLast24h,
+          remaining24h: Math.max(0, 1000 - sentLast24h),
+          isMock: true,
+        },
+      });
+    }
+
+    // Live Meta Graph API call
+    let metaHealth = null;
+    try {
+      const accessToken = decrypt(tenant.whatsappAccessToken);
+      const metaRes = await fetch(
+        `https://graph.facebook.com/v23.0/${tenant.whatsappPhoneId}?fields=display_phone_number,verified_name,quality_rating,messaging_limit_tier,status,code_verification_status&access_token=${accessToken}`
+      );
+      const metaData = await metaRes.json();
+
+      if (!metaData.error) {
+        const tier = metaData.messaging_limit_tier || 'TIER_1K';
+        let limitNumber = 1000;
+        let tierName = 'Tier 1K (1,000 / 24 hrs)';
+
+        if (tier === 'TIER_50') {
+          limitNumber = 50;
+          tierName = 'Tier 50 (50 / 24 hrs)';
+        } else if (tier === 'TIER_250') {
+          limitNumber = 250;
+          tierName = 'Tier 250 (Trial Limit)';
+        } else if (tier === 'TIER_1K') {
+          limitNumber = 1000;
+          tierName = 'Tier 1K (1,000 / 24 hrs)';
+        } else if (tier === 'TIER_10K') {
+          limitNumber = 10000;
+          tierName = 'Tier 10K (10,000 / 24 hrs)';
+        } else if (tier === 'TIER_100K') {
+          limitNumber = 100000;
+          tierName = 'Tier 100K (100,000 / 24 hrs)';
+        } else if (tier === 'TIER_UNLIMITED') {
+          limitNumber = 1000000;
+          tierName = 'Tier Unlimited (Unlimited / 24 hrs)';
+        }
+
+        metaHealth = {
+          displayPhoneNumber: metaData.display_phone_number || null,
+          verifiedName: metaData.verified_name || null,
+          qualityRating: metaData.quality_rating || 'GREEN',
+          messagingLimitTier: tier,
+          messagingLimitNumber: limitNumber,
+          tierName,
+          status: metaData.status || 'CONNECTED',
+          codeVerificationStatus: metaData.code_verification_status || 'VERIFIED',
+          sentLast24h,
+          remaining24h: Math.max(0, limitNumber - sentLast24h),
+          isMock: false,
+        };
+      }
+    } catch (metaErr) {
+      console.warn('⚠️ Could not fetch live Meta phone health:', metaErr.message);
+    }
 
     return res.json({
       success: true,
-      isConnected,
-      phoneNumberId: tenant?.whatsappPhoneId || null,
-      wabaId: tenant?.whatsappWabaId || null,
+      isConnected: true,
+      phoneNumberId: tenant.whatsappPhoneId,
+      wabaId: tenant.whatsappWabaId,
+      health: metaHealth,
     });
   } catch (err) {
     console.error("❌ getWhatsAppStatus error:", err);
