@@ -99,22 +99,6 @@ export default function Dashboard() {
     }
   };
 
-    // 🚧 TEMPORARY MOCK — REMOVE BEFORE PRODUCTION
-    // setTimeout(() => {
-    //   setWaStatus({
-    //     isConnected: true,
-    //     loading: false,
-    //     phoneNumberId: "123456789012345",
-    //     wabaId: "987654321098765",
-    //     phoneNumber: "+91 98765 43210",
-    //     businessName: "Acme Corp",
-    //     qualityRating: "GREEN",
-    //     messagingTier: "TIER_1000 (1,000 msgs/day)",
-    //     webhookStatus: "active",
-    //   });
-    // }, 500);
-  };
-
   // ═════════════════════════════════════════════════════════
   // FETCH: Admin Counts
   // ═════════════════════════════════════════════════════════
