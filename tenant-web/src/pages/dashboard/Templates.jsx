@@ -29,6 +29,7 @@ import { useConfirm } from "../../context/ConfirmContext";
 import { useToast } from "../../context/ToastContext";
 import WhatsAppRequiredModal from "../../components/whatsapp/WhatsAppRequiredModal";
 import WhatsAppConnect from "../../components/whatsapp/WhatsAppConnect";
+import { getSocket } from "../../lib/socket";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
@@ -56,6 +57,20 @@ const getFooterText = (comps) => (comps || []).find(c => c.type === "FOOTER")?.t
 const getButtons    = (comps) => (comps || []).find(c => c.type === "BUTTONS")?.buttons || [];
 const countVars     = (text) => { if (!text) return 0; const m = text.match(/\{\{(\d+)\}\}/g); return m ? new Set(m).size : 0; };
 const fmtSize       = (b) => { if (!b) return ""; if (b < 1024) return b + " B"; if (b < 1048576) return (b/1024).toFixed(1) + " KB"; return (b/1048576).toFixed(2) + " MB"; };
+
+const formatRelativeTime = (dateStr) => {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return null;
+  const now = new Date();
+  const diffSec = Math.max(0, Math.floor((now - d) / 1000));
+  if (diffSec < 45) return "Just now";
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+};
 
 function TemplatePreview({ headerType, headerText, mediaPreviewUrl, locationName, locationAddress, locationLat, locationLng, body, footer, buttons }) {
   const pb = (body || "").replace(/\{\{(\d+)\}\}/g, (_, n) => `[var${n}]`);
@@ -127,6 +142,11 @@ export default function Templates() {
   const [showFooter,  setShowFooter]  = useState(false);
   const [showButtons, setShowButtons] = useState(false);
 
+  // Sync state: Cooldown & Last Synced Timestamp
+  const [lastSyncedAt, setLastSyncedAt] = useState(null);
+  const [cooldownSec, setCooldownSec] = useState(0);
+  const [, setTick] = useState(0); // Force periodic re-render for relative timestamps
+
   const defaultForm = {
     name: "", category: "MARKETING", language: "en_US",
     headerType: "NONE", headerText: "",
@@ -151,19 +171,83 @@ export default function Templates() {
   const loadTemplates = async () => {
     setLoading(true); setError("");
     const [res, sr] = await Promise.all([getTemplates(), getWhatsappStatus()]);
-    if (res.success) setTemplates(res.data); else setError(res.message);
+    if (res.success) {
+      setTemplates(res.data);
+      if (res.lastSyncedAt) setLastSyncedAt(res.lastSyncedAt);
+    } else {
+      setError(res.message);
+    }
     if (sr.success) setIsWhatsAppConnected(!!sr.data?.isConnected);
     setLoading(false);
   };
 
-  useEffect(() => { loadTemplates(); }, []);
+  // Cooldown countdown ticker & relative time auto-refresher
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCooldownSec((prev) => (prev > 0 ? prev - 1 : 0));
+      setTick((t) => t + 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    loadTemplates();
+
+    const socket = getSocket();
+    if (!socket) return;
+
+    const handleTemplateStatusUpdate = (data) => {
+      console.log("⚡ Real-time template status update received:", data);
+      setTemplates((prev) => {
+        const idx = prev.findIndex((t) => t.id === data.templateId || (t.name === data.name && t.language === data.language));
+        if (idx !== -1) {
+          const updated = [...prev];
+          updated[idx] = { ...updated[idx], status: data.status };
+          return updated;
+        }
+        return prev;
+      });
+
+      if (data.status === "APPROVED") {
+        toast.success(`🎉 Template "${data.name}" was approved by Meta!`);
+      } else if (data.status === "REJECTED") {
+        toast.error(`⚠️ Template "${data.name}" was rejected by Meta${data.reason ? `: ${data.reason}` : ""}`);
+      } else {
+        toast.info(`ℹ️ Template "${data.name}" status: ${data.status}`);
+      }
+    };
+
+    const handleTemplatesSynced = (data) => {
+      console.log("⚡ Templates auto-synced via socket:", data);
+      if (data.lastSyncedAt) setLastSyncedAt(data.lastSyncedAt);
+      loadTemplates();
+      toast.success(`⚡ Automatically synced ${data.count} templates from WhatsApp!`);
+    };
+
+    socket.on("template_status_update", handleTemplateStatusUpdate);
+    socket.on("templates_synced", handleTemplatesSynced);
+
+    return () => {
+      socket.off("template_status_update", handleTemplateStatusUpdate);
+      socket.off("templates_synced", handleTemplatesSynced);
+    };
+  }, []);
 
   const handleSync = async () => {
     if (!isWhatsAppConnected) { setShowConnectModal(true); return; }
+    if (cooldownSec > 0 || syncing) return;
+
     setSyncing(true); setError("");
+    setCooldownSec(60); // 60s cooldown to protect Meta API rate limits
+
     const res = await syncTemplates();
-    if (res.success) { toast.success(`Synced ${res.count} templates from Meta!`); loadTemplates(); }
-    else toast.error(res.message || "Sync failed");
+    if (res.success) {
+      toast.success(`Synced ${res.count} templates from Meta!`);
+      if (res.lastSyncedAt) setLastSyncedAt(res.lastSyncedAt);
+      loadTemplates();
+    } else {
+      toast.error(res.message || "Sync failed");
+    }
     setSyncing(false);
   };
 
@@ -270,13 +354,26 @@ export default function Templates() {
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2"><FileCode className="text-[#125EF2]" size={24} /><span>WhatsApp Templates</span></h1>
           <p className="text-xs text-[color:var(--muted)] font-medium mt-1">Create, manage, and inspect WhatsApp pre-approved message templates.</p>
         </div>
-        <div className="flex items-center gap-3">
-          <button onClick={handleSync} disabled={syncing} className="btn-secondary flex items-center gap-2 text-sm bg-white">
-            <RefreshCw size={15} className={syncing ? "animate-spin" : ""} /><span>Sync from Meta</span>
-          </button>
-          <button onClick={() => { if (!isWhatsAppConnected) setShowConnectModal(true); else setShowModal(true); }} className="btn-primary flex items-center gap-2 text-sm shadow-sm">
-            <Plus size={16} /><span>Create Template</span>
-          </button>
+        <div className="flex flex-col sm:items-end gap-1">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleSync}
+              disabled={syncing || cooldownSec > 0}
+              className="btn-secondary flex items-center gap-2 text-sm bg-white disabled:opacity-60 disabled:cursor-not-allowed transition"
+              title={cooldownSec > 0 ? `Please wait ${cooldownSec}s before syncing again` : "Sync all templates from Meta"}
+            >
+              <RefreshCw size={15} className={syncing ? "animate-spin" : ""} />
+              <span>{syncing ? "Syncing..." : cooldownSec > 0 ? `Sync (${cooldownSec}s)` : "Sync from Meta"}</span>
+            </button>
+            <button onClick={() => { if (!isWhatsAppConnected) setShowConnectModal(true); else setShowModal(true); }} className="btn-primary flex items-center gap-2 text-sm shadow-sm">
+              <Plus size={16} /><span>Create Template</span>
+            </button>
+          </div>
+          {lastSyncedAt && (
+            <span className="text-[11px] text-slate-400 font-medium tracking-tight pr-1">
+              Last synced: {formatRelativeTime(lastSyncedAt)}
+            </span>
+          )}
         </div>
       </div>
 

@@ -852,3 +852,117 @@ export const sendWhatsAppStatusAlertEmail = async ({
     console.error(`❌ WhatsApp alert email FAILED: ${error.message}`);
   }
 };
+
+// ===================== TEMPLATE STATUS UPDATE EMAIL =====================
+export const sendTemplateStatusEmail = async ({
+  toEmail,
+  tenantName,
+  templateName,
+  language,
+  category,
+  headerType,
+  status, // 'APPROVED' | 'REJECTED' | 'PAUSED'
+  reason, // Rejection reason if any
+}) => {
+  if (!toEmail) return;
+
+  const isApproved = status === 'APPROVED';
+  const statusBg = isApproved ? '#dcfce7' : (status === 'REJECTED' ? '#fee2e2' : '#fef3c7');
+  const statusColor = isApproved ? '#16a34a' : (status === 'REJECTED' ? '#dc2626' : '#d97706');
+  const statusIcon = isApproved ? '🎉' : (status === 'REJECTED' ? '⚠️' : '⏸️');
+  const subject = isApproved 
+    ? `🎉 Your WhatsApp Template "${templateName}" is Approved!`
+    : (status === 'REJECTED' ? `⚠️ WhatsApp Template "${templateName}" was Rejected` : `ℹ️ WhatsApp Template "${templateName}" Status Updated: ${status}`);
+
+  try {
+    await transporter.sendMail({
+      from: `"SudoReply Notifications" <${process.env.EMAIL_USER}>`,
+      to: toEmail,
+      subject,
+      html: `
+        <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; background: #ffffff;">
+          
+          <!-- Header -->
+          <div style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); padding: 28px 24px; text-align: center;">
+            <h1 style="color: white; margin: 0; font-size: 22px; font-weight: bold;">
+              ${statusIcon} WhatsApp Template ${isApproved ? 'Approved' : (status === 'REJECTED' ? 'Rejected' : 'Status Update')}
+            </h1>
+            <p style="color: rgba(255,255,255,0.85); margin: 6px 0 0 0; font-size: 14px;">
+              Meta Business Review Notification
+            </p>
+          </div>
+
+          <!-- Body -->
+          <div style="padding: 28px; color: #334155; line-height: 1.6;">
+            <p style="margin: 0 0 16px 0; font-size: 15px;">
+              Hi <strong>${tenantName || 'there'}</strong>,
+            </p>
+            <p style="margin: 0 0 20px 0; font-size: 14px;">
+              ${isApproved 
+                ? `Great news! Meta has reviewed and <strong>approved</strong> your WhatsApp message template. You can now use it in broadcasts and customer conversations.` 
+                : (status === 'REJECTED' 
+                  ? `Meta has reviewed your WhatsApp template and marked it as <strong>Rejected</strong>.` 
+                  : `Your WhatsApp message template status has been updated to <strong>${status}</strong> by Meta.`)}
+            </p>
+
+            <!-- Details Card -->
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 18px 20px; margin-bottom: 24px;">
+              <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                <tr>
+                  <td style="color: #64748b; padding: 6px 0; width: 140px;">Template Name</td>
+                  <td style="color: #0f172a; font-weight: bold;"><code>${templateName}</code></td>
+                </tr>
+                <tr>
+                  <td style="color: #64748b; padding: 6px 0;">Category</td>
+                  <td style="color: #0f172a; font-weight: 600;">${category || 'MARKETING'}</td>
+                </tr>
+                <tr>
+                  <td style="color: #64748b; padding: 6px 0;">Language</td>
+                  <td style="color: #0f172a; font-weight: 600;">${language || 'en_US'}</td>
+                </tr>
+                <tr>
+                  <td style="color: #64748b; padding: 6px 0;">Header Type</td>
+                  <td style="color: #0f172a; font-weight: 600;">${headerType || 'NONE'}</td>
+                </tr>
+                <tr>
+                  <td style="color: #64748b; padding: 6px 0;">Status</td>
+                  <td>
+                    <span style="background: ${statusBg}; color: ${statusColor}; padding: 3px 12px; border-radius: 12px; font-weight: bold; font-size: 12px;">
+                      ${status}
+                    </span>
+                  </td>
+                </tr>
+                ${reason && reason !== 'NONE' ? `
+                <tr>
+                  <td style="color: #dc2626; padding: 6px 0;">Rejection Reason</td>
+                  <td style="color: #dc2626; font-weight: 500;">${reason}</td>
+                </tr>
+                ` : ''}
+              </table>
+            </div>
+
+            <!-- Action Button -->
+            <div style="text-align: center; margin: 28px 0 10px 0;">
+              <a href="https://sudoreply.com/dashboard/broadcasts" 
+                 style="background: #4f46e5; color: white; padding: 12px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; display: inline-block;">
+                ${isApproved ? 'Launch a Broadcast Now' : 'View Templates in Dashboard'}
+              </a>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px; text-align: center;">
+            <p style="color: #94a3b8; font-size: 12px; margin: 0;">
+              SudoReply Platform Notifications · <a href="https://sudoreply.com" style="color: #6366f1; text-decoration: none;">sudoreply.com</a>
+            </p>
+          </div>
+
+        </div>
+      `
+    });
+
+    console.log(`✅ Template ${status} notification email sent to ${toEmail} for template: ${templateName}`);
+  } catch (err) {
+    console.error(`❌ Failed to send template status email to ${toEmail}:`, err.message);
+  }
+};

@@ -6,6 +6,7 @@ import { emitToTenant, emitToUser,emitToSuperAdmin } from '../../lib/socket.js';
 import { createSuperAdminNotification } from '../SuperAdminNotifications/superAdminNotificationService.js';
 import { createAuditLog } from '../audit/auditLogService.js';
 import { sendWhatsAppStatusAlertEmail } from '../auth/emailService.js';
+import { performTemplateSync } from '../templates/templateController.js';
 
 
 
@@ -337,6 +338,22 @@ await notifySuperAdminWhatsAppStatus({
   action: 'CONNECTED',
 });
 // ═════════════════════════════════════════════════════════════════
+
+    // ── Auto-sync templates in background on initial connect ──
+    prisma.tenant.findUnique({ where: { id: tenantId } })
+      .then((fullTenant) => {
+        if (fullTenant?.whatsappWabaId && fullTenant?.whatsappAccessToken) {
+          return performTemplateSync(fullTenant);
+        }
+      })
+      .then((synced) => {
+        if (synced) {
+          console.log(`[WhatsApp] ✅ Auto-synced ${synced.length} templates on first connect for tenant ${tenantId}`);
+          emitToTenant(tenantId, 'templates_synced', { count: synced.length, lastSyncedAt: new Date() });
+        }
+      })
+      .catch((err) => console.warn('[WhatsApp] Auto-sync templates on connect non-fatal error:', err.message));
+
     return res.json({
       success: true,
       message: "WhatsApp connected successfully.",
@@ -444,6 +461,21 @@ await notifySuperAdminWhatsAppStatus({
   action: 'CONNECTED',
 });
 // ═════════════════════════════════════════════════════════════════
+
+    // ── Auto-sync templates in background on initial connect ──
+    prisma.tenant.findUnique({ where: { id: tenantId } })
+      .then((fullTenant) => {
+        if (fullTenant?.whatsappWabaId && fullTenant?.whatsappAccessToken) {
+          return performTemplateSync(fullTenant);
+        }
+      })
+      .then((synced) => {
+        if (synced) {
+          console.log(`[WhatsApp] ✅ Auto-synced ${synced.length} templates on manual connect for tenant ${tenantId}`);
+          emitToTenant(tenantId, 'templates_synced', { count: synced.length, lastSyncedAt: new Date() });
+        }
+      })
+      .catch((err) => console.warn('[WhatsApp] Auto-sync templates on manual connect non-fatal error:', err.message));
 
 return res.json({
   success: true,
