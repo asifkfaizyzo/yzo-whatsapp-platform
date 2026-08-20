@@ -8,7 +8,7 @@ import { createAuditLog } from '../audit/auditLogService.js';
 import { sendWhatsAppStatusAlertEmail } from '../auth/emailService.js';
 import { performTemplateSync } from '../templates/templateController.js';
 
-
+import redisClient from '../../config/redis.js';
 
 // ═══════════════════════════════════════════════════
 // HELPER — Notify SuperAdmin on WhatsApp status change
@@ -575,12 +575,24 @@ export const getWhatsAppStatus = async (req, res) => {
     // Live Meta Graph API call
     let metaHealth = null;
     try {
-      const accessToken = decrypt(tenant.whatsappAccessToken);
-      const metaRes = await fetch(
-        `https://graph.facebook.com/v23.0/${tenant.whatsappPhoneId}?fields=display_phone_number,verified_name,quality_rating,messaging_limit_tier,status,code_verification_status,health_status,throughput&access_token=${accessToken}`
-      );
-      const metaData = await metaRes.json();
-      console.log("📱 META DATA RAW RESPONSE:", JSON.stringify(metaData, null, 2));
+      const cacheKey = `meta:health:${tenant.whatsappPhoneId}`;
+      const cached = await redisClient.get(cacheKey);
+
+      let metaData;
+      if (cached) {
+        metaData = JSON.parse(cached);
+      } else {
+        const accessToken = decrypt(tenant.whatsappAccessToken);
+        const metaRes = await fetch(
+          `https://graph.facebook.com/v23.0/${tenant.whatsappPhoneId}?fields=display_phone_number,verified_name,quality_rating,messaging_limit_tier,status,code_verification_status,health_status,throughput&access_token=${accessToken}`
+        );
+        metaData = await metaRes.json();
+        
+        if (!metaData.error) {
+          // Cache for 10 minutes to avoid hitting Meta API limits
+          await redisClient.set(cacheKey, JSON.stringify(metaData), 'EX', 600);
+        }
+      }
 
       if (!metaData.error) {
         // Parse Meta tier dynamically
@@ -633,7 +645,9 @@ export const getWhatsAppStatus = async (req, res) => {
             limitations.push(...entity.additional_info);
           }
           if (Array.isArray(entity.errors)) {
-            errors.push(...entity.errors);
+            // Filter out SIP calling errors (138024, 138025) as we only care about messaging
+            const filteredErrors = entity.errors.filter(err => err.error_code !== 138024 && err.error_code !== 138025);
+            errors.push(...filteredErrors);
           }
         }
         
