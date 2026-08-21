@@ -165,15 +165,40 @@ export const processWebhookJob = async (job) => {
     });
 
     if (recipient) {
-      let updatedStatus = 'SENT';
+      const currentStatus = recipient.status;
+      let updatedStatus = currentStatus;
       const updateData = {};
+      const broadcastIncrements = {};
 
       if (status === 'delivered') {
-        updatedStatus = 'DELIVERED';
-        updateData.deliveredAt = new Date();
+        // State machine: Only advance to DELIVERED if not already READ or FAILED
+        if (currentStatus !== 'READ' && currentStatus !== 'FAILED') {
+          updatedStatus = 'DELIVERED';
+        }
+        if (!recipient.deliveredAt) {
+          updateData.deliveredAt = new Date();
+        }
+        if (currentStatus === 'SENT' || currentStatus === 'PENDING') {
+          broadcastIncrements.delivered = { increment: 1 };
+        }
       } else if (status === 'read') {
-        updatedStatus = 'READ';
-        updateData.readAt = new Date();
+        // State machine: Advance to READ (highest success state)
+        if (currentStatus !== 'FAILED') {
+          updatedStatus = 'READ';
+        }
+        if (!recipient.readAt) {
+          updateData.readAt = new Date();
+        }
+        if (!recipient.deliveredAt) {
+          updateData.deliveredAt = new Date();
+        }
+        if (currentStatus !== 'READ') {
+          broadcastIncrements.read = { increment: 1 };
+          // If it was direct from SENT to READ without delivered webhook, also track delivered
+          if (currentStatus === 'SENT' || currentStatus === 'PENDING') {
+            broadcastIncrements.delivered = { increment: 1 };
+          }
+        }
       } else if (status === 'failed') {
         updatedStatus = 'FAILED';
         updateData.failedAt = new Date();
@@ -181,6 +206,10 @@ export const processWebhookJob = async (job) => {
         updateData.errorCode = errObj?.code ? String(errObj.code) : null;
         updateData.errorMessage = errObj?.details || errObj?.message || errObj?.title || 'Meta Send Failure';
         console.error(`❌ Meta webhook reported delivery failure for wamid ${wamid} (code ${errObj?.code}): ${updateData.errorMessage}`);
+
+        if (currentStatus !== 'FAILED') {
+          broadcastIncrements.failed = { increment: 1 };
+        }
       }
 
       await prisma.broadcastRecipient.update({
@@ -197,6 +226,8 @@ export const processWebhookJob = async (job) => {
             ...(updateData.deliveredAt ? { deliveredAt: updateData.deliveredAt } : {}),
             ...(updateData.readAt ? { readAt: updateData.readAt } : {}),
             ...(updateData.failedAt ? { failedAt: updateData.failedAt } : {}),
+            ...(updateData.errorCode ? { failureCode: parseInt(updateData.errorCode, 10) || null } : {}),
+            ...(updateData.errorMessage ? { failureReason: updateData.errorMessage } : {})
           }
         });
       } catch (err) {
@@ -204,21 +235,22 @@ export const processWebhookJob = async (job) => {
       }
 
       const broadcastId = recipient.broadcastId;
-      const broadcast = await prisma.broadcast.update({
-        where: { id: broadcastId },
-        data: {
-          delivered: status === 'delivered' ? { increment: 1 } : undefined,
-          read: status === 'read' ? { increment: 1 } : undefined,
-          failed: status === 'failed' ? { increment: 1 } : undefined
-        }
-      });
+      let broadcast = recipient.broadcast;
+
+      if (Object.keys(broadcastIncrements).length > 0) {
+        broadcast = await prisma.broadcast.update({
+          where: { id: broadcastId },
+          data: broadcastIncrements
+        });
+      }
 
       emitToTenant(recipient.broadcast.tenantId, 'broadcast_update', {
         broadcastId,
         sent: broadcast.sent,
         delivered: broadcast.delivered,
         read: broadcast.read,
-        failed: broadcast.failed
+        failed: broadcast.failed,
+        status: broadcast.status
       });
     } else {
       // ── Handle 1-on-1 Message Status Receipt ──
