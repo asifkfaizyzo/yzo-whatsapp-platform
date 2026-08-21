@@ -147,15 +147,22 @@ export default function Broadcasts() {
       return;
     }
 
-    // Parse parameters
+    // Parse parameters supporting {{1}}, {{var1}}, [var1], and database bodyParams
     const bodyComp = (selected.components || []).find(c => c.type === "BODY");
     const bodyText = bodyComp ? bodyComp.text : "";
-    const placeholders = bodyText.match(/\{\{(\d+)\}\}/g);
-    const count = placeholders ? new Set(placeholders).size : 0;
+    
+    // Match {{1}}, {{var1}}, {{name}}, or [var1], [var2], [name]
+    const curlyMatches = bodyText.match(/\{\{([a-zA-Z0-9_-]+)\}\}/g) || [];
+    const bracketMatches = bodyText.match(/\[(var\d+|[a-zA-Z0-9_-]+)\]/g) || [];
+    const detectedCount = new Set([...curlyMatches, ...bracketMatches]).size;
+    const count = Math.max(selected.bodyParams || 0, detectedCount);
 
     const initMapping = {};
     for (let i = 1; i <= count; i++) {
-      initMapping[i] = { type: "contact_field", value: "{{contact_name}}" };
+      initMapping[i] = {
+        type: "contact_field",
+        value: i === 1 ? "{{contact_name}}" : (i === 2 ? "{{contact_company}}" : "{{contact_phone}}")
+      };
     }
     setParamsMapping(initMapping);
   };

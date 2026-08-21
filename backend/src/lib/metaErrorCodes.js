@@ -122,7 +122,14 @@ export const META_ERROR_CODES = {
  * @returns {object}
  */
 export const parseMetaError = (code, rawMessage = '') => {
-  const numericCode = parseInt(code, 10);
+  let numericCode = parseInt(code, 10);
+  if (isNaN(numericCode) && rawMessage) {
+    const match = String(rawMessage).match(/#?(\d{4,7})/);
+    if (match) {
+      numericCode = parseInt(match[1], 10);
+    }
+  }
+
   const matched = META_ERROR_CODES[numericCode];
 
   if (matched) {
@@ -140,7 +147,7 @@ export const parseMetaError = (code, rawMessage = '') => {
   // Fallback for unexpected or generic errors
   const isNetworkOrTimeout = /timeout|network|econnrefused|econnreset|500|502|503/i.test(rawMessage);
   return {
-    errorCode: code ? String(code) : 'UNKNOWN',
+    errorCode: numericCode ? String(numericCode) : (code ? String(code) : 'UNKNOWN'),
     category: isNetworkOrTimeout ? 'NETWORK_ERROR' : 'UNKNOWN',
     title: rawMessage || 'Delivery Failed',
     description: rawMessage || 'An unexpected error was returned by WhatsApp.',

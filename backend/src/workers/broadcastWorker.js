@@ -189,7 +189,11 @@ const sendMetaTemplateMessage = async (tenant, phone, templateName, languageCode
 
   const resJson = await response.json();
   if (!response.ok) {
-    throw new Error(resJson.error?.message || 'Meta template send failed');
+    const errorMsg = resJson.error?.message || 'Meta template send failed';
+    const err = new Error(errorMsg);
+    err.code = resJson.error?.code || null;
+    err.error_subcode = resJson.error?.error_subcode || null;
+    throw err;
   }
 
   return resJson;
@@ -200,6 +204,8 @@ const formatMessageText = (templateText, paramsArray) => {
   let formatted = templateText;
   (paramsArray || []).forEach((val, idx) => {
     formatted = formatted.replace(new RegExp(`\\{\\{${idx + 1}\\}\\}`, 'g'), val);
+    formatted = formatted.replace(new RegExp(`\\[var${idx + 1}\\]`, 'gi'), val);
+    formatted = formatted.replace(new RegExp(`\\{\\{var${idx + 1}\\}\\}`, 'gi'), val);
   });
   return formatted;
 };
@@ -561,7 +567,7 @@ export const processBroadcastRecipientJob = async (job) => {
     }
 
     const isFinalAttempt = (job.attemptsMade + 1) >= (job.opts?.attempts || 1);
-    const parsedDiag = parseMetaError(null, error.message);
+    const parsedDiag = parseMetaError(error.code, error.message);
     console.error(`Failed to send broadcast to contact ${contact.phone} (attempt ${job.attemptsMade + 1}/${job.opts?.attempts || 1}):`, error.message);
 
     if (isFinalAttempt || !parsedDiag.isRecoverable) {
@@ -641,69 +647,78 @@ const checkCampaignCompletion = async (broadcastId) => {
     });
 
     if (pendingCount === 0) {
-      // Atomically update status only if it hasn't already been marked COMPLETED
+      const campaignData = await prisma.broadcast.findUnique({
+        where: { id: broadcastId },
+        select: { tenantId: true, name: true, totalRecipients: true, sent: true, delivered: true, read: true, failed: true }
+      });
+
+      const finalStatus = (campaignData && campaignData.sent === 0 && campaignData.failed > 0) ? 'FAILED' : 'COMPLETED';
+
+      // Atomically update status only if it hasn't already been marked COMPLETED or FAILED
       const result = await prisma.broadcast.updateMany({
         where: { id: broadcastId, status: { in: ['PROCESSING', 'SCHEDULED'] } },
         data: {
-          status: 'COMPLETED',
+          status: finalStatus,
           completedAt: new Date()
         }
       });
 
-      if (result.count > 0) {
-        console.log(`🎉 Broadcast campaign ${broadcastId} fully COMPLETED!`);
-        const finishedCampaign = await prisma.broadcast.findUnique({
-          where: { id: broadcastId },
-          select: { tenantId: true, name: true, totalRecipients: true, sent: true, delivered: true, read: true, failed: true }
+      if (result.count > 0 && campaignData) {
+        console.log(`🎉 Broadcast campaign ${broadcastId} status set to ${finalStatus}!`);
+        emitToTenant(campaignData.tenantId, 'broadcast_update', {
+          broadcastId,
+          sent: campaignData.sent,
+          delivered: campaignData.delivered,
+          read: campaignData.read,
+          failed: campaignData.failed,
+          status: finalStatus
         });
-        if (finishedCampaign) {
-          emitToTenant(finishedCampaign.tenantId, 'broadcast_update', {
-            broadcastId,
-            sent: finishedCampaign.sent,
-            delivered: finishedCampaign.delivered,
-            read: finishedCampaign.read,
-            failed: finishedCampaign.failed,
-            status: 'COMPLETED'
+
+        // Save in-app notification for the tenant admin
+        try {
+          const campaignName = campaignData.name || 'Broadcast Campaign';
+          const total = campaignData.totalRecipients || (campaignData.sent + campaignData.failed);
+          
+          const isAllFailed = finalStatus === 'FAILED';
+          const notifTitle = isAllFailed
+            ? `Broadcast Failed: ${campaignName}`
+            : `Broadcast Completed: ${campaignName}`;
+          
+          const notifMessage = isAllFailed
+            ? `Your campaign "${campaignName}" failed to send. All ${campaignData.failed} messages encountered errors. Inspect the logs drawer for details.`
+            : `Your campaign "${campaignName}" finished sending. Total: ${total}, Delivered: ${campaignData.delivered}, Failed: ${campaignData.failed}.`;
+
+          const notif = await createNotification({
+            tenantId: campaignData.tenantId,
+            userId: null, // tenant-wide
+            type: isAllFailed ? 'broadcast_failed' : 'broadcast_completed',
+            title: notifTitle,
+            message: notifMessage,
+            metadata: {
+              broadcastId,
+              campaignName,
+              total,
+              sent: campaignData.sent,
+              delivered: campaignData.delivered,
+              read: campaignData.read,
+              failed: campaignData.failed,
+              status: finalStatus
+            }
           });
 
-          // Save in-app notification for the tenant admin
-          try {
-            const campaignName = finishedCampaign.name || 'Broadcast Campaign';
-            const total = finishedCampaign.totalRecipients || (finishedCampaign.sent + finishedCampaign.failed);
-            const notifTitle = `Broadcast Completed: ${campaignName}`;
-            const notifMessage = `Your campaign "${campaignName}" finished sending. Total: ${total}, Delivered: ${finishedCampaign.delivered}, Failed: ${finishedCampaign.failed}.`;
-
-            const notif = await createNotification({
-              tenantId: finishedCampaign.tenantId,
-              userId: null, // tenant-wide
-              type: 'broadcast_completed',
-              title: notifTitle,
-              message: notifMessage,
-              metadata: {
-                broadcastId,
-                campaignName,
-                total,
-                sent: finishedCampaign.sent,
-                delivered: finishedCampaign.delivered,
-                read: finishedCampaign.read,
-                failed: finishedCampaign.failed
-              }
-            });
-
-            emitToTenant(finishedCampaign.tenantId, 'new_notification', {
-              notification: {
-                id: notif.id,
-                type: notif.type,
-                title: notif.title,
-                message: notif.message,
-                isRead: notif.isRead,
-                createdAt: notif.createdAt,
-                metadata: notif.metadata
-              }
-            });
-          } catch (notifErr) {
-            console.warn('[broadcastWorker] Failed to create in-app notification:', notifErr.message);
-          }
+          emitToTenant(campaignData.tenantId, 'new_notification', {
+            notification: {
+              id: notif.id,
+              type: notif.type,
+              title: notif.title,
+              message: notif.message,
+              isRead: notif.isRead,
+              createdAt: notif.createdAt,
+              metadata: notif.metadata
+            }
+          });
+        } catch (notifErr) {
+          console.warn('[broadcastWorker] Failed to create in-app notification:', notifErr.message);
         }
       }
     }
