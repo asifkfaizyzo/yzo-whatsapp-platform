@@ -109,17 +109,22 @@ export default function Broadcasts() {
 
     socket.emit("join_tenant", activeTenantId);
 
-    // Watch for backend status updates
+    // Watch for backend status updates in real-time
     socket.on("broadcast_update", (data) => {
       setCampaigns(prev => prev.map(c => {
         if (c.id === data.broadcastId) {
+          const newStatus = data.status || (
+            (data.sent !== undefined && data.failed !== undefined && (data.sent + data.failed >= c.totalRecipients))
+              ? "COMPLETED"
+              : c.status
+          );
           return {
             ...c,
-            sent: data.sent,
-            delivered: data.delivered,
-            read: data.read,
-            failed: data.failed,
-            status: data.sent + data.failed >= c.totalRecipients ? "COMPLETED" : c.status
+            sent: data.sent !== undefined ? data.sent : c.sent,
+            delivered: data.delivered !== undefined ? data.delivered : c.delivered,
+            read: data.read !== undefined ? data.read : c.read,
+            failed: data.failed !== undefined ? data.failed : c.failed,
+            status: newStatus
           };
         }
         return c;

@@ -11,6 +11,7 @@ import { decrypt } from '../lib/crypto.js';
 import { generateSignedUrl } from '../lib/utils/signedUrl.js';
 import { parseMetaError } from '../lib/metaErrorCodes.js';
 import { checkAndIncrementDailyCap } from '../lib/rateLimiter.js';
+import { createNotification } from '../modules/notifications/notificationService.js';
 
 const MEDIA_HEADER_TYPES = ['IMAGE', 'VIDEO', 'DOCUMENT'];
 
@@ -272,10 +273,25 @@ export const processBroadcastRecipientJob = async (job) => {
   }
 
   // Transition campaign status from SCHEDULED -> PROCESSING when worker execution begins
-  await prisma.broadcast.updateMany({
+  const scheduledTransition = await prisma.broadcast.updateMany({
     where: { id: broadcastId, status: 'SCHEDULED' },
     data: { status: 'PROCESSING', startedAt: new Date() }
   });
+
+  if (scheduledTransition.count > 0) {
+    const currentProg = await prisma.broadcast.findUnique({
+      where: { id: broadcastId },
+      select: { sent: true, delivered: true, read: true, failed: true }
+    });
+    emitToTenant(tenant.id, 'broadcast_update', {
+      broadcastId,
+      sent: currentProg?.sent || 0,
+      delivered: currentProg?.delivered || 0,
+      read: currentProg?.read || 0,
+      failed: currentProg?.failed || 0,
+      status: 'PROCESSING'
+    });
+  }
 
   const hasMetaConfig = process.env.MOCK_WHATSAPP === 'true'
     ? false
@@ -627,7 +643,7 @@ const checkCampaignCompletion = async (broadcastId) => {
     if (pendingCount === 0) {
       // Atomically update status only if it hasn't already been marked COMPLETED
       const result = await prisma.broadcast.updateMany({
-        where: { id: broadcastId, status: 'PROCESSING' },
+        where: { id: broadcastId, status: { in: ['PROCESSING', 'SCHEDULED'] } },
         data: {
           status: 'COMPLETED',
           completedAt: new Date()
@@ -636,6 +652,59 @@ const checkCampaignCompletion = async (broadcastId) => {
 
       if (result.count > 0) {
         console.log(`🎉 Broadcast campaign ${broadcastId} fully COMPLETED!`);
+        const finishedCampaign = await prisma.broadcast.findUnique({
+          where: { id: broadcastId },
+          select: { tenantId: true, name: true, totalRecipients: true, sent: true, delivered: true, read: true, failed: true }
+        });
+        if (finishedCampaign) {
+          emitToTenant(finishedCampaign.tenantId, 'broadcast_update', {
+            broadcastId,
+            sent: finishedCampaign.sent,
+            delivered: finishedCampaign.delivered,
+            read: finishedCampaign.read,
+            failed: finishedCampaign.failed,
+            status: 'COMPLETED'
+          });
+
+          // Save in-app notification for the tenant admin
+          try {
+            const campaignName = finishedCampaign.name || 'Broadcast Campaign';
+            const total = finishedCampaign.totalRecipients || (finishedCampaign.sent + finishedCampaign.failed);
+            const notifTitle = `Broadcast Completed: ${campaignName}`;
+            const notifMessage = `Your campaign "${campaignName}" finished sending. Total: ${total}, Delivered: ${finishedCampaign.delivered}, Failed: ${finishedCampaign.failed}.`;
+
+            const notif = await createNotification({
+              tenantId: finishedCampaign.tenantId,
+              userId: null, // tenant-wide
+              type: 'broadcast_completed',
+              title: notifTitle,
+              message: notifMessage,
+              metadata: {
+                broadcastId,
+                campaignName,
+                total,
+                sent: finishedCampaign.sent,
+                delivered: finishedCampaign.delivered,
+                read: finishedCampaign.read,
+                failed: finishedCampaign.failed
+              }
+            });
+
+            emitToTenant(finishedCampaign.tenantId, 'new_notification', {
+              notification: {
+                id: notif.id,
+                type: notif.type,
+                title: notif.title,
+                message: notif.message,
+                isRead: notif.isRead,
+                createdAt: notif.createdAt,
+                metadata: notif.metadata
+              }
+            });
+          } catch (notifErr) {
+            console.warn('[broadcastWorker] Failed to create in-app notification:', notifErr.message);
+          }
+        }
       }
     }
   } catch (e) {
