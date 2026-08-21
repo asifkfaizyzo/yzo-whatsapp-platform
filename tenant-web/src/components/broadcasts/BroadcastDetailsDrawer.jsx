@@ -131,6 +131,18 @@ export default function BroadcastDetailsDrawer({
     };
   }, [isOpen, broadcastId]);
 
+  // Handle ESC key to close drawer
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape" && !selectedError) {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, selectedError, onClose]);
+
   // Handle Tab Switch
   const handleTabChange = (status) => {
     setActiveTab(status);
@@ -229,7 +241,14 @@ export default function BroadcastDetailsDrawer({
   const recipients = data?.recipients || [];
 
   return createPortal(
-    <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/50 backdrop-blur-xs flex justify-end animate-in fade-in duration-200">
+    <div 
+      className="fixed inset-0 z-50 overflow-hidden bg-slate-900/50 backdrop-blur-xs flex justify-end animate-in fade-in duration-200"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
       <div className="w-full max-w-4xl bg-white h-full shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-right duration-300">
         
         {/* Top Header */}
