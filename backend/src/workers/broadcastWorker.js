@@ -76,11 +76,13 @@ const sendMetaTemplateMessage = async (tenant, phone, templateName, languageCode
 
   // ── HEADER component ─────────────────────────────────────────────────────
   const headerType = template?.headerType || 'NONE';
+  const hasDynamicHeaderText = (template?.headerParams > 0) || (template?.headerText && /\{\{\d+\}\}/.test(template.headerText));
 
-  if (headerType === 'TEXT' && template.headerText) {
+  if (headerType === 'TEXT' && hasDynamicHeaderText) {
+    const headerParamText = params?.header?.[0] || template.headerText || '-';
     templateComponents.push({
       type: 'header',
-      parameters: [{ type: 'text', text: template.headerText }]
+      parameters: [{ type: 'text', text: headerParamText }]
     });
 
   } else if (headerType === 'IMAGE') {
@@ -370,7 +372,29 @@ export const processBroadcastRecipientJob = async (job) => {
     ? null
     : `wamid.mock_${broadcastId}_${contact.id}_${Date.now()}`;
 
-  const bodyParams = (defaultParams?.body || []).map(val => {
+  // Calculate expected parameters from template
+  const curlyMatches = templateText.match(/\{\{([a-zA-Z0-9_-]+)\}\}/g) || [];
+  const bracketMatches = templateText.match(/\[(var\d+|[a-zA-Z0-9_-]+)\]/g) || [];
+  const detectedParamCount = new Set([...curlyMatches, ...bracketMatches]).size;
+  const expectedBodyParamCount = Math.max(template.bodyParams || 0, detectedParamCount);
+
+  let rawBodyList = Array.isArray(defaultParams?.body) ? [...defaultParams.body] : [];
+  
+  // If fewer parameters were configured than Meta expects, auto-fill with smart contact defaults
+  while (rawBodyList.length < expectedBodyParamCount) {
+    const idx = rawBodyList.length;
+    if (idx === 0) rawBodyList.push('{{contact_name}}');
+    else if (idx === 1) rawBodyList.push('{{contact_company}}');
+    else if (idx === 2) rawBodyList.push('{{contact_phone}}');
+    else rawBodyList.push('-');
+  }
+
+  // If more parameters were supplied than Meta expects, slice to exact expected count
+  if (expectedBodyParamCount > 0 && rawBodyList.length > expectedBodyParamCount) {
+    rawBodyList = rawBodyList.slice(0, expectedBodyParamCount);
+  }
+
+  const bodyParams = rawBodyList.map(val => {
     let resolved = val;
     if (val === '{{contact_name}}') {
       resolved = contact.name?.trim() || 'Valued Customer';
