@@ -550,13 +550,19 @@ export default function BroadcastDetailsDrawer({
       </div>
 
       {/* Meta Error Diagnostic Modal */}
-      {selectedError && createPortal(
-        <div className="fixed inset-0 z-60 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-2xl w-full max-w-md p-6 space-y-4 animate-in zoom-in-95 duration-150">
+      {selectedError && (
+        <div 
+          className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4"
+          style={{ zIndex: 99999 }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedError(null);
+          }}
+        >
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-md p-6 space-y-4 animate-in zoom-in-95 duration-150 relative">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-2.5 text-rose-600">
-                <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 border border-rose-100 flex items-center justify-center shrink-0">
-                  <ShieldAlert size={18} />
+                <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 border border-rose-100 flex items-center justify-center shrink-0">
+                  <ShieldAlert size={20} />
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-800">Meta Delivery Failure</h3>
@@ -566,32 +572,34 @@ export default function BroadcastDetailsDrawer({
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setSelectedError(null)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-50"
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-100 transition"
               >
                 <X size={16} />
               </button>
             </div>
 
             <div className="space-y-3 text-xs">
-              <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 space-y-1">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Recipient</span>
-                <p className="font-bold text-slate-800">{selectedError.recipient?.contactName} ({selectedError.recipient?.contactPhone})</p>
+              <div className="bg-slate-50 rounded-2xl p-3.5 border border-slate-100 space-y-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Recipient Contact</span>
+                <p className="font-bold text-slate-800">{selectedError.recipient?.contactName}</p>
+                <p className="text-[11px] font-mono text-slate-500">{selectedError.recipient?.contactPhone}</p>
               </div>
 
-              <div className="space-y-1">
+              <div className="space-y-1.5 p-1">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Diagnostic Reason</span>
-                <p className="font-semibold text-slate-800">{selectedError.diag?.title || selectedError.recipient?.errorMessage}</p>
-                <p className="text-slate-500 text-[11px] leading-relaxed">{selectedError.diag?.description || selectedError.recipient?.errorMessage}</p>
+                <p className="font-bold text-slate-800 text-sm">{selectedError.diag?.title || selectedError.recipient?.errorMessage}</p>
+                <p className="text-slate-600 text-xs leading-relaxed">{selectedError.diag?.description || selectedError.recipient?.errorMessage}</p>
               </div>
 
               {selectedError.diag?.action && (
-                <div className="p-3 bg-blue-50/60 border border-blue-100 rounded-xl space-y-1">
+                <div className="p-3.5 bg-blue-50/80 border border-blue-100 rounded-2xl space-y-1">
                   <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wider flex items-center gap-1">
-                    <Info size={12} />
+                    <Info size={13} />
                     Recommended Action
                   </span>
-                  <p className="text-[11px] text-blue-900 leading-relaxed font-medium">
+                  <p className="text-xs text-blue-950 leading-relaxed font-medium">
                     {selectedError.diag.action}
                   </p>
                 </div>
@@ -602,14 +610,13 @@ export default function BroadcastDetailsDrawer({
               <button
                 type="button"
                 onClick={() => setSelectedError(null)}
-                className="btn-primary py-2 px-4 text-xs font-semibold"
+                className="btn-primary py-2.5 px-5 text-xs font-bold rounded-xl"
               >
-                Got It
+                Close Diagnostic
               </button>
             </div>
           </div>
-        </div>,
-        document.body
+        </div>
       )}
     </div>,
     document.body
