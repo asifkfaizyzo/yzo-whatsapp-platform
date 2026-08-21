@@ -93,7 +93,7 @@ export default function Broadcasts() {
     let activeTenantId = "";
     try {
       const userObj = JSON.parse(userStr);
-      activeTenantId = userObj.tenantId || "";
+      activeTenantId = userObj.type === "TENANT" ? userObj.id : (userObj.tenantId || userObj.id);
     } catch (e) {
       return;
     }
@@ -107,7 +107,15 @@ export default function Broadcasts() {
       transports: ["websocket"]
     });
 
-    socket.emit("join_tenant", activeTenantId);
+    const joinAndListen = () => {
+      socket.emit("join_tenant", activeTenantId);
+    };
+
+    if (socket.connected) {
+      joinAndListen();
+    } else {
+      socket.on("connect", joinAndListen);
+    }
 
     // Watch for backend status updates in real-time
     socket.on("broadcast_update", (data) => {

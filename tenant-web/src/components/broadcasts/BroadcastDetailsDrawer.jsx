@@ -87,7 +87,7 @@ export default function BroadcastDetailsDrawer({
     let activeTenantId = "";
     try {
       const userObj = JSON.parse(userStr);
-      activeTenantId = userObj.tenantId || "";
+      activeTenantId = userObj.type === "TENANT" ? userObj.id : (userObj.tenantId || userObj.id);
     } catch (e) {
       return;
     }
@@ -100,7 +100,15 @@ export default function BroadcastDetailsDrawer({
       transports: ["websocket"]
     });
 
-    socket.emit("join_tenant", activeTenantId);
+    const joinAndListen = () => {
+      socket.emit("join_tenant", activeTenantId);
+    };
+
+    if (socket.connected) {
+      joinAndListen();
+    } else {
+      socket.on("connect", joinAndListen);
+    }
 
     socket.on("broadcast_update", (updateData) => {
       if (updateData.broadcastId === broadcastId) {
