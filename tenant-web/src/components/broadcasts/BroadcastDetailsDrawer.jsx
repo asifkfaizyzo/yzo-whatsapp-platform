@@ -32,6 +32,8 @@ import {
 } from "../../services/broadcast.service";
 import { useToast } from "../../context/ToastContext";
 import { useConfirm } from "../../context/ConfirmContext";
+import { io } from "socket.io-client";
+import { useAuthStore } from "../../store/useAuthStore";
 
 export default function BroadcastDetailsDrawer({
   broadcastId,
@@ -75,6 +77,59 @@ export default function BroadcastDetailsDrawer({
       fetchRecipients(1, activeTab, searchTerm);
     }
   }, [isOpen, broadcastId, activeTab, fetchRecipients]);
+
+  // Live Socket Sync for active campaign stats & status in Drawer
+  useEffect(() => {
+    if (!isOpen || !broadcastId) return;
+
+    const userStr = localStorage.getItem("user");
+    if (!userStr) return;
+    let activeTenantId = "";
+    try {
+      const userObj = JSON.parse(userStr);
+      activeTenantId = userObj.tenantId || "";
+    } catch (e) {
+      return;
+    }
+    if (!activeTenantId) return;
+
+    const socketUrl = import.meta.env.VITE_BACKEND_URL;
+    const token = useAuthStore.getState().accessToken;
+    const socket = io(socketUrl, {
+      auth: { token },
+      transports: ["websocket"]
+    });
+
+    socket.emit("join_tenant", activeTenantId);
+
+    socket.on("broadcast_update", (updateData) => {
+      if (updateData.broadcastId === broadcastId) {
+        setData(prev => {
+          if (!prev) return prev;
+          const updatedCampaign = {
+            ...prev.campaign,
+            status: updateData.status || prev.campaign.status
+          };
+          const updatedCounts = {
+            ...prev.counts,
+            sent: updateData.sent !== undefined ? updateData.sent : prev.counts.sent,
+            delivered: updateData.delivered !== undefined ? updateData.delivered : prev.counts.delivered,
+            read: updateData.read !== undefined ? updateData.read : prev.counts.read,
+            failed: updateData.failed !== undefined ? updateData.failed : prev.counts.failed,
+          };
+          return {
+            ...prev,
+            campaign: updatedCampaign,
+            counts: updatedCounts
+          };
+        });
+      }
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [isOpen, broadcastId]);
 
   // Handle Tab Switch
   const handleTabChange = (status) => {
