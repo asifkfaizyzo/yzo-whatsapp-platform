@@ -1403,13 +1403,6 @@ export default function SettingsPage() {
                         <RefreshCw size={13} className={loadingStatus ? "animate-spin text-[#125EF2]" : ""} />
                         <span>Refresh</span>
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowConfirmDisconnect(true)}
-                        className="py-1.5 px-3 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-semibold transition"
-                      >
-                        Disconnect
-                      </button>
                     </div>
                   </div>
 

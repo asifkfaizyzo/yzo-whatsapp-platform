@@ -27,6 +27,7 @@ import { useConfirm } from "../../context/ConfirmContext";
 import { useToast } from "../../context/ToastContext";
 import WhatsAppRequiredModal from "../../components/whatsapp/WhatsAppRequiredModal";
 import WhatsAppConnect from "../../components/whatsapp/WhatsAppConnect";
+import BroadcastDetailsDrawer from "../../components/broadcasts/BroadcastDetailsDrawer";
 
 export default function Broadcasts() {
   const confirm = useConfirm();
@@ -41,6 +42,8 @@ export default function Broadcasts() {
   const [whatsappHealth, setWhatsappHealth] = useState(null);
   const [showConnectModal, setShowConnectModal] = useState(false);
   const [showWhatsAppSetup, setShowWhatsAppSetup] = useState(false);
+  const [selectedBroadcastId, setSelectedBroadcastId] = useState(null);
+  const [showDrawer, setShowDrawer] = useState(false);
 
   const [showModal, setShowModal] = useState(false);
   const [newCampaign, setNewCampaign] = useState({
@@ -426,17 +429,30 @@ export default function Broadcasts() {
                         {deliveryPercent}% ({b.delivered})
                       </td>
                       <td className="p-4 text-center">
-                        {(b.status === "SCHEDULED" || b.status === "PROCESSING") ? (
+                        <div className="flex items-center justify-center gap-1.5">
                           <button
-                            onClick={() => handleCancelCampaign(b.id)}
-                            className="px-2.5 py-1 text-[11px] font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-100 rounded-lg transition shadow-2xs"
-                            title="Cancel Campaign"
+                            type="button"
+                            onClick={() => {
+                              setSelectedBroadcastId(b.id);
+                              setShowDrawer(true);
+                            }}
+                            className="px-2.5 py-1 text-[11px] font-semibold text-[#125EF2] hover:text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-100 rounded-lg transition shadow-2xs flex items-center gap-1"
+                            title="View granular recipient logs and diagnostics"
                           >
-                            Cancel
+                            <BarChart3 size={12} />
+                            <span>Logs</span>
                           </button>
-                        ) : (
-                          <span className="text-slate-300 font-medium">—</span>
-                        )}
+                          {(b.status === "SCHEDULED" || b.status === "PROCESSING") && (
+                            <button
+                              type="button"
+                              onClick={() => handleCancelCampaign(b.id)}
+                              className="px-2.5 py-1 text-[11px] font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-100 rounded-lg transition shadow-2xs"
+                              title="Cancel Campaign"
+                            >
+                              Cancel
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -709,6 +725,17 @@ export default function Broadcasts() {
           onClose={() => setShowWhatsAppSetup(false)}
         />
       )}
+
+      {/* Granular Recipient Delivery Logs & Diagnostics Drawer */}
+      <BroadcastDetailsDrawer
+        broadcastId={selectedBroadcastId}
+        isOpen={showDrawer}
+        onClose={() => {
+          setShowDrawer(false);
+          setSelectedBroadcastId(null);
+        }}
+        onCampaignUpdated={loadData}
+      />
     </div>
   );
 }

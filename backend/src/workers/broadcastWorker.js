@@ -9,6 +9,8 @@ import { getOrCreateConversation } from '../modules/conversations/conversationSe
 import { emitToTenant } from '../lib/socket.js';
 import { decrypt } from '../lib/crypto.js';
 import { generateSignedUrl } from '../lib/utils/signedUrl.js';
+import { parseMetaError } from '../lib/metaErrorCodes.js';
+import { checkAndIncrementDailyCap } from '../lib/rateLimiter.js';
 
 const MEDIA_HEADER_TYPES = ['IMAGE', 'VIDEO', 'DOCUMENT'];
 
@@ -252,7 +254,7 @@ const simulateRecipientReceipt = (tenantId, broadcastId, recipientId, wamid) => 
 export const processBroadcastRecipientJob = async (job) => {
   const { broadcastId, tenant, contact, template, defaultParams } = job.data;
 
-  // Check if campaign was cancelled before sending
+  // 1. Check current campaign status (CANCELLED or PAUSED)
   const currentCampaign = await prisma.broadcast.findUnique({
     where: { id: broadcastId },
     select: { status: true }
@@ -261,6 +263,12 @@ export const processBroadcastRecipientJob = async (job) => {
   if (!currentCampaign || currentCampaign.status === 'CANCELLED') {
     console.log(`🚫 Broadcast job [${job.id}] skipped because campaign ${broadcastId} is CANCELLED.`);
     return;
+  }
+
+  if (currentCampaign.status === 'PAUSED') {
+    console.log(`⏸️ Broadcast job [${job.id}] delayed because campaign ${broadcastId} is PAUSED.`);
+    // Re-queue with a delay so it waits for campaign resume
+    throw new Error('CAMPAIGN_PAUSED');
   }
 
   // Transition campaign status from SCHEDULED -> PROCESSING when worker execution begins
@@ -272,6 +280,66 @@ export const processBroadcastRecipientJob = async (job) => {
   const hasMetaConfig = process.env.MOCK_WHATSAPP === 'true'
     ? false
     : (tenant.whatsappWabaId && tenant.whatsappAccessToken && tenant.whatsappPhoneId);
+
+  // 2. Pre-Validation: Validate phone number
+  const cleanPhone = (contact.phone || '').replace(/[^0-9+]/g, '');
+  if (!cleanPhone || cleanPhone.length < 8) {
+    const errorDiag = parseMetaError(131026, 'Invalid phone number format');
+    await prisma.broadcastRecipient.update({
+      where: { broadcastId_contactId: { broadcastId, contactId: contact.id } },
+      data: {
+        status: 'FAILED',
+        failedAt: new Date(),
+        errorCode: errorDiag.errorCode,
+        errorMessage: errorDiag.title
+      }
+    });
+
+    const updated = await prisma.broadcast.update({
+      where: { id: broadcastId },
+      data: { failed: { increment: 1 } }
+    });
+
+    emitToTenant(tenant.id, 'broadcast_update', {
+      broadcastId,
+      sent: updated.sent,
+      delivered: updated.delivered,
+      read: updated.read,
+      failed: updated.failed,
+      status: updated.status
+    });
+    return;
+  }
+
+  // 3. Pre-Validation: Daily 24-hour tier quota check
+  const capCheck = await checkAndIncrementDailyCap(tenant.id, tenant.metaTier || 'TIER_1K', cleanPhone);
+  if (!capCheck.allowed) {
+    const errorDiag = parseMetaError(130429, capCheck.reason);
+    await prisma.broadcastRecipient.update({
+      where: { broadcastId_contactId: { broadcastId, contactId: contact.id } },
+      data: {
+        status: 'FAILED',
+        failedAt: new Date(),
+        errorCode: errorDiag.errorCode,
+        errorMessage: errorDiag.title
+      }
+    });
+
+    const updated = await prisma.broadcast.update({
+      where: { id: broadcastId },
+      data: { failed: { increment: 1 } }
+    });
+
+    emitToTenant(tenant.id, 'broadcast_update', {
+      broadcastId,
+      sent: updated.sent,
+      delivered: updated.delivered,
+      read: updated.read,
+      failed: updated.failed,
+      status: updated.status
+    });
+    return;
+  }
 
   const bodyComp = (template.components || []).find(c => c.type === 'BODY');
   const templateText = bodyComp ? bodyComp.text : '';
@@ -462,26 +530,32 @@ export const processBroadcastRecipientJob = async (job) => {
       data: { sent: { increment: 1 } }
     });
 
-
     emitToTenant(tenant.id, 'broadcast_update', {
       broadcastId,
       sent: updatedCampaign.sent,
       delivered: updatedCampaign.delivered,
       read: updatedCampaign.read,
-      failed: updatedCampaign.failed
+      failed: updatedCampaign.failed,
+      status: updatedCampaign.status
     });
 
   } catch (error) {
+    if (error.message === 'CAMPAIGN_PAUSED') {
+      throw error; // Re-throw to trigger BullMQ delayed retry
+    }
+
     const isFinalAttempt = (job.attemptsMade + 1) >= (job.opts?.attempts || 1);
+    const parsedDiag = parseMetaError(null, error.message);
     console.error(`Failed to send broadcast to contact ${contact.phone} (attempt ${job.attemptsMade + 1}/${job.opts?.attempts || 1}):`, error.message);
 
-    if (isFinalAttempt) {
+    if (isFinalAttempt || !parsedDiag.isRecoverable) {
       await prisma.broadcastRecipient.update({
         where: { broadcastId_contactId: { broadcastId, contactId: contact.id } },
         data: {
           status: 'FAILED',
           failedAt: new Date(),
-          errorMessage: error.message
+          errorCode: parsedDiag.errorCode,
+          errorMessage: parsedDiag.title
         }
       });
 
@@ -495,11 +569,16 @@ export const processBroadcastRecipientJob = async (job) => {
         sent: updatedCampaign.sent,
         delivered: updatedCampaign.delivered,
         read: updatedCampaign.read,
-        failed: updatedCampaign.failed
+        failed: updatedCampaign.failed,
+        status: updatedCampaign.status
       });
+
+      if (!parsedDiag.isRecoverable) {
+        return; // Don't retry non-recoverable error
+      }
     }
 
-    throw error; // Rethrow so BullMQ records job failure and retries if attempts remain
+    throw error; // Rethrow so BullMQ retries recoverable failures
   }
 };
 
