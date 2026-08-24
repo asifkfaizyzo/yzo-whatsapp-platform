@@ -409,53 +409,74 @@ export const deleteContact = async (contactId, tenantId) => {
 
 
 // ===================== BULK DELETE CONTACTS =====================
-export const bulkDeleteContacts = async (contactIds, tenantId) => {
-    if (!contactIds || !Array.isArray(contactIds) || contactIds.length === 0) {
-        throw new Error('At least one contact ID is required');
+export const bulkDeleteContacts = async ({ mode, contactIds, filters, confirmation }, tenantId) => {
+    if (!tenantId) throw new Error('Tenant ID is required');
+
+    let idsToDelete = [];
+
+    if (mode === 'selected') {
+        if (!contactIds || contactIds.length === 0) throw new Error('No contact IDs provided');
+        const found = await prisma.contact.findMany({ where: { id: { in: contactIds }, tenantId }, select: { id: true } });
+        idsToDelete = found.map(c => c.id);
+    } 
+    else if (mode === 'filter') {
+        const whereClause = { tenantId };
+
+        if (filters) {
+            if (filters.startDate || filters.endDate) {
+                whereClause.createdAt = {};
+                if (filters.startDate) whereClause.createdAt.gte = new Date(filters.startDate);
+                if (filters.endDate) {
+                    const end = new Date(filters.endDate);
+                    end.setHours(23, 59, 59, 999);
+                    whereClause.createdAt.lte = end;
+                }
+            }
+            if (filters.assignedFilter === 'assigned') whereClause.assignedTo = { not: null };
+            if (filters.assignedFilter === 'unassigned') whereClause.assignedTo = null;
+            if (filters.search) {
+                whereClause.OR = [
+                    { name: { contains: filters.search, mode: 'insensitive' } },
+                    { phone: { contains: filters.search } },
+                    { email: { contains: filters.search, mode: 'insensitive' } }
+                ];
+            }
+            // Target Corrupted Data without raw SQL
+            if (filters.invalidOnly) {
+                whereClause.OR = [
+                    { phone: { contains: 'E+' } },
+                    { phone: { contains: 'e+' } },
+                    { name: { equals: '' } }
+                ];
+            }
+        }
+
+        const found = await prisma.contact.findMany({ where: whereClause, select: { id: true } });
+        idsToDelete = found.map(c => c.id);
+    } 
+    else if (mode === 'all') {
+        if (confirmation !== 'DELETE ALL') throw new Error('Confirmation "DELETE ALL" required');
+        const found = await prisma.contact.findMany({ where: { tenantId }, select: { id: true } });
+        idsToDelete = found.map(c => c.id);
     }
-    if (!tenantId) {
-        throw new Error('Tenant ID is required');
+
+    if (idsToDelete.length === 0) return { message: 'No contacts found to delete', deletedCount: 0 };
+
+    const CHUNK_SIZE = 500;
+    let totalDeleted = 0;
+
+    for (let i = 0; i < idsToDelete.length; i += CHUNK_SIZE) {
+        const chunk = idsToDelete.slice(i, i + CHUNK_SIZE);
+        await prisma.$transaction([
+            prisma.contactTagMapping.deleteMany({ where: { contactId: { in: chunk } } }),
+            prisma.broadcastRecipient.deleteMany({ where: { contactId: { in: chunk } } }),
+            prisma.conversation.deleteMany({ where: { contactId: { in: chunk } } }),
+            prisma.contact.deleteMany({ where: { id: { in: chunk }, tenantId } })
+        ]);
+        totalDeleted += chunk.length;
     }
 
-    // 1. Fetch valid contact IDs that belong strictly to this Tenant
-    const existingContacts = await prisma.contact.findMany({
-        where: {
-            id: { in: contactIds },
-            tenantId,
-        },
-        select: { id: true },
-    });
-
-    if (existingContacts.length === 0) {
-        throw new Error('No valid contacts found to delete');
-    }
-
-    const idsToDelete = existingContacts.map((c) => c.id);
-
-    // 2. Perform Transactional Delete to clean up Foreign Key mappings
-    await prisma.$transaction([
-        prisma.contactTagMapping.deleteMany({
-            where: { contactId: { in: idsToDelete } },
-        }),
-        prisma.broadcastRecipient.deleteMany({
-            where: { contactId: { in: idsToDelete } },
-        }),
-        prisma.conversation.deleteMany({
-            where: { contactId: { in: idsToDelete } },
-        }),
-        prisma.contact.deleteMany({
-            where: {
-                id: { in: idsToDelete },
-                tenantId,
-            },
-        }),
-    ]);
-
-    return {
-        message: 'Contacts successfully deleted',
-        deletedCount: idsToDelete.length,
-        deletedIds: idsToDelete,
-    };
+    return { message: `Successfully deleted ${totalDeleted} contact(s)`, deletedCount: totalDeleted };
 };
 
 
@@ -532,233 +553,93 @@ export const unblockContact = async (contactId, tenantId) => {
 
 //bulk CSV contact importer function
 // ===================== IMPORT CSV =====================
+// ===================== IMPORT CSV =====================
 export const importContactsFromCSV = async (filePath, tenantId) => {
-    console.log(`🚀 Starting CSV Import for Tenant: ${tenantId}`);
+    if (!filePath || !tenantId) throw new Error('Missing file or Tenant ID');
 
-    if (!filePath) throw new Error('CSV file path is missing');
-    if (!tenantId) throw new Error('Tenant ID is missing');
+    const deleteTempFile = () => fs.existsSync(filePath) && fs.unlinkSync(filePath);
 
-    // ✅ Helper to safely delete the temp file
-    const deleteTempFile = () => {
-        try {
-            if (fs.existsSync(filePath)) {
-                fs.unlinkSync(filePath);
-                console.log(`🗑️ Temp file deleted: ${filePath}`);
-            }
-        } catch (err) {
-            console.error(`⚠️ Failed to delete temp file: ${filePath}`, err.message);
-        }
-    };
+    try {
+        const rows = await new Promise((resolve, reject) => {
+            const results = [];
+            fs.createReadStream(filePath)
+                .pipe(csv()) // ✅ Dynamic parsing, stops column shift
+                .on('data', (row) => results.push(row))
+                .on('end', () => resolve(results))
+                .on('error', reject);
+        });
 
-    // 1. Read CSV
-    try{ 
-    const rows = await new Promise((resolve, reject) => {
-        const results = [];
-        fs.createReadStream(filePath)
-            .pipe(csv({
-                headers: ['name', 'phone', 'email', 'company', 'countryCode', 'tags'], // ✅ Inline,    // ✅ Tell parser what headers to use
-                skipLines: 1         // ✅ Skip the first row (since we defined headers manually)
-            }))
-            .on('data', (row) => {
-                console.log('🔄 Raw row:', row);
-                results.push(row);
-            })
-            .on('end', () => resolve(results))
-            .on('error', (err) => reject(err));
-    });
+        const summary = { total: rows.length, created: 0, duplicates: 0, errors: 0, createdContacts: [], duplicateContacts: [], errorDetails: [], assignments: [] };
+        let rowIndex = 1;
 
-    console.log(`✅ Parsed ${rows.length} rows from CSV.`);
+        for (const row of rows) {
+            rowIndex++;
+            try {
+                const normalized = {};
+                Object.keys(row).forEach(k => { if (k) normalized[k.toLowerCase().trim()] = row[k]; });
 
-    const summary = {
-        total: rows.length,
-        created: 0,
-        duplicates: 0,
-        errors: 0,
-        createdContacts: [],
-        duplicateContacts: [],
-        errorDetails: [],
-        assignments: []         // ✅ Track assignments
-    };
-
-    // 2. Process Loop
-    for (const row of rows) {
-        try {
-
-            console.log('🔄 Raw row:', row); // Debug: see actual keys
-
-            // Normalize all keys to lowercase
-            const normalizedRow = {};
-            Object.keys(row).forEach(key => {
-                normalizedRow[key.toLowerCase().trim()] = row[key];
-            });
-
-            const name = normalizedRow.name?.trim();
-            const rawPhone = normalizedRow.phone?.trim();
-            const phone = rawPhone ? rawPhone.replace(/[-\s]/g, '') : '';
-            const email = normalizedRow.email?.trim() || null;
-            const company = normalizedRow.company?.trim() || null;
-            const countryCode = normalizedRow.countrycode?.trim() || '+91';
-            const tagNames = normalizedRow.tags
-                ? normalizedRow.tags.split(',').map(t => t.trim()).filter(Boolean)
-                : [];
-
-            console.log(`🏷️ Tags: ${tagNames}`);
-
-            if (!name || !phone) {
-                console.log('⚠️ Missing name or phone. Skipping...');
-                summary.errors++;
-                summary.errorDetails.push({
-                    name: name || 'Unknown',
-                    reason: 'Missing Name or Phone'
-                });
-                continue;
-            }
-
-            // Check Duplicate
-            const existing = await prisma.contact.findUnique({
-                where: { phone_tenantId: { phone, tenantId } }
-            });
-
-            let currentContactId;
-
-            if (existing) {
-                summary.duplicates++;
-                summary.duplicateContacts.push({
-                    name,
-                    phone,
-                    reason: 'Already exists'
-                });
-                currentContactId = existing.id;
-            } else {
-                // WhatsApp ID: Only last 10 digits
-                const whatsappId = phone.replace(/\D/g, '').slice(-10);
-
-                const newContact = await prisma.contact.create({
-                    data: {
-                        name,
-                        phone,
-                        email,
-                        company,
-                        countryCode,
-                        whatsappId,
-                        tenantId,
-                        isActive: true,
-                        isBlocked: false
-                    }
-                });
-
-                currentContactId = newContact.id;
-                summary.created++;
-                summary.createdContacts.push({
-                    id: newContact.id,
-                    name,
-                    phone,
-                    whatsappId
-                });
-            }
-
-            // ✅ Handle Tags: ONLY use existing tags, NO new tag creation
-            // --- D. Handle Tags ---
-            for (const tagName of tagNames) {
-
-                // ✅ Try multiple formats to find the tag
-                const normalizedTagName = tagName.charAt(0).toUpperCase() + tagName.slice(1).toLowerCase();
-
-                console.log(`🔍 Looking for tag: "${tagName}" → normalized: "${normalizedTagName}"`);
-
-                // Try to find tag (case insensitive search)
-                const tag = await prisma.tag.findFirst({
-                    where: {
-                        tenantId: tenantId,
-                        name: {
-                            equals: tagName,
-                            mode: 'insensitive'  // ✅ Case insensitive match
-                        }
-                    }
-                });
-
-                if (!tag) {
-                    console.log(`⚠️ Tag '${tagName}' not found in DB. Skipping...`);
-                    continue;
+                const name = normalized.name?.trim();
+                const rawPhone = normalized.phone?.trim() || '';
+                
+                // 🔴 Reject Missing
+                if (!name || !rawPhone) {
+                    summary.errors++; summary.errorDetails.push({ name: name||'Unknown', phone: rawPhone||'Empty', reason: 'Missing Name/Phone' }); continue;
+                }
+                // 🔴 Reject Excel E+ notation
+                if (/e\+/i.test(rawPhone)) {
+                    summary.errors++; summary.errorDetails.push({ name, phone: rawPhone, reason: 'Scientific notation (E+). Format as Text in Excel.' }); continue;
+                }
+                // 🔴 Reject Letters
+                if (/[a-zA-Z]/.test(rawPhone)) {
+                    summary.errors++; summary.errorDetails.push({ name, phone: rawPhone, reason: 'Phone contains letters' }); continue;
                 }
 
-                console.log(`✅ Found tag: ${tag.name} (ID: ${tag.id})`);
+                const cleanDigits = rawPhone.replace(/\D/g, '');
+                if (cleanDigits.length < 8 || cleanDigits.length > 15) {
+                    summary.errors++; summary.errorDetails.push({ name, phone: rawPhone, reason: 'Invalid phone length' }); continue;
+                }
 
-                // Check if mapping already exists
-                const linkExists = await prisma.contactTagMapping.findUnique({
-                    where: {
-                        contactId_tagId: {
-                            contactId: currentContactId,
-                            tagId: tag.id
-                        }
-                    }
-                });
+                const formattedPhone = `+${cleanDigits}`;
+                const existing = await prisma.contact.findUnique({ where: { phone_tenantId: { phone: formattedPhone, tenantId } } });
 
-                if (!linkExists) {
-                    await prisma.contactTagMapping.create({
-                        data: {
-                            contactId: currentContactId,
-                            tagId: tag.id
-                        }
-                    });
-                    console.log(`✅ Mapped contact to tag '${tag.name}'`);
+                let contactId;
+                if (existing) {
+                    summary.duplicates++; summary.duplicateContacts.push({ name, phone: formattedPhone }); contactId = existing.id;
                 } else {
-                    console.log(`ℹ️ Mapping already exists for tag '${tag.name}'`);
+                    const newC = await prisma.contact.create({
+                        data: { name, phone: formattedPhone, email: normalized.email, company: normalized.company, countryCode: normalized.countrycode || '+91', whatsappId: cleanDigits.slice(-10), tenantId }
+                    });
+                    summary.created++; summary.createdContacts.push(newC); contactId = newC.id;
                 }
+
+                // Tags
+                if (normalized.tags) {
+                    for (const t of normalized.tags.split(',')) {
+                        const tag = await prisma.tag.findFirst({ where: { tenantId, name: { equals: t.trim(), mode: 'insensitive' } } });
+                        if (tag) {
+                            await prisma.contactTagMapping.create({ data: { contactId, tagId: tag.id } }).catch(() => {}); // catch unique constraint if exists
+                        }
+                    }
+                }
+            } catch (err) {
+                summary.errors++; summary.errorDetails.push({ name: row.name||'Unknown', phone: row.phone||'Unknown', reason: err.message });
             }
-
-        } catch (error) {
-            summary.errors++;
-            summary.errorDetails.push({
-                name: row.name || 'Unknown',
-                phone: row.phone || 'Unknown',
-                reason: error.message
-            });
         }
-    }
 
-    // ✅ Auto Priority Assignment for New Contacts
-   // ✅ Cascading Priority Assignment for CSV contacts
-if (summary.createdContacts.length > 0) {
-    console.log(`🔄 Running cascading priority assignment for ${summary.createdContacts.length} contacts...`);
-
-    for (const createdContact of summary.createdContacts) {
-        try {
-            if (!createdContact?.id) continue;
-
-            // ✅ Use the shared helper function
-            const result = await assignContactByPriority(
-                createdContact.id,
-                tenantId
-            );
-
-            summary.assignments.push({
-                contactId: createdContact.id,
-                contactName: createdContact.name,
-                assignedTo: result?.assignedTo || null,
-                tag: result?.tag || 'No Tag',
-                method: result?.method || 'Unassigned'
-            });
-
-        } catch (err) {
-            console.error(`❌ Error assigning ${createdContact?.name}:`, err.message);
+        // Auto Assign
+        for (const c of summary.createdContacts) {
+            await assignContactByPriority(c.id, tenantId).catch(console.error);
         }
-    }
-}
-     console.log('🏁 Import Summary:', summary);
 
-    // ✅ Delete the temp file after successful import
-    deleteTempFile();
-
-    return { message: 'CSV import completed', summary };
-}
- catch (err) {
-        // ✅ Delete file even if something crashes
         deleteTempFile();
-        console.error('❌ CSV Import failed:', err.message);
-        throw err;
+        return { message: 'Import complete', summary };
+    } catch (err) {
+        deleteTempFile(); throw err;
     }
-}
+};
+
+
+
 
 // ======== Cascading Priority + Round Robin Assignment ========
 export const assignContactByPriority = async (contactId, tenantId) => {

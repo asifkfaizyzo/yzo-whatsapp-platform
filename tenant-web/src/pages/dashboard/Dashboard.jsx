@@ -27,6 +27,7 @@ import { getAssignedConversations } from "../../services/conversation.service";
 import { useAuthStore } from "../../store/useAuthStore";
 import { getSocket } from "../../lib/socket";
 import api from "../../lib/axios";
+import { useWhatsAppStore } from "../../store/useWhatsAppStore";
 
 export default function Dashboard() {
   const { user: authUser } = useAuthStore();
@@ -39,19 +40,7 @@ export default function Dashboard() {
   const [newAssignmentBadge, setNewAssignmentBadge] = useState(0);
   const [queueCount, setQueueCount] = useState(0);
   const [unassignedCount, setUnassignedCount] = useState(0);
-
-  const [waStatus, setWaStatus] = useState({
-    isConnected: false,
-    loading: true,
-    phoneNumberId: null,
-    wabaId: null,
-    phoneNumber: null,
-    businessName: null,
-    qualityRating: null,
-    messagingTier: null,
-    webhookStatus: null,
-  });
-
+  const waStatus = useWhatsAppStore();
   const [adminCounts, setAdminCounts] = useState({
     contacts: 0,
     templates: 0,
@@ -542,61 +531,74 @@ if (userRole === "admin") {
         </div>
       </div>
 
-      {/* WhatsApp Banner */}
-      {waStatus.isConnected ? (
-        <div className="relative overflow-hidden rounded-2xl border border-emerald-200/80 bg-gradient-to-r from-emerald-50 via-white to-emerald-50/50 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
-          <div className="absolute -top-6 -right-6 w-32 h-32 rounded-full bg-emerald-500/5 pointer-events-none" />
-          <div className="absolute bottom-0 left-24 w-20 h-20 rounded-full bg-emerald-100/40 pointer-events-none" />
-          <div className="flex items-center gap-4 relative z-10">
-            <div className="p-3 rounded-2xl bg-emerald-500 shadow-md shrink-0 text-white">
-              <CheckCircle2 size={24} />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-extrabold text-emerald-950">WhatsApp Connected</h3>
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-200 text-emerald-900">
-                  ACTIVE
-                </span>
-              </div>
-              <p className="text-xs text-emerald-800/80 font-medium mt-0.5 max-w-md leading-relaxed">
-                Your WhatsApp Business Cloud API account is active. Message routing and campaign broadcasts are ready.
-              </p>
-            </div>
-          </div>
-          <Link
-            to="/dashboard/settings?tab=whatsapp"
-            className="relative z-10 shrink-0 flex items-center gap-2 px-5 py-2.5 text-xs font-bold rounded-xl bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-50 transition-all duration-200 shadow-sm"
-          >
-            <span>Manage Settings</span>
-            <ArrowRight size={14} />
-          </Link>
+
+      {/* WhatsApp Banner — Guarded with skeleton during initial load */}
+{waStatus.loading || waStatus.isConnected === null ? (
+  <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-5 animate-pulse flex items-center justify-between">
+    <div className="flex items-center gap-4">
+      <div className="w-12 h-12 rounded-2xl bg-slate-200" />
+      <div className="space-y-2">
+        <div className="h-4 w-48 bg-slate-200 rounded" />
+        <div className="h-3 w-80 bg-slate-200 rounded" />
+      </div>
+    </div>
+    <div className="h-9 w-36 bg-slate-200 rounded-xl" />
+  </div>
+) : waStatus.isConnected ? (
+  <div className="relative overflow-hidden rounded-2xl border border-emerald-200/80 bg-gradient-to-r from-emerald-50 via-white to-emerald-50/50 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+    <div className="absolute -top-6 -right-6 w-32 h-32 rounded-full bg-emerald-500/5 pointer-events-none" />
+    <div className="absolute bottom-0 left-24 w-20 h-20 rounded-full bg-emerald-100/40 pointer-events-none" />
+    <div className="flex items-center gap-4 relative z-10">
+      <div className="p-3 rounded-2xl bg-emerald-500 shadow-md shrink-0 text-white">
+        <CheckCircle2 size={24} />
+      </div>
+      <div>
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-extrabold text-emerald-950">WhatsApp Connected</h3>
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-200 text-emerald-900">
+            ACTIVE
+          </span>
         </div>
-      ) : (
-        <div className="relative overflow-hidden rounded-2xl border border-[#CFE0FD] bg-gradient-to-r from-[#EAF2FE] via-white to-blue-50 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
-          <div className="absolute -top-6 -right-6 w-32 h-32 rounded-full bg-[#125EF2]/5 pointer-events-none" />
-          <div className="absolute bottom-0 left-24 w-20 h-20 rounded-full bg-blue-100/40 pointer-events-none" />
-          <div className="flex items-center gap-4 relative z-10">
-            <div className="p-3 rounded-2xl bg-[#25D366] shadow-md shrink-0">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg">
-                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
-                <path d="M12 0C5.373 0 0 5.373 0 12c0 2.127.558 4.126 1.534 5.857L.057 23.386a.75.75 0 0 0 .92.918l5.655-1.484A11.945 11.945 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.907 0-3.686-.528-5.201-1.442l-.373-.22-3.856 1.012 1.03-3.75-.243-.386A9.944 9.944 0 0 1 2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/>
-              </svg>
-            </div>
-            <div>
-              <h3 className="text-sm font-extrabold text-slate-800">Connect Your WhatsApp Business Number</h3>
-              <p className="text-xs text-slate-500 font-medium mt-0.5 max-w-sm leading-relaxed">
-                Link your WhatsApp Business account via Meta to start sending campaigns, managing inboxes, and handling customer conversations.
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => setShowConnect(true)}
-            className="relative z-10 shrink-0 flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl bg-[#25D366] text-white hover:bg-[#1ebe5d] transition-all duration-200 shadow-md hover:shadow-lg"
-          >
-            <span>Connect WhatsApp</span>
-          </button>
-        </div>
-      )}
+        <p className="text-xs text-emerald-800/80 font-medium mt-0.5 max-w-md leading-relaxed">
+          Your WhatsApp Business Cloud API account is active. Message routing and campaign broadcasts are ready.
+        </p>
+      </div>
+    </div>
+    <Link
+      to="/dashboard/settings?tab=whatsapp"
+      className="relative z-10 shrink-0 flex items-center gap-2 px-5 py-2.5 text-xs font-bold rounded-xl bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-50 transition-all duration-200 shadow-sm"
+    >
+      <span>Manage Settings</span>
+      <ArrowRight size={14} />
+    </Link>
+  </div>
+) : (
+  <div className="relative overflow-hidden rounded-2xl border border-[#CFE0FD] bg-gradient-to-r from-[#EAF2FE] via-white to-blue-50 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+    <div className="absolute -top-6 -right-6 w-32 h-32 rounded-full bg-[#125EF2]/5 pointer-events-none" />
+    <div className="absolute bottom-0 left-24 w-20 h-20 rounded-full bg-blue-100/40 pointer-events-none" />
+    <div className="flex items-center gap-4 relative z-10">
+      <div className="p-3 rounded-2xl bg-[#25D366] shadow-md shrink-0">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg">
+          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+          <path d="M12 0C5.373 0 0 5.373 0 12c0 2.127.558 4.126 1.534 5.857L.057 23.386a.75.75 0 0 0 .92.918l5.655-1.484A11.945 11.945 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.907 0-3.686-.528-5.201-1.442l-.373-.22-3.856 1.012 1.03-3.75-.243-.386A9.944 9.944 0 0 1 2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/>
+        </svg>
+      </div>
+      <div>
+        <h3 className="text-sm font-extrabold text-slate-800">Connect Your WhatsApp Business Number</h3>
+        <p className="text-xs text-slate-500 font-medium mt-0.5 max-w-sm leading-relaxed">
+          Link your WhatsApp Business account via Meta to start sending campaigns, managing inboxes, and handling customer conversations.
+        </p>
+      </div>
+    </div>
+    <button
+      onClick={() => setShowConnect(true)}
+      className="relative z-10 shrink-0 flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl bg-[#25D366] text-white hover:bg-[#1ebe5d] transition-all duration-200 shadow-md hover:shadow-lg"
+    >
+      <span>Connect WhatsApp</span>
+    </button>
+  </div>
+)}
+
 
       {/* 🆕 CHUNK 7: Resource Cards WITH Queue Card */}
       <div className={`grid gap-6 sm:grid-cols-2 ${

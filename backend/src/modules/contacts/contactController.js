@@ -96,23 +96,21 @@ export const deleteContactController = async (req, res) => {
 
 
 // 5b.===================== BULK DELETE CONTACTS =====================
+// 5b.===================== BULK DELETE CONTACTS =====================
 export const bulkDeleteContactsController = async (req, res) => {
     try {
         if (req.userType !== 'TENANT') {
-            return res.status(403).json({
-                success: false,
-                message: "Only tenant admins can delete contacts"
-            });
+            return res.status(403).json({ success: false, message: "Only tenant admins can delete contacts" });
         }
         
-        const { contactIds } = req.body;
-        const tenantId = req.tenantId;
+        const tenantId = req.tenantId || req.tenant?.id;
+        const { mode, contactIds, filters, confirmation } = req.body;
 
-        const result = await bulkDeleteContacts(contactIds, tenantId);
+        const result = await bulkDeleteContacts({ mode, contactIds, filters, confirmation }, tenantId);
         
         return res.status(200).json({ 
             success: true, 
-            message: `${result.deletedCount} contacts successfully deleted`,
+            message: result.message,
             data: result 
         });
     } catch (error) {
@@ -357,4 +355,29 @@ export const removeTagFromContactController = async (req, res, next) => {
         console.error('Delete tag error:', error.message);
         next(error);
     }
+};
+
+
+
+// ===================== CSV IMPORT GUIDELINES =====================
+export const getImportGuidelinesController = async (req, res) => {
+    return res.status(200).json({
+        success: true,
+        data: {
+            title: "SudoReply CSV Import Guidelines",
+            rules: [
+                "1. First row MUST be headers: name, phone",
+                "2. Format phone column as 'Text' in Excel before exporting to prevent 9.18E+11 format.",
+                "3. Phone numbers with letters will be rejected."
+            ]
+        }
+    });
+};
+
+// ===================== DOWNLOAD SAMPLE CSV =====================
+export const downloadSampleCSVController = async (req, res) => {
+    const csvContent = `name,phone,email,company,countryCode,tags\nNair,9133456780,nair@example.com,TCS,+91,VIP`;
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="sudoreply_contacts_template.csv"');
+    return res.status(200).send(csvContent);
 };

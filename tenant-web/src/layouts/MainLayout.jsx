@@ -6,6 +6,7 @@ import Sidebar from "../components/Sidebar";
 import TopNavBar from "../components/TopNavBar";
 import api from "../lib/axios";
 import { useAuthStore } from "../store/useAuthStore";
+import { useWhatsAppStore } from "../store/useWhatsAppStore";
 
 export default function MainLayout() {
   const navigate = useNavigate();
@@ -16,6 +17,22 @@ export default function MainLayout() {
   const [loading, setLoading] = useState(true);
   const fetchedMeRef = useRef(false);
 
+  // ✅ WhatsApp Store actions
+  const fetchStatus = useWhatsAppStore((s) => s.fetchStatus);
+  const bindSocket = useWhatsAppStore((s) => s.bindSocket);
+  const resetWa = useWhatsAppStore((s) => s.reset);
+
+  // ✅ Bootstrap WhatsApp status once when app loads
+  useEffect(() => {
+    if (!accessToken) {
+      resetWa();
+      return;
+    }
+    fetchStatus();
+    bindSocket();
+  }, [accessToken, fetchStatus, bindSocket, resetWa]);
+
+  // ── Session & Role Verification ──
   useEffect(() => {
     if (!accessToken || !user) {
       navigate("/login");
@@ -26,7 +43,6 @@ export default function MainLayout() {
       const role = user.type === "TENANT" ? "admin" : "agent";
       setUserRole(role);
 
-      // ── ADDED: Check Tenant Status & Enforce Dashboard-Only ──
       const status = user.status || "APPROVED";
       setTenantStatus(status);
 
@@ -34,7 +50,7 @@ export default function MainLayout() {
       if (user.type === "TENANT" && !fetchedMeRef.current) {
         fetchedMeRef.current = true;
         api.get("/me")
-          .then(res => {
+          .then((res) => {
             if (res.data?.success && res.data?.data) {
               const freshTenant = res.data.data;
 
@@ -49,15 +65,14 @@ export default function MainLayout() {
               if (freshTenant.status !== user.status) {
                 // Status updated! Sync with state
                 useAuthStore.setState((state) => ({
-                  user: { ...state.user, status: freshTenant.status }
+                  user: { ...state.user, status: freshTenant.status },
                 }));
                 setTenantStatus(freshTenant.status);
               }
             }
           })
-          .catch(err => {
+          .catch((err) => {
             console.error("Failed to sync tenant status:", err);
-            // Handle blocked/unauthorized status
             if (err.response?.status === 403 || err.response?.status === 401) {
               console.warn("Unauthorized access or blocked account. Logging out.");
               useAuthStore.getState().logout();
@@ -68,8 +83,8 @@ export default function MainLayout() {
 
       if (status === "PENDING") {
         const allowedPendingPaths = ["/dashboard", "/dashboard/settings"];
-        const isAllowed = allowedPendingPaths.some(path =>
-          location.pathname === path || location.pathname === path + "/"
+        const isAllowed = allowedPendingPaths.some(
+          (path) => location.pathname === path || location.pathname === path + "/"
         );
         if (!isAllowed) {
           console.warn("Restricted account: Redirecting to Dashboard.");
@@ -79,18 +94,16 @@ export default function MainLayout() {
       }
 
       // Role-based Route Protection
-      // If an agent tries to access admin-only pages, redirect them to Inbox
       const adminOnlyPaths = [
         "/dashboard/broadcasts",
         "/dashboard/templates",
         "/dashboard/team",
-        "/dashboard/reports"
+        "/dashboard/reports",
       ];
 
-      // Prefix matching for admin-only pages
-      const isAdminPath = adminOnlyPaths.some(path => {
-        return location.pathname.startsWith(path);
-      });
+      const isAdminPath = adminOnlyPaths.some((path) =>
+        location.pathname.startsWith(path)
+      );
 
       if (role !== "admin" && isAdminPath) {
         console.warn("Unauthorized access: Redirecting agent to Inbox console.");

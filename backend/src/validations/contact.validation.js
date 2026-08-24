@@ -39,10 +39,32 @@ export const updateContactSchema = z.object({
 
 
 // Bulk Delete Contacts Validation
+// ===================== BULK DELETE (selected | filter | all) =====================
 export const bulkDeleteContactsSchema = z.object({
-  body: z.object({
-    contactIds: z
-      .array(z.string({ required_error: 'Contact ID must be a string' }))
-      .min(1, 'At least one contact ID is required'),
-  }),
+  body: z
+    .object({
+      mode: z.enum(['selected', 'filter', 'all'], {
+        required_error: "mode is required: 'selected' | 'filter' | 'all'",
+      }),
+      contactIds: z.array(z.string()).optional(),
+      confirmation: z.string().optional(),
+      filters: z
+        .object({
+          startDate: z.string().optional(),       
+          endDate: z.string().optional(),         
+          tagId: z.string().optional(),
+          assignedFilter: z.enum(['all', 'assigned', 'unassigned']).optional(),
+          search: z.string().optional(),
+          invalidOnly: z.boolean().optional(),
+        })
+        .optional(),
+    })
+    .superRefine((data, ctx) => {
+      if (data.mode === 'selected' && (!data.contactIds || data.contactIds.length === 0)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "contactIds required for 'selected' mode", path: ['contactIds'] });
+      }
+      if (data.mode === 'all' && data.confirmation !== 'DELETE ALL') {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "confirmation must be exactly 'DELETE ALL'", path: ['confirmation'] });
+      }
+    }),
 });
