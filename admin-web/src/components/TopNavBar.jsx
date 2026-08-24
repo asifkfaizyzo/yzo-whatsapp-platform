@@ -13,7 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { io } from "socket.io-client";
+import { getAdminSocket, disconnectAdminSocket } from "../lib/socket";
 import { logoutSuperAdmin } from "../lib/authApi";
 import { useAdminAuthStore } from "../store/useAdminAuthStore";
 import { useNotificationStore } from "../store/useNotificationStore";
@@ -43,36 +43,57 @@ const TopNavbar = () => {
     fetchNotifications();
   }, []);
 
-  // ── Socket: join superadmin room + listen for payment events ──
+  // ── Socket: join superadmin room + listen for events ──
+  const socketJoined = useRef(false);
+
   useEffect(() => {
-    const socket = io(import.meta.env.VITE_API_URL, {
-      withCredentials: true,
-      transports: ["websocket"],
-    });
+    const token = useAdminAuthStore.getState().accessToken;
+    if (!token) {
+      console.log("⏳ No admin token yet — skipping socket setup");
+      return;
+    }
 
-    socket.on("connect", () => {
-      console.log("✅ Admin socket connected:", socket.id);
-      // Join dedicated superadmin room
+    const socket = getAdminSocket();
+    if (!socket) {
+      console.log("❌ Admin socket is null");
+      return;
+    }
+
+    const joinSuperAdminRoom = () => {
+      if (socketJoined.current) return;
       socket.emit("join_superadmin");
-      console.log("✅ Joined superadmin room");
-    });
+      socketJoined.current = true;
+      console.log("👑 Joined superadmin_room");
+    };
 
-    // ── Listen for tenant payment notification ──
-    socket.on("superadmin_notification", (data) => {
+    if (socket.connected) {
+      joinSuperAdminRoom();
+    }
+
+    const handleConnect = () => {
+      console.log("🔌 Admin socket connected:", socket.id);
+      socketJoined.current = false;
+      joinSuperAdminRoom();
+    };
+
+    const handleSuperAdminNotification = (data) => {
       console.log("🔔 SuperAdmin notification received:", data);
-      const { notification } = data;
-      addNotification(notification);
-      playNotificationSound();
-    });
+      if (data?.notification) {
+        addNotification(data.notification);
+        playNotificationSound();
+      }
+    };
 
-    socket.on("disconnect", () => {
-      console.log("🔌 Admin socket disconnected");
-    });
+    socket.on("connect", handleConnect);
+    socket.on("superadmin_notification", handleSuperAdminNotification);
 
     return () => {
-      socket.disconnect();
+      socket.off("connect", handleConnect);
+      socket.off("superadmin_notification", handleSuperAdminNotification);
+      socketJoined.current = false;
     };
   }, []);
+
 
   // ── Notification sound ──
   const playNotificationSound = () => {
@@ -88,10 +109,7 @@ const TopNavbar = () => {
   // ── Close dropdowns on outside click ──
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target)
-      ) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setShowDropdown(false);
       }
       if (notifRef.current && !notifRef.current.contains(event.target)) {
@@ -105,6 +123,7 @@ const TopNavbar = () => {
   // ── Handlers ──
   const handleLogout = async () => {
     setShowDropdown(false);
+    disconnectAdminSocket(); // ✅ Disconnect admin socket on logout
     await logoutSuperAdmin();
     navigate("/login");
   };
@@ -118,22 +137,37 @@ const TopNavbar = () => {
 
     // Navigate based on notification type
     switch (notification.type) {
+      case "new_ticket":
+      case "ticket_reply":
+      case "ticket_escalated":
+        navigate(`/dashboard/tickets?ticketId=${meta.ticketId || ""}`);
+        break;
+
       case "tenant_payment":
         navigate(
           meta.tenantId
             ? `/dashboard/tenants?highlight=${meta.tenantId}`
-            : "/dashboard/revenue"
+            : "/dashboard/revenue",
         );
         break;
+
       case "tenant_registered":
         navigate("/dashboard/tenants");
         break;
+
       case "plan_upgraded":
         navigate("/dashboard/revenue");
         break;
+
       case "tenant_suspended":
         navigate("/dashboard/tenants");
         break;
+
+      case "whatsapp_connected":
+      case "whatsapp_disconnected":
+        navigate("/dashboard/tenants");
+        break;
+
       default:
         navigate("/dashboard");
     }
@@ -168,6 +202,18 @@ const TopNavbar = () => {
             <AlertCircle size={14} className="text-red-600" />
           </div>
         );
+      case "whatsapp_connected":
+        return (
+          <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+            <span style={{ fontSize: "14px" }}>📱</span>
+          </div>
+        );
+      case "whatsapp_disconnected":
+        return (
+          <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+            <span style={{ fontSize: "14px" }}>🔴</span>
+          </div>
+        );
       default:
         return (
           <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
@@ -193,10 +239,8 @@ const TopNavbar = () => {
 
   return (
     <div className="flex items-center justify-end bg-white border-b border-gray-200 px-6 py-3 h-16 relative z-30">
-
       {/* ── Right: Actions ── */}
       <div className="flex items-center gap-4">
-
         {/* ── Notification Bell ── */}
         <div className="relative" ref={notifRef}>
           <button
@@ -217,7 +261,6 @@ const TopNavbar = () => {
           {/* ── Notification Dropdown ── */}
           {showNotifications && (
             <div className="absolute right-0 mt-2 w-80 rounded-2xl bg-white border border-slate-100 shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
-
               {/* Header */}
               <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -282,10 +325,9 @@ const TopNavbar = () => {
                       {getNotifIcon(notif.type)}
                       <div className="flex-1 min-w-0">
                         <p
-                          className={`text-xs text-slate-800 truncate ${!notif.isRead
-                              ? "font-bold"
-                              : "font-semibold"
-                            }`}
+                          className={`text-xs text-slate-800 truncate ${
+                            !notif.isRead ? "font-bold" : "font-semibold"
+                          }`}
                         >
                           {notif.title}
                         </p>
@@ -304,14 +346,37 @@ const TopNavbar = () => {
                 )}
               </div>
 
-              {/* Footer */}
-              {notifications.length > 0 && (
-                <div className="px-4 py-2 border-t border-slate-100 text-center">
-                  <p className="text-[10px] text-slate-400">
+              {/* Footer with View All - 🆕 UPDATED */}
+              <div className="border-t border-slate-100 bg-slate-50/50">
+                {notifications.length > 0 && (
+                  <p className="text-[10px] text-slate-400 text-center pt-2">
                     Showing last {notifications.length} notifications
                   </p>
-                </div>
-              )}
+                )}
+                <button
+                  onClick={() => {
+                    setShowNotifications(false);
+                    navigate("/dashboard/notifications");
+                  }}
+                  className="w-full px-4 py-2.5 text-xs font-bold text-[#125EF2] hover:bg-blue-50 transition flex items-center justify-center gap-1.5 group"
+                >
+                  View All Notifications
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-3 w-3 group-hover:translate-x-0.5 transition-transform"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2.5}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -342,8 +407,9 @@ const TopNavbar = () => {
             </div>
             <ChevronDown
               size={14}
-              className={`text-gray-500 transition-transform duration-200 ${showDropdown ? "rotate-180" : ""
-                }`}
+              className={`text-gray-500 transition-transform duration-200 ${
+                showDropdown ? "rotate-180" : ""
+              }`}
             />
           </button>
 

@@ -19,14 +19,28 @@ import { verifySuperAdmin } from "../../middlewares/authSuperAdmin.js"
 import { verifyTenantOrUser } from "../../middlewares/authVerfyTenOrUser.js"
 import { verifyTenant } from "../../middlewares/authTenant.js";
 
+import rateLimit from "express-rate-limit";
+
 const router = Router();
+
+// Rate limiter for payment order creation to prevent order spam & DB bloat
+const orderLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 15,
+  message: {
+    success: false,
+    message: "Too many payment orders initiated. Please wait a few minutes before trying again.",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // ── Public routes (no auth — for tenant pricing page) ──
 router.get("/public", getPublicPlans);
 router.get("/features", getFeatures);
 
 // ── Razorpay routes (TENANT ONLY — not regular users/agents) ──
-router.post("/create-order", verifyTenant, createPaymentOrder);
+router.post("/create-order", verifyTenant, orderLimiter, createPaymentOrder);
 router.post("/verify-payment", verifyTenant, verifyPaymentAndActivate);
 
 

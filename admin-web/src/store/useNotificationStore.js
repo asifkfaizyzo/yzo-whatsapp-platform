@@ -28,11 +28,17 @@ export const useNotificationStore = create((set, get) => ({
   },
 
   // ── Add incoming real-time notification (from socket) ──
-  addNotification: (notification) => {
-    set((state) => ({
-      notifications: [notification, ...state.notifications].slice(0, 20),
-      unreadCount: state.unreadCount + 1,
-    }));
+   addNotification: (notification) => {
+    set((state) => {
+      // ✅ Prevent duplicate notifications with the same ID
+      const exists = state.notifications.some((n) => n.id === notification.id);
+      if (exists) return state;
+
+      return {
+        notifications: [notification, ...state.notifications].slice(0, 20),
+        unreadCount: state.unreadCount + 1,
+      };
+    });
   },
 
   // ── Mark one as read ──

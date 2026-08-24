@@ -38,8 +38,10 @@ import {
 } from '../contacts/userContactService.js';
 import { updateTenantByIdService } from '../superadmin/superadminService.js';
 import { encrypt, decrypt } from '../../lib/crypto.js';
-import { sendVerificationOtpEmail } from '../auth/emailService.js';
+import { sendVerificationOtpEmail, sendTenantWelcomeEmail } from '../auth/emailService.js';
 import { extractRequestMeta } from '../../lib/utils/requestMeta.js';
+import { createSuperAdminNotification } from '../SuperAdminNotifications/superAdminNotificationService.js';
+import { emitToSuperAdmin } from '../../lib/socket.js';
 
 
 // ===================== TENANT AUTH =====================
@@ -273,6 +275,8 @@ export const updateTenantProfile = async (req, res) => {
 
     const {
       tenantName,
+      firstName,
+      lastName,
       email,
       phone,
       address,
@@ -280,11 +284,26 @@ export const updateTenantProfile = async (req, res) => {
       industry,
       companySize,
       country,
+      timezone,
+      logo,
     } = req.body;
 
     const result = await updateTenantByIdService(
       tenantId,
-      { tenantName, email, phone, address, websiteUrl, industry, companySize, country },
+      {
+        tenantName,
+        firstName,
+        lastName,
+        email,
+        phone,
+        address,
+        websiteUrl,
+        industry,
+        companySize,
+        country,
+        timezone,
+        logo,
+      },
       null,
       meta
     );
@@ -941,7 +960,7 @@ export const onboardingStep2 = async (req, res) => {
             prisma.superAdmin.findUnique({ where: { email } }),
         ]);
 
-        if (emailExistsInTenant || emailExistsInUser || emailExistsInSuperAdmin) {
+        if ((emailExistsInTenant && emailExistsInTenant.id !== tenantId) || emailExistsInUser || emailExistsInSuperAdmin) {
             return res.status(400).json({
                 success: false,
                 message: 'Email is already registered on the platform'
@@ -1168,7 +1187,43 @@ export const onboardingStep5 = async (req, res) => {
             }
         });
 
-        const accessToken = generateAccessToken({
+        // ===================== TASK 2 — WELCOME EMAIL =====================
+await sendTenantWelcomeEmail({
+    email:      updated.email,
+    firstName:  updated.firstName,
+    lastName:   updated.lastName,
+    tenantName: updated.tenantName,
+});
+// ==================================================================
+
+// ===================== TASK 1 — SUPERADMIN NOTIFICATION ===========
+try {
+    // 1. Save notification to DB
+    const notification = await createSuperAdminNotification({
+        type:    'tenant_registered',
+        title:   '🆕 New Tenant Registered',
+        message: `${updated.tenantName || `${updated.firstName} ${updated.lastName}`} just completed onboarding and joined the platform.`,
+        metadata: {
+            tenantId:   updated.id,
+            tenantName: updated.tenantName,
+            email:      updated.email,
+            firstName:  updated.firstName,
+            lastName:   updated.lastName,
+            registeredAt: new Date().toISOString(),
+        },
+    });
+
+    // 2. Emit real-time to superadmin dashboard
+    emitToSuperAdmin('superadmin_notification', { notification });
+
+    console.log(`✅ SuperAdmin notified — new tenant: ${updated.email}`);
+} catch (err) {
+    // Non-blocking — onboarding still completes
+    console.error('❌ SuperAdmin notification failed:', err.message);
+}
+// ==================================================================
+
+         const accessToken = generateAccessToken({
             id: updated.id,
             email: updated.email,
             type: 'TENANT',

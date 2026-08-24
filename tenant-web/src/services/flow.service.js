@@ -98,8 +98,13 @@ const flowService = {
     return res.data
   },
 
-  setDefault: async (flowId) => {
+    setDefault: async (flowId) => {
     const res = await flowApi.patch(`/api/flows/${flowId}/set-default`)
+    return res.data
+  },
+
+  unsetDefault: async (flowId) => {
+    const res = await flowApi.patch(`/api/flows/${flowId}/unset-default`)
     return res.data
   },
 
@@ -120,6 +125,17 @@ const flowService = {
 
 getKeywords: async (flowId) => {
     const res = await flowApi.get(`/api/flows/${flowId}/keywords`)
+    return res.data
+  },
+
+  // ✅ NEW: Upload media (image/video) for flow node
+  uploadFlowMedia: async (file) => {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const res = await flowApi.post('/api/flows/media/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
     return res.data
   }
 }

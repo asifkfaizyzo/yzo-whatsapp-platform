@@ -4,6 +4,7 @@ import prisma from '../../config/prisma.js'
 import flowService from './flowService.js'
 import { emitToTenant, emitToUser, isUserOnline } from '../../lib/socket.js'
 import { decrypt } from '../../lib/crypto.js'
+import { sendWhatsAppMedia } from '../../lib/utils/whatsappMediaSender.js' 
 
 const flowEngine = {
 
@@ -343,7 +344,45 @@ if (conversation.mode === 'QUEUED') {
   // ─────────────────────────────────────────
   // SEND_MESSAGE Node
   // ─────────────────────────────────────────
-  handleSendMessage: async (node, conversation, contact, userMessage, isNewContact = false) => {
+// ─────────────────────────────────────────
+// SEND_MESSAGE Node (with media support)
+// ─────────────────────────────────────────
+handleSendMessage: async (node, conversation, contact, userMessage, isNewContact = false) => {
+
+  const options  = node.options || {}
+  const hasMedia = options.mediaUrl && options.mediaType
+
+  if (hasMedia) {
+    // ── Send MEDIA message (image/video) ──
+    console.log(`📎 Sending media: ${options.mediaType} → ${options.mediaUrl}`)
+
+    await flowEngine.sendBotMediaMessage(
+      conversation.tenantId,
+      contact.phone,
+      {
+        mediaType:     options.mediaType,
+        mediaUrl:      options.mediaUrl,
+        mediaName:     options.mediaName,
+        mediaMimeType: options.mediaMimeType,
+        mediaSize:     options.mediaSize,
+        caption:       node.content || null,
+      }
+    )
+
+    await flowEngine.saveBotMediaMessage(
+      conversation.id,
+      {
+        mediaType:     options.mediaType,
+        mediaUrl:      options.mediaUrl,
+        mediaName:     options.mediaName,
+        mediaMimeType: options.mediaMimeType,
+        mediaSize:     options.mediaSize,
+        caption:       node.content || null,
+      }
+    )
+
+  } else {
+    // ── Send TEXT message (existing behavior) ──
     console.log(`📨 Sending message: "${node.content}"`)
 
     await flowEngine.sendWhatsAppMessage(
@@ -353,55 +392,87 @@ if (conversation.mode === 'QUEUED') {
     )
 
     await flowEngine.saveBotMessage(conversation.id, node.content)
+  }
 
-    if (node.nextNodeId) {
-      const nextNode = await flowService.getNodeById(node.nextNodeId)
+  // ── Move to next node (same as before) ──
+  if (node.nextNodeId) {
+    const nextNode = await flowService.getNodeById(node.nextNodeId)
 
-      if (nextNode) {
-        await prisma.conversation.update({
-          where: { id: conversation.id },
-          data: { currentNodeId: nextNode.id }
-        })
+    if (nextNode) {
+      await prisma.conversation.update({
+        where: { id: conversation.id },
+        data: { currentNodeId: nextNode.id }
+      })
 
-        const updatedConversation = {
-          ...conversation,
-          currentNodeId: null
-        }
-
-        await flowEngine.executeNode(
-          nextNode,
-          updatedConversation,
-          contact,
-          userMessage,
-          isNewContact
-        )
-      } else {
-        await flowEngine.endFlow(conversation)
+      const updatedConversation = {
+        ...conversation,
+        currentNodeId: null
       }
 
+      await flowEngine.executeNode(
+        nextNode,
+        updatedConversation,
+        contact,
+        userMessage,
+        isNewContact
+      )
     } else {
       await flowEngine.endFlow(conversation)
     }
-  },
+
+  } else {
+    await flowEngine.endFlow(conversation)
+  }
+},
+
 
   // ─────────────────────────────────────────
-  // ASK_QUESTION Node
+  // ASK_QUESTION Node (with media support)
   // ─────────────────────────────────────────
   handleAskQuestion: async (node, conversation, contact, userMessage, isNewContact = false) => {
 
     const isReplying = conversation.currentNodeId === node.id
 
     if (!isReplying) {
-      // ── ARRIVING: Send question and STOP ──
-      console.log(`❓ Asking: "${node.content}"`)
+      // ── ARRIVING: Send question (text or media) and STOP ──
+      const options = node.options || {}
+      const hasMedia = options.mediaUrl && options.mediaType
 
-      await flowEngine.sendWhatsAppMessage(
-        conversation.tenantId,
-        contact.phone,
-        node.content
-      )
+      if (hasMedia) {
+        console.log(`❓ Asking with media (${options.mediaType}): "${node.content}"`)
 
-      await flowEngine.saveBotMessage(conversation.id, node.content)
+        await flowEngine.sendBotMediaMessage(
+          conversation.tenantId,
+          contact.phone,
+          {
+            mediaType:     options.mediaType,
+            mediaUrl:      options.mediaUrl,
+            mediaName:     options.mediaName,
+            mediaMimeType: options.mediaMimeType,
+            mediaSize:     options.mediaSize,
+            caption:       node.content || null,
+          }
+        )
+
+        await flowEngine.saveBotMediaMessage(conversation.id, {
+          mediaType:     options.mediaType,
+          mediaUrl:      options.mediaUrl,
+          mediaName:     options.mediaName,
+          mediaMimeType: options.mediaMimeType,
+          mediaSize:     options.mediaSize,
+          caption:       node.content || null,
+        })
+      } else {
+        console.log(`❓ Asking: "${node.content}"`)
+
+        await flowEngine.sendWhatsAppMessage(
+          conversation.tenantId,
+          contact.phone,
+          node.content
+        )
+
+        await flowEngine.saveBotMessage(conversation.id, node.content)
+      }
 
       await prisma.conversation.update({
         where: { id: conversation.id },
@@ -592,38 +663,72 @@ if (conversation.mode === 'QUEUED') {
     }
   },
 
-  // ─────────────────────────────────────────
-  // INTERACTIVE_BUTTONS Node
+    // ─────────────────────────────────────────
+  // INTERACTIVE_BUTTONS Node (with header media support)
   // ─────────────────────────────────────────
   handleInteractiveButtons: async (node, conversation, contact, userMessage, isNewContact = false) => {
 
     const isReplying = conversation.currentNodeId === node.id
 
+    // Support both formats:
+    // old: options = [buttons...]
+    // new: options = { buttons: [...], media: {...} }
+    const rawOptions = node.options || {}
+    const buttons = Array.isArray(rawOptions)
+      ? rawOptions
+      : (rawOptions.buttons || [])
+    const media = Array.isArray(rawOptions)
+      ? null
+      : (rawOptions.media || null)
+
     if (!isReplying) {
-      // ── ARRIVING: Send buttons and STOP ──
+      // ── ARRIVING: optional media header, then buttons ──
+      if (media?.mediaUrl && media?.mediaType) {
+        console.log(`🔘 Sending header media (${media.mediaType}) before buttons`)
+
+        await flowEngine.sendBotMediaMessage(
+          conversation.tenantId,
+          contact.phone,
+          {
+            mediaType:     media.mediaType,
+            mediaUrl:      media.mediaUrl,
+            mediaName:     media.mediaName,
+            mediaMimeType: media.mediaMimeType,
+            mediaSize:     media.mediaSize,
+            caption:       null,
+          }
+        )
+
+        await flowEngine.saveBotMediaMessage(conversation.id, {
+          mediaType:     media.mediaType,
+          mediaUrl:      media.mediaUrl,
+          mediaName:     media.mediaName,
+          mediaMimeType: media.mediaMimeType,
+          mediaSize:     media.mediaSize,
+          caption:       null,
+        })
+      }
+
       console.log(`🔘 Sending buttons: "${node.content}"`)
 
-      const buttons = node.options || []
-
       await flowEngine.sendWhatsAppInteractiveButtons(
-  conversation.tenantId,
-  contact.phone,
-  node.content,
-  buttons
-)
+        conversation.tenantId,
+        contact.phone,
+        node.content,
+        buttons
+      )
 
-// ⭐ Save with button metadata for Inbox UI
-await flowEngine.saveBotMessage(
-  conversation.id,
-  node.content,
-  {
-    type: 'INTERACTIVE_BUTTONS',
-    buttons: buttons.map(b => ({
-      id: b.id,
-      title: b.title
-    }))
-  }
-)
+      await flowEngine.saveBotMessage(
+        conversation.id,
+        node.content,
+        {
+          type: 'INTERACTIVE_BUTTONS',
+          buttons: buttons.map(b => ({
+            id: b.id,
+            title: b.title
+          }))
+        }
+      )
 
       await prisma.conversation.update({
         where: { id: conversation.id },
@@ -636,49 +741,60 @@ await flowEngine.saveBotMessage(
       console.log(`⏸️  Waiting for button click: ${node.id}`)
 
     } else {
-  // ── REPLYING: User clicked a button ──
-  console.log(`🖱️  Button clicked: "${userMessage}"`)
+      // ── REPLYING: User clicked a button ──
+      console.log(`🖱️  Button clicked: "${userMessage}"`)
 
-  const buttons = node.options || []
-  
-  // ✅ ADD DEBUG
-  console.log(`🔍 DEBUG BUTTONS:`)
-  console.log(`   Available buttons:`, JSON.stringify(buttons, null, 2))
-  console.log(`   User message: "${userMessage}"`)
+      console.log(`🔍 DEBUG BUTTONS:`)
+      console.log(`   Available buttons:`, JSON.stringify(buttons, null, 2))
+      console.log(`   User message: "${userMessage}"`)
 
-  const clickedButton = buttons.find(
-    btn =>
-      btn.title.toLowerCase().trim() ===
-      userMessage.toLowerCase().trim()
-  )
+      const clickedButton = buttons.find(
+        btn =>
+          (btn.title || '').toLowerCase().trim() ===
+          (userMessage || '').toLowerCase().trim()
+      )
 
-  if (!clickedButton) {
-    console.log('⚠️ No button matched. Re-sending buttons...')
-    
-    // ✅ Send + save so it appears in inbox
-    await flowEngine.sendWhatsAppInteractiveButtons(
-      conversation.tenantId,
-      contact.phone,
-      node.content,
-      buttons
-    )
-    
-    // ✅ ADD: Also save to DB so it shows in tenant inbox
-    await flowEngine.saveBotMessage(
-      conversation.id,
-      node.content,
-      {
-        type: 'INTERACTIVE_BUTTONS',
-        buttons: buttons.map(b => ({
-          id: b.id,
-          title: b.title
-        }))
+      if (!clickedButton) {
+        console.log('⚠️ No button matched. Re-sending buttons...')
+
+        // Re-send media header if exists
+        if (media?.mediaUrl && media?.mediaType) {
+          await flowEngine.sendBotMediaMessage(
+            conversation.tenantId,
+            contact.phone,
+            {
+              mediaType:     media.mediaType,
+              mediaUrl:      media.mediaUrl,
+              mediaName:     media.mediaName,
+              mediaMimeType: media.mediaMimeType,
+              mediaSize:     media.mediaSize,
+              caption:       null,
+            }
+          )
+        }
+
+        await flowEngine.sendWhatsAppInteractiveButtons(
+          conversation.tenantId,
+          contact.phone,
+          node.content,
+          buttons
+        )
+
+        await flowEngine.saveBotMessage(
+          conversation.id,
+          node.content,
+          {
+            type: 'INTERACTIVE_BUTTONS',
+            buttons: buttons.map(b => ({
+              id: b.id,
+              title: b.title
+            }))
+          }
+        )
+
+        console.log('✅ Buttons re-sent and saved')
+        return
       }
-    )
-    
-    console.log('✅ Buttons re-sent and saved')
-    return
-  }
 
       console.log(
         `✅ Button matched: "${clickedButton.title}"` +
@@ -1159,6 +1275,120 @@ handleAssignAgent: async (node, conversation, contact) => {
     )
   },
 
+
+  // ─────────────────────────────────────────
+// Send Media Message via WhatsApp (NEW)
+// ─────────────────────────────────────────
+sendBotMediaMessage: async (tenantId, phone, mediaData) => {
+  try {
+    if (process.env.MOCK_WHATSAPP === 'true') {
+      console.log('\n╔══════════════════════════════════════╗')
+      console.log('║  📱 MOCK WHATSAPP - MEDIA           ║')
+      console.log('╠══════════════════════════════════════╣')
+      console.log(`║  To     : ${phone}`)
+      console.log(`║  Type   : ${mediaData.mediaType}`)
+      console.log(`║  URL    : ${mediaData.mediaUrl}`)
+      console.log(`║  Caption: ${mediaData.caption || '(none)'}`)
+      console.log('╚══════════════════════════════════════╝\n')
+      return { messages: [{ id: 'mock_media_' + Date.now() }] }
+    }
+
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: {
+        whatsappPhoneId:     true,
+        whatsappAccessToken: true,
+      }
+    })
+
+    if (!tenant?.whatsappPhoneId || !tenant?.whatsappAccessToken) {
+      console.error('❌ Tenant WhatsApp credentials not configured')
+      return
+    }
+
+    // Build "file" object expected by shared helper
+    const file = {
+      path:         mediaData.mediaUrl,
+      originalname: mediaData.mediaName || 'media',
+      mimetype:     mediaData.mediaMimeType,
+      size:         mediaData.mediaSize,
+    }
+
+    const result = await sendWhatsAppMedia({
+      tenant,
+      contactPhone: phone,
+      file,
+      caption:      mediaData.caption,
+      mediaType:    mediaData.mediaType,
+    })
+
+    console.log(`📤 Media sent: ${result.waMessageId}`)
+    return result
+
+  } catch (error) {
+    console.error('❌ sendBotMediaMessage error:', error)
+  }
+},
+
+// ─────────────────────────────────────────
+// Save bot MEDIA message to DB (NEW)
+// ─────────────────────────────────────────
+saveBotMediaMessage: async (conversationId, mediaData) => {
+  try {
+    const message = await prisma.message.create({
+      data: {
+        conversationId,
+        senderType:    'SYSTEM',
+        direction:     'OUTBOUND',
+        type:          mediaData.mediaType,        // IMAGE / VIDEO
+        text:          mediaData.caption || null,
+        caption:       mediaData.caption || null,
+        mediaUrl:      mediaData.mediaUrl,
+        mediaName:     mediaData.mediaName,
+        mediaSize:     mediaData.mediaSize,
+        mediaMimeType: mediaData.mediaMimeType,
+        status:        'sent',
+      },
+      include: {
+        conversation: {
+          include: { contact: true }
+        }
+      }
+    })
+
+    const messagePayload = {
+      conversationId: message.conversationId,
+      message: {
+        id:             message.id,
+        type:           message.type,
+        text:           message.text,
+        caption:        message.caption,
+        mediaUrl:       message.mediaUrl,
+        mediaName:      message.mediaName,
+        mediaSize:      message.mediaSize,
+        mediaMimeType:  message.mediaMimeType,
+        senderType:     message.senderType,
+        isFromCustomer: false,
+        createdAt:      message.createdAt,
+      }
+    }
+
+    emitToTenant(message.conversation.tenantId, 'new_message', messagePayload)
+
+    const assignedTo = message.conversation.assignedTo ||
+                       message.conversation.contact?.assignedTo
+
+    if (assignedTo) {
+      emitToUser(assignedTo, 'new_message', messagePayload)
+      console.log(`📤 Bot media emitted to user_${assignedTo}`)
+    }
+
+  } catch (error) {
+    console.error('❌ saveBotMediaMessage error:', error)
+  }
+},
+
+
   // ─────────────────────────────────────────
   // Send WhatsApp Message via Meta API
   // ─────────────────────────────────────────
@@ -1352,5 +1582,4 @@ handleAssignAgent: async (node, conversation, contact) => {
 }
 
 }
-
 export default flowEngine

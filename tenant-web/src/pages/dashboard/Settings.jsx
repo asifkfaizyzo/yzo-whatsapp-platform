@@ -24,7 +24,13 @@ import {
   Upload,
   X,
   Loader2,
+  Lock,
   Image as ImageIcon,
+  Activity,
+  Zap,
+  BarChart3,
+  ShieldCheck,
+  Sparkles,
 } from "lucide-react";
 import { getTags, createTag } from "../../services/tag.service";
 import { useToast } from "../../context/ToastContext";
@@ -131,9 +137,10 @@ export default function SettingsPage() {
   const [userRole, setUserRole] = useState(null);
   const [showVerifyToken, setShowVerifyToken] = useState(false);
   const [showAccessToken, setShowAccessToken] = useState(false);
-  const [uploadingLogo, setUploadingLogo] = useState(false); // 🆕 NEW
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [initialProfile, setInitialProfile] = useState(null);
 
-  // 🔧 FIXED: Removed duplicate `timezone` key
   const [profile, setProfile] = useState({
     name: "Admin Member",
     companyName: "WhatsApp Tenant Corp",
@@ -149,8 +156,8 @@ export default function SettingsPage() {
     companySize: "",
     country: "",
     logo: "",
-    timezone: "Asia/Kolkata", // ✅ Only ONE timezone key now
-    tenantName: "", // 🆕 For AGENT view - shows tenant info
+    timezone: "Asia/Kolkata",
+    tenantName: "",
     tenantLogo: "",
   });
 
@@ -158,15 +165,11 @@ export default function SettingsPage() {
     if (userRole !== "admin") return;
     const res = await getTenantProfile();
 
-    console.log("📥 Profile from backend:", res);
-    console.log("📥 Logo value from backend:", res.data?.logo);
-
     if (res.success) {
-      setProfile((prev) => ({
-        ...prev,
+      const loaded = {
         name: res.data.tenantName ?? "",
         companyName: res.data.tenantName ?? "",
-        email: res.data.email ?? "", // ← KEY FIX: null→""
+        email: res.data.email ?? "",
         phone: res.data.phone ?? "",
         address: res.data.address ?? "",
         authProvider: res.data.authProvider ?? "LOCAL",
@@ -179,25 +182,33 @@ export default function SettingsPage() {
         country: res.data.country ?? "",
         logo: res.data.logo ?? "",
         timezone: res.data.timezone ?? "Asia/Kolkata",
+      };
+      setProfile((prev) => ({
+        ...prev,
+        ...loaded,
       }));
+      setInitialProfile(loaded);
     }
   };
 
-  // 🆕 Fetch user profile (for AGENT role)
+  // Fetch user profile (for AGENT role)
   const fetchUserProfile = async () => {
     if (userRole !== "agent") return;
 
     const res = await getUserProfile();
-    console.log("📥 User profile:", res);
 
     if (res.success) {
-      setProfile((prev) => ({
-        ...prev,
+      const loaded = {
         name: res.data.name || "",
         email: res.data.email || "",
         tenantName: res.data.tenant?.tenantName || "",
         tenantLogo: res.data.tenant?.logo || "",
+      };
+      setProfile((prev) => ({
+        ...prev,
+        ...loaded,
       }));
+      setInitialProfile(loaded);
     }
   };
 
@@ -221,6 +232,7 @@ export default function SettingsPage() {
     isConnected: false,
     phoneNumberId: null,
     wabaId: null,
+    health: null,
   });
   const [loadingStatus, setLoadingStatus] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
@@ -291,6 +303,7 @@ export default function SettingsPage() {
         isConnected: !!res.data.isConnected,
         phoneNumberId: res.data.phoneNumberId || null,
         wabaId: res.data.wabaId || null,
+        health: res.data.health || null,
       });
       if (res.data.phoneNumberId || res.data.wabaId) {
         setWhatsapp((prev) => ({
@@ -332,6 +345,13 @@ export default function SettingsPage() {
       fetchWhatsappStatusData();
     }
   }, [activeTab]);
+
+  // ✅ Fetch WhatsApp status globally (needed for locking profile fields)
+  useEffect(() => {
+    if (userRole === "admin") {
+      fetchWhatsappStatusData();
+    }
+  }, [userRole]);
 
   const fetchReopenConfig = async () => {
     setLoadingReopen(true);
@@ -420,46 +440,114 @@ export default function SettingsPage() {
           email: parsed.email || prev.email,
         }));
         setUserRole(parsed.type === "TENANT" ? "admin" : "agent");
-      } catch (e) {}
+      } catch (e) { }
     }
   }, []);
+
+  const isProfileChanged = () => {
+    if (!initialProfile) return false;
+
+    const nameChanged =
+      !whatsappStatus.isConnected &&
+      (profile.name || "").trim() !== (initialProfile.name || "").trim();
+    const firstNameChanged =
+      (profile.firstName || "").trim() !== (initialProfile.firstName || "").trim();
+    const lastNameChanged =
+      (profile.lastName || "").trim() !== (initialProfile.lastName || "").trim();
+    const phoneChanged =
+      (profile.phone || "").trim() !== (initialProfile.phone || "").trim();
+    const addressChanged =
+      (profile.address || "").trim() !== (initialProfile.address || "").trim();
+    const websiteUrlChanged =
+      (profile.websiteUrl || "").trim() !== (initialProfile.websiteUrl || "").trim();
+    const industryChanged =
+      (profile.industry || "") !== (initialProfile.industry || "");
+    const companySizeChanged =
+      (profile.companySize || "") !== (initialProfile.companySize || "");
+    const countryChanged =
+      (profile.country || "") !== (initialProfile.country || "");
+    const timezoneChanged =
+      (profile.timezone || "Asia/Kolkata") !==
+      (initialProfile.timezone || "Asia/Kolkata");
+
+    return (
+      nameChanged ||
+      firstNameChanged ||
+      lastNameChanged ||
+      phoneChanged ||
+      addressChanged ||
+      websiteUrlChanged ||
+      industryChanged ||
+      companySizeChanged ||
+      countryChanged ||
+      timezoneChanged
+    );
+  };
 
   const handleProfileSave = async (e) => {
     e.preventDefault();
     if (userRole !== "admin") {
-      toast.success("Profile configurations updated!");
+      toast.info("Agent profiles are managed by your administrator.");
       return;
     }
 
-    const res = await updateTenantProfile({
-      tenantName: profile.name || "",
-      email: profile.email || "",
-      phone: profile.phone || "",
-      address: profile.address || "",
-      firstName: profile.firstName || "",
-      lastName: profile.lastName || "",
-      websiteUrl: profile.websiteUrl || "",
-      industry: profile.industry || "",
-      companySize: profile.companySize || "",
-      country: profile.country || "",
-      logo: profile.logo || "",
-      timezone: profile.timezone || "Asia/Kolkata",
-    });
+    if (!isProfileChanged()) {
+      toast.info("No changes were made to the profile.");
+      return;
+    }
 
-    if (res.success) {
-      toast.success("Profile configurations updated!");
-      const stored = localStorage.getItem("user");
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          parsed.tenantName = res.data.tenantName;
-          parsed.name = res.data.tenantName;
-          parsed.email = res.data.email;
-          localStorage.setItem("user", JSON.stringify(parsed));
-        } catch (err) {}
+    setSavingProfile(true);
+
+    try {
+      const payload = {
+        phone: profile.phone || "",
+        address: profile.address || "",
+        firstName: profile.firstName || "",
+        lastName: profile.lastName || "",
+        websiteUrl: profile.websiteUrl || "",
+        industry: profile.industry || "",
+        companySize: profile.companySize || "",
+        country: profile.country || "",
+        logo: profile.logo || "",
+        timezone: profile.timezone || "Asia/Kolkata",
+      };
+
+      // Only allow tenantName update if WA is NOT connected
+      if (!whatsappStatus.isConnected) {
+        payload.tenantName = profile.name || "";
       }
-    } else {
-      toast.error("Failed to update profile: " + res.message);
+
+      const res = await updateTenantProfile(payload);
+
+      if (res.success) {
+        toast.success("Profile configurations updated!");
+        // Sync initialProfile to the newly saved values
+        setInitialProfile((prev) => ({
+          ...(prev || {}),
+          ...payload,
+          name: payload.tenantName || prev?.name || profile.name,
+        }));
+
+        const stored = localStorage.getItem("user");
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored);
+            if (res.data?.tenantName) {
+              parsed.tenantName = res.data.tenantName;
+              parsed.name = res.data.tenantName;
+            }
+            if (res.data?.firstName) parsed.firstName = res.data.firstName;
+            if (res.data?.lastName) parsed.lastName = res.data.lastName;
+            localStorage.setItem("user", JSON.stringify(parsed));
+          } catch (err) { }
+        }
+      } else {
+        toast.error("Failed to update profile: " + res.message);
+      }
+    } catch (err) {
+      toast.error("Failed to update profile: " + (err.message || "Unknown error"));
+    } finally {
+      setSavingProfile(false);
     }
   };
 
@@ -494,8 +582,9 @@ export default function SettingsPage() {
 
       if (res.success) {
         setProfile({ ...profile, logo: res.data.logoUrl });
+        setInitialProfile((prev) => (prev ? { ...prev, logo: res.data.logoUrl } : prev));
         toast.success("Logo uploaded successfully!");
-        // 🆕 Notify TopNavBar to update logo instantly
+        // Notify TopNavBar to update logo instantly
         window.dispatchEvent(
           new CustomEvent("tenant_logo_updated", {
             detail: { logo: res.data.logoUrl },
@@ -518,9 +607,10 @@ export default function SettingsPage() {
     const res = await deleteTenantLogo();
     if (res.success) {
       setProfile({ ...profile, logo: "" });
+      setInitialProfile((prev) => (prev ? { ...prev, logo: "" } : prev));
       toast.success("Logo removed");
 
-      // 🆕 Notify TopNavBar to remove logo instantly
+      // Notify TopNavBar to remove logo instantly
       window.dispatchEvent(
         new CustomEvent("tenant_logo_updated", {
           detail: { logo: null },
@@ -659,11 +749,10 @@ export default function SettingsPage() {
               <button
                 key={tab.id}
                 onClick={() => handleTabChange(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition w-full whitespace-nowrap text-left ${
-                  activeTab === tab.id
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition w-full whitespace-nowrap text-left ${activeTab === tab.id
                     ? "bg-slate-100 text-slate-800"
                     : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
-                }`}
+                  }`}
               >
                 {tab.icon}
                 <span>{tab.label}</span>
@@ -837,31 +926,71 @@ export default function SettingsPage() {
 
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
-                      <label className="label text-xs">Full Name *</label>
+                      <label className="label text-xs flex items-center gap-1.5">
+                        <span>Full Name *</span>
+                        {userRole === "admin" && whatsappStatus.isConnected && (
+                          <span
+                            className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-400"
+                            title="Company name is synced with your WhatsApp Business Account and cannot be changed here."
+                          >
+                            <Lock size={10} />
+                            <span>Locked</span>
+                          </span>
+                        )}
+                      </label>
                       <input
                         type="text"
                         value={profile.name}
                         onChange={(e) =>
                           setProfile({ ...profile, name: e.target.value })
                         }
-                        className="input text-xs"
+                        className={`input text-xs ${userRole === "admin" && whatsappStatus.isConnected
+                            ? "bg-slate-50 cursor-not-allowed text-slate-500"
+                            : ""
+                          }`}
                         required
-                        disabled={userRole !== "admin"}
+                        disabled={
+                          userRole !== "admin" ||
+                          (userRole === "admin" && whatsappStatus.isConnected)
+                        }
+                        title={
+                          whatsappStatus.isConnected
+                            ? "Company name is managed by your WhatsApp Business Account."
+                            : ""
+                        }
                       />
+                      {userRole === "admin" && whatsappStatus.isConnected && (
+                        <p className="text-[10px] text-slate-400 mt-1 font-medium">
+                          🔒 Managed by your connected WhatsApp Business Account.
+                        </p>
+                      )}
                     </div>
-                    <div>
-                      <label className="label text-xs">Email Address *</label>
 
+                    <div>
+                      <label className="label text-xs flex items-center gap-1.5">
+                        <span>Email Address *</span>
+                        {userRole === "admin" && (
+                          <span
+                            className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-400"
+                            title="Email is your login identity and cannot be changed here. Contact support to update."
+                          >
+                            <Lock size={10} />
+                            <span>Locked</span>
+                          </span>
+                        )}
+                      </label>
                       <input
                         type="email"
                         value={profile.email ?? ""}
-                        onChange={(e) =>
-                          setProfile({ ...profile, email: e.target.value })
-                        }
-                        className="input text-xs"
-                        required
-                        disabled={userRole !== "admin"}
+                        className="input text-xs bg-slate-50 cursor-not-allowed text-slate-500"
+                        disabled
+                        title="Email is your login identity and cannot be changed here. Contact support to update."
                       />
+                      {userRole === "admin" && (
+                        <p className="text-[10px] text-slate-400 mt-1 font-medium">
+                          🔒 Your login email cannot be changed. Contact support for assistance.
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -1024,16 +1153,20 @@ export default function SettingsPage() {
                   </div>
                 )}
 
-                {/* Save Button */}
                 {/* Save Button (only for admin) */}
                 {userRole === "admin" && (
                   <div className="pt-4 flex items-center justify-end border-t border-slate-50">
                     <button
                       type="submit"
-                      className="btn-primary py-2 px-4 text-xs font-bold flex items-center gap-1.5"
+                      disabled={savingProfile}
+                      className="btn-primary py-2 px-4 text-xs font-bold flex items-center gap-1.5 disabled:opacity-60"
                     >
-                      <Save size={14} />
-                      <span>Save Profile</span>
+                      {savingProfile ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <Save size={14} />
+                      )}
+                      <span>{savingProfile ? "Saving..." : "Save Profile"}</span>
                     </button>
                   </div>
                 )}
@@ -1234,43 +1367,192 @@ export default function SettingsPage() {
                   <span>Checking WhatsApp connection status...</span>
                 </div>
               ) : whatsappStatus.isConnected ? (
-                <div className="bg-emerald-50/60 border border-emerald-200/80 rounded-2xl p-5 shadow-sm space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-emerald-500 text-white rounded-xl flex items-center justify-center shadow-sm">
-                        <CheckCircle2 size={20} />
+                <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-6">
+                  {/* Header info & actions */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-100">
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-12 h-12 bg-emerald-500 text-white rounded-2xl flex items-center justify-center shadow-md shadow-emerald-500/20">
+                        <CheckCircle2 size={24} />
                       </div>
                       <div>
-                        <h3 className="text-sm font-bold text-emerald-950 flex items-center gap-2">
-                          <span>WhatsApp Connected</span>
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-200 text-emerald-900">
-                            ACTIVE
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-base font-bold text-slate-900">
+                            {whatsappStatus.health?.verifiedName || "WhatsApp Business Account"}
+                          </h3>
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200/60">
+                            CONNECTED & ACTIVE
                           </span>
-                        </h3>
-                        <p className="text-xs text-emerald-800/80 font-medium">
-                          Your WhatsApp Business Cloud API integration is active
-                          and receiving messages.
+                          {whatsappStatus.health?.isMock && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200/60">
+                              MOCK MODE
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500 font-medium mt-0.5">
+                          {whatsappStatus.health?.displayPhoneNumber || "Meta Cloud API Connected"} · Verified by Meta
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={fetchWhatsappStatusData}
+                        className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700"
+                        title="Refresh live Meta health & limits"
+                      >
+                        <RefreshCw size={13} className={loadingStatus ? "animate-spin text-[#125EF2]" : ""} />
+                        <span>Refresh</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 4-Card Metrics Grid */}
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* 1. Quality Rating */}
+                    <div className="bg-slate-50/80 border border-slate-200/60 rounded-2xl p-4 flex flex-col justify-between">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Phone Quality</span>
+                        <Activity size={15} className="text-slate-400" />
+                      </div>
+                      <div className="mt-3">
+                        {whatsappStatus.health?.qualityRating === "GREEN" ? (
+                          <div className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <span className="text-sm font-extrabold text-emerald-700">High Quality (GREEN)</span>
+                          </div>
+                        ) : whatsappStatus.health?.qualityRating === "YELLOW" ? (
+                          <div className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                            <span className="text-sm font-extrabold text-amber-700">Medium Quality (YELLOW)</span>
+                          </div>
+                        ) : whatsappStatus.health?.qualityRating === "RED" ? (
+                          <div className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+                            <span className="text-sm font-extrabold text-rose-700">Low Quality (RED)</span>
+                          </div>
+                        ) : (
+                          <span className="text-sm font-bold text-slate-700">Good</span>
+                        )}
+                        <p className="text-[10px] text-slate-400 font-medium mt-1">Calculated by Meta from customer feedback</p>
+                      </div>
+                    </div>
+
+                    {/* 2. Daily Messaging Tier */}
+                    <div className="bg-slate-50/80 border border-slate-200/60 rounded-2xl p-4 flex flex-col justify-between">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Daily Messaging Limit</span>
+                        <Zap size={15} className="text-slate-400" />
+                      </div>
+                      <div className="mt-3">
+                        <div className="text-sm font-extrabold text-slate-900">
+                          {whatsappStatus.health?.tierName || "Tier 1K (1,000 / 24 hrs)"}
+                        </div>
+                        <p className="text-[10px] text-slate-400 font-medium mt-1">Unique recipients per rolling 24h</p>
+                      </div>
+                    </div>
+
+                    {/* 3. 24h Broadcast Usage */}
+                    <div className="bg-slate-50/80 border border-slate-200/60 rounded-2xl p-4 flex flex-col justify-between">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">24h Broadcasts Sent</span>
+                        <BarChart3 size={15} className="text-slate-400" />
+                      </div>
+                      <div className="mt-3">
+                        <div className="text-sm font-extrabold text-slate-900 flex items-baseline justify-between">
+                          <span>{whatsappStatus.health?.sentLast24h || 0}</span>
+                          <span className="text-[11px] font-semibold text-slate-400">
+                            Limit: {whatsappStatus.health?.messagingLimitNumber || 1000}
+                          </span>
+                        </div>
+                        <div className="w-full bg-slate-200 rounded-full h-1.5 mt-2 overflow-hidden">
+                          <div
+                            className="bg-[#125EF2] h-1.5 rounded-full transition-all"
+                            style={{
+                              width: `${Math.min(
+                                100,
+                                Math.round(
+                                  ((whatsappStatus.health?.sentLast24h || 0) /
+                                    (whatsappStatus.health?.messagingLimitNumber || 1000)) *
+                                    100
+                                )
+                              )}%`,
+                            }}
+                          />
+                        </div>
+                        <p className="text-[10px] text-slate-400 font-medium mt-1">
+                          {whatsappStatus.health?.remaining24h ?? 1000} remaining today
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* 4. Verification & IDs */}
+                    <div className="bg-slate-50/80 border border-slate-200/60 rounded-2xl p-4 flex flex-col justify-between">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Meta Verification</span>
+                        <ShieldCheck size={15} className="text-slate-400" />
+                      </div>
+                      <div className="mt-3">
+                        <div className="text-sm font-extrabold text-emerald-700 flex items-center gap-1.5">
+                          <CheckCircle2 size={15} />
+                          <span>Meta Cloud Verified</span>
+                        </div>
+                        <p className="text-[10px] font-mono text-slate-400 truncate mt-1" title={whatsappStatus.phoneNumberId || ""}>
+                          Phone ID: {whatsappStatus.phoneNumberId ? `${whatsappStatus.phoneNumberId.slice(0, 10)}...` : "Configured"}
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="border-t border-emerald-200/60 pt-3 grid sm:grid-cols-2 gap-3 text-xs font-medium text-emerald-900">
-                    <div className="flex items-center justify-between bg-white/80 px-3 py-2 rounded-xl border border-emerald-100">
-                      <span className="text-emerald-700 font-semibold">
-                        Phone Number ID:
-                      </span>
-                      <span className="font-mono font-bold text-slate-800">
-                        {whatsappStatus.phoneNumberId || whatsapp.phoneId}
-                      </span>
+                  {/* Meta Health Status / Limitation Alert if any */}
+                  {whatsappStatus.health?.canSendMessage === "LIMITED" && whatsappStatus.health?.limitations?.length > 0 && (
+                    <div className="rounded-2xl bg-amber-50 border border-amber-200 p-4 flex items-start gap-3">
+                      <div className="p-2 rounded-xl bg-amber-100 text-amber-700 shrink-0 mt-0.5">
+                        <AlertTriangle size={16} />
+                      </div>
+                      <div className="text-xs text-amber-900">
+                        <span className="font-bold">Meta Account Limitation Active:</span>
+                        <ul className="mt-1 list-disc list-inside space-y-0.5 text-amber-800">
+                          {whatsappStatus.health.limitations.map((info, idx) => (
+                            <li key={idx}>{info}</li>
+                          ))}
+                        </ul>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between bg-white/80 px-3 py-2 rounded-xl border border-emerald-100">
-                      <span className="text-emerald-700 font-semibold">
-                        WABA ID:
-                      </span>
-                      <span className="font-mono font-bold text-slate-800">
-                        {whatsappStatus.wabaId || whatsapp.wabaId}
-                      </span>
+                  )}
+
+                  {whatsappStatus.health?.canSendMessage === "BLOCKED" && (
+                    <div className="rounded-2xl bg-rose-50 border border-rose-200 p-4 flex items-start gap-3">
+                      <div className="p-2 rounded-xl bg-rose-100 text-rose-700 shrink-0 mt-0.5">
+                        <AlertCircle size={16} />
+                      </div>
+                      <div className="text-xs text-rose-900">
+                        <span className="font-bold">Meta Messaging Blocked:</span>
+                        <p className="mt-1 text-rose-800">
+                          {whatsappStatus.health?.errors?.[0]?.error_description || "One or more nodes are blocked by Meta. Please check your Meta Business Suite."}
+                        </p>
+                        {whatsappStatus.health?.errors?.[0]?.possible_solution && (
+                          <p className="mt-0.5 text-rose-700 font-medium">
+                            Solution: {whatsappStatus.health.errors[0].possible_solution}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Current Tier & Automatic Upgrades Note */}
+                  <div className="rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 p-4 flex items-start gap-3">
+                    <div className="p-2 rounded-xl bg-blue-100 text-blue-700 shrink-0 mt-0.5">
+                      <Sparkles size={16} />
+                    </div>
+                    <div className="text-xs text-blue-950 space-y-3">
+                      <div>
+                        <span className="font-bold text-blue-900 block mb-1">
+                          Current Messaging Limit: {whatsappStatus.health?.tierName || "Tier 1K (1,000 / 24 hrs)"}
+                        </span>
+                        <p className="text-blue-800/80 leading-relaxed">
+                          Meta calculates this tier based on your business verification and sending history. When you maintain a <strong>High Quality (GREEN)</strong> rating and actively send campaigns, Meta automatically upgrades your daily tier limit (from 250 ➔ 1K/2K ➔ 10K ➔ 100K ➔ Unlimited).
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>

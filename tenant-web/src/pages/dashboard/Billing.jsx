@@ -520,7 +520,8 @@ export default function Billing() {
         </div>
       )}
 
-      {/* Summary Stats */}
+
+      {/*
       {successPayments.length > 0 && (
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="card p-5 border border-slate-100 bg-white flex flex-col justify-between">
@@ -581,6 +582,9 @@ export default function Billing() {
           </div>
         </div>
       )}
+      */}
+
+
 
       {/* Payment History Table */}
       <div className="card border border-slate-100 bg-white overflow-hidden">

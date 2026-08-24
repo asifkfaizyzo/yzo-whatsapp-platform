@@ -26,7 +26,7 @@ export default function Pricing() {
 
   // ── Hardcoded sections (update later from DB if needed) ──
   const annualBilling = [
-    { plan: "Starter", monthly: "₹1,999", annual: "₹1,499", savings: "₹6,000/year" },
+    { plan: "Starter", monthly: "₹2,999", annual: "₹2,249", savings: "₹9,000/year" },
     { plan: "Growth",  monthly: "₹4,999", annual: "₹3,749", savings: "₹15,000/year" },
     { plan: "Scale",   monthly: "₹9,999", annual: "₹7,499", savings: "₹30,000/year" },
     { plan: "Enterprise", monthly: "Custom Sizing", annual: "Custom Sizing", savings: "Volume Discount" },

@@ -10,15 +10,24 @@ import {
   CheckCircle, 
   Info,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Activity,
+  Zap,
+  BarChart3,
+  ShieldCheck,
+  Sparkles,
 } from "lucide-react";
 import { getBroadcasts, launchBroadcast, cancelBroadcast } from "../../services/broadcast.service";
 import { getTemplates } from "../../services/template.service";
 import { getTags } from "../../services/tag.service";
+import { getWhatsappStatus } from "../../services/tenant.service";
 import { io } from "socket.io-client";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useConfirm } from "../../context/ConfirmContext";
 import { useToast } from "../../context/ToastContext";
+import WhatsAppRequiredModal from "../../components/whatsapp/WhatsAppRequiredModal";
+import WhatsAppConnect from "../../components/whatsapp/WhatsAppConnect";
+import BroadcastDetailsDrawer from "../../components/broadcasts/BroadcastDetailsDrawer";
 
 export default function Broadcasts() {
   const confirm = useConfirm();
@@ -29,6 +38,12 @@ export default function Broadcasts() {
   const [tags, setTags] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [isWhatsAppConnected, setIsWhatsAppConnected] = useState(true);
+  const [whatsappHealth, setWhatsappHealth] = useState(null);
+  const [showConnectModal, setShowConnectModal] = useState(false);
+  const [showWhatsAppSetup, setShowWhatsAppSetup] = useState(false);
+  const [selectedBroadcastId, setSelectedBroadcastId] = useState(null);
+  const [showDrawer, setShowDrawer] = useState(false);
 
   const [showModal, setShowModal] = useState(false);
   const [newCampaign, setNewCampaign] = useState({
@@ -43,13 +58,14 @@ export default function Broadcasts() {
   // Dynamic variable parameters mappings state
   const [paramsMapping, setParamsMapping] = useState({});
 
-  // 1. Fetch campaigns, templates, tags
+  // 1. Fetch campaigns, templates, tags, whatsapp status
   const loadData = async () => {
     setLoading(true);
-    const [bRes, tRes, tagRes] = await Promise.all([
+    const [bRes, tRes, tagRes, statusRes] = await Promise.all([
       getBroadcasts(),
       getTemplates(),
-      getTags()
+      getTags(),
+      getWhatsappStatus()
     ]);
 
     if (bRes.success) setCampaigns(bRes.data);
@@ -58,6 +74,10 @@ export default function Broadcasts() {
       setTemplates(tRes.data.filter(t => t.status === "APPROVED"));
     }
     if (tagRes.success) setTags(tagRes.data);
+    if (statusRes.success && statusRes.data) {
+      setIsWhatsAppConnected(!!statusRes.data.isConnected);
+      setWhatsappHealth(statusRes.data.health || null);
+    }
     setLoading(false);
   };
 
@@ -73,7 +93,7 @@ export default function Broadcasts() {
     let activeTenantId = "";
     try {
       const userObj = JSON.parse(userStr);
-      activeTenantId = userObj.tenantId || "";
+      activeTenantId = userObj.type === "TENANT" ? userObj.id : (userObj.tenantId || userObj.id);
     } catch (e) {
       return;
     }
@@ -87,19 +107,32 @@ export default function Broadcasts() {
       transports: ["websocket"]
     });
 
-    socket.emit("join_tenant", activeTenantId);
+    const joinAndListen = () => {
+      socket.emit("join_tenant", activeTenantId);
+    };
 
-    // Watch for backend status updates
+    if (socket.connected) {
+      joinAndListen();
+    } else {
+      socket.on("connect", joinAndListen);
+    }
+
+    // Watch for backend status updates in real-time
     socket.on("broadcast_update", (data) => {
       setCampaigns(prev => prev.map(c => {
         if (c.id === data.broadcastId) {
+          const newStatus = data.status || (
+            (data.sent !== undefined && data.failed !== undefined && (data.sent + data.failed >= c.totalRecipients))
+              ? "COMPLETED"
+              : c.status
+          );
           return {
             ...c,
-            sent: data.sent,
-            delivered: data.delivered,
-            read: data.read,
-            failed: data.failed,
-            status: data.sent + data.failed >= c.totalRecipients ? "COMPLETED" : c.status
+            sent: data.sent !== undefined ? data.sent : c.sent,
+            delivered: data.delivered !== undefined ? data.delivered : c.delivered,
+            read: data.read !== undefined ? data.read : c.read,
+            failed: data.failed !== undefined ? data.failed : c.failed,
+            status: newStatus
           };
         }
         return c;
@@ -122,15 +155,22 @@ export default function Broadcasts() {
       return;
     }
 
-    // Parse parameters
+    // Parse parameters supporting {{1}}, {{var1}}, [var1], and database bodyParams
     const bodyComp = (selected.components || []).find(c => c.type === "BODY");
     const bodyText = bodyComp ? bodyComp.text : "";
-    const placeholders = bodyText.match(/\{\{(\d+)\}\}/g);
-    const count = placeholders ? new Set(placeholders).size : 0;
+    
+    // Match {{1}}, {{var1}}, {{name}}, or [var1], [var2], [name]
+    const curlyMatches = bodyText.match(/\{\{([a-zA-Z0-9_-]+)\}\}/g) || [];
+    const bracketMatches = bodyText.match(/\[(var\d+|[a-zA-Z0-9_-]+)\]/g) || [];
+    const detectedCount = new Set([...curlyMatches, ...bracketMatches]).size;
+    const count = Math.max(selected.bodyParams || 0, detectedCount);
 
     const initMapping = {};
     for (let i = 1; i <= count; i++) {
-      initMapping[i] = { type: "contact_field", value: "{{contact_name}}" };
+      initMapping[i] = {
+        type: "contact_field",
+        value: i === 1 ? "{{contact_name}}" : (i === 2 ? "{{contact_company}}" : "{{contact_phone}}")
+      };
     }
     setParamsMapping(initMapping);
   };
@@ -231,8 +271,12 @@ export default function Broadcasts() {
         </div>
         <button
           onClick={() => {
+            if (!isWhatsAppConnected) {
+              setShowConnectModal(true);
+              return;
+            }
             if (templates.length === 0) {
-              alert("You must have at least one approved template before launching a broadcast campaign.");
+              toast.error("You must have at least one approved template before launching a broadcast campaign.");
               return;
             }
             setShowModal(true);
@@ -243,6 +287,100 @@ export default function Broadcasts() {
           <span>New Campaign</span>
         </button>
       </div>
+
+      {/* Live Meta Account Health & Messaging Limit Status Bar */}
+      {isWhatsAppConnected && whatsappHealth && (
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center shrink-0">
+              <Zap size={20} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold text-slate-800">
+                  {whatsappHealth.tierName || "Tier 1K (1,000 / 24 hrs)"}
+                </span>
+                {whatsappHealth.qualityRating === "GREEN" ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    High Quality (GREEN)
+                  </span>
+                ) : whatsappHealth.qualityRating === "YELLOW" ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-50 text-amber-700 border border-amber-200/60">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                    Medium Quality (YELLOW)
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-50 text-rose-700 border border-rose-200/60">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                    Low Quality (RED)
+                  </span>
+                )}
+                {whatsappHealth.isMock && (
+                  <span className="text-[10px] bg-slate-100 text-slate-600 font-bold px-2 py-0.5 rounded border border-slate-200">
+                    MOCK
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                {whatsappHealth.displayPhoneNumber || "WhatsApp Business Number"} · Meta Cloud API
+              </p>
+            </div>
+          </div>
+
+          {/* Daily Limit Usage Bar */}
+          <div className="flex flex-col sm:items-end gap-1 min-w-[240px]">
+            <div className="flex items-center justify-between w-full text-xs font-bold text-slate-700">
+              <span className="text-[11px] text-slate-500 font-semibold">24h Broadcast Usage:</span>
+              <span>
+                {whatsappHealth.sentLast24h || 0} / {whatsappHealth.messagingLimitNumber || 1000}
+              </span>
+            </div>
+            <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200/60">
+              <div
+                className="bg-[#125EF2] h-2 rounded-full transition-all"
+                style={{
+                  width: `${Math.min(
+                    100,
+                    Math.round(
+                      ((whatsappHealth.sentLast24h || 0) /
+                        (whatsappHealth.messagingLimitNumber || 1000)) *
+                        100
+                    )
+                  )}%`,
+                }}
+              />
+            </div>
+            <span className="text-[10px] text-slate-400 font-medium">
+              {whatsappHealth.remaining24h ?? 1000} messages remaining today
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* WhatsApp Disconnected Warning Banner */}
+      {!isWhatsAppConnected && !loading && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50/90 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-start gap-3.5">
+            <div className="p-2.5 rounded-xl bg-amber-100 text-amber-700 shrink-0">
+              <AlertCircle size={20} />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-amber-900">WhatsApp Account Not Connected</h4>
+              <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
+                Connect your WhatsApp Business Number in Settings to launch broadcast campaigns and send messages via Meta Cloud API.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowWhatsAppSetup(true)}
+            className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 text-white text-xs font-bold rounded-xl transition shadow-sm whitespace-nowrap self-start sm:self-auto shrink-0"
+          >
+            Connect WhatsApp
+          </button>
+        </div>
+      )}
 
       {/* Campaigns Listing */}
       <div className="card border border-slate-100 overflow-hidden bg-white">
@@ -311,17 +449,30 @@ export default function Broadcasts() {
                         {deliveryPercent}% ({b.delivered})
                       </td>
                       <td className="p-4 text-center">
-                        {(b.status === "SCHEDULED" || b.status === "PROCESSING") ? (
+                        <div className="flex items-center justify-center gap-1.5">
                           <button
-                            onClick={() => handleCancelCampaign(b.id)}
-                            className="px-2.5 py-1 text-[11px] font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-100 rounded-lg transition shadow-2xs"
-                            title="Cancel Campaign"
+                            type="button"
+                            onClick={() => {
+                              setSelectedBroadcastId(b.id);
+                              setShowDrawer(true);
+                            }}
+                            className="px-2.5 py-1 text-[11px] font-semibold text-[#125EF2] hover:text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-100 rounded-lg transition shadow-2xs flex items-center gap-1"
+                            title="View granular recipient logs and diagnostics"
                           >
-                            Cancel
+                            <BarChart3 size={12} />
+                            <span>Logs</span>
                           </button>
-                        ) : (
-                          <span className="text-slate-300 font-medium">—</span>
-                        )}
+                          {(b.status === "SCHEDULED" || b.status === "PROCESSING") && (
+                            <button
+                              type="button"
+                              onClick={() => handleCancelCampaign(b.id)}
+                              className="px-2.5 py-1 text-[11px] font-semibold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-100 rounded-lg transition shadow-2xs"
+                              title="Cancel Campaign"
+                            >
+                              Cancel
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -528,9 +679,21 @@ export default function Broadcasts() {
                     onChange={(e) => setNewCampaign({ ...newCampaign, scheduledTime: e.target.value })}
                     className="input text-xs bg-white border-purple-200 focus:ring-purple-500"
                   />
-                  {/* <p className="text-[10px] text-purple-600 font-medium">
-                    BullMQ will hold jobs in Redis and automatically launch this broadcast at the chosen time.
-                  </p> */}
+                </div>
+              )}
+
+              {/* Messaging Limit Quota Info */}
+              {whatsappHealth && (
+                <div className="p-3 bg-blue-50/80 border border-blue-100 rounded-2xl flex items-center justify-between text-xs text-blue-950">
+                  <div className="flex items-center gap-2">
+                    <Zap size={15} className="text-[#125EF2]" />
+                    <span className="font-semibold text-blue-900">
+                      Daily Tier: <strong>{whatsappHealth.tierName}</strong>
+                    </span>
+                  </div>
+                  <span className="font-bold text-[#125EF2] bg-white px-2 py-0.5 rounded-lg border border-blue-100 shadow-2xs">
+                    {whatsappHealth.remaining24h ?? 1000} remaining today
+                  </span>
                 </div>
               )}
 
@@ -559,6 +722,40 @@ export default function Broadcasts() {
         </div>,
         document.body
       )}
+
+      {/* WhatsApp Connection Required Modal */}
+      <WhatsAppRequiredModal
+        isOpen={showConnectModal}
+        onClose={() => setShowConnectModal(false)}
+        onConnect={() => setShowWhatsAppSetup(true)}
+        title="WhatsApp Number Required"
+        description="To launch broadcast campaigns, you need to connect your official WhatsApp Business Number first."
+        feature="Broadcasts"
+      />
+
+      {/* WhatsApp Setup / Connect Modal ("Choose Your Setup Type") */}
+      {showWhatsAppSetup && (
+        <WhatsAppConnect
+          onSuccess={() => {
+            setShowWhatsAppSetup(false);
+            setIsWhatsAppConnected(true);
+            loadData();
+            toast.success("WhatsApp connected successfully!");
+          }}
+          onClose={() => setShowWhatsAppSetup(false)}
+        />
+      )}
+
+      {/* Granular Recipient Delivery Logs & Diagnostics Drawer */}
+      <BroadcastDetailsDrawer
+        broadcastId={selectedBroadcastId}
+        isOpen={showDrawer}
+        onClose={() => {
+          setShowDrawer(false);
+          setSelectedBroadcastId(null);
+        }}
+        onCampaignUpdated={loadData}
+      />
     </div>
   );
 }

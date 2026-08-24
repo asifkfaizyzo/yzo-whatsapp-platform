@@ -39,6 +39,7 @@ import EnterpriseRequest from "../pages/EnterpriseRequest";
 import Tickets from "../pages/dashboard/Tickets";
 import Automation from "../pages/dashboard/Automation";
 import FlowBuilder from "../pages/dashboard/FlowBuilder";
+import Notifications from "../pages/dashboard/Notifications";
 
 import ExpiredRouteGuard from "../components/guards/ExpiredRouteGuard";
 
@@ -138,6 +139,8 @@ function App() {
 
           <Route path="automation" element={<Automation />} />
           <Route path="automation/builder/:flowId" element={<FlowBuilder />} />
+          <Route path="notifications" element={<Notifications />} /> 
+          
         </Route>
 
         <Route

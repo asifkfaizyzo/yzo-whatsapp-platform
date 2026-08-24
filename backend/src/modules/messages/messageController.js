@@ -28,6 +28,7 @@ export const incomingMessageController = async (req, res) => {
       text,
       type,
       caption,
+      wamid,        //Extract wamid if provided
     } = req.body;
 
     let {
@@ -108,7 +109,7 @@ export const incomingMessageController = async (req, res) => {
     }
 
     // ── Process ───────────────────────────────────────────────
-    const result = await handleIncomingMessage({
+     const result = await handleIncomingMessage({
       contactId,
       tenantId,
       text,
@@ -118,6 +119,7 @@ export const incomingMessageController = async (req, res) => {
       mediaSize,
       mediaMimeType,
       caption,
+      wamid:         wamid || `mock_wamid_inbound_${Date.now()}`, // ← Fallback mock WAMID for simulator
     });
 
     // ── Socket emit ───────────────────────────────────────────

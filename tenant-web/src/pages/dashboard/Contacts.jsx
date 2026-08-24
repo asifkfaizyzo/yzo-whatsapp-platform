@@ -13,11 +13,17 @@ import {
   Unlock,
   Upload,
   MessageSquare,
+  UsersRound,
+  UserCheck2,
+  UserX,
+  ShieldOff,
+  AlertCircle,
 } from "lucide-react";
 import {
   getContacts,
   createContact,
   deleteContact,
+  bulkDeleteContacts,
   updateContact,
   blockContact,
   unblockContact,
@@ -40,6 +46,9 @@ import {
 } from "../../services/tenant.service";
 import { useConfirm } from "../../context/ConfirmContext";
 import { useToast } from "../../context/ToastContext";
+import { getWhatsappStatus } from "../../services/tenant.service";
+import WhatsAppRequiredModal from "../../components/whatsapp/WhatsAppRequiredModal";
+import WhatsAppConnect from "../../components/whatsapp/WhatsAppConnect";
 
 export default function Contacts() {
   const confirm = useConfirm();
@@ -55,8 +64,27 @@ export default function Contacts() {
   const [editingContact, setEditingContact] = useState(null);
   const [agents, setAgents] = useState([]);
   const navigate = useNavigate();
+
+  // ✅ WhatsApp connection states
+  const [isWhatsAppConnected, setIsWhatsAppConnected] = useState(true);
+  const [showConnectModal, setShowConnectModal] = useState(false);
+  const [showWhatsAppSetup, setShowWhatsAppSetup] = useState(false);
+
   const [searchParams, setSearchParams] = useSearchParams();
   const filter = searchParams.get("filter") || "all";
+
+  // Filter tabs config (Wati.io style)
+  const filterTabs = [
+    { key: "all", label: "All Contacts", icon: <UsersRound size={14} />, activeColor: "text-[#125EF2] border-[#125EF2]", badge: "bg-blue-50 text-blue-600" },
+    { key: "assigned", label: "Assigned", icon: <UserCheck2 size={14} />, activeColor: "text-green-600 border-green-600", badge: "bg-green-50 text-green-600" },
+    { key: "unassigned", label: "Unassigned", icon: <UserX size={14} />, activeColor: "text-amber-600 border-amber-600", badge: "bg-amber-50 text-amber-600" },
+    { key: "blocked", label: "Blocked", icon: <ShieldOff size={14} />, activeColor: "text-red-600 border-red-600", badge: "bg-red-50 text-red-500" },
+  ];
+
+  const handleFilterChange = (key) => {
+    setSearchParams({ filter: key });
+    setPage(1);
+  };
   
   // Dynamic tags list
   const [systemTags, setSystemTags] = useState([]);
@@ -83,7 +111,6 @@ export default function Contacts() {
       tag: "Lead",
     },
     onSubmitService: async (data) => {
-      // Clean formatting inputs
       const cleanCC = data.countryCode.replace(/\D/g, "");
       const cleanPhone = data.phone.replace(/\D/g, "");
       const fullPhone = `+${cleanCC}${cleanPhone}`;
@@ -109,6 +136,7 @@ export default function Contacts() {
       toast.success(editingContact ? "Contact updated successfully!" : "Contact created successfully!");
     },
   });
+
   const [importing, setImporting] = useState(false);
   const [importSummary, setImportSummary] = useState(null);
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -120,7 +148,7 @@ export default function Contacts() {
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(search);
-      setPage(1); // Reset back to page 1 on new search terms
+      setPage(1);
     }, 400);
 
     return () => clearTimeout(handler);
@@ -137,7 +165,7 @@ export default function Contacts() {
       setContacts(res.data.contacts || []);
       setTotalPages(res.data.totalPages || 1);
       setTotalContacts(res.data.count || 0);
-      setSelectedContactIds([]); // Clear any bulk selection
+      setSelectedContactIds([]);
     } else {
       console.error(res.message);
     }
@@ -147,6 +175,12 @@ export default function Contacts() {
   const handleImportCSV = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (!isWhatsAppConnected) {
+      setShowConnectModal(true);
+      e.target.value = "";
+      return;
+    }
 
     if (!file.name.endsWith(".csv")) {
       toast.error("Please upload a valid CSV file.");
@@ -168,55 +202,6 @@ export default function Contacts() {
     }
   };
 
-  const handleAdd = async (e) => {
-    e.preventDefault();
-    if (
-      !newContact.name.trim() ||
-      !newContact.phone.trim() ||
-      !newContact.countryCode.trim()
-    )
-      return;
-
-    const cleanCountryCode = newContact.countryCode.replace(/\D/g, "");
-    const cleanPhone = newContact.phone.replace(/\D/g, "");
-
-    if (!cleanCountryCode) {
-      alert("Please enter a valid country code.");
-      return;
-    }
-
-    if (cleanPhone.length < 4) {
-      alert("Please enter a valid phone number.");
-      return;
-    }
-
-    const fullPhone = `+${cleanCountryCode}${cleanPhone}`;
-
-    const payload = {
-      name: newContact.name.trim(),
-      phone: fullPhone,
-      countryCode: `+${cleanCountryCode}`,
-      email: newContact.email?.trim() || null,
-      tags: [newContact.tag],
-      company: newContact.company?.trim() || null,
-    };
-
-    let res;
-    if (editingContact) {
-      res = await updateContact(editingContact.id, payload);
-    } else {
-      res = await createContact(payload);
-    }
-
-    if (res.success) {
-      toast.success(editingContact ? "Contact updated successfully!" : "Contact created successfully!");
-      fetchContacts();
-      handleCloseModal();
-    } else {
-      toast.error(res.message);
-    }
-  };
-
   const handleCloseModal = () => {
     setShowModal(false);
     setEditingContact(null);
@@ -224,6 +209,10 @@ export default function Contacts() {
   };
 
   const handleEditClick = (contact) => {
+    if (!isWhatsAppConnected) {
+      setShowConnectModal(true);
+      return;
+    }
     setEditingContact(contact);
 
     const cleanCC = (contact.countryCode || "").replace(/\D/g, "");
@@ -245,6 +234,10 @@ export default function Contacts() {
   };
 
   const handleToggleBlock = async (contact) => {
+    if (!isWhatsAppConnected) {
+      setShowConnectModal(true);
+      return;
+    }
     const action = contact.isBlocked ? "unblock" : "block";
     const ok = await confirm({
       type: contact.isBlocked ? "info" : "warning",
@@ -311,26 +304,22 @@ export default function Contacts() {
     return "bg-blue-50 text-blue-700 border-blue-100";
   };
 
-  const handleAssignmentChange = async (
-    contactId,
-    currentUserId,
-    newUserId,
-  ) => {
+  const handleAssignmentChange = async (contactId, currentUserId, newUserId) => {
+    if (!isWhatsAppConnected) {
+      setShowConnectModal(true);
+      return;
+    }
     let res;
 
     if (!newUserId) {
-      // 1. Unassign contact
       res = await unassignContact(contactId);
     } else if (!currentUserId) {
-      // 2. Fresh assignment
       res = await assignContact(contactId, newUserId);
     } else {
-      // 3. Re-assignment
       res = await reassignContact(contactId, newUserId);
     }
 
     if (res.success) {
-      // Update local contacts array state directly instead of re-fetching
       setContacts((prev) =>
         prev.map((c) =>
           c.id === contactId ? { ...c, assignedTo: newUserId || null } : c,
@@ -343,9 +332,12 @@ export default function Contacts() {
   };
 
   const handleStartChat = async (contact) => {
+    if (!isWhatsAppConnected) {
+      setShowConnectModal(true);
+      return;
+    }
     const res = await createConversation(contact.id);
     if (res.success) {
-      // Navigate to the inbox page passing the conversation ID in query string
       navigate(`/dashboard/inbox?conversationId=${res.data.id}`);
     } else {
       toast.error(res.message);
@@ -353,6 +345,10 @@ export default function Contacts() {
   };
 
   const handleBulkAssignSubmit = async () => {
+    if (!isWhatsAppConnected) {
+      setShowConnectModal(true);
+      return;
+    }
     if (!bulkAgentId) {
       toast.warning("Please select an agent.");
       return;
@@ -368,7 +364,42 @@ export default function Contacts() {
       toast.success(res.message || "Contacts assigned successfully!");
       setSelectedContactIds([]);
       setBulkAgentId("");
-      fetchContacts(); // Reload contacts list
+      fetchContacts();
+    } else {
+      toast.error(res.message);
+    }
+  };
+
+  // ✅ BULK DELETE HANDLER (WITH CONFIRMATION & TOAST)
+  const handleBulkDelete = async () => {
+    if (!isWhatsAppConnected) {
+      setShowConnectModal(true);
+      return;
+    }
+    if (selectedContactIds.length === 0) {
+      toast.warning("Please select at least one contact to delete.");
+      return;
+    }
+
+    const count = selectedContactIds.length;
+    const ok = await confirm({
+      type: "danger",
+      title: "Delete Contacts?",
+      message: `Are you sure you want to permanently delete ${count} contact(s)? This action cannot be undone.`,
+      confirmLabel: `Delete ${count} Contact${count > 1 ? "s" : ""}`,
+    });
+    if (!ok) return;
+
+    const res = await bulkDeleteContacts(selectedContactIds);
+
+    if (res.success) {
+      toast.success(res.message || "Contacts successfully deleted");
+      setSelectedContactIds([]);
+      if (contacts.length === count && page > 1) {
+        setPage((prev) => prev - 1);
+      } else {
+        fetchContacts();
+      }
     } else {
       toast.error(res.message);
     }
@@ -384,6 +415,16 @@ export default function Contacts() {
     };
     fetchAgents();
   }, [isAdmin]);
+
+  useEffect(() => {
+    const loadWAStatus = async () => {
+      const res = await getWhatsappStatus();
+      if (res.success) {
+        setIsWhatsAppConnected(!!res.data?.isConnected);
+      }
+    };
+    loadWAStatus();
+  }, []);
 
   const activeContacts = contacts.filter((c) => !c.isBlocked);
 
@@ -412,7 +453,13 @@ export default function Contacts() {
                 disabled={importing}
               />
               <label
-                htmlFor="csv-file-input"
+                onClick={(e) => {
+                  if (!isWhatsAppConnected) {
+                    e.preventDefault();
+                    setShowConnectModal(true);
+                  }
+                }}
+                htmlFor={isWhatsAppConnected ? "csv-file-input" : undefined}
                 className={`btn-secondary flex items-center justify-center gap-2 text-sm shadow-sm cursor-pointer ${importing ? "opacity-60 cursor-not-allowed" : ""}`}
               >
                 <Upload size={16} className={importing ? "animate-spin" : ""} />
@@ -421,7 +468,13 @@ export default function Contacts() {
             </>
           )}
           <button
-            onClick={() => setShowModal(true)}
+            onClick={() => {
+              if (!isWhatsAppConnected) {
+                setShowConnectModal(true);
+                return;
+              }
+              setShowModal(true);
+            }}
             className="btn-primary flex items-center justify-center gap-2 text-sm shadow-sm"
             disabled={importing}
           >
@@ -431,15 +484,67 @@ export default function Contacts() {
         </div>
       </div>
 
+      {/* WhatsApp Disconnected Warning Banner */}
+      {!isWhatsAppConnected && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50/90 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-start gap-3.5">
+            <div className="p-2.5 rounded-xl bg-amber-100 text-amber-700 shrink-0">
+              <AlertCircle size={20} />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-amber-900">WhatsApp Account Not Connected</h4>
+              <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
+                Connect your WhatsApp Business Number in Settings to add contacts, import CSV, and start conversations.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowWhatsAppSetup(true)}
+            className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 text-white text-xs font-bold rounded-xl transition shadow-sm whitespace-nowrap self-start sm:self-auto shrink-0"
+          >
+            Connect WhatsApp
+          </button>
+        </div>
+      )}
+
       {/* Directory Grid */}
       <div className="card border border-slate-100 overflow-hidden">
-        {/* Search/Filter Bar */}
+        
+        {/* Filter Tabs */}
+        {isAdmin && (
+          <div className="flex items-center gap-1 px-4 pt-3 border-b border-slate-100 bg-white overflow-x-auto">
+            {filterTabs.map((tab) => {
+              const isActive = filter === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => handleFilterChange(tab.key)}
+                  className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-all whitespace-nowrap
+                    ${isActive
+                      ? tab.activeColor
+                      : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+                    }`}
+                >
+                  <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full ${isActive ? tab.badge : "bg-slate-100 text-slate-500"}`}>
+                    {tab.icon}
+                  </span>
+                  {tab.label}
+                  {isActive && totalContacts > 0 && (
+                    <span className={`ml-1 inline-flex items-center justify-center min-w-[20px] h-[18px] px-1.5 rounded-full text-[10px] font-bold ${tab.badge}`}>
+                      {totalContacts}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Search Bar */}
         <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="relative max-w-xs w-full">
-            <Search
-              className="absolute left-3 top-2.5 text-slate-400"
-              size={15}
-            />
+            <Search className="absolute left-3 top-2.5 text-slate-400" size={15} />
             <input
               type="text"
               placeholder="Search by name or number..."
@@ -450,7 +555,8 @@ export default function Contacts() {
           </div>
         </div>
 
-        {/* Bulk Actions Panel */}
+
+                {/* Bulk Actions Panel */}
         {isAdmin && selectedContactIds.length > 0 && (
           <div className="p-4 bg-[#EAF2FE]/60 border-b border-slate-100 flex items-center justify-between animate-in slide-in-from-top-2 duration-200">
             <span className="text-xs font-semibold text-[#0D47A1]">
@@ -460,7 +566,7 @@ export default function Contacts() {
               <select
                 value={bulkAgentId}
                 onChange={(e) => setBulkAgentId(e.target.value)}
-                className="input text-xs py-1.5 px-2 border border-slate-200 rounded-lg bg-white w-48"
+                className="input text-xs py-1.5 px-2 border border-slate-200 rounded-lg bg-white w-44"
               >
                 <option value="">-- Assign to Agent --</option>
                 {agents.map((agent) => (
@@ -472,13 +578,33 @@ export default function Contacts() {
               <button
                 onClick={handleBulkAssignSubmit}
                 disabled={!bulkAgentId}
-                className="btn-primary py-1.5 px-3.5 text-xs shadow-sm hover:shadow transition"
+                className="btn-primary py-1.5 px-3 text-xs shadow-sm hover:shadow transition disabled:opacity-50"
               >
-                Assign Selected
+                Assign
+              </button>
+
+              {/* ✅ CLEAN TRASH BIN ICON BUTTON */}
+              <button
+                type="button"
+                onClick={handleBulkDelete}
+                className="p-2 text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition shadow-sm flex items-center justify-center"
+                title={`Delete ${selectedContactIds.length} selected contact(s)`}
+              >
+                <Trash2 size={16} />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedContactIds([])}
+                className="text-xs font-semibold text-slate-500 hover:text-slate-700 py-1.5 px-2 transition ml-1"
+                title="Clear selection"
+              >
+                Clear
               </button>
             </div>
           </div>
         )}
+
 
         {/* Contacts Table */}
         <div className="overflow-x-auto">
@@ -744,11 +870,10 @@ export default function Contacts() {
         />
       </div>
 
-      {/* ── New Contact Modal ── */}
+      {/* New Contact Modal */}
       {showModal && createPortal(
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-150">
-            {/* Modal Header */}
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <h2 className="text-base font-bold text-slate-800">
                 {editingContact
@@ -763,7 +888,6 @@ export default function Contacts() {
               </button>
             </div>
 
-            {/* Modal Form */}
             <form onSubmit={contactForm.onSubmit} className="p-6 space-y-4">
               {contactForm.generalError && (
                 <div className="rounded-xl bg-rose-50 border border-rose-200 px-4 py-2.5 text-xs text-rose-650 font-semibold">
@@ -779,9 +903,7 @@ export default function Contacts() {
                   className={`input text-xs ${contactForm.formState.errors.name ? "border-red-500" : ""}`}
                   {...contactForm.register("name")}
                 />
-                <FormError
-                  message={contactForm.formState.errors.name?.message}
-                />
+                <FormError message={contactForm.formState.errors.name?.message} />
               </div>
 
               <div>
@@ -809,18 +931,14 @@ export default function Contacts() {
               </div>
 
               <div>
-                <label className="label text-xs">
-                  Email Address (Optional)
-                </label>
+                <label className="label text-xs">Email Address (Optional)</label>
                 <input
                   type="email"
                   placeholder="e.g. john@example.com"
                   className={`input text-xs ${contactForm.formState.errors.email ? "border-red-500" : ""}`}
                   {...contactForm.register("email")}
                 />
-                <FormError
-                  message={contactForm.formState.errors.email?.message}
-                />
+                <FormError message={contactForm.formState.errors.email?.message} />
               </div>
 
               <div>
@@ -831,17 +949,12 @@ export default function Contacts() {
                   className={`input text-xs ${contactForm.formState.errors.company ? "border-red-500" : ""}`}
                   {...contactForm.register("company")}
                 />
-                <FormError
-                  message={contactForm.formState.errors.company?.message}
-                />
+                <FormError message={contactForm.formState.errors.company?.message} />
               </div>
 
               <div>
                 <label className="label text-xs">Segment Tag</label>
-                <select
-                  className="input text-xs"
-                  {...contactForm.register("tag")}
-                >
+                <select className="input text-xs" {...contactForm.register("tag")}>
                   <option value="">-- No Tag --</option>
                   {systemTags.map((tag) => (
                     <option key={tag.id} value={tag.name}>
@@ -851,7 +964,6 @@ export default function Contacts() {
                 </select>
               </div>
 
-              {/* Actions */}
               <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-100">
                 <button
                   type="button"
@@ -866,9 +978,7 @@ export default function Contacts() {
                   className="btn-primary py-2 px-4 text-[11px] font-bold"
                   disabled={contactForm.formState.isSubmitting}
                 >
-                  {contactForm.formState.isSubmitting
-                    ? "Saving..."
-                    : "Save Contact"}
+                  {contactForm.formState.isSubmitting ? "Saving..." : "Save Contact"}
                 </button>
               </div>
             </form>
@@ -877,11 +987,10 @@ export default function Contacts() {
         document.body
       )}
 
-      {/* ── CSV Import Summary Modal ── */}
+      {/* CSV Import Summary Modal */}
       {importSummary && createPortal(
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-150">
-            {/* Modal Header */}
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <h2 className="text-base font-bold text-slate-800">
                 CSV Import Summary
@@ -894,9 +1003,7 @@ export default function Contacts() {
               </button>
             </div>
 
-            {/* Modal Body */}
             <div className="p-6 space-y-6">
-              {/* Stats Grid */}
               <div className="grid grid-cols-3 gap-3">
                 <div className="bg-[#EAF2FE] border border-[#CFE0FD] rounded-2xl p-3 text-center">
                   <p className="text-[10px] uppercase font-bold text-[#0D47A1] tracking-wider">
@@ -924,7 +1031,6 @@ export default function Contacts() {
                 </div>
               </div>
 
-              {/* Total Processed */}
               <div className="bg-slate-50 rounded-2xl px-4 py-3 flex justify-between items-center text-xs">
                 <span className="font-semibold text-slate-500">
                   Total Rows Processed
@@ -934,30 +1040,27 @@ export default function Contacts() {
                 </span>
               </div>
 
-              {/* Error Details */}
-              {importSummary.errorDetails &&
-                importSummary.errorDetails.length > 0 && (
-                  <div className="space-y-2">
-                    <h3 className="text-xs font-bold text-slate-700">
-                      Error Details
-                    </h3>
-                    <div className="max-h-40 overflow-y-auto border border-slate-100 rounded-2xl divide-y divide-slate-50">
-                      {importSummary.errorDetails.map((err, i) => (
-                        <div key={i} className="p-3 text-[11px] bg-slate-50/50">
-                          <div className="flex justify-between items-center font-bold text-slate-700">
-                            <span>{err.name || "Unknown"}</span>
-                            <span className="font-mono text-slate-500">
-                              {err.phone || "No Phone"}
-                            </span>
-                          </div>
-                          <p className="text-rose-600 mt-1">{err.reason}</p>
+              {importSummary.errorDetails && importSummary.errorDetails.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="text-xs font-bold text-slate-700">
+                    Error Details
+                  </h3>
+                  <div className="max-h-40 overflow-y-auto border border-slate-100 rounded-2xl divide-y divide-slate-50">
+                    {importSummary.errorDetails.map((err, i) => (
+                      <div key={i} className="p-3 text-[11px] bg-slate-50/50">
+                        <div className="flex justify-between items-center font-bold text-slate-700">
+                          <span>{err.name || "Unknown"}</span>
+                          <span className="font-mono text-slate-500">
+                            {err.phone || "No Phone"}
+                          </span>
                         </div>
-                      ))}
-                    </div>
+                        <p className="text-rose-600 mt-1">{err.reason}</p>
+                      </div>
+                    ))}
                   </div>
-                )}
+                </div>
+              )}
 
-              {/* Action */}
               <div className="pt-4 flex items-center justify-end border-t border-slate-100">
                 <button
                   type="button"
@@ -972,6 +1075,29 @@ export default function Contacts() {
         </div>,
         document.body
       )}
+
+      {/* WhatsApp Connection Required Modal */}
+      <WhatsAppRequiredModal
+        isOpen={showConnectModal}
+        onClose={() => setShowConnectModal(false)}
+        onConnect={() => setShowWhatsAppSetup(true)}
+        title="WhatsApp Number Required"
+        description="To add contacts, import CSV, or start conversations, you need to connect your official WhatsApp Business Number first."
+        feature="Contacts"
+      />
+
+      {/* WhatsApp Setup / Connect Modal */}
+      {showWhatsAppSetup && (
+        <WhatsAppConnect
+          onSuccess={() => {
+            setShowWhatsAppSetup(false);
+            setIsWhatsAppConnected(true);
+            toast.success("WhatsApp connected successfully!");
+          }}
+          onClose={() => setShowWhatsAppSetup(false)}
+        />
+      )}
+
     </div>
   );
 }

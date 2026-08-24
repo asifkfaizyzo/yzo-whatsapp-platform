@@ -1,14 +1,45 @@
 import prisma from '../../config/prisma.js';
-import { fetchMetaTemplates, submitMetaTemplate, deleteMetaTemplate } from './templateService.js';
+import fs from 'fs/promises';
+import {
+  fetchMetaTemplates,
+  submitMetaTemplate,
+  deleteMetaTemplate,
+  uploadMediaToMeta,
+  buildTemplateComponents,
+  inferHeaderTypeFromComponents,
+} from './templateService.js';
+import { validateTemplateMediaSize } from '../../middlewares/templateUpload.middleware.js';
+import { sendTemplateStatusEmail } from '../auth/emailService.js';
 
-// Count unique variables like {{1}}, {{2}} in a text block
+// ── Valid values ────────────────────────────────────────────────────────────
+const VALID_HEADER_TYPES = ['NONE', 'TEXT', 'IMAGE', 'VIDEO', 'DOCUMENT', 'LOCATION'];
+const VALID_CATEGORIES   = ['MARKETING', 'UTILITY', 'AUTHENTICATION'];
+const MEDIA_HEADER_TYPES = ['IMAGE', 'VIDEO', 'DOCUMENT'];
+
+// Meta LOCATION header only valid for MARKETING and UTILITY (not AUTHENTICATION)
+const LOCATION_INCOMPATIBLE_CATEGORIES = ['AUTHENTICATION'];
+
+// ── Count unique {{n}} variables in a text block ─────────────────────────────
 const countPlaceholders = (text) => {
   if (!text) return 0;
   const matches = text.match(/\{\{(\d+)\}\}/g);
   return matches ? new Set(matches).size : 0;
 };
 
+// ── Safely delete a local file (non-throwing) ────────────────────────────────
+const safeDeleteFile = async (filePath) => {
+  if (!filePath) return;
+  try {
+    await fs.unlink(filePath);
+  } catch {
+    // Log but never fail the parent operation because of a stale file
+    console.warn(`⚠️  Could not delete local template media file: ${filePath}`);
+  }
+};
+
+// ─────────────────────────────────────────────────────────────
 // 1. GET: Fetch all templates for the logged-in tenant
+// ─────────────────────────────────────────────────────────────
 export const getTemplates = async (req, res) => {
   try {
     const tenantId = req.tenantId;
@@ -18,103 +49,413 @@ export const getTemplates = async (req, res) => {
       orderBy: { createdAt: 'desc' }
     });
 
-    return res.status(200).json({ success: true, data: templates });
+    const latestSync = templates.reduce((latest, t) => {
+      if (t.lastSyncedAt && (!latest || new Date(t.lastSyncedAt) > new Date(latest))) {
+        return t.lastSyncedAt;
+      }
+      return latest;
+    }, null);
+
+    return res.status(200).json({ success: true, data: templates, lastSyncedAt: latestSync });
   } catch (error) {
     console.error('Error fetching templates:', error);
     return res.status(500).json({ success: false, message: 'Failed to fetch templates' });
   }
 };
 
+// ─────────────────────────────────────────────────────────────
 // 2. POST: Create a Template locally and register it on Meta
+// ─────────────────────────────────────────────────────────────
 export const createTemplate = async (req, res) => {
+  const uploadedFile = req.file || null; // set by templateUpload multer middleware
+
   try {
     const tenantId = req.tenantId;
-    const userId = req.tenant.id; // User ID mapped to tenant in verifyTenant
-    const { name, category, language, components } = req.body;
+    const tenant   = req.tenant;
 
-    if (!name || !category || !components) {
-      return res.status(400).json({ success: false, message: 'Name, Category and Components are required.' });
+    // Parse form fields — multipart/form-data sends everything as strings
+    const {
+      name,
+      category,
+      language    = 'en_US',
+      headerType  = 'NONE',
+      headerText,
+      // Location fields
+      headerLocationName,
+      headerLocationAddress,
+      headerLocationLat,
+      headerLocationLng,
+      // Body
+      bodyText,
+      footerText,
+    } = req.body;
+
+    // Parse JSON fields that arrive as strings in multipart forms
+    let bodyExampleValues = [];
+    let buttons = [];
+    try {
+      if (req.body.bodyExampleValues) {
+        bodyExampleValues = JSON.parse(req.body.bodyExampleValues);
+      }
+      if (req.body.buttons) {
+        buttons = JSON.parse(req.body.buttons);
+      }
+    } catch {
+      if (uploadedFile) await safeDeleteFile(uploadedFile.path);
+      return res.status(400).json({ success: false, message: 'Invalid JSON in bodyExampleValues or buttons field.' });
     }
 
-    // Clean template name to lowercase + underscores (Meta requirement)
+    // ── Field validation ──────────────────────────────────────
+    if (!name || !category || !bodyText) {
+      if (uploadedFile) await safeDeleteFile(uploadedFile.path);
+      return res.status(400).json({ success: false, message: 'name, category, and bodyText are required.' });
+    }
+
+    if (!VALID_CATEGORIES.includes(category)) {
+      if (uploadedFile) await safeDeleteFile(uploadedFile.path);
+      return res.status(400).json({ success: false, message: `Invalid category. Must be one of: ${VALID_CATEGORIES.join(', ')}.` });
+    }
+
+    if (!VALID_HEADER_TYPES.includes(headerType)) {
+      if (uploadedFile) await safeDeleteFile(uploadedFile.path);
+      return res.status(400).json({ success: false, message: `Invalid headerType. Must be one of: ${VALID_HEADER_TYPES.join(', ')}.` });
+    }
+
+    if (bodyText.length > 1024) {
+      if (uploadedFile) await safeDeleteFile(uploadedFile.path);
+      return res.status(400).json({ success: false, message: 'Body text must not exceed 1024 characters.' });
+    }
+
+    if (footerText && footerText.length > 60) {
+      if (uploadedFile) await safeDeleteFile(uploadedFile.path);
+      return res.status(400).json({ success: false, message: 'Footer text must not exceed 60 characters.' });
+    }
+
+    // Header-type specific validation
+    if (headerType === 'TEXT') {
+      if (!headerText || !headerText.trim()) {
+        if (uploadedFile) await safeDeleteFile(uploadedFile.path);
+        return res.status(400).json({ success: false, message: 'headerText is required when headerType is TEXT.' });
+      }
+      if (headerText.length > 60) {
+        if (uploadedFile) await safeDeleteFile(uploadedFile.path);
+        return res.status(400).json({ success: false, message: 'Header text must not exceed 60 characters.' });
+      }
+    }
+
+    if (MEDIA_HEADER_TYPES.includes(headerType) && !uploadedFile) {
+      return res.status(400).json({ success: false, message: `A media file is required when headerType is ${headerType}.` });
+    }
+
+    if (headerType === 'LOCATION') {
+      if (LOCATION_INCOMPATIBLE_CATEGORIES.includes(category)) {
+        if (uploadedFile) await safeDeleteFile(uploadedFile.path);
+        return res.status(400).json({
+          success: false,
+          message: 'LOCATION header type is not compatible with the AUTHENTICATION category.',
+        });
+      }
+      const lat = parseFloat(headerLocationLat);
+      const lng = parseFloat(headerLocationLng);
+      if (isNaN(lat) || lat < -90 || lat > 90) {
+        return res.status(400).json({ success: false, message: 'Invalid latitude. Must be a number between -90 and 90.' });
+      }
+      if (isNaN(lng) || lng < -180 || lng > 180) {
+        return res.status(400).json({ success: false, message: 'Invalid longitude. Must be a number between -180 and 180.' });
+      }
+    }
+
+    // Per-type file size check (Multer already enforces the global 16 MB limit,
+    // but IMAGE headers have a lower 5 MB limit)
+    if (uploadedFile) {
+      const sizeError = validateTemplateMediaSize(uploadedFile, headerType);
+      if (sizeError) {
+        await safeDeleteFile(uploadedFile.path);
+        return res.status(400).json({ success: false, message: sizeError });
+      }
+    }
+
+    // Check tenant WhatsApp credentials
+    if (!tenant.whatsappWabaId || !tenant.whatsappAccessToken) {
+      if (uploadedFile) await safeDeleteFile(uploadedFile.path);
+      return res.status(400).json({
+        success: false,
+        requiresWhatsApp: true,
+        message: 'Please connect your WhatsApp Business Account in Settings before creating message templates.',
+      });
+    }
+
+    // ── Clean template name ────────────────────────────────────
     const cleanName = name.toLowerCase().replace(/[^a-z0-9_]/g, '_');
 
-    // Parse parameters counts
-    let headerParams = 0;
-    let bodyParams = 0;
+    // ── Check if a template with the same name + language already exists ──
+    const existingTemplate = await prisma.template.findUnique({
+      where: {
+        name_language_tenantId: {
+          name: cleanName,
+          language,
+          tenantId,
+        },
+      },
+    });
 
-    const headerComp = components.find(c => c.type === 'HEADER');
-    if (headerComp && headerComp.format === 'TEXT') {
-      headerParams = countPlaceholders(headerComp.text);
-    }
-    const bodyComp = components.find(c => c.type === 'BODY');
-    if (bodyComp) {
-      bodyParams = countPlaceholders(bodyComp.text);
-    }
-
-    // Check if Tenant has WhatsApp Credentials configured
-    const tenant = req.tenant;
-    const hasMetaConfig = tenant.whatsappWabaId && tenant.whatsappAccessToken;
-
-    let metaTemplateId = null;
-    let initialStatus = 'APPROVED'; // Sandbox simulation auto-approves templates!
-
-    if (hasMetaConfig) {
-      // Meta requires sample values for placeholders like {{1}} inside BODY components
-      const enrichedComponents = components.map(comp => {
-        const copy = { ...comp };
-        if (copy.type === 'BODY') {
-          const placeholders = copy.text.match(/\{\{(\d+)\}\}/g);
-          if (placeholders) {
-            const count = new Set(placeholders).size;
-            const samples = Array.from({ length: count }, (_, i) => `sample_${i + 1}`);
-            copy.example = {
-              body_text: [samples]
-            };
-          }
-        }
-        return copy;
+    if (existingTemplate && existingTemplate.status !== 'DELETED') {
+      if (uploadedFile) await safeDeleteFile(uploadedFile.path);
+      return res.status(409).json({
+        success: false,
+        message: `A template named "${cleanName}" already exists for language "${language}". Please choose a different name.`,
       });
+    }
 
-      // Create on Meta Cloud API
+    // ── Upload media to Meta (if needed) ─────────────────────
+    let headerMediaHandle = null;
+    let headerMediaUrl    = null;
+
+    if (MEDIA_HEADER_TYPES.includes(headerType)) {
+      if (process.env.MOCK_WHATSAPP === 'true') {
+        console.log('⚠️  MOCK_WHATSAPP=true → skipping Meta media upload, using mock handle');
+        headerMediaHandle = `mock_handle_${Date.now()}`;
+      } else {
+        try {
+          headerMediaHandle = await uploadMediaToMeta(tenant, uploadedFile.path, uploadedFile.mimetype);
+        } catch (uploadErr) {
+          await safeDeleteFile(uploadedFile.path);
+          return res.status(502).json({
+            success: false,
+            code: uploadErr.code || 'META_MEDIA_UPLOAD_FAILED',
+            message: `Failed to upload media to Meta: ${uploadErr.message}`,
+          });
+        }
+      }
+
+      // Store the local file path for preview/download purposes
+      headerMediaUrl = uploadedFile.path.replace(/\\/g, '/');
+    }
+
+    // Sanitize bodyText (convert literal \n if copy-pasted into real line breaks)
+    const sanitizedBodyText = (bodyText || '').replace(/\\n/g, '\n').replace(/\\r/g, '').trim();
+
+    // ── Build Meta components array ───────────────────────────
+    const { components, validationError } = buildTemplateComponents({
+      headerType,
+      headerText:          headerType === 'TEXT'     ? headerText     : null,
+      headerHandle:        headerMediaHandle,
+      bodyText:            sanitizedBodyText,
+      bodyExampleValues,
+      footerText:          footerText?.trim() || null,
+      buttons,
+    });
+
+    if (validationError) {
+      if (uploadedFile) await safeDeleteFile(uploadedFile.path);
+      return res.status(400).json({ success: false, message: validationError });
+    }
+
+    // ── Submit to Meta ────────────────────────────────────────
+    let metaTemplateId = null;
+    let initialStatus  = 'PENDING';
+
+    if (process.env.MOCK_WHATSAPP === 'true') {
+      console.log('⚠️  MOCK_WHATSAPP=true → creating mock template without Meta API call');
+      metaTemplateId = `mock_tpl_${Date.now()}`;
+      initialStatus  = 'APPROVED';
+    } else {
       try {
         const metaRes = await submitMetaTemplate(tenant, {
           name: cleanName,
           category,
-          language: language || 'en_US',
-          components: enrichedComponents
+          language,
+          components,
         });
         metaTemplateId = metaRes.id;
-        initialStatus = 'PENDING'; // real Meta starts as PENDING review
       } catch (err) {
-        return res.status(400).json({ success: false, message: `Meta API Submission Error: ${err.message}` });
+        // Meta rejected the template — clean up local file and return friendly error
+        if (uploadedFile) await safeDeleteFile(uploadedFile.path);
+        return res.status(400).json({
+          success: false,
+          message: `Template creation failed. Meta rejected this template: ${err.message}`,
+        });
       }
     }
 
-    // Save Template to Local DB
-    const template = await prisma.template.create({
-      data: {
-        tenantId,
-        metaTemplateId,
-        name: cleanName,
-        language: language || 'en_US',
-        category,
-        status: initialStatus,
-        components,
-        headerParams,
-        bodyParams,
-        createdById: null
+    // ── Derive param counts for UI ────────────────────────────
+    const headerParams = headerType === 'TEXT' ? countPlaceholders(headerText) : 0;
+    const bodyParams   = countPlaceholders(bodyText);
+
+    // ── Persist to local DB (create or update soft-deleted record) ─
+    const templateData = {
+      tenantId,
+      metaTemplateId,
+      name:           cleanName,
+      language,
+      category,
+      status:         initialStatus,
+      components,
+      headerParams,
+      bodyParams,
+
+      // Header fields
+      headerType,
+      headerText:            headerType === 'TEXT'     ? headerText                     : null,
+      headerMediaUrl,
+      headerMediaHandle,
+      headerLocationName:    headerType === 'LOCATION' ? (headerLocationName    || null) : null,
+      headerLocationAddress: headerType === 'LOCATION' ? (headerLocationAddress || null) : null,
+      headerLocationLat:     headerType === 'LOCATION' ? parseFloat(headerLocationLat)  : null,
+      headerLocationLng:     headerType === 'LOCATION' ? parseFloat(headerLocationLng)  : null,
+      footerText:            footerText || null,
+      buttons:               buttons.length > 0 ? buttons : null,
+
+      createdById: null,
+    };
+
+    let template;
+    if (existingTemplate && existingTemplate.status === 'DELETED') {
+      // Clean up previous media file if any
+      if (existingTemplate.headerMediaUrl && existingTemplate.headerMediaUrl !== headerMediaUrl) {
+        await safeDeleteFile(existingTemplate.headerMediaUrl);
       }
-    });
+      template = await prisma.template.update({
+        where: { id: existingTemplate.id },
+        data: templateData,
+      });
+    } else {
+      template = await prisma.template.create({
+        data: templateData,
+      });
+    }
+
+    // ── If MOCK_WHATSAPP=true, simulate instant Meta approval webhook email ──
+    if (process.env.MOCK_WHATSAPP === 'true' && tenant?.email) {
+      console.log(`📧 [Mock WhatsApp] Triggering instant template approval email for ${tenant.email}...`);
+      sendTemplateStatusEmail({
+        toEmail: tenant.email,
+        tenantName: tenant.tenantName || tenant.firstName || 'Valued Partner',
+        templateName: template.name,
+        language: template.language,
+        category: template.category,
+        headerType: template.headerType,
+        status: 'APPROVED',
+        reason: null,
+      }).catch((err) => console.error('❌ Mock template email error:', err.message));
+    }
 
     return res.status(201).json({ success: true, data: template });
   } catch (error) {
+    // P2002 = Prisma unique constraint violation fallback
+    if (error.code === 'P2002') {
+      if (uploadedFile) await safeDeleteFile(uploadedFile.path);
+      return res.status(409).json({
+        success: false,
+        message: `A template named "${req.body.name?.toLowerCase().replace(/[^a-z0-9_]/g, '_')}" already exists for language "${req.body.language || 'en_US'}". Please use a different template name.`,
+      });
+    }
     console.error('Error creating template:', error);
+    if (uploadedFile) await safeDeleteFile(uploadedFile.path);
     return res.status(500).json({ success: false, message: 'Failed to create template.' });
   }
 };
 
+
+// ─────────────────────────────────────────────────────────────
 // 3. POST: Sync Templates from Meta Business Account (WABA)
+// ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// Core helper: Sync templates from Meta for a given tenant object
+// ─────────────────────────────────────────────────────────────
+export const performTemplateSync = async (tenant) => {
+  if (!tenant.whatsappWabaId || !tenant.whatsappAccessToken) {
+    throw new Error('WhatsApp Business Credentials are not configured in settings.');
+  }
+
+  if (process.env.MOCK_WHATSAPP === 'true') {
+    console.log('⚠️  MOCK_WHATSAPP=true → skipping Meta template sync, returning local templates');
+    const localTemplates = await prisma.template.findMany({ where: { tenantId: tenant.id, status: { not: 'DELETED' } } });
+    return localTemplates;
+  }
+
+  const metaTemplates = await fetchMetaTemplates(tenant);
+  const synced = [];
+  const now = new Date();
+
+  for (const mt of metaTemplates) {
+    const components = mt.components || [];
+
+    // Infer typed header values from components
+    const derivedHeaderType = inferHeaderTypeFromComponents(components);
+
+    const headerComp   = components.find(c => c.type === 'HEADER');
+    const footerComp   = components.find(c => c.type === 'FOOTER');
+    const buttonsComp  = components.find(c => c.type === 'BUTTONS');
+    const bodyComp     = components.find(c => c.type === 'BODY');
+
+    const derivedHeaderText         = derivedHeaderType === 'TEXT' ? (headerComp?.text || null) : null;
+    const derivedHeaderMediaHandle  = MEDIA_HEADER_TYPES.includes(derivedHeaderType)
+      ? (headerComp?.example?.header_handle?.[0] || null)
+      : null;
+    const derivedFooterText = footerComp?.text || null;
+    const derivedButtons    = buttonsComp?.buttons || null;
+
+    const headerParams = derivedHeaderType === 'TEXT' ? countPlaceholders(derivedHeaderText) : 0;
+    const bodyParams   = countPlaceholders(bodyComp?.text);
+
+    // Map Meta status to Prisma enum
+    let localStatus = 'APPROVED';
+    if (mt.status === 'PENDING')  localStatus = 'PENDING';
+    if (mt.status === 'REJECTED') localStatus = 'REJECTED';
+    if (mt.status === 'PAUSED')   localStatus = 'PAUSED';
+    if (mt.status === 'DISABLED') localStatus = 'DISABLED';
+
+    const dbTemp = await prisma.template.upsert({
+      where: {
+        name_language_tenantId: {
+          name: mt.name,
+          language: mt.language,
+          tenantId: tenant.id
+        }
+      },
+      update: {
+        metaTemplateId:       mt.id,
+        status:               localStatus,
+        components,
+        headerParams,
+        bodyParams,
+        headerType:           derivedHeaderType,
+        headerText:           derivedHeaderText,
+        headerMediaHandle:    derivedHeaderMediaHandle,
+        footerText:           derivedFooterText,
+        buttons:              derivedButtons,
+        lastSyncedAt:         now,
+      },
+      create: {
+        tenantId:             tenant.id,
+        metaTemplateId:       mt.id,
+        name:                 mt.name,
+        language:             mt.language,
+        category:             mt.category,
+        status:               localStatus,
+        components,
+        headerParams,
+        bodyParams,
+        headerType:           derivedHeaderType,
+        headerText:           derivedHeaderText,
+        headerMediaHandle:    derivedHeaderMediaHandle,
+        footerText:           derivedFooterText,
+        buttons:              derivedButtons,
+        createdById:          null,
+        lastSyncedAt:         now,
+      }
+    });
+
+    synced.push(dbTemp);
+  }
+
+  return synced;
+};
+
+// ─────────────────────────────────────────────────────────────
+// 3. POST: Sync all templates from Meta for the logged-in tenant
+// ─────────────────────────────────────────────────────────────
 export const syncTemplates = async (req, res) => {
   try {
     const tenant = req.tenant;
@@ -123,76 +464,21 @@ export const syncTemplates = async (req, res) => {
       return res.status(400).json({ success: false, message: 'WhatsApp Business Credentials are not configured in settings.' });
     }
 
-    // Fetch from Meta WABA
-    const metaTemplates = await fetchMetaTemplates(tenant);
-
-    const synced = [];
-
-    for (const mt of metaTemplates) {
-      // Calculate body and header params count
-      let headerParams = 0;
-      let bodyParams = 0;
-      const headerComp = mt.components?.find(c => c.type === 'HEADER');
-      if (headerComp && headerComp.format === 'TEXT') {
-        headerParams = countPlaceholders(headerComp.text);
-      }
-      const bodyComp = mt.components?.find(c => c.type === 'BODY');
-      if (bodyComp) {
-        bodyParams = countPlaceholders(bodyComp.text);
-      }
-
-      // Map Meta template status to Prisma enum
-      let localStatus = 'APPROVED';
-      if (mt.status === 'PENDING') localStatus = 'PENDING';
-      if (mt.status === 'REJECTED') localStatus = 'REJECTED';
-      if (mt.status === 'PAUSED') localStatus = 'PAUSED';
-      if (mt.status === 'DISABLED') localStatus = 'DISABLED';
-
-      // Upsert into local database
-      const dbTemp = await prisma.template.upsert({
-        where: {
-          name_language_tenantId: {
-            name: mt.name,
-            language: mt.language,
-            tenantId: tenant.id
-          }
-        },
-        update: {
-          metaTemplateId: mt.id,
-          status: localStatus,
-          components: mt.components || {},
-          headerParams,
-          bodyParams,
-          lastSyncedAt: new Date()
-        },
-        create: {
-          tenantId: tenant.id,
-          metaTemplateId: mt.id,
-          name: mt.name,
-          language: mt.language,
-          category: mt.category,
-          status: localStatus,
-          components: mt.components || {},
-          headerParams,
-          bodyParams,
-          createdById: null
-        }
-      });
-      synced.push(dbTemp);
-    }
-
-    return res.status(200).json({ success: true, count: synced.length, data: synced });
+    const synced = await performTemplateSync(tenant);
+    return res.status(200).json({ success: true, count: synced.length, data: synced, lastSyncedAt: new Date() });
   } catch (error) {
     console.error('Error syncing templates:', error);
     return res.status(500).json({ success: false, message: `Sync failed: ${error.message}` });
   }
 };
 
+// ─────────────────────────────────────────────────────────────
 // 4. DELETE: Delete a Template locally and from Meta WABA
+// ─────────────────────────────────────────────────────────────
 export const deleteTemplate = async (req, res) => {
   try {
     const tenantId = req.tenantId;
-    const { id } = req.params;
+    const { id }   = req.params;
 
     const template = await prisma.template.findFirst({
       where: { id, tenantId }
@@ -204,12 +490,22 @@ export const deleteTemplate = async (req, res) => {
 
     // Attempt to delete on Meta
     const tenant = req.tenant;
-    if (template.metaTemplateId && tenant.whatsappWabaId && tenant.whatsappAccessToken) {
+    if (
+      process.env.MOCK_WHATSAPP !== 'true' &&
+      template.metaTemplateId &&
+      tenant.whatsappWabaId &&
+      tenant.whatsappAccessToken
+    ) {
       try {
         await deleteMetaTemplate(tenant, template.name);
       } catch (err) {
-        console.warn('Meta API deletion failed (might be already deleted on Meta):', err.message);
+        console.warn('Meta API deletion failed (may already be deleted on Meta):', err.message);
       }
+    }
+
+    // Clean up local media file (non-blocking)
+    if (template.headerMediaUrl) {
+      await safeDeleteFile(template.headerMediaUrl);
     }
 
     // Soft delete locally
@@ -224,3 +520,4 @@ export const deleteTemplate = async (req, res) => {
     return res.status(500).json({ success: false, message: 'Failed to delete template.' });
   }
 };
+

@@ -2,7 +2,99 @@ import crypto from 'crypto';
 import prisma from '../../config/prisma.js';
 import { encrypt, decrypt } from '../../lib/crypto.js';
 import { sendLocationService } from './whatsappService.js';
-import { emitToTenant, emitToUser } from '../../lib/socket.js';
+import { emitToTenant, emitToUser,emitToSuperAdmin } from '../../lib/socket.js';
+import { createSuperAdminNotification } from '../SuperAdminNotifications/superAdminNotificationService.js';
+import { createAuditLog } from '../audit/auditLogService.js';
+import { sendWhatsAppStatusAlertEmail } from '../auth/emailService.js';
+import { performTemplateSync } from '../templates/templateController.js';
+
+import redisClient from '../../config/redis.js';
+
+// ═══════════════════════════════════════════════════
+// HELPER — Notify SuperAdmin on WhatsApp status change
+// Used by both connect and disconnect
+// ═══════════════════════════════════════════════════
+const notifySuperAdminWhatsAppStatus = async ({
+  tenantId,
+  tenantName,
+  tenantEmail,
+  phoneNumberId,
+  wabaId,
+  action, // 'CONNECTED' | 'DISCONNECTED'
+}) => {
+  try {
+    // 1️⃣ Get superadmin email from DB
+    const superAdmin = await prisma.superAdmin.findFirst({
+      select: { id: true, name: true, email: true },
+    });
+
+    if (!superAdmin) {
+      console.warn('⚠️ No superadmin found — skipping WhatsApp status notification');
+      return;
+    }
+
+    const isConnected = action === 'CONNECTED';
+
+    // 2️⃣ Create audit log
+    await createAuditLog({
+      actorId:     tenantId,
+      actorType:   'TENANT',
+      actorName:   tenantName,
+      actorEmail:  tenantEmail,
+      action:      isConnected ? 'WHATSAPP_CONNECTED' : 'WHATSAPP_DISCONNECTED',
+      module:      'WHATSAPP',
+      description: `Tenant "${tenantName}" ${isConnected ? 'connected' : 'disconnected'} WhatsApp${phoneNumberId ? ` — Phone ID: ${phoneNumberId}` : ''}`,
+      targetId:    phoneNumberId || null,
+      targetType:  'WHATSAPP',
+      targetName:  phoneNumberId || null,
+      tenantId,
+      metadata: {
+        phoneNumberId: phoneNumberId || null,
+        wabaId:        wabaId        || null,
+        action,
+      },
+    });
+
+    // 3️⃣ Create DB notification for superadmin
+    const notification = await createSuperAdminNotification({
+      type:    isConnected ? 'whatsapp_connected' : 'whatsapp_disconnected',
+      title:   isConnected
+        ? `📱 WhatsApp Connected — ${tenantName}`
+        : `🔴 WhatsApp Disconnected — ${tenantName}`,
+      message: isConnected
+        ? `${tenantName} successfully connected their WhatsApp account (Phone ID: ${phoneNumberId})`
+        : `${tenantName} disconnected their WhatsApp account (Phone ID: ${phoneNumberId || 'N/A'})`,
+      metadata: {
+        tenantId,
+        tenantName,
+        tenantEmail,
+        phoneNumberId: phoneNumberId || null,
+        wabaId:        wabaId        || null,
+        action,
+      },
+    });
+
+    // 4️⃣ Emit real-time socket to superadmin
+    emitToSuperAdmin('superadmin_notification', { notification });
+
+    // 5️⃣ Send email alert to superadmin
+    await sendWhatsAppStatusAlertEmail({
+      superAdminEmail: superAdmin.email,
+      tenantName,
+      tenantEmail,
+      phoneNumber: phoneNumberId,
+      wabaId,
+      action,
+    });
+
+    console.log(`✅ SuperAdmin notified — WhatsApp ${action} for tenant: ${tenantEmail}`);
+  } catch (err) {
+    // Non-blocking — never crash the main flow
+    console.error(`❌ SuperAdmin WhatsApp notification failed: ${err.message}`);
+  }
+};
+
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api2/whatsapp/exchange-token
@@ -228,8 +320,39 @@ export const exchangeToken = async (req, res) => {
     });
 
     console.log(
-      `[WhatsApp] ✅ Tenant ${tenantId} connected — ${displayPhoneNumber}`
-    );
+  `[WhatsApp] ✅ Tenant ${tenantId} connected — ${displayPhoneNumber}`
+);
+
+// ══════ TASK 3 — SuperAdmin Notification + Email + Audit Log ══════
+const tenantData = await prisma.tenant.findUnique({
+  where:  { id: tenantId },
+  select: { tenantName: true, email: true },
+});
+
+await notifySuperAdminWhatsAppStatus({
+  tenantId,
+  tenantName:   tenantData?.tenantName || 'Unknown Tenant',
+  tenantEmail:  tenantData?.email      || 'unknown@email.com',
+  phoneNumberId,
+  wabaId,
+  action: 'CONNECTED',
+});
+// ═════════════════════════════════════════════════════════════════
+
+    // ── Auto-sync templates in background on initial connect ──
+    prisma.tenant.findUnique({ where: { id: tenantId } })
+      .then((fullTenant) => {
+        if (fullTenant?.whatsappWabaId && fullTenant?.whatsappAccessToken) {
+          return performTemplateSync(fullTenant);
+        }
+      })
+      .then((synced) => {
+        if (synced) {
+          console.log(`[WhatsApp] ✅ Auto-synced ${synced.length} templates on first connect for tenant ${tenantId}`);
+          emitToTenant(tenantId, 'templates_synced', { count: synced.length, lastSyncedAt: new Date() });
+        }
+      })
+      .catch((err) => console.warn('[WhatsApp] Auto-sync templates on connect non-fatal error:', err.message));
 
     return res.json({
       success: true,
@@ -239,6 +362,9 @@ export const exchangeToken = async (req, res) => {
       displayPhoneNumber,
       verifiedName,
     });
+
+
+
   } catch (err) {
     console.error("❌ exchangeToken error:", err);
     return res.status(500).json({
@@ -320,14 +446,47 @@ export const setupWhatsApp = async (req, res) => {
 
     console.log(`✅ WhatsApp connected for tenant ${tenantId}`);
 
-    return res.json({
-      success: true,
-      message: "WhatsApp connected successfully",
-      wabaId,
-      phoneNumberId,
-      displayPhoneNumber: verifyData.display_phone_number,
-      verifiedName: verifyData.verified_name,
-    });
+// ══════ TASK 3 — SuperAdmin Notification + Email + Audit Log ══════
+const tenantInfo = await prisma.tenant.findUnique({
+  where:  { id: tenantId },
+  select: { tenantName: true, email: true },
+});
+
+await notifySuperAdminWhatsAppStatus({
+  tenantId,
+  tenantName:   tenantInfo?.tenantName || 'Unknown Tenant',
+  tenantEmail:  tenantInfo?.email      || 'unknown@email.com',
+  phoneNumberId,
+  wabaId,
+  action: 'CONNECTED',
+});
+// ═════════════════════════════════════════════════════════════════
+
+    // ── Auto-sync templates in background on initial connect ──
+    prisma.tenant.findUnique({ where: { id: tenantId } })
+      .then((fullTenant) => {
+        if (fullTenant?.whatsappWabaId && fullTenant?.whatsappAccessToken) {
+          return performTemplateSync(fullTenant);
+        }
+      })
+      .then((synced) => {
+        if (synced) {
+          console.log(`[WhatsApp] ✅ Auto-synced ${synced.length} templates on manual connect for tenant ${tenantId}`);
+          emitToTenant(tenantId, 'templates_synced', { count: synced.length, lastSyncedAt: new Date() });
+        }
+      })
+      .catch((err) => console.warn('[WhatsApp] Auto-sync templates on manual connect non-fatal error:', err.message));
+
+return res.json({
+  success: true,
+  message: "WhatsApp connected successfully",
+  wabaId,
+  phoneNumberId,
+  displayPhoneNumber: verifyData.display_phone_number,
+  verifiedName: verifyData.verified_name,
+});
+
+
   } catch (err) {
     console.error("❌ setupWhatsApp error:", err);
     return res.status(500).json({
@@ -340,6 +499,8 @@ export const setupWhatsApp = async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api2/whatsapp/status
 // ─────────────────────────────────────────────────────────────────────────────
+// GET /api2/whatsapp/status
+// ─────────────────────────────────────────────────────────────────────────────
 export const getWhatsAppStatus = async (req, res) => {
   const tenantId = req.tenantId;
 
@@ -349,16 +510,177 @@ export const getWhatsAppStatus = async (req, res) => {
       select: {
         whatsappPhoneId: true,
         whatsappWabaId: true,
+        whatsappAccessToken: true,
       },
     });
 
     const isConnected = !!(tenant?.whatsappPhoneId && tenant?.whatsappWabaId);
+    if (!isConnected) {
+      return res.json({
+        success: true,
+        isConnected: false,
+        phoneNumberId: null,
+        wabaId: null,
+        health: null,
+      });
+    }
+
+    // Calculate unique 24-hour & 7-day broadcast recipients sent by this tenant
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    const [sentLast24h, sentLast7d] = await Promise.all([
+      prisma.broadcastRecipient.count({
+        where: {
+          broadcast: { tenantId },
+          createdAt: { gte: twentyFourHoursAgo },
+          status: { in: ['SENT', 'DELIVERED', 'READ'] },
+        },
+      }),
+      prisma.broadcastRecipient.count({
+        where: {
+          broadcast: { tenantId },
+          createdAt: { gte: sevenDaysAgo },
+          status: { in: ['SENT', 'DELIVERED', 'READ'] },
+        },
+      }),
+    ]);
+
+    // Mock WhatsApp mode: return rich simulated health data
+    if (process.env.MOCK_WHATSAPP === 'true') {
+      return res.json({
+        success: true,
+        isConnected: true,
+        phoneNumberId: tenant.whatsappPhoneId,
+        wabaId: tenant.whatsappWabaId,
+        health: {
+          displayPhoneNumber: '+91 98475 63246',
+          verifiedName: 'YourZerosandOnes (Demo)',
+          qualityRating: 'GREEN', // 'GREEN' | 'YELLOW' | 'RED' | 'UNKNOWN'
+          messagingLimitTier: 'TIER_1K',
+          messagingLimitNumber: 1000,
+          tierName: 'Tier 1K (1,000 / 24 hrs)',
+          status: 'CONNECTED',
+          codeVerificationStatus: 'VERIFIED',
+          sentLast24h,
+          remaining24h: Math.max(0, 1000 - sentLast24h),
+          sentLast7d,
+          nextTier: 'Tier 10K (10,000 / 24 hrs)',
+          nextTierTarget: 1000,
+          isMock: true,
+        },
+      });
+    }
+
+    // Live Meta Graph API call
+    let metaHealth = null;
+    try {
+      const cacheKey = `meta:health:${tenant.whatsappPhoneId}`;
+      const cached = await redisClient.get(cacheKey);
+
+      let metaData;
+      if (cached) {
+        metaData = JSON.parse(cached);
+      } else {
+        const accessToken = decrypt(tenant.whatsappAccessToken);
+        const metaRes = await fetch(
+          `https://graph.facebook.com/v23.0/${tenant.whatsappPhoneId}?fields=display_phone_number,verified_name,quality_rating,messaging_limit_tier,status,code_verification_status,health_status,throughput&access_token=${accessToken}`
+        );
+        metaData = await metaRes.json();
+        
+        if (!metaData.error) {
+          // Cache for 10 minutes to avoid hitting Meta API limits
+          await redisClient.set(cacheKey, JSON.stringify(metaData), 'EX', 600);
+        }
+      }
+
+      if (!metaData.error) {
+        // Parse Meta tier dynamically
+        const tier = metaData.messaging_limit_tier || 'TIER_1K';
+        let limitNumber = 1000;
+        let tierName = `${tier} / 24 hrs`;
+
+        if (typeof tier === 'string') {
+          const upperTier = tier.toUpperCase();
+          if (upperTier.includes('50') && !upperTier.includes('50000') && !upperTier.includes('250')) {
+            limitNumber = 50;
+            tierName = 'Tier 50 (50 / 24 hrs)';
+          } else if (upperTier.includes('250')) {
+            limitNumber = 250;
+            tierName = 'Tier 250 (250 / 24 hrs)';
+          } else if (upperTier.includes('2K') || upperTier.includes('2000')) {
+            limitNumber = 2000;
+            tierName = 'Tier 2K (2,000 / 24 hrs)';
+          } else if (upperTier.includes('1K') || upperTier.includes('1000')) {
+            limitNumber = 1000;
+            tierName = 'Tier 1K (1,000 / 24 hrs)';
+          } else if (upperTier.includes('10K') || upperTier.includes('10000')) {
+            limitNumber = 10000;
+            tierName = 'Tier 10K (10,000 / 24 hrs)';
+          } else if (upperTier.includes('100K') || upperTier.includes('100000')) {
+            limitNumber = 100000;
+            tierName = 'Tier 100K (100,000 / 24 hrs)';
+          } else if (upperTier.includes('UNLIMITED')) {
+            limitNumber = 1000000;
+            tierName = 'Tier Unlimited (Unlimited / 24 hrs)';
+          } else {
+            const num = parseInt(tier.replace(/\D/g, ''), 10);
+            if (!isNaN(num) && num > 0) {
+              limitNumber = num;
+              tierName = `Tier ${num.toLocaleString()} (${num.toLocaleString()} / 24 hrs)`;
+            } else {
+              tierName = `Tier ${tier} / 24 hrs`;
+            }
+          }
+        }
+
+        // Extract official Meta health status & limitations
+        const canSendMessage = metaData.health_status?.can_send_message || 'AVAILABLE';
+        const entities = metaData.health_status?.entities || [];
+        const limitations = [];
+        const errors = [];
+
+        for (const entity of entities) {
+          if (Array.isArray(entity.additional_info)) {
+            limitations.push(...entity.additional_info);
+          }
+          if (Array.isArray(entity.errors)) {
+            // Filter out SIP calling errors (138024, 138025) as we only care about messaging
+            const filteredErrors = entity.errors.filter(err => err.error_code !== 138024 && err.error_code !== 138025);
+            errors.push(...filteredErrors);
+          }
+        }
+        
+        const throughput = metaData.throughput || null;
+
+        metaHealth = {
+          displayPhoneNumber: metaData.display_phone_number || null,
+          verifiedName: metaData.verified_name || null,
+          qualityRating: metaData.quality_rating || 'GREEN',
+          messagingLimitTier: tier,
+          messagingLimitNumber: limitNumber,
+          tierName,
+          status: metaData.status || 'CONNECTED',
+          codeVerificationStatus: metaData.code_verification_status || 'VERIFIED',
+          canSendMessage,
+          limitations,
+          errors,
+          throughput,
+          sentLast24h,
+          remaining24h: Math.max(0, limitNumber - sentLast24h),
+          isMock: false,
+        };
+      }
+    } catch (metaErr) {
+      console.warn('⚠️ Could not fetch live Meta phone health:', metaErr.message);
+    }
 
     return res.json({
       success: true,
-      isConnected,
-      phoneNumberId: tenant?.whatsappPhoneId || null,
-      wabaId: tenant?.whatsappWabaId || null,
+      isConnected: true,
+      phoneNumberId: tenant.whatsappPhoneId,
+      wabaId: tenant.whatsappWabaId,
+      health: metaHealth,
     });
   } catch (err) {
     console.error("❌ getWhatsAppStatus error:", err);
@@ -437,6 +759,7 @@ export const disconnectWhatsApp = async (req, res) => {
       where: { id: tenantId },
       select: {
         tenantName: true,
+        email: true, 
         whatsappPhoneId: true,
         whatsappWabaId: true,
       },
@@ -465,17 +788,29 @@ export const disconnectWhatsApp = async (req, res) => {
       },
     });
 
-    console.log(
-      `✅ WhatsApp disconnected for tenant ${tenantId} (${tenant.tenantName})`
-    );
-    console.log(`   Removed Phone ID: ${tenant.whatsappPhoneId}`);
-    console.log(`   Removed WABA ID: ${tenant.whatsappWabaId}`);
+  console.log(
+  `✅ WhatsApp disconnected for tenant ${tenantId} (${tenant.tenantName})`
+);
+console.log(`   Removed Phone ID: ${tenant.whatsappPhoneId}`);
+console.log(`   Removed WABA ID: ${tenant.whatsappWabaId}`);
 
-    return res.json({
-      success: true,
-      message: "WhatsApp disconnected successfully",
-    });
-  } catch (err) {
+// ══════ TASK 4 — SuperAdmin Notification + Email + Audit Log ══════
+await notifySuperAdminWhatsAppStatus({
+  tenantId,
+  tenantName:    tenant.tenantName,
+  tenantEmail:   tenant.email,           // ← directly from existing fetch
+  phoneNumberId: tenant.whatsappPhoneId,
+  wabaId:        tenant.whatsappWabaId,
+  action: 'DISCONNECTED',
+});
+// ═════════════════════════════════════════════════════════════════
+
+return res.json({
+  success: true,
+  message: "WhatsApp disconnected successfully",
+});
+
+} catch (err) {
     console.error("❌ disconnectWhatsApp error:", err);
     return res.status(500).json({
       success: false,

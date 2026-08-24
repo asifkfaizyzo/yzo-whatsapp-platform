@@ -5,15 +5,18 @@ import { QUEUE_NAME_WEBHOOK } from '../queues/webhookQueue.js';
 import { redisConnection } from '../config/redis.js';
 import prisma from '../config/prisma.js';
 import { handleIncomingMessage } from '../modules/messages/messageService.js';
+import { createNotification } from '../modules/notifications/notificationService.js';
 import { emitToTenant, emitToUser } from '../lib/socket.js';
 import { isNewWebhookEvent } from '../lib/idempotency.js';
 import { dlqQueue } from '../queues/dlqQueue.js';
 import { generateSignedUrl } from '../lib/utils/signedUrl.js';
 import { decrypt } from '../lib/crypto.js';
+import { sendTemplateStatusEmail } from '../modules/auth/emailService.js';
 import fs from 'fs';
 import path from 'path';
 import https from 'https';
 import http from 'http';
+
 
 
 // ─────────────────────────────────────────────────────────────
@@ -33,6 +36,110 @@ export const processWebhookJob = async (job) => {
   // TEMP: test failure simulation
   if (message && message.text?.body === 'FAIL_TEST') {
     throw new Error('Simulated failure for DLQ test');
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // A0. Handle Template Status Updates (Meta approval/rejection)
+  // ═══════════════════════════════════════════════════════════
+  const isTemplateStatusEvent = change?.field === 'message_template_status_update' || (value?.event && value?.message_template_name);
+
+  if (isTemplateStatusEvent) {
+    const wabaId = entry?.id;
+    const event = value?.event; // 'APPROVED' | 'REJECTED' | 'PAUSED' | 'PENDING_DELETION' | 'DISABLED'
+    const templateName = value?.message_template_name;
+    const language = value?.message_template_language || 'en_US';
+    const metaTemplateId = value?.message_template_id ? String(value.message_template_id) : null;
+    const reason = value?.reason;
+
+    const templateEventId = `template_status:${wabaId}:${templateName}:${language}:${event}`;
+    const isNew = await isNewWebhookEvent(templateEventId);
+
+    if (!isNew) {
+      console.log(`⚠️ [Dedup] Skipping duplicate template status event: ${templateEventId}`);
+      return;
+    }
+
+    console.log(`📋 [Webhook] Processing template status update: "${templateName}" (${language}) -> ${event} [WABA: ${wabaId}]`);
+
+    // 1. Find Tenant by whatsappWabaId
+    let tenant = null;
+    if (wabaId) {
+      tenant = await prisma.tenant.findFirst({
+        where: { whatsappWabaId: String(wabaId) }
+      });
+    }
+
+    // 2. Find Template in DB
+    let template = null;
+    if (tenant) {
+      template = await prisma.template.findUnique({
+        where: {
+          name_language_tenantId: {
+            name: templateName,
+            language: language,
+            tenantId: tenant.id,
+          }
+        }
+      });
+    }
+
+    if (!template && metaTemplateId) {
+      template = await prisma.template.findFirst({
+        where: { metaTemplateId: String(metaTemplateId) }
+      });
+      if (template && !tenant) {
+        tenant = await prisma.tenant.findUnique({ where: { id: template.tenantId } });
+      }
+    }
+
+    if (template && tenant) {
+      let newStatus = 'PENDING';
+      if (event === 'APPROVED') newStatus = 'APPROVED';
+      else if (event === 'REJECTED') newStatus = 'REJECTED';
+      else if (event === 'PAUSED') newStatus = 'PAUSED';
+      else if (event === 'PENDING_DELETION' || event === 'DELETED') newStatus = 'DELETED';
+      else if (event === 'DISABLED') newStatus = 'DISABLED';
+
+      await prisma.template.update({
+        where: { id: template.id },
+        data: {
+          status: newStatus,
+          ...(metaTemplateId ? { metaTemplateId } : {}),
+        }
+      });
+
+      console.log(`✅ Template "${template.name}" status updated to ${newStatus} for tenant ${tenant.id}`);
+
+      // Emit live socket event to tenant room
+      emitToTenant(tenant.id, 'template_status_update', {
+        templateId: template.id,
+        name: template.name,
+        language: template.language,
+        status: newStatus,
+        reason: reason || null,
+        category: template.category,
+        headerType: template.headerType,
+      });
+
+      // Send email notification on approval (or rejection)
+      const recipientEmail = tenant.email;
+      if (recipientEmail && (newStatus === 'APPROVED' || newStatus === 'REJECTED')) {
+        await sendTemplateStatusEmail({
+          toEmail: recipientEmail,
+          tenantName: tenant.tenantName || tenant.firstName || 'Valued Partner',
+          templateName: template.name,
+          language: template.language,
+          category: template.category,
+          headerType: template.headerType,
+          status: newStatus,
+          reason: reason || null,
+        });
+      }
+    } else {
+      console.warn(`⚠️ Template "${templateName}" (${language}) not found in DB for WABA ${wabaId}`);
+    }
+
+    return; // template status handled, stop here
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -58,21 +165,51 @@ export const processWebhookJob = async (job) => {
     });
 
     if (recipient) {
-      let updatedStatus = 'SENT';
+      const currentStatus = recipient.status;
+      let updatedStatus = currentStatus;
       const updateData = {};
+      const broadcastIncrements = {};
 
       if (status === 'delivered') {
-        updatedStatus = 'DELIVERED';
-        updateData.deliveredAt = new Date();
+        // State machine: Only advance to DELIVERED if not already READ or FAILED
+        if (currentStatus !== 'READ' && currentStatus !== 'FAILED') {
+          updatedStatus = 'DELIVERED';
+        }
+        if (!recipient.deliveredAt) {
+          updateData.deliveredAt = new Date();
+        }
+        if (currentStatus === 'SENT' || currentStatus === 'PENDING') {
+          broadcastIncrements.delivered = { increment: 1 };
+        }
       } else if (status === 'read') {
-        updatedStatus = 'READ';
-        updateData.readAt = new Date();
+        // State machine: Advance to READ (highest success state)
+        if (currentStatus !== 'FAILED') {
+          updatedStatus = 'READ';
+        }
+        if (!recipient.readAt) {
+          updateData.readAt = new Date();
+        }
+        if (!recipient.deliveredAt) {
+          updateData.deliveredAt = new Date();
+        }
+        if (currentStatus !== 'READ') {
+          broadcastIncrements.read = { increment: 1 };
+          // If it was direct from SENT to READ without delivered webhook, also track delivered
+          if (currentStatus === 'SENT' || currentStatus === 'PENDING') {
+            broadcastIncrements.delivered = { increment: 1 };
+          }
+        }
       } else if (status === 'failed') {
         updatedStatus = 'FAILED';
         updateData.failedAt = new Date();
         const errObj = statusUpdate.errors?.[0];
         updateData.errorCode = errObj?.code ? String(errObj.code) : null;
         updateData.errorMessage = errObj?.details || errObj?.message || errObj?.title || 'Meta Send Failure';
+        console.error(`❌ Meta webhook reported delivery failure for wamid ${wamid} (code ${errObj?.code}): ${updateData.errorMessage}`);
+
+        if (currentStatus !== 'FAILED') {
+          broadcastIncrements.failed = { increment: 1 };
+        }
       }
 
       await prisma.broadcastRecipient.update({
@@ -81,14 +218,17 @@ export const processWebhookJob = async (job) => {
       });
 
       // Also keep corresponding conversation Message status in sync if wamid matches
-      try {
+            try {
         await prisma.message.updateMany({
           where: { wamid },
           data: {
-            status: updatedStatus.toLowerCase(),
+            status: status,
+            isRead: status === 'read',
             ...(updateData.deliveredAt ? { deliveredAt: updateData.deliveredAt } : {}),
             ...(updateData.readAt ? { readAt: updateData.readAt } : {}),
             ...(updateData.failedAt ? { failedAt: updateData.failedAt } : {}),
+            ...(updateData.errorCode ? { failureCode: parseInt(updateData.errorCode, 10) || null } : {}),
+            ...(updateData.errorMessage ? { failureReason: updateData.errorMessage } : {})
           }
         });
       } catch (err) {
@@ -96,29 +236,34 @@ export const processWebhookJob = async (job) => {
       }
 
       const broadcastId = recipient.broadcastId;
-      const broadcast = await prisma.broadcast.update({
-        where: { id: broadcastId },
-        data: {
-          delivered: status === 'delivered' ? { increment: 1 } : undefined,
-          read: status === 'read' ? { increment: 1 } : undefined,
-          failed: status === 'failed' ? { increment: 1 } : undefined
-        }
-      });
+      let broadcast = recipient.broadcast;
+
+      if (Object.keys(broadcastIncrements).length > 0) {
+        broadcast = await prisma.broadcast.update({
+          where: { id: broadcastId },
+          data: broadcastIncrements
+        });
+      }
 
       emitToTenant(recipient.broadcast.tenantId, 'broadcast_update', {
         broadcastId,
         sent: broadcast.sent,
         delivered: broadcast.delivered,
         read: broadcast.read,
-        failed: broadcast.failed
+        failed: broadcast.failed,
+        status: broadcast.status
       });
-    } else {
+        } else {
       // ── Handle 1-on-1 Message Status Receipt ──
       const messageToUpdate = await prisma.message.findUnique({
         where: { wamid },
+        include: { conversation: true },
       });
       if (messageToUpdate) {
-        const msgUpdateData = { status };
+        const msgUpdateData = {
+          status,
+          isRead: status === 'read',
+        };
         if (status === 'delivered') msgUpdateData.deliveredAt = new Date();
         if (status === 'read') msgUpdateData.readAt = new Date();
         if (status === 'failed') {
@@ -130,18 +275,33 @@ export const processWebhookJob = async (job) => {
           where: { wamid },
           data: msgUpdateData,
         });
+
+        // Emit real-time tick update to frontend
+        const tenantId = messageToUpdate.conversation?.tenantId;
+        if (tenantId) {
+          emitToTenant(tenantId, 'message_status_update', {
+            messageId: messageToUpdate.id,
+            conversationId: messageToUpdate.conversationId,
+            wamid,
+            status,
+            deliveredAt: msgUpdateData.deliveredAt || null,
+            readAt: msgUpdateData.readAt || null,
+            failureReason: msgUpdateData.failureReason || null,
+          });
+        }
       }
     }
 
-    return; // ✅ status handled, stop here
+    return; // ✅ status handled, stop here // ✅ status handled, stop here
   }
 
 
   // ═══════════════════════════════════════════════════════════
   // B. Handle Incoming Messages (TEXT + MEDIA)
   // ═══════════════════════════════════════════════════════════
-  if (message) {
+       if (message) {
     const messageId = message.id;
+    console.log('📥 [META WEBHOOK INBOUND WAMID]:', messageId); // ← ADD DEBUG LOG
 
     // ── Idempotency check ──────────────────────────────────
     const isNew = await isNewWebhookEvent(`msg:${messageId}`);
@@ -406,7 +566,7 @@ export const processWebhookJob = async (job) => {
     }
 
     // ── Save message via service ───────────────────────────
-    const result = await handleIncomingMessage({
+        const result = await handleIncomingMessage({
       contactId: contact.id,
       tenantId: tenant.id,
       text,
@@ -417,10 +577,11 @@ export const processWebhookJob = async (job) => {
       mediaMimeType,
       caption,
       isNewContact,
-      locLatitude, 
-      locLongitude,  
-      locName,       
-      locAddress,    
+      locLatitude,
+      locLongitude,
+      locName,
+      locAddress,
+      wamid: messageId,
     });
 
     // ── Socket: emit to tenant room ────────────────────────
@@ -447,29 +608,53 @@ export const processWebhookJob = async (job) => {
       }
     });
 
+
+
     // ── Socket: emit notification to tenant ────────────────
+  
+    // ── Save + Emit notification ───────────────────────────
     const notifMessage = text
       ? text.substring(0, 100)
       : `Sent a ${type.toLowerCase()}`;
 
-    emitToTenant(tenant.id, 'new_notification', {
-      notification: {
-        id: `msg_tenant_${result.message.id}`,
-        type: 'new_message',
-        title: `New message from ${contact.name}`,
-        message: notifMessage,
-        isRead: false,
-        createdAt: new Date(),
-        metadata: {
-          contactId: contact.id,
-          conversationId: result.conversation.id,
-        }
-      }
-    });
+    const notifTitle   = `New message from ${contact.name}`;
+    const notifMeta    = {
+      contactId:      contact.id,
+      conversationId: result.conversation.id,
+      messageId:      result.message.id,
+    };
+
+    // ✅ Save tenant notification to DB then emit
+    try {
+      const tenantNotif = await createNotification({
+        tenantId: tenant.id,
+        userId:   null,           // tenant-wide
+        type:     'new_message',
+        title:    notifTitle,
+        message:  notifMessage,
+        metadata: notifMeta,
+      });
+
+      emitToTenant(tenant.id, 'new_notification', {
+        notification: {
+          id:        tenantNotif.id,
+          type:      tenantNotif.type,
+          title:     tenantNotif.title,
+          message:   tenantNotif.message,
+          isRead:    tenantNotif.isRead,
+          createdAt: tenantNotif.createdAt,
+          metadata:  tenantNotif.metadata,
+        },
+      });
+      console.log(`📤 Tenant notif saved+emitted: ${tenantNotif.id}`);
+    } catch (err) {
+      console.error('❌ Tenant notification failed:', err.message);
+    }
 
     // ── Socket: emit to assigned user ──────────────────────
     if (contact.assignedTo) {
       emitToUser(contact.assignedTo, 'new_message', {
+
         conversationId: result.conversation.id,
         message: {
           id: result.message.id,
@@ -492,22 +677,33 @@ export const processWebhookJob = async (job) => {
         }
       });
 
-      emitToUser(contact.assignedTo, 'new_notification', {
-        notification: {
-          id: `msg_${result.message.id}`,
-          type: 'new_message',
-          title: `New message from ${contact.name}`,
-          message: notifMessage,
-          isRead: false,
-          createdAt: new Date(),
-          metadata: {
-            contactId: contact.id,
-            conversationId: result.conversation.id,
-          }
-        }
-      });
+          // ✅ Save user notification to DB then emit
+      try {
+        const userNotif = await createNotification({
+          tenantId: tenant.id,
+          userId:   contact.assignedTo,   // user-specific
+          type:     'new_message',
+          title:    notifTitle,
+          message:  notifMessage,
+          metadata: notifMeta,
+        });
 
-      console.log(`📤 Notified assigned user: ${contact.assignedTo}`);
+        emitToUser(contact.assignedTo, 'new_notification', {
+          notification: {
+            id:        userNotif.id,
+            type:      userNotif.type,
+            title:     userNotif.title,
+            message:   userNotif.message,
+            isRead:    userNotif.isRead,
+            createdAt: userNotif.createdAt,
+            metadata:  userNotif.metadata,
+          },
+        });
+        console.log(`📤 User notif saved+emitted to: ${contact.assignedTo}`);
+      } catch (err) {
+        console.error('❌ User notification failed:', err.message);
+      }
+
     } else {
       console.log(`ℹ️ Contact unassigned - tenant room notified only`);
     }

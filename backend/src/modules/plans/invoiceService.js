@@ -162,7 +162,7 @@ export const generateInvoicePDF = (payment, tenant) => {
         .text("Mumbai, Maharashtra, India", 50, infoY + 30)
         .text("GSTIN: 27AABCU9603R1ZM", 50, infoY + 43)
         .text("SAC Code: 998314", 50, infoY + 56)
-        .text("support@sudoreply.com", 50, infoY + 69);
+        .text("info@sudoreply.com", 50, infoY + 69);
 
       // Buyer (Bill To)
       doc
@@ -462,7 +462,7 @@ doc
         .fontSize(8)
         .font("Helvetica")
         .text(
-          "SudoReply | support@sudoreply.com | www.sudoreply.com",
+          "SudoReply | info@sudoreply.com | www.sudoreply.com",
           0,
           798,
           { align: "center", width: 595 }
@@ -611,7 +611,7 @@ export const generateInvoicePDFFromModel = (invoice, tenant) => {
          .text("Mumbai, Maharashtra, India", 50, infoY + 30)
          .text("GSTIN: 27AABCU9603R1ZM", 50, infoY + 43)
          .text("SAC Code: 998314", 50, infoY + 56)
-         .text("support@sudoreply.com", 50, infoY + 69);
+         .text("info@sudoreply.com", 50, infoY + 69);
 
       // Buyer
       doc.fillColor("#125EF2").fontSize(9).font("Helvetica-Bold").text("BILL TO", 320, infoY);
@@ -682,7 +682,7 @@ export const generateInvoicePDFFromModel = (invoice, tenant) => {
 
       doc.rect(0, 760, 595, 82).fill("#125EF2");
       doc.fillColor("#FFFFFF").fontSize(12).font("Helvetica-Bold").text("Thank you for your business!", 0, 778, { align: "center", width: 595 });
-      doc.fillColor("#CFE0FD").fontSize(8).font("Helvetica").text("SudoReply | support@sudoreply.com | www.sudoreply.com", 0, 798, { align: "center", width: 595 });
+      doc.fillColor("#CFE0FD").fontSize(8).font("Helvetica").text("SudoReply | info@sudoreply.com | www.sudoreply.com", 0, 798, { align: "center", width: 595 });
 
       doc.end();
 
@@ -710,7 +710,7 @@ const getInvoiceGSTConfig = async () => {
         gstType:          "CGST_SGST",
         companyGstNumber: "27AABCU9603R1ZM",
         companyName:      "SudoReply Technologies Pvt Ltd",
-        companyEmail:     "support@sudoreply.com",
+        companyEmail:     "info@sudoreply.com",
         companyAddress:   "Mumbai, Maharashtra, India",
         sacCode:          "998314",
       };

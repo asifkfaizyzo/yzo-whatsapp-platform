@@ -9,9 +9,6 @@ import { getUsersByTagId } from '../tags/tagCrudService.js';
 import { loginUser } from '../users/userController.js';
 
 
-
-
-
 export const userCreateContact = async (data, tenantId, userId) => {
     return await createContact(data, tenantId, userId);
 };

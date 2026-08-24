@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Welcome to SudoReply</title>
+</head>
+<body style="font-family: Arial, sans-serif; background-color: #f3f4f6; margin: 0; padding: 30px;">
+  <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+    
+    <!-- Header -->
+    <div style="background-color: #125EF2; padding: 30px; text-align: center;">
+      <h1 style="color: #ffffff; margin: 0; font-size: 26px; font-weight: bold;">
+        Welcome to SudoReply! 🎉
+      </h1>
+      <p style="color: #CFE0FD; margin: 8px 0 0 0; font-size: 14px;">
+        Your account is ready
+      </p>
+    </div>
+
+    <!-- Body -->
+    <div style="padding: 36px 30px; color: #334155; line-height: 1.7;">
+      
+      <h2 style="color: #1e293b; margin: 0 0 16px 0; font-size: 20px;">
+        Hi {{firstName}}, you're all set! ✅
+      </h2>
+
+      <p style="margin: 0 0 12px 0;">
+        Congratulations! Your <strong>SudoReply</strong> account has been 
+        successfully created. You can now log in and start connecting 
+        your WhatsApp Business account.
+      </p>
+
+      <!-- Account Details Box -->
+      <div style="background: #f8faff; border: 1px solid #e2e8f0; 
+                  border-radius: 10px; padding: 20px; margin: 24px 0;">
+        <p style="margin: 0 0 8px 0; font-weight: bold; 
+                  color: #475569; font-size: 13px; 
+                  text-transform: uppercase; letter-spacing: 0.5px;">
+          Your Account Details
+        </p>
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="color: #888; font-size: 13px; padding: 6px 0; width: 140px;">
+              Name
+            </td>
+            <td style="color: #1a1a1a; font-size: 13px; font-weight: bold;">
+              {{firstName}} {{lastName}}
+            </td>
+          </tr>
+          <tr>
+            <td style="color: #888; font-size: 13px; padding: 6px 0;">
+              Workspace
+            </td>
+            <td style="color: #1a1a1a; font-size: 13px; font-weight: bold;">
+              {{tenantName}}
+            </td>
+          </tr>
+          <tr>
+            <td style="color: #888; font-size: 13px; padding: 6px 0;">
+              Email
+            </td>
+            <td style="color: #1a1a1a; font-size: 13px; font-weight: bold;">
+              {{email}}
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- What's Next -->
+      <div style="margin: 24px 0;">
+        <p style="margin: 0 0 12px 0; font-weight: bold; color: #1e293b;">
+          What's next?
+        </p>
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 8px 0; vertical-align: top; width: 28px;">
+              <span style="background: #125EF2; color: white; 
+                           border-radius: 50%; padding: 2px 8px; 
+                           font-size: 12px; font-weight: bold;">1</span>
+            </td>
+            <td style="padding: 8px 0; color: #475569; font-size: 14px;">
+              Log in to your dashboard
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; vertical-align: top;">
+              <span style="background: #125EF2; color: white; 
+                           border-radius: 50%; padding: 2px 8px; 
+                           font-size: 12px; font-weight: bold;">2</span>
+            </td>
+            <td style="padding: 8px 0; color: #475569; font-size: 14px;">
+              Connect your WhatsApp Business account
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; vertical-align: top;">
+              <span style="background: #125EF2; color: white; 
+                           border-radius: 50%; padding: 2px 8px; 
+                           font-size: 12px; font-weight: bold;">3</span>
+            </td>
+            <td style="padding: 8px 0; color: #475569; font-size: 14px;">
+              Choose a plan and start messaging
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- Login Button -->
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="{{loginUrl}}" 
+           style="background-color: #125EF2; color: #ffffff; 
+                  padding: 14px 36px; text-decoration: none; 
+                  border-radius: 8px; font-weight: bold; 
+                  font-size: 15px; display: inline-block;
+                  box-shadow: 0 2px 4px rgba(18,94,242,0.3);">
+          Go to Dashboard →
+        </a>
+      </div>
+
+      <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
+
+      <p style="font-size: 13px; color: #64748b; margin: 0;">
+        Need help? Contact us at 
+        <a href="mailto:info@sudoreply.com" 
+           style="color: #125EF2;">
+           info@sudoreply.com
+        </a>
+      </p>
+
+    </div>
+
+    <!-- Footer -->
+    <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; 
+                padding: 16px; text-align: center;">
+      <p style="color: #64748b; font-size: 12px; margin: 0;">
+        SudoReply | info@sudoreply.com| www.sudoreply.com
+      </p>
+    </div>
+
+  </div>
+</body>
+</html>

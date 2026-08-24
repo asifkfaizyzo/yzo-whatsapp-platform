@@ -16,7 +16,7 @@ import {
   Users,
   User,
 } from "lucide-react";
-import { useOutletContext } from "react-router-dom";
+import { useOutletContext,useSearchParams } from "react-router-dom";
 import api from "../../lib/axios";
 
 // ── Helpers ──
@@ -905,8 +905,11 @@ const TicketDetail = ({ ticket, onBack, onRefresh, userType }) => {
 export default function Tickets() {
   const { tenantStatus } = useOutletContext();
   const userType = getUserType();
+  const [searchParams, setSearchParams] = useSearchParams(); // ✅ Added
+  const ticketIdParam = searchParams.get("ticketId"); // ✅ Get ticketId from URL
 
   const [activeTab,      setActiveTab]      = useState("my");
+
   const [myTickets,      setMyTickets]      = useState([]);
   const [userTickets,    setUserTickets]    = useState([]);
   const [loading,        setLoading]        = useState(true);
@@ -938,7 +941,7 @@ export default function Tickets() {
     }
   };
 
-  const fetchTicketDetail = async (ticketId) => {
+   const fetchTicketDetail = async (ticketId) => {
     try {
       const endpoint = userType === "USER"
         ? `/user-tickets/${ticketId}`
@@ -949,6 +952,13 @@ export default function Tickets() {
       console.error("fetchTicketDetail error:", e);
     }
   };
+
+  // ✅ Auto-fetch and select ticket if ticketId parameter exists in the URL
+  useEffect(() => {
+    if (ticketIdParam) {
+      fetchTicketDetail(ticketIdParam);
+    }
+  }, [ticketIdParam]);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -999,12 +1009,16 @@ export default function Tickets() {
     );
   }
 
-  if (selectedTicket) {
+   if (selectedTicket) {
     return (
       <TicketDetail
         ticket={selectedTicket}
         userType={userType}
-        onBack={() => { setSelectedTicket(null); fetchData(); }}
+        onBack={() => { 
+          setSelectedTicket(null); 
+          setSearchParams({}); // ✅ Clears the '?ticketId=xxx' from URL
+          fetchData(); 
+        }}
         onRefresh={fetchTicketDetail}
       />
     );

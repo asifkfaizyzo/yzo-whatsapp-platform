@@ -107,7 +107,7 @@ export const getSubscriptions = async (req, res) => {
 
 export const updateSubscription = async (req, res) => {
   const { tenantId } = req.params;
-  const { action, extendDays } = req.body;
+  const { action, extendDays, planId, billingType } = req.body;
 
   try {
     const tenant = await prisma.tenant.findUnique({
@@ -162,6 +162,29 @@ export const updateSubscription = async (req, res) => {
         notificationNote = `Your plan active period has been extended by ${extendDays} days. It is now active until ${newEnd.toLocaleDateString()}.`;
         break;
 
+      case 'change_plan':
+        if (!planId) {
+          return res.status(400).json({ success: false, message: "planId is required to change plan" });
+        }
+        const plan = await prisma.subscriptionPlan.findUnique({ where: { id: planId } });
+        if (!plan) {
+          return res.status(404).json({ success: false, message: "Plan not found" });
+        }
+        const durationDays = extendDays && !isNaN(extendDays) ? parseInt(extendDays) : 30;
+        const periodEnd = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000);
+        updatedData = {
+          planId: plan.id,
+          currentPlan: plan.name,
+          planStatus: 'active',
+          subscriptionStatus: 'active',
+          billingType: billingType || tenant.billingType || 'monthly',
+          planActivatedAt: new Date(),
+          planPeriodStart: new Date(),
+          planPeriodEnd: periodEnd,
+        };
+        notificationNote = `Your plan has been updated to ${plan.name}, active until ${periodEnd.toLocaleDateString()}.`;
+        break;
+
       default:
         return res.status(400).json({ success: false, message: `Unknown action: ${action}` });
     }
@@ -173,7 +196,7 @@ export const updateSubscription = async (req, res) => {
 
     sendStatusUpdateEmail(tenant.email, tenant.tenantName || tenant.email, updated.subscriptionStatus, notificationNote);
 
-    return res.status(200).json({ success: true, message: "Action completed" });
+    return res.status(200).json({ success: true, message: "Action completed", data: updated });
   } catch (error) {
     console.error("Admin update subscription error:", error);
     return res.status(500).json({ success: false, message: "Server error updating subscription" });

@@ -20,6 +20,31 @@ export const getAdminNotifications = async () => {
   }
 };
 
+// ── 🆕 Get paginated notifications (for full page) ──
+export const getAdminNotificationsPaginated = async ({
+  page = 1,
+  limit = 20,
+  filter = "all",
+  type = "all",
+} = {}) => {
+  try {
+    const res = await api.get(`${BASE_URL}/paginated`, {
+      params: { page, limit, filter, type },
+    });
+    return {
+      success: true,
+      data: res.data.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message:
+        error.response?.data?.message || "Failed to fetch notifications",
+    };
+  }
+};
+
+
 // ── Mark one as read ──
 export const markAdminNotifAsRead = async (id) => {
   try {
@@ -44,6 +69,17 @@ export const markAllAdminNotifsAsRead = async () => {
 export const clearAllAdminNotifs = async () => {
   try {
     await api.delete(`${BASE_URL}/clear-all`);
+    return { success: true };
+  } catch (error) {
+    return { success: false };
+  }
+};
+
+
+// ── 🆕 Delete a single notification ──
+export const deleteAdminNotif = async (id) => {
+  try {
+    await api.delete(`${BASE_URL}/${id}`);
     return { success: true };
   } catch (error) {
     return { success: false };

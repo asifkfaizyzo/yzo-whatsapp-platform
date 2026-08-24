@@ -5,6 +5,10 @@ import flowController from './flowController.js'
 import { verifyTenantOrUser } from '../../middlewares/authVerfyTenOrUser.js'
 import { checkSubscriptionAccess } from '../../middlewares/checkSubscriptionAccess.js'
 
+import flowMediaUpload from '../../config/flowMediaUpload.js';
+import { uploadFlowMedia } from './flowMediaController.js';
+import { verifyTenant } from '../../middlewares/authTenant.js';
+
 const router = express.Router()
 
 router.use(verifyTenantOrUser)
@@ -17,12 +21,16 @@ router.put('/:id',                flowController.saveFlow)
 router.delete('/:id',             flowController.deleteFlow)
 router.patch('/:id/toggle',       flowController.toggleFlow)
 router.patch('/:id/set-default',  flowController.setDefault)
+router.patch('/:id/unset-default', flowController.unsetDefault)
 
 // ── Keyword Routes ──
 router.get('/keywords/all',        flowController.getAllKeywords)
 router.get('/:id/keywords',        flowController.getKeywords)
 router.post('/:id/keywords',       flowController.addKeywords)
 router.delete('/keywords/:keywordId', flowController.removeKeyword)
+
+// Upload media for automation flow (image / video)
+router.post('/media/upload',verifyTenant, flowMediaUpload.single('file'),uploadFlowMedia );
 
 
 export default router

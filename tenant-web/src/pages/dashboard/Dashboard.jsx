@@ -76,16 +76,20 @@ export default function Dashboard() {
     try {
       const res = await getWhatsappStatus();
       if (res.success && res.data) {
+        const health = res.data.health || {};
         setWaStatus({
           isConnected: !!res.data.isConnected,
           loading: false,
           phoneNumberId: res.data.phoneNumberId || null,
           wabaId: res.data.wabaId || null,
-          phoneNumber: res.data.phoneNumber || res.data.displayPhoneNumber || null,
-          businessName: res.data.businessName || res.data.verifiedName || null,
-          qualityRating: res.data.qualityRating || null,
-          messagingTier: res.data.messagingTier || null,
+          phoneNumber: health.displayPhoneNumber || res.data.phoneNumber || res.data.displayPhoneNumber || null,
+          businessName: health.verifiedName || res.data.businessName || res.data.verifiedName || null,
+          qualityRating: health.qualityRating || res.data.qualityRating || null,
+          messagingTier: health.tierName || health.messagingLimitTier || res.data.messagingTier || null,
           webhookStatus: res.data.webhookStatus || "active",
+          sentLast24h: health.sentLast24h || 0,
+          remaining24h: health.remaining24h ?? 1000,
+          messagingLimitNumber: health.messagingLimitNumber || 1000,
         });
       } else {
         setWaStatus((prev) => ({ ...prev, loading: false }));
@@ -93,21 +97,6 @@ export default function Dashboard() {
     } catch (err) {
       setWaStatus((prev) => ({ ...prev, loading: false }));
     }
-
-    // 🚧 TEMPORARY MOCK — REMOVE BEFORE PRODUCTION
-    // setTimeout(() => {
-    //   setWaStatus({
-    //     isConnected: true,
-    //     loading: false,
-    //     phoneNumberId: "123456789012345",
-    //     wabaId: "987654321098765",
-    //     phoneNumber: "+91 98765 43210",
-    //     businessName: "Acme Corp",
-    //     qualityRating: "GREEN",
-    //     messagingTier: "TIER_1000 (1,000 msgs/day)",
-    //     webhookStatus: "active",
-    //   });
-    // }, 500);
   };
 
   // ═════════════════════════════════════════════════════════
@@ -777,9 +766,17 @@ if (userRole === "admin") {
                   />
                   <HealthRow
                     label="Quality Rating"
-                    value={waStatus.qualityRating || "Pending"}
+                    value={
+                      waStatus.qualityRating === "GREEN"
+                        ? "High Quality (GREEN)"
+                        : waStatus.qualityRating === "YELLOW"
+                        ? "Medium Quality (YELLOW)"
+                        : waStatus.qualityRating === "RED"
+                        ? "Low Quality (RED)"
+                        : waStatus.qualityRating || "High Quality (GREEN)"
+                    }
                     status={
-                      !waStatus.qualityRating ? "pending" :
+                      !waStatus.qualityRating ? "healthy" :
                       ["GREEN", "HIGH"].includes(waStatus.qualityRating.toUpperCase()) ? "healthy" :
                       ["YELLOW", "MEDIUM"].includes(waStatus.qualityRating.toUpperCase()) ? "warning" :
                       "critical"
@@ -787,8 +784,8 @@ if (userRole === "admin") {
                   />
                   <HealthRow
                     label="Messaging Tier"
-                    value={waStatus.messagingTier || "Pending"}
-                    status={waStatus.messagingTier ? "healthy" : "pending"}
+                    value={waStatus.messagingTier || "Tier 1K (1,000 / 24 hrs)"}
+                    status={waStatus.messagingTier ? "healthy" : "healthy"}
                   />
                 </div>
                 {!waStatus.qualityRating && (

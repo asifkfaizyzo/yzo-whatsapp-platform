@@ -66,8 +66,6 @@ export default function Inbox() {
   const toast = useToast();
   const { user, accessToken } = useAuthStore();
 
-   console.log("🔄 INBOX RE-RENDERED at:", new Date().toLocaleTimeString()); 
-
   const userRole = user?.type === "TENANT" ? "admin" : "agent";
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -219,6 +217,42 @@ useEffect(() => {
   const activeChat =
     chats.find((c) => String(c.id) === String(activeChatId)) || null;
 
+  //     // ── 24h Expired Check Helper ──
+  // const is24hExpired = (dateVal) => {
+  //   if (!dateVal) return false;
+  //   const lastTime = new Date(dateVal).getTime();
+  //   if (isNaN(lastTime)) return false;
+  //   const hoursDiff = (Date.now() - lastTime) / (1000 * 60 * 60);
+  //   return hoursDiff >= 24;
+  // };
+
+    // ⭐ Smart 24h Expired Check (Looks ONLY at Customer Messages)
+  const is24hExpired = (chat) => {
+    if (!chat) return false;
+
+    // 1. Check incomingAt (recorded when customer messages)
+    let lastCustomerTime = chat.incomingAt ? new Date(chat.incomingAt).getTime() : null;
+
+    // 2. Fallback: Search messages array for the last customer message
+    if (!lastCustomerTime && Array.isArray(chat.messages)) {
+      const lastInboundMsg = chat.messages.find(
+        (m) => m.isFromCustomer || m.direction === "INBOUND" || m.senderType === "CONTACT"
+      );
+      if (lastInboundMsg?.createdAt) {
+        lastCustomerTime = new Date(lastInboundMsg.createdAt).getTime();
+      }
+    }
+
+    // 3. If customer NEVER messaged -> Session is EXPIRED by default!
+    if (!lastCustomerTime) return true;
+
+    if (isNaN(lastCustomerTime)) return false;
+
+    // 4. Calculate hours difference
+    const hoursDiff = (Date.now() - lastCustomerTime) / (1000 * 60 * 60);
+    return hoursDiff >= 24;
+  };
+
   // ── Helpers ──
   const formatLastMessagePreview = (msg) => {
     if (!msg) return "No messages yet";
@@ -235,7 +269,7 @@ useEffect(() => {
     return msg.text;
   };
 
-    const getContactTags = (contact) => {
+  const getContactTags = (contact) => {
     if (!contact) return [];
     if (Array.isArray(contact.tags)) return contact.tags;
     if (Array.isArray(contact.contactTags))
@@ -304,12 +338,6 @@ useEffect(() => {
           res.data ||
           [];
 
-           console.log('🔍 API RESPONSE CONVERSATIONS:', convList.map(c => ({
-        id: c.id,
-        name: c.contact?.name,
-        unreadCount: c.unreadCount,
-      })));
-
         setChats(convList);
 
         setUnreadMap((prev) => {
@@ -343,7 +371,6 @@ useEffect(() => {
 // ── Clear unread when chat opened ──
 useEffect(() => {
   if (!activeChatId) return;
-  console.log("👆 Chat clicked - mark as read for:", activeChatId);
   
   // 1. Reset frontend immediately
   setUnreadMap((prev) => ({ ...prev, [String(activeChatId)]: 0 }));
@@ -380,11 +407,8 @@ useEffect(() => {
   useEffect(() => {
     if (!activeChatId) return;
     const loadMessages = async () => {
-    const res = await getConversationMessages(activeChatId, 50);
-        console.log('🔍 API RESPONSE:', res)                    // ⭐ ADD
-        console.log('🔍 MESSAGES:', res.data?.messages) 
-
-      if (res.success) setMessages(res.data.messages || []);
+      const res = await getConversationMessages(activeChatId, 50);
+      if (res.success) setMessages(res.data?.messages || []);
     };
     loadMessages();
   }, [activeChatId]);
@@ -401,26 +425,20 @@ useEffect(() => {
     });
 
     newSocket.on("connect", () => {
-      console.log("🔌 Inbox Socket Connected:", newSocket.id);
-
       // Always join tenant room (needed for new_message events for everyone)
       if (activeTenantId) {
         newSocket.emit("join_tenant", activeTenantId);
-        console.log("👥 Inbox joined tenant room:", activeTenantId);
       }
 
-      // FIXED: If USER (agent), also join personal user room
-      // This ensures new_notification events from emitToUser() are received
+      // If USER (agent), also join personal user room
       if (user?.type === "USER" && user?.id) {
         newSocket.emit("join_user", user.id);
-        console.log("👤 Inbox joined user room:", user.id);
       }
     });
 
     setSocket(newSocket);
 
     return () => {
-      console.log("🔌 Inbox Socket Disconnecting");
       newSocket.disconnect();
     };
     // FIXED: Added user?.id and user?.type to dependency array
@@ -474,16 +492,7 @@ useEffect(() => {
     const handleNewMessage = (data) => {
       const { conversationId, message } = data;
 
-      // ⭐⭐⭐ CRITICAL LOG - keep this to confirm
-      console.log("🟢 new_message received:", {
-        conversationId,
-        messageId: message?.id,
-        text: message?.text?.substring(0, 30),
-        isFromCustomer: message?.isFromCustomer,
-      });
-
       if (!message || typeof message !== "object" || !message.id) {
-        console.warn("⚠️ Invalid message in new_message socket event:", data);
         return;
       }
 
@@ -495,7 +504,6 @@ useEffect(() => {
       if (isCurrentChatOpen) {
         setMessages((prev) => {
           if (prev.some((m) => m.id === message.id)) {
-            console.log("⏸️ Message already in list, skipping");
             return prev;
           }
           return [...prev, message];
@@ -555,7 +563,6 @@ useEffect(() => {
 
         // If duplicate OR older message → don't touch the list
         if (currentLatestMsgId === message.id || newMessageTime < currentLatestTime) {
-          console.log("⏸️ Skipping reorder - message is duplicate or older");
           return prevChats;
         }
 
@@ -581,8 +588,6 @@ useEffect(() => {
           return c;
         });
 
-        console.log("♻️ Reordering chats due to NEW message:", message.id);
-
         // Reorder (only when we have a truly new message)
         return updated.sort((a, b) => {
           const dateA = a.messages?.[0]?.createdAt || a.updatedAt;
@@ -597,8 +602,6 @@ useEffect(() => {
 
 // ── Handle deleted message ──
     const handleMessageDeleted = ({ messageId, conversationId: convId }) => {
-      console.log("🗑️ message_deleted received:", messageId);
-
       setMessages((prev) =>
         prev.map((m) =>
           m.id === messageId
@@ -630,10 +633,9 @@ useEffect(() => {
       );
     };
 
-    // ── ADD THIS: Handle bulk reassign ──────────────
+    // ── Handle bulk reassign ──────────────
   const handleConversationsReassigned = (data) => {
-  const { conversationIds, newUserId, newUserName, count } = data;
-  console.log(`🔄 ${count} conversation(s) reassigned to ${newUserName || "unassigned"}`);
+  const { conversationIds, newUserId } = data;
   
   // Update assignedTo locally without reload
   setChats((prev) =>
@@ -645,15 +647,13 @@ useEffect(() => {
   );
 };
 
-
-        const handleUnreadCountUpdate = (data) => {
+  const handleUnreadCountUpdate = (data) => {
       const { conversationId, unreadCount } = data;
-      console.log("🔔 Unread update:", data);
 
       const isCurrentChatOpen =
         activeChatId && String(activeChatId) === String(conversationId);
 
-      // ⭐ If chat is currently OPEN → force count to 0, never show badge
+      // If chat is currently OPEN → force count to 0, never show badge
       if (isCurrentChatOpen) {
         setChats((prev) =>
           prev.map((c) =>
@@ -675,11 +675,8 @@ useEffect(() => {
         )
       );
     };
-   
 
-     // ✅ NEW HANDLER
   const handleConversationAssigned = (data) => {
-    console.log("🎯 New conversation assigned to me:", data);
      if (data.conversation) {
     setChats((prev) => {
       const exists = prev.some((c) => String(c.id) === String(data.conversation.id));
@@ -689,11 +686,29 @@ useEffect(() => {
   }
   };
 
+       // ── Handle real-time tick updates (1✓ -> 2✓ -> 2✓ blue) ──
+    const handleMessageStatusUpdate = (data) => {
+      const { messageId, wamid, status } = data;
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (m.id === messageId || (wamid && m.wamid === wamid)) {
+            return {
+              ...m,
+              status: status,
+              isRead: status === "read" ? true : m.isRead,
+            };
+          }
+          return m;
+        })
+      );
+    };
+
     socket.on("new_message", handleNewMessage);
     socket.on("message_deleted", handleMessageDeleted);
     socket.on("conversations_reassigned", handleConversationsReassigned);
     socket.on("unread_count_update", handleUnreadCountUpdate);
-    socket.on("conversation_assigned", handleConversationAssigned); 
+    socket.on("conversation_assigned", handleConversationAssigned);
+    socket.on("message_status_update", handleMessageStatusUpdate); // ← ADD THIS
 
     return () => {
       socket.off("new_message", handleNewMessage);
@@ -701,6 +716,7 @@ useEffect(() => {
       socket.off("conversations_reassigned", handleConversationsReassigned);
       socket.off("unread_count_update", handleUnreadCountUpdate);
       socket.off("conversation_assigned", handleConversationAssigned);
+      socket.off("message_status_update", handleMessageStatusUpdate); // ← ADD THIS
     };
   }, [socket, activeChatId, loadConversations]);
 
@@ -1810,15 +1826,12 @@ useEffect(() => {
                       }
                     }}
                   >
-                    <div className="relative shrink-0">
+                                      <div className="relative shrink-0">
                       <div
                         className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm ${avatarBg}`}
                       >
                         {contactName.charAt(0)}
                       </div>
-                      {chat.status === "OPEN" && (
-                        <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-[#25D366] border-2 border-white rounded-full" />
-                      )}
                     </div>
 
                     <div className="flex-1 min-w-0">
@@ -2131,13 +2144,6 @@ useEffect(() => {
               )}
 
               {messages.map((msg) => {
-                  console.log('📩 MSG:', {
-    id: msg.id,
-    type: msg.type,
-    buttons: msg.buttons,
-    text: msg.text?.substring(0, 40)
-  })
-
                 const isAgent = !msg.isFromCustomer;
                 const timeStr = formatTime(msg.createdAt);
 
@@ -2318,55 +2324,14 @@ useEffect(() => {
                           </div>
                         )}
 
-                      {/* TEXT */}
-                      {(msg.type === "TEXT" || (!msg.type && msg.text)) && (
+                      {/* TEXT / INTERACTIVE BODY */}
+                      {(msg.type === "TEXT" || msg.type === "INTERACTIVE_BUTTONS" || (!msg.type && msg.text)) && (
                         <p className="leading-relaxed whitespace-pre-wrap">
                           {msg.text}
                         </p>
                       )}
 
-                      {/* ⭐ INTERACTIVE_BUTTONS */}
-                      {msg.type === "INTERACTIVE_BUTTONS" && (
-                        <div>
-                          {/* Body text */}
-                          <p className="leading-relaxed whitespace-pre-wrap">
-                            {msg.text}
-                          </p>
 
-                          {/* Buttons */}
-                          {msg.buttons &&
-                            Array.isArray(msg.buttons) &&
-                            msg.buttons.length > 0 && (
-                              <div className="mt-3 pt-2 border-t border-[#075E54]/10 space-y-1.5">
-                                {msg.buttons.map((btn, i) => (
-                                  <div
-                                    key={btn.id || i}
-                                    className="flex items-center justify-center gap-2 py-2 px-3
-              bg-white/70 hover:bg-white border border-[#075E54]/20
-              rounded-lg text-[12px] font-semibold text-[#075E54]
-              transition cursor-default"
-                                  >
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      width="12"
-                                      height="12"
-                                      viewBox="0 0 24 24"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      strokeWidth="2.5"
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                    >
-                                      <path d="M9 11.24V7.5a2.5 2.5 0 015 0v3.74" />
-                                      <path d="M14 11h1a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2v-6a2 2 0 012-2h1" />
-                                    </svg>
-                                    {btn.title}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                        </div>
-                      )}
 
                       {/* IMAGE */}
                       {msg.type === "IMAGE" && msg.mediaUrl && (
@@ -2532,6 +2497,78 @@ useEffect(() => {
                           </div>
                         </div>
                       )}
+                      {/* ⭐ BUTTONS (Interactive / Template buttons) */}
+                      {(() => {
+                        let btns = null;
+                        if (Array.isArray(msg.buttons)) {
+                          btns = msg.buttons;
+                        } else if (typeof msg.buttons === "string") {
+                          try {
+                            btns = JSON.parse(msg.buttons);
+                          } catch (e) {
+                            btns = null;
+                          }
+                        }
+                        if (!btns || !Array.isArray(btns) || btns.length === 0) return null;
+
+                        return (
+                          <div className="mt-2.5 pt-2 border-t border-[#075E54]/10 space-y-1.5">
+                            {btns.map((btn, i) => {
+                              const title = btn.title || btn.text || `Button ${i + 1}`;
+                              const type = (btn.type || "").toUpperCase();
+                              const url = btn.url || btn.url_link;
+                              const phone = btn.phoneNumber || btn.phone_number;
+
+                              if (type === "URL" && url) {
+                                return (
+                                  <a
+                                    key={btn.id || i}
+                                    href={url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center justify-center gap-1.5 py-1.5 px-3 bg-white/70 hover:bg-white border border-[#075E54]/20 rounded-lg text-[12px] font-semibold text-[#075E54] hover:text-[#064E47] transition shadow-xs"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                                      <polyline points="15 3 21 3 21 9"/>
+                                      <line x1="10" y1="14" x2="21" y2="3"/>
+                                    </svg>
+                                    <span>{title}</span>
+                                  </a>
+                                );
+                              }
+
+                              if (type === "PHONE_NUMBER" && phone) {
+                                return (
+                                  <a
+                                    key={btn.id || i}
+                                    href={`tel:${phone}`}
+                                    className="flex items-center justify-center gap-1.5 py-1.5 px-3 bg-white/70 hover:bg-white border border-[#075E54]/20 rounded-lg text-[12px] font-semibold text-[#075E54] hover:text-[#064E47] transition shadow-xs"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                                    </svg>
+                                    <span>{title}</span>
+                                  </a>
+                                );
+                              }
+
+                              return (
+                                <div
+                                  key={btn.id || i}
+                                  className="flex items-center justify-center gap-1.5 py-1.5 px-3 bg-white/70 hover:bg-white border border-[#075E54]/20 rounded-lg text-[12px] font-semibold text-[#075E54] transition cursor-default shadow-xs"
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M9 11.24V7.5a2.5 2.5 0 015 0v3.74" />
+                                    <path d="M14 11h1a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2v-6a2 2 0 012-2h1" />
+                                  </svg>
+                                  <span>{title}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
 
                       {/* Time + Ticks */}
                       <div className="mt-1 flex items-center gap-1 justify-end text-[10px] text-[#667781]">
@@ -2611,7 +2648,32 @@ useEffect(() => {
                   </span>
                 </div>
               )}
-              {["RESOLVED", "CLOSED"].includes(activeChat.status) &&
+
+
+              {/* {["RESOLVED", "CLOSED"].includes(activeChat.status) &&
+                !activeChat.contact?.isBlocked && (
+                  <div className="flex items-center justify-between text-xs bg-amber-50 text-amber-800 px-4 py-2.5 rounded-xl border border-amber-100">
+                    <span className="font-semibold">
+                      Conversation is{" "}
+                      <strong className="capitalize">
+                        {activeChat.status.toLowerCase()}
+                      </strong>
+                      . Sending a message will reopen it.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateStatus("OPEN")}
+                      className="text-amber-900 font-bold hover:underline px-2 py-0.5 rounded-md hover:bg-amber-100 transition"
+                    >
+                      Reopen
+                    </button>
+                  </div>
+                )} */}
+
+                {/* REPLACE WITH (adds the banner right underneath it): ** */}
+
+
+                {["RESOLVED", "CLOSED"].includes(activeChat.status) &&
                 !activeChat.contact?.isBlocked && (
                   <div className="flex items-center justify-between text-xs bg-amber-50 text-amber-800 px-4 py-2.5 rounded-xl border border-amber-100">
                     <span className="font-semibold">
@@ -2630,6 +2692,21 @@ useEffect(() => {
                     </button>
                   </div>
                 )}
+
+                            {/* ── 24-Hour Window Expired Alert ── */}
+              {activeChat &&
+                is24hExpired(activeChat) &&
+                activeChat.status === "OPEN" &&
+                !activeChat.contact?.isBlocked && (
+                  <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200/80 rounded-xl text-xs text-amber-900 shadow-xs mb-2">
+                    <AlertTriangle size={14} className="text-amber-600 shrink-0" />
+                    <span className="font-medium text-[11px] text-amber-800">
+                      ℹ️ It has been more than 24 hours since the customer messaged you. You can only respond using a Template.
+                    </span>
+                  </div>
+                )}
+
+              
 
               {/* File Preview */}
               {selectedFile && (

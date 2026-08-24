@@ -21,6 +21,7 @@ import EnterpriseLeadDetail from "../pages/dashboard/EnterpriseLeadDetail";
 
 import SubscriptionManagement from "../pages/admin/SubscriptionManagement";
 import AuditLogs from "../pages/dashboard/AuditLogs";
+import Notifications from "../pages/dashboard/Notifications"; 
 
 function App() {
   return (
@@ -43,16 +44,18 @@ function App() {
         <Route path="/dashboard/tickets" element={<Tickets />} />
         <Route path="/dashboard/revenue" element={<Revenue />} />
         <Route path="/dashboard/audit-logs" element={<AuditLogs />} />
+        <Route path="/dashboard/notifications" element={<Notifications />} />
         
         {/* Enquiry Routes */}
         <Route path="/dashboard/enquiries" element={<Enquiries />} />
         <Route path="/dashboard/enquiries/:id" element={<EnquiryDetail />} />
 
         {/* Enterprise Lead Routes */}
-        <Route path="/dashboard/enterprise-leads" element={<EnterpriseLeads />} />
+        <Route path="/dashboard/enterprise-leads" element={<Navigate to="/dashboard/enquiries?tab=enterprise" replace />} />
         <Route path="/dashboard/enterprise-leads/:id" element={<EnterpriseLeadDetail />} />
 
-        <Route path="/dashboard/subscriptions" element={<SubscriptionManagement />} />
+        {/* Subscriptions unified with Tenants */}
+        <Route path="/dashboard/subscriptions" element={<Navigate to="/dashboard/tenants" replace />} />
 
    
       </Route>

@@ -165,226 +165,162 @@ useEffect(() => {
     checkWhatsAppStatus();
   }, []);
 
-  // ── Socket: listen for new notifications ──
-  // ✅ FIXED: Entire socket logic is now correctly inside useEffect
+
+  // ── Socket: listen for new real-time notifications ──
   useEffect(() => {
     if (!authUser) return;
 
-    // ✅ FIXED: Correct room resolution
-    const tenantId =
-      authUser?.type === "TENANT"
-        ? authUser?.id
-        : authUser?.tenantId;
-
-    const userId = authUser?.id; // ✅ Always the real user id
-    const userType = authUser?.type;
-
-    if (!tenantId) {
+    const token = useAuthStore.getState().accessToken;
+    if (!token) {
+      console.log("⏳ No token yet — skipping socket setup");
       return;
     }
 
+    const tenantId =
+      authUser?.type === "TENANT" ? authUser?.id : authUser?.tenantId;
+    const userId = authUser?.id;
+    const userType = authUser?.type;
 
-   // ✅ REPLACE WITH
-if (!tenantId) {
-  console.log("❌ No tenantId - socket not connecting");
-  return;
-}
+    if (!tenantId) {
+      console.log("❌ No tenantId — socket not connecting");
+      return;
+    }
 
-// ✅ Check token before connecting
-const accessToken = useAuthStore.getState().accessToken;
-if (!accessToken) {
-  console.log("⏳ No accessToken yet — skipping socket setup");
-  return;
-}
+    const socket = getSocket();
+    if (!socket) {
+      console.log("❌ Socket is null");
+      return;
+    }
 
-// ✅ Get stable socket
-const socket = getSocket();
-
-// ✅ Null check socket
-if (!socket) {
-  console.log("❌ Socket instance is null");
-  return;
-}
-
-// ✅ Join correct room only once
-const joinRoom = () => {
+    const joinRooms = () => {
       if (socketJoined.current) return;
 
       if (userType === "TENANT") {
-        // ✅ Tenant admin joins tenant room
         socket.emit("join_tenant", tenantId);
+        console.log("🏠 Tenant joined room:", tenantId);
       } else if (userType === "USER") {
-        // ✅ Agent joins personal room for direct notifications
         socket.emit("join_user", userId);
-        // ❗ Do NOT join tenant room here - Inbox.jsx handles that
+        console.log("👤 User joined room: user_" + userId);
       }
 
       socketJoined.current = true;
     };
 
-    // ✅ If already connected, join immediately
     if (socket.connected) {
-      joinRoom();
+      joinRooms();
     }
 
-    // ✅ On connect/reconnect
-    socket.on("connect", () => {
-      socketJoined.current = false; // reset on reconnect
-      joinRoom();
-    });
-
-    // ── Notification event ──
-    socket.on("new_notification", (data) => {
-      addNotification(data.notification);
-    });
-
-    // ══════════════════════════════
-    // TENANT EVENTS
-    // ══════════════════════════════
-    if (userType === "TENANT") {
-
-      socket.on("new_ticket", (data) => {
-        addNotification({
-          id: `ticket_${Date.now()}`,
-          type: "new_ticket",
-          title: "🎫 New Ticket Raised",
-          message: `${data.raisedBy} raised: "${data.title}"`,
-          metadata: {
-            ticketId: data.ticketId,
-            ticketNumber: data.ticketNumber,
-          },
-          isRead: false,
-          createdAt: new Date().toISOString(),
-        });
-      });
-
-      socket.on("ticket_reply", (data) => {
-        addNotification({
-          id: `reply_${Date.now()}`,
-          type: "ticket_reply",
-          title: "💬 Ticket Reply",
-          message: `${data.from} replied on ticket ${data.ticketNumber}`,
-          metadata: {
-            ticketId: data.ticketId,
-            ticketNumber: data.ticketNumber,
-          },
-          isRead: false,
-          createdAt: new Date().toISOString(),
-        });
-      });
-
-      socket.on("ticket_escalated_confirmation", (data) => {
-        addNotification({
-          id: `escalated_${Date.now()}`,
-          type: "ticket_escalated",
-          title: "⚠️ Ticket Escalated",
-          message: `Ticket ${data.ticketNumber} escalated to SuperAdmin`,
-          metadata: {
-            ticketId: data.ticketId,
-            ticketNumber: data.ticketNumber,
-          },
-          isRead: false,
-          createdAt: new Date().toISOString(),
-        });
-      });
-
-      socket.on("ticket_status_updated", (data) => {
-        addNotification({
-          id: `status_${Date.now()}`,
-          type: "ticket_status_updated",
-          title: `🔄 Ticket ${data.status}`,
-          message: `Ticket ${data.ticketNumber} is now ${data.status.toLowerCase()}`,
-          metadata: {
-            ticketId: data.ticketId,
-            ticketNumber: data.ticketNumber,
-            status: data.status,
-          },
-          isRead: false,
-          createdAt: new Date().toISOString(),
-        });
-      });
-    }
-
-    // ══════════════════════════════
-    // USER EVENTS
-    // ══════════════════════════════
-    if (userType === "USER") {
-
-      socket.on("ticket_reply_to_user", (data) => {
-        addNotification({
-          id: `reply_user_${Date.now()}`,
-          type: "ticket_reply",
-          title: "💬 Reply on Your Ticket",
-          message: `${data.from} replied on ticket ${data.ticketNumber}`,
-          metadata: {
-            ticketId: data.ticketId,
-            ticketNumber: data.ticketNumber,
-          },
-          isRead: false,
-          createdAt: new Date().toISOString(),
-        });
-      });
-
-      socket.on("ticket_reply", (data) => {
-        addNotification({
-          id: `reply_${Date.now()}`,
-          type: "ticket_reply",
-          title: "💬 Reply on Your Ticket",
-          message: `${data.from} replied on ticket ${data.ticketNumber}`,
-          metadata: {
-            ticketId: data.ticketId,
-            ticketNumber: data.ticketNumber,
-          },
-          isRead: false,
-          createdAt: new Date().toISOString(),
-        });
-      });
-
-      socket.on("ticket_resolved", (data) => {
-        addNotification({
-          id: `resolved_${Date.now()}`,
-          type: "ticket_resolved",
-          title: "✅ Ticket Resolved",
-          message: `Your ticket ${data.ticketNumber} has been resolved`,
-          metadata: {
-            ticketId: data.ticketId,
-            ticketNumber: data.ticketNumber,
-          },
-          isRead: false,
-          createdAt: new Date().toISOString(),
-        });
-      });
-
-      socket.on("ticket_status_updated", (data) => {
-        addNotification({
-          id: `status_${Date.now()}`,
-          type: "ticket_status_updated",
-          title: `🔄 Ticket ${data.status}`,
-          message: `Your ticket ${data.ticketNumber} is now ${data.status.toLowerCase()}`,
-          metadata: {
-            ticketId: data.ticketId,
-            ticketNumber: data.ticketNumber,
-            status: data.status,
-          },
-          isRead: false,
-          createdAt: new Date().toISOString(),
-        });
-      });
-    }
-
-    // ── Cleanup: remove listeners only (don't disconnect socket) ──
-    return () => {
-      socket.off("connect");
-      socket.off("new_notification");
-      socket.off("new_ticket");
-      socket.off("ticket_reply");
-      socket.off("ticket_reply_to_user");
-      socket.off("ticket_escalated_confirmation");
-      socket.off("ticket_status_updated");
-      socket.off("ticket_resolved");
+    const handleConnect = () => {
+      console.log("🔌 Socket (re)connected — joining rooms");
+      socketJoined.current = false;
+      joinRooms();
     };
 
+    const handleNewNotification = (data) => {
+      console.log("🔔 Real-time notification received:", data);
+      if (data?.notification) {
+        addNotification(data.notification);
+      }
+    };
+
+    // ── Ticket notification handlers (TENANT) ──
+    const handleNewTicket = (data) => {
+      addNotification({
+        id: `ticket_${Date.now()}`,
+        type: "new_ticket",
+        title: "🎫 New Ticket Raised",
+        message: `${data.raisedBy} raised: "${data.title}"`,
+        metadata: { ticketId: data.ticketId, ticketNumber: data.ticketNumber },
+        isRead: false,
+        createdAt: new Date().toISOString(),
+      });
+    };
+
+    const handleTicketReply = (data) => {
+      addNotification({
+        id: `reply_${Date.now()}`,
+        type: "ticket_reply",
+        title: "💬 Ticket Reply",
+        message: `${data.from} replied on ticket ${data.ticketNumber}`,
+        metadata: { ticketId: data.ticketId, ticketNumber: data.ticketNumber },
+        isRead: false,
+        createdAt: new Date().toISOString(),
+      });
+    };
+
+    const handleTicketEscalated = (data) => {
+      addNotification({
+        id: `escalated_${Date.now()}`,
+        type: "ticket_escalated",
+        title: "⚠️ Ticket Escalated",
+        message: `Ticket ${data.ticketNumber} escalated to SuperAdmin`,
+        metadata: { ticketId: data.ticketId, ticketNumber: data.ticketNumber },
+        isRead: false,
+        createdAt: new Date().toISOString(),
+      });
+    };
+
+    const handleTicketStatusUpdated = (data) => {
+      addNotification({
+        id: `status_${Date.now()}`,
+        type: "ticket_status_updated",
+        title: `🔄 Ticket ${data.status}`,
+        message: `Ticket ${data.ticketNumber} is now ${data.status.toLowerCase()}`,
+        metadata: {
+          ticketId: data.ticketId,
+          ticketNumber: data.ticketNumber,
+          status: data.status,
+        },
+        isRead: false,
+        createdAt: new Date().toISOString(),
+      });
+    };
+
+    // ── Ticket notification handlers (USER) ──
+    const handleTicketResolved = (data) => {
+      addNotification({
+        id: `resolved_${Date.now()}`,
+        type: "ticket_resolved",
+        title: "✅ Ticket Resolved",
+        message: `Your ticket ${data.ticketNumber} has been resolved`,
+        metadata: { ticketId: data.ticketId, ticketNumber: data.ticketNumber },
+        isRead: false,
+        createdAt: new Date().toISOString(),
+      });
+    };
+
+    // Register event listeners
+    socket.on("connect", handleConnect);
+    socket.on("new_notification", handleNewNotification);
+
+    if (userType === "TENANT") {
+      socket.on("new_ticket", handleNewTicket);
+      socket.on("ticket_reply", handleTicketReply);
+      socket.on("ticket_escalated_confirmation", handleTicketEscalated);
+      socket.on("ticket_status_updated", handleTicketStatusUpdated);
+    }
+
+    if (userType === "USER") {
+      socket.on("ticket_reply", handleTicketReply);
+      socket.on("ticket_reply_to_user", handleTicketReply);
+      socket.on("ticket_resolved", handleTicketResolved);
+      socket.on("ticket_status_updated", handleTicketStatusUpdated);
+    }
+
+    // Cleanup listeners on unmount
+    return () => {
+      socket.off("connect", handleConnect);
+      socket.off("new_notification", handleNewNotification);
+      socket.off("new_ticket", handleNewTicket);
+      socket.off("ticket_reply", handleTicketReply);
+      socket.off("ticket_reply_to_user", handleTicketReply);
+      socket.off("ticket_escalated_confirmation", handleTicketEscalated);
+      socket.off("ticket_status_updated", handleTicketStatusUpdated);
+      socket.off("ticket_resolved", handleTicketResolved);
+      socketJoined.current = false;
+    };
   }, [authUser?.id, authUser?.type, accessToken]);
+
 
   // ── Disconnect socket on logout ──
   const handleLogout = async () => {
@@ -679,14 +615,33 @@ const joinRoom = () => {
               </div>
 
               {/* Footer */}
-              {notifications.length > 0 && (
-                <div className="px-4 py-2 border-t border-slate-100
-                                text-center">
-                  <p className="text-[10px] text-slate-400">
+                       {/* Footer with View All - 🆕 UPDATED */}
+              <div className="border-t border-slate-100 bg-slate-50/50">
+                {notifications.length > 0 && (
+                  <p className="text-[10px] text-slate-400 text-center pt-2">
                     Showing last {notifications.length} notifications
                   </p>
-                </div>
-              )}
+                )}
+                <button
+                  onClick={() => {
+                    setShowNotifications(false);
+                    navigate("/dashboard/notifications");
+                  }}
+                  className="w-full px-4 py-2.5 text-xs font-bold text-[#125EF2] hover:bg-blue-50 transition flex items-center justify-center gap-1.5 group"
+                >
+                  View All Notifications
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-3 w-3 group-hover:translate-x-0.5 transition-transform"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2.5}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
             </div>
           )}
         </div>

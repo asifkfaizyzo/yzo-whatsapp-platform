@@ -236,6 +236,14 @@ export const getAllTenantsService = async () => {
       email:          true,
       phone:          true,
       address:        true,
+      firstName:      true,
+      lastName:       true,
+      websiteUrl:     true,
+      industry:       true,
+      companySize:    true,
+      country:        true,
+      useCase:        true,
+      timezone:       true,
       isActive:       true,
       status:         true,
       createdAt:      true,
@@ -244,6 +252,16 @@ export const getAllTenantsService = async () => {
       planStatus:     true,
       billingType:    true,
       planActivatedAt: true,
+      subscriptionStatus: true,
+      currentPlan:    true,
+      planPeriodStart: true,
+      planPeriodEnd:  true,
+      cancelRequestedAt: true,
+      cancellationReason: true,
+      reactivatedAt:  true,
+      dataDeletionDate: true,
+      whatsappPhoneId: true,
+      whatsappWabaId: true,
       plan: {
         select: {
           id:             true,
@@ -254,6 +272,8 @@ export const getAllTenantsService = async () => {
           maxBroadcasts:  true,
           maxAutomations: true,
           maxCampaigns:   true,
+          maxApiCalls:    true,
+          maxAiCredits:   true,
         },
       },
       users: {
@@ -321,13 +341,17 @@ export const updateTenantByIdService = async (tenantId, data, actor = null, meta
 
   const updateData = {};
 
-  if (data.tenantName)               updateData.tenantName  = data.tenantName;
-  if (data.phone !== undefined)      updateData.phone       = data.phone;
-  if (data.address !== undefined)    updateData.address     = data.address;
-  if (data.websiteUrl !== undefined) updateData.websiteUrl  = data.websiteUrl;
-  if (data.industry !== undefined)   updateData.industry    = data.industry;
+  if (data.tenantName)                updateData.tenantName  = data.tenantName;
+  if (data.firstName !== undefined)   updateData.firstName   = data.firstName;
+  if (data.lastName !== undefined)    updateData.lastName    = data.lastName;
+  if (data.phone !== undefined)       updateData.phone       = data.phone;
+  if (data.address !== undefined)     updateData.address     = data.address;
+  if (data.websiteUrl !== undefined)  updateData.websiteUrl  = data.websiteUrl;
+  if (data.industry !== undefined)    updateData.industry    = data.industry;
   if (data.companySize !== undefined) updateData.companySize = data.companySize;
-  if (data.country !== undefined)    updateData.country     = data.country;
+  if (data.country !== undefined)     updateData.country     = data.country;
+  if (data.timezone !== undefined)    updateData.timezone    = data.timezone;
+  if (data.logo !== undefined)        updateData.logo        = data.logo;
 
   if (data.email) {
     const emailExists = await prisma.tenant.findFirst({
@@ -347,6 +371,8 @@ export const updateTenantByIdService = async (tenantId, data, actor = null, meta
     select: {
       id:          true,
       tenantName:  true,
+      firstName:   true,
+      lastName:    true,
       email:       true,
       phone:       true,
       address:     true,
@@ -354,6 +380,8 @@ export const updateTenantByIdService = async (tenantId, data, actor = null, meta
       industry:    true,
       companySize: true,
       country:     true,
+      timezone:    true,
+      logo:        true,
       isActive:    true,
       createdAt:   true,
       updatedAt:   true,
@@ -510,34 +538,96 @@ export const deleteTenantByIdService = async (tenantId, actor, meta = {}) => {
   const users   = await prisma.user.findMany({ where: { tenantId }, select: { id: true } });
   const userIds = users.map(u => u.id);
 
+  const contacts   = await prisma.contact.findMany({ where: { tenantId }, select: { id: true } });
+  const contactIds = contacts.map(c => c.id);
+
   await prisma.$transaction([
+    // 1. Tag mappings & tokens
     prisma.userTagMapping.deleteMany({ where: { OR: [{ tenantId }, { userId: { in: userIds } }] } }),
     prisma.refreshToken.deleteMany({  where: { OR: [{ tenantId }, { userId: { in: userIds } }] } }),
-    prisma.message.deleteMany({ where: { conversation: { tenantId } } }),
-    prisma.conversationActivity.deleteMany({ where: { conversation: { tenantId } } }),
-    prisma.conversation.deleteMany({ where: { tenantId } }),
-    prisma.broadcastRecipient.deleteMany({ where: { broadcast: { tenantId } } }),
-    prisma.broadcastTag.deleteMany({ where: { broadcast: { tenantId } } }),
-    prisma.broadcast.deleteMany({ where: { tenantId } }),
-    prisma.template.deleteMany({ where: { tenantId } }),
-    prisma.contactTagMapping.deleteMany({ where: { contact: { tenantId } } }),
-    prisma.contact.deleteMany({ where: { tenantId } }),
+
+    // 2. Messages, activities & conversations (checked by tenantId, contactId, and contact relation)
+    prisma.message.deleteMany({
+      where: {
+        OR: [
+          { conversation: { tenantId } },
+          { conversation: { contactId: { in: contactIds } } },
+          { conversation: { contact: { tenantId } } },
+        ],
+      },
+    }),
+    prisma.conversationActivity.deleteMany({
+      where: {
+        OR: [
+          { conversation: { tenantId } },
+          { conversation: { contactId: { in: contactIds } } },
+          { conversation: { contact: { tenantId } } },
+        ],
+      },
+    }),
+    prisma.conversation.deleteMany({
+      where: {
+        OR: [
+          { tenantId },
+          { contactId: { in: contactIds } },
+          { contact: { tenantId } },
+        ],
+      },
+    }),
+
+    // 3. Broadcasts & recipients
+    prisma.broadcastRecipient.deleteMany({
+      where: {
+        OR: [
+          { broadcast: { tenantId } },
+          { contactId: { in: contactIds } },
+          { contact: { tenantId } },
+        ],
+      },
+    }),
+    prisma.broadcastTag.deleteMany({ where: { OR: [{ broadcast: { tenantId } }, { tag: { tenantId } }] } }),
+    prisma.broadcast.deleteMany({ where: { OR: [{ tenantId }, { createdById: { in: userIds } }] } }),
+    prisma.template.deleteMany({ where: { OR: [{ tenantId }, { createdById: { in: userIds } }] } }),
+
+    // 4. Contacts & Tags
+    prisma.contactTagMapping.deleteMany({
+      where: {
+        OR: [
+          { contactId: { in: contactIds } },
+          { contact: { tenantId } },
+          { tag: { tenantId } },
+        ],
+      },
+    }),
+    prisma.contact.deleteMany({ where: { OR: [{ tenantId }, { id: { in: contactIds } }] } }),
     prisma.tag.deleteMany({ where: { tenantId } }),
+
+    // 5. Automation / Flows
     prisma.flowNode.deleteMany({ where: { flow: { tenantId } } }),
-    prisma.keywordTrigger.deleteMany({ where: { tenantId } }),
+    prisma.keywordTrigger.deleteMany({ where: { OR: [{ tenantId }, { flow: { tenantId } }] } }),
     prisma.flow.deleteMany({ where: { tenantId } }),
     prisma.autoReopenConfig.deleteMany({ where: { tenantId } }),
-    prisma.ticketMessage.deleteMany({ where: { ticket: { tenantId } } }),
-    prisma.ticket.deleteMany({ where: { tenantId } }),
+
+    // 6. Tickets
+    prisma.ticketMessage.deleteMany({ where: { OR: [{ ticket: { tenantId } }, { tenantId }, { userId: { in: userIds } }] } }),
+    prisma.ticket.deleteMany({ where: { OR: [{ tenantId }, { userId: { in: userIds } }] } }),
+
+    // 7. Subscriptions, Invoices & Payments
     prisma.subscriptionReminder.deleteMany({ where: { tenantId } }),
     prisma.cancellationSurvey.deleteMany({ where: { tenantId } }),
     prisma.tenantDataDeletion.deleteMany({ where: { tenantId } }),
     prisma.enterpriseLead.deleteMany({ where: { tenantId } }),
-    prisma.notification.deleteMany({ where: { tenantId } }),
+    prisma.notification.deleteMany({ where: { OR: [{ tenantId }, { userId: { in: userIds } }] } }),
+    prisma.invoice.deleteMany({ where: { tenantId } }),
+    prisma.payment.deleteMany({ where: { tenantId } }),
+
+    // 8. Audit logs
     prisma.auditLog.updateMany({
       where: { tenantId },
       data:  { tenantId: null },
     }),
+
+    // 9. Users & Root Tenant
     prisma.user.deleteMany({ where: { tenantId } }),
     prisma.tenant.delete({ where: { id: tenantId } }),
   ]);

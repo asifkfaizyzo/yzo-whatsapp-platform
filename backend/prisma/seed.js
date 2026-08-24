@@ -69,8 +69,8 @@ async function main() {
     {
       name: "Starter",
       description: "Perfect for small businesses getting started",
-      monthlyPrice: 1999,
-      annualPrice: 1499,
+      monthlyPrice: 2999,
+      annualPrice: 2499,
       status: "ACTIVE",
       maxAgents: 3,
       maxBroadcasts: 10000,

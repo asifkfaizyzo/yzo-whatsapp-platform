@@ -9,6 +9,7 @@ import {
   createPaymentOrder,
   verifyPayment,
 } from "../services/plan.service";
+import { PaymentVerifyingLoader, PaymentSuccessScreen } from "../components/CustomLoader";
 
 // Dynamically load Razorpay checkout.js only when needed
 let razorpayScriptPromise = null;
@@ -43,6 +44,7 @@ export default function Payment() {
   const [plan, setPlan] = useState(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const [paid, setPaid] = useState(false);
 
   useEffect(() => {
@@ -105,6 +107,8 @@ export default function Payment() {
 
         // Step 3: Handle payment success
         handler: async function (response) {
+          setProcessing(false);
+          setVerifying(true);
           const verifyRes = await verifyPayment({
             razorpay_order_id:  response.razorpay_order_id,
             razorpay_payment_id: response.razorpay_payment_id,
@@ -114,6 +118,7 @@ export default function Payment() {
           });
 
           if (verifyRes.success) {
+            setVerifying(false);
             setPaid(true);
 
             // Update auth store with new plan info AND approved status
@@ -132,6 +137,7 @@ export default function Payment() {
             }, 2000);
 
           } else {
+            setVerifying(false);
             toast.error("Payment verification failed: " + verifyRes.message);
             setProcessing(false);
           }
@@ -159,6 +165,11 @@ export default function Payment() {
 
       // Open Razorpay
       const razorpayInstance = new window.Razorpay(options);
+      razorpayInstance.on("payment.failed", function (response) {
+        console.error("Razorpay payment failed:", response.error);
+        toast.error(response.error?.description || "Payment failed at bank. Please try again.");
+        setProcessing(false);
+      });
       razorpayInstance.open();
 
     } catch (err) {
@@ -179,40 +190,14 @@ export default function Payment() {
 
   // Payment success screen
   if (paid) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
-        <div className="bg-white rounded-3xl p-10 shadow-lg text-center max-w-sm w-full mx-4">
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg
-              width="40"
-              height="40"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#22c55e"
-              strokeWidth="2.5"
-            >
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Payment Successful! 🎉
-          </h2>
-          <p className="text-gray-500 text-sm mb-1">
-            Welcome to <strong>{plan?.name}</strong> plan.
-          </p>
-          <p className="text-gray-400 text-xs mb-4">
-            Redirecting to your dashboard...
-          </p>
-          <div className="flex justify-center">
-            <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-[#125EF2]"></div>
-          </div>
-        </div>
-      </div>
-    );
+    return <PaymentSuccessScreen planName={plan?.name} />;
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Payment Verifying Overlay */}
+      <PaymentVerifyingLoader visible={verifying} />
+
 
       {/* Header */}
       <div className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
