@@ -36,3 +36,13 @@ export const updateContactSchema = z.object({
     whatsappId: z.string().optional().nullable(),
   }),
 });
+
+
+// Bulk Delete Contacts Validation
+export const bulkDeleteContactsSchema = z.object({
+  body: z.object({
+    contactIds: z
+      .array(z.string({ required_error: 'Contact ID must be a string' }))
+      .min(1, 'At least one contact ID is required'),
+  }),
+});

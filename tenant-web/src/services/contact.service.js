@@ -68,6 +68,29 @@ export const deleteContact = async (contactId) => {
 };
 
 
+
+/**
+ * Bulk delete contacts by IDs
+ */
+export const bulkDeleteContacts = async (contactIds) => {
+  try {
+    const response = await api.post(`${CONTACTS_BASE_URL}/bulk-delete`, {
+      contactIds,
+    });
+    return {
+      success: true,
+      data: response.data.data,
+      message: response.data.message,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to delete contacts",
+    };
+  }
+};
+
+
 /**
  * Update a contact by ID
  */

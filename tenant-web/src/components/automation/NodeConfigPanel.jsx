@@ -48,9 +48,24 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
     }
 
     // ✅ NEW: Load existing media for SEND_MESSAGE nodes
-    if (node.type === "SEND_MESSAGE") {
-      const opts = node.data?.options;
-      if (opts && !Array.isArray(opts) && opts.mediaUrl) {
+        // ✅ Load existing media for SEND_MESSAGE, ASK_QUESTION, and INTERACTIVE_BUTTONS
+    if (
+      node.type === "SEND_MESSAGE" ||
+      node.type === "ASK_QUESTION" ||
+      node.type === "INTERACTIVE_BUTTONS"
+    ) {
+      let opts = node.data?.options;
+      
+      // For buttons, media can be in node.data.media or node.data.options.media
+      if (node.type === "INTERACTIVE_BUTTONS") {
+        opts = node.data?.media || node.data?.options?.media || null;
+        const rawBtns = Array.isArray(node.data?.options)
+          ? node.data.options
+          : node.data?.options?.buttons || [];
+        setButtons(rawBtns);
+      }
+
+      if (opts && typeof opts === "object" && !Array.isArray(opts) && opts.mediaUrl) {
         let type = "image";
         if (opts.mediaType === "VIDEO") type = "video";
         if (opts.mediaType === "FILE") type = "document";
@@ -184,34 +199,28 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
     return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   };
 
+
   const handleUpdate = () => {
     if (!node) return;
 
-    // ── Validation for each node type ──
-    if (node.type === "SEND_MESSAGE") {
-      // For text-only, content is required
+    // ── Media Validation for SEND_MESSAGE, ASK_QUESTION, INTERACTIVE_BUTTONS ──
+    const mediaNodes = ["SEND_MESSAGE", "ASK_QUESTION", "INTERACTIVE_BUTTONS"];
+    if (mediaNodes.includes(node.type)) {
       if (mediaType === "text" && !content.trim()) {
-        toast.warning("Please enter a message");
+        toast.warning(
+          node.type === "ASK_QUESTION" ? "Please enter a question" : "Please enter a message"
+        );
         return;
       }
-      // For media, file must be uploaded
-      if ((mediaType === "image" || mediaType === "video") && !mediaData) {
-        toast.warning(
-          `Please upload ${mediaType === "image" ? "an image" : "a video"}`,
-        );
+      if (mediaType !== "text" && !mediaData) {
+        toast.warning(`Please upload a ${mediaType}`);
         return;
       }
     }
 
-    if (node.type === "ASK_QUESTION") {
-      if (!content.trim()) {
-        toast.warning("Please enter a question");
-        return;
-      }
-      if (!saveAs.trim()) {
-        toast.warning("Please provide a variable name to save the answer");
-        return;
-      }
+    if (node.type === "ASK_QUESTION" && !saveAs.trim()) {
+      toast.warning("Please provide a variable name to save the answer");
+      return;
     }
 
     if (node.type === "CONDITION" && options.length === 0) {
@@ -220,10 +229,6 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
     }
 
     if (node.type === "INTERACTIVE_BUTTONS") {
-      if (!content.trim()) {
-        toast.warning("Please enter a message");
-        return;
-      }
       if (buttons.length === 0) {
         toast.warning("Please add at least one button");
         return;
@@ -235,61 +240,59 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
       }
     }
 
-    // ── Build updated data ──
+    // ── Build Media Payload ──
+    let mediaPayload = null;
+    if (mediaType !== "text" && mediaData) {
+      let finalType = "IMAGE";
+      if (mediaType === "video") finalType = "VIDEO";
+      if (mediaType === "document") finalType = "FILE";
+
+      mediaPayload = {
+        mediaType: finalType,
+        mediaUrl: mediaData.mediaUrl,
+        mediaName: mediaData.mediaName,
+        mediaSize: mediaData.mediaSize,
+        mediaMimeType: mediaData.mediaMimeType,
+      };
+    }
+
+    // ── Build updated node data ──
     let newData = { ...node.data };
+
     if (node.type === "SEND_MESSAGE") {
       newData.content = content;
-      if (mediaType === "text") {
-        newData.options = null;
-      } else if (mediaData) {
-        let finalType = "IMAGE";
-        if (mediaType === "video") finalType = "VIDEO";
-        if (mediaType === "document") finalType = "FILE";
-
-        newData.options = {
-          mediaType: finalType,
-          mediaUrl: mediaData.mediaUrl,
-          mediaName: mediaData.mediaName,
-          mediaSize: mediaData.mediaSize,
-          mediaMimeType: mediaData.mediaMimeType,
-        };
-      }
+      newData.options = mediaPayload;
     }
 
     if (node.type === "ASK_QUESTION") {
       newData.content = content;
-      newData.options = { saveAs };
-    }
-    if (node.type === "CONDITION") newData.options = options;
-    if (node.type === "ASSIGN_AGENT") {
-      newData.assign_type = assignType;
-    }
-    if (node.type === "INTERACTIVE_BUTTONS") {
-      newData.content = content;
-      newData.options = buttons;
+      newData.options = {
+        saveAs: saveAs.trim(),
+        ...(mediaPayload || {}),
+      };
     }
 
-    if (node.type === "ASK_QUESTION") {
-      newData.content = content;
-      newData.options = { saveAs };
-    }
-    if (node.type === "CONDITION") newData.options = options;
-    if (node.type === "ASSIGN_AGENT") {
-      newData.assign_type = assignType;
-    }
     if (node.type === "INTERACTIVE_BUTTONS") {
       newData.content = content;
       newData.options = buttons;
+      newData.media = mediaPayload;
+    }
+
+    if (node.type === "CONDITION") {
+      newData.options = options;
+    }
+
+    if (node.type === "ASSIGN_AGENT") {
+      newData.assign_type = assignType;
     }
 
     onUpdate(node.id, newData);
 
-    // ✅ Show success toast
+    // ✅ Show success toast & auto-close
     toast.success("Node updated successfully");
-
-    // ✅ Auto-close panel
     onClose();
   };
+
 
   // Delete node from config panel
   // Delete node from config panel
@@ -313,6 +316,72 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
     setOptions(updated);
   };
 
+    // ── Render Reusable Vertical Media Selector ──
+  const renderVerticalMediaSelector = () => (
+    <div className="space-y-2">
+      <label className="text-xs font-semibold text-slate-600 block">
+        Message Type
+      </label>
+
+      <div className="space-y-1.5">
+        <button
+          type="button"
+          onClick={() => {
+            setMediaType("text");
+            setMediaData(null);
+          }}
+          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold border transition ${
+            mediaType === "text"
+              ? "bg-[#125EF2] text-white border-[#125EF2]"
+              : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+          }`}
+        >
+          <FileText size={14} />
+          Text
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMediaType("image")}
+          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold border transition ${
+            mediaType === "image"
+              ? "bg-[#125EF2] text-white border-[#125EF2]"
+              : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+          }`}
+        >
+          <ImageIcon size={14} />
+          Image
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMediaType("video")}
+          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold border transition ${
+            mediaType === "video"
+              ? "bg-[#125EF2] text-white border-[#125EF2]"
+              : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+          }`}
+        >
+          <Video size={14} />
+          Video
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMediaType("document")}
+          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold border transition ${
+            mediaType === "document"
+              ? "bg-[#125EF2] text-white border-[#125EF2]"
+              : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+          }`}
+        >
+          <File size={14} />
+          Document
+        </button>
+      </div>
+    </div>
+  );
+
   if (!node) return null;
 
   return (
@@ -331,71 +400,15 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
 
       {/* Config Content */}
       <div className="p-4 flex-1 overflow-y-auto space-y-4">
-        {/* SEND_MESSAGE */}
-        {/* SEND_MESSAGE */}
+        
+        
+              {/* SEND_MESSAGE */}
         {node.type === "SEND_MESSAGE" && (
           <div className="space-y-3">
-            {/* Message Type Tabs */}
-            <div>
-              <label className="text-xs font-semibold text-slate-600 block mb-1.5">
-                Message Type
-              </label>
+            {/* Vertical Media Selector */}
+            {renderVerticalMediaSelector()}
 
-              <div className="grid grid-cols-4 gap-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMediaType("text");
-                    setMediaData(null);
-                  }}
-                  className={`flex items-center justify-center gap-1 py-2 rounded-lg text-[11px] font-semibold border transition ${
-                    mediaType === "text"
-                      ? "bg-[#125EF2] text-white border-[#125EF2]"
-                      : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50"
-                  }`}
-                >
-                  <FileText size={11} />
-                  Text
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMediaType("image")}
-                  className={`flex items-center justify-center gap-1 py-2 rounded-lg text-[11px] font-semibold border transition ${
-                    mediaType === "image"
-                      ? "bg-[#125EF2] text-white border-[#125EF2]"
-                      : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50"
-                  }`}
-                >
-                  <ImageIcon size={11} />
-                  Image
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMediaType("video")}
-                  className={`flex items-center justify-center gap-1 py-2 rounded-lg text-[11px] font-semibold border transition ${
-                    mediaType === "video"
-                      ? "bg-[#125EF2] text-white border-[#125EF2]"
-                      : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50"
-                  }`}
-                >
-                  <Video size={11} />
-                  Video
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMediaType("document")}
-                  className={`flex items-center justify-center gap-1 py-2 rounded-lg text-[11px] font-semibold border transition ${
-                    mediaType === "document"
-                      ? "bg-[#125EF2] text-white border-[#125EF2]"
-                      : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50"
-                  }`}
-                >
-                  <File size={11} />
-                  Doc
-                </button>
-              </div>
-            </div>
-
+            {/* Media Upload Box */}
             {(mediaType === "image" ||
               mediaType === "video" ||
               mediaType === "document") && (
@@ -457,7 +470,6 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
                 ) : (
                   <div className="border border-slate-200 rounded-xl p-2.5 bg-slate-50">
                     <div className="flex items-start gap-2">
-                      {/* Preview icon */}
                       <div className="w-12 h-12 rounded-lg bg-white border border-slate-200 flex items-center justify-center shrink-0">
                         {mediaType === "image" && (
                           <ImageIcon size={20} className="text-[#125EF2]" />
@@ -470,7 +482,6 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
                         )}
                       </div>
 
-                      {/* File info */}
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-semibold text-slate-700 truncate">
                           {mediaData.mediaName}
@@ -483,7 +494,6 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
                         </p>
                       </div>
 
-                      {/* Remove button */}
                       <button
                         type="button"
                         onClick={handleRemoveMedia}
@@ -497,6 +507,7 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
                 )}
               </div>
             )}
+
             {/* Message / Caption */}
             <div>
               <label className="text-xs font-semibold text-slate-600 block mb-1.5">
@@ -519,23 +530,128 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
           </div>
         )}
 
-        {/* ASK_QUESTION */}
+
+                {/* ASK_QUESTION */}
         {node.type === "ASK_QUESTION" && (
-          <>
+          <div className="space-y-3">
+            {/* Vertical Media Selector */}
+            {renderVerticalMediaSelector()}
+
+            {/* Media Upload Box */}
+            {(mediaType === "image" ||
+              mediaType === "video" ||
+              mediaType === "document") && (
+              <div>
+                <label className="text-xs font-semibold text-slate-600 block mb-1.5">
+                  {mediaType === "image"
+                    ? "Image"
+                    : mediaType === "video"
+                      ? "Video"
+                      : "Document"}
+                </label>
+
+                {!mediaData ? (
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    onDrop={handleDrop}
+                    onDragOver={handleDragOver}
+                    className="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center cursor-pointer hover:border-[#125EF2] hover:bg-blue-50/30 transition"
+                  >
+                    {uploading ? (
+                      <div className="flex flex-col items-center gap-2">
+                        <Loader2
+                          size={20}
+                          className="animate-spin text-[#125EF2]"
+                        />
+                        <p className="text-xs text-slate-500">Uploading...</p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-1.5">
+                        <Upload size={20} className="text-slate-400" />
+                        <p className="text-xs font-semibold text-slate-600">
+                          Click to upload {mediaType}
+                        </p>
+                        <p className="text-[10px] text-slate-400">
+                          or drag & drop
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-1">
+                          {mediaType === "image" && "PNG, JPG, WebP (max 5MB)"}
+                          {mediaType === "video" && "MP4, 3GP (max 16MB)"}
+                          {mediaType === "document" &&
+                            "PDF, DOCX, XLSX, TXT (max 25MB)"}
+                        </p>
+                      </div>
+                    )}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept={
+                        mediaType === "image"
+                          ? "image/*"
+                          : mediaType === "video"
+                            ? "video/*"
+                            : ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
+                      }
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                  </div>
+                ) : (
+                  <div className="border border-slate-200 rounded-xl p-2.5 bg-slate-50">
+                    <div className="flex items-start gap-2">
+                      <div className="w-12 h-12 rounded-lg bg-white border border-slate-200 flex items-center justify-center shrink-0">
+                        {mediaType === "image" && (
+                          <ImageIcon size={20} className="text-[#125EF2]" />
+                        )}
+                        {mediaType === "video" && (
+                          <Video size={20} className="text-[#125EF2]" />
+                        )}
+                        {mediaType === "document" && (
+                          <File size={20} className="text-[#125EF2]" />
+                        )}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-slate-700 truncate">
+                          {mediaData.mediaName}
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">
+                          {formatFileSize(mediaData.mediaSize)}
+                        </p>
+                        <p className="text-[10px] text-emerald-600 font-medium mt-0.5">
+                          ✓ Uploaded
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleRemoveMedia}
+                        className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition"
+                        title="Remove media"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div>
               <label className="text-xs font-semibold text-slate-600 block mb-1.5">
-                Question
+                {mediaType === "text" ? "Question" : "Question / Caption"}
               </label>
               <textarea
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 placeholder="Type your question..."
-                rows={4}
+                rows={3}
                 className="w-full text-sm border border-slate-200 rounded-xl 
                   p-3 resize-none focus:outline-none 
                   focus:border-amber-400 transition"
               />
             </div>
+
             <div>
               <label className="text-xs font-semibold text-slate-600 block mb-1.5">
                 Save answer as
@@ -548,8 +664,15 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
                   p-2.5 focus:outline-none focus:border-amber-400 transition"
               />
             </div>
-          </>
+          </div>
         )}
+
+
+
+
+
+
+    
 
         {/* CONDITION */}
         {/* CONDITION Config */}
@@ -646,13 +769,118 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
           </div>
         )}
 
-        {/* ⭐ INTERACTIVE_BUTTONS */}
+
+              {/* ⭐ INTERACTIVE_BUTTONS */}
         {node.type === "INTERACTIVE_BUTTONS" && (
           <div className="space-y-3">
+            {/* Vertical Media Selector */}
+            {renderVerticalMediaSelector()}
+
+            {/* Media Upload Box */}
+            {(mediaType === "image" ||
+              mediaType === "video" ||
+              mediaType === "document") && (
+              <div>
+                <label className="text-xs font-semibold text-slate-600 block mb-1.5">
+                  Header{" "}
+                  {mediaType === "image"
+                    ? "Image"
+                    : mediaType === "video"
+                      ? "Video"
+                      : "Document"}
+                </label>
+
+                {!mediaData ? (
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    onDrop={handleDrop}
+                    onDragOver={handleDragOver}
+                    className="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center cursor-pointer hover:border-[#125EF2] hover:bg-blue-50/30 transition"
+                  >
+                    {uploading ? (
+                      <div className="flex flex-col items-center gap-2">
+                        <Loader2
+                          size={20}
+                          className="animate-spin text-[#125EF2]"
+                        />
+                        <p className="text-xs text-slate-500">Uploading...</p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-1.5">
+                        <Upload size={20} className="text-slate-400" />
+                        <p className="text-xs font-semibold text-slate-600">
+                          Click to upload {mediaType} header
+                        </p>
+                        <p className="text-[10px] text-slate-400">
+                          or drag & drop
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-1">
+                          {mediaType === "image" && "PNG, JPG, WebP (max 5MB)"}
+                          {mediaType === "video" && "MP4, 3GP (max 16MB)"}
+                          {mediaType === "document" &&
+                            "PDF, DOCX, XLSX, TXT (max 25MB)"}
+                        </p>
+                      </div>
+                    )}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept={
+                        mediaType === "image"
+                          ? "image/*"
+                          : mediaType === "video"
+                            ? "video/*"
+                            : ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
+                      }
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                  </div>
+                ) : (
+                  <div className="border border-slate-200 rounded-xl p-2.5 bg-slate-50">
+                    <div className="flex items-start gap-2">
+                      <div className="w-12 h-12 rounded-lg bg-white border border-slate-200 flex items-center justify-center shrink-0">
+                        {mediaType === "image" && (
+                          <ImageIcon size={20} className="text-[#125EF2]" />
+                        )}
+                        {mediaType === "video" && (
+                          <Video size={20} className="text-[#125EF2]" />
+                        )}
+                        {mediaType === "document" && (
+                          <File size={20} className="text-[#125EF2]" />
+                        )}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-slate-700 truncate">
+                          {mediaData.mediaName}
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">
+                          {formatFileSize(mediaData.mediaSize)}
+                        </p>
+                        <p className="text-[10px] text-emerald-600 font-medium mt-0.5">
+                          ✓ Uploaded
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleRemoveMedia}
+                        className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition"
+                        title="Remove media"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Body message */}
             <div>
               <label className="text-xs font-semibold text-slate-600 block mb-1.5">
-                Message
+                {mediaType === "text" ? "Message" : "Body Message"}
               </label>
               <textarea
                 value={content}
@@ -660,8 +888,8 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
                 placeholder="e.g. How can we help you today?"
                 rows={3}
                 className="w-full text-sm border border-slate-200 rounded-xl
-          p-3 resize-none focus:outline-none
-          focus:border-green-400 transition"
+                  p-3 resize-none focus:outline-none
+                  focus:border-green-400 transition"
               />
             </div>
 
@@ -718,8 +946,8 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
                       placeholder="Button label (max 20 chars)"
                       maxLength={20}
                       className="w-full text-xs border border-green-200
-                rounded-md p-1.5 focus:outline-none
-                focus:border-green-400 bg-white transition"
+                        rounded-md p-1.5 focus:outline-none
+                        focus:border-green-400 bg-white transition"
                     />
 
                     {/* Character count + ID */}
@@ -749,7 +977,7 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
                     ]);
                   }}
                   className="mt-2 flex items-center gap-1.5 text-xs
-            font-semibold text-green-600 hover:text-green-700 transition"
+                    font-semibold text-green-600 hover:text-green-700 transition"
                 >
                   <Plus size={13} />
                   Add Button

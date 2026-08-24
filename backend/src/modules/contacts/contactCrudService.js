@@ -408,6 +408,57 @@ export const deleteContact = async (contactId, tenantId) => {
 
 
 
+// ===================== BULK DELETE CONTACTS =====================
+export const bulkDeleteContacts = async (contactIds, tenantId) => {
+    if (!contactIds || !Array.isArray(contactIds) || contactIds.length === 0) {
+        throw new Error('At least one contact ID is required');
+    }
+    if (!tenantId) {
+        throw new Error('Tenant ID is required');
+    }
+
+    // 1. Fetch valid contact IDs that belong strictly to this Tenant
+    const existingContacts = await prisma.contact.findMany({
+        where: {
+            id: { in: contactIds },
+            tenantId,
+        },
+        select: { id: true },
+    });
+
+    if (existingContacts.length === 0) {
+        throw new Error('No valid contacts found to delete');
+    }
+
+    const idsToDelete = existingContacts.map((c) => c.id);
+
+    // 2. Perform Transactional Delete to clean up Foreign Key mappings
+    await prisma.$transaction([
+        prisma.contactTagMapping.deleteMany({
+            where: { contactId: { in: idsToDelete } },
+        }),
+        prisma.broadcastRecipient.deleteMany({
+            where: { contactId: { in: idsToDelete } },
+        }),
+        prisma.conversation.deleteMany({
+            where: { contactId: { in: idsToDelete } },
+        }),
+        prisma.contact.deleteMany({
+            where: {
+                id: { in: idsToDelete },
+                tenantId,
+            },
+        }),
+    ]);
+
+    return {
+        message: 'Contacts successfully deleted',
+        deletedCount: idsToDelete.length,
+        deletedIds: idsToDelete,
+    };
+};
+
+
 // ===================== BLOCK CONTACT =====================
 export const blockContact = async (contactId, tenantId) => {
 

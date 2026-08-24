@@ -5,7 +5,7 @@ import prisma from '../../config/prisma.js';
 import { assignByPriority } from './userContactService.js';
 import {
     createContact, getAllContacts, getContactById, updateContact,
-    deleteContact, blockContact, unblockContact, addTagToContact,
+    deleteContact,  bulkDeleteContacts, blockContact, unblockContact, addTagToContact,
     checkContactTagMapping, getContactTags, getTagById, getContactsByUserId,
     importContactsFromCSV, removeTagFromContact,
 } from './contactCrudService.js';
@@ -93,6 +93,34 @@ export const deleteContactController = async (req, res) => {
         return res.status(400).json({ success: false, message: error.message });
     }
 };
+
+
+// 5b.===================== BULK DELETE CONTACTS =====================
+export const bulkDeleteContactsController = async (req, res) => {
+    try {
+        if (req.userType !== 'TENANT') {
+            return res.status(403).json({
+                success: false,
+                message: "Only tenant admins can delete contacts"
+            });
+        }
+        
+        const { contactIds } = req.body;
+        const tenantId = req.tenantId;
+
+        const result = await bulkDeleteContacts(contactIds, tenantId);
+        
+        return res.status(200).json({ 
+            success: true, 
+            message: `${result.deletedCount} contacts successfully deleted`,
+            data: result 
+        });
+    } catch (error) {
+        return res.status(400).json({ success: false, message: error.message });
+    }
+};
+
+
 
 // 6.===================== BLOCK CONTACT =====================
 export const blockContactController = async (req, res) => {

@@ -11,6 +11,7 @@ import {
   RefreshCw,
   Search,
   Filter,
+  TicketCheck,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -26,11 +27,12 @@ import { useAdminAuthStore } from "../../store/useAdminAuthStore";
 
 const NOTIF_TYPES = [
   { value: "all", label: "All Types" },
+  { value: "new_ticket", label: "Tickets" },
   { value: "tenant_payment", label: "Payments" },
   { value: "tenant_registered", label: "New Tenants" },
   { value: "plan_upgraded", label: "Upgrades" },
   { value: "tenant_suspended", label: "Suspensions" },
-  { value: "whatsapp_connected",    label: "WA Connected" },
+  { value: "whatsapp_connected", label: "WA Connected" },
   { value: "whatsapp_disconnected", label: "WA Disconnected" },
 ];
 
@@ -72,7 +74,7 @@ const Notifications = () => {
     loadNotifications();
   }, [page, filter, typeFilter]);
 
-    // ✅ Live socket listener for real-time SuperAdmin notifications on this page
+  // ✅ Live socket listener for real-time SuperAdmin notifications on this page
   useEffect(() => {
     const token = useAdminAuthStore.getState().accessToken;
     if (!token) return;
@@ -86,7 +88,6 @@ const Notifications = () => {
       const newNotif = data.notification;
       console.log("🔔 Live SuperAdmin notification received on page:", newNotif);
 
-      // Check if incoming notification matches active filters
       const matchesFilter =
         filter === "all" ||
         (filter === "unread" && !newNotif.isRead) ||
@@ -95,16 +96,13 @@ const Notifications = () => {
       const matchesType =
         typeFilter === "all" || typeFilter === newNotif.type;
 
-      // Only insert into the current list view if on Page 1 & matches filters
       if (matchesFilter && matchesType && page === 1) {
         setNotifications((prev) => {
-          // Prevent duplicates
           if (prev.some((n) => n.id === newNotif.id)) return prev;
           return [newNotif, ...prev].slice(0, LIMIT);
         });
       }
 
-      // Always increment counts if unread
       if (!newNotif.isRead) {
         setUnreadCount((c) => c + 1);
         setTotal((t) => t + 1);
@@ -141,6 +139,12 @@ const Notifications = () => {
 
     const meta = notif.metadata || {};
     switch (notif.type) {
+      case "new_ticket":
+      case "ticket_reply":
+      case "ticket_escalated":
+        navigate(`/dashboard/tickets?ticketId=${meta.ticketId || ""}`);
+        break;
+
       case "tenant_payment":
         navigate(
           meta.tenantId
@@ -148,15 +152,24 @@ const Notifications = () => {
             : "/dashboard/revenue"
         );
         break;
+
       case "tenant_registered":
         navigate("/dashboard/tenants");
         break;
+
       case "plan_upgraded":
         navigate("/dashboard/revenue");
         break;
+
       case "tenant_suspended":
         navigate("/dashboard/tenants");
         break;
+
+      case "whatsapp_connected":
+      case "whatsapp_disconnected":
+        navigate("/dashboard/tenants");
+        break;
+
       default:
         navigate("/dashboard");
     }
@@ -199,6 +212,14 @@ const Notifications = () => {
   // ── Icon per notif type ──
   const getNotifIcon = (type) => {
     switch (type) {
+      case "new_ticket":
+      case "ticket_reply":
+      case "ticket_escalated":
+        return (
+          <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+            <TicketCheck size={18} className="text-blue-600" />
+          </div>
+        );
       case "tenant_payment":
         return (
           <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
@@ -272,8 +293,9 @@ const Notifications = () => {
             title="Refresh"
           >
             <RefreshCw
-              className={`w-4 h-4 text-slate-600 ${loading ? "animate-spin" : ""
-                }`}
+              className={`w-4 h-4 text-slate-600 ${
+                loading ? "animate-spin" : ""
+              }`}
             />
           </button>
           {unreadCount > 0 && (
@@ -306,10 +328,11 @@ const Notifications = () => {
                 setFilter(f);
                 setPage(1);
               }}
-              className={`px-4 py-1.5 text-xs font-semibold capitalize rounded-lg transition ${filter === f
+              className={`px-4 py-1.5 text-xs font-semibold capitalize rounded-lg transition ${
+                filter === f
                   ? "bg-white text-[#125EF2] shadow-sm"
                   : "text-slate-500 hover:text-slate-700"
-                }`}
+              }`}
             >
               {f}
               {f === "unread" && unreadCount > 0 && (
@@ -369,8 +392,8 @@ const Notifications = () => {
               {searchQuery
                 ? "No matching notifications"
                 : filter === "unread"
-                  ? "No unread notifications"
-                  : "No notifications yet"}
+                ? "No unread notifications"
+                : "No notifications yet"}
             </p>
             <p className="text-xs text-slate-400 mt-1">
               {searchQuery
@@ -383,16 +406,18 @@ const Notifications = () => {
             <div
               key={notif.id}
               onClick={() => handleClick(notif)}
-              className={`group flex items-start gap-3 px-5 py-4 border-b border-slate-50 last:border-0 hover:bg-slate-50 cursor-pointer transition ${!notif.isRead ? "bg-blue-50/30" : ""
-                }`}
+              className={`group flex items-start gap-3 px-5 py-4 border-b border-slate-50 last:border-0 hover:bg-slate-50 cursor-pointer transition ${
+                !notif.isRead ? "bg-blue-50/30" : ""
+              }`}
             >
               {getNotifIcon(notif.type)}
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-2">
                   <p
-                    className={`text-sm text-slate-800 ${!notif.isRead ? "font-bold" : "font-semibold"
-                      }`}
+                    className={`text-sm text-slate-800 ${
+                      !notif.isRead ? "font-bold" : "font-semibold"
+                    }`}
                   >
                     {notif.title}
                   </p>

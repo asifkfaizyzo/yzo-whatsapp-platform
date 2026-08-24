@@ -218,11 +218,12 @@ export const processWebhookJob = async (job) => {
       });
 
       // Also keep corresponding conversation Message status in sync if wamid matches
-      try {
+            try {
         await prisma.message.updateMany({
           where: { wamid },
           data: {
-            status: updatedStatus.toLowerCase(),
+            status: status,
+            isRead: status === 'read',
             ...(updateData.deliveredAt ? { deliveredAt: updateData.deliveredAt } : {}),
             ...(updateData.readAt ? { readAt: updateData.readAt } : {}),
             ...(updateData.failedAt ? { failedAt: updateData.failedAt } : {}),
@@ -252,13 +253,17 @@ export const processWebhookJob = async (job) => {
         failed: broadcast.failed,
         status: broadcast.status
       });
-    } else {
+        } else {
       // ── Handle 1-on-1 Message Status Receipt ──
       const messageToUpdate = await prisma.message.findUnique({
         where: { wamid },
+        include: { conversation: true },
       });
       if (messageToUpdate) {
-        const msgUpdateData = { status };
+        const msgUpdateData = {
+          status,
+          isRead: status === 'read',
+        };
         if (status === 'delivered') msgUpdateData.deliveredAt = new Date();
         if (status === 'read') msgUpdateData.readAt = new Date();
         if (status === 'failed') {
@@ -270,18 +275,33 @@ export const processWebhookJob = async (job) => {
           where: { wamid },
           data: msgUpdateData,
         });
+
+        // Emit real-time tick update to frontend
+        const tenantId = messageToUpdate.conversation?.tenantId;
+        if (tenantId) {
+          emitToTenant(tenantId, 'message_status_update', {
+            messageId: messageToUpdate.id,
+            conversationId: messageToUpdate.conversationId,
+            wamid,
+            status,
+            deliveredAt: msgUpdateData.deliveredAt || null,
+            readAt: msgUpdateData.readAt || null,
+            failureReason: msgUpdateData.failureReason || null,
+          });
+        }
       }
     }
 
-    return; // ✅ status handled, stop here
+    return; // ✅ status handled, stop here // ✅ status handled, stop here
   }
 
 
   // ═══════════════════════════════════════════════════════════
   // B. Handle Incoming Messages (TEXT + MEDIA)
   // ═══════════════════════════════════════════════════════════
-  if (message) {
+       if (message) {
     const messageId = message.id;
+    console.log('📥 [META WEBHOOK INBOUND WAMID]:', messageId); // ← ADD DEBUG LOG
 
     // ── Idempotency check ──────────────────────────────────
     const isNew = await isNewWebhookEvent(`msg:${messageId}`);
@@ -546,7 +566,7 @@ export const processWebhookJob = async (job) => {
     }
 
     // ── Save message via service ───────────────────────────
-    const result = await handleIncomingMessage({
+        const result = await handleIncomingMessage({
       contactId: contact.id,
       tenantId: tenant.id,
       text,
@@ -557,10 +577,11 @@ export const processWebhookJob = async (job) => {
       mediaMimeType,
       caption,
       isNewContact,
-      locLatitude, 
-      locLongitude,  
-      locName,       
-      locAddress,    
+      locLatitude,
+      locLongitude,
+      locName,
+      locAddress,
+      wamid: messageId,
     });
 
     // ── Socket: emit to tenant room ────────────────────────

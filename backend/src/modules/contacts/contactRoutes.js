@@ -17,6 +17,7 @@ import {
     getContactByIdController,
     updateContactController,
     deleteContactController,
+    bulkDeleteContactsController,
     blockContactController,
     unblockContactController,
     addTagToContactController,
@@ -28,7 +29,8 @@ import {
 import {
     createContactSchema,
     updateContactSchema,
-    contactIdParamSchema
+    contactIdParamSchema,
+    bulkDeleteContactsSchema 
 } from '../../validations/contact.validation.js';
 
 // ✅ Import tag functions from contactCrudService
@@ -58,6 +60,8 @@ router.get('/get-contact/:id', verifyTenantOrUser, checkSubscriptionAccess, vali
 router.put('/update-contact/:id', verifyTenantOrUser, checkSubscriptionAccess, validate(updateContactSchema), updateContactController);
 
 router.delete('/delete-contact/:id', verifyTenant, checkSubscriptionAccess, validate(contactIdParamSchema), deleteContactController);
+
+router.post('/bulk-delete', verifyTenantOrUser, checkSubscriptionAccess, validate(bulkDeleteContactsSchema), bulkDeleteContactsController);
 
 router.patch('/block-contact/:id', verifyTenantOrUser, checkSubscriptionAccess, validate(contactIdParamSchema), blockContactController);
 

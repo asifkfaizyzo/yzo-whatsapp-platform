@@ -21,6 +21,7 @@ router.put('/:id',                flowController.saveFlow)
 router.delete('/:id',             flowController.deleteFlow)
 router.patch('/:id/toggle',       flowController.toggleFlow)
 router.patch('/:id/set-default',  flowController.setDefault)
+router.patch('/:id/unset-default', flowController.unsetDefault)
 
 // ── Keyword Routes ──
 router.get('/keywords/all',        flowController.getAllKeywords)

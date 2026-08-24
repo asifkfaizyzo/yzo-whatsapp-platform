@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom"; 
 import {
   TicketCheck,
   RefreshCw,
@@ -666,11 +667,21 @@ const TicketDetail = ({ ticketId, onBack }) => {
 // ══════════════════════════════════════════
 // MAIN TICKETS PAGE
 // ══════════════════════════════════════════
-export default function Tickets() {
+  export default function Tickets() {
+  const [searchParams, setSearchParams] = useSearchParams(); // ✅ Added
+  const ticketIdParam = searchParams.get("ticketId"); // ✅ Get ticketId from URL
+
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedTicketId, setSelectedTicketId] = useState(null);
+
+  // ✅ Auto-select ticket if ticketId parameter exists in the URL
+  useEffect(() => {
+    if (ticketIdParam) {
+      setSelectedTicketId(ticketIdParam);
+    }
+  }, [ticketIdParam]);
 
   // ── Filters ──
   const [filterStatus, setFilterStatus] = useState("ALL");
@@ -755,12 +766,13 @@ export default function Tickets() {
     );
   }
 
-  if (selectedTicketId) {
+    if (selectedTicketId) {
     return (
       <TicketDetail
         ticketId={selectedTicketId}
         onBack={() => {
           setSelectedTicketId(null);
+          setSearchParams({}); // ✅ Clears the '?ticketId=xxx' from URL
           fetchTickets();
         }}
       />
