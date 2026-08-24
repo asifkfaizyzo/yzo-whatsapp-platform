@@ -18,6 +18,10 @@ import {
   UserX,
   ShieldOff,
   AlertCircle,
+  FileSpreadsheet,
+  Download,
+  CheckCircle2,
+  Info,
 } from "lucide-react";
 import {
   getContacts,
@@ -28,6 +32,8 @@ import {
   blockContact,
   unblockContact,
   importContacts,
+  getImportGuidelines,
+  downloadSampleCSV,
 } from "../../services/contact.service";
 import Pagination from "../../components/Pagination";
 import { useFormHandler } from "../../hooks/useFormHandler";
@@ -58,6 +64,7 @@ export default function Contacts() {
   const [contacts, setContacts] = useState([]);
   const [selectedContactIds, setSelectedContactIds] = useState([]);
   const [bulkAgentId, setBulkAgentId] = useState("");
+  const [selectAllAcrossPages, setSelectAllAcrossPages] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [search, setSearch] = useState("");
@@ -139,6 +146,14 @@ export default function Contacts() {
 
   const [importing, setImporting] = useState(false);
   const [importSummary, setImportSummary] = useState(null);
+
+  // ✅ New states for CSV Tutorial & Guidelines Modal
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importGuidelines, setImportGuidelines] = useState(null);
+  const [loadingGuidelines, setLoadingGuidelines] = useState(false);
+  const [selectedImportFile, setSelectedImportFile] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
+
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
@@ -154,8 +169,11 @@ export default function Contacts() {
     return () => clearTimeout(handler);
   }, [search]);
 
-  useEffect(() => {
+   useEffect(() => {
     fetchContacts();
+    // ✅ Reset cross-page selection when filters change
+    setSelectAllAcrossPages(false);
+    setSelectedContactIds([]);
   }, [page, limit, debouncedSearch, filter]);
 
   const fetchContacts = async () => {
@@ -172,35 +190,80 @@ export default function Contacts() {
     setLoading(false);
   };
 
-  const handleImportCSV = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  
+  const openFilePicker = () => {
+  const input = document.getElementById("csv-file-input-modal");
+  if (input) input.click();
+};
 
-    if (!isWhatsAppConnected) {
-      setShowConnectModal(true);
-      e.target.value = "";
-      return;
-    }
+const validateCsvFile = (file) => {
+  if (!file) return "Please select a file.";
+  const name = (file.name || "").toLowerCase();
+  if (!name.endsWith(".csv")) return "Only .csv files are allowed.";
+  const maxSize = 5 * 1024 * 1024; // 5MB
+  if (file.size > maxSize) return "File too large. Maximum size is 5MB.";
+  return null;
+};
 
-    if (!file.name.endsWith(".csv")) {
-      toast.error("Please upload a valid CSV file.");
-      e.target.value = "";
-      return;
-    }
+const handleFileChosen = (file) => {
+  const error = validateCsvFile(file);
+  if (error) {
+    toast.error(error);
+    setSelectedImportFile(null);
+    return;
+  }
+  setSelectedImportFile(file);
+};
 
-    setImporting(true);
-    const res = await importContacts(file);
-    setImporting(false);
-    e.target.value = "";
+const handleImportFileInputChange = (e) => {
+  const file = e.target.files?.[0];
+  e.target.value = "";
+  if (!file) return;
+  handleFileChosen(file);
+};
 
-    if (res.success) {
-      setImportSummary(res.data.summary || res.data);
-      toast.success("Contacts imported successfully!");
-      fetchContacts();
-    } else {
-      toast.error(res.message);
-    }
-  };
+const handleDrop = (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  setIsDragging(false);
+  const file = e.dataTransfer.files?.[0];
+  if (!file) return;
+  handleFileChosen(file);
+};
+
+const handleDownloadSample = async () => {
+  const res = await downloadSampleCSV();
+  if (!res.success) {
+    toast.error(res.message || "Failed to download sample CSV");
+    return;
+  }
+  toast.success("Sample CSV downloaded");
+};
+
+const handleConfirmImport = async () => {
+  if (!isWhatsAppConnected) {
+    setShowConnectModal(true);
+    return;
+  }
+  if (!selectedImportFile) {
+    toast.warning("Please select a CSV file first.");
+    return;
+  }
+
+  setImporting(true);
+  const res = await importContacts(selectedImportFile);
+  setImporting(false);
+
+  if (res.success) {
+    setShowImportModal(false);
+    setSelectedImportFile(null);
+    setImportSummary(res.data.summary || res.data);
+    toast.success("CSV imported successfully!");
+    fetchContacts();
+  } else {
+    toast.error(res.message || "Failed to import contacts");
+  }
+};
 
   const handleCloseModal = () => {
     setShowModal(false);
@@ -370,18 +433,21 @@ export default function Contacts() {
     }
   };
 
-  // ✅ BULK DELETE HANDLER (WITH CONFIRMATION & TOAST)
+
+  // ✅ UPGRADED BULK DELETE HANDLER (WATI STYLE)
   const handleBulkDelete = async () => {
     if (!isWhatsAppConnected) {
       setShowConnectModal(true);
       return;
     }
-    if (selectedContactIds.length === 0) {
+    
+    const count = selectAllAcrossPages ? totalContacts : selectedContactIds.length;
+    
+    if (count === 0) {
       toast.warning("Please select at least one contact to delete.");
       return;
     }
 
-    const count = selectedContactIds.length;
     const ok = await confirm({
       type: "danger",
       title: "Delete Contacts?",
@@ -390,20 +456,31 @@ export default function Contacts() {
     });
     if (!ok) return;
 
-    const res = await bulkDeleteContacts(selectedContactIds);
+    let res;
+    
+    if (selectAllAcrossPages) {
+      // 🚀 Send filters to backend to delete across all 162 pages
+      const activeFilters = {
+        search: debouncedSearch,
+        assignedFilter: filter === 'assigned' ? 'assigned' : filter === 'unassigned' ? 'unassigned' : 'all'
+      };
+      res = await bulkDeleteContacts([], 'filter', activeFilters);
+    } else {
+      // 🗑️ Delete only the checked boxes on current page
+      res = await bulkDeleteContacts(selectedContactIds, 'selected');
+    }
 
     if (res.success) {
       toast.success(res.message || "Contacts successfully deleted");
       setSelectedContactIds([]);
-      if (contacts.length === count && page > 1) {
-        setPage((prev) => prev - 1);
-      } else {
-        fetchContacts();
-      }
+      setSelectAllAcrossPages(false);
+      setPage(1); // Reset to page 1
+      fetchContacts();
     } else {
       toast.error(res.message);
     }
   };
+
 
   useEffect(() => {
     const fetchAgents = async () => {
@@ -442,31 +519,35 @@ export default function Contacts() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {isAdmin && (
-            <>
-              <input
-                type="file"
-                id="csv-file-input"
-                accept=".csv"
-                onChange={handleImportCSV}
-                className="hidden"
-                disabled={importing}
-              />
-              <label
-                onClick={(e) => {
-                  if (!isWhatsAppConnected) {
-                    e.preventDefault();
-                    setShowConnectModal(true);
-                  }
-                }}
-                htmlFor={isWhatsAppConnected ? "csv-file-input" : undefined}
-                className={`btn-secondary flex items-center justify-center gap-2 text-sm shadow-sm cursor-pointer ${importing ? "opacity-60 cursor-not-allowed" : ""}`}
-              >
-                <Upload size={16} className={importing ? "animate-spin" : ""} />
-                <span>{importing ? "Importing..." : "Import CSV"}</span>
-              </label>
-            </>
-          )}
+
+                  {isAdmin && (
+          <button
+            type="button"
+            onClick={async () => {
+              if (!isWhatsAppConnected) {
+                setShowConnectModal(true);
+                return;
+              }
+              setShowImportModal(true);
+              setSelectedImportFile(null);
+              setLoadingGuidelines(true);
+              const res = await getImportGuidelines();
+              setLoadingGuidelines(false);
+              if (res.success) {
+                setImportGuidelines(res.data);
+              } else {
+                setImportGuidelines(null);
+                toast.error(res.message || "Could not load guidelines");
+              }
+            }}
+            className="btn-secondary flex items-center justify-center gap-2 text-sm shadow-sm"
+            disabled={importing}
+          >
+            <Upload size={16} className={importing ? "animate-spin" : ""} />
+            <span>{importing ? "Importing..." : "Import CSV"}</span>
+          </button>
+        )}
+
           <button
             onClick={() => {
               if (!isWhatsAppConnected) {
@@ -607,6 +688,36 @@ export default function Contacts() {
 
 
         {/* Contacts Table */}
+        
+                {/* ✅ WATI-STYLE CROSS-PAGE SELECTION BANNER */}
+        {isAdmin && activeContacts.length > 0 && selectedContactIds.length === activeContacts.length && totalContacts > activeContacts.length && !selectAllAcrossPages && (
+          <div className="bg-[#EAF2FE] border-b border-[#CFE0FD] px-4 py-2.5 text-center text-xs text-[#0D47A1] animate-in fade-in slide-in-from-top-1">
+            All <strong>{selectedContactIds.length}</strong> contacts on this page are selected.
+            <button 
+              onClick={() => setSelectAllAcrossPages(true)} 
+              className="ml-2 font-bold text-[#125EF2] hover:underline"
+            >
+              Select all {totalContacts} contacts matching this filter
+            </button>
+          </div>
+        )}
+
+        {isAdmin && selectAllAcrossPages && (
+          <div className="bg-blue-100 border-b border-blue-200 px-4 py-2.5 text-center text-xs text-blue-900 font-medium animate-in fade-in">
+            ✅ All <strong>{totalContacts}</strong> contacts matching this filter are selected.
+            <button 
+              onClick={() => {
+                setSelectAllAcrossPages(false);
+                setSelectedContactIds([]);
+              }} 
+              className="ml-2 font-bold text-blue-600 hover:underline"
+            >
+              Clear selection
+            </button>
+          </div>
+        )}
+
+
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -1075,6 +1186,204 @@ export default function Contacts() {
         </div>,
         document.body
       )}
+
+
+            {/* ===================== CSV IMPORT GUIDELINES MODAL ===================== */}
+      {showImportModal && createPortal(
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-150">
+            
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-[#EAF2FE] text-[#125EF2]">
+                  <FileSpreadsheet size={18} />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-slate-800">Import Contacts</h2>
+                  <p className="text-[11px] text-slate-500 font-medium">
+                    Follow the format below for a successful import
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  if (importing) return;
+                  setShowImportModal(false);
+                  setSelectedImportFile(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-50 transition"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
+              {loadingGuidelines ? (
+                <div className="py-10 text-center text-sm text-slate-500 font-medium">
+                  Loading guidelines...
+                </div>
+              ) : (
+                <>
+                  {/* Required */}
+                  <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Info size={14} className="text-[#125EF2]" />
+                      <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+                        Required Columns
+                      </h3>
+                    </div>
+                    <ul className="space-y-1.5 text-xs text-slate-600">
+                      <li>
+                        <span className="font-bold text-slate-800">name</span> — Contact full name
+                        <span className="text-slate-400"> (e.g. Nair)</span>
+                      </li>
+                      <li>
+                        <span className="font-bold text-slate-800">phone</span> — Digits only, with country code
+                        <span className="text-slate-400"> (e.g. 919876543210)</span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  {/* Optional */}
+                  <div className="rounded-2xl border border-slate-100 bg-white p-4">
+                    <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wide mb-2">
+                      Optional Columns
+                    </h3>
+                    <ul className="space-y-1.5 text-xs text-slate-600">
+                      <li><span className="font-semibold">email</span> — valid email</li>
+                      <li><span className="font-semibold">company</span> — company name</li>
+                      <li><span className="font-semibold">countryCode</span> — e.g. +91 (defaults to +91)</li>
+                      <li><span className="font-semibold">tags</span> — comma-separated, must already exist</li>
+                    </ul>
+                  </div>
+
+                  {/* Rules */}
+                  <div className="rounded-2xl border border-amber-100 bg-amber-50/80 p-4">
+                    <h3 className="text-xs font-bold text-amber-900 uppercase tracking-wide mb-2">
+                      Important Rules
+                    </h3>
+                    <ul className="space-y-1.5 text-xs text-amber-900/90 list-disc pl-4">
+                      <li>First row must be headers.</li>
+                      <li>
+                        Recommended headers:{" "}
+                        <span className="font-mono font-semibold">
+                          name,phone,email,company,countryCode,tags
+                        </span>
+                      </li>
+                      <li>
+                        In Excel, set phone column as <strong>Text</strong> before export to avoid{" "}
+                        <span className="font-mono">9.18E+11</span>.
+                      </li>
+                      <li>Phone must not contain letters.</li>
+                      <li>Invalid rows are skipped and shown in the import summary.</li>
+                      <li>Duplicate phone numbers are skipped.</li>
+                    </ul>
+                  </div>
+
+                  {/* Sample download */}
+                  <button
+                    type="button"
+                    onClick={handleDownloadSample}
+                    className="w-full btn-secondary flex items-center justify-center gap-2 text-xs font-semibold py-2.5"
+                  >
+                    <Download size={15} />
+                    Download Sample CSV Template
+                  </button>
+
+                  {/* Upload zone */}
+                  <div
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setIsDragging(true);
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault();
+                      setIsDragging(false);
+                    }}
+                    onDrop={handleDrop}
+                    className={`rounded-2xl border-2 border-dashed p-6 text-center transition ${
+                      isDragging
+                        ? "border-[#125EF2] bg-[#EAF2FE]/60"
+                        : "border-slate-200 bg-slate-50/40"
+                    }`}
+                  >
+                    <Upload className="mx-auto text-slate-400 mb-2" size={22} />
+                    <p className="text-xs font-semibold text-slate-700">
+                      Drag & drop your .csv file here
+                    </p>
+                    <p className="text-[11px] text-slate-500 mt-1 mb-3">
+                      or browse from your computer (Max 5MB)
+                    </p>
+
+                    <input
+                      id="csv-file-input-modal"
+                      type="file"
+                      accept=".csv,text/csv"
+                      className="hidden"
+                      onChange={handleImportFileInputChange}
+                      disabled={importing}
+                    />
+
+                    <button
+                      type="button"
+                      onClick={openFilePicker}
+                      disabled={importing}
+                      className="btn-primary text-xs py-2 px-4"
+                    >
+                      Browse CSV File
+                    </button>
+
+                    {selectedImportFile && (
+                      <div className="mt-4 inline-flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-3 py-2 text-xs text-slate-700">
+                        <CheckCircle2 size={14} className="text-emerald-500" />
+                        <span className="font-semibold truncate max-w-[220px]">
+                          {selectedImportFile.name}
+                        </span>
+                        <button
+                          type="button"
+                          className="text-slate-400 hover:text-rose-500 ml-1"
+                          onClick={() => setSelectedImportFile(null)}
+                          title="Remove file"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Footer actions */}
+            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-2 bg-slate-50/40">
+              <button
+                type="button"
+                onClick={() => {
+                  if (importing) return;
+                  setShowImportModal(false);
+                  setSelectedImportFile(null);
+                }}
+                className="btn-secondary py-2 px-3 text-[11px] font-semibold"
+                disabled={importing}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmImport}
+                disabled={importing || !selectedImportFile}
+                className="btn-primary py-2 px-4 text-[11px] font-bold disabled:opacity-50"
+              >
+                {importing ? "Importing..." : "Confirm Import"}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+
 
       {/* WhatsApp Connection Required Modal */}
       <WhatsAppRequiredModal

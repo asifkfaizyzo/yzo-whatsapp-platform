@@ -72,21 +72,21 @@ export const deleteContact = async (contactId) => {
 /**
  * Bulk delete contacts by IDs
  */
-export const bulkDeleteContacts = async (contactIds) => {
+/**
+ * Bulk delete contacts by IDs or Filters
+ */
+export const bulkDeleteContacts = async (contactIds = [], mode = 'selected', filters = {}, confirmation = '') => {
   try {
-    const response = await api.post(`${CONTACTS_BASE_URL}/bulk-delete`, {
-      contactIds,
-    });
-    return {
-      success: true,
-      data: response.data.data,
-      message: response.data.message,
-    };
+    const payload = { mode };
+    if (mode === 'selected') payload.contactIds = contactIds;
+    if (mode === 'filter') payload.filters = filters;
+    if (mode === 'all') payload.confirmation = confirmation;
+
+    // ✅ Uses ${CONTACTS_BASE_URL}/bulk-delete (Matches all other working routes in this file)
+    const response = await api.post(`${CONTACTS_BASE_URL}/bulk-delete`, payload);
+    return response.data;
   } catch (error) {
-    return {
-      success: false,
-      message: error.response?.data?.message || "Failed to delete contacts",
-    };
+    return { success: false, message: error.response?.data?.message || 'Failed to bulk delete contacts' };
   }
 };
 
@@ -175,6 +175,59 @@ export const importContacts = async (file) => {
     };
   }
 };
+
+
+
+/**
+ * Get CSV import guidelines
+ */
+export const getImportGuidelines = async () => {
+  try {
+    const response = await api.get(`${CONTACTS_BASE_URL}/import-guidelines`);
+    return {
+      success: true,
+      data: response.data.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to load import guidelines",
+    };
+  }
+};
+
+
+
+
+/**
+ * Download sample CSV template
+ */
+export const downloadSampleCSV = async () => {
+  try {
+    const response = await api.get(`${CONTACTS_BASE_URL}/sample-csv`, {
+      responseType: "blob",
+    });
+
+    const blob = new Blob([response.data], { type: "text/csv;charset=utf-8;" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "sudoreply_contacts_template.csv");
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to download sample CSV",
+    };
+  }
+};
+
+
 
 /**
  * Add a tag to a contact

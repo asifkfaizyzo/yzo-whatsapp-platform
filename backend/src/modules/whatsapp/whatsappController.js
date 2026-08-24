@@ -354,6 +354,15 @@ await notifySuperAdminWhatsAppStatus({
       })
       .catch((err) => console.warn('[WhatsApp] Auto-sync templates on connect non-fatal error:', err.message));
 
+        // 📡 Real-time socket emit to update frontend instantly
+    emitToTenant(tenantId, 'whatsapp_status_changed', {
+      isConnected: true,
+      phoneNumberId,
+      wabaId,
+      displayPhoneNumber: displayPhoneNumber || null,
+      verifiedName: verifiedName || null,
+    });
+
     return res.json({
       success: true,
       message: "WhatsApp connected successfully.",
@@ -476,6 +485,16 @@ await notifySuperAdminWhatsAppStatus({
         }
       })
       .catch((err) => console.warn('[WhatsApp] Auto-sync templates on manual connect non-fatal error:', err.message));
+
+
+     // 📡 Real-time socket emit to update frontend instantly
+emitToTenant(tenantId, 'whatsapp_status_changed', {
+  isConnected: true,
+  phoneNumberId,
+  wabaId,
+  displayPhoneNumber: verifyData.display_phone_number || null,
+  verifiedName: verifyData.verified_name || null,
+});
 
 return res.json({
   success: true,
@@ -804,6 +823,16 @@ await notifySuperAdminWhatsAppStatus({
   action: 'DISCONNECTED',
 });
 // ═════════════════════════════════════════════════════════════════
+
+// 📡 Real-time socket emit to update frontend instantly
+emitToTenant(tenantId, 'whatsapp_status_changed', {
+  isConnected: false,
+  phoneNumberId: null,
+  wabaId: null,
+  displayPhoneNumber: null,
+  verifiedName: null,
+});
+
 
 return res.json({
   success: true,
