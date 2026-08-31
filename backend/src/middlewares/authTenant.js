@@ -96,24 +96,45 @@ export const verifyOnboarding = async (req, res, next) => {
   try {
     let tenantId;
     
-    // Check if onboarding_token cookie exists
-    const onboardingToken = req.cookies.onboarding_token;
+    // 1. Check if onboarding_token cookie exists
+    const onboardingToken = req.cookies?.onboarding_token;
     
     if (onboardingToken) {
-      const decoded = jwt.verify(onboardingToken, process.env.ACCESS_SECRET);
-      if (decoded.type !== 'TENANT_ONBOARDING') {
-        return res.status(401).json({ success: false, message: 'Invalid onboarding session.' });
+      try {
+        const decoded = jwt.verify(onboardingToken, process.env.ACCESS_SECRET);
+        if (decoded.type === 'TENANT_ONBOARDING' || decoded.type === 'TENANT') {
+          tenantId = decoded.id;
+        }
+      } catch (err) {
+        // Fall through to other auth methods
       }
-      tenantId = decoded.id;
-    } else {
-      // Fallback: Check if they are authenticated via standard Access Token (e.g. Google Signup)
+    }
+
+    // 2. Fallback: Check if authenticated via Bearer Access Token (e.g. Google Signup)
+    if (!tenantId) {
       const authHeader = req.headers.authorization;
       if (authHeader && authHeader.startsWith('Bearer ')) {
-        const accessToken = authHeader.split(' ')[1];
-        const decodedAccess = jwt.verify(accessToken, process.env.ACCESS_SECRET);
-        if (decodedAccess.type === 'TENANT') {
-          tenantId = decodedAccess.id;
+        try {
+          const accessToken = authHeader.split(' ')[1];
+          const decodedAccess = jwt.verify(accessToken, process.env.ACCESS_SECRET);
+          if (decodedAccess.type === 'TENANT' || decodedAccess.type === 'TENANT_ONBOARDING') {
+            tenantId = decodedAccess.id;
+          }
+        } catch (err) {
+          // Fall through
         }
+      }
+    }
+
+    // 3. Fallback: Check if tenant_refresh_token cookie exists
+    if (!tenantId && req.cookies?.tenant_refresh_token) {
+      try {
+        const decodedRefresh = jwt.verify(req.cookies.tenant_refresh_token, process.env.REFRESH_SECRET);
+        if (decodedRefresh.type === 'TENANT') {
+          tenantId = decodedRefresh.id;
+        }
+      } catch (err) {
+        // Fall through
       }
     }
 

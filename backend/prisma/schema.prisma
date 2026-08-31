@@ -102,6 +102,17 @@ model Tenant {
   cancellationReason   String?
   reactivatedAt        DateTime?
   dataDeletionDate     DateTime?
+
+  hasUsedTrial         Boolean   @default(false)
+  trialPlanId          String?
+  trialExtendedCount   Int       @default(0)
+  trialExtendedByAdmin String?
+
+  razorpayCustomerId     String?
+  razorpaySubscriptionId String?   @unique
+  autopayEnabled         Boolean   @default(false)
+  autopayMethod          String?
+
   subscriptionReminders SubscriptionReminder[]
   invoices             Invoice[]
   cancellationSurvey   CancellationSurvey?
@@ -487,6 +498,12 @@ model SubscriptionPlan {
   status       PlanStatus @default(ACTIVE)
   isPopular    Boolean    @default(false)
 
+  // ─── Free Trial & Razorpay Settings ───
+  hasTrial              Boolean    @default(true)
+  trialDays             Int?       @default(14)
+  razorpayMonthlyPlanId String?
+  razorpayAnnualPlanId  String?
+
   // ─── Usage Limits (null = unlimited) ───
   maxAgents      Int
   maxBroadcasts  Int?
@@ -564,9 +581,13 @@ model Payment {
   tenantId    String
 
   // Razorpay Details
-  razorpayOrderId    String   @unique
+  razorpayOrderId    String?
   razorpayPaymentId  String?  @unique
   razorpaySignature  String?
+
+  // Payment Type & Offline Ref
+  paymentType        String   @default("ONLINE")
+  offlineReference   String?
 
   // Plan snapshot at time of payment
   planId       String
@@ -592,6 +613,7 @@ model Payment {
 
   @@index([tenantId])
   @@index([status])
+  @@index([offlineReference])
 
   tenant  Tenant  @relation(fields: [tenantId], references: [id])
 }
@@ -1146,6 +1168,7 @@ enum SubscriptionStatus {
   trialing
   active
   cancel_at_period_end
+  payment_failed
   expired
   paused
 }
@@ -1192,12 +1215,13 @@ model Invoice {
   gstAmount            Decimal?      @db.Decimal(10, 2)
   gstType              String?       @default("CGST_SGST")
 
-  currency             String        @default("USD")
+  currency             String        @default("INR")
   status               InvoiceStatus @default(paid)
   billingPeriodStart   DateTime
   billingPeriodEnd     DateTime
   paymentMethodLast4   String?
   paymentMethodBrand   String?
+  offlineReference     String?
   pdfUrl               String?
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
@@ -1360,6 +1384,7 @@ model PlatformSettings {
   companyEmail     String   @default("support@sudoreply.com")
   companyAddress   String   @default("Mumbai, Maharashtra, India")
   sacCode          String   @default("998314")
+  defaultTrialDays Int      @default(14)
 
   updatedAt        DateTime @updatedAt
   updatedBy        String?

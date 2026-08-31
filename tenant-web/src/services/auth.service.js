@@ -16,8 +16,9 @@ export const registerStep1 = async (formData) => {
     });
 
     // Update state to record the step session
+    const currentToken = useAuthStore.getState().accessToken;
     const onboardingUser = { ...response.data.data.user, type: 'TENANT' };
-    useAuthStore.getState().login(onboardingUser, null);
+    useAuthStore.getState().login(onboardingUser, currentToken || null);
 
     return { success: true, data: response.data };
   } catch (error) {
@@ -35,8 +36,9 @@ export const registerStep2 = async (formData) => {
       email: formData.email,
     });
 
+    const currentToken = useAuthStore.getState().accessToken;
     const onboardingUser = { ...response.data.data.user, type: 'TENANT' };
-    useAuthStore.getState().login(onboardingUser, null);
+    useAuthStore.getState().login(onboardingUser, currentToken || null);
 
     return { success: true, data: response.data };
   } catch (error) {
@@ -54,8 +56,9 @@ export const verifyEmailOtp = async (otpCode) => {
       otpCode,
     });
 
+    const currentToken = useAuthStore.getState().accessToken;
     const onboardingUser = { ...response.data.data.user, type: 'TENANT' };
-    useAuthStore.getState().login(onboardingUser, null);
+    useAuthStore.getState().login(onboardingUser, currentToken || null);
 
     return { success: true, data: response.data };
   } catch (error) {
@@ -73,8 +76,9 @@ export const registerStep3 = async (formData) => {
       password: formData.password,
     });
 
+    const currentToken = useAuthStore.getState().accessToken;
     const onboardingUser = { ...response.data.data.user, type: 'TENANT' };
-    useAuthStore.getState().login(onboardingUser, null);
+    useAuthStore.getState().login(onboardingUser, currentToken || null);
 
     return { success: true, data: response.data };
   } catch (error) {
@@ -93,8 +97,9 @@ export const registerStep4 = async (formData) => {
       websiteUrl: formData.websiteUrl,
     });
 
+    const currentToken = useAuthStore.getState().accessToken;
     const onboardingUser = { ...response.data.data.user, type: 'TENANT' };
-    useAuthStore.getState().login(onboardingUser, null);
+    useAuthStore.getState().login(onboardingUser, currentToken || null);
 
     return { success: true, data: response.data };
   } catch (error) {

@@ -19,7 +19,7 @@ import {
   Ticket,
 } from "lucide-react";
 import { Link, useOutletContext } from "react-router-dom";
-import { getWhatsappStatus, getTenantUsers } from "../../services/tenant.service";
+import { getTenantUsers } from "../../services/tenant.service";
 import { getContacts } from "../../services/contact.service";
 import { getTemplates } from "../../services/template.service";
 import { getBroadcasts } from "../../services/broadcast.service";
@@ -28,6 +28,9 @@ import { useAuthStore } from "../../store/useAuthStore";
 import { getSocket } from "../../lib/socket";
 import api from "../../lib/axios";
 import { useWhatsAppStore } from "../../store/useWhatsAppStore";
+import CancelAtPeriodEndBanner from "../../components/billing/CancelAtPeriodEndBanner";
+import PausedSubscriptionBanner from "../../components/billing/PausedSubscriptionBanner";
+import SubscriptionExpiryBanner from "../../components/billing/SubscriptionExpiryBanner";
 
 export default function Dashboard() {
   const { user: authUser } = useAuthStore();
@@ -63,28 +66,9 @@ export default function Dashboard() {
   // ═════════════════════════════════════════════════════════
   const fetchWaStatus = async () => {
     try {
-      const res = await getWhatsappStatus();
-      if (res.success && res.data) {
-        const health = res.data.health || {};
-        setWaStatus({
-          isConnected: !!res.data.isConnected,
-          loading: false,
-          phoneNumberId: res.data.phoneNumberId || null,
-          wabaId: res.data.wabaId || null,
-          phoneNumber: health.displayPhoneNumber || res.data.phoneNumber || res.data.displayPhoneNumber || null,
-          businessName: health.verifiedName || res.data.businessName || res.data.verifiedName || null,
-          qualityRating: health.qualityRating || res.data.qualityRating || null,
-          messagingTier: health.tierName || health.messagingLimitTier || res.data.messagingTier || null,
-          webhookStatus: res.data.webhookStatus || "active",
-          sentLast24h: health.sentLast24h || 0,
-          remaining24h: health.remaining24h ?? 1000,
-          messagingLimitNumber: health.messagingLimitNumber || 1000,
-        });
-      } else {
-        setWaStatus((prev) => ({ ...prev, loading: false }));
-      }
+      await useWhatsAppStore.getState().fetchStatus({ force: true });
     } catch (err) {
-      setWaStatus((prev) => ({ ...prev, loading: false }));
+      console.error("❌ Failed to fetch WhatsApp status:", err);
     }
   };
 
@@ -492,6 +476,25 @@ if (userRole === "admin") {
   // ═════════════════════════════════════════════════════════
   const renderAdminDashboard = () => (
     <div className="space-y-8 animate-in fade-in duration-200">
+      {/* Paused Subscription Banner */}
+      {authUser?.subscriptionStatus === 'paused' && (
+        <PausedSubscriptionBanner />
+      )}
+
+      {/* Upcoming Expiry / Auto-Renewal Banner */}
+      <SubscriptionExpiryBanner
+        planPeriodEnd={authUser?.planPeriodEnd}
+        subscriptionStatus={authUser?.subscriptionStatus}
+        autopayEnabled={authUser?.autopayEnabled}
+        planId={authUser?.planId}
+        billingType={authUser?.billingType}
+      />
+
+      {/* Cancellation Pending Banner */}
+      {authUser?.subscriptionStatus === 'cancel_at_period_end' && (
+        <CancelAtPeriodEndBanner periodEndDate={authUser.planPeriodEnd} />
+      )}
+
       {showConnect && (
         <WhatsAppConnect
           onSuccess={() => {

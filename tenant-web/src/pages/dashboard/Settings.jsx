@@ -1668,83 +1668,86 @@ export default function SettingsPage() {
               </form>
               */}
 
-              <div className="border border-rose-200 bg-rose-50/40 rounded-2xl p-5 space-y-4">
-                <div className="flex items-center gap-2 text-rose-700">
-                  <AlertTriangle size={18} />
-                  <h4 className="font-bold text-sm">Danger Zone</h4>
-                </div>
-                <p className="text-xs text-rose-900/80 font-medium leading-relaxed">
-                  Disconnecting will remove your WhatsApp integration
-                  credentials, delete synced message templates, and stop message
-                  sending and receiving. You can reconnect anytime.
-                </p>
-
-                {!showConfirmDisconnect ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDisconnectError(null);
-                      setShowConfirmDisconnect(true);
-                    }}
-                    className="px-4 py-2 border-2 border-rose-500 text-rose-600 hover:bg-rose-50 rounded-xl font-bold text-xs transition duration-150 flex items-center gap-1.5"
-                  >
-                    <Unplug size={14} />
-                    <span>Disconnect WhatsApp</span>
-                  </button>
-                ) : (
-                  <div className="p-4 bg-white border border-rose-200 rounded-xl space-y-3 shadow-sm">
-                    <p className="text-xs font-bold text-rose-900">
-                      Are you sure you want to disconnect WhatsApp?
-                    </p>
-                    <ul className="text-xs text-rose-800 space-y-1 list-disc list-inside font-medium">
-                      <li>
-                        Remove WhatsApp credentials and system access token
-                      </li>
-                      <li>Delete synced message templates from database</li>
-                      <li>
-                        Stop automated message sending & webhook receiving
-                      </li>
-                      <li>You can reconnect your account anytime later</li>
-                    </ul>
-
-                    {disconnectError && (
-                      <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-xs font-semibold flex items-center gap-1.5">
-                        <AlertCircle size={14} />
-                        <span>{disconnectError}</span>
-                      </div>
-                    )}
-
-                    <div className="flex items-center gap-2 pt-1">
-                      <button
-                        type="button"
-                        onClick={handleDisconnectWhatsApp}
-                        disabled={disconnecting}
-                        className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 disabled:opacity-50"
-                      >
-                        {disconnecting ? (
-                          <>
-                            <RefreshCw size={13} className="animate-spin" />
-                            <span>Disconnecting...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Trash2 size={13} />
-                            <span>Yes, Disconnect</span>
-                          </>
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowConfirmDisconnect(false)}
-                        disabled={disconnecting}
-                        className="px-4 py-2 border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition disabled:opacity-50"
-                      >
-                        Cancel
-                      </button>
-                    </div>
+              {/* Danger Zone: Only shown when WhatsApp is connected */}
+              {whatsappStatus.isConnected && (
+                <div className="border border-rose-200 bg-rose-50/40 rounded-2xl p-5 space-y-4">
+                  <div className="flex items-center gap-2 text-rose-700">
+                    <AlertTriangle size={18} />
+                    <h4 className="font-bold text-sm">Danger Zone</h4>
                   </div>
-                )}
-              </div>
+                  <p className="text-xs text-rose-900/80 font-medium leading-relaxed">
+                    Disconnecting will remove your WhatsApp integration
+                    credentials, delete synced message templates, and stop message
+                    sending and receiving. You can reconnect anytime.
+                  </p>
+
+                  {!showConfirmDisconnect ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDisconnectError(null);
+                        setShowConfirmDisconnect(true);
+                      }}
+                      className="px-4 py-2 border-2 border-rose-500 text-rose-600 hover:bg-rose-50 rounded-xl font-bold text-xs transition duration-150 flex items-center gap-1.5"
+                    >
+                      <Unplug size={14} />
+                      <span>Disconnect WhatsApp</span>
+                    </button>
+                  ) : (
+                    <div className="p-4 bg-white border border-rose-200 rounded-xl space-y-3 shadow-sm">
+                      <p className="text-xs font-bold text-rose-900">
+                        Are you sure you want to disconnect WhatsApp?
+                      </p>
+                      <ul className="text-xs text-rose-800 space-y-1 list-disc list-inside font-medium">
+                        <li>
+                          Remove WhatsApp credentials and system access token
+                        </li>
+                        <li>Delete synced message templates from database</li>
+                        <li>
+                          Stop automated message sending & webhook receiving
+                        </li>
+                        <li>You can reconnect your account anytime later</li>
+                      </ul>
+
+                      {disconnectError && (
+                        <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-xs font-semibold flex items-center gap-1.5">
+                          <AlertCircle size={14} />
+                          <span>{disconnectError}</span>
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={handleDisconnectWhatsApp}
+                          disabled={disconnecting}
+                          className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 disabled:opacity-50"
+                        >
+                          {disconnecting ? (
+                            <>
+                              <RefreshCw size={13} className="animate-spin" />
+                              <span>Disconnecting...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Trash2 size={13} />
+                              <span>Yes, Disconnect</span>
+                            </>
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmDisconnect(false)}
+                          disabled={disconnecting}
+                          className="px-4 py-2 border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition disabled:opacity-50"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

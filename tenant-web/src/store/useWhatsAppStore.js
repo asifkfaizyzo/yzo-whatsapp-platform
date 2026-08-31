@@ -12,6 +12,7 @@ export const useWhatsAppStore = create((set, get) => ({
   businessName: null,
   qualityRating: null,
   messagingTier: null,
+  webhookStatus: "active",
   health: null,
   lastFetchedAt: null,
   _socketBound: false,
@@ -24,6 +25,7 @@ export const useWhatsAppStore = create((set, get) => ({
       wabaId: payload.wabaId ?? get().wabaId,
       phoneNumber: payload.displayPhoneNumber ?? payload.phoneNumber ?? get().phoneNumber,
       businessName: payload.verifiedName ?? payload.businessName ?? get().businessName,
+      webhookStatus: payload.webhookStatus ?? "active",
       lastFetchedAt: Date.now(),
     }),
 
@@ -37,6 +39,7 @@ export const useWhatsAppStore = create((set, get) => ({
       businessName: null,
       qualityRating: null,
       messagingTier: null,
+      webhookStatus: "active",
       health: null,
       lastFetchedAt: Date.now(),
     }),
@@ -78,6 +81,7 @@ export const useWhatsAppStore = create((set, get) => ({
           businessName: health.verifiedName || body.verifiedName || null,
           qualityRating: health.qualityRating || null,
           messagingTier: health.tierName || health.messagingLimitTier || null,
+          webhookStatus: body.webhookStatus || "active",
           health,
           lastFetchedAt: Date.now(),
         });
@@ -91,6 +95,7 @@ export const useWhatsAppStore = create((set, get) => ({
           businessName: null,
           qualityRating: null,
           messagingTier: null,
+          webhookStatus: "active",
           health: null,
           lastFetchedAt: Date.now(),
         });
@@ -134,6 +139,7 @@ export const useWhatsAppStore = create((set, get) => ({
       businessName: null,
       qualityRating: null,
       messagingTier: null,
+      webhookStatus: "active",
       health: null,
       lastFetchedAt: null,
       _socketBound: false,

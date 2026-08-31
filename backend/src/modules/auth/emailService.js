@@ -597,16 +597,268 @@ export const sendCancellationConfirmedEmail = async (email, data) => {
 
 export const sendCancellationAdminAlertEmail = async (email, data) => {
   try {
-    const htmlContent = getTemplateHTML('cancellation_admin_alert', data);
+    let htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+        <div style="background: #EF4444; padding: 20px; text-align: center;">
+          <h2 style="color: white; margin: 0;">Subscription Cancelled Alert ⚠️</h2>
+        </div>
+        <div style="padding: 24px; color: #334155;">
+          <p><strong>Tenant Name:</strong> ${data.companyName || data.name || 'N/A'}</p>
+          <p><strong>Tenant Email:</strong> ${data.email || data.tenantEmail || 'N/A'}</p>
+          <p><strong>Reason:</strong> ${data.reason || 'User requested cancellation'}</p>
+          <p><strong>Period End Date:</strong> ${data.periodEnd || 'N/A'}</p>
+        </div>
+      </div>
+    `;
+    try {
+      htmlContent = getTemplateHTML('cancellation_admin_alert', data);
+    } catch (_) {}
+
     await transporter.sendMail({
       from: `"SudoReply System" <${process.env.EMAIL_USER}>`,
       to: email,
-      subject: `Tenant Cancelled: ${data.companyName}`,
+      subject: `🚨 Tenant Cancelled: ${data.companyName}`,
       html: htmlContent,
     });
-    console.log('Cancellation admin alert sent.');
+    console.log('Cancellation admin alert sent to:', email);
   } catch (err) {
     console.error('Error sending admin alert cancellation email:', err);
+  }
+};
+
+export const sendPauseAdminAlertEmail = async (email, data) => {
+  try {
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+        <div style="background: #8B5CF6; padding: 20px; text-align: center;">
+          <h2 style="color: white; margin: 0; font-size: 20px;">Subscription Paused Alert ⏸️</h2>
+        </div>
+        <div style="padding: 24px; color: #334155; line-height: 1.6;">
+          <p>A tenant has temporarily paused their subscription mandate.</p>
+          <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+            <tr>
+              <td style="padding: 8px 0; font-weight: bold; border-bottom: 1px solid #f1f5f9;">Company:</td>
+              <td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9;">${data.companyName || 'N/A'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; font-weight: bold; border-bottom: 1px solid #f1f5f9;">Email:</td>
+              <td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9;">${data.tenantEmail || data.email || 'N/A'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; font-weight: bold; border-bottom: 1px solid #f1f5f9;">Plan:</td>
+              <td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9;">${data.planName || 'Active Plan'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; font-weight: bold; border-bottom: 1px solid #f1f5f9;">Duration:</td>
+              <td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9;">${data.pauseDuration || 'Indefinite'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; font-weight: bold; border-bottom: 1px solid #f1f5f9;">Reason:</td>
+              <td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9;">${data.reason || 'Not specified'}</td>
+            </tr>
+          </table>
+          <p style="font-size: 13px; color: #64748b;">The recurring mandate has been paused on Razorpay. Outbound messaging is paused.</p>
+        </div>
+      </div>
+    `;
+
+    await transporter.sendMail({
+      from: `"SudoReply System" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: `⏸️ Tenant Paused: ${data.companyName}`,
+      html: htmlContent,
+    });
+    console.log('Pause admin alert email sent to:', email);
+  } catch (err) {
+    console.error('Error sending admin alert pause email:', err);
+  }
+};
+
+export const sendResumeAdminAlertEmail = async (email, data) => {
+  try {
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+        <div style="background: #10B981; padding: 20px; text-align: center;">
+          <h2 style="color: white; margin: 0; font-size: 20px;">Subscription Resumed Alert ▶️</h2>
+        </div>
+        <div style="padding: 24px; color: #334155; line-height: 1.6;">
+          <p>A tenant has resumed their subscription and restored full access.</p>
+          <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+            <tr>
+              <td style="padding: 8px 0; font-weight: bold; border-bottom: 1px solid #f1f5f9;">Company:</td>
+              <td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9;">${data.companyName || 'N/A'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; font-weight: bold; border-bottom: 1px solid #f1f5f9;">Email:</td>
+              <td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9;">${data.tenantEmail || data.email || 'N/A'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; font-weight: bold; border-bottom: 1px solid #f1f5f9;">Plan:</td>
+              <td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9;">${data.planName || 'Active Plan'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; font-weight: bold; border-bottom: 1px solid #f1f5f9;">Resumed At:</td>
+              <td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9;">${new Date().toLocaleString()}</td>
+            </tr>
+          </table>
+          <p style="font-size: 13px; color: #64748b;">The recurring mandate has been re-enabled on Razorpay. Platform messaging is active.</p>
+        </div>
+      </div>
+    `;
+
+    await transporter.sendMail({
+      from: `"SudoReply System" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: `▶️ Tenant Resumed: ${data.companyName}`,
+      html: htmlContent,
+    });
+    console.log('Resume admin alert email sent to:', email);
+  } catch (err) {
+    console.error('Error sending admin alert resume email:', err);
+  }
+};
+
+// ── TENANT EMAIL: Subscription Paused ──
+export const sendSubscriptionPausedEmail = async (email, data) => {
+  try {
+    const frontendUrl = process.env.FRONTEND_URLS ? process.env.FRONTEND_URLS.split(',')[1] : 'http://localhost:5174';
+    const resumeLink = `${frontendUrl}/dashboard/billing`;
+
+    const htmlContent = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); background: #ffffff;">
+        <div style="background: linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%); padding: 32px 24px; text-align: center;">
+          <div style="background: rgba(255,255,255,0.2); width: 48px; height: 48px; border-radius: 12px; margin: 0 auto 12px auto; display: flex; align-items: center; justify-content: center; line-height: 48px; font-size: 24px;">
+            ⏸️
+          </div>
+          <h1 style="color: white; margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.5px;">Subscription Paused</h1>
+          <p style="color: #DDD6FE; margin: 6px 0 0 0; font-size: 14px;">Your plan is temporarily on hold</p>
+        </div>
+        
+        <div style="padding: 32px 24px; color: #334155; line-height: 1.6;">
+          <p style="margin-top: 0; font-size: 15px;">Hi <strong>${data.tenantName || 'there'}</strong>,</p>
+          <p style="font-size: 14px; color: #475569;">
+            As requested, your subscription for <strong>${data.planName || 'your current plan'}</strong> has been paused.
+          </p>
+
+          <div style="background: #F5F3FF; border: 1px solid #DDD6FE; border-radius: 12px; padding: 20px; margin: 24px 0;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+              <tr>
+                <td style="padding: 6px 0; color: #6D28D9; font-weight: 600; width: 40%;">Pause Duration:</td>
+                <td style="padding: 6px 0; color: #1E1B4B; font-weight: 700; text-transform: capitalize;">${data.pauseDuration || 'Indefinite'}</td>
+              </tr>
+              <tr>
+                <td style="padding: 6px 0; color: #6D28D9; font-weight: 600;">Renewal Billing:</td>
+                <td style="padding: 6px 0; color: #059669; font-weight: 700;">₹0 (No charges during pause)</td>
+              </tr>
+              <tr>
+                <td style="padding: 6px 0; color: #6D28D9; font-weight: 600;">Data Status:</td>
+                <td style="padding: 6px 0; color: #1E1B4B; font-weight: 700;">100% Safe & Preserved</td>
+              </tr>
+            </table>
+          </div>
+
+          <h3 style="font-size: 14px; font-weight: 700; color: #1E293B; margin: 20px 0 8px 0;">What happens next?</h3>
+          <ul style="padding-left: 20px; margin: 0 0 24px 0; font-size: 13px; color: #475569; line-height: 1.7;">
+            <li><strong>Zero debits:</strong> Your recurring bank/card mandate is paused on Razorpay.</li>
+            <li><strong>Your assets are saved:</strong> WhatsApp numbers, approved templates, contacts, chats, and automated bot flows remain intact.</li>
+            <li><strong>Resume anytime:</strong> You can reactivate your account with a single click whenever you are ready.</li>
+          </ul>
+
+          <div style="text-align: center; margin: 32px 0 16px 0;">
+            <a href="${resumeLink}"
+               style="background: #7C3AED; color: white; padding: 12px 32px; text-decoration: none; border-radius: 10px; display: inline-block; font-weight: 700; font-size: 14px; box-shadow: 0 4px 10px rgba(124, 58, 237, 0.25);">
+              Go to Billing & Resume Plan
+            </a>
+          </div>
+        </div>
+
+        <div style="background: #F8FAFC; border-top: 1px solid #E2E8F0; padding: 16px; text-align: center;">
+          <p style="color: #94A3B8; font-size: 12px; margin: 0;">SudoReply WhatsApp Platform • Questions? Contact support@sudoreply.com</p>
+        </div>
+      </div>
+    `;
+
+    await transporter.sendMail({
+      from: `"SudoReply Billing" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: `⏸️ Your SudoReply subscription has been paused`,
+      html: htmlContent,
+    });
+    console.log('Subscription paused confirmation email sent to tenant:', email);
+  } catch (err) {
+    console.error('Error sending tenant pause email:', err);
+  }
+};
+
+// ── TENANT EMAIL: Subscription Resumed ──
+export const sendSubscriptionResumedEmail = async (email, data) => {
+  try {
+    const frontendUrl = process.env.FRONTEND_URLS ? process.env.FRONTEND_URLS.split(',')[1] : 'http://localhost:5174';
+    const dashboardLink = `${frontendUrl}/dashboard`;
+
+    const htmlContent = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); background: #ffffff;">
+        <div style="background: linear-gradient(135deg, #059669 0%, #047857 100%); padding: 32px 24px; text-align: center;">
+          <div style="background: rgba(255,255,255,0.2); width: 48px; height: 48px; border-radius: 12px; margin: 0 auto 12px auto; display: flex; align-items: center; justify-content: center; line-height: 48px; font-size: 24px;">
+            🚀
+          </div>
+          <h1 style="color: white; margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.5px;">Welcome Back!</h1>
+          <p style="color: #A7F3D0; margin: 6px 0 0 0; font-size: 14px;">Your subscription has been resumed successfully</p>
+        </div>
+        
+        <div style="padding: 32px 24px; color: #334155; line-height: 1.6;">
+          <p style="margin-top: 0; font-size: 15px;">Hi <strong>${data.tenantName || 'there'}</strong>,</p>
+          <p style="font-size: 14px; color: #475569;">
+            Great news! Your subscription for <strong>${data.planName || 'your plan'}</strong> is now active and ready for business.
+          </p>
+
+          <div style="background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 12px; padding: 20px; margin: 24px 0;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+              <tr>
+                <td style="padding: 6px 0; color: #047857; font-weight: 600; width: 40%;">Account Status:</td>
+                <td style="padding: 6px 0; color: #065F46; font-weight: 700;">Active & Online ✅</td>
+              </tr>
+              <tr>
+                <td style="padding: 6px 0; color: #047857; font-weight: 600;">Plan:</td>
+                <td style="padding: 6px 0; color: #1E1B4B; font-weight: 700;">${data.planName || 'Active Plan'}</td>
+              </tr>
+              <tr>
+                <td style="padding: 6px 0; color: #047857; font-weight: 600;">Autopay Schedule:</td>
+                <td style="padding: 6px 0; color: #065F46; font-weight: 700;">Re-enabled on Razorpay</td>
+              </tr>
+            </table>
+          </div>
+
+          <h3 style="font-size: 14px; font-weight: 700; color: #1E293B; margin: 20px 0 8px 0;">What is now active?</h3>
+          <ul style="padding-left: 20px; margin: 0 0 24px 0; font-size: 13px; color: #475569; line-height: 1.7;">
+            <li><strong>Outbound Campaigns:</strong> You can launch bulk WhatsApp broadcasts immediately.</li>
+            <li><strong>Automations:</strong> Keyword triggers and chatbot flows are now listening and replying.</li>
+            <li><strong>Team Inbox:</strong> Your live chat queues and agent assignments are fully operational.</li>
+          </ul>
+
+          <div style="text-align: center; margin: 32px 0 16px 0;">
+            <a href="${dashboardLink}"
+               style="background: #059669; color: white; padding: 12px 32px; text-decoration: none; border-radius: 10px; display: inline-block; font-weight: 700; font-size: 14px; box-shadow: 0 4px 10px rgba(5, 150, 105, 0.25);">
+              Open Workspace Dashboard
+            </a>
+          </div>
+        </div>
+
+        <div style="background: #F8FAFC; border-top: 1px solid #E2E8F0; padding: 16px; text-align: center;">
+          <p style="color: #94A3B8; font-size: 12px; margin: 0;">SudoReply WhatsApp Platform • Questions? Contact support@sudoreply.com</p>
+        </div>
+      </div>
+    `;
+
+    await transporter.sendMail({
+      from: `"SudoReply" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: `🎉 Your SudoReply subscription is now active!`,
+      html: htmlContent,
+    });
+    console.log('Subscription resumed confirmation email sent to tenant:', email);
+  } catch (err) {
+    console.error('Error sending tenant resume email:', err);
   }
 };
 

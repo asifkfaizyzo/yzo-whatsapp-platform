@@ -335,14 +335,18 @@ export default function Register() {
   };
 
   const onStep5Submit = async (data) => {
+    if (isLoading || isSuccess) return;
     setGeneralError("");
     setIsLoading(true);
-    const result = await registerStep5(data);
-    setIsLoading(false);
-    if (result.success) {
-      setIsSuccess(true);
-    } else {
-      setGeneralError(result.message || "Step 5 failed.");
+    try {
+      const result = await registerStep5(data);
+      if (result.success) {
+        setIsSuccess(true);
+      } else {
+        setGeneralError(result.message || "Step 5 failed.");
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 

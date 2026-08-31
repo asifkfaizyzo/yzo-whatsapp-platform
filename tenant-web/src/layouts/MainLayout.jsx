@@ -69,6 +69,11 @@ export default function MainLayout() {
                 }));
                 setTenantStatus(freshTenant.status);
               }
+              // Sync all fresh tenant and subscription state from DB
+              useAuthStore.setState((state) => ({
+                user: { ...state.user, ...freshTenant }
+              }));
+              setTenantStatus(freshTenant.status);
             }
           })
           .catch((err) => {
