@@ -1119,11 +1119,11 @@ export const getGSTConfig = async () => {
 
     if (!settings) {
       return {
-        gstEnabled:       true,
-        gstPercent:       18,
+        gstEnabled:       false,
+        gstPercent:       0,
         gstType:          "CGST_SGST",
         pricingType:      "EXCLUSIVE",
-        companyGstNumber: "27AABCU9603R1ZM",
+        companyGstNumber: "",
         companyName:      "SudoReply Technologies Pvt Ltd",
         companyEmail:     "support@sudoreply.com",
         companyAddress:   "Mumbai, Maharashtra, India",
@@ -1132,11 +1132,11 @@ export const getGSTConfig = async () => {
     }
 
     return {
-      gstEnabled:       settings.gstEnabled,
-      gstPercent:       settings.gstPercent,
-      gstType:          settings.gstType,
-      pricingType:      settings.pricingType,
-      companyGstNumber: settings.companyGstNumber,
+      gstEnabled:       Boolean(settings.gstEnabled),
+      gstPercent:       settings.gstPercent || 0,
+      gstType:          settings.gstType || "CGST_SGST",
+      pricingType:      settings.pricingType || "EXCLUSIVE",
+      companyGstNumber: settings.companyGstNumber || "",
       companyName:      settings.companyName,
       companyEmail:     settings.companyEmail,
       companyAddress:   settings.companyAddress,
@@ -1144,8 +1144,8 @@ export const getGSTConfig = async () => {
     };
   } catch {
     return {
-      gstEnabled:  true,
-      gstPercent:  18,
+      gstEnabled:  false,
+      gstPercent:  0,
       gstType:     "CGST_SGST",
       pricingType: "EXCLUSIVE",
     };

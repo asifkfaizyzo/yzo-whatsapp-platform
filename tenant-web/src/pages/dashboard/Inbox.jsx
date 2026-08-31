@@ -217,6 +217,42 @@ useEffect(() => {
   const activeChat =
     chats.find((c) => String(c.id) === String(activeChatId)) || null;
 
+  //     // ── 24h Expired Check Helper ──
+  // const is24hExpired = (dateVal) => {
+  //   if (!dateVal) return false;
+  //   const lastTime = new Date(dateVal).getTime();
+  //   if (isNaN(lastTime)) return false;
+  //   const hoursDiff = (Date.now() - lastTime) / (1000 * 60 * 60);
+  //   return hoursDiff >= 24;
+  // };
+
+    // ⭐ Smart 24h Expired Check (Looks ONLY at Customer Messages)
+  const is24hExpired = (chat) => {
+    if (!chat) return false;
+
+    // 1. Check incomingAt (recorded when customer messages)
+    let lastCustomerTime = chat.incomingAt ? new Date(chat.incomingAt).getTime() : null;
+
+    // 2. Fallback: Search messages array for the last customer message
+    if (!lastCustomerTime && Array.isArray(chat.messages)) {
+      const lastInboundMsg = chat.messages.find(
+        (m) => m.isFromCustomer || m.direction === "INBOUND" || m.senderType === "CONTACT"
+      );
+      if (lastInboundMsg?.createdAt) {
+        lastCustomerTime = new Date(lastInboundMsg.createdAt).getTime();
+      }
+    }
+
+    // 3. If customer NEVER messaged -> Session is EXPIRED by default!
+    if (!lastCustomerTime) return true;
+
+    if (isNaN(lastCustomerTime)) return false;
+
+    // 4. Calculate hours difference
+    const hoursDiff = (Date.now() - lastCustomerTime) / (1000 * 60 * 60);
+    return hoursDiff >= 24;
+  };
+
   // ── Helpers ──
   const formatLastMessagePreview = (msg) => {
     if (!msg) return "No messages yet";
@@ -233,7 +269,7 @@ useEffect(() => {
     return msg.text;
   };
 
-    const getContactTags = (contact) => {
+  const getContactTags = (contact) => {
     if (!contact) return [];
     if (Array.isArray(contact.tags)) return contact.tags;
     if (Array.isArray(contact.contactTags))
@@ -650,11 +686,29 @@ useEffect(() => {
   }
   };
 
+       // ── Handle real-time tick updates (1✓ -> 2✓ -> 2✓ blue) ──
+    const handleMessageStatusUpdate = (data) => {
+      const { messageId, wamid, status } = data;
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (m.id === messageId || (wamid && m.wamid === wamid)) {
+            return {
+              ...m,
+              status: status,
+              isRead: status === "read" ? true : m.isRead,
+            };
+          }
+          return m;
+        })
+      );
+    };
+
     socket.on("new_message", handleNewMessage);
     socket.on("message_deleted", handleMessageDeleted);
     socket.on("conversations_reassigned", handleConversationsReassigned);
     socket.on("unread_count_update", handleUnreadCountUpdate);
-    socket.on("conversation_assigned", handleConversationAssigned); 
+    socket.on("conversation_assigned", handleConversationAssigned);
+    socket.on("message_status_update", handleMessageStatusUpdate); // ← ADD THIS
 
     return () => {
       socket.off("new_message", handleNewMessage);
@@ -662,6 +716,7 @@ useEffect(() => {
       socket.off("conversations_reassigned", handleConversationsReassigned);
       socket.off("unread_count_update", handleUnreadCountUpdate);
       socket.off("conversation_assigned", handleConversationAssigned);
+      socket.off("message_status_update", handleMessageStatusUpdate); // ← ADD THIS
     };
   }, [socket, activeChatId, loadConversations]);
 
@@ -1771,15 +1826,12 @@ useEffect(() => {
                       }
                     }}
                   >
-                    <div className="relative shrink-0">
+                                      <div className="relative shrink-0">
                       <div
                         className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm ${avatarBg}`}
                       >
                         {contactName.charAt(0)}
                       </div>
-                      {chat.status === "OPEN" && (
-                        <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-[#25D366] border-2 border-white rounded-full" />
-                      )}
                     </div>
 
                     <div className="flex-1 min-w-0">
@@ -2596,7 +2648,32 @@ useEffect(() => {
                   </span>
                 </div>
               )}
-              {["RESOLVED", "CLOSED"].includes(activeChat.status) &&
+
+
+              {/* {["RESOLVED", "CLOSED"].includes(activeChat.status) &&
+                !activeChat.contact?.isBlocked && (
+                  <div className="flex items-center justify-between text-xs bg-amber-50 text-amber-800 px-4 py-2.5 rounded-xl border border-amber-100">
+                    <span className="font-semibold">
+                      Conversation is{" "}
+                      <strong className="capitalize">
+                        {activeChat.status.toLowerCase()}
+                      </strong>
+                      . Sending a message will reopen it.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateStatus("OPEN")}
+                      className="text-amber-900 font-bold hover:underline px-2 py-0.5 rounded-md hover:bg-amber-100 transition"
+                    >
+                      Reopen
+                    </button>
+                  </div>
+                )} */}
+
+                {/* REPLACE WITH (adds the banner right underneath it): ** */}
+
+
+                {["RESOLVED", "CLOSED"].includes(activeChat.status) &&
                 !activeChat.contact?.isBlocked && (
                   <div className="flex items-center justify-between text-xs bg-amber-50 text-amber-800 px-4 py-2.5 rounded-xl border border-amber-100">
                     <span className="font-semibold">
@@ -2615,6 +2692,21 @@ useEffect(() => {
                     </button>
                   </div>
                 )}
+
+                            {/* ── 24-Hour Window Expired Alert ── */}
+              {activeChat &&
+                is24hExpired(activeChat) &&
+                activeChat.status === "OPEN" &&
+                !activeChat.contact?.isBlocked && (
+                  <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200/80 rounded-xl text-xs text-amber-900 shadow-xs mb-2">
+                    <AlertTriangle size={14} className="text-amber-600 shrink-0" />
+                    <span className="font-medium text-[11px] text-amber-800">
+                      ℹ️ It has been more than 24 hours since the customer messaged you. You can only respond using a Template.
+                    </span>
+                  </div>
+                )}
+
+              
 
               {/* File Preview */}
               {selectedFile && (

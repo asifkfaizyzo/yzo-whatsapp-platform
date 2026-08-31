@@ -1,9 +1,10 @@
+// tenant-web/src/components/billing/SubscriptionExpiryBanner.jsx
 import React from "react";
 import { Link } from "react-router-dom";
-import { AlertCircle, AlertTriangle, Info, ShieldAlert } from "lucide-react";
+import { AlertTriangle, ShieldAlert, RefreshCw, Zap } from "lucide-react";
 
-export default function SubscriptionExpiryBanner({ planPeriodEnd, subscriptionStatus }) {
-  if (subscriptionStatus !== "active" || !planPeriodEnd) {
+export default function SubscriptionExpiryBanner({ planPeriodEnd, subscriptionStatus, autopayEnabled, planId, billingType }) {
+  if (!planPeriodEnd || (subscriptionStatus !== "active" && subscriptionStatus !== "trialing" && subscriptionStatus !== "cancel_at_period_end")) {
     return null;
   }
 
@@ -16,82 +17,102 @@ export default function SubscriptionExpiryBanner({ planPeriodEnd, subscriptionSt
   const diffTime = planEnd.getTime() - today.getTime();
   const daysRemaining = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
-  // Determine banner styling and configuration based on days remaining
-  let config = null;
-
-  if (daysRemaining > 7 && daysRemaining <= 15) {
-    config = {
-      bgColor: "bg-blue-50 border-blue-100",
-      textColor: "text-blue-900",
-      subTextColor: "text-blue-700",
-      buttonColor: "bg-blue-600 hover:bg-blue-700 text-white",
-      icon: <Info className="text-blue-500 shrink-0" size={20} />,
-      message: `Your plan expires in ${daysRemaining} days on ${planEnd.toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      })}. Renew now to avoid interruption.`
-    };
-  } else if (daysRemaining > 3 && daysRemaining <= 7) {
-    config = {
-      bgColor: "bg-amber-50 border-amber-100",
-      textColor: "text-amber-900",
-      subTextColor: "text-amber-700",
-      buttonColor: "bg-amber-600 hover:bg-amber-700 text-white",
-      icon: <AlertCircle className="text-amber-500 shrink-0" size={20} />,
-      message: `Your plan expires in ${daysRemaining} days on ${planEnd.toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      })}. Renew now to avoid interruption.`
-    };
-  } else if (daysRemaining > 1 && daysRemaining <= 3) {
-    config = {
-      bgColor: "bg-orange-50 border-orange-100",
-      textColor: "text-orange-950",
-      subTextColor: "text-orange-700",
-      buttonColor: "bg-orange-600 hover:bg-orange-700 text-white",
-      icon: <AlertTriangle className="text-orange-500 shrink-0" size={20} />,
-      message: `Only ${daysRemaining} days left! Your plan expires on ${planEnd.toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      })}. Renew now to prevent account lock.`
-    };
-  } else if (daysRemaining >= 0 && daysRemaining <= 1) {
-    const timeLabel = daysRemaining === 0 ? "today" : "tomorrow";
-    config = {
-      bgColor: "bg-red-50 border-red-100",
-      textColor: "text-red-950",
-      subTextColor: "text-red-700",
-      buttonColor: "bg-red-600 hover:bg-red-700 text-white",
-      icon: <ShieldAlert className="text-red-500 shrink-0" size={20} />,
-      message: `Critical: Your plan expires ${timeLabel} on ${planEnd.toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      })}. Renew immediately to avoid lockout.`
-    };
-  }
-
-  if (!config) {
+  // Only show the warning banner when there are 10 days or fewer remaining in the billing cycle
+  if (daysRemaining > 10 || daysRemaining < 0) {
     return null;
   }
 
-  return (
-    <div className={`mb-6 rounded-2xl border p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all duration-300 ${config.bgColor}`}>
-      <div className="flex items-center gap-3">
-        {config.icon}
+  const formattedDate = planEnd.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+
+  const timeLabel = daysRemaining === 0 ? "today" : daysRemaining === 1 ? "tomorrow" : `in ${daysRemaining} days`;
+
+  // ── CASE A: AUTOPAY ENABLED (Upcoming Auto-Renewal Notice) ──
+  if (autopayEnabled) {
+    let config = {
+      bgColor: "bg-blue-50/90 border-blue-200/90",
+      textColor: "text-blue-950",
+      subTextColor: "text-blue-800",
+      icon: <Zap className="text-blue-600 shrink-0 mt-0.5" size={20} />,
+      title: "Upcoming Auto-Debit Renewal ⚡",
+      message: `Your subscription will automatically renew ${timeLabel} on ${formattedDate}. Payment will be auto-debited via your saved payment method.`,
+    };
+
+    if (daysRemaining <= 3) {
+      config.bgColor = "bg-indigo-50 border-indigo-200";
+      config.textColor = "text-indigo-950";
+      config.subTextColor = "text-indigo-900";
+      config.icon = <RefreshCw className="text-indigo-600 shrink-0 mt-0.5" size={20} />;
+      config.message = `Auto-debit scheduled ${timeLabel} on ${formattedDate}. Please ensure your payment method has sufficient balance.`;
+    }
+
+    return (
+      <div className={`mb-6 rounded-2xl border p-4 flex items-center gap-3 transition-all duration-300 shadow-2xs ${config.bgColor}`}>
+        <div className="p-2 rounded-xl bg-white shadow-2xs border border-blue-100 shrink-0">
+          {config.icon}
+        </div>
         <div>
-          <p className={`text-sm font-bold ${config.textColor}`}>Subscription Expiry Warning</p>
-          <p className={`text-xs font-medium mt-0.5 ${config.subTextColor}`}>{config.message}</p>
+          <p className={`text-sm font-bold ${config.textColor}`}>{config.title}</p>
+          <p className={`text-xs font-medium mt-0.5 leading-relaxed ${config.subTextColor}`}>{config.message}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── CASE B: AUTOPAY DISABLED / MANUAL EXPIRY WARNING ──
+  const isTrial = subscriptionStatus === "trialing";
+  const renewCheckoutUrl = isTrial
+    ? "/select-plan?upgrade=true"
+    : (planId ? `/checkout?planId=${planId}&billing=${billingType || 'monthly'}` : "/select-plan?upgrade=true");
+
+  let config = {
+    bgColor: "bg-amber-50 border-amber-200",
+    textColor: "text-amber-950",
+    subTextColor: "text-amber-800",
+    buttonColor: "bg-amber-600 hover:bg-amber-700 text-white",
+    icon: <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={20} />,
+    title: isTrial ? "Free Trial Ending Soon ⏰" : "Subscription Expiration Warning ⚠️",
+    message: isTrial
+      ? `Your 14-day free trial will end ${timeLabel} on ${formattedDate}. Upgrade to a paid plan to keep your WhatsApp bots and features active.`
+      : `Your plan access will expire ${timeLabel} on ${formattedDate}. Autopay is off. Renew to prevent messaging downtime.`,
+    buttonLabel: isTrial ? "Upgrade to Paid Plan" : "Renew Current Plan",
+    targetUrl: renewCheckoutUrl,
+  };
+
+  if (daysRemaining <= 3) {
+    config.bgColor = "bg-rose-50 border-rose-200";
+    config.textColor = "text-rose-950";
+    config.subTextColor = "text-rose-800";
+    config.buttonColor = "bg-rose-600 hover:bg-rose-700 text-white";
+    config.icon = <ShieldAlert className="text-rose-600 shrink-0 mt-0.5" size={20} />;
+    config.title = isTrial ? "Critical: Free Trial Ends Very Soon" : "Critical: Plan Expires Very Soon";
+    config.message = isTrial
+      ? `Your free trial expires ${timeLabel} on ${formattedDate}. Upgrade now to prevent messaging downtime.`
+      : `Your platform access expires ${timeLabel} on ${formattedDate}. Renew now to keep your WhatsApp bots and broadcast queues active.`;
+    config.buttonLabel = isTrial ? "Upgrade Immediately" : "Renew Immediately";
+    config.targetUrl = renewCheckoutUrl;
+  }
+
+  return (
+    <div className={`mb-6 rounded-2xl border p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all duration-300 shadow-2xs ${config.bgColor}`}>
+      <div className="flex items-start gap-3">
+        <div className="p-2 rounded-xl bg-white shadow-2xs border border-amber-100 shrink-0">
+          {config.icon}
+        </div>
+        <div>
+          <p className={`text-sm font-bold ${config.textColor}`}>{config.title}</p>
+          <p className={`text-xs font-medium mt-0.5 leading-relaxed ${config.subTextColor}`}>{config.message}</p>
         </div>
       </div>
       <Link
-        to="/plans?upgrade=true"
-        className={`shrink-0 text-center px-5 py-2.5 rounded-xl text-xs font-bold transition shadow-sm ${config.buttonColor}`}
+        to={config.targetUrl}
+        className={`shrink-0 inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-bold transition shadow-sm leading-none ${config.buttonColor}`}
       >
-        Renew Now
+        <RefreshCw size={13} className="shrink-0" />
+        <span>{config.buttonLabel}</span>
       </Link>
     </div>
   );

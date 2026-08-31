@@ -7,10 +7,10 @@ const processExpiryReminders = async () => {
   console.log(`[${timestamp}] ── CRON: Starting Expiry Reminders Job ──`);
 
   try {
-    // 1. Find tenants where subscriptionStatus = 'active'
+    // 1. Find tenants who are active or trialing
     const activeTenants = await prisma.tenant.findMany({
       where: {
-        subscriptionStatus: 'active'
+        subscriptionStatus: { in: ['active', 'trialing', 'cancel_at_period_end'] }
       }
     });
 
@@ -24,53 +24,6 @@ const processExpiryReminders = async () => {
         const planEnd = new Date(tenant.planPeriodEnd);
         planEnd.setHours(0, 0, 0, 0);
 
-        // Check if already expired
-        if (planEnd.getTime() <= today.getTime()) {
-          // Check if expired reminder already sent to prevent duplicate expiry triggers
-          const alreadyExpired = await prisma.subscriptionReminder.findFirst({
-            where: {
-              tenantId: tenant.id,
-              reminderType: 'expired'
-            }
-          });
-
-          if (!alreadyExpired) {
-            const dataDeletionDate = new Date(today);
-            dataDeletionDate.setDate(dataDeletionDate.getDate() + 90);
-
-            // Update tenant status to expired
-            await prisma.tenant.update({
-              where: { id: tenant.id },
-              data: {
-                subscriptionStatus: 'expired',
-                dataDeletionDate
-              }
-            });
-
-            const frontendUrl = process.env.FRONTEND_URLS ? process.env.FRONTEND_URLS.split(',')[1] : 'http://localhost:5174';
-
-            // Send expiry email
-            await sendExpiryReminderEmail(tenant.email, 'expiry_reminder_expired', 'Your subscription has expired', {
-              tenantName: tenant.tenantName || tenant.email,
-              planName: tenant.currentPlan || 'Active Plan',
-              expiryDate: tenant.planPeriodEnd.toLocaleDateString(),
-              dataDeletionDate: dataDeletionDate.toLocaleDateString(),
-              resubscribeLink: `${frontendUrl}/plans`
-            });
-
-            // Create reminder record
-            await prisma.subscriptionReminder.create({
-              data: {
-                tenantId: tenant.id,
-                reminderType: 'expired'
-              }
-            });
-
-            console.log(`[${timestamp}] Tenant ${tenant.id} marked as expired. Data deletion scheduled for ${dataDeletionDate.toLocaleDateString()}`);
-          }
-          continue;
-        }
-
         // Calculate daysRemaining
         const diffTime = planEnd.getTime() - today.getTime();
         const daysRemaining = Math.round(diffTime / (1000 * 60 * 60 * 24));
@@ -79,53 +32,60 @@ const processExpiryReminders = async () => {
         let emailSubject = '';
         let templateName = '';
 
-        if (daysRemaining === 15) {
+        const isTrialing = tenant.subscriptionStatus === 'trialing';
+
+        if (daysRemaining === 15 && !isTrialing) {
           reminderType = '15_days_before';
           emailSubject = 'Your plan expires in 15 days';
           templateName = 'expiry_reminder_15';
-        } else if (daysRemaining === 7) {
+        } else if (daysRemaining === 7 && !isTrialing) {
           reminderType = '7_days_before';
           emailSubject = '7 days left on your subscription';
           templateName = 'expiry_reminder_7';
         } else if (daysRemaining === 3) {
           reminderType = '3_days_before';
-          emailSubject = 'Only 3 days left to renew';
+          emailSubject = isTrialing ? 'Your 14-day free trial ends in 3 days' : 'Only 3 days left to renew';
           templateName = 'expiry_reminder_3';
         } else if (daysRemaining === 1) {
           reminderType = '1_day_before';
-          emailSubject = 'Last chance — expires tomorrow';
+          emailSubject = isTrialing ? 'Your free trial ends tomorrow' : 'Last chance — expires tomorrow';
           templateName = 'expiry_reminder_1';
         }
 
         if (reminderType) {
-          // Check if already sent
-          const alreadySent = await prisma.subscriptionReminder.findFirst({
+          // Check if reminder was already recorded for this period
+          const existingReminder = await prisma.subscriptionReminder.findFirst({
             where: {
               tenantId: tenant.id,
-              reminderType
+              reminderType,
+              createdAt: {
+                gte: new Date(Date.now() - 48 * 3600000)
+              }
             }
           });
 
-          if (!alreadySent) {
+          if (!existingReminder) {
             const frontendUrl = process.env.FRONTEND_URLS ? process.env.FRONTEND_URLS.split(',')[1] : 'http://localhost:5174';
 
-            // Send reminder email
             await sendExpiryReminderEmail(tenant.email, templateName, emailSubject, {
               tenantName: tenant.tenantName || tenant.email,
               planName: tenant.currentPlan || 'Active Plan',
               expiryDate: tenant.planPeriodEnd.toLocaleDateString(),
-              renewLink: `${frontendUrl}/plans`
+              daysRemaining,
+              isTrialing,
+              autopayEnabled: tenant.autopayEnabled,
+              billingLink: `${frontendUrl}/settings/billing`,
+              resubscribeLink: `${frontendUrl}/plans`
             });
 
-            // Create SubscriptionReminder record
             await prisma.subscriptionReminder.create({
               data: {
                 tenantId: tenant.id,
-                reminderType
+                reminderType,
               }
             });
 
-            console.log(`[${timestamp}] Sent ${reminderType} reminder to tenant ${tenant.id}`);
+            console.log(`[${timestamp}] Sent ${reminderType} reminder to tenant ${tenant.id} (${tenant.email})`);
           }
         }
       } catch (innerErr) {
@@ -133,13 +93,13 @@ const processExpiryReminders = async () => {
       }
     }
   } catch (err) {
-    console.error(`[${timestamp}] Expiry Reminders Job failed:`, err);
+    console.error(`[${timestamp}] Expiry reminders job failed:`, err);
   }
-
-  console.log(`[${timestamp}] ── CRON: Finished Expiry Reminders Job ──`);
 };
 
-// Schedule: Run every day at 9:00 AM ('0 9 * * *')
-cron.schedule('0 9 * * *', processExpiryReminders);
+// Schedule cron to run daily at 08:00 AM
+cron.schedule('0 8 * * *', () => {
+  processExpiryReminders();
+});
 
-export { processExpiryReminders };
+export default processExpiryReminders;

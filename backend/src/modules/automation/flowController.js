@@ -105,10 +105,22 @@ const flowController = {
   },
 
   // ── PATCH /api/flows/:id/set-default ──
+    // ── PATCH /api/flows/:id/set-default ──
   setDefault: async (req, res) => {
     try {
       const tenantId = req.tenantId;
       const flow = await flowService.setDefaultFlow(req.params.id, tenantId);
+      res.json({ success: true, data: flow });
+    } catch (error) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  },
+
+  // ── PATCH /api/flows/:id/unset-default ──
+  unsetDefault: async (req, res) => {
+    try {
+      const tenantId = req.tenantId;
+      const flow = await flowService.unsetDefaultFlow(req.params.id, tenantId);
       res.json({ success: true, data: flow });
     } catch (error) {
       res.status(500).json({ success: false, message: error.message });

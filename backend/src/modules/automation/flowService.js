@@ -110,16 +110,26 @@ await prisma.flowNode.createMany({
 
     let options = node.data?.options || null
 
-    // ⭐ Inject nextNodeId into each button option
-    if (
-      node.type === 'INTERACTIVE_BUTTONS' &&
-      Array.isArray(options)
-    ) {
+        // ⭐ INTERACTIVE_BUTTONS: inject nextNodeId + preserve media
+    if (node.type === 'INTERACTIVE_BUTTONS') {
       const btnMap = buttonEdgeMap[node.id] || {}
-      options = options.map(btn => ({
+
+      // Support both:
+      // 1) old format: options = [buttons...]
+      // 2) new format: options = { buttons: [...], media: {...} }
+      const rawButtons = Array.isArray(node.data?.options)
+        ? node.data.options
+        : (node.data?.options?.buttons || [])
+
+      const buttons = rawButtons.map(btn => ({
         ...btn,
         nextNodeId: btnMap[btn.id] || null
       }))
+
+      options = {
+        buttons,
+        media: node.data?.media || node.data?.options?.media || null
+      }
     }
 
     return {
@@ -260,6 +270,7 @@ findFlowByKeyword: async (tenantId, userMessage) => {
   },
 
   // ── Set default flow ──
+    // ── Set default flow ──
   setDefaultFlow: async (flowId, tenantId) => {
     await prisma.flow.updateMany({
       where: { tenantId },
@@ -268,6 +279,14 @@ findFlowByKeyword: async (tenantId, userMessage) => {
     return await prisma.flow.update({
       where: { id: flowId },
       data: { isDefault: true, isActive: true }
+    })
+  },
+
+  // ── Unset default flow ──
+  unsetDefaultFlow: async (flowId, tenantId) => {
+    return await prisma.flow.update({
+      where: { id: flowId },
+      data: { isDefault: false }
     })
   },
 

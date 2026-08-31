@@ -501,18 +501,23 @@ const handleDeleteNode = async () => {
     }
   };
 
-  const handleSetDefault = async (flowId) => {
+    const handleToggleDefault = async (flow) => {
     if (!isWhatsAppConnected) {
       setShowConnectModal(true);
       return;
     }
     try {
-      await flowService.setDefault(flowId);
-      toast.success("Flow set as default");
+      if (flow.isDefault) {
+        await flowService.unsetDefault(flow.id);
+        toast.success("Default flow removed");
+      } else {
+        await flowService.setDefault(flow.id);
+        toast.success("Flow set as default");
+      }
       loadData();
     } catch (err) {
       console.error(err);
-      toast.error("Failed to set default flow");
+      toast.error("Failed to update default flow setting");
     }
   };
 
@@ -700,15 +705,20 @@ const handleDeleteNode = async () => {
                   Keywords
                 </button>
 
-                {!flow.isDefault && (
-                  <button
-                    onClick={() => handleSetDefault(flow.id)}
-                    title="Set as default"
-                    className="p-2 rounded-lg hover:bg-amber-50 text-slate-400 hover:text-amber-500 transition"
-                  >
-                    <Star size={16} />
-                  </button>
-                )}
+                                <button
+                  onClick={() => handleToggleDefault(flow)}
+                  title={flow.isDefault ? "Remove default setting" : "Set as default"}
+                  className={`p-2 rounded-lg transition ${
+                    flow.isDefault
+                      ? "bg-amber-50 text-amber-600 hover:bg-amber-100"
+                      : "text-slate-400 hover:bg-amber-50 hover:text-amber-500"
+                  }`}
+                >
+                  <Star
+                    size={16}
+                    className={flow.isDefault ? "fill-amber-400 text-amber-500" : ""}
+                  />
+                </button>
 
                 <button
                   onClick={() => handleToggle(flow.id, flow.isActive)}

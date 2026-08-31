@@ -226,6 +226,16 @@ export const getLoggedInTenant = async (req, res) => {
                 useCase: true,
                 logo: true,
                 timezone: true,
+                planId: true,
+                currentPlan: true,
+                planStatus: true,
+                subscriptionStatus: true,
+                planPeriodStart: true,
+                planPeriodEnd: true,
+                hasUsedTrial: true,
+                autopayEnabled: true,
+                cancelRequestedAt: true,
+                billingType: true,
             },
         });
 

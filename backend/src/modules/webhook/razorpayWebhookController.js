@@ -10,7 +10,7 @@ import { emitToSuperAdmin, emitToTenant } from "../../lib/socket.js";
 
 export const handleRazorpayWebhook = async (req, res) => {
   try {
-    const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
+    const webhookSecret = (process.env.RAZORPAY_WEBHOOK_SECRET || "").trim();
     const signature = req.headers["x-razorpay-signature"];
 
     if (!webhookSecret || !signature) {
@@ -37,6 +37,7 @@ export const handleRazorpayWebhook = async (req, res) => {
     }
 
     const event = req.body.event;
+    console.log(`🔔 Verified Razorpay Webhook received: ${event}`);
 
     // ─────────────────────────────────────────────────────────────
     // 1. EVENT: Payment Success (order.paid / payment.captured)
@@ -50,7 +51,7 @@ export const handleRazorpayWebhook = async (req, res) => {
         return res.status(200).json({ status: "skipped_no_order_id" });
       }
 
-      const existingPayment = await prisma.payment.findUnique({
+      const existingPayment = await prisma.payment.findFirst({
         where: { razorpayOrderId: orderId },
         include: { tenant: true },
       });
@@ -99,12 +100,10 @@ export const handleRazorpayWebhook = async (req, res) => {
             where: { id: existingPayment.id },
             data: {
               status: "SUCCESS",
-              razorpayPaymentId: paymentId || existingPayment.razorpayPaymentId,
-              paymentMethod: paymentEntity?.method || existingPayment.paymentMethod,
+              razorpayPaymentId: paymentId,
+              razorpaySignature: signature,
               paidAt: new Date(),
-              gstPercent: gstCalc.gstPercent,
-              gstAmount: gstCalc.gstAmount,
-              totalAmount: gstCalc.totalAmount,
+              paymentMethod: paymentEntity?.method || "card",
             },
           });
 
@@ -112,12 +111,12 @@ export const handleRazorpayWebhook = async (req, res) => {
             where: { id: existingPayment.tenantId },
             data: {
               planId: existingPayment.planId,
-              planActivatedAt: periodStart,
+              currentPlan: existingPayment.planName,
               billingType: existingPayment.billingType,
               planStatus: "active",
-              status: "APPROVED",
               subscriptionStatus: "active",
-              currentPlan: existingPayment.planName,
+              status: "APPROVED",
+              planActivatedAt: periodStart,
               planPeriodStart: periodStart,
               planPeriodEnd: periodEnd,
               cancelRequestedAt: null,
@@ -129,114 +128,264 @@ export const handleRazorpayWebhook = async (req, res) => {
           return { updatedPayment: p };
         });
 
-        console.log(`[Webhook] Plan activated successfully for tenant ${existingPayment.tenantId}`);
-        
-        // ── Format amount & label for display ──
-        const amountDisplay = `₹${((existingPayment.totalAmount || existingPayment.baseAmount) / 100).toLocaleString("en-IN")}`;
-        const planLabel = `${existingPayment.planName} (${existingPayment.billingType})`;
-
-        // ✅ 1. Notify SuperAdmin about successful payment
+        // Generate Invoice PDF
         try {
-          const superAdminNotif = await createSuperAdminNotification({
-            type: "tenant_payment",
-            title: "💳 Payment Received",
-            message: `${tenant?.tenantName || "A tenant"} paid ${amountDisplay} for ${planLabel}`,
-            metadata: {
-              tenantId: existingPayment.tenantId,
-              tenantName: tenant?.tenantName,
-              tenantEmail: tenant?.email,
-              planName: existingPayment.planName,
-              billingType: existingPayment.billingType,
-              amount: existingPayment.totalAmount || existingPayment.baseAmount,
-              orderId,
-              paymentId,
-            },
+          const { filePath, fileUrl, invoiceNumber } = await generateInvoicePDF(
+            updatedPayment,
+            tenant
+          );
+
+          await prisma.payment.update({
+            where: { id: updatedPayment.id },
+            data: { invoiceUrl: fileUrl },
           });
 
-          emitToSuperAdmin("superadmin_notification", {
-            notification: {
-              id: superAdminNotif.id,
-              type: superAdminNotif.type,
-              title: superAdminNotif.title,
-              message: superAdminNotif.message,
-              isRead: superAdminNotif.isRead,
-              createdAt: superAdminNotif.createdAt,
-              metadata: superAdminNotif.metadata,
-            },
+          await sendInvoiceEmail(tenant.email, {
+            invoiceNumber,
+            amount: updatedPayment.totalAmount,
+            planName: updatedPayment.planName,
+            periodEnd: periodEnd.toLocaleDateString(),
+            pdfPath: filePath,
           });
-          console.log(`📤 SuperAdmin payment notification emitted: ${superAdminNotif.id}`);
-        } catch (err) {
-          console.error("❌ SuperAdmin payment notification failed:", err.message);
-        }
-
-        // ✅ 2. Notify Tenant about plan activation
-        if (tenant) {
-          try {
-            const tenantNotif = await createNotification({
-              tenantId: existingPayment.tenantId,
-              userId: null, // tenant-wide
-              type: "plan_activated",
-              title: "✅ Plan Activated",
-              message: `Your ${planLabel} plan is now active. Valid until ${periodEnd.toLocaleDateString("en-IN")}`,
-              metadata: {
-                planName: existingPayment.planName,
-                billingType: existingPayment.billingType,
-                amount: existingPayment.totalAmount || existingPayment.baseAmount,
-                periodEnd: periodEnd.toISOString(),
-                orderId,
-              },
-            });
-
-            emitToTenant(existingPayment.tenantId, "new_notification", {
-              notification: {
-                id: tenantNotif.id,
-                type: tenantNotif.type,
-                title: tenantNotif.title,
-                message: tenantNotif.message,
-                isRead: tenantNotif.isRead,
-                createdAt: tenantNotif.createdAt,
-                metadata: tenantNotif.metadata,
-              },
-            });
-
-            // Emit live plan update event for dashboard banners
-            emitToTenant(existingPayment.tenantId, "plan_activated", {
-              planName: existingPayment.planName,
-              billingType: existingPayment.billingType,
-              subscriptionStatus: "active",
-              planPeriodEnd: periodEnd.toISOString(),
-            });
-
-            console.log(`📤 Tenant plan notification emitted: ${tenantNotif.id}`);
-          } catch (err) {
-            console.error("❌ Tenant plan notification failed:", err.message);
-          }
-        }
-
-        // Generate Invoice PDF & Send Email asynchronously
-        if (tenant) {
-          generateInvoicePDF(updatedPayment, tenant)
-            .then(async ({ filePath, fileUrl, invoiceNumber }) => {
-              await prisma.payment.update({
-                where: { id: updatedPayment.id },
-                data: { invoiceUrl: fileUrl },
-              });
-              await sendInvoiceEmail(
-                tenant.email,
-                tenant.tenantName || tenant.email,
-                invoiceNumber,
-                filePath
-              );
-            })
-            .catch((err) => {
-              console.error("❌ Webhook invoice generation error:", err.message);
-            });
+        } catch (pdfErr) {
+          console.error("❌ PDF generation or email failed in webhook:", pdfErr.message);
         }
       }
     }
 
     // ─────────────────────────────────────────────────────────────
-    // 2. EVENT: Payment Failed (payment.failed)
+    // 2. EVENT: Recurring Subscription Authenticated (Mandate Active)
+    // ─────────────────────────────────────────────────────────────
+    else if (event === "subscription.authenticated") {
+      const subscription = req.body?.payload?.subscription?.entity;
+      if (subscription?.id) {
+        console.log(`[Webhook] Mandate authenticated for subscription: ${subscription.id}`);
+        await prisma.tenant.updateMany({
+          where: {
+            razorpaySubscriptionId: subscription.id,
+            autopayEnabled: false,
+          },
+          data: {
+            autopayEnabled: true,
+            autopayMethod: subscription.payment_method || "card",
+          },
+        });
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // 3. EVENT: Recurring Subscription Charged (Day 15 Renewal / Monthly)
+    // ─────────────────────────────────────────────────────────────
+    else if (event === "subscription.charged") {
+      const subscription = req.body?.payload?.subscription?.entity;
+      const payment = req.body?.payload?.payment?.entity;
+
+      if (subscription?.id && payment?.id) {
+        // Idempotency Guard: Check if payment already processed
+        const existingPayment = await prisma.payment.findUnique({
+          where: { razorpayPaymentId: payment.id },
+        });
+
+        if (existingPayment) {
+          console.log(`[Webhook] Duplicate subscription.charged event for payment ${payment.id} — skipping`);
+          return res.status(200).json({ status: "ok", duplicate: true });
+        }
+
+        const tenant = await prisma.tenant.findFirst({
+          where: { razorpaySubscriptionId: subscription.id },
+          include: { plan: true },
+        });
+
+        if (tenant) {
+          console.log(`[Webhook] Processing recurring renewal for tenant ${tenant.tenantName} (${tenant.id})`);
+          const periodStart = new Date(subscription.current_start * 1000);
+          const periodEnd = new Date(subscription.current_end * 1000);
+          const totalAmount = payment.amount / 100;
+          const planBase = tenant.plan?.monthlyPrice || totalAmount;
+          const gstCalc = await calculateGST(planBase);
+          const invoiceNumber = `INV-${new Date().getFullYear()}-${Date.now()}-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
+
+          const { updatedPayment } = await prisma.$transaction(async (tx) => {
+            // A. Update Tenant to Active
+            await tx.tenant.update({
+              where: { id: tenant.id },
+              data: {
+                subscriptionStatus: "active",
+                planStatus: "active",
+                status: "APPROVED",
+                planPeriodStart: periodStart,
+                planPeriodEnd: periodEnd,
+                dataDeletionDate: null,
+                cancelRequestedAt: null,
+                cancellationReason: null,
+                autopayEnabled: true,
+              },
+            });
+
+            // B. Create Payment Record
+            const p = await tx.payment.create({
+              data: {
+                tenantId: tenant.id,
+                razorpayOrderId: payment.order_id || null,
+                razorpayPaymentId: payment.id,
+                razorpaySignature: signature,
+                paymentType: "ONLINE",
+                planId: tenant.planId || "unknown",
+                planName: tenant.currentPlan || tenant.plan?.name || "Active Plan",
+                billingType: tenant.billingType || "monthly",
+                baseAmount: gstCalc.baseAmount,
+                gstPercent: gstCalc.gstPercent || 18,
+                gstAmount: gstCalc.gstAmount || 0,
+                totalAmount: totalAmount,
+                currency: payment.currency || "INR",
+                paymentMethod: payment.method || "card",
+                status: "SUCCESS",
+                paidAt: new Date(payment.created_at * 1000),
+              },
+            });
+
+            // C. Create Invoice Record
+            await tx.invoice.create({
+              data: {
+                tenantId: tenant.id,
+                invoiceNumber,
+                planName: tenant.currentPlan || tenant.plan?.name || "Active Plan",
+                amount: totalAmount,
+                baseAmount: gstCalc.baseAmount,
+                gstAmount: gstCalc.gstAmount,
+                gstPercent: gstCalc.gstPercent,
+                status: "paid",
+                currency: payment.currency || "INR",
+                billingPeriodStart: periodStart,
+                billingPeriodEnd: periodEnd,
+                paymentMethodBrand: payment.method?.toUpperCase() || "AUTOPAY",
+                paymentMethodLast4: payment.card?.last4 || null,
+              },
+            });
+
+            return { updatedPayment: p };
+          });
+
+          // Generate Invoice PDF & Email
+          try {
+            const { filePath, fileUrl } = await generateInvoicePDF(updatedPayment, tenant);
+            await prisma.payment.update({
+              where: { id: updatedPayment.id },
+              data: { invoiceUrl: fileUrl },
+            });
+
+            await sendInvoiceEmail(tenant.email, {
+              invoiceNumber,
+              amount: totalAmount,
+              planName: tenant.currentPlan || "Active Plan",
+              periodEnd: periodEnd.toLocaleDateString(),
+              pdfPath: filePath,
+            });
+          } catch (pdfErr) {
+            console.error("❌ PDF generation or email failed for subscription.charged:", pdfErr.message);
+          }
+        }
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // 4. EVENT: Subscription Halted / Failed Auto-Debit (Soft Lock)
+    // ─────────────────────────────────────────────────────────────
+    else if (event === "subscription.halted") {
+      const subscription = req.body?.payload?.subscription?.entity;
+      if (subscription?.id) {
+        console.warn(`[Webhook] Subscription ${subscription.id} halted / auto-debit failed.`);
+        await prisma.tenant.updateMany({
+          where: { razorpaySubscriptionId: subscription.id },
+          data: {
+            subscriptionStatus: "payment_failed",
+            planStatus: "inactive",
+            // Do NOT set dataDeletionDate yet — Razorpay will retry over 3-5 days
+          },
+        });
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // 5. EVENT: Subscription Pending (Waiting for mandate)
+    // ─────────────────────────────────────────────────────────────
+    else if (event === "subscription.pending") {
+      const subscription = req.body?.payload?.subscription?.entity;
+      console.log(`[Webhook] Subscription ${subscription?.id} is pending mandate approval`);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // 6. EVENT: Subscription Completed (End of Total Cycles)
+    // ─────────────────────────────────────────────────────────────
+    else if (event === "subscription.completed") {
+      const subscription = req.body?.payload?.subscription?.entity;
+      if (subscription?.id) {
+        console.log(`[Webhook] Subscription ${subscription.id} reached term completion`);
+        await prisma.tenant.updateMany({
+          where: { razorpaySubscriptionId: subscription.id },
+          data: {
+            autopayEnabled: false,
+          },
+        });
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // 7. EVENT: Subscription Cancelled
+    // ─────────────────────────────────────────────────────────────
+    else if (event === "subscription.cancelled") {
+      const subscription = req.body?.payload?.subscription?.entity;
+      if (subscription?.id) {
+        console.log(`[Webhook] Subscription ${subscription.id} cancelled`);
+        await prisma.tenant.updateMany({
+          where: { razorpaySubscriptionId: subscription.id },
+          data: {
+            autopayEnabled: false,
+            subscriptionStatus: "cancel_at_period_end",
+          },
+        });
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // 7A. EVENT: Subscription Paused
+    // ─────────────────────────────────────────────────────────────
+    else if (event === "subscription.paused") {
+      const subscription = req.body?.payload?.subscription?.entity;
+      if (subscription?.id) {
+        console.log(`[Webhook] Subscription ${subscription.id} paused`);
+        await prisma.tenant.updateMany({
+          where: { razorpaySubscriptionId: subscription.id },
+          data: {
+            autopayEnabled: false,
+            subscriptionStatus: "paused",
+            planStatus: "inactive",
+          },
+        });
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // 7B. EVENT: Subscription Resumed
+    // ─────────────────────────────────────────────────────────────
+    else if (event === "subscription.resumed") {
+      const subscription = req.body?.payload?.subscription?.entity;
+      if (subscription?.id) {
+        console.log(`[Webhook] Subscription ${subscription.id} resumed`);
+        await prisma.tenant.updateMany({
+          where: { razorpaySubscriptionId: subscription.id },
+          data: {
+            autopayEnabled: true,
+            subscriptionStatus: "active",
+            planStatus: "active",
+            dataDeletionDate: null,
+          },
+        });
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // 8. EVENT: Payment Failed (payment.failed)
     // ─────────────────────────────────────────────────────────────
     else if (event === "payment.failed") {
       const paymentEntity = req.body?.payload?.payment?.entity;
@@ -244,11 +393,11 @@ export const handleRazorpayWebhook = async (req, res) => {
       const paymentId = paymentEntity?.id;
 
       if (orderId) {
-        const existingPayment = await prisma.payment.findUnique({
+        const existingPayment = await prisma.payment.findFirst({
           where: { razorpayOrderId: orderId },
         });
 
-              if (existingPayment && existingPayment.status === "PENDING") {
+        if (existingPayment && existingPayment.status === "PENDING") {
           console.warn(`[Webhook] Marking payment as FAILED for order: ${orderId}`);
           await prisma.payment.update({
             where: { id: existingPayment.id },
@@ -257,78 +406,12 @@ export const handleRazorpayWebhook = async (req, res) => {
               razorpayPaymentId: paymentId || existingPayment.razorpayPaymentId,
             },
           });
-
-          const tenant = await prisma.tenant.findUnique({
-            where: { id: existingPayment.tenantId },
-          });
-
-          // ✅ Notify SuperAdmin
-          try {
-            const failedNotif = await createSuperAdminNotification({
-              type: "tenant_payment_failed",
-              title: "❌ Payment Failed",
-              message: `${tenant?.tenantName || "A tenant"} payment failed for ${existingPayment.planName}`,
-              metadata: {
-                tenantId: existingPayment.tenantId,
-                tenantName: tenant?.tenantName,
-                tenantEmail: tenant?.email,
-                planName: existingPayment.planName,
-                orderId,
-                paymentId,
-              },
-            });
-
-            emitToSuperAdmin("superadmin_notification", {
-              notification: {
-                id: failedNotif.id,
-                type: failedNotif.type,
-                title: failedNotif.title,
-                message: failedNotif.message,
-                isRead: failedNotif.isRead,
-                createdAt: failedNotif.createdAt,
-                metadata: failedNotif.metadata,
-              },
-            });
-          } catch (err) {
-            console.error("❌ SuperAdmin payment failed notification error:", err.message);
-          }
-
-          // ✅ Notify Tenant
-          if (tenant) {
-            try {
-              const tenantFailNotif = await createNotification({
-                tenantId: existingPayment.tenantId,
-                userId: null,
-                type: "payment_failed",
-                title: "❌ Payment Failed",
-                message: `Your payment for ${existingPayment.planName} failed. Please try again.`,
-                metadata: {
-                  planName: existingPayment.planName,
-                  orderId,
-                },
-              });
-
-              emitToTenant(existingPayment.tenantId, "new_notification", {
-                notification: {
-                  id: tenantFailNotif.id,
-                  type: tenantFailNotif.type,
-                  title: tenantFailNotif.title,
-                  message: tenantFailNotif.message,
-                  isRead: tenantFailNotif.isRead,
-                  createdAt: tenantFailNotif.createdAt,
-                  metadata: tenantFailNotif.metadata,
-                },
-              });
-            } catch (err) {
-              console.error("❌ Tenant payment failed notification error:", err.message);
-            }
-          }
         }
       }
     }
 
     // ─────────────────────────────────────────────────────────────
-    // 3. EVENT: Refund Processed (refund.processed / refund.created)
+    // 9. EVENT: Refund Processed (refund.processed / refund.created)
     // ─────────────────────────────────────────────────────────────
     else if (event === "refund.processed" || event === "refund.created") {
       const refundEntity = req.body?.payload?.refund?.entity;

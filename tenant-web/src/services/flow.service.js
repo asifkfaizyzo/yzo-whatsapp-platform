@@ -98,8 +98,13 @@ const flowService = {
     return res.data
   },
 
-  setDefault: async (flowId) => {
+    setDefault: async (flowId) => {
     const res = await flowApi.patch(`/api/flows/${flowId}/set-default`)
+    return res.data
+  },
+
+  unsetDefault: async (flowId) => {
+    const res = await flowApi.patch(`/api/flows/${flowId}/unset-default`)
     return res.data
   },
 

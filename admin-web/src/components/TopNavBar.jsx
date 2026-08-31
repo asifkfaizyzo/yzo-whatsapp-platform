@@ -137,6 +137,12 @@ const TopNavbar = () => {
 
     // Navigate based on notification type
     switch (notification.type) {
+      case "new_ticket":
+      case "ticket_reply":
+      case "ticket_escalated":
+        navigate(`/dashboard/tickets?ticketId=${meta.ticketId || ""}`);
+        break;
+
       case "tenant_payment":
         navigate(
           meta.tenantId
@@ -144,19 +150,24 @@ const TopNavbar = () => {
             : "/dashboard/revenue",
         );
         break;
+
       case "tenant_registered":
         navigate("/dashboard/tenants");
         break;
+
       case "plan_upgraded":
         navigate("/dashboard/revenue");
         break;
+
       case "tenant_suspended":
         navigate("/dashboard/tenants");
         break;
+
       case "whatsapp_connected":
       case "whatsapp_disconnected":
         navigate("/dashboard/tenants");
         break;
+
       default:
         navigate("/dashboard");
     }
@@ -335,7 +346,6 @@ const TopNavbar = () => {
                 )}
               </div>
 
-              {/* Footer */}
               {/* Footer with View All - 🆕 UPDATED */}
               <div className="border-t border-slate-100 bg-slate-50/50">
                 {notifications.length > 0 && (

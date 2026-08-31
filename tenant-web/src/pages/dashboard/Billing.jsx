@@ -1,4 +1,3 @@
-// src/pages/dashboard/Billing.jsx
 import React, { useEffect, useState } from "react";
 import {
   CreditCard,
@@ -14,13 +13,17 @@ import {
   Receipt,
   BadgeIndianRupee,
   ArrowUpRight,
+  PauseCircle,
+  Play,
   X,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { getBillingDetails, downloadInvoice } from "../../services/billing.service";
-import api from "../../lib/axios";
+import { getBillingDetails, downloadInvoice, resumeSubscription } from "../../services/billing.service";
 import CancelSubscriptionModal from "../../components/billing/CancelSubscriptionModal";
+import PauseSubscriptionModal from "../../components/billing/PauseSubscriptionModal";
 import SubscriptionExpiryBanner from "../../components/billing/SubscriptionExpiryBanner";
+import { useToast } from "../../context/ToastContext";
+import { useAuthStore } from "../../store/useAuthStore";
 import { createPortal } from "react-dom";
 
 // ── Helper: Format currency ──
@@ -75,32 +78,21 @@ const StatusBadge = ({ status }) => {
 // ── Helper: Plan status badge ──
 const PlanStatusBadge = ({ status }) => {
   const map = {
-    active: "bg-emerald-50 text-emerald-700 border border-emerald-100",
-    cancel_at_period_end: "bg-amber-50 text-amber-700 border border-amber-100",
-    inactive: "bg-slate-100 text-slate-500 border border-slate-200",
-    expired: "bg-red-50 text-red-600 border border-red-100",
+    active: { label: "Active", bg: "bg-emerald-50 text-emerald-700 border-emerald-100", dot: "bg-emerald-500 animate-pulse" },
+    trialing: { label: "14-Day Free Trial", bg: "bg-blue-50 text-blue-700 border-blue-100", dot: "bg-blue-500 animate-pulse" },
+    cancel_at_period_end: { label: "Cancelling", bg: "bg-amber-50 text-amber-700 border-amber-100", dot: "bg-amber-500 animate-pulse" },
+    payment_failed: { label: "Payment Failed", bg: "bg-red-50 text-red-700 border-red-100", dot: "bg-red-500 animate-pulse" },
+    inactive: { label: "Inactive", bg: "bg-slate-100 text-slate-500 border-slate-200", dot: "bg-slate-400" },
+    expired: { label: "Expired", bg: "bg-red-50 text-red-600 border-red-100", dot: "bg-red-500" },
+    paused: { label: "Paused", bg: "bg-purple-50 text-purple-700 border-purple-100", dot: "bg-purple-500" },
   };
+  const config = map[status] || map.inactive;
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${map[status] || map.inactive
-        }`}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${config.bg}`}
     >
-      <span
-        className={`w-1.5 h-1.5 rounded-full ${
-          status === "active" 
-            ? "bg-emerald-500 animate-pulse" 
-            : status === "cancel_at_period_end" 
-            ? "bg-amber-500 animate-pulse" 
-            : "bg-slate-400"
-        }`}
-      />
-      {status === "active"
-        ? "Active"
-        : status === "cancel_at_period_end"
-          ? "Cancelling"
-          : status === "expired"
-            ? "Expired"
-            : "Inactive"}
+      <span className={`w-1.5 h-1.5 rounded-full ${config.dot}`} />
+      {config.label}
     </span>
   );
 };
@@ -112,8 +104,11 @@ const PaymentRow = ({ payment, index }) => {
   const [expanded, setExpanded] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
-  const cgst = parseFloat((payment.gstAmount / 2).toFixed(2));
-  const sgst = parseFloat((payment.gstAmount / 2).toFixed(2));
+  const totalGst = Number(payment.gstAmount) > 0 
+    ? Number(payment.gstAmount) 
+    : (Number(payment.totalAmount) > Number(payment.baseAmount) ? (Number(payment.totalAmount) - Number(payment.baseAmount)) : 0);
+  const cgst = parseFloat((totalGst / 2).toFixed(2));
+  const sgst = parseFloat((totalGst / 2).toFixed(2));
 
   const handleDownloadInvoice = async () => {
     setDownloading(true);
@@ -279,11 +274,14 @@ const PaymentRow = ({ payment, index }) => {
 // MAIN BILLING PAGE COMPONENT
 // ══════════════════════════════════════════
 export default function Billing() {
+  const toast = useToast();
+  const { user, login, accessToken } = useAuthStore();
   const [billingData, setBillingData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
-  const [isReactivateModalOpen, setIsReactivateModalOpen] = useState(false);
+  const [isPauseModalOpen, setIsPauseModalOpen] = useState(false);
+  const [isResumeModalOpen, setIsResumeModalOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
   const fetchBilling = async () => {
@@ -298,17 +296,22 @@ export default function Billing() {
     setLoading(false);
   };
 
-  const handleReactivate = async () => {
+  const handleResume = async () => {
     setActionLoading(true);
     try {
-      const res = await api.post("/billing/reactivate");
-      if (res.data.success) {
+      const res = await resumeSubscription();
+      if (res.success) {
+        toast.success("Subscription resumed successfully! Your platform features are active.");
+        if (user) {
+          login({ ...user, subscriptionStatus: "active", planStatus: "active", autopayEnabled: true }, accessToken);
+        }
+        setIsResumeModalOpen(false);
         fetchBilling();
       } else {
-        alert(res.data.message || "Failed to reactivate");
+        toast.error(res.message || "Failed to resume subscription");
       }
     } catch (err) {
-      alert("Error reactivating subscription");
+      toast.error("Error resuming subscription");
     } finally {
       setActionLoading(false);
     }
@@ -379,33 +382,49 @@ export default function Billing() {
         </button>
       </div>
 
-      {/* Cancellation Pending Banner */}
-      {currentPlan && currentPlan.subscriptionStatus === 'cancel_at_period_end' && (
-        <div className="mb-6 rounded-2xl bg-amber-50 border border-amber-100 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <AlertCircle className="text-amber-500 shrink-0" size={20} />
-            <div>
-              <p className="text-sm font-bold text-amber-900">Subscription scheduled to end</p>
-              <p className="text-xs text-amber-700">
-                All services will terminate on <strong>{formatDate(currentPlan.planPeriodEnd)}</strong>. You can reactivate anytime before then.
-              </p>
-            </div>
+      {/* Paused Subscription Banner */}
+      {currentPlan && currentPlan.subscriptionStatus === 'paused' && (
+        <div className="mb-6 rounded-2xl bg-purple-50 border border-purple-200/90 p-4 flex items-center gap-3 shadow-xs">
+          <div className="p-2.5 bg-purple-600 text-white rounded-xl shrink-0 shadow-sm">
+            <PauseCircle size={20} />
           </div>
-          <button
-            onClick={() => setIsReactivateModalOpen(true)}
-            disabled={actionLoading}
-            className="shrink-0 px-4.5 py-2 rounded-xl bg-[#d97706] hover:bg-[#b45309] text-xs font-bold text-white transition disabled:opacity-50"
-          >
-            {actionLoading ? "Reactivating..." : "Reactivate Subscription"}
-          </button>
+          <div>
+            <p className="text-sm font-bold text-purple-950">Subscription is currently paused</p>
+            <p className="text-xs text-purple-800 mt-0.5">
+              Zero renewal fees are being debited. All templates, contacts, WhatsApp numbers, and automations are safely preserved.
+            </p>
+          </div>
         </div>
       )}
 
-      {/* Subscription Expiry Alert Banner */}
+      {/* Cancellation Pending Banner */}
+      {currentPlan && currentPlan.subscriptionStatus === 'cancel_at_period_end' && (
+        <div className="mb-6 rounded-2xl bg-amber-50 border border-amber-200/80 p-4 flex items-center gap-3 shadow-xs">
+          <div className="p-2.5 bg-amber-500 text-white rounded-xl shrink-0">
+            <AlertCircle size={20} />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-amber-900">
+              {billingData?.autopayEnabled === false && !billingData?.invoices?.length
+                ? "Trial cancellation scheduled"
+                : "Subscription scheduled to end"}
+            </p>
+            <p className="text-xs text-amber-700 mt-0.5">
+              Autopay is disabled. Full platform and feature access remains active until{" "}
+              <strong>{formatDate(currentPlan.planPeriodEnd)}</strong>.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Subscription Expiry Alert Banner (Manual Plans Only) */}
       {currentPlan && (
         <SubscriptionExpiryBanner
           planPeriodEnd={currentPlan.planPeriodEnd}
           subscriptionStatus={currentPlan.subscriptionStatus}
+          autopayEnabled={billingData?.autopayEnabled}
+          planId={currentPlan.id}
+          billingType={currentPlan.billingType}
         />
       )}
 
@@ -444,7 +463,13 @@ export default function Billing() {
                     <div className="flex items-center gap-1.5 text-xs text-slate-600 font-semibold">
                       <RefreshCw size={13} className="text-[#125EF2]" />
                       <span>
-                        {currentPlan.subscriptionStatus === 'cancel_at_period_end' ? "Ends" : "Renews"}: {formatDate(currentPlan.nextRenewalDate)}
+                        {currentPlan.subscriptionStatus === 'cancel_at_period_end' 
+                          ? "Access Ends" 
+                          : currentPlan.subscriptionStatus === 'paused'
+                          ? "Paused on"
+                          : billingData?.autopayEnabled
+                          ? "Next Auto-Debit"
+                          : "Renews on"}: {formatDate(currentPlan.nextRenewalDate)}
                       </span>
                     </div>
                   )}
@@ -471,30 +496,103 @@ export default function Billing() {
                 </div>
               )}
               <div className="flex flex-wrap gap-2 justify-end">
-                {currentPlan.subscriptionStatus === 'active' && (
-                  <button
-                    onClick={() => setIsCancelModalOpen(true)}
-                    className="px-4 py-2 text-xs font-bold rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition shadow-sm"
-                  >
-                    Cancel Subscription
-                  </button>
-                )}
-
-                {currentPlan.id === "enterprise" ? (
+                {currentPlan.subscriptionStatus === 'paused' ? (
+                  <>
+                    <button
+                      onClick={() => setIsResumeModalOpen(true)}
+                      disabled={actionLoading}
+                      className="inline-flex items-center justify-center gap-2 px-5 py-2.5 text-xs font-bold rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 transition shadow-sm leading-none"
+                    >
+                      <Play size={14} className="shrink-0" />
+                      <span>Resume Subscription</span>
+                    </button>
+                    <button
+                      onClick={() => setIsCancelModalOpen(true)}
+                      className="px-4 py-2 text-xs font-bold rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition shadow-sm"
+                    >
+                      {billingData?.autopayEnabled ? "Cancel Autopay" : "Cancel Subscription"}
+                    </button>
+                    <Link
+                      to="/select-plan?upgrade=true"
+                      className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-bold rounded-xl border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 transition shadow-sm leading-none"
+                    >
+                      <RefreshCw size={13} className="shrink-0" />
+                      <span>Change Plan</span>
+                    </Link>
+                  </>
+                ) : currentPlan.subscriptionStatus === 'trialing' ? (
+                  <>
+                    {billingData?.autopayEnabled && (
+                      <button
+                        onClick={() => setIsCancelModalOpen(true)}
+                        className="px-4 py-2 text-xs font-bold rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition shadow-sm"
+                      >
+                        Cancel Trial Autopay
+                      </button>
+                    )}
+                    <Link
+                      to="/select-plan?upgrade=true"
+                      className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-bold rounded-xl bg-[#125EF2] text-white hover:bg-[#0d4fd6] transition shadow-sm leading-none"
+                    >
+                      <Zap size={13} className="shrink-0" />
+                      <span>Upgrade to Paid Plan</span>
+                    </Link>
+                  </>
+                ) : currentPlan.subscriptionStatus === 'active' ? (
+                  <>
+                    <button
+                      onClick={() => setIsPauseModalOpen(true)}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl border border-purple-200 bg-purple-50/60 text-purple-800 hover:bg-purple-100/80 hover:text-purple-900 transition shadow-2xs"
+                    >
+                      <PauseCircle size={14} className="text-purple-600 shrink-0" />
+                      <span>Pause Plan</span>
+                    </button>
+                    <button
+                      onClick={() => setIsCancelModalOpen(true)}
+                      className="px-4 py-2 text-xs font-bold rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition shadow-sm"
+                    >
+                      {billingData?.autopayEnabled ? "Cancel Autopay" : "Cancel Subscription"}
+                    </button>
+                    <Link
+                      to="/select-plan?upgrade=true"
+                      className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-bold rounded-xl bg-[#125EF2] text-white hover:bg-[#0d4fd6] transition shadow-sm leading-none"
+                    >
+                      <RefreshCw size={13} className="shrink-0" />
+                      <span>Change Plan</span>
+                    </Link>
+                  </>
+                ) : currentPlan.subscriptionStatus === 'cancel_at_period_end' ? (
+                  <>
+                    <Link
+                      to={currentPlan.id ? `/checkout?planId=${currentPlan.id}&billing=${currentPlan.billingType || 'monthly'}` : "/select-plan?upgrade=true"}
+                      className="inline-flex items-center justify-center gap-2 px-5 py-2.5 text-xs font-bold rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 transition shadow-sm leading-none"
+                    >
+                      <RefreshCw size={13} className="shrink-0" />
+                      <span>Subscribe to Plan</span>
+                    </Link>
+                    <Link
+                      to="/select-plan?upgrade=true"
+                      className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-bold rounded-xl border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 transition shadow-sm leading-none"
+                    >
+                      <RefreshCw size={13} className="shrink-0" />
+                      <span>Change Plan</span>
+                    </Link>
+                  </>
+                ) : currentPlan.id === "enterprise" ? (
                   <Link
                     to="/select-plan?upgrade=true"
-                    className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl bg-slate-900 text-white hover:bg-slate-850 transition shadow-sm"
+                    className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-bold rounded-xl bg-slate-900 text-white hover:bg-slate-850 transition shadow-sm leading-none"
                   >
-                    <RefreshCw size={13} />
-                    Change Plan
+                    <RefreshCw size={13} className="shrink-0" />
+                    <span>Change Plan</span>
                   </Link>
                 ) : (
                   <Link
                     to="/select-plan?upgrade=true"
-                    className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl bg-[#125EF2] text-white hover:bg-[#0d4fd6] transition shadow-sm"
+                    className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-bold rounded-xl bg-[#125EF2] text-white hover:bg-[#0d4fd6] transition shadow-sm leading-none"
                   >
-                    <ArrowUpRight size={13} />
-                    Upgrade Plan
+                    <ArrowUpRight size={13} className="shrink-0" />
+                    <span>Upgrade Plan</span>
                   </Link>
                 )}
               </div>
@@ -654,57 +752,90 @@ export default function Billing() {
       )}
 
       {currentPlan && (
-        <CancelSubscriptionModal
-          isOpen={isCancelModalOpen}
-          onClose={() => setIsCancelModalOpen(false)}
-          planName={currentPlan.name}
-          periodEndDate={currentPlan.planPeriodEnd || currentPlan.nextRenewalDate}
-          onSuccess={fetchBilling}
-        />
+        <>
+          <CancelSubscriptionModal
+            isOpen={isCancelModalOpen}
+            onClose={() => setIsCancelModalOpen(false)}
+            planName={currentPlan.name}
+            periodEndDate={currentPlan.planPeriodEnd || currentPlan.nextRenewalDate}
+            onSuccess={fetchBilling}
+          />
+          <PauseSubscriptionModal
+            isOpen={isPauseModalOpen}
+            onClose={() => setIsPauseModalOpen(false)}
+            planName={currentPlan.name}
+            onSuccess={fetchBilling}
+          />
+        </>
       )}
 
-      {/* Reactivate Confirmation Modal */}
-      {isReactivateModalOpen && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200" style={{ zIndex: 99999 }}>
-          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden border border-slate-100 flex flex-col animate-in scale-in-95 duration-200">
+      {/* Resume Confirmation Modal */}
+      {isResumeModalOpen && createPortal(
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200" style={{ zIndex: 99999 }}>
+          <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl overflow-hidden border border-slate-100 flex flex-col animate-in zoom-in-95 duration-200">
             
             {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-              <h3 className="text-lg font-bold text-slate-800">
-                Reactivate Subscription
-              </h3>
+            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-emerald-50/70 via-white to-emerald-50/30">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-600/20">
+                  <Play size={20} className="fill-white translate-x-0.5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-800">
+                    Resume Subscription
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium">
+                    Reactivate your plan and automated messaging
+                  </p>
+                </div>
+              </div>
               <button 
-                onClick={() => setIsReactivateModalOpen(false)} 
-                className="p-1 rounded-lg text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition"
+                onClick={() => setIsResumeModalOpen(false)} 
+                className="p-1.5 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
 
             {/* Modal Body */}
-            <div className="p-6">
+            <div className="p-6 space-y-3">
               <p className="text-sm text-slate-600 leading-relaxed">
-                Are you sure you want to reactivate your subscription? This will cancel your scheduled termination and keep your plan active. Your billing period and renewal cycle will continue without interruption.
+                Are you sure you want to resume your subscription?
               </p>
+              <div className="rounded-2xl bg-emerald-50/60 border border-emerald-100 p-3.5 text-xs text-emerald-900 space-y-1.5">
+                <p className="font-semibold flex items-center gap-1.5">
+                  <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
+                  <span>Your recurring Autopay schedule will resume on Razorpay.</span>
+                </p>
+                <p className="font-semibold flex items-center gap-1.5">
+                  <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
+                  <span>Outbound WhatsApp broadcasts and bot flows will be reactivated.</span>
+                </p>
+              </div>
             </div>
 
             {/* Modal Footer */}
             <div className="flex gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50/50">
               <button
-                onClick={async () => {
-                  setIsReactivateModalOpen(false);
-                  await handleReactivate();
-                }}
-                disabled={actionLoading}
-                className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-sm font-bold text-white transition shadow-sm"
+                onClick={() => setIsResumeModalOpen(false)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-600 hover:bg-slate-50 transition"
               >
-                {actionLoading ? "Reactivating..." : "Yes, Reactivate"}
+                Keep Paused
               </button>
               <button
-                onClick={() => setIsReactivateModalOpen(false)}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 hover:bg-slate-50 transition"
+                onClick={async () => {
+                  setIsResumeModalOpen(false);
+                  await handleResume();
+                }}
+                disabled={actionLoading}
+                className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-xs font-bold text-white transition shadow-sm flex items-center justify-center gap-2"
               >
-                Cancel
+                {actionLoading ? "Resuming..." : (
+                  <>
+                    <Play size={14} className="fill-white" />
+                    <span>Yes, Resume</span>
+                  </>
+                )}
               </button>
             </div>
 
