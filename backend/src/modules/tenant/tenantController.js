@@ -824,6 +824,7 @@ export const getWhatsappCredentials = async (req, res, next) => {
                 whatsappWabaId: true,
                 whatsappVerifyToken: true,
                 whatsappAccessToken: true,
+                whatsappCatalogId: true,
             },
         });
 
@@ -847,7 +848,7 @@ export const getWhatsappCredentials = async (req, res, next) => {
 export const updateWhatsappCredentials = async (req, res, next) => {
     try {
         const tenantId = req.tenant?.id;
-        const { phoneId, wabaId, accessToken, verifyToken } = req.body;
+        const { phoneId, wabaId, accessToken, verifyToken, catalogId } = req.body;
 
         await prisma.tenant.update({
             where: { id: tenantId },
@@ -856,6 +857,7 @@ export const updateWhatsappCredentials = async (req, res, next) => {
                 whatsappWabaId: wabaId,
                 whatsappAccessToken: accessToken ? encrypt(accessToken) : undefined,
                 whatsappVerifyToken: verifyToken,
+                whatsappCatalogId: catalogId !== undefined ? catalogId : undefined,
             },
         });
 

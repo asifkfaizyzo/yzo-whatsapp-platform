@@ -187,7 +187,8 @@ if (conversation.mode === 'QUEUED') {
           conversation,
           contact,
           userMessage,
-          isNewContact
+          isNewContact,
+          extraData
         )
         return
       }
@@ -203,6 +204,74 @@ if (conversation.mode === 'QUEUED') {
 
     } catch (error) {
       console.error('❌ Flow Engine Error:', error)
+    }
+  },
+
+  // ─────────────────────────────────────────
+  // Trigger Event: ORDER_RECEIVED (WhatsApp cart order)
+  // ─────────────────────────────────────────
+  triggerOrderFlow: async (conversation, contact, order) => {
+    try {
+      const tenantId = conversation.tenantId
+
+      console.log(`🛍️ Triggering ORDER_RECEIVED flow for order ${order.orderNumber} (tenant: ${tenantId})`)
+
+      const flow = await flowService.findOrderFlow(tenantId)
+
+      if (!flow) {
+        console.log('ℹ️ No active ORDER_RECEIVED flow configured for tenant. Sending standard confirmation.')
+        const defaultConfirmation = `✅ *Order Received!*\n\nOrder #${order.orderNumber}\nTotal: ${order.currency} ${order.totalAmount}\n\nOur team will review your order and contact you for delivery details!`
+        await flowEngine.sendWhatsAppMessage(tenantId, contact.phone, defaultConfirmation)
+        await flowEngine.saveBotMessage(conversation.id, defaultConfirmation)
+        return
+      }
+
+      if (!flow.nodes || flow.nodes.length === 0) {
+        console.log('⚠️ Order flow has no nodes:', flow.id)
+        return
+      }
+
+      const firstNode = flow.nodes[0]
+      const initialFlowData = {
+        activeOrderId: order.id,
+        orderNumber: order.orderNumber,
+        totalAmount: String(order.totalAmount),
+        currency: order.currency
+      }
+
+      await prisma.conversation.update({
+        where: { id: conversation.id },
+        data: {
+          currentFlowId: flow.id,
+          currentNodeId: firstNode.id,
+          mode: 'BOT',
+          botPaused: false,
+          status: 'OPEN',
+          flowData: initialFlowData
+        }
+      })
+
+      const updatedConversation = {
+        ...conversation,
+        currentFlowId: flow.id,
+        currentNodeId: firstNode.id,
+        mode: 'BOT',
+        botPaused: false,
+        status: 'OPEN',
+        flowData: initialFlowData
+      }
+
+      console.log(`🚀 Executing first node of order flow: ${firstNode.id} (${firstNode.type})`)
+
+      await flowEngine.executeNode(
+        firstNode,
+        updatedConversation,
+        contact,
+        `ORDER_RECEIVED_${order.orderNumber}`,
+        false
+      )
+    } catch (err) {
+      console.error('❌ triggerOrderFlow error:', err)
     }
   },
 
@@ -275,7 +344,7 @@ if (conversation.mode === 'QUEUED') {
   // ─────────────────────────────────────────
   // Continue from current node
   // ─────────────────────────────────────────
-  continueFlow: async (conversation, contact, userMessage, isNewContact = false) => {
+  continueFlow: async (conversation, contact, userMessage, isNewContact = false, extraData = {}) => {
 
     const currentNode = await flowService.getNodeById(conversation.currentNodeId)
 
@@ -290,14 +359,15 @@ if (conversation.mode === 'QUEUED') {
       conversation,
       contact,
       userMessage,
-      isNewContact
+      isNewContact,
+      extraData
     )
   },
 
   // ─────────────────────────────────────────
   // Execute a single node
   // ─────────────────────────────────────────
-  executeNode: async (node, conversation, contact, userMessage, isNewContact = false) => {
+  executeNode: async (node, conversation, contact, userMessage, isNewContact = false, extraData = {}) => {
     console.log(`\n⚙️  Node: ${node.id} | Type: ${node.type}`)
 
     switch (node.type) {
@@ -328,6 +398,24 @@ if (conversation.mode === 'QUEUED') {
 
       case 'INTERACTIVE_BUTTONS':
         await flowEngine.handleInteractiveButtons(
+          node, conversation, contact, userMessage, isNewContact
+        )
+        break
+
+      case 'SEND_CATALOG':
+        await flowEngine.handleSendCatalog(
+          node, conversation, contact, userMessage, isNewContact
+        )
+        break
+
+      case 'ASK_LOCATION':
+        await flowEngine.handleAskLocation(
+          node, conversation, contact, userMessage, isNewContact, extraData
+        )
+        break
+
+      case 'SEND_LOCATION':
+        await flowEngine.handleSendLocation(
           node, conversation, contact, userMessage, isNewContact
         )
         break
@@ -836,7 +924,199 @@ handleSendMessage: async (node, conversation, contact, userMessage, isNewContact
     }
   },
 
+  // ─────────────────────────────────────────
+  // SEND_CATALOG Node
+  // ─────────────────────────────────────────
+  handleSendCatalog: async (node, conversation, contact, userMessage, isNewContact = false) => {
+    console.log(`📦 Executing SEND_CATALOG node: ${node.id}`)
+    const options = node.options || {}
+    const bodyText = node.content || options.bodyText || 'Browse our catalog below:'
+    const footerText = options.footerText || null
+    const thumbnailSku = options.thumbnailSku || null
 
+    await flowEngine.sendWhatsAppCatalogMessage(
+      conversation.tenantId,
+      contact.phone,
+      bodyText,
+      footerText,
+      thumbnailSku
+    )
+
+    await flowEngine.saveBotMessage(conversation.id, bodyText, {
+      type: 'CATALOG'
+    })
+
+    if (node.nextNodeId) {
+      const nextNode = await flowService.getNodeById(node.nextNodeId)
+      if (nextNode) {
+        await prisma.conversation.update({
+          where: { id: conversation.id },
+          data: { currentNodeId: nextNode.id }
+        })
+        const updatedConversation = { ...conversation, currentNodeId: nextNode.id }
+        await flowEngine.executeNode(nextNode, updatedConversation, contact, userMessage, isNewContact)
+      }
+    } else {
+      await flowEngine.endFlow(conversation)
+    }
+  },
+
+  // ─────────────────────────────────────────
+  // ASK_LOCATION Node (Home Delivery GPS request)
+  // ─────────────────────────────────────────
+  handleAskLocation: async (node, conversation, contact, userMessage, isNewContact = false, extraData = {}) => {
+    const isReplying = conversation.currentNodeId === node.id
+
+    if (!isReplying) {
+      // Arriving at node: send location request message and wait
+      console.log(`📍 Sending Location Request message: "${node.content}"`)
+      const promptText = node.content || 'Please share your delivery location so we can deliver your order accurately 🚚'
+
+      await flowEngine.sendLocationRequestMessage(
+        conversation.tenantId,
+        contact.phone,
+        promptText
+      )
+
+      await flowEngine.saveBotMessage(conversation.id, promptText, {
+        type: 'TEXT'
+      })
+
+      await prisma.conversation.update({
+        where: { id: conversation.id },
+        data: {
+          currentNodeId: node.id,
+          mode: 'BOT'
+        }
+      })
+
+      console.log(`⏸️  Waiting for location from contact: ${contact.phone}`)
+
+    } else {
+      // Replying at node: customer sent location or text or other media
+      console.log(`📍 Location reply received. extraData:`, extraData, `userMessage: "${userMessage}"`)
+
+      const activeOrderId = conversation.flowData?.activeOrderId
+      let locationAddress = null
+
+      if (extraData?.locLatitude && extraData?.locLongitude) {
+        // Native WhatsApp location received
+        locationAddress = extraData.locAddress || extraData.locName || `GPS: ${Number(extraData.locLatitude).toFixed(4)}, ${Number(extraData.locLongitude).toFixed(4)}`
+
+        if (activeOrderId) {
+          await prisma.order.update({
+            where: { id: activeOrderId },
+            data: {
+              deliveryType: 'HOME_DELIVERY',
+              deliveryLat: Number(extraData.locLatitude),
+              deliveryLng: Number(extraData.locLongitude),
+              deliveryName: extraData.locName || null,
+              deliveryAddress: locationAddress,
+              status: 'CONFIRMED'
+            }
+          }).catch(err => console.error('Order update error:', err.message))
+        }
+      } else if (userMessage && typeof userMessage === 'string' && userMessage.trim().length > 3 && userMessage !== 'LOCATION_RECEIVED') {
+        // Fallback: customer typed address as text
+        locationAddress = userMessage.trim()
+
+        if (activeOrderId) {
+          await prisma.order.update({
+            where: { id: activeOrderId },
+            data: {
+              deliveryType: 'HOME_DELIVERY',
+              deliveryAddress: locationAddress,
+              status: 'CONFIRMED'
+            }
+          }).catch(err => console.error('Order update error:', err.message))
+        }
+      } else {
+        // Customer sent non-text/non-location (e.g. image, audio, sticker)
+        console.log('⚠️ Non-location/non-text received at ASK_LOCATION step. Prompting retry.')
+        const retryPrompt = 'Please share your delivery address by tapping the "Send location" button or typing your address in text 🚚'
+        await flowEngine.sendWhatsAppMessage(conversation.tenantId, contact.phone, retryPrompt)
+        await flowEngine.saveBotMessage(conversation.id, retryPrompt)
+        return
+      }
+
+      // Move to next node if location captured
+      if (node.nextNodeId) {
+        const nextNode = await flowService.getNodeById(node.nextNodeId)
+        if (nextNode) {
+          await prisma.conversation.update({
+            where: { id: conversation.id },
+            data: { currentNodeId: nextNode.id }
+          })
+          const updatedConversation = { ...conversation, currentNodeId: nextNode.id }
+          await flowEngine.executeNode(nextNode, updatedConversation, contact, userMessage, isNewContact)
+        } else {
+          await flowEngine.endFlow(conversation)
+        }
+      } else {
+        // Default confirmation if end of flow
+        const orderNumber = conversation.flowData?.orderNumber || 'your order'
+        const confirmationMsg = `✅ *Order #${orderNumber} Confirmed!*\n\n🚚 Delivery Address:\n${locationAddress}\n\nWe will notify you when your order is out for delivery!`
+        await flowEngine.sendWhatsAppMessage(conversation.tenantId, contact.phone, confirmationMsg)
+        await flowEngine.saveBotMessage(conversation.id, confirmationMsg)
+        await flowEngine.endFlow(conversation)
+      }
+    }
+  },
+
+  // ─────────────────────────────────────────
+  // SEND_LOCATION Node (Store Pick Up Map Pin)
+  // ─────────────────────────────────────────
+  handleSendLocation: async (node, conversation, contact, userMessage, isNewContact = false) => {
+    console.log(`🏬 Executing SEND_LOCATION node: ${node.id}`)
+    const options = node.options || {}
+    const storeData = {
+      storeName: options.storeName || options.name || 'Store Pick Up Location',
+      address: options.address || node.content || 'Store Address',
+      latitude: options.latitude ? Number(options.latitude) : 19.1136,
+      longitude: options.longitude ? Number(options.longitude) : 72.8697
+    }
+
+    const activeOrderId = conversation.flowData?.activeOrderId
+    if (activeOrderId) {
+      await prisma.order.update({
+        where: { id: activeOrderId },
+        data: {
+          deliveryType: 'STORE_PICKUP',
+          deliveryName: storeData.storeName,
+          deliveryAddress: storeData.address,
+          status: 'CONFIRMED'
+        }
+      }).catch(err => console.error('Order update error:', err.message))
+    }
+
+    await flowEngine.sendStoreLocationPin(
+      conversation.tenantId,
+      contact.phone,
+      storeData
+    )
+
+    await flowEngine.saveBotMessage(conversation.id, `${storeData.storeName}\n${storeData.address}`, {
+      type: 'LOCATION'
+    })
+
+    if (node.nextNodeId) {
+      const nextNode = await flowService.getNodeById(node.nextNodeId)
+      if (nextNode) {
+        await prisma.conversation.update({
+          where: { id: conversation.id },
+          data: { currentNodeId: nextNode.id }
+        })
+        const updatedConversation = { ...conversation, currentNodeId: nextNode.id }
+        await flowEngine.executeNode(nextNode, updatedConversation, contact, userMessage, isNewContact)
+      }
+    } else {
+      const orderNumber = conversation.flowData?.orderNumber || 'your order'
+      const pickupMsg = `🏬 *Order #${orderNumber} Confirmed for Store Pickup!*\n\nPlease visit ${storeData.storeName} with your Order ID to collect your items.`
+      await flowEngine.sendWhatsAppMessage(conversation.tenantId, contact.phone, pickupMsg)
+      await flowEngine.saveBotMessage(conversation.id, pickupMsg)
+      await flowEngine.endFlow(conversation)
+    }
+  },
 
   // ─────────────────────────────────────────
 // ASSIGN_AGENT Node
@@ -1525,6 +1805,201 @@ saveBotMediaMessage: async (conversationId, mediaData) => {
 
     } catch (error) {
       console.error('❌ sendWhatsAppInteractiveButtons error:', error)
+    }
+  },
+
+  // ─────────────────────────────────────────
+  // Send Catalog Message via Meta API
+  // ─────────────────────────────────────────
+  sendWhatsAppCatalogMessage: async (tenantId, phone, bodyText, footerText = null, thumbnailSku = null) => {
+    try {
+      if (process.env.MOCK_WHATSAPP === 'true') {
+        console.log('\n╔══════════════════════════════════════╗')
+        console.log('║  📱 MOCK WHATSAPP - CATALOG MESSAGE  ║')
+        console.log('╠══════════════════════════════════════╣')
+        console.log(`║  To     : ${phone}`)
+        console.log(`║  Body   : ${bodyText}`)
+        console.log('╚══════════════════════════════════════╝\n')
+        return { messages: [{ id: 'mock_cat_' + Date.now() }] }
+      }
+
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: {
+          whatsappPhoneId: true,
+          whatsappAccessToken: true,
+        }
+      })
+
+      if (!tenant?.whatsappPhoneId || !tenant?.whatsappAccessToken) {
+        console.error('❌ Tenant WhatsApp credentials not configured')
+        return
+      }
+
+      const payload = {
+        messaging_product: 'whatsapp',
+        to: phone,
+        type: 'interactive',
+        interactive: {
+          type: 'catalog_message',
+          body: { text: bodyText || 'Browse our product catalog below:' },
+          ...(footerText ? { footer: { text: footerText } } : {}),
+          action: {
+            name: 'catalog_message',
+            parameters: thumbnailSku ? { thumbnail_product_retailer_id: thumbnailSku } : {}
+          }
+        }
+      }
+
+      const response = await fetch(
+        `https://graph.facebook.com/v18.0/${tenant.whatsappPhoneId}/messages`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${decrypt(tenant.whatsappAccessToken)}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        }
+      )
+
+      const result = await response.json()
+      if (result.messages?.[0]?.id) {
+        console.log(`📤 Catalog message sent: ${result.messages[0].id}`)
+      } else {
+        console.error('❌ Catalog message send failed:', result)
+      }
+      return result
+    } catch (error) {
+      console.error('❌ sendWhatsAppCatalogMessage error:', error)
+    }
+  },
+
+  // ─────────────────────────────────────────
+  // Send Location Request Message via Meta API
+  // ─────────────────────────────────────────
+  sendLocationRequestMessage: async (tenantId, phone, bodyText) => {
+    try {
+      if (process.env.MOCK_WHATSAPP === 'true') {
+        console.log('\n╔══════════════════════════════════════╗')
+        console.log('║  📱 MOCK WHATSAPP - LOCATION REQUEST ║')
+        console.log('╠══════════════════════════════════════╣')
+        console.log(`║  To     : ${phone}`)
+        console.log(`║  Body   : ${bodyText}`)
+        console.log('╚══════════════════════════════════════╝\n')
+        return { messages: [{ id: 'mock_loc_req_' + Date.now() }] }
+      }
+
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: {
+          whatsappPhoneId: true,
+          whatsappAccessToken: true
+        }
+      })
+
+      if (!tenant?.whatsappPhoneId || !tenant?.whatsappAccessToken) {
+        console.error('❌ Tenant WhatsApp credentials not configured')
+        return
+      }
+
+      const payload = {
+        messaging_product: 'whatsapp',
+        to: phone,
+        type: 'interactive',
+        interactive: {
+          type: 'location_request_message',
+          body: { text: bodyText || 'Please share your delivery location so we can reach you accurately 🚚' },
+          action: { name: 'send_location' }
+        }
+      }
+
+      const response = await fetch(
+        `https://graph.facebook.com/v18.0/${tenant.whatsappPhoneId}/messages`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${decrypt(tenant.whatsappAccessToken)}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        }
+      )
+
+      const result = await response.json()
+      if (result.messages?.[0]?.id) {
+        console.log(`📤 Location Request sent: ${result.messages[0].id}`)
+      } else {
+        console.error('❌ Location Request failed:', result)
+      }
+      return result
+    } catch (error) {
+      console.error('❌ sendLocationRequestMessage error:', error)
+    }
+  },
+
+  // ─────────────────────────────────────────
+  // Send Store Location Pin via Meta API
+  // ─────────────────────────────────────────
+  sendStoreLocationPin: async (tenantId, phone, storeData) => {
+    try {
+      if (process.env.MOCK_WHATSAPP === 'true') {
+        console.log('\n╔══════════════════════════════════════╗')
+        console.log('║  📱 MOCK WHATSAPP - STORE PIN        ║')
+        console.log('╠══════════════════════════════════════╣')
+        console.log(`║  To     : ${phone}`)
+        console.log(`║  Name   : ${storeData.storeName}`)
+        console.log(`║  Address: ${storeData.address}`)
+        console.log('╚══════════════════════════════════════╝\n')
+        return { messages: [{ id: 'mock_pin_' + Date.now() }] }
+      }
+
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: {
+          whatsappPhoneId: true,
+          whatsappAccessToken: true
+        }
+      })
+
+      if (!tenant?.whatsappPhoneId || !tenant?.whatsappAccessToken) {
+        console.error('❌ Tenant WhatsApp credentials not configured')
+        return
+      }
+
+      const payload = {
+        messaging_product: 'whatsapp',
+        to: phone,
+        type: 'location',
+        location: {
+          latitude: storeData.latitude || 19.1136,
+          longitude: storeData.longitude || 72.8697,
+          name: storeData.storeName || 'Store Location',
+          address: storeData.address || 'Store Address'
+        }
+      }
+
+      const response = await fetch(
+        `https://graph.facebook.com/v18.0/${tenant.whatsappPhoneId}/messages`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${decrypt(tenant.whatsappAccessToken)}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        }
+      )
+
+      const result = await response.json()
+      if (result.messages?.[0]?.id) {
+        console.log(`📤 Store pin sent: ${result.messages[0].id}`)
+      } else {
+        console.error('❌ Store pin send failed:', result)
+      }
+      return result
+    } catch (error) {
+      console.error('❌ sendStoreLocationPin error:', error)
     }
   },
 

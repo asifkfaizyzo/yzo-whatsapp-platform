@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import TopNavBar from "../components/TopNavBar";
+import ExpiredSubscriptionBanner from "../components/billing/ExpiredSubscriptionBanner";
 import api from "../lib/axios";
 import { useAuthStore } from "../store/useAuthStore";
 import { useWhatsAppStore } from "../store/useWhatsAppStore";
@@ -141,6 +142,14 @@ export default function MainLayout() {
         {/* Header */}
         <TopNavBar />
 
+        {/* Expired Subscription Banner (safely positioned inside main content column) */}
+        {user?.subscriptionStatus === "expired" && user?.planPeriodEnd && (
+          <ExpiredSubscriptionBanner
+            expiredDate={user.planPeriodEnd}
+            dataDeletionDate={user.dataDeletionDate}
+          />
+        )}
+
         {/* Dynamic Content Panel */}
         <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
           <Outlet context={{ tenantStatus }} />
@@ -148,4 +157,4 @@ export default function MainLayout() {
       </div>
     </div>
   );
-}
+}

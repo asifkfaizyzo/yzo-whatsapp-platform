@@ -24,6 +24,9 @@ import AssignAgentNode from "../../components/automation/NodeTypes/AssignAgentNo
 import EndFlowNode from "../../components/automation/NodeTypes/EndFlowNode";
 import flowService from "../../services/flow.service";
 import InteractiveButtonsNode from "../../components/automation/NodeTypes/interactiveButtonsNode";
+import CatalogNode from "../../components/automation/NodeTypes/CatalogNode";
+import AskLocationNode from "../../components/automation/NodeTypes/AskLocationNode";
+import SendLocationNode from "../../components/automation/NodeTypes/SendLocationNode";
 import { getWhatsappStatus } from "../../services/tenant.service";
 import { useToast } from "../../context/ToastContext";
 
@@ -35,6 +38,9 @@ const nodeTypes = {
   ASSIGN_AGENT: AssignAgentNode,
   END_FLOW: EndFlowNode,
   INTERACTIVE_BUTTONS: InteractiveButtonsNode,
+  SEND_CATALOG: CatalogNode,
+  ASK_LOCATION: AskLocationNode,
+  SEND_LOCATION: SendLocationNode,
 };
 
 function FlowBuilderInner() {
@@ -49,6 +55,7 @@ function FlowBuilderInner() {
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [selectedNode, setSelectedNode] = useState(null);
   const [flowName, setFlowName] = useState("New Flow");
+  const [triggerType, setTriggerType] = useState("KEYWORD");
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -75,6 +82,7 @@ function FlowBuilderInner() {
       const flow = res.data;
 
       setFlowName(flow.name);
+      setTriggerType(flow.triggerType || "KEYWORD");
 
       if (flow.nodes && flow.nodes.length > 0) {
         // Convert DB nodes to React Flow format
@@ -338,6 +346,7 @@ function FlowBuilderInner() {
 
       await flowService.saveFlow(flowId, {
         name: flowName,
+        triggerType,
         nodes: processedNodes,
         edges,
       });
@@ -372,11 +381,28 @@ function FlowBuilderInner() {
           <ArrowLeft size={18} />
         </button>
 
-        <input
-          value={flowName}
-          onChange={(e) => setFlowName(e.target.value)}
-          className="text-lg font-bold text-slate-800 border-none outline-none bg-transparent"
-        />
+        <div className="flex items-center gap-3">
+          <input
+            value={flowName}
+            onChange={(e) => setFlowName(e.target.value)}
+            className="text-lg font-bold text-slate-800 border-none outline-none bg-transparent"
+          />
+
+          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200/80 px-2.5 py-1 rounded-xl">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+              Trigger:
+            </span>
+            <select
+              value={triggerType}
+              onChange={(e) => setTriggerType(e.target.value)}
+              className="text-xs font-semibold bg-white border border-slate-200 rounded-lg px-2 py-1 text-slate-700 focus:outline-none focus:ring-1 focus:ring-[#125EF2]"
+            >
+              <option value="KEYWORD">🔑 Keyword Match</option>
+              <option value="ORDER_RECEIVED">🛍️ On Order Received</option>
+              <option value="DEFAULT">⚡ Default / Fallback</option>
+            </select>
+          </div>
+        </div>
 
         <button
           onClick={handleSave}
