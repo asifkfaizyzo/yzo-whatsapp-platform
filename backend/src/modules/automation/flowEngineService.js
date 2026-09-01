@@ -1846,7 +1846,7 @@ saveBotMediaMessage: async (conversationId, mediaData) => {
           ...(footerText ? { footer: { text: footerText } } : {}),
           action: {
             name: 'catalog_message',
-            parameters: thumbnailSku ? { thumbnail_product_retailer_id: thumbnailSku } : {}
+            ...(thumbnailSku ? { parameters: { thumbnail_product_retailer_id: thumbnailSku } } : {})
           }
         }
       }
