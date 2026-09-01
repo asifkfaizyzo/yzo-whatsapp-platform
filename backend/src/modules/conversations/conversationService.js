@@ -312,9 +312,14 @@ export const getMessages = async (params) => {
       // ⭐  Interactive Buttons
       buttons: msg.isDeleted ? null : msg.buttons || null,
 
+      // 📍 Location fields
+      locLatitude: msg.locLatitude ?? null,
+      locLongitude: msg.locLongitude ?? null,
+      locName: msg.locName ?? null,
+      locAddress: msg.locAddress ?? null,
+
       isDeleted: msg.isDeleted,
       deletedAt: msg.deletedAt,
-
     };
   });
 
