@@ -31,7 +31,10 @@ import {
   AlertTriangle,
   ChevronLeft, 
   ChevronRight,
-  ShoppingBag,          
+  ShoppingBag,
+  Navigation,
+  ExternalLink,
+  Copy,          
 } from "lucide-react";
 import {
   getAssignedConversations,
@@ -2506,45 +2509,92 @@ useEffect(() => {
 
                       {/* LOCATION */}
                       {msg.type === "LOCATION" && (
-                        <div className="mb-1">
-                          <div className="flex items-start gap-2 p-2.5 bg-white/60 rounded-lg min-w-[200px] max-w-[220px]">
-                            <div className="w-8 h-8 rounded-full bg-[#075E54]/10 flex items-center justify-center shrink-0 mt-0.5">
-                              <MapPin size={16} className="text-[#075E54]" />
+                        <div className="my-1.5 w-full min-w-[260px] max-w-[320px] rounded-2xl overflow-hidden border border-slate-200/80 bg-white shadow-sm transition hover:shadow-md">
+                          {/* Map Preview Header */}
+                          <div className="relative h-28 bg-slate-100 overflow-hidden flex items-center justify-center border-b border-slate-200/70">
+                            {/* Stylized Google Maps Background Grid */}
+                            <div className="absolute inset-0 bg-[radial-gradient(#94a3b8_1px,transparent_1px)] [background-size:16px_16px] opacity-40" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/40 via-transparent to-slate-900/10" />
+
+                            {/* Stylized Road Lines Simulation */}
+                            <svg className="absolute inset-0 w-full h-full opacity-25" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M-20,40 Q80,10 160,50 T340,70" fill="none" stroke="#64748b" strokeWidth="6" />
+                              <path d="M40,-10 Q90,60 180,90 T300,140" fill="none" stroke="#cbd5e1" strokeWidth="4" />
+                              <path d="M120,-10 L140,120" fill="none" stroke="#f59e0b" strokeWidth="3" strokeDasharray="4 4" />
+                            </svg>
+
+                            {/* Center Static Map Pin */}
+                            <div className="relative z-10 flex flex-col items-center drop-shadow-md">
+                              <div className="w-9 h-9 rounded-full bg-[#EA4335] text-white flex items-center justify-center border-2 border-white shadow-sm">
+                                <MapPin size={18} className="fill-white" />
+                              </div>
+                              <div className="w-2 h-1 rounded-full bg-slate-900/40 mt-0.5" />
                             </div>
-                            <div className="flex-1 min-w-0">
-                              {msg.locName && (
-                                <p className="text-[12px] font-bold text-[#111B21] leading-tight truncate">
-                                  {msg.locName}
-                                </p>
+
+                            {/* Top Badges */}
+                            <div className="absolute top-2 left-2.5 right-2.5 flex items-center justify-between z-10">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-900/75 backdrop-blur-md text-[10px] font-bold text-white shadow-sm">
+                                <MapPin size={10} className="text-emerald-400" />
+                                {msg.senderType === "CONTACT" ? "Customer Location" : "Store Location"}
+                              </span>
+                              {msg.locLatitude && msg.locLongitude && (
+                                <span className="px-2 py-0.5 rounded-full bg-white/90 backdrop-blur-md text-[9px] font-mono font-bold text-slate-700 shadow-sm">
+                                  {Number(msg.locLatitude).toFixed(3)}, {Number(msg.locLongitude).toFixed(3)}
+                                </span>
                               )}
+                            </div>
+                          </div>
+
+                          {/* Location Details Body */}
+                          <div className="p-3 bg-white space-y-2.5">
+                            <div>
+                              <p className="text-xs font-bold text-slate-900 leading-tight">
+                                {msg.locName || (msg.senderType === "CONTACT" ? "📍 Shared Delivery Location" : "🏬 Store Location Pin")}
+                              </p>
                               {msg.locAddress && (
-                                <p className="text-[10px] text-[#667781] mt-0.5 leading-snug line-clamp-2">
+                                <p className="text-[11px] text-slate-600 mt-1 leading-relaxed line-clamp-2">
                                   {msg.locAddress}
                                 </p>
                               )}
-                              {!msg.locName && !msg.locAddress && (
-                                <p className="text-[11px] font-semibold text-[#111B21]">
-                                  Location
-                                </p>
-                              )}
-                              <p className="text-[9px] text-[#8696A0] mt-1 font-mono">
-                                {Number(msg.locLatitude).toFixed(4)},{" "}
-                                {Number(msg.locLongitude).toFixed(4)}
-                              </p>
-                              <a
-                                href={`https://www.google.com/maps?q=${msg.locLatitude},${msg.locLongitude}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 mt-2 text-[10px] font-bold text-[#075E54] hover:text-[#064E47] transition"
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                                  <polyline points="15 3 21 3 21 9"/>
-                                  <line x1="10" y1="14" x2="21" y2="3"/>
-                                </svg>
-                                Open in Google Maps
-                              </a>
                             </div>
+
+                            {/* Action Buttons */}
+                            {msg.locLatitude && msg.locLongitude && (
+                              <div className="pt-1 flex items-center gap-2">
+                                <a
+                                  href={`https://www.google.com/maps?q=${msg.locLatitude},${msg.locLongitude}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex-1 inline-flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shadow-sm shadow-emerald-600/20 transition active:scale-[0.98]"
+                                >
+                                  <ExternalLink size={12} />
+                                  <span>Open Maps</span>
+                                </a>
+
+                                <a
+                                  href={`https://www.google.com/maps/dir/?api=1&destination=${msg.locLatitude},${msg.locLongitude}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center justify-center gap-1 py-1.5 px-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold transition"
+                                  title="Get Directions"
+                                >
+                                  <Navigation size={12} className="text-blue-600" />
+                                  <span>Directions</span>
+                                </a>
+
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigator.clipboard?.writeText(`${msg.locLatitude}, ${msg.locLongitude}`);
+                                  }}
+                                  className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 transition"
+                                  title="Copy Coordinates"
+                                >
+                                  <Copy size={13} />
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </div>
                       )}
