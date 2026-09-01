@@ -25,6 +25,10 @@ export const handleIncomingMessage = async ({
   mediaMimeType,
   caption,
   isNewContact = false,
+  locLatitude = null,
+  locLongitude = null,
+  locName = null,
+  locAddress = null,
   wamid = null,
 }) => {
   // ── 1. Load contact & tenant boundary check ──────────────────
