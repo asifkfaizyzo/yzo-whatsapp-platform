@@ -519,14 +519,14 @@ export const processWebhookJob = async (job) => {
     } else if (messageType === 'location') {
       const loc = message.location;
       type = 'LOCATION';
-      text = null;
 
       locLatitude = loc.latitude || null;
       locLongitude = loc.longitude || null;
       locName = loc.name || null;
       locAddress = loc.address || null;
+      text = locAddress || locName || (locLatitude ? `📍 Location: ${locLatitude}, ${locLongitude}` : '📍 Location Shared');
 
-      console.log(`📍 Location received: lat=${loc.latitude}, lng=${loc.longitude}`);
+      console.log(`📍 Location received: lat=${loc.latitude}, lng=${loc.longitude}, text="${text}"`);
 
       // ── CONTACTS ───────────────────────────────────────────
     } else if (messageType === 'contacts') {
@@ -578,7 +578,7 @@ export const processWebhookJob = async (job) => {
     }
 
     // ── Skip if nothing to save ────────────────────────────
-    if (!text && !mediaUrl) {
+    if (!text && !mediaUrl && !locLatitude) {
       console.log(`⚠️ No content extracted from message type: ${messageType}`);
       return;
     }
