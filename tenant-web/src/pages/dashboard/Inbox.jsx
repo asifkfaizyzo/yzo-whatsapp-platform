@@ -26,10 +26,12 @@ import {
   Mic,
   Check,
   Trash2,
-  Eye,MapPin,
+  Eye,
+  MapPin,
   AlertTriangle,
   ChevronLeft, 
-  ChevronRight,          
+  ChevronRight,
+  ShoppingBag,          
 } from "lucide-react";
 import {
   getAssignedConversations,
@@ -2452,8 +2454,57 @@ useEffect(() => {
                         </div>
                       )}
 
+                      {/* ORDER (WhatsApp Cart / Commerce) */}
+                      {msg.type === "ORDER" && (
+                        <div className="mb-1">
+                          <div className="bg-gradient-to-br from-emerald-50/90 to-teal-50/70 border border-emerald-200/80 rounded-xl p-3 min-w-[240px] max-w-[280px] shadow-xs">
+                            <div className="flex items-center justify-between pb-2 mb-2 border-b border-emerald-200/60">
+                              <div className="flex items-center gap-1.5">
+                                <div className="w-6 h-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+                                  <ShoppingBag size={13} />
+                                </div>
+                                <span className="text-xs font-bold text-emerald-900">
+                                  WhatsApp Order
+                                </span>
+                              </div>
+                              <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-md bg-emerald-200/60 text-emerald-800 tracking-wider">
+                                Received
+                              </span>
+                            </div>
 
-                                            {/* LOCATION */}
+                            <p className="text-[11px] text-slate-700 whitespace-pre-wrap leading-relaxed">
+                              {msg.text}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* CATALOG (WhatsApp Catalog Message) */}
+                      {msg.type === "CATALOG" && (
+                        <div className="mb-1">
+                          <div className="bg-gradient-to-br from-indigo-50/90 to-blue-50/70 border border-indigo-200/80 rounded-xl p-3 min-w-[220px] max-w-[260px] shadow-xs">
+                            <div className="flex items-center gap-2 pb-2 mb-2 border-b border-indigo-200/60">
+                              <div className="w-6 h-6 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-xs">
+                                <ShoppingBag size={13} />
+                              </div>
+                              <span className="text-xs font-bold text-indigo-900">
+                                Product Catalog
+                              </span>
+                            </div>
+
+                            <p className="text-[11px] text-slate-700 leading-relaxed mb-2.5">
+                              {msg.text || "Browse our product catalog"}
+                            </p>
+
+                            <div className="w-full py-1.5 bg-indigo-600 text-white rounded-lg text-[11px] font-bold text-center flex items-center justify-center gap-1.5 shadow-xs">
+                              <ShoppingBag size={12} />
+                              <span>View Catalog</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* LOCATION */}
                       {msg.type === "LOCATION" && (
                         <div className="mb-1">
                           <div className="flex items-start gap-2 p-2.5 bg-white/60 rounded-lg min-w-[200px] max-w-[220px]">

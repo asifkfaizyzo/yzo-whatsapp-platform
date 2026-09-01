@@ -31,6 +31,7 @@ import {
   BarChart3,
   ShieldCheck,
   Sparkles,
+  ShoppingBag,
 } from "lucide-react";
 import { getTags, createTag } from "../../services/tag.service";
 import { useToast } from "../../context/ToastContext";
@@ -226,7 +227,10 @@ export default function SettingsPage() {
     phoneId: "",
     wabaId: "",
     accessToken: "",
+    catalogId: "",
   });
+
+  const [savingCatalog, setSavingCatalog] = useState(false);
 
   const [whatsappStatus, setWhatsappStatus] = useState({
     isConnected: false,
@@ -286,12 +290,27 @@ export default function SettingsPage() {
         phoneId: res.data.whatsappPhoneId || "",
         wabaId: res.data.whatsappWabaId || "",
         accessToken: res.data.whatsappAccessToken || "",
+        catalogId: res.data.whatsappCatalogId || "",
       });
       setWebhook((prev) => ({
         ...prev,
         token: res.data.whatsappVerifyToken || prev.token,
       }));
     }
+  };
+
+  const handleCatalogSave = async (e) => {
+    e.preventDefault();
+    setSavingCatalog(true);
+    const res = await updateWhatsappConfig({
+      catalogId: whatsapp.catalogId?.trim() || null,
+    });
+    if (res.success) {
+      toast.success("Meta Catalog ID saved successfully!");
+    } else {
+      toast.error(res.message || "Failed to update catalog ID");
+    }
+    setSavingCatalog(false);
   };
 
   const fetchWhatsappStatusData = async () => {

@@ -85,14 +85,5 @@ export default function ExpiredRouteGuard({ children }) {
     }
   }
 
-  return (
-    <div className="flex flex-col min-h-screen">
-      {subStatus === 'expired' && planEnd && (
-        <ExpiredSubscriptionBanner expiredDate={planEnd} dataDeletionDate={deletionDate} />
-      )}
-      <div className="flex-1">
-        {children}
-      </div>
-    </div>
-  );
-}
+  return children;
+}

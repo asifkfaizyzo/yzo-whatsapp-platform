@@ -127,6 +127,10 @@ export const handleIncomingMessage = async ({
         mediaSize: mediaSize ? Number(mediaSize) : null,
         mediaMimeType: mediaMimeType || null,
         caption: caption || null,
+        locLatitude: locLatitude ? Number(locLatitude) : null,
+        locLongitude: locLongitude ? Number(locLongitude) : null,
+        locName: locName || null,
+        locAddress: locAddress || null,
         status: 'sent',
         wamid,
       },
@@ -185,6 +189,10 @@ export const handleIncomingMessage = async ({
         mediaSize: message.mediaSize,
         mediaMimeType: message.mediaMimeType,
         caption: message.caption,
+        locLatitude: message.locLatitude,
+        locLongitude: message.locLongitude,
+        locName: message.locName,
+        locAddress: message.locAddress,
         createdAt: message.createdAt,
       },
     });
@@ -230,14 +238,21 @@ export const handleIncomingMessage = async ({
     }
   }
 
-  // ── Trigger flow engine (text only) ───────────────────────────
-  if (text) {
+  // ── Trigger flow engine (text or location) ───────────────────
+  if ((text || type === 'LOCATION') && type !== 'ORDER') {
     flowEngine
       .processIncomingMessage(
         updatedConversation,
         contact,
-        text,
-        isNewContact
+        text || 'LOCATION_RECEIVED',
+        isNewContact,
+        {
+          locLatitude,
+          locLongitude,
+          locName,
+          locAddress,
+          messageType: type,
+        }
       )
       .catch((err) => {
         console.error('❌ Flow Engine error:', err);

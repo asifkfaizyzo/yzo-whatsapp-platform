@@ -428,6 +428,8 @@ export default function Billing() {
         />
       )}
 
+
+
       {/* Current Plan Card */}
       {currentPlan ? (
         <div className="relative overflow-hidden rounded-2xl border border-[#CFE0FD] bg-gradient-to-r from-[#EAF2FE] via-white to-blue-50 p-6 shadow-sm">
@@ -578,6 +580,23 @@ export default function Billing() {
                       <span>Change Plan</span>
                     </Link>
                   </>
+                ) : currentPlan.subscriptionStatus === 'expired' ? (
+                  <>
+                    <Link
+                      to={currentPlan.id ? `/checkout?planId=${currentPlan.id}&billing=${currentPlan.billingType || 'monthly'}` : "/select-plan?upgrade=true"}
+                      className="inline-flex items-center justify-center gap-2 px-5 py-2.5 text-xs font-bold rounded-xl bg-red-600 text-white hover:bg-red-700 transition shadow-sm leading-none"
+                    >
+                      <RefreshCw size={13} className="shrink-0" />
+                      <span>Resubscribe to Plan</span>
+                    </Link>
+                    <Link
+                      to="/select-plan?upgrade=true"
+                      className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-bold rounded-xl border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 transition shadow-sm leading-none"
+                    >
+                      <RefreshCw size={13} className="shrink-0" />
+                      <span>Change Plan</span>
+                    </Link>
+                  </>
                 ) : currentPlan.id === "enterprise" ? (
                   <Link
                     to="/select-plan?upgrade=true"
@@ -595,6 +614,7 @@ export default function Billing() {
                     <span>Upgrade Plan</span>
                   </Link>
                 )}
+
               </div>
             </div>
           </div>

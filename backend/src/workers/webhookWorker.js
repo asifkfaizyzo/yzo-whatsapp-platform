@@ -12,6 +12,7 @@ import { dlqQueue } from '../queues/dlqQueue.js';
 import { generateSignedUrl } from '../lib/utils/signedUrl.js';
 import { decrypt } from '../lib/crypto.js';
 import { sendTemplateStatusEmail } from '../modules/auth/emailService.js';
+import flowEngine from '../modules/automation/flowEngineService.js';
 import fs from 'fs';
 import path from 'path';
 import https from 'https';
@@ -218,7 +219,7 @@ export const processWebhookJob = async (job) => {
       });
 
       // Also keep corresponding conversation Message status in sync if wamid matches
-            try {
+      try {
         await prisma.message.updateMany({
           where: { wamid },
           data: {
@@ -253,7 +254,7 @@ export const processWebhookJob = async (job) => {
         failed: broadcast.failed,
         status: broadcast.status
       });
-        } else {
+    } else {
       // ── Handle 1-on-1 Message Status Receipt ──
       const messageToUpdate = await prisma.message.findUnique({
         where: { wamid },
@@ -299,7 +300,7 @@ export const processWebhookJob = async (job) => {
   // ═══════════════════════════════════════════════════════════
   // B. Handle Incoming Messages (TEXT + MEDIA)
   // ═══════════════════════════════════════════════════════════
-       if (message) {
+  if (message) {
     const messageId = message.id;
     console.log('📥 [META WEBHOOK INBOUND WAMID]:', messageId); // ← ADD DEBUG LOG
 
@@ -370,10 +371,10 @@ export const processWebhookJob = async (job) => {
     let mediaMimeType = null;
     let caption = null;
 
-    let locLatitude   = null;
-    let locLongitude  = null;
-    let locName       = null;
-    let locAddress    = null;
+    let locLatitude = null;
+    let locLongitude = null;
+    let locName = null;
+    let locAddress = null;
 
     // ── TEXT ───────────────────────────────────────────────
     if (messageType === 'text') {
@@ -517,13 +518,13 @@ export const processWebhookJob = async (job) => {
       // ── LOCATION ───────────────────────────────────────────
     } else if (messageType === 'location') {
       const loc = message.location;
-      type         = 'LOCATION';
-      text         = null;  
+      type = 'LOCATION';
+      text = null;
 
-      locLatitude  = loc.latitude  || null;
+      locLatitude = loc.latitude || null;
       locLongitude = loc.longitude || null;
-      locName      = loc.name      || null;
-      locAddress   = loc.address   || null;
+      locName = loc.name || null;
+      locAddress = loc.address || null;
 
       console.log(`📍 Location received: lat=${loc.latitude}, lng=${loc.longitude}`);
 
@@ -533,27 +534,44 @@ export const processWebhookJob = async (job) => {
       text = `👤 Contact shared: ${c?.name?.formatted_name || 'Unknown'}`;
       type = 'TEXT';
 
-      } else if (messageType === 'interactive') {
+      // ── INTERACTIVE (Button / List replies) ─────────────────
+    } else if (messageType === 'interactive') {
+      const interactiveType = message.interactive?.type;
 
-  const interactiveType = message.interactive?.type
+      if (interactiveType === 'button_reply') {
+        text = message.interactive.button_reply.title;
+        type = 'TEXT';
+        console.log(`🖱️ Button clicked: "${text}" (id: ${message.interactive.button_reply.id})`);
 
-  if (interactiveType === 'button_reply') {
-    text = message.interactive.button_reply.title
-    type = 'TEXT'
-    console.log(`🖱️ Button clicked: "${text}"`)
+      } else if (interactiveType === 'list_reply') {
+        text = message.interactive.list_reply.title;
+        type = 'TEXT';
+        console.log(`📋 List selected: "${text}" (id: ${message.interactive.list_reply.id})`);
 
-  } else if (interactiveType === 'list_reply') {
-    text = message.interactive.list_reply.title
-    type = 'TEXT'
-    console.log(`📋 List selected: "${text}"`)
+      } else {
+        console.log(`ℹ️ Unknown interactive type: ${interactiveType}`);
+        return;
+      }
 
-  } else {
-    console.log(`ℹ️ Unknown interactive type: ${interactiveType}`)
-    return
-  }
-        
+      // ── ORDER (WhatsApp Cart / Commerce) ───────────────────
+    } else if (messageType === 'order') {
+      const orderPayload = message.order;
+      const items = orderPayload?.product_items || [];
+      const customerNote = orderPayload?.text || null;
 
-    // ── UNSUPPORTED ────────────────────────────────────────
+      const currency = items[0]?.currency || 'INR';
+      const totalAmount = items.reduce((sum, it) => sum + (Number(it.item_price || 0) * Number(it.quantity || 1)), 0);
+
+      // Collision-proof unique order number
+      const orderNumber = `ORD-${tenant.id.slice(-4).toUpperCase()}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+
+      const formattedItems = items.map(it => `• SKU: ${it.product_retailer_id} (x${it.quantity}) — ${it.currency || currency} ${it.item_price}`).join('\n');
+      text = `🛍️ *Order Placed #${orderNumber}*\n\n📦 *Items:*\n${formattedItems}\n\n💰 *Total:* ${currency} ${totalAmount.toFixed(2)}${customerNote ? `\n\n📝 *Note:* ${customerNote}` : ''}`;
+      type = 'ORDER';
+
+      console.log(`🛍️ [ORDER WEBHOOK] Received order ${orderNumber} with ${items.length} items. Total: ${currency} ${totalAmount}`);
+
+      // ── UNSUPPORTED ────────────────────────────────────────
     } else {
       console.log(`ℹ️ Unsupported message type: ${messageType} - skipping`);
       return;
@@ -566,7 +584,7 @@ export const processWebhookJob = async (job) => {
     }
 
     // ── Save message via service ───────────────────────────
-        const result = await handleIncomingMessage({
+    const result = await handleIncomingMessage({
       contactId: contact.id,
       tenantId: tenant.id,
       text,
@@ -595,55 +613,55 @@ export const processWebhookJob = async (job) => {
         senderType: 'CONTACT',
         direction: 'INBOUND',
         isFromCustomer: true,
-        mediaUrl: result.message.mediaUrl, 
-        mediaName:      result.message.mediaName,
-        mediaSize:      result.message.mediaSize,
-        mediaMimeType:  result.message.mediaMimeType,
-        caption:        result.message.caption,
-        locLatitude:    result.message.locLatitude,
-        locLongitude:   result.message.locLongitude,
-        locName:        result.message.locName,
-        locAddress:     result.message.locAddress,
-        createdAt:      result.message.createdAt,
+        mediaUrl: result.message.mediaUrl,
+        mediaName: result.message.mediaName,
+        mediaSize: result.message.mediaSize,
+        mediaMimeType: result.message.mediaMimeType,
+        caption: result.message.caption,
+        locLatitude: result.message.locLatitude,
+        locLongitude: result.message.locLongitude,
+        locName: result.message.locName,
+        locAddress: result.message.locAddress,
+        createdAt: result.message.createdAt,
       }
     });
 
 
 
     // ── Socket: emit notification to tenant ────────────────
-  
+
     // ── Save + Emit notification ───────────────────────────
     const notifMessage = text
       ? text.substring(0, 100)
       : `Sent a ${type.toLowerCase()}`;
 
-    const notifTitle   = `New message from ${contact.name}`;
-    const notifMeta    = {
-      contactId:      contact.id,
+    const notifTitle = `New message from ${contact.name}`;
+    const notifMeta = {
+      contactId: contact.id,
       conversationId: result.conversation.id,
-      messageId:      result.message.id,
+      messageId: result.message.id,
     };
 
     // ✅ Save tenant notification to DB then emit
     try {
       const tenantNotif = await createNotification({
         tenantId: tenant.id,
-        userId:   null,           // tenant-wide
-        type:     'new_message',
-        title:    notifTitle,
-        message:  notifMessage,
+        userId: null,           // tenant-wide
+        type: 'new_message',
+        title: notifTitle,
+        message: notifMessage,
         metadata: notifMeta,
       });
 
       emitToTenant(tenant.id, 'new_notification', {
         notification: {
-          id:        tenantNotif.id,
-          type:      tenantNotif.type,
-          title:     tenantNotif.title,
-          message:   tenantNotif.message,
-          isRead:    tenantNotif.isRead,
+          id: tenantNotif.id,
+          type: tenantNotif.type,
+          title: tenantNotif.title,
+          message: tenantNotif.message,
+          isRead: tenantNotif.isRead,
           createdAt: tenantNotif.createdAt,
-          metadata:  tenantNotif.metadata,
+          metadata: tenantNotif.metadata,
         },
       });
       console.log(`📤 Tenant notif saved+emitted: ${tenantNotif.id}`);
@@ -664,48 +682,107 @@ export const processWebhookJob = async (job) => {
           senderType: 'CONTACT',
           direction: 'INBOUND',
           isFromCustomer: true,
-          mediaUrl:       result.message.mediaUrl,
-          mediaName:      result.message.mediaName,
-          mediaSize:      result.message.mediaSize,
-          mediaMimeType:  result.message.mediaMimeType,
-          caption:        result.message.caption,
-          locLatitude:    result.message.locLatitude,
-          locLongitude:   result.message.locLongitude,
-          locName:        result.message.locName,
-          locAddress:     result.message.locAddress,
-          createdAt:      result.message.createdAt,
+          mediaUrl: result.message.mediaUrl,
+          mediaName: result.message.mediaName,
+          mediaSize: result.message.mediaSize,
+          mediaMimeType: result.message.mediaMimeType,
+          caption: result.message.caption,
+          locLatitude: result.message.locLatitude,
+          locLongitude: result.message.locLongitude,
+          locName: result.message.locName,
+          locAddress: result.message.locAddress,
+          createdAt: result.message.createdAt,
         }
       });
 
-          // ✅ Save user notification to DB then emit
+      // ✅ Save user notification to DB then emit
       try {
         const userNotif = await createNotification({
           tenantId: tenant.id,
-          userId:   contact.assignedTo,   // user-specific
-          type:     'new_message',
-          title:    notifTitle,
-          message:  notifMessage,
+          userId: contact.assignedTo,   // user-specific
+          type: 'new_message',
+          title: notifTitle,
+          message: notifMessage,
           metadata: notifMeta,
         });
 
         emitToUser(contact.assignedTo, 'new_notification', {
           notification: {
-            id:        userNotif.id,
-            type:      userNotif.type,
-            title:     userNotif.title,
-            message:   userNotif.message,
-            isRead:    userNotif.isRead,
+            id: userNotif.id,
+            type: userNotif.type,
+            title: userNotif.title,
+            message: userNotif.message,
+            isRead: userNotif.isRead,
             createdAt: userNotif.createdAt,
-            metadata:  userNotif.metadata,
+            metadata: userNotif.metadata,
           },
         });
         console.log(`📤 User notif saved+emitted to: ${contact.assignedTo}`);
       } catch (err) {
         console.error('❌ User notification failed:', err.message);
       }
-
     } else {
       console.log(`ℹ️ Contact unassigned - tenant room notified only`);
+    }
+
+    // ── Save Order in DB & Trigger Order Flow (if messageType === 'order') ──
+    if (messageType === 'order') {
+      try {
+        const orderPayload = message.order;
+        const catalogId = orderPayload?.catalog_id || tenant.whatsappCatalogId || null;
+        const items = orderPayload?.product_items || [];
+        const customerNote = orderPayload?.text || null;
+        const currency = items[0]?.currency || 'INR';
+        const totalAmount = items.reduce((sum, it) => sum + (Number(it.item_price || 0) * Number(it.quantity || 1)), 0);
+
+        // Generate consistent orderNumber from saved text or collision-proof pattern
+        const orderMatch = text ? text.match(/#([A-Z0-9_-]+)/) : null;
+        const orderNumber = orderMatch ? orderMatch[1] : `ORD-${tenant.id.slice(-4).toUpperCase()}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+
+        const createdOrder = await prisma.order.create({
+          data: {
+            orderNumber,
+            tenantId: tenant.id,
+            conversationId: result.conversation.id,
+            contactId: contact.id,
+            catalogId,
+            totalAmount,
+            currency,
+            customerNote,
+            status: 'PENDING',
+            wamid: messageId,
+            items: {
+              create: items.map(it => ({
+                tenantId: tenant.id,
+                productRetailerId: it.product_retailer_id,
+                productName: `SKU: ${it.product_retailer_id}`,
+                quantity: Number(it.quantity || 1),
+                itemPrice: Number(it.item_price || 0),
+                currency: it.currency || currency,
+              }))
+            }
+          },
+          include: {
+            items: true
+          }
+        });
+
+        console.log(`✅ [ORDER CREATED] Order #${createdOrder.orderNumber} saved (ID: ${createdOrder.id})`);
+
+        // Emit new_order socket event to tenant
+        emitToTenant(tenant.id, 'new_order', {
+          order: createdOrder,
+          conversationId: result.conversation.id,
+          contactName: contact.name,
+          contactPhone: contact.phone
+        });
+
+        // Trigger Event-based Order Flow
+        await flowEngine.triggerOrderFlow(result.conversation, contact, createdOrder);
+
+      } catch (orderErr) {
+        console.error('❌ Failed to create order or trigger order flow:', orderErr);
+      }
     }
 
     console.log(`✅ Message processed: type=${type}, contact=${contact.name}`);
