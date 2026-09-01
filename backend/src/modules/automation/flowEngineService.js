@@ -28,6 +28,14 @@ const flowEngine = {
         return
       }
 
+      // ── CHECK ORDER CONFIRMATION / CANCEL / MODIFY ACTIONS FIRST ──
+      const handledOrderAction = await flowEngine.handleOrderConfirmationAction(
+        conversation,
+        contact,
+        userMessage
+      )
+      if (handledOrderAction) return
+
 console.log(`🔍 DEBUG BEFORE CASE 1.5:`)
 console.log(`   isNewContact: ${isNewContact}`)
 console.log(`   contact.assignedTo: ${contact.assignedTo}`)
@@ -213,18 +221,36 @@ if (conversation.mode === 'QUEUED') {
   handleOrderConfirmationAction: async (conversation, contact, userMessage) => {
     try {
       const textLower = (userMessage || '').toLowerCase().trim()
-      const activeOrderId = conversation.flowData?.activeOrderId
-      const orderNumber = conversation.flowData?.orderNumber || 'your order'
 
-      const isConfirm = textLower === 'confirm order' || textLower === 'confirm' || textLower === 'yes'
-      const isCancel = textLower === 'cancel order' || textLower === 'cancel' || textLower === 'no'
-      const isModify = textLower.includes('modify') || textLower.includes('reorder') || textLower.includes('change cart')
+      const isConfirm = textLower === 'confirm order' || textLower === 'confirm' || textLower === 'yes' || textLower.startsWith('btn_confirm')
+      const isCancel = textLower === 'cancel order' || textLower === 'cancel' || textLower === 'no' || textLower.startsWith('btn_cancel')
+      const isModify = textLower.includes('modify') || textLower.includes('reorder') || textLower.includes('change cart') || textLower.startsWith('btn_modify')
 
       if (!isConfirm && !isCancel && !isModify) {
         return false
       }
 
-      console.log(`🛍️ [ORDER ACTION] Processing "${userMessage}" for order ${orderNumber}`)
+      // Find active pending order from flowData OR find latest PENDING order for this conversation
+      let activeOrder = null
+      if (conversation.flowData?.activeOrderId) {
+        activeOrder = await prisma.order.findUnique({
+          where: { id: conversation.flowData.activeOrderId }
+        }).catch(() => null)
+      }
+      if (!activeOrder) {
+        activeOrder = await prisma.order.findFirst({
+          where: {
+            conversationId: conversation.id,
+            status: 'PENDING'
+          },
+          orderBy: { createdAt: 'desc' }
+        }).catch(() => null)
+      }
+
+      const orderNumber = activeOrder?.orderNumber || conversation.flowData?.orderNumber || 'your order'
+      const activeOrderId = activeOrder?.id || conversation.flowData?.activeOrderId
+
+      console.log(`🛍️ [ORDER ACTION] Processing "${userMessage}" for order ${orderNumber} (ID: ${activeOrderId})`)
 
       if (isConfirm) {
         if (activeOrderId) {
@@ -296,7 +322,10 @@ if (conversation.mode === 'QUEUED') {
         console.log('ℹ️ No active custom ORDER_RECEIVED flow configured. Sending dynamic order summary & confirmation buttons.')
         
         const items = order.items || []
-        const formattedItems = items.map(it => `• ${it.productName || it.productRetailerId} (x${it.quantity}) — ${it.currency || order.currency} ${(Number(it.itemPrice) * it.quantity).toFixed(2)}`).join('\n')
+        const formattedItems = items.map((it, idx) => {
+          const rawName = (it.productName || it.productRetailerId || `Item ${idx + 1}`).replace(/^SKU:\s*/i, '')
+          return `• *${rawName}* (x${it.quantity}) — ${it.currency || order.currency} ${(Number(it.itemPrice) * it.quantity).toFixed(2)}`
+        }).join('\n')
         
         let deliveryLine = ''
         if (order.deliveryType === 'HOME_DELIVERY') {
