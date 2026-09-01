@@ -739,6 +739,7 @@ export const processWebhookJob = async (job) => {
         const orderMatch = text ? text.match(/#([A-Z0-9_-]+)/) : null;
         const orderNumber = orderMatch ? orderMatch[1] : `ORD-${tenant.id.slice(-4).toUpperCase()}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
 
+        const existingFlowData = result.conversation.flowData || {};
         const createdOrder = await prisma.order.create({
           data: {
             orderNumber,
@@ -749,6 +750,11 @@ export const processWebhookJob = async (job) => {
             totalAmount,
             currency,
             customerNote,
+            deliveryType: existingFlowData.deliveryType || null,
+            deliveryAddress: existingFlowData.deliveryAddress || null,
+            deliveryName: existingFlowData.deliveryName || null,
+            deliveryLat: existingFlowData.deliveryLat || null,
+            deliveryLng: existingFlowData.deliveryLng || null,
             status: 'PENDING',
             wamid: messageId,
             items: {

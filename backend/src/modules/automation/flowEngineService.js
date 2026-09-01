@@ -208,6 +208,80 @@ if (conversation.mode === 'QUEUED') {
   },
 
   // ─────────────────────────────────────────
+  // Handle Order Summary Confirmation Buttons
+  // ─────────────────────────────────────────
+  handleOrderConfirmationAction: async (conversation, contact, userMessage) => {
+    try {
+      const textLower = (userMessage || '').toLowerCase().trim()
+      const activeOrderId = conversation.flowData?.activeOrderId
+      const orderNumber = conversation.flowData?.orderNumber || 'your order'
+
+      const isConfirm = textLower === 'confirm order' || textLower === 'confirm' || textLower === 'yes'
+      const isCancel = textLower === 'cancel order' || textLower === 'cancel' || textLower === 'no'
+      const isModify = textLower.includes('modify') || textLower.includes('reorder') || textLower.includes('change cart')
+
+      if (!isConfirm && !isCancel && !isModify) {
+        return false
+      }
+
+      console.log(`🛍️ [ORDER ACTION] Processing "${userMessage}" for order ${orderNumber}`)
+
+      if (isConfirm) {
+        if (activeOrderId) {
+          await prisma.order.update({
+            where: { id: activeOrderId },
+            data: { status: 'CONFIRMED' }
+          }).catch(err => console.error('Error confirming order in DB:', err.message))
+
+          emitToTenant(conversation.tenantId, 'order_status_update', {
+            orderId: activeOrderId,
+            status: 'CONFIRMED'
+          })
+        }
+
+        const confirmMsg = `🎉 *Order #${orderNumber} Confirmed!*\n\nThank you for your confirmation! We have received your order and our team has started preparing it. We will notify you once it's on the way! 🚚`
+        await flowEngine.sendWhatsAppMessage(conversation.tenantId, contact.phone, confirmMsg)
+        await flowEngine.saveBotMessage(conversation.id, confirmMsg)
+        await flowEngine.endFlow(conversation)
+        return true
+      }
+
+      if (isCancel) {
+        if (activeOrderId) {
+          await prisma.order.update({
+            where: { id: activeOrderId },
+            data: { status: 'CANCELLED' }
+          }).catch(err => console.error('Error cancelling order in DB:', err.message))
+
+          emitToTenant(conversation.tenantId, 'order_status_update', {
+            orderId: activeOrderId,
+            status: 'CANCELLED'
+          })
+        }
+
+        const cancelMsg = `❌ *Order #${orderNumber} Cancelled*\n\nYour order has been cancelled. If you would like to start a new order anytime, simply message us "menu" or "order"!`
+        await flowEngine.sendWhatsAppMessage(conversation.tenantId, contact.phone, cancelMsg)
+        await flowEngine.saveBotMessage(conversation.id, cancelMsg)
+        await flowEngine.endFlow(conversation)
+        return true
+      }
+
+      if (isModify) {
+        const modifyMsg = `🛍️ *Modify Your Order*\n\nTap the button below to browse our catalog and update your cart 👇`
+        await flowEngine.sendWhatsAppCatalogMessage(conversation.tenantId, contact.phone, modifyMsg)
+        await flowEngine.saveBotMessage(conversation.id, modifyMsg, { type: 'CATALOG' })
+        await flowEngine.endFlow(conversation)
+        return true
+      }
+
+      return false
+    } catch (err) {
+      console.error('❌ handleOrderConfirmationAction error:', err)
+      return false
+    }
+  },
+
+  // ─────────────────────────────────────────
   // Trigger Event: ORDER_RECEIVED (WhatsApp cart order)
   // ─────────────────────────────────────────
   triggerOrderFlow: async (conversation, contact, order) => {
@@ -219,10 +293,50 @@ if (conversation.mode === 'QUEUED') {
       const flow = await flowService.findOrderFlow(tenantId)
 
       if (!flow) {
-        console.log('ℹ️ No active ORDER_RECEIVED flow configured for tenant. Sending standard confirmation.')
-        const defaultConfirmation = `✅ *Order Received!*\n\nOrder #${order.orderNumber}\nTotal: ${order.currency} ${order.totalAmount}\n\nOur team will review your order and contact you for delivery details!`
-        await flowEngine.sendWhatsAppMessage(tenantId, contact.phone, defaultConfirmation)
-        await flowEngine.saveBotMessage(conversation.id, defaultConfirmation)
+        console.log('ℹ️ No active custom ORDER_RECEIVED flow configured. Sending dynamic order summary & confirmation buttons.')
+        
+        const items = order.items || []
+        const formattedItems = items.map(it => `• ${it.productName || it.productRetailerId} (x${it.quantity}) — ${it.currency || order.currency} ${(Number(it.itemPrice) * it.quantity).toFixed(2)}`).join('\n')
+        
+        let deliveryLine = ''
+        if (order.deliveryType === 'HOME_DELIVERY') {
+          deliveryLine = `\n🚚 *Delivery:* Home Delivery\n📍 *Address:* ${order.deliveryAddress || 'Shared GPS Location'}`
+        } else if (order.deliveryType === 'STORE_PICKUP') {
+          deliveryLine = `\n🏬 *Delivery:* Store Pick Up\n📍 *Location:* ${order.deliveryName || 'Main Store'} (${order.deliveryAddress || ''})`
+        }
+
+        const summaryText = `📦 *Order Summary #${order.orderNumber}*\n\n${formattedItems}\n\n💰 *Total Amount:* ${order.currency} ${Number(order.totalAmount).toFixed(2)}${deliveryLine}${order.customerNote ? `\n📝 *Note:* ${order.customerNote}` : ''}\n\nPlease review and confirm your order below:`
+
+        const buttons = [
+          { id: `btn_confirm_${order.id}`, title: 'Confirm Order' },
+          { id: `btn_cancel_${order.id}`, title: 'Cancel Order' },
+          { id: `btn_modify_${order.id}`, title: 'Modify / Reorder' }
+        ]
+
+        await flowEngine.sendWhatsAppInteractiveButtons(tenantId, contact.phone, summaryText, buttons)
+        await flowEngine.saveBotMessage(conversation.id, summaryText, {
+          type: 'INTERACTIVE_BUTTONS',
+          buttons
+        })
+
+        const initialFlowData = {
+          activeOrderId: order.id,
+          orderNumber: order.orderNumber,
+          totalAmount: String(order.totalAmount),
+          currency: order.currency,
+          deliveryType: order.deliveryType,
+          deliveryAddress: order.deliveryAddress
+        }
+
+        await prisma.conversation.update({
+          where: { id: conversation.id },
+          data: {
+            currentNodeId: 'ORDER_CONFIRMATION_STAGE',
+            mode: 'BOT',
+            botPaused: false,
+            flowData: initialFlowData
+          }
+        })
         return
       }
 
@@ -1039,21 +1153,42 @@ handleSendMessage: async (node, conversation, contact, userMessage, isNewContact
         return
       }
 
+      // Save delivery details to conversation flowData
+      const currentFlowData = conversation.flowData || {}
+      const updatedFlowData = {
+        ...currentFlowData,
+        deliveryType: 'HOME_DELIVERY',
+        deliveryAddress: locationAddress,
+        deliveryLat: extraData?.locLatitude ? Number(extraData.locLatitude) : null,
+        deliveryLng: extraData?.locLongitude ? Number(extraData.locLongitude) : null,
+      }
+
       // Move to next node if location captured
       if (node.nextNodeId) {
         const nextNode = await flowService.getNodeById(node.nextNodeId)
         if (nextNode) {
           await prisma.conversation.update({
             where: { id: conversation.id },
-            data: { currentNodeId: nextNode.id }
+            data: {
+              currentNodeId: nextNode.id,
+              flowData: updatedFlowData
+            }
           })
-          const updatedConversation = { ...conversation, currentNodeId: nextNode.id }
+          const updatedConversation = { ...conversation, currentNodeId: nextNode.id, flowData: updatedFlowData }
           await flowEngine.executeNode(nextNode, updatedConversation, contact, userMessage, isNewContact)
         } else {
+          await prisma.conversation.update({
+            where: { id: conversation.id },
+            data: { flowData: updatedFlowData }
+          })
           await flowEngine.endFlow(conversation)
         }
       } else {
         // Default confirmation if end of flow
+        await prisma.conversation.update({
+          where: { id: conversation.id },
+          data: { flowData: updatedFlowData }
+        })
         const orderNumber = conversation.flowData?.orderNumber || 'your order'
         const confirmationMsg = `✅ *Order #${orderNumber} Confirmed!*\n\n🚚 Delivery Address:\n${locationAddress}\n\nWe will notify you when your order is out for delivery!`
         await flowEngine.sendWhatsAppMessage(conversation.tenantId, contact.phone, confirmationMsg)
