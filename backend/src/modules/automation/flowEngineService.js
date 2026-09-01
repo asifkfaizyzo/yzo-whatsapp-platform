@@ -11,7 +11,7 @@ const flowEngine = {
   // ─────────────────────────────────────────
   // MAIN ENTRY POINT
   // ─────────────────────────────────────────
-  processIncomingMessage: async (conversation, contact, userMessage, isNewContact = false) => {
+  processIncomingMessage: async (conversation, contact, userMessage, isNewContact = false, extraData = {}) => {
     try {
 
       console.log(`\n📩 New message: "${userMessage}"`)
@@ -1846,7 +1846,7 @@ saveBotMediaMessage: async (conversationId, mediaData) => {
           ...(footerText ? { footer: { text: footerText } } : {}),
           action: {
             name: 'catalog_message',
-            parameters: thumbnailSku ? { thumbnail_product_retailer_id: thumbnailSku } : {}
+            ...(thumbnailSku ? { parameters: { thumbnail_product_retailer_id: thumbnailSku } } : {})
           }
         }
       }
