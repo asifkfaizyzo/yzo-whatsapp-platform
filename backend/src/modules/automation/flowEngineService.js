@@ -11,7 +11,7 @@ const flowEngine = {
   // ─────────────────────────────────────────
   // MAIN ENTRY POINT
   // ─────────────────────────────────────────
-  processIncomingMessage: async (conversation, contact, userMessage, isNewContact = false) => {
+  processIncomingMessage: async (conversation, contact, userMessage, isNewContact = false, extraData = {}) => {
     try {
 
       console.log(`\n📩 New message: "${userMessage}"`)
