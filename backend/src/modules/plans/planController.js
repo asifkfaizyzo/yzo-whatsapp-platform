@@ -713,7 +713,38 @@ export const verifyPaymentAndActivate = async (req, res) => {
   }
 };
 
+// Helper to fetch or dynamically create/recreate Razorpay Plan ID
+const getOrCreateRazorpayPlan = async (plan, billingType, forceRecreate = false) => {
+  let rzpPlanId = billingType === "annual" ? plan.razorpayAnnualPlanId : plan.razorpayMonthlyPlanId;
 
+  if (!rzpPlanId || forceRecreate) {
+    const amount = billingType === "annual" && plan.annualPrice ? plan.annualPrice : plan.monthlyPrice;
+    const gstCalc = await calculateGST(amount);
+    const totalAmountInPaise = Math.round(gstCalc.totalAmount * 100);
+
+    const createdRzpPlan = await razorpay.plans.create({
+      period: billingType === "annual" ? "yearly" : "monthly",
+      interval: 1,
+      item: {
+        name: `${plan.name} (${billingType === "annual" ? "Annual" : "Monthly"})`,
+        amount: totalAmountInPaise,
+        currency: "INR",
+        description: `${plan.name} Plan recurring subscription`,
+      },
+    });
+    rzpPlanId = createdRzpPlan.id;
+
+    // Persist generated plan ID in database
+    await prisma.subscriptionPlan.update({
+      where: { id: plan.id },
+      data: billingType === "annual"
+        ? { razorpayAnnualPlanId: rzpPlanId }
+        : { razorpayMonthlyPlanId: rzpPlanId },
+    });
+  }
+
+  return rzpPlanId;
+};
 
 // ── Create Recurring Subscription with Free Trial ──
 export const createSubscriptionTrial = async (req, res) => {
@@ -772,51 +803,41 @@ export const createSubscriptionTrial = async (req, res) => {
     }
 
     // Ensure Razorpay Plan ID exists, or create dynamically on Razorpay
-    let rzpPlanId = billingType === 'annual' && plan.razorpayAnnualPlanId 
-      ? plan.razorpayAnnualPlanId 
-      : plan.razorpayMonthlyPlanId;
-
-    if (!rzpPlanId) {
-      const amount = billingType === 'annual' && plan.annualPrice ? plan.annualPrice : plan.monthlyPrice;
-      const gstCalc = await calculateGST(amount);
-      const totalAmountInPaise = Math.round(gstCalc.totalAmount * 100);
-
-      try {
-        const createdRzpPlan = await razorpay.plans.create({
-          period: billingType === 'annual' ? "yearly" : "monthly",
-          interval: 1,
-          item: {
-            name: `${plan.name} (${billingType === 'annual' ? 'Annual' : 'Monthly'})`,
-            amount: totalAmountInPaise,
-            currency: "INR",
-            description: `${plan.name} Plan recurring subscription`,
-          }
-        });
-        rzpPlanId = createdRzpPlan.id;
-
-        // Persist generated plan ID in database
-        await prisma.subscriptionPlan.update({
-          where: { id: plan.id },
-          data: billingType === 'annual' 
-            ? { razorpayAnnualPlanId: rzpPlanId } 
-            : { razorpayMonthlyPlanId: rzpPlanId }
-        });
-      } catch (planCreateErr) {
-        console.error("Razorpay plan creation error:", planCreateErr);
-      }
-    }
+    let rzpPlanId = await getOrCreateRazorpayPlan(plan, billingType);
 
     const trialDays = plan.trialDays || 14;
     const startAt = Math.floor((Date.now() + trialDays * 86400000) / 1000);
 
-    const subscription = await razorpay.subscriptions.create({
-      plan_id: rzpPlanId,
-      total_count: billingType === 'annual' ? 5 : 12,
-      quantity: 1,
-      start_at: startAt,
-      customer_notify: 1,
-      notes: { tenantId: tenant.id, planId: plan.id, billingType }
-    });
+    let subscription;
+    try {
+      subscription = await razorpay.subscriptions.create({
+        plan_id: rzpPlanId,
+        total_count: billingType === 'annual' ? 5 : 12,
+        quantity: 1,
+        start_at: startAt,
+        customer_notify: 1,
+        notes: { tenantId: tenant.id, planId: plan.id, billingType }
+      });
+    } catch (subErr) {
+      if (
+        subErr?.error?.description?.includes('invalid or could not be found') ||
+        subErr?.error?.code === 'BAD_REQUEST_ERROR' ||
+        subErr?.statusCode === 400
+      ) {
+        console.warn("⚠️ Razorpay Plan ID not found in current environment. Re-creating plan on Razorpay...");
+        rzpPlanId = await getOrCreateRazorpayPlan(plan, billingType, true);
+        subscription = await razorpay.subscriptions.create({
+          plan_id: rzpPlanId,
+          total_count: billingType === 'annual' ? 5 : 12,
+          quantity: 1,
+          start_at: startAt,
+          customer_notify: 1,
+          notes: { tenantId: tenant.id, planId: plan.id, billingType }
+        });
+      } else {
+        throw subErr;
+      }
+    }
 
     // Save ID immediately to link to tenant
     await prisma.tenant.update({
@@ -832,7 +853,10 @@ export const createSubscriptionTrial = async (req, res) => {
     });
   } catch (error) {
     console.error("Create subscription trial error:", error);
-    return res.status(500).json({ success: false, message: error.message });
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to create subscription trial",
+    });
   }
 };
 
@@ -962,56 +986,50 @@ export const createPaidSubscription = async (req, res) => {
     }
 
     // Ensure Razorpay Plan ID exists, or create dynamically on Razorpay
-    let rzpPlanId = billingType === "annual" && plan.razorpayAnnualPlanId
-      ? plan.razorpayAnnualPlanId
-      : plan.razorpayMonthlyPlanId;
-
-    if (!rzpPlanId) {
-      const amount = billingType === "annual" && plan.annualPrice ? plan.annualPrice : plan.monthlyPrice;
-      const gstCalc = await calculateGST(amount);
-      const totalAmountInPaise = Math.round(gstCalc.totalAmount * 100);
-
-      try {
-        const createdRzpPlan = await razorpay.plans.create({
-          period: billingType === "annual" ? "yearly" : "monthly",
-          interval: 1,
-          item: {
-            name: `${plan.name} (${billingType === "annual" ? "Annual" : "Monthly"})`,
-            amount: totalAmountInPaise,
-            currency: "INR",
-            description: `${plan.name} Plan recurring subscription`,
-          },
-        });
-        rzpPlanId = createdRzpPlan.id;
-
-        // Persist generated plan ID in database
-        await prisma.subscriptionPlan.update({
-          where: { id: plan.id },
-          data: billingType === "annual"
-            ? { razorpayAnnualPlanId: rzpPlanId }
-            : { razorpayMonthlyPlanId: rzpPlanId },
-        });
-      } catch (planCreateErr) {
-        console.error("Razorpay plan creation error:", planCreateErr);
-      }
-    }
+    let rzpPlanId = await getOrCreateRazorpayPlan(plan, billingType);
 
     // Calculate upfront amount for client info
     const amount = billingType === "annual" && plan.annualPrice ? plan.annualPrice : plan.monthlyPrice;
     const gstCalc = await calculateGST(amount);
 
     // Create Subscription without start_at => Cycle 1 is charged upfront immediately
-    const subscription = await razorpay.subscriptions.create({
-      plan_id: rzpPlanId,
-      total_count: billingType === "annual" ? 5 : 60,
-      quantity: 1,
-      customer_notify: 1,
-      notes: {
-        tenantId: tenant.id,
-        planId: plan.id,
-        billingType,
-      },
-    });
+    let subscription;
+    try {
+      subscription = await razorpay.subscriptions.create({
+        plan_id: rzpPlanId,
+        total_count: billingType === "annual" ? 5 : 60,
+        quantity: 1,
+        customer_notify: 1,
+        notes: {
+          tenantId: tenant.id,
+          planId: plan.id,
+          billingType,
+        },
+      });
+    } catch (subErr) {
+      // If plan ID in DB was from Test mode or invalid on Razorpay, recreate on Razorpay and retry
+      if (
+        subErr?.error?.description?.includes('invalid or could not be found') ||
+        subErr?.error?.code === 'BAD_REQUEST_ERROR' ||
+        subErr?.statusCode === 400
+      ) {
+        console.warn("⚠️ Razorpay Plan ID not found in current environment. Re-creating plan on Razorpay...");
+        rzpPlanId = await getOrCreateRazorpayPlan(plan, billingType, true);
+        subscription = await razorpay.subscriptions.create({
+          plan_id: rzpPlanId,
+          total_count: billingType === "annual" ? 5 : 60,
+          quantity: 1,
+          customer_notify: 1,
+          notes: {
+            tenantId: tenant.id,
+            planId: plan.id,
+            billingType,
+          },
+        });
+      } else {
+        throw subErr;
+      }
+    }
 
     return res.status(200).json({
       success: true,
