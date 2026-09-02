@@ -1028,9 +1028,9 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
               )}
 
               {/* Max reached warning */}
-              {buttons.length === 3 && (
+              {buttons.length === 10 && (
                 <p className="text-[10px] text-slate-400 mt-1">
-                  ⚠️ Maximum 3 buttons reached
+                  ⚠️ Maximum 10 buttons reached
                 </p>
               )}
             </div>
