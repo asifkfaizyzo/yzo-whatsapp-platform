@@ -979,10 +979,11 @@ handleSendMessage: async (node, conversation, contact, userMessage, isNewContact
       console.log(`   Available buttons:`, JSON.stringify(buttons, null, 2))
       console.log(`   User message: "${userMessage}"`)
 
+      const userMsgNormalized = (userMessage || '').toLowerCase().trim()
       const clickedButton = buttons.find(
         btn =>
-          (btn.title || '').toLowerCase().trim() ===
-          (userMessage || '').toLowerCase().trim()
+          (btn.title || '').toLowerCase().trim() === userMsgNormalized ||
+          (btn.id || '').toLowerCase().trim() === userMsgNormalized
       )
 
       if (!clickedButton) {
@@ -1906,14 +1907,16 @@ saveBotMediaMessage: async (conversationId, mediaData) => {
   // ─────────────────────────────────────────
   sendWhatsAppInteractiveButtons: async (tenantId, phone, bodyText, buttons) => {
     try {
+      const isListMode = buttons.length > 3
+
       if (process.env.MOCK_WHATSAPP === 'true') {
         console.log('\n╔══════════════════════════════════════╗')
-        console.log('║  📱 MOCK WHATSAPP - BUTTONS         ║')
+        console.log(isListMode ? '║  📱 MOCK WHATSAPP - LIST (OPTIONS)   ║' : '║  📱 MOCK WHATSAPP - BUTTONS         ║')
         console.log('╠══════════════════════════════════════╣')
         console.log(`║  To   : ${phone}`)
         console.log(`║  Body : ${bodyText}`)
         buttons.forEach((b, i) => {
-          console.log(`║  Btn${i + 1} : [${b.title}]`)
+          console.log(`║  ${isListMode ? 'Opt' : 'Btn'}${i + 1} : [${b.title}]`)
         })
         console.log('╚══════════════════════════════════════╝\n')
         return { messages: [{ id: 'mock_btn_' + Date.now() }] }
@@ -1934,21 +1937,50 @@ saveBotMediaMessage: async (conversationId, mediaData) => {
 
       const token = decrypt(tenant.whatsappAccessToken)
       const url = `https://graph.facebook.com/v21.0/${tenant.whatsappPhoneId}/messages`
-      const payload = {
-        messaging_product: 'whatsapp',
-        to: phone,
-        type: 'interactive',
-        interactive: {
-          type: 'button',
-          body: { text: bodyText },
-          action: {
-            buttons: buttons.slice(0, 3).map(btn => ({
-              type: 'reply',
-              reply: {
-                id: btn.id,
-                title: btn.title
-              }
-            }))
+
+      let payload
+      if (!isListMode) {
+        // WhatsApp Quick Reply Buttons (1-3 buttons)
+        payload = {
+          messaging_product: 'whatsapp',
+          to: phone,
+          type: 'interactive',
+          interactive: {
+            type: 'button',
+            body: { text: bodyText || 'Please choose an option:' },
+            action: {
+              buttons: buttons.slice(0, 3).map(btn => ({
+                type: 'reply',
+                reply: {
+                  id: String(btn.id || '').slice(0, 256),
+                  title: String(btn.title || '').slice(0, 20)
+                }
+              }))
+            }
+          }
+        }
+      } else {
+        // WhatsApp Interactive List Message (4-10 options)
+        payload = {
+          messaging_product: 'whatsapp',
+          to: phone,
+          type: 'interactive',
+          interactive: {
+            type: 'list',
+            body: { text: bodyText || 'Please select an option from the list:' },
+            action: {
+              button: 'Select Option',
+              sections: [
+                {
+                  title: 'Options',
+                  rows: buttons.slice(0, 10).map((btn, idx) => ({
+                    id: String(btn.id || `btn_${idx + 1}`).slice(0, 200),
+                    title: String(btn.title || `Option ${idx + 1}`).slice(0, 24),
+                    ...(btn.description ? { description: String(btn.description).slice(0, 72) } : {})
+                  }))
+                }
+              ]
+            }
           }
         }
       }
@@ -1967,13 +1999,13 @@ saveBotMediaMessage: async (conversationId, mediaData) => {
 
           const result = await response.json()
           if (result.messages?.[0]?.id) {
-            console.log(`📤 Buttons sent: ${result.messages[0].id}`)
+            console.log(`📤 Interactive message (${isListMode ? 'list' : 'buttons'}) sent: ${result.messages[0].id}`)
             return result
           } else {
-            console.error(`❌ Button send failed (attempt ${attempt}):`, result)
+            console.error(`❌ Interactive send failed (attempt ${attempt}):`, result)
           }
         } catch (fetchErr) {
-          console.warn(`⚠️ Button send fetch error (attempt ${attempt}/2):`, fetchErr.message)
+          console.warn(`⚠️ Interactive send fetch error (attempt ${attempt}/2):`, fetchErr.message)
           if (attempt === 2) throw fetchErr
         }
       }
