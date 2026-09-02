@@ -24,7 +24,10 @@ import http from 'http';
  * Fetch product names from Meta Catalog API with Redis caching
  */
 async function fetchCatalogProductNames(catalogId, accessToken) {
-  if (!catalogId || !accessToken) return {};
+  if (!catalogId || !accessToken) {
+    console.warn('⚠️ [CATALOG LOOKUP] Missing catalogId or accessToken:', { catalogId: !!catalogId, accessToken: !!accessToken });
+    return {};
+  }
 
   const cacheKey = `meta:catalog_products:${catalogId}`;
 
@@ -32,6 +35,7 @@ async function fetchCatalogProductNames(catalogId, accessToken) {
   try {
     const cached = await redisConnection.get(cacheKey);
     if (cached) {
+      console.log(`📦 [CATALOG CACHE HIT] Loaded products from Redis for catalog ${catalogId}`);
       return JSON.parse(cached);
     }
   } catch (err) {
@@ -40,6 +44,7 @@ async function fetchCatalogProductNames(catalogId, accessToken) {
 
   // 2. Fetch from Meta Graph API
   try {
+    console.log(`🌐 [CATALOG API] Querying Meta Graph API for catalog ${catalogId}...`);
     const url = `https://graph.facebook.com/v21.0/${catalogId}/products?fields=name,retailer_id,title&limit=250&access_token=${accessToken}`;
     const res = await fetch(url);
     if (!res.ok) {
@@ -53,10 +58,13 @@ async function fetchCatalogProductNames(catalogId, accessToken) {
     const nameMap = {};
 
     for (const p of productList) {
-      if (p.retailer_id) {
-        nameMap[p.retailer_id] = p.name || p.title || p.retailer_id;
+      const rId = p.retailer_id || p.id;
+      if (rId) {
+        nameMap[rId] = p.name || p.title || rId;
       }
     }
+
+    console.log(`✅ [CATALOG LOADED] Successfully mapped ${Object.keys(nameMap).length} products from Meta Catalog`);
 
     // 3. Cache for 6 hours in Redis
     if (Object.keys(nameMap).length > 0) {
