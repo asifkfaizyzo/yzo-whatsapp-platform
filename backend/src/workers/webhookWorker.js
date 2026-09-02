@@ -42,18 +42,29 @@ async function fetchCatalogProductNames(catalogId, accessToken) {
     console.warn('⚠️ Redis get error for catalog cache:', err.message);
   }
 
-  // 2. Fetch from Meta Graph API
+  // 2. Fetch from Meta Graph API (Try direct catalog products, then catalog node query)
   try {
     console.log(`🌐 [CATALOG API] Querying Meta Graph API for catalog ${catalogId}...`);
-    const url = `https://graph.facebook.com/v21.0/${catalogId}/products?fields=name,retailer_id,title&limit=250&access_token=${accessToken}`;
-    const res = await fetch(url);
-    if (!res.ok) {
-      const errBody = await res.text();
-      console.warn(`⚠️ Meta Catalog API failed (${res.status}):`, errBody);
-      return {};
+    let url = `https://graph.facebook.com/v21.0/${catalogId}/products?fields=name,retailer_id,title&limit=250&access_token=${accessToken}`;
+    let res = await fetch(url);
+    let data = null;
+
+    if (res.ok) {
+      data = await res.json();
+    } else {
+      // Try fallback catalog query format
+      const fallbackUrl = `https://graph.facebook.com/v21.0/${catalogId}?fields=products{name,retailer_id,title}&access_token=${accessToken}`;
+      const fallbackRes = await fetch(fallbackUrl);
+      if (fallbackRes.ok) {
+        const fallbackData = await fallbackRes.json();
+        data = { data: fallbackData?.products?.data || [] };
+      } else {
+        const errBody = await res.text();
+        console.warn(`⚠️ Meta Catalog API failed (${res.status}). To enable automatic title sync, grant 'catalog_management' permission or assign Catalog asset to your Meta System User Token. Meta error:`, errBody);
+        return {};
+      }
     }
 
-    const data = await res.json();
     const productList = data?.data || [];
     const nameMap = {};
 
