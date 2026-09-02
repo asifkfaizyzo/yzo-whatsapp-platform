@@ -20,6 +20,56 @@ import http from 'http';
 
 
 
+/**
+ * Fetch product names from Meta Catalog API with Redis caching
+ */
+async function fetchCatalogProductNames(catalogId, accessToken) {
+  if (!catalogId || !accessToken) return {};
+
+  const cacheKey = `meta:catalog_products:${catalogId}`;
+
+  // 1. Try Redis cache first
+  try {
+    const cached = await redisConnection.get(cacheKey);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+  } catch (err) {
+    console.warn('⚠️ Redis get error for catalog cache:', err.message);
+  }
+
+  // 2. Fetch from Meta Graph API
+  try {
+    const url = `https://graph.facebook.com/v21.0/${catalogId}/products?fields=name,retailer_id,title&limit=250&access_token=${accessToken}`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      const errBody = await res.text();
+      console.warn(`⚠️ Meta Catalog API failed (${res.status}):`, errBody);
+      return {};
+    }
+
+    const data = await res.json();
+    const productList = data?.data || [];
+    const nameMap = {};
+
+    for (const p of productList) {
+      if (p.retailer_id) {
+        nameMap[p.retailer_id] = p.name || p.title || p.retailer_id;
+      }
+    }
+
+    // 3. Cache for 6 hours in Redis
+    if (Object.keys(nameMap).length > 0) {
+      await redisConnection.set(cacheKey, JSON.stringify(nameMap), 'EX', 6 * 3600).catch(() => {});
+    }
+
+    return nameMap;
+  } catch (err) {
+    console.error('❌ Error fetching Meta catalog product names:', err.message);
+    return {};
+  }
+}
+
 // ─────────────────────────────────────────────────────────────
 // MAIN JOB PROCESSOR
 // ─────────────────────────────────────────────────────────────
@@ -376,6 +426,8 @@ export const processWebhookJob = async (job) => {
     let locName = null;
     let locAddress = null;
 
+    let catalogNameMap = {};
+
     // ── TEXT ───────────────────────────────────────────────
     if (messageType === 'text') {
       text = message.text?.body;
@@ -556,6 +608,7 @@ export const processWebhookJob = async (job) => {
       // ── ORDER (WhatsApp Cart / Commerce) ───────────────────
     } else if (messageType === 'order') {
       const orderPayload = message.order;
+      const catalogId = orderPayload?.catalog_id || tenant.whatsappCatalogId || null;
       const items = orderPayload?.product_items || [];
       const customerNote = orderPayload?.text || null;
 
@@ -565,7 +618,22 @@ export const processWebhookJob = async (job) => {
       // Collision-proof unique order number
       const orderNumber = `ORD-${tenant.id.slice(-4).toUpperCase()}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
 
-      const formattedItems = items.map(it => `• SKU: ${it.product_retailer_id} (x${it.quantity}) — ${it.currency || currency} ${it.item_price}`).join('\n');
+      let accessToken = null;
+      if (tenant.whatsappAccessToken) {
+        try {
+          accessToken = decrypt(tenant.whatsappAccessToken);
+        } catch (e) {
+          console.warn('⚠️ Could not decrypt whatsappAccessToken:', e.message);
+        }
+      }
+
+      catalogNameMap = await fetchCatalogProductNames(catalogId, accessToken);
+
+      const formattedItems = items.map(it => {
+        const pName = catalogNameMap[it.product_retailer_id] || it.product_retailer_id;
+        return `• *${pName}* (x${it.quantity}) — ${it.currency || currency} ${it.item_price}`;
+      }).join('\n');
+
       text = `🛍️ *Order Placed #${orderNumber}*\n\n📦 *Items:*\n${formattedItems}\n\n💰 *Total:* ${currency} ${totalAmount.toFixed(2)}${customerNote ? `\n\n📝 *Note:* ${customerNote}` : ''}`;
       type = 'ORDER';
 
@@ -761,7 +829,7 @@ export const processWebhookJob = async (job) => {
               create: items.map(it => ({
                 tenantId: tenant.id,
                 productRetailerId: it.product_retailer_id,
-                productName: `SKU: ${it.product_retailer_id}`,
+                productName: catalogNameMap[it.product_retailer_id] || it.product_retailer_id,
                 quantity: Number(it.quantity || 1),
                 itemPrice: Number(it.item_price || 0),
                 currency: it.currency || currency,
