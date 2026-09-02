@@ -1838,7 +1838,6 @@ saveBotMediaMessage: async (conversationId, mediaData) => {
   // ─────────────────────────────────────────
   sendWhatsAppMessage: async (tenantId, phone, text) => {
     try {
-
       if (process.env.MOCK_WHATSAPP === 'true') {
         console.log('\n╔══════════════════════════════════════╗')
         console.log('║  📱 MOCK WHATSAPP (Dev Mode)        ║')
@@ -1859,38 +1858,46 @@ saveBotMediaMessage: async (conversationId, mediaData) => {
 
       if (!tenant?.whatsappPhoneId || !tenant?.whatsappAccessToken) {
         console.error('❌ Tenant WhatsApp credentials not configured')
-        return
+        return null
       }
 
-      const response = await fetch(
-        `https://graph.facebook.com/v18.0/${tenant.whatsappPhoneId}/messages`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${decrypt(tenant.whatsappAccessToken)}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            messaging_product: 'whatsapp',
-            to: phone,
-            type: 'text',
-            text: { body: text }
+      const token = decrypt(tenant.whatsappAccessToken)
+      const url = `https://graph.facebook.com/v21.0/${tenant.whatsappPhoneId}/messages`
+      const payload = {
+        messaging_product: 'whatsapp',
+        to: phone,
+        type: 'text',
+        text: { body: text }
+      }
+
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(15000)
           })
+
+          const result = await response.json()
+          if (result.messages?.[0]?.id) {
+            console.log(`📤 WhatsApp sent: ${result.messages[0].id}`)
+            return result
+          } else {
+            console.error(`❌ WhatsApp send failed (attempt ${attempt}):`, result)
+          }
+        } catch (fetchErr) {
+          console.warn(`⚠️ WhatsApp send fetch error (attempt ${attempt}/2):`, fetchErr.message)
+          if (attempt === 2) throw fetchErr
         }
-      )
-
-      const result = await response.json()
-
-      if (result.messages?.[0]?.id) {
-        console.log(`📤 WhatsApp sent: ${result.messages[0].id}`)
-      } else {
-        console.error('❌ WhatsApp send failed:', result)
       }
-
-      return result
 
     } catch (error) {
       console.error('❌ sendWhatsAppMessage error:', error)
+      return null
     }
   },
 
@@ -1899,7 +1906,6 @@ saveBotMediaMessage: async (conversationId, mediaData) => {
   // ─────────────────────────────────────────
   sendWhatsAppInteractiveButtons: async (tenantId, phone, bodyText, buttons) => {
     try {
-
       if (process.env.MOCK_WHATSAPP === 'true') {
         console.log('\n╔══════════════════════════════════════╗')
         console.log('║  📱 MOCK WHATSAPP - BUTTONS         ║')
@@ -1923,9 +1929,11 @@ saveBotMediaMessage: async (conversationId, mediaData) => {
 
       if (!tenant?.whatsappPhoneId || !tenant?.whatsappAccessToken) {
         console.error('❌ Tenant WhatsApp credentials not configured')
-        return
+        return null
       }
 
+      const token = decrypt(tenant.whatsappAccessToken)
+      const url = `https://graph.facebook.com/v21.0/${tenant.whatsappPhoneId}/messages`
       const payload = {
         messaging_product: 'whatsapp',
         to: phone,
@@ -1945,30 +1953,34 @@ saveBotMediaMessage: async (conversationId, mediaData) => {
         }
       }
 
-      const response = await fetch(
-        `https://graph.facebook.com/v18.0/${tenant.whatsappPhoneId}/messages`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${decrypt(tenant.whatsappAccessToken)}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(payload)
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(15000)
+          })
+
+          const result = await response.json()
+          if (result.messages?.[0]?.id) {
+            console.log(`📤 Buttons sent: ${result.messages[0].id}`)
+            return result
+          } else {
+            console.error(`❌ Button send failed (attempt ${attempt}):`, result)
+          }
+        } catch (fetchErr) {
+          console.warn(`⚠️ Button send fetch error (attempt ${attempt}/2):`, fetchErr.message)
+          if (attempt === 2) throw fetchErr
         }
-      )
-
-      const result = await response.json()
-
-      if (result.messages?.[0]?.id) {
-        console.log(`📤 Buttons sent: ${result.messages[0].id}`)
-      } else {
-        console.error('❌ Button send failed:', result)
       }
-
-      return result
 
     } catch (error) {
       console.error('❌ sendWhatsAppInteractiveButtons error:', error)
+      return null
     }
   },
 
@@ -1997,9 +2009,11 @@ saveBotMediaMessage: async (conversationId, mediaData) => {
 
       if (!tenant?.whatsappPhoneId || !tenant?.whatsappAccessToken) {
         console.error('❌ Tenant WhatsApp credentials not configured')
-        return
+        return null
       }
 
+      const token = decrypt(tenant.whatsappAccessToken)
+      const url = `https://graph.facebook.com/v21.0/${tenant.whatsappPhoneId}/messages`
       const payload = {
         messaging_product: 'whatsapp',
         to: phone,
@@ -2015,27 +2029,33 @@ saveBotMediaMessage: async (conversationId, mediaData) => {
         }
       }
 
-      const response = await fetch(
-        `https://graph.facebook.com/v18.0/${tenant.whatsappPhoneId}/messages`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${decrypt(tenant.whatsappAccessToken)}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(payload)
-        }
-      )
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(15000)
+          })
 
-      const result = await response.json()
-      if (result.messages?.[0]?.id) {
-        console.log(`📤 Catalog message sent: ${result.messages[0].id}`)
-      } else {
-        console.error('❌ Catalog message send failed:', result)
+          const result = await response.json()
+          if (result.messages?.[0]?.id) {
+            console.log(`📤 Catalog message sent: ${result.messages[0].id}`)
+            return result
+          } else {
+            console.error(`❌ Catalog message send failed (attempt ${attempt}):`, result)
+          }
+        } catch (fetchErr) {
+          console.warn(`⚠️ Catalog send fetch error (attempt ${attempt}/2):`, fetchErr.message)
+          if (attempt === 2) throw fetchErr
+        }
       }
-      return result
     } catch (error) {
       console.error('❌ sendWhatsAppCatalogMessage error:', error)
+      return null
     }
   },
 
@@ -2064,9 +2084,11 @@ saveBotMediaMessage: async (conversationId, mediaData) => {
 
       if (!tenant?.whatsappPhoneId || !tenant?.whatsappAccessToken) {
         console.error('❌ Tenant WhatsApp credentials not configured')
-        return
+        return null
       }
 
+      const token = decrypt(tenant.whatsappAccessToken)
+      const url = `https://graph.facebook.com/v21.0/${tenant.whatsappPhoneId}/messages`
       const payload = {
         messaging_product: 'whatsapp',
         to: phone,
@@ -2078,27 +2100,33 @@ saveBotMediaMessage: async (conversationId, mediaData) => {
         }
       }
 
-      const response = await fetch(
-        `https://graph.facebook.com/v18.0/${tenant.whatsappPhoneId}/messages`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${decrypt(tenant.whatsappAccessToken)}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(payload)
-        }
-      )
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(15000)
+          })
 
-      const result = await response.json()
-      if (result.messages?.[0]?.id) {
-        console.log(`📤 Location Request sent: ${result.messages[0].id}`)
-      } else {
-        console.error('❌ Location Request failed:', result)
+          const result = await response.json()
+          if (result.messages?.[0]?.id) {
+            console.log(`📤 Location Request sent: ${result.messages[0].id}`)
+            return result
+          } else {
+            console.error(`❌ Location Request failed (attempt ${attempt}):`, result)
+          }
+        } catch (fetchErr) {
+          console.warn(`⚠️ Location request fetch error (attempt ${attempt}/2):`, fetchErr.message)
+          if (attempt === 2) throw fetchErr
+        }
       }
-      return result
     } catch (error) {
       console.error('❌ sendLocationRequestMessage error:', error)
+      return null
     }
   },
 
@@ -2128,9 +2156,11 @@ saveBotMediaMessage: async (conversationId, mediaData) => {
 
       if (!tenant?.whatsappPhoneId || !tenant?.whatsappAccessToken) {
         console.error('❌ Tenant WhatsApp credentials not configured')
-        return
+        return null
       }
 
+      const token = decrypt(tenant.whatsappAccessToken)
+      const url = `https://graph.facebook.com/v21.0/${tenant.whatsappPhoneId}/messages`
       const payload = {
         messaging_product: 'whatsapp',
         to: phone,
@@ -2143,27 +2173,33 @@ saveBotMediaMessage: async (conversationId, mediaData) => {
         }
       }
 
-      const response = await fetch(
-        `https://graph.facebook.com/v18.0/${tenant.whatsappPhoneId}/messages`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${decrypt(tenant.whatsappAccessToken)}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(payload)
-        }
-      )
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(15000)
+          })
 
-      const result = await response.json()
-      if (result.messages?.[0]?.id) {
-        console.log(`📤 Store pin sent: ${result.messages[0].id}`)
-      } else {
-        console.error('❌ Store pin send failed:', result)
+          const result = await response.json()
+          if (result.messages?.[0]?.id) {
+            console.log(`📤 Store pin sent: ${result.messages[0].id}`)
+            return result
+          } else {
+            console.error(`❌ Store pin send failed (attempt ${attempt}):`, result)
+          }
+        } catch (fetchErr) {
+          console.warn(`⚠️ Store pin send fetch error (attempt ${attempt}/2):`, fetchErr.message)
+          if (attempt === 2) throw fetchErr
+        }
       }
-      return result
     } catch (error) {
       console.error('❌ sendStoreLocationPin error:', error)
+      return null
     }
   },
 
