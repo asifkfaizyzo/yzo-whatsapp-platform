@@ -944,15 +944,14 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
                   Buttons
                 </label>
                 <span className="text-[10px] text-slate-400">
-                  {buttons.length}/3 max
+                  {buttons.length}/10 max
                 </span>
               </div>
 
               {/* Info box */}
               <div className="bg-green-50 border border-green-100 rounded-lg p-2 mb-2">
-                <p className="text-[10px] text-green-700">
-                  💡 Max 3 buttons (WhatsApp limit). Drag from the green handle
-                  on each button to connect to the next node.
+                <p className="text-[10px] text-green-700 leading-relaxed">
+                  💡 Max 10 buttons. 1–3 buttons are sent as Quick Reply buttons; 4–10 are automatically sent as an Interactive List menu. Drag from each handle to connect the next node.
                 </p>
               </div>
 
@@ -986,8 +985,8 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
                         updated[i] = { ...updated[i], title: e.target.value };
                         setButtons(updated);
                       }}
-                      placeholder="Button label (max 20 chars)"
-                      maxLength={20}
+                      placeholder="Button label (max 24 chars)"
+                      maxLength={24}
                       className="w-full text-xs border border-green-200
                         rounded-md p-1.5 focus:outline-none
                         focus:border-green-400 bg-white transition"
@@ -999,7 +998,7 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
                         ID: {btn.id}
                       </span>
                       <span className="text-[10px] text-slate-400">
-                        {(btn.title || "").length}/20
+                        {(btn.title || "").length}/24
                       </span>
                     </div>
                   </div>
@@ -1007,7 +1006,7 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
               </div>
 
               {/* Add button */}
-              {buttons.length < 3 && (
+              {buttons.length < 10 && (
                 <button
                   onClick={() => {
                     setButtons([
@@ -1028,7 +1027,7 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
               )}
 
               {/* Max reached warning */}
-              {buttons.length === 10 && (
+              {buttons.length >= 10 && (
                 <p className="text-[10px] text-slate-400 mt-1">
                   ⚠️ Maximum 10 buttons reached
                 </p>
