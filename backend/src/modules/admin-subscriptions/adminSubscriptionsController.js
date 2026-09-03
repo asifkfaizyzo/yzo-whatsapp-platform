@@ -29,7 +29,7 @@ const sendStatusUpdateEmail = async (email, companyName, status, extraNote = "")
           <p>Hi ${companyName},</p>
           <p>We are writing to notify you that your subscription status on SudoReply has been updated to: <strong>${status}</strong>.</p>
           ${extraNote ? `<p>${extraNote}</p>` : ''}
-          <p>If you have any questions, please reach out to support@sudoreply.com.</p>
+          <p>If you have any questions, please reach out to info@sudoreply.com.</p>
         </div>
       `,
     });

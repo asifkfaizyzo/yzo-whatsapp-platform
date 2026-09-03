@@ -147,7 +147,7 @@ export const sendInvoiceEmail = async (email, tenantName, invoiceNumber, filePat
 
           <div style="background: #125EF2; padding: 20px; border-radius: 0 0 12px 12px; text-align: center;">
             <p style="color: #CFE0FD; font-size: 12px; margin: 0;">
-              SudoReply | support@sudoreply.com | www.sudoreply.com
+              SudoReply | info@sudoreply.com | www.sudoreply.com
             </p>
           </div>
 
@@ -296,7 +296,7 @@ try {
           <div style="background: #125EF2; padding: 20px;
                       border-radius: 0 0 12px 12px; text-align: center;">
             <p style="color: #CFE0FD; font-size: 12px; margin: 0;">
-              SudoReply | support@sudoreply.com | www.sudoreply.com
+              SudoReply | info@sudoreply.com | www.sudoreply.com
             </p>
           </div>
 
@@ -366,7 +366,7 @@ export const sendEnquiryConfirmationEmail = async (email, name) => {
             <p style="font-size: 13px; color: #64748b; margin: 0;">This is an automated confirmation of your request. No need to reply to this email.</p>
           </div>
           <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px; text-align: center;">
-            <p style="color: #64748b; font-size: 12px; margin: 0;">SudoReply | support@sudoreply.com | www.sudoreply.com</p>
+            <p style="color: #64748b; font-size: 12px; margin: 0;">SudoReply | info@sudoreply.com | www.sudoreply.com</p>
           </div>
         </div>
       `,
@@ -436,12 +436,12 @@ export const sendEnterpriseLeadConfirmationEmail = async (email, name) => {
             <p>Hi <strong>${name}</strong>,</p>
             <p>Thank you for submitting a request for our <strong>Enterprise Plan</strong>. We are thrilled that you are looking to scale your business on SudoReply.</p>
             <p>A member of our dedicated enterprise account management team will review your requirements and reach out to you within 24 hours to schedule a custom platform walkthrough and pricing discussion.</p>
-            <p>If you have any questions in the meantime, feel free to contact us at support@sudoreply.com.</p>
+            <p>If you have any questions in the meantime, feel free to contact us at info@sudoreply.com.</p>
             <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
             <p style="font-size: 13px; color: #64748b; margin: 0;">SudoReply Enterprise Sales Team</p>
           </div>
           <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px; text-align: center;">
-            <p style="color: #64748b; font-size: 12px; margin: 0;">SudoReply | support@sudoreply.com | www.sudoreply.com</p>
+            <p style="color: #64748b; font-size: 12px; margin: 0;">SudoReply | info@sudoreply.com | www.sudoreply.com</p>
           </div>
         </div>
       `,
@@ -554,12 +554,12 @@ export const sendEnterpriseAccountActivationEmail = async (email, name) => {
                 Go to Dashboard
               </a>
             </div>
-            <p>If you encounter any issues logging in, please contact your account manager directly or email support@sudoreply.com.</p>
+            <p>If you encounter any issues logging in, please contact your account manager directly or email info@sudoreply.com.</p>
             <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
             <p style="font-size: 13px; color: #64748b; margin: 0;">SudoReply Enterprise Success Team</p>
           </div>
           <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px; text-align: center;">
-            <p style="color: #64748b; font-size: 12px; margin: 0;">SudoReply | support@sudoreply.com | www.sudoreply.com</p>
+            <p style="color: #64748b; font-size: 12px; margin: 0;">SudoReply | info@sudoreply.com | www.sudoreply.com</p>
           </div>
         </div>
       `,
@@ -773,7 +773,7 @@ export const sendSubscriptionPausedEmail = async (email, data) => {
         </div>
 
         <div style="background: #F8FAFC; border-top: 1px solid #E2E8F0; padding: 16px; text-align: center;">
-          <p style="color: #94A3B8; font-size: 12px; margin: 0;">SudoReply WhatsApp Platform • Questions? Contact support@sudoreply.com</p>
+          <p style="color: #94A3B8; font-size: 12px; margin: 0;">SudoReply WhatsApp Platform • Questions? Contact info@sudoreply.com</p>
         </div>
       </div>
     `;
@@ -845,7 +845,7 @@ export const sendSubscriptionResumedEmail = async (email, data) => {
         </div>
 
         <div style="background: #F8FAFC; border-top: 1px solid #E2E8F0; padding: 16px; text-align: center;">
-          <p style="color: #94A3B8; font-size: 12px; margin: 0;">SudoReply WhatsApp Platform • Questions? Contact support@sudoreply.com</p>
+          <p style="color: #94A3B8; font-size: 12px; margin: 0;">SudoReply WhatsApp Platform • Questions? Contact info@sudoreply.com</p>
         </div>
       </div>
     `;

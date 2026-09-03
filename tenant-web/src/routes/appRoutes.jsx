@@ -29,6 +29,8 @@ import Contact from '../pages/Contact'
 import HelpCenter from "../pages/HelpCenter";
 import PrivacyPolicy from "../pages/PrivacyPolicy";
 import Terms from "../pages/Terms";
+import RefundPolicy from "../pages/RefundPolicy";
+import ShippingPolicy from "../pages/ShippingPolicy";
 // import Status from "../pages/Status";
 
 import SelectPlan from "../pages/SelectPlan";
@@ -75,10 +77,13 @@ function App() {
         <Route path="/contact" element={<Contact />} />
 
 
-        {/* Support */}
+        {/* Support & Legal */}
         <Route path="/help" element={<HelpCenter />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/terms" element={<Terms />} />
+        <Route path="/refund-policy" element={<RefundPolicy />} />
+        <Route path="/cancellation-refunds" element={<RefundPolicy />} />
+        <Route path="/shipping-policy" element={<ShippingPolicy />} />
         {/* <Route path="/status"        element={<Status />}       /> */}
 
         {/* ✅ Plan & Payment Routes */}

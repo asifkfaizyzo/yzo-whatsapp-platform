@@ -277,7 +277,7 @@ export default function Contact() {
                         required
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        placeholder="John Doe"
+                        placeholder="Type Your Name"
                         className="w-full px-4 py-2.5 rounded-lg 
                                    border border-gray-200 text-sm 
                                    focus:outline-none focus:ring-2 
@@ -296,7 +296,7 @@ export default function Contact() {
                         required
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        placeholder="john@company.com"
+                        placeholder="Type Your Email Address"
                         className="w-full px-4 py-2.5 rounded-lg 
                                    border border-gray-200 text-sm 
                                    focus:outline-none focus:ring-2 
