@@ -147,7 +147,7 @@ export default function Contact() {
                   <div>
                     <p className="text-xs text-gray-400">Email</p>
                     <p className="text-sm font-medium text-gray-900">
-                      hello@sudoreply.com
+                      info@sudoreply.com
                     </p>
                   </div>
                 </div>
@@ -160,7 +160,7 @@ export default function Contact() {
                   <div>
                     <p className="text-xs text-gray-400">WhatsApp</p>
                     <p className="text-sm font-medium text-gray-900">
-                      +1-234-567-8900
+                      +91 9605305453
                     </p>
                   </div>
                 </div>
@@ -173,7 +173,7 @@ export default function Contact() {
                   <div>
                     <p className="text-xs text-gray-400">Phone</p>
                     <p className="text-sm font-medium text-gray-900">
-                      +1-234-567-8900
+                      +91 9605305453
                     </p>
                   </div>
                 </div>
@@ -186,7 +186,8 @@ export default function Contact() {
                   <div>
                     <p className="text-xs text-gray-400">Office</p>
                     <p className="text-sm font-medium text-gray-900">
-                      Hong Kong, Singapore, India
+                      1st Floor, Valentine Estate
+                      Palachuvadu, Kakkanad - 682030
                     </p>
                   </div>
                 </div>
@@ -276,7 +277,7 @@ export default function Contact() {
                         required
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        placeholder="John Doe"
+                        placeholder="Type Your Name"
                         className="w-full px-4 py-2.5 rounded-lg 
                                    border border-gray-200 text-sm 
                                    focus:outline-none focus:ring-2 
@@ -295,7 +296,7 @@ export default function Contact() {
                         required
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        placeholder="john@company.com"
+                        placeholder="Type Your Email Address"
                         className="w-full px-4 py-2.5 rounded-lg 
                                    border border-gray-200 text-sm 
                                    focus:outline-none focus:ring-2 

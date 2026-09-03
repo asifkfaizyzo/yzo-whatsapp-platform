@@ -22,7 +22,7 @@ export default function SettingsPage() {
   const [platform, setPlatform] = useState({
     siteName: "SudoReply",
     masterDomain: "https://sudoreply.com",
-    contactEmail: "support@sudoreply.com",
+    contactEmail: "info@sudoreply.com",
   });
 
   // ── Gateway State ──

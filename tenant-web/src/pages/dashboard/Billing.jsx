@@ -764,8 +764,8 @@ export default function Billing() {
             All amounts include 18% GST (CGST 9% + SGST 9%) as applicable under
             Indian tax regulations for SaaS services (SAC Code 998314). For GST
             invoices or GSTIN-based billing, please contact{" "}
-            <a href="mailto:support@sudoreply.com" className="underline font-bold">
-              support@sudoreply.com
+            <a href="mailto:info@sudoreply.com" className="underline font-bold">
+              info@sudoreply.com
             </a>
           </p>
         </div>

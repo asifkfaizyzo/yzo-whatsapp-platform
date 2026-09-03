@@ -107,10 +107,10 @@ export default function PrivacyPolicy() {
                 data from Sudoreply, you can submit a request by 
                 contacting us at{" "}
                 <a
-                  href="mailto:privacy@sudoreply.com"
+                  href="mailto:info@sudoreply.com"
                   className="text-[#125EF2] hover:underline"
                 >
-                  privacy@sudoreply.com
+                  info@sudoreply.com
                 </a>{" "}
                 with the subject line{" "}
                 <span className="font-medium text-gray-700">
@@ -149,10 +149,10 @@ export default function PrivacyPolicy() {
                 If you have any questions about this Privacy Policy, 
                 please contact us at{" "}
                 <a
-                  href="mailto:privacy@sudoreply.com"
+                  href="mailto:info@sudoreply.com"
                   className="text-blue-600 hover:underline"
                 >
-                  privacy@sudoreply.com
+                  info@sudoreply.com
                 </a>
               </p>
             </div>
