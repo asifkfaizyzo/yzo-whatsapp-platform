@@ -30,6 +30,13 @@ enum TenantStatus {
   BLOCKED
 }
 
+//─────────────────enum ChannelType────────────────────
+enum ChannelType {
+  WHATSAPP
+  MESSENGER
+  INSTAGRAM
+}
+
 
 
 //──────────────────Model Tenant──────────────────
@@ -64,6 +71,13 @@ model Tenant {
    whatsappVerifyToken String?  @default("yzo_default_verification_token")
    whatsappPin         String?
    whatsappCatalogId   String?  
+
+   // ─── Facebook & Instagram Integration ───
+   facebookPageId          String?
+   facebookPageName        String?
+   facebookPageAccessToken String?
+   instagramAccountId      String?
+   instagramUsername       String?
   
    status      TenantStatus @default(PENDING)
    isActive    Boolean   @default(true) 
@@ -199,9 +213,15 @@ model Contact {
 
   // ─── Basic Info ───
   name        String
-  phone       String
+  phone       String?
   email       String?
   company     String?
+
+  // ─── Multi-Channel Identity ───
+  channel     ChannelType @default(WHATSAPP)
+  channelId   String?     // PSID for Messenger, IGSID for Instagram, phone for WhatsApp
+  username    String?     // Instagram @username
+  avatarUrl   String?
 
   // Link to Tag model
   contactTags ContactTagMapping[]
@@ -233,8 +253,10 @@ model Contact {
   updatedAt   DateTime @updatedAt
 
   @@unique([phone, tenantId])
+  @@unique([tenantId, channel, channelId])
   @@index([assignedTo])      
   @@index([tenantId, createdAt])
+  @@index([tenantId, channel])
 }
 
 
@@ -333,6 +355,7 @@ model Conversation {
   archivedByRole String?  // "TENANT" | "USER"
 
   mode          ConversationMode  @default(BOT)
+  channel       ChannelType       @default(WHATSAPP)
   currentFlowId String?
   currentFlow   Flow?    @relation("ConversationFlow", fields: [currentFlowId], references: [id])
   currentNodeId String?
@@ -353,6 +376,7 @@ model Conversation {
   @@index([contactId])
   @@index([tenantId, status])
   @@index([tenantId, isArchived])
+  @@index([tenantId, channel])
   @@index([tenantId, mode])
   @@index([currentFlowId])
 }
@@ -421,6 +445,7 @@ model Message {
   status         String       @default("sent") 
 
   // ── Analytics & Webhook Receipts ──
+  /// Stores platform message ID: WhatsApp wamid, Messenger mid, or Instagram mid
   wamid          String?          @unique
   deliveredAt    DateTime?
   readAt         DateTime?

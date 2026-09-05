@@ -33,6 +33,7 @@ import {
   Sparkles,
   ShoppingBag,
 } from "lucide-react";
+import { FaFacebookMessenger, FaInstagram } from "react-icons/fa";
 import { getTags, createTag } from "../../services/tag.service";
 import { useToast } from "../../context/ToastContext";
 import {
@@ -47,6 +48,9 @@ import {
   disconnectWhatsapp,
   uploadTenantLogo,
   deleteTenantLogo,
+  getMetaChannelsStatus,
+  connectMetaChannels,
+  disconnectMetaChannels,
 } from "../../services/tenant.service";
 import {
   getUserProfile,
@@ -446,6 +450,90 @@ export default function SettingsPage() {
     }
   }, [activeTab]);
 
+  // ── Meta Channels (Facebook & Instagram) ──
+  const [metaChannels, setMetaChannels] = useState({
+    facebook: { connected: false, pageId: "", pageName: "", hasToken: false },
+    instagram: { connected: false, accountId: "", username: "" },
+  });
+  const [metaLoading, setMetaLoading] = useState(false);
+  const [metaSaving, setMetaSaving] = useState(false);
+  const [showMetaToken, setShowMetaToken] = useState(false);
+  const [metaForm, setMetaForm] = useState({
+    facebookPageId: "",
+    facebookPageName: "",
+    facebookPageAccessToken: "",
+    instagramAccountId: "",
+    instagramUsername: "",
+  });
+
+  const fetchMetaChannels = async () => {
+    setMetaLoading(true);
+    try {
+      const res = await getMetaChannelsStatus();
+      if (res.success && res.data) {
+        setMetaChannels(res.data);
+        setMetaForm({
+          facebookPageId: res.data.facebook?.pageId || "",
+          facebookPageName: res.data.facebook?.pageName || "",
+          facebookPageAccessToken: "",
+          instagramAccountId: res.data.instagram?.accountId || "",
+          instagramUsername: res.data.instagram?.username || "",
+        });
+      }
+    } catch (err) {
+      console.error("Fetch Meta channels error:", err);
+    } finally {
+      setMetaLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "channels" && userRole === "admin") {
+      fetchMetaChannels();
+    }
+  }, [activeTab, userRole]);
+
+  const handleSaveMetaChannels = async (e) => {
+    e.preventDefault();
+    setMetaSaving(true);
+    try {
+      const payload = {
+        facebookPageId: metaForm.facebookPageId,
+        facebookPageName: metaForm.facebookPageName,
+        instagramAccountId: metaForm.instagramAccountId,
+        instagramUsername: metaForm.instagramUsername,
+      };
+      if (metaForm.facebookPageAccessToken) {
+        payload.facebookPageAccessToken = metaForm.facebookPageAccessToken;
+      }
+      const res = await connectMetaChannels(payload);
+      if (res.success) {
+        toast.success("Meta channels updated successfully!");
+        fetchMetaChannels();
+      } else {
+        toast.error(res.message || "Failed to update Meta channels");
+      }
+    } catch (err) {
+      toast.error(err.message || "Failed to update Meta channels");
+    } finally {
+      setMetaSaving(false);
+    }
+  };
+
+  const handleDisconnectMeta = async (channel) => {
+    try {
+      const res = await disconnectMetaChannels(channel);
+      if (res.success) {
+        toast.success(`${channel || "Meta"} channel disconnected successfully`);
+        fetchMetaChannels();
+      } else {
+        toast.error(res.message || "Failed to disconnect");
+      }
+    } catch (err) {
+      toast.error(err.message || "Failed to disconnect");
+    }
+  };
+
   useEffect(() => {
     const stored = localStorage.getItem("user");
     if (stored) {
@@ -760,6 +848,12 @@ export default function SettingsPage() {
               id: "whatsapp",
               label: "WhatsApp API",
               icon: <Smartphone size={15} />,
+              adminOnly: true,
+            },
+            {
+              id: "channels",
+              label: "Facebook & Instagram",
+              icon: <MessageSquare size={15} />,
               adminOnly: true,
             },
           ]
@@ -2241,6 +2335,212 @@ export default function SettingsPage() {
                 </div>
               )}
             </form>
+          )}
+
+          {/* Meta Channels (Facebook & Instagram) Tab */}
+          {activeTab === "channels" && (
+            <div className="space-y-6">
+              {/* Header Card */}
+              <div className="card p-6 bg-gradient-to-r from-blue-50/50 via-purple-50/30 to-pink-50/50 border border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className="flex -space-x-2">
+                    <span className="w-10 h-10 rounded-xl bg-[#0084FF] text-white flex items-center justify-center text-lg shadow-sm ring-2 ring-white">
+                      <FaFacebookMessenger />
+                    </span>
+                    <span className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#FD1D1D] via-[#E1306C] to-[#833AB4] text-white flex items-center justify-center text-lg shadow-sm ring-2 ring-white">
+                      <FaInstagram />
+                    </span>
+                  </div>
+                  <div>
+                    <h2 className="text-base font-bold text-slate-800">
+                      Meta Channels Integration
+                    </h2>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Connect your Facebook Page (Sudo Reply) and Instagram Direct to manage all customer conversations in one unified inbox.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Connection Status Overview */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                  {/* Facebook Status */}
+                  <div className="p-4 rounded-2xl bg-white border border-slate-100 shadow-xs flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-blue-50 text-[#0084FF] flex items-center justify-center text-base">
+                        <FaFacebookMessenger />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-800">Facebook Page</p>
+                        <p className="text-[11px] text-slate-500">
+                          {metaChannels.facebook.pageName || (metaChannels.facebook.connected ? "Connected" : "Not connected")}
+                        </p>
+                      </div>
+                    </div>
+                    <span
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                        metaChannels.facebook.connected
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                          : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${metaChannels.facebook.connected ? "bg-emerald-500" : "bg-slate-400"}`} />
+                      {metaChannels.facebook.connected ? "Connected" : "Disconnected"}
+                    </span>
+                  </div>
+
+                  {/* Instagram Status */}
+                  <div className="p-4 rounded-2xl bg-white border border-slate-100 shadow-xs flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-pink-50 text-[#E1306C] flex items-center justify-center text-base">
+                        <FaInstagram />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-800">Instagram Account</p>
+                        <p className="text-[11px] text-slate-500">
+                          {metaChannels.instagram.username ? `@${metaChannels.instagram.username}` : (metaChannels.instagram.connected ? "Connected" : "Not connected")}
+                        </p>
+                      </div>
+                    </div>
+                    <span
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                        metaChannels.instagram.connected
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                          : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${metaChannels.instagram.connected ? "bg-emerald-500" : "bg-slate-400"}`} />
+                      {metaChannels.instagram.connected ? "Connected" : "Disconnected"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Form Card */}
+              <form onSubmit={handleSaveMetaChannels} className="card p-6 border border-slate-100 space-y-6">
+                <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-800">Connection Settings</h3>
+                    <p className="text-xs text-slate-500">
+                      Configure your Meta Page credentials and access token.
+                    </p>
+                  </div>
+                  {(metaChannels.facebook.connected || metaChannels.instagram.connected) && (
+                    <button
+                      type="button"
+                      onClick={() => handleDisconnectMeta()}
+                      className="px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-lg transition"
+                    >
+                      Disconnect Channels
+                    </button>
+                  )}
+                </div>
+
+                {/* Facebook Section */}
+                <div className="space-y-4">
+                  <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                    <FaFacebookMessenger className="text-[#0084FF]" /> Facebook Page Details
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="label text-xs font-semibold text-slate-700">
+                        Facebook Page ID
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 1226679347185529"
+                        value={metaForm.facebookPageId}
+                        onChange={(e) => setMetaForm({ ...metaForm, facebookPageId: e.target.value })}
+                        className="input text-xs mt-1"
+                      />
+                      <p className="text-[10px] text-slate-450 mt-1">ID of your Facebook Page (Sudo Reply)</p>
+                    </div>
+                    <div>
+                      <label className="label text-xs font-semibold text-slate-700">
+                        Page Display Name
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Sudo Reply"
+                        value={metaForm.facebookPageName}
+                        onChange={(e) => setMetaForm({ ...metaForm, facebookPageName: e.target.value })}
+                        className="input text-xs mt-1"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="label text-xs font-semibold text-slate-700">
+                      Page Access Token
+                    </label>
+                    <div className="relative mt-1">
+                      <input
+                        type={showMetaToken ? "text" : "password"}
+                        placeholder={metaChannels.facebook.hasToken ? "•••••••••••••••••••••••• (Token securely stored)" : "Paste Page Access Token here..."}
+                        value={metaForm.facebookPageAccessToken}
+                        onChange={(e) => setMetaForm({ ...metaForm, facebookPageAccessToken: e.target.value })}
+                        className="input text-xs pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowMetaToken(!showMetaToken)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      >
+                        {showMetaToken ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-slate-450 mt-1">
+                      Encrypted at rest using AES-256-GCM. Requires pages_messaging and pages_manage_metadata permissions.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Instagram Section */}
+                <div className="space-y-4 pt-4 border-t border-slate-100">
+                  <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                    <FaInstagram className="text-[#E1306C]" /> Instagram Direct Details
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="label text-xs font-semibold text-slate-700">
+                        Instagram Account ID (IGBA ID)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 17841400000000"
+                        value={metaForm.instagramAccountId}
+                        onChange={(e) => setMetaForm({ ...metaForm, instagramAccountId: e.target.value })}
+                        className="input text-xs mt-1"
+                      />
+                      <p className="text-[10px] text-slate-450 mt-1">ID of your connected Instagram Business Account</p>
+                    </div>
+                    <div>
+                      <label className="label text-xs font-semibold text-slate-700">
+                        Instagram Username / Handle
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. sudoreply"
+                        value={metaForm.instagramUsername}
+                        onChange={(e) => setMetaForm({ ...metaForm, instagramUsername: e.target.value.replace(/^@/, '') })}
+                        className="input text-xs mt-1"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Save Button */}
+                <div className="pt-4 flex items-center justify-end border-t border-slate-100">
+                  <button
+                    type="submit"
+                    disabled={metaSaving}
+                    className="btn-primary py-2 px-5 text-xs font-bold flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                  >
+                    {metaSaving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
+                    <span>Save & Connect Meta Channels</span>
+                  </button>
+                </div>
+              </form>
+            </div>
           )}
         </div>
       </div>

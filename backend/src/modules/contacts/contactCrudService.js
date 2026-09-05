@@ -120,7 +120,7 @@ export const createContact = async (data, tenantId, userId) => {
 
 // ===================== GET ALL CONTACTS =====================
 // userId: if provided, only contacts assigned to that user are returned (regular user scope)
-export const getAllContacts = async (tenantId, page = 1, limit = 10, search = '', userId = null, filter = 'all') => {
+export const getAllContacts = async (tenantId, page = 1, limit = 10, search = '', userId = null, filter = 'all', channel = null) => {
 
     if (!tenantId) {
         throw new Error('Tenant ID is required');
@@ -150,37 +150,55 @@ export const getAllContacts = async (tenantId, page = 1, limit = 10, search = ''
         whereClause.isBlocked = false;
     }
 
-    // If search text is present, filter contacts by name, phone, or email
+    // Channel filter (WHATSAPP, INSTAGRAM, MESSENGER)
+    if (channel && channel !== 'ALL') {
+        whereClause.channel = channel.toUpperCase();
+    }
+
+    // If search text is present, filter contacts by name, phone, email, or Instagram username
     if (search) {
         whereClause.OR = [
             { name: { contains: search, mode: 'insensitive' } },
             { phone: { contains: search } },
-            { email: { contains: search, mode: 'insensitive' } }
+            { email: { contains: search, mode: 'insensitive' } },
+            { username: { contains: search, mode: 'insensitive' } }
         ];
     }
 
     const skip = (page - 1) * limit;
     const take = limit;
 
-    // 2. Query the total matching contacts count (needed for frontend page calculation)
-    const totalContacts = await prisma.contact.count({
-        where: whereClause,
-    });
+    // Base count condition for counts (same user and block filter, but across channels)
+    const baseCountClause = {
+        tenantId,
+        isActive: true,
+        ...(userId ? { assignedTo: userId } : {}),
+        ...(filter === 'blocked' ? { isBlocked: true } : (filter !== 'all' ? { isBlocked: false } : {}))
+    };
 
-    // 3. Query only the current page's slice of contacts
-    const contacts = await prisma.contact.findMany({
-        where: whereClause,
-        orderBy: {
-            createdAt: 'desc',
-        },
-        skip,
-        take,
-        include: {
-            contactTags: {
-                include: { tag: true }
+    // 2. Query channel counts and current page contacts
+    const [totalContacts, waCount, igCount, msgCount, contacts] = await Promise.all([
+        prisma.contact.count({ where: whereClause }),
+        prisma.contact.count({ where: { ...baseCountClause, channel: 'WHATSAPP' } }),
+        prisma.contact.count({ where: { ...baseCountClause, channel: 'INSTAGRAM' } }),
+        prisma.contact.count({ where: { ...baseCountClause, channel: 'MESSENGER' } }),
+        prisma.contact.findMany({
+            where: whereClause,
+            orderBy: { createdAt: 'desc' },
+            skip,
+            take,
+            include: {
+                contactTags: {
+                    include: { tag: true }
+                },
+                assignedUser: {
+                    select: { id: true, name: true, email: true }
+                }
             }
-        }
-    });
+        })
+    ]);
+
+    const allCount = waCount + igCount + msgCount;
 
     return {
         message: 'Contacts fetched successfully',
@@ -188,9 +206,15 @@ export const getAllContacts = async (tenantId, page = 1, limit = 10, search = ''
         totalPages: Math.ceil(totalContacts / limit),
         currentPage: page,
         limit,
+        channelCounts: {
+            ALL: allCount,
+            WHATSAPP: waCount,
+            INSTAGRAM: igCount,
+            MESSENGER: msgCount,
+        },
         contacts,
     };
-}
+};
 
 
 

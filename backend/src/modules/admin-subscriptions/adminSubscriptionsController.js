@@ -182,9 +182,20 @@ export const updateSubscription = async (req, res) => {
         break;
 
       case 'expire':
+        if (tenant.razorpaySubscriptionId) {
+          try {
+            await razorpay.subscriptions.cancel(tenant.razorpaySubscriptionId, false);
+            console.log(`[Admin] Cancelled Razorpay subscription ${tenant.razorpaySubscriptionId}`);
+          } catch (rzpErr) {
+            console.warn(`[Admin] Razorpay cancel notice for ${tenant.razorpaySubscriptionId}:`, rzpErr?.error?.description || rzpErr?.message);
+          }
+        }
         updatedData = { 
           subscriptionStatus: 'expired',
           planStatus: 'inactive',
+          planPeriodEnd: now,
+          autopayEnabled: false,
+          razorpaySubscriptionId: null,
           dataDeletionDate: new Date(now.getTime() + 90 * 86400000)
         };
         notificationNote = "Your subscription has been terminated and set to expired. Your configuration data is retained for 90 days.";

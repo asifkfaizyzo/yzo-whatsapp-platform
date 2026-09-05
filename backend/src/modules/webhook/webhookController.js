@@ -5,12 +5,12 @@ export const verifyMetaSignature = (req, res, next) => {
   const appSecret = process.env.META_APP_SECRET;
 
   // Enforce secret requirement in production
-  if (!appSecret) {
+  if (!appSecret || appSecret === 'your_meta_app_secret_here') {
     if (process.env.NODE_ENV === 'production') {
       console.error('❌ META_APP_SECRET is missing in production! Rejecting webhook.');
       return res.status(500).json({ success: false, message: 'Server configuration error' });
     }
-    console.warn('⚠️ META_APP_SECRET is not configured in .env. Skipping signature verification in dev.');
+    console.warn('⚠️ META_APP_SECRET is not configured or using placeholder in .env. Skipping signature verification in dev.');
     return next();
   }
 
@@ -68,7 +68,7 @@ export const receiveMetaWebhookEvent = async (req, res) => {
   try {
     const body = req.body;
 
-    if (body.object === 'whatsapp_business_account') {
+    if (['whatsapp_business_account', 'page', 'instagram'].includes(body.object)) {
       // Offload to BullMQ Queue asynchronously to ensure instant 200 response
       await webhookQueue.add('meta-webhook-payload', body, {
         attempts: 3,

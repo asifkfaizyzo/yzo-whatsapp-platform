@@ -311,3 +311,52 @@ export const deleteTenantLogo = async () => {
     };
   }
 };
+
+// ===================== META (FB & IG) CHANNELS =====================
+export const getMetaChannelsStatus = async () => {
+  try {
+    const response = await api.get(`${TENANT_BASE_URL}/meta-channels/status`);
+    return {
+      success: true,
+      data: response.data.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to fetch Meta channels status",
+    };
+  }
+};
+
+export const connectMetaChannels = async (data) => {
+  try {
+    const response = await api.post(`${TENANT_BASE_URL}/meta-channels/connect`, data);
+    return {
+      success: true,
+      message: response.data.message || "Meta channels connected successfully",
+      data: response.data.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to connect Meta channels",
+    };
+  }
+};
+
+export const disconnectMetaChannels = async (channel) => {
+  try {
+    const response = await api.delete(`${TENANT_BASE_URL}/meta-channels/disconnect`, {
+      data: { channel },
+    });
+    return {
+      success: true,
+      message: response.data.message || "Meta channels disconnected",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to disconnect Meta channels",
+    };
+  }
+};

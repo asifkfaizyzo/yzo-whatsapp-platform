@@ -879,6 +879,121 @@ export const updateWhatsappCredentials = async (req, res, next) => {
     }
 };
 
+// ===================== META (FB & IG) CHANNELS =====================
+
+export const getMetaChannelsStatus = async (req, res) => {
+    try {
+        const tenantId = req.tenant?.id;
+        const tenant = await prisma.tenant.findUnique({
+            where: { id: tenantId },
+            select: {
+                facebookPageId: true,
+                facebookPageName: true,
+                facebookPageAccessToken: true,
+                instagramAccountId: true,
+                instagramUsername: true,
+            },
+        });
+
+        if (!tenant) {
+            return res.status(404).json({ success: false, message: 'Tenant not found' });
+        }
+
+        const isFacebookConnected = Boolean(tenant.facebookPageId && tenant.facebookPageAccessToken);
+        const isInstagramConnected = Boolean(tenant.instagramAccountId || tenant.instagramUsername);
+
+        return res.status(200).json({
+            success: true,
+            data: {
+                facebook: {
+                    connected: isFacebookConnected,
+                    pageId: tenant.facebookPageId || null,
+                    pageName: tenant.facebookPageName || null,
+                    hasToken: Boolean(tenant.facebookPageAccessToken),
+                },
+                instagram: {
+                    connected: isInstagramConnected,
+                    accountId: tenant.instagramAccountId || null,
+                    username: tenant.instagramUsername || null,
+                },
+            },
+        });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const connectMetaChannels = async (req, res) => {
+    try {
+        const tenantId = req.tenant?.id;
+        const {
+            facebookPageId,
+            facebookPageName,
+            facebookPageAccessToken,
+            instagramAccountId,
+            instagramUsername,
+        } = req.body;
+
+        const updateData = {};
+        if (facebookPageId !== undefined) updateData.facebookPageId = facebookPageId;
+        if (facebookPageName !== undefined) updateData.facebookPageName = facebookPageName;
+        if (facebookPageAccessToken) {
+            updateData.facebookPageAccessToken = encrypt(facebookPageAccessToken);
+        }
+        if (instagramAccountId !== undefined) updateData.instagramAccountId = instagramAccountId;
+        if (instagramUsername !== undefined) updateData.instagramUsername = instagramUsername;
+
+        const updated = await prisma.tenant.update({
+            where: { id: tenantId },
+            data: updateData,
+            select: {
+                facebookPageId: true,
+                facebookPageName: true,
+                instagramAccountId: true,
+                instagramUsername: true,
+            },
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: 'Meta channels connected successfully',
+            data: updated,
+        });
+    } catch (error) {
+        return res.status(400).json({ success: false, message: error.message });
+    }
+};
+
+export const disconnectMetaChannels = async (req, res) => {
+    try {
+        const tenantId = req.tenant?.id;
+        const { channel } = req.body || {}; // optional: 'FACEBOOK' | 'INSTAGRAM' | undefined (all)
+
+        const updateData = {};
+        if (!channel || channel === 'FACEBOOK') {
+            updateData.facebookPageId = null;
+            updateData.facebookPageName = null;
+            updateData.facebookPageAccessToken = null;
+        }
+        if (!channel || channel === 'INSTAGRAM') {
+            updateData.instagramAccountId = null;
+            updateData.instagramUsername = null;
+        }
+
+        await prisma.tenant.update({
+            where: { id: tenantId },
+            data: updateData,
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: 'Meta channel(s) disconnected successfully',
+        });
+    } catch (error) {
+        return res.status(400).json({ success: false, message: error.message });
+    }
+};
+
 // =========== Google Login Controller Handler ===========
 export const googleLoginTenant = async (req, res) => {
     try {

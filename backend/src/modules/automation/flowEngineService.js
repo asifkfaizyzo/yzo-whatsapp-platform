@@ -162,9 +162,9 @@ if (conversation.mode === 'QUEUED') {
             '⏰ Your previous session has ended.\n\n' +
             'Let me start fresh for you!'
 
-          await flowEngine.sendWhatsAppMessage(
-            conversation.tenantId,
-            contact.phone,
+          await flowEngine.sendBotTextMessage(
+            conversation,
+            contact,
             timeoutMsg
           )
 
@@ -266,7 +266,7 @@ if (conversation.mode === 'QUEUED') {
         }
 
         const confirmMsg = `🎉 *Order #${orderNumber} Confirmed!*\n\nThank you for your confirmation! We have received your order and our team has started preparing it. We will notify you once it's on the way! 🚚`
-        await flowEngine.sendWhatsAppMessage(conversation.tenantId, contact.phone, confirmMsg)
+        await flowEngine.sendBotTextMessage(conversation, contact, confirmMsg)
         await flowEngine.saveBotMessage(conversation.id, confirmMsg)
         await flowEngine.endFlow(conversation)
         return true
@@ -286,7 +286,7 @@ if (conversation.mode === 'QUEUED') {
         }
 
         const cancelMsg = `❌ *Order #${orderNumber} Cancelled*\n\nYour order has been cancelled. If you would like to start a new order anytime, simply message us "menu" or "order"!`
-        await flowEngine.sendWhatsAppMessage(conversation.tenantId, contact.phone, cancelMsg)
+        await flowEngine.sendBotTextMessage(conversation, contact, cancelMsg)
         await flowEngine.saveBotMessage(conversation.id, cancelMsg)
         await flowEngine.endFlow(conversation)
         return true
@@ -342,7 +342,7 @@ if (conversation.mode === 'QUEUED') {
           { id: `btn_modify_${order.id}`, title: 'Modify / Reorder' }
         ]
 
-        await flowEngine.sendWhatsAppInteractiveButtons(tenantId, contact.phone, summaryText, buttons)
+        await flowEngine.sendBotInteractiveButtons(conversation, contact, summaryText, buttons)
         await flowEngine.saveBotMessage(conversation.id, summaryText, {
           type: 'INTERACTIVE_BUTTONS',
           buttons
@@ -597,7 +597,9 @@ handleSendMessage: async (node, conversation, contact, userMessage, isNewContact
         mediaMimeType: options.mediaMimeType,
         mediaSize:     options.mediaSize,
         caption:       node.content || null,
-      }
+      },
+      conversation,
+      contact
     )
 
     await flowEngine.saveBotMediaMessage(
@@ -616,9 +618,9 @@ handleSendMessage: async (node, conversation, contact, userMessage, isNewContact
     // ── Send TEXT message (existing behavior) ──
     console.log(`📨 Sending message: "${node.content}"`)
 
-    await flowEngine.sendWhatsAppMessage(
-      conversation.tenantId,
-      contact.phone,
+    await flowEngine.sendBotTextMessage(
+      conversation,
+      contact,
       node.content
     )
 
@@ -682,7 +684,9 @@ handleSendMessage: async (node, conversation, contact, userMessage, isNewContact
             mediaMimeType: options.mediaMimeType,
             mediaSize:     options.mediaSize,
             caption:       node.content || null,
-          }
+          },
+          conversation,
+          contact
         )
 
         await flowEngine.saveBotMediaMessage(conversation.id, {
@@ -696,9 +700,9 @@ handleSendMessage: async (node, conversation, contact, userMessage, isNewContact
       } else {
         console.log(`❓ Asking: "${node.content}"`)
 
-        await flowEngine.sendWhatsAppMessage(
-          conversation.tenantId,
-          contact.phone,
+        await flowEngine.sendBotTextMessage(
+          conversation,
+          contact,
           node.content
         )
 
@@ -942,9 +946,9 @@ handleSendMessage: async (node, conversation, contact, userMessage, isNewContact
 
       console.log(`🔘 Sending buttons: "${node.content}"`)
 
-      await flowEngine.sendWhatsAppInteractiveButtons(
-        conversation.tenantId,
-        contact.phone,
+      await flowEngine.sendBotInteractiveButtons(
+        conversation,
+        contact,
         node.content,
         buttons
       )
@@ -1005,9 +1009,9 @@ handleSendMessage: async (node, conversation, contact, userMessage, isNewContact
           )
         }
 
-        await flowEngine.sendWhatsAppInteractiveButtons(
-          conversation.tenantId,
-          contact.phone,
+        await flowEngine.sendBotInteractiveButtons(
+          conversation,
+          contact,
           node.content,
           buttons
         )
@@ -1178,7 +1182,7 @@ handleSendMessage: async (node, conversation, contact, userMessage, isNewContact
         // Customer sent non-text/non-location (e.g. image, audio, sticker)
         console.log('⚠️ Non-location/non-text received at ASK_LOCATION step. Prompting retry.')
         const retryPrompt = 'Please share your delivery address by tapping the "Send location" button or typing your address in text 🚚'
-        await flowEngine.sendWhatsAppMessage(conversation.tenantId, contact.phone, retryPrompt)
+        await flowEngine.sendBotTextMessage(conversation, contact, retryPrompt)
         await flowEngine.saveBotMessage(conversation.id, retryPrompt)
         return
       }
@@ -1221,7 +1225,7 @@ handleSendMessage: async (node, conversation, contact, userMessage, isNewContact
         })
         const orderNumber = conversation.flowData?.orderNumber || 'your order'
         const confirmationMsg = `✅ *Order #${orderNumber} Confirmed!*\n\n🚚 Delivery Address:\n${locationAddress}\n\nWe will notify you when your order is out for delivery!`
-        await flowEngine.sendWhatsAppMessage(conversation.tenantId, contact.phone, confirmationMsg)
+        await flowEngine.sendBotTextMessage(conversation, contact, confirmationMsg)
         await flowEngine.saveBotMessage(conversation.id, confirmationMsg)
         await flowEngine.endFlow(conversation)
       }
@@ -1277,7 +1281,7 @@ handleSendMessage: async (node, conversation, contact, userMessage, isNewContact
     } else {
       const orderNumber = conversation.flowData?.orderNumber || 'your order'
       const pickupMsg = `🏬 *Order #${orderNumber} Confirmed for Store Pickup!*\n\nPlease visit ${storeData.storeName} with your Order ID to collect your items.`
-      await flowEngine.sendWhatsAppMessage(conversation.tenantId, contact.phone, pickupMsg)
+      await flowEngine.sendBotTextMessage(conversation, contact, pickupMsg)
       await flowEngine.saveBotMessage(conversation.id, pickupMsg)
       await flowEngine.endFlow(conversation)
     }
@@ -1347,9 +1351,9 @@ handleAssignAgent: async (node, conversation, contact) => {
       })
 
       // Tell customer their agent is offline
-      await flowEngine.sendWhatsAppMessage(
-        conversation.tenantId,
-        contact.phone,
+      await flowEngine.sendBotTextMessage(
+        conversation,
+        freshContact,
         `⚠️ Your previous agent *${freshContact.assignedUser.name}* ` +
         `is currently offline.\n\n` +
         `We are finding the next available agent for you... ⏳`
@@ -1582,9 +1586,9 @@ handleAssignAgent: async (node, conversation, contact) => {
       `✅ You're connected with *${agent.name}*! ` +
       `They will assist you shortly. 💬`
 
-    await flowEngine.sendWhatsAppMessage(
-      conversation.tenantId,
-      contact.phone,
+    await flowEngine.sendBotTextMessage(
+      conversation,
+      contact,
       assignmentText
     )
 
@@ -1614,9 +1618,9 @@ handleAssignAgent: async (node, conversation, contact) => {
       'You are in the waiting queue.\n' +
       'We will respond as soon as an agent is available.'
 
-    await flowEngine.sendWhatsAppMessage(
-      conversation.tenantId,
-      contact.phone,
+    await flowEngine.sendBotTextMessage(
+      conversation,
+      contact,
       queueText
     )
 
@@ -1722,10 +1726,62 @@ handleAssignAgent: async (node, conversation, contact) => {
 
 
   // ─────────────────────────────────────────
-// Send Media Message via WhatsApp (NEW)
+  // ─────────────────────────────────────────
+// Send Media Message via WhatsApp, Messenger, or Instagram
 // ─────────────────────────────────────────
-sendBotMediaMessage: async (tenantId, phone, mediaData) => {
+sendBotMediaMessage: async (tenantId, phone, mediaData, conversation = null, contact = null) => {
   try {
+    const channel = conversation?.channel || contact?.channel || 'WHATSAPP';
+    if (channel === 'MESSENGER' || channel === 'INSTAGRAM') {
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: tenantId },
+      });
+
+      if (!tenant?.facebookPageAccessToken) {
+        console.error(`❌ Tenant Facebook/Instagram Page Access Token not configured for ${channel} bot media`);
+        return null;
+      }
+
+      const { sendMetaMediaMessage, sendMetaMessage } = await import('../messages/messageService.js');
+      const channelId = contact?.channelId || contact?.phone || phone;
+      if (!channelId) {
+        console.error(`❌ Cannot send ${channel} bot media: missing channelId`);
+        return null;
+      }
+
+      const file = {
+        path: mediaData.mediaUrl,
+        originalname: mediaData.mediaName || 'media',
+        mimetype: mediaData.mediaMimeType,
+        size: mediaData.mediaSize,
+      };
+
+      const result = await sendMetaMediaMessage({
+        tenant,
+        channelId,
+        file,
+        mediaType: mediaData.mediaType,
+        conversationId: conversation?.id,
+        channel,
+      });
+
+      if (mediaData.caption && mediaData.caption.trim()) {
+        try {
+          await sendMetaMessage({
+            tenant,
+            channelId,
+            messagePayload: mediaData.caption.trim(),
+            conversationId: conversation?.id,
+            channel,
+          });
+        } catch (capErr) {
+          console.error(`⚠️ Failed to send bot media caption to ${channel}:`, capErr.message);
+        }
+      }
+
+      return result;
+    }
+
     if (process.env.MOCK_WHATSAPP === 'true') {
       console.log('\n╔══════════════════════════════════════╗')
       console.log('║  📱 MOCK WHATSAPP - MEDIA           ║')
@@ -1833,6 +1889,105 @@ saveBotMediaMessage: async (conversationId, mediaData) => {
   }
 },
 
+
+  // ─────────────────────────────────────────
+  // Omnichannel Bot Text Message Dispatcher
+  // Routes to Messenger / Instagram (Graph API) or WhatsApp
+  // ─────────────────────────────────────────
+  sendBotTextMessage: async (conversation, contact, text) => {
+    try {
+      const channel = conversation?.channel || contact?.channel || 'WHATSAPP';
+      if (channel === 'MESSENGER' || channel === 'INSTAGRAM') {
+        const tenant = await prisma.tenant.findUnique({
+          where: { id: conversation.tenantId },
+        });
+
+        if (!tenant?.facebookPageAccessToken) {
+          console.error(`❌ Tenant Facebook/Instagram Page Access Token not configured for ${channel} bot reply`);
+          return null;
+        }
+
+        const { sendMetaMessage } = await import('../messages/messageService.js');
+        const channelId = contact?.channelId || contact?.phone;
+        if (!channelId) {
+          console.error(`❌ Cannot send ${channel} bot reply: missing contact channelId / PSID`);
+          return null;
+        }
+
+        console.log(`📤 Sending ${channel} Bot reply to ${channelId}...`);
+        const result = await sendMetaMessage({
+          tenant,
+          channelId,
+          messagePayload: text,
+          conversationId: conversation?.id,
+          channel,
+        });
+
+        console.log(`✅ ${channel} Bot reply sent successfully:`, result?.messageId);
+        return result;
+      }
+
+      // Default to WhatsApp
+      return await flowEngine.sendWhatsAppMessage(conversation.tenantId, contact?.phone, text);
+    } catch (err) {
+      console.error('❌ sendBotTextMessage error:', err.message);
+      return null;
+    }
+  },
+
+  // ─────────────────────────────────────────
+  // Omnichannel Bot Interactive Buttons Dispatcher
+  // Routes to Messenger / Instagram (Quick Replies) or WhatsApp
+  // ─────────────────────────────────────────
+  sendBotInteractiveButtons: async (conversation, contact, bodyText, buttons) => {
+    try {
+      const channel = conversation?.channel || contact?.channel || 'WHATSAPP';
+      if (channel === 'MESSENGER' || channel === 'INSTAGRAM') {
+        const tenant = await prisma.tenant.findUnique({
+          where: { id: conversation.tenantId },
+        });
+
+        if (!tenant?.facebookPageAccessToken) {
+          console.error(`❌ Tenant Facebook/Instagram Page Access Token not configured for ${channel} bot buttons`);
+          return null;
+        }
+
+        const { sendMetaMessage } = await import('../messages/messageService.js');
+        const channelId = contact?.channelId || contact?.phone;
+        if (!channelId) {
+          console.error(`❌ Cannot send ${channel} bot buttons: missing contact channelId`);
+          return null;
+        }
+
+        const quick_replies = (buttons || []).slice(0, 13).map((b, idx) => ({
+          content_type: 'text',
+          title: (b.title || `Option ${idx + 1}`).slice(0, 20),
+          payload: b.id || b.title,
+        }));
+
+        console.log(`📤 Sending ${channel} Bot Quick Replies to ${channelId}...`);
+        const result = await sendMetaMessage({
+          tenant,
+          channelId,
+          messagePayload: {
+            text: bodyText || 'Please select an option below:',
+            quick_replies: quick_replies.length > 0 ? quick_replies : undefined,
+          },
+          conversationId: conversation?.id,
+          channel,
+        });
+
+        console.log(`✅ ${channel} Bot Quick Replies sent successfully:`, result?.messageId);
+        return result;
+      }
+
+      // Default to WhatsApp
+      return await flowEngine.sendWhatsAppInteractiveButtons(conversation.tenantId, contact?.phone, bodyText, buttons);
+    } catch (err) {
+      console.error('❌ sendBotInteractiveButtons error:', err.message);
+      return null;
+    }
+  },
 
   // ─────────────────────────────────────────
   // Send WhatsApp Message via Meta API
