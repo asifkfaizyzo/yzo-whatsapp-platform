@@ -216,24 +216,7 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
       icon: <Inbox size={20} />,
       adminOnly: false,
       restrictedForPending: true,
-      hasDropdown: true,
-      dropdownItems: isAdmin
-        ? [
-          {
-            label: "WhatsApp",
-            path: "/dashboard/inbox?filter=all",
-            filterValue: "all",
-            unreadCount: inboxUnreadCount,
-          },
-        ]
-        : [
-          {
-            label: "WhatsApp",
-            path: "/dashboard/inbox?filter=my",
-            filterValue: "my",
-            unreadCount: inboxUnreadCount,
-          },
-        ],
+      hasDropdown: false,
     },
     {
       label: "Broadcasts",
@@ -443,24 +426,60 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
       );
     }
 
+    const isInbox = item.label === "Inbox";
+
     return (
       <NavLink
         key={item.path}
         to={item.path}
         end={item.end}
-        className={({ isActive }) =>
-          `group relative flex items-center gap-3 rounded-[10px] px-4 py-3 text-sm font-medium transition-all duration-200
-          ${isActive
+        className={({ isActive: navActive }) => {
+          const active = isInbox
+            ? location.pathname.startsWith("/dashboard/inbox")
+            : navActive;
+          return `group relative flex items-center gap-3 rounded-[10px] px-4 py-3 text-sm font-medium transition-all duration-200
+          ${active
             ? "bg-[#125EF2] text-white font-semibold shadow-md shadow-blue-500/20"
             : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-          } ${collapsed ? "justify-center px-3" : ""}`
-        }
+          } ${collapsed ? "justify-center px-3" : ""}`;
+        }}
       >
-        <span className="flex items-center justify-center w-5 min-w-[20px] h-5">{item.icon}</span>
-        <span className={`transition-all duration-200 ${collapsed ? "opacity-0 w-0 overflow-hidden absolute" : "opacity-100"}`}>{item.label}</span>
+        <span className="flex items-center justify-center w-5 min-w-[20px] h-5 relative">
+          {item.icon}
+          {isInbox && isAdmin && unassignedCount > 0 && (
+            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-white animate-pulse" />
+          )}
+        </span>
+        <span
+          className={`transition-all duration-200 ${
+            collapsed ? "opacity-0 w-0 overflow-hidden absolute" : "opacity-100"
+          }`}
+        >
+          {item.label}
+        </span>
+
+        {/* Unread badge on Inbox */}
+        {isInbox && inboxUnreadCount > 0 && !collapsed && (
+          <span
+            className={`ml-auto inline-flex items-center justify-center min-w-[20px] h-[20px] px-1.5 rounded-full text-[11px] font-bold ${
+              location.pathname.startsWith("/dashboard/inbox")
+                ? "bg-white/20 text-white"
+                : "bg-emerald-100 text-emerald-700"
+            }`}
+          >
+            {inboxUnreadCount > 99 ? "99+" : inboxUnreadCount}
+          </span>
+        )}
+
         {collapsed && (
           <div className="sidebar-tooltip pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-md bg-slate-800 text-white text-xs font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-50 shadow-lg">
             {item.label}
+            {isInbox && inboxUnreadCount > 0 && (
+              <span className="ml-1 text-emerald-300">({inboxUnreadCount})</span>
+            )}
+            {isInbox && isAdmin && unassignedCount > 0 && (
+              <span className="ml-1 text-red-300">({unassignedCount} waiting)</span>
+            )}
             <div className="absolute right-full top-1/2 -translate-y-1/2 border-[5px] border-transparent border-r-slate-800" />
           </div>
         )}

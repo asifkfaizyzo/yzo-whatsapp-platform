@@ -347,9 +347,17 @@ export const sendMediaMessage = [
           mediaSize:      message.mediaSize,
           mediaMimeType:  message.mediaMimeType,
           caption:        message.caption,
+          status:         message.status,
           createdAt:      message.createdAt,
         },
       });
+
+      if (message.status === 'failed') {
+        return res.status(400).json({
+          success: false,
+          error: message.failureReason || "Failed to deliver media message",
+        });
+      }
 
       // ── Response ──────────────────────────────────────────
       return res.status(201).json({

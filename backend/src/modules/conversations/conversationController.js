@@ -20,13 +20,12 @@ console.log("req.auth =>", req.auth);
     const { contactId } = req.body;
     const tenantId = req.tenantId;
 
-    const resultt = await getOrCreateConversation(
+    const contact = await prisma.contact.findUnique({ where: { id: contactId } });
+    const result = await getOrCreateConversation(
       contactId,
-      tenantId
+      tenantId,
+      contact?.channel || 'WHATSAPP'
     );
-
-
-    const result = await getOrCreateConversation(contactId, tenantId);
 
     return res.json({
       success: true,
@@ -125,6 +124,8 @@ if (req.userType === 'TENANT') {
 
 
 
+    const channel = req.query.channel;
+
     // 3️⃣ Call service
     const result = await getAssignedConversations({
       userId,
@@ -133,6 +134,7 @@ if (req.userType === 'TENANT') {
       limit,
       status,
       assignmentType,
+      channel,
     });
 
     // 4️⃣ Send response

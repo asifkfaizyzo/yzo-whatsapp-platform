@@ -17,8 +17,373 @@ import fs from 'fs';
 import path from 'path';
 import https from 'https';
 import http from 'http';
+import { GRAPH_BASE_URL } from '../config/meta.js';
 
+// ─────────────────────────────────────────────────────────────
+// META MEDIA & AVATAR PERSISTENCE HELPER
+// Downloads ephemeral CDN links (fbcdn.net) to local storage
+// ─────────────────────────────────────────────────────────────
+export const downloadMetaMediaFromUrl = async ({ url, type, tenantId, contactId }) => {
+  try {
+    const saveDir = path.join(process.cwd(), 'uploads', 'tenants', tenantId, 'contacts', String(contactId), 'inbound');
+    if (!fs.existsSync(saveDir)) {
+      fs.mkdirSync(saveDir, { recursive: true });
+    }
 
+    const extMap = {
+      image: '.jpg',
+      avatar: '.jpg',
+      video: '.mp4',
+      audio: '.mp3',
+      file: '.bin',
+      ig_reel: '.mp4',
+      reel: '.mp4',
+      story_mention: '.jpg',
+    };
+    const ext = extMap[type] || '.bin';
+    const filename = `${Date.now()}_meta_${type}${ext}`;
+    const localPath = path.join(saveDir, filename);
+
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const buffer = Buffer.from(await response.arrayBuffer());
+    fs.writeFileSync(localPath, buffer);
+
+    const relativePath = path
+      .join('uploads', 'tenants', tenantId, 'contacts', String(contactId), 'inbound', filename)
+      .replace(/\\/g, '/');
+
+    const publicUrl = process.env.BASE_URL && process.env.BASE_URL.startsWith('http') && !process.env.BASE_URL.includes('localhost')
+      ? `${process.env.BASE_URL.replace(/\/+$/, '')}/${relativePath}`
+      : `/${relativePath}`;
+
+    return {
+      publicUrl,
+      fileName: filename,
+      fileSize: buffer.length,
+      localPath,
+    };
+  } catch (err) {
+    console.warn(`⚠️ Meta media download failed for ${url}, falling back to original URL:`, err.message);
+    return { publicUrl: url, fileName: `${type}_attachment`, fileSize: null, localPath: null };
+  }
+};
+
+// ─────────────────────────────────────────────────────────────
+// FACEBOOK MESSENGER & INSTAGRAM PROCESSOR
+// ─────────────────────────────────────────────────────────────
+export const processMetaPageOrInstagramJob = async (job, body) => {
+  const isInstagram = body.object === 'instagram';
+  const channel = isInstagram ? 'INSTAGRAM' : 'MESSENGER';
+
+  const entries = body.entry || [];
+  for (const entry of entries) {
+    const entryId = String(entry.id); // Page ID or IGBA ID
+
+    // Find tenant by facebookPageId or instagramAccountId
+    let tenant = await prisma.tenant.findFirst({
+      where: isInstagram
+        ? { OR: [{ instagramAccountId: entryId }, { facebookPageId: entryId }] }
+        : { facebookPageId: entryId },
+    });
+
+    if (!tenant) {
+      console.warn(`⚠️ [Meta Webhook] No tenant found for ${channel} entry ID: ${entryId}`);
+      continue;
+    }
+
+    const subStatus = tenant.subscriptionStatus;
+    const isActive =
+      subStatus === 'active' ||
+      subStatus === 'trialing' ||
+      subStatus === 'cancel_at_period_end';
+
+    if (!isActive) {
+      console.log(`🚫 [Meta Webhook] Ignored for tenant ${tenant.id} - inactive subscription: ${subStatus}`);
+      continue;
+    }
+
+    // Process messaging events (could be in messaging array or standby array)
+    const messagingEvents = entry.messaging || entry.standby || [];
+    for (const messagingEvent of messagingEvents) {
+      // 1. Echo Event Filtering (Ignore messages sent by Page/Agent)
+      if (messagingEvent.message?.is_echo) {
+        console.log(`ℹ️ [Meta Webhook] Skipping echo event for message ${messagingEvent.message?.mid}`);
+        continue;
+      }
+
+      // 2. Instagram Message Deletion (is_deleted: true)
+      if (messagingEvent.message?.is_deleted) {
+        const mid = messagingEvent.message.mid;
+        console.log(`🗑️ [Meta Webhook] Handling Instagram deleted message: ${mid}`);
+        await prisma.message.updateMany({
+          where: { wamid: mid },
+          data: {
+            isDeleted: true,
+            deletedAt: new Date(),
+            text: '[Message deleted]',
+          },
+        });
+        emitToTenant(tenant.id, 'message_status_update', {
+          wamid: mid,
+          isDeleted: true,
+          text: '[Message deleted]',
+        });
+        continue;
+      }
+
+      // 3. Delivery Receipts (Messenger Only)
+      if (messagingEvent.delivery && channel === 'MESSENGER') {
+        const mids = messagingEvent.delivery.mids || [];
+        if (mids.length > 0) {
+          console.log(`📬 [Meta Webhook] Messenger delivery receipt for mids:`, mids);
+          await prisma.message.updateMany({
+            where: { wamid: { in: mids } },
+            data: { status: 'delivered', deliveredAt: new Date() },
+          });
+
+          for (const mid of mids) {
+            emitToTenant(tenant.id, 'message_status_update', {
+              wamid: mid,
+              status: 'delivered',
+              deliveredAt: new Date(),
+            });
+          }
+        }
+        continue;
+      }
+
+      // 4. Read Receipts: Instagram (specific mid) vs Messenger (watermark timestamp)
+      if (messagingEvent.read) {
+        if (channel === 'INSTAGRAM' && messagingEvent.read.mid) {
+          const mid = messagingEvent.read.mid;
+          console.log(`👁️ [Meta Webhook] Instagram read receipt for mid: ${mid}`);
+          await prisma.message.updateMany({
+            where: { wamid: mid, direction: 'OUTBOUND' },
+            data: { status: 'read', readAt: new Date(), isRead: true },
+          });
+          emitToTenant(tenant.id, 'message_status_update', {
+            wamid: mid,
+            status: 'read',
+            readAt: new Date(),
+          });
+        } else if (channel === 'MESSENGER' && messagingEvent.read.watermark) {
+          const watermark = new Date(messagingEvent.read.watermark);
+          const senderId = String(messagingEvent.sender?.id || '');
+          console.log(`👁️ [Meta Webhook] Messenger read receipt watermark: ${watermark.toISOString()} for sender: ${senderId}`);
+
+          const contact = await prisma.contact.findFirst({
+            where: { tenantId: tenant.id, channel: 'MESSENGER', channelId: senderId },
+          });
+
+          if (contact) {
+            const conversation = await prisma.conversation.findFirst({
+              where: { contactId: contact.id, tenantId: tenant.id },
+            });
+
+            if (conversation) {
+              await prisma.message.updateMany({
+                where: {
+                  conversationId: conversation.id,
+                  direction: 'OUTBOUND',
+                  createdAt: { lte: watermark },
+                  status: { not: 'read' },
+                },
+                data: { status: 'read', readAt: new Date(), isRead: true },
+              });
+
+              emitToTenant(tenant.id, 'conversation_read_update', {
+                conversationId: conversation.id,
+                channel: 'MESSENGER',
+                watermark,
+              });
+            }
+          }
+        }
+        continue;
+      }
+
+      // 5. Inbound Message or Postback Handling
+      if (messagingEvent.message || messagingEvent.postback) {
+        const messageId = messagingEvent.message?.mid || messagingEvent.postback?.mid || `meta_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+
+        const isNew = await isNewWebhookEvent(`msg:${messageId}`);
+        if (!isNew) {
+          console.log(`⚠️ [Dedup] Skipping duplicate ${channel} message: ${messageId}`);
+          continue;
+        }
+
+        const senderId = String(messagingEvent.sender.id);
+        let text = messagingEvent.message?.text || null;
+        let type = 'TEXT';
+        let mediaUrl = null;
+        let mediaName = null;
+        let mediaSize = null;
+        let caption = null;
+
+        // Handle Postbacks (Buttons / Quick replies)
+        if (messagingEvent.postback) {
+          text = messagingEvent.postback.title || messagingEvent.postback.payload || 'Action clicked';
+          type = 'TEXT';
+        }
+
+        // Handle Instagram Unsupported message flag
+        if (messagingEvent.message?.is_unsupported) {
+          text = '[Unsupported message type]';
+          type = 'TEXT';
+        }
+
+        // Handle Attachments (Images, Videos, Reels, Audio, Ephemeral)
+        const attachment = messagingEvent.message?.attachments?.[0];
+        if (attachment) {
+          if (attachment.type === 'ephemeral' || !attachment.payload?.url) {
+            mediaUrl = null;
+            text = '[Disappearing media — cannot be retrieved]';
+            type = 'TEXT';
+          } else {
+            const downloaded = await downloadMetaMediaFromUrl({
+              url: attachment.payload.url,
+              type: attachment.type,
+              tenantId: tenant.id,
+              contactId: senderId,
+            });
+            mediaUrl = downloaded.publicUrl;
+            mediaName = downloaded.fileName;
+            mediaSize = downloaded.fileSize;
+
+            type = (attachment.type === 'image' || attachment.type === 'story_mention') ? 'IMAGE' :
+                   (attachment.type === 'video' || attachment.type === 'ig_reel' || attachment.type === 'reel') ? 'VIDEO' :
+                   attachment.type === 'audio' ? 'AUDIO' : 'FILE';
+
+            if (!text && attachment.payload?.title) {
+              caption = attachment.payload.title;
+            }
+          }
+        }
+
+        if (!text && !mediaUrl) {
+          text = '[Attachment]';
+        }
+
+        // 6. Contact Lookup or Profile Fetching
+        let contact = await prisma.contact.findUnique({
+          where: {
+            tenantId_channel_channelId: {
+              tenantId: tenant.id,
+              channel,
+              channelId: senderId,
+            },
+          },
+        });
+
+        let profileName = channel === 'INSTAGRAM' ? 'Instagram User' : 'Facebook User';
+        let profileAvatar = null;
+        let contactUsername = null;
+
+        if (!contact || contact.name === 'Instagram User' || contact.name === 'Facebook User') {
+          if (tenant.facebookPageAccessToken) {
+            try {
+              const token = decrypt(tenant.facebookPageAccessToken);
+              const fields = channel === 'INSTAGRAM'
+                ? 'name,username,profile_pic'
+                : 'name,first_name,last_name,profile_pic';
+
+              const res = await fetch(`${GRAPH_BASE_URL}/${senderId}?fields=${fields}&access_token=${token}`);
+              if (res.ok) {
+                const data = await res.json();
+                profileName = data.name || `${data.first_name || ''} ${data.last_name || ''}`.trim() || profileName;
+                contactUsername = data.username || null;
+
+                if (data.profile_pic) {
+                  const avatarData = await downloadMetaMediaFromUrl({
+                    url: data.profile_pic,
+                    type: 'avatar',
+                    tenantId: tenant.id,
+                    contactId: senderId,
+                  });
+                  profileAvatar = avatarData.publicUrl;
+                }
+              }
+            } catch (err) {
+              console.warn(`⚠️ Profile fetch failed for ${senderId}:`, err.message);
+            }
+          }
+        }
+
+        // Upsert Contact with composite unique key
+        const isNewContact = !contact;
+        contact = await prisma.contact.upsert({
+          where: {
+            tenantId_channel_channelId: {
+              tenantId: tenant.id,
+              channel,
+              channelId: senderId,
+            },
+          },
+          update: {
+            ...(profileName !== 'Instagram User' && profileName !== 'Facebook User' ? { name: profileName } : {}),
+            ...(contactUsername ? { username: contactUsername } : {}),
+            ...(profileAvatar ? { avatarUrl: profileAvatar } : {}),
+          },
+          create: {
+            tenantId: tenant.id,
+            channel,
+            channelId: senderId,
+            username: contactUsername,
+            name: profileName,
+            avatarUrl: profileAvatar,
+            phone: null,
+          },
+        });
+
+        // 7. Save message via handleIncomingMessage
+        const result = await handleIncomingMessage({
+          contactId: contact.id,
+          tenantId: tenant.id,
+          text,
+          type,
+          mediaUrl,
+          mediaName,
+          mediaSize,
+          caption,
+          isNewContact,
+          wamid: messageId,
+          channel,
+        });
+
+        // 8. Emit new_message to Socket.IO tenant room
+        emitToTenant(tenant.id, 'new_message', {
+          conversationId: result.conversation.id,
+          channel,
+          isNewConversation: isNewContact,
+          message: {
+            id: result.message.id,
+            type: result.message.type,
+            text: result.message.text,
+            senderId: result.message.senderId,
+            senderType: 'CONTACT',
+            direction: 'INBOUND',
+            isFromCustomer: true,
+            mediaUrl: result.message.mediaUrl,
+            mediaName: result.message.mediaName,
+            mediaSize: result.message.mediaSize,
+            mediaMimeType: result.message.mediaMimeType,
+            caption: result.message.caption,
+            createdAt: result.message.createdAt,
+            channel,
+          },
+          contact: {
+            id: contact.id,
+            name: contact.name,
+            username: contact.username,
+            avatarUrl: contact.avatarUrl,
+            channel: contact.channel,
+          },
+        });
+      }
+    }
+  }
+};
 
 // ─────────────────────────────────────────────────────────────
 // MAIN JOB PROCESSOR
@@ -26,7 +391,14 @@ import http from 'http';
 export const processWebhookJob = async (job) => {
 
   const body = job.data;
-  if (!body || body.object !== 'whatsapp_business_account') return;
+  if (!body) return;
+
+  // Handle Facebook Messenger and Instagram Direct Webhooks
+  if (body.object === 'page' || body.object === 'instagram') {
+    return await processMetaPageOrInstagramJob(job, body);
+  }
+
+  if (body.object !== 'whatsapp_business_account') return;
 
   const entry = body.entry?.[0];
   const change = entry?.changes?.[0];

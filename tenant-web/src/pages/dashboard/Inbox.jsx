@@ -2,11 +2,12 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
-import { FaWhatsapp } from "react-icons/fa";
+import { FaWhatsapp, FaFacebookMessenger, FaInstagram } from "react-icons/fa";
 import api from "../../lib/axios";
 import EmojiPicker from "emoji-picker-react";
 import {
   Search,
+  Filter,
   Send,
   Paperclip,
   Smile,
@@ -29,12 +30,13 @@ import {
   Eye,
   MapPin,
   AlertTriangle,
-  ChevronLeft, 
+  ChevronLeft,
   ChevronRight,
   ShoppingBag,
   Navigation,
   ExternalLink,
-  Copy,          
+  Copy,
+  FileText,
 } from "lucide-react";
 import {
   getAssignedConversations,
@@ -82,11 +84,42 @@ export default function Inbox() {
   // ── Core State ──
   const [chats, setChats] = useState([]);
   const [activeChatId, setActiveChatId] = useState(urlConversationId || null);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+
+  // Sync activeChatId with URL conversationId (e.g. clicking Inbox in sidebar clears selection)
+  useEffect(() => {
+    setActiveChatId(urlConversationId || null);
+  }, [urlConversationId]);
+
+  const handleSelectChat = useCallback(
+    (chatId) => {
+      if (String(chatId) === String(activeChatId)) return;
+      setActiveChatId(chatId);
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set("conversationId", String(chatId));
+          return next;
+        },
+        { replace: true }
+      );
+    },
+    [activeChatId, setSearchParams]
+  );
   const [messages, setMessages] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [typedMessage, setTypedMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [unreadMap, setUnreadMap] = useState({});
+  const [selectedChannel, setSelectedChannel] = useState("ALL");
+  const [channelCounts, setChannelCounts] = useState({
+    ALL: 0,
+    WHATSAPP: 0,
+    MESSENGER: 0,
+    INSTAGRAM: 0,
+  });
+  const [showChannelFilter, setShowChannelFilter] = useState(false);
+  const channelFilterRef = useRef(null);
 
   // ── Presence & Collision State ──
   const [activeViewers, setActiveViewers] = useState([]);
@@ -101,6 +134,8 @@ export default function Inbox() {
   const [filePreview, setFilePreview] = useState(null);
   const [fileCaption, setFileCaption] = useState("");
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [showStagingEmojiPicker, setShowStagingEmojiPicker] = useState(false);
+  const stagingEmojiPickerRef = useRef(null);
 
   // ── Audio Recording ──
   const [isRecording, setIsRecording] = useState(false);
@@ -116,7 +151,7 @@ export default function Inbox() {
   const attachMenuRef = useRef(null);
   const docInputRef = useRef(null);
 
-    // ── Emoji Picker State ──
+  // ── Emoji Picker State ──
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const emojiPickerRef = useRef(null);
 
@@ -135,12 +170,12 @@ export default function Inbox() {
   // ── Location Modal ──
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [locationForm, setLocationForm] = useState({
-    name:      "",
-    address:   "",
-    latitude:  "",
+    name: "",
+    address: "",
+    latitude: "",
     longitude: "",
   });
-  const [locationError, setLocationError]     = useState("");
+  const [locationError, setLocationError] = useState("");
   const [sendingLocation, setSendingLocation] = useState(false);
 
   const scrollToBottom = () => {
@@ -192,15 +227,15 @@ export default function Inbox() {
   const [previewImageModal, setPreviewImageModal] = useState(null);
 
   // ── Right Contact Panel State ──
-const [showContactPanel, setShowContactPanel] = useState(() => {
-  const saved = localStorage.getItem("inbox_contact_panel_open");
-  return saved === "true"; // default: closed
-});
+  const [showContactPanel, setShowContactPanel] = useState(() => {
+    const saved = localStorage.getItem("inbox_contact_panel_open");
+    return saved === "true"; // default: closed
+  });
 
-// Persist panel state
-useEffect(() => {
-  localStorage.setItem("inbox_contact_panel_open", String(showContactPanel));
-}, [showContactPanel]);
+  // Persist panel state
+  useEffect(() => {
+    localStorage.setItem("inbox_contact_panel_open", String(showContactPanel));
+  }, [showContactPanel]);
 
   // ── Archived State ──
   const [showArchived, setShowArchived] = useState(false);
@@ -231,7 +266,7 @@ useEffect(() => {
   //   return hoursDiff >= 24;
   // };
 
-    // ⭐ Smart 24h Expired Check (Looks ONLY at Customer Messages)
+  // ⭐ Smart 24h Expired Check (Looks ONLY at Customer Messages)
   const is24hExpired = (chat) => {
     if (!chat) return false;
 
@@ -266,7 +301,7 @@ useEffect(() => {
     if (type === "AUDIO") return "🎵 Voice message";
     if (type === "IMAGE") return msg.caption ? `📷 ${msg.caption}` : "📷 Photo";
     if (type === "VIDEO") return msg.caption ? `🎥 ${msg.caption}` : "🎥 Video";
-    if (type === "FILE")  return msg.mediaName ? `📄 ${msg.mediaName}` : "📄 Document";
+    if (type === "FILE") return msg.mediaName ? `📄 ${msg.mediaName}` : "📄 Document";
     if (type === "LOCATION") return "📍 Location";
     if (type === "INTERACTIVE_BUTTONS") return msg.text || "Interactive Message";
 
@@ -312,9 +347,9 @@ useEffect(() => {
     return isNaN(d.getTime())
       ? ""
       : d.toLocaleDateString(
-          undefined,
-          options || { weekday: "long", month: "short", day: "numeric" },
-        );
+        undefined,
+        options || { weekday: "long", month: "short", day: "numeric" },
+      );
   };
 
   // ── Load Tags and Agents ──
@@ -334,38 +369,40 @@ useEffect(() => {
   const loadConversations = useCallback(
     async (silent = false) => {
       if (!silent) setLoading(true);
-      const res = await getAssignedConversations(1, 50, filter);
-      if (res.success) {
-        const convList =
-          res.data?.conversations ||
-          res.data?.data?.conversations ||
-          res.data?.data ||
-          res.data ||
-          [];
+      try {
+        const res = await getAssignedConversations(1, 50, filter, selectedChannel);
+        if (res.success) {
+          const convList =
+            res.data?.conversations ||
+            res.data?.data?.conversations ||
+            res.data?.data ||
+            res.data ||
+            [];
 
-        setChats(convList);
+          setChats(convList);
 
-        setUnreadMap((prev) => {
-          const next = { ...prev };
-          convList.forEach((c) => {
-            if (next[String(c.id)] == null) next[String(c.id)] = 0;
+          const returnedChannelCounts =
+            res.data?.channelCounts || res.data?.data?.channelCounts;
+          if (returnedChannelCounts) {
+            setChannelCounts(returnedChannelCounts);
+          }
+
+          setUnreadMap((prev) => {
+            const next = { ...prev };
+            convList.forEach((c) => {
+              if (next[String(c.id)] == null) next[String(c.id)] = 0;
+            });
+            return next;
           });
-          return next;
-        });
-
-     // ⭐ Use URL param at call time, not as dependency
-      const currentUrlConvId = new URLSearchParams(window.location.search).get("conversationId");
-      if (!currentUrlConvId && convList.length > 0) {
-        setActiveChatId(convList[0].id);
-        setSearchParams({ filter, conversationId: convList[0].id });
-      } else if (convList.length === 0) {
-        setActiveChatId(null);
+        }
+      } catch (err) {
+        console.error("Failed to load conversations:", err);
+      } finally {
+        if (!silent) setLoading(false);
       }
-    }
-    if (!silent) setLoading(false);
-  },
-  [filter, setSearchParams],  // ⭐ REMOVED urlConversationId
-);
+    },
+    [filter, selectedChannel],
+  );
 
   // ── Initial Load ──
   useEffect(() => {
@@ -373,34 +410,34 @@ useEffect(() => {
   }, [loadConversations]);
 
 
-// ── Clear unread when chat opened ──
-useEffect(() => {
-  if (!activeChatId) return;
-  
-  // 1. Reset frontend immediately
-  setUnreadMap((prev) => ({ ...prev, [String(activeChatId)]: 0 }));
-  
-  // 2. ✅ ADD: Also reset backend
-  const markAsRead = async () => {
-    try {
-      await api.patch(
-        `${import.meta.env.VITE_BACKEND_URL}/api5/mark-read/${activeChatId}`
-      );
-    } catch (err) {
-      console.error("Failed to mark as read:", err);
-    }
-  };
-  markAsRead();
-  
+  // ── Clear unread when chat opened ──
+  useEffect(() => {
+    if (!activeChatId) return;
+
+    // 1. Reset frontend immediately
+    setUnreadMap((prev) => ({ ...prev, [String(activeChatId)]: 0 }));
+
+    // 2. ✅ ADD: Also reset backend
+    const markAsRead = async () => {
+      try {
+        await api.patch(
+          `${import.meta.env.VITE_BACKEND_URL}/api5/mark-read/${activeChatId}`
+        );
+      } catch (err) {
+        console.error("Failed to mark as read:", err);
+      }
+    };
+    markAsRead();
+
     // 3. Update chats state so sidebar count decreases
-  setChats((prev) =>
-    prev.map((c) =>
-      String(c.id) === String(activeChatId)
-        ? { ...c, unreadCount: 0 }
-        : c
-    )
-  );
-}, [activeChatId]);
+    setChats((prev) =>
+      prev.map((c) =>
+        String(c.id) === String(activeChatId)
+          ? { ...c, unreadCount: 0 }
+          : c
+      )
+    );
+  }, [activeChatId]);
 
   // ── Reset dropdowns when chat changes ──
   useEffect(() => {
@@ -410,12 +447,29 @@ useEffect(() => {
 
   // ── Load Messages ──
   useEffect(() => {
-    if (!activeChatId) return;
+    if (!activeChatId) {
+      setMessages([]);
+      return;
+    }
+    let isCurrent = true;
     const loadMessages = async () => {
-      const res = await getConversationMessages(activeChatId, 50);
-      if (res.success) setMessages(res.data?.messages || []);
+      setLoadingMessages(true);
+      try {
+        const res = await getConversationMessages(activeChatId, 50);
+        if (isCurrent && res.success) {
+          setMessages(res.data?.messages || []);
+          setTimeout(() => scrollToBottom(true), 50);
+        }
+      } catch (err) {
+        console.error("Failed to load messages:", err);
+      } finally {
+        if (isCurrent) setLoadingMessages(false);
+      }
     };
     loadMessages();
+    return () => {
+      isCurrent = false;
+    };
   }, [activeChatId]);
 
   // ── Socket Connection ──
@@ -493,7 +547,7 @@ useEffect(() => {
     if (!socket) return;
 
     // ── Handle new message ──
- 
+
     const handleNewMessage = (data) => {
       const { conversationId, message } = data;
 
@@ -605,18 +659,18 @@ useEffect(() => {
     };
 
 
-// ── Handle deleted message ──
+    // ── Handle deleted message ──
     const handleMessageDeleted = ({ messageId, conversationId: convId }) => {
       setMessages((prev) =>
         prev.map((m) =>
           m.id === messageId
             ? {
-                ...m,
-                isDeleted: true,
-                text: null,
-                mediaUrl: null,
-                caption: null,
-              }
+              ...m,
+              isDeleted: true,
+              text: null,
+              mediaUrl: null,
+              caption: null,
+            }
             : m,
         ),
       );
@@ -639,20 +693,20 @@ useEffect(() => {
     };
 
     // ── Handle bulk reassign ──────────────
-  const handleConversationsReassigned = (data) => {
-  const { conversationIds, newUserId } = data;
-  
-  // Update assignedTo locally without reload
-  setChats((prev) =>
-    prev.map((c) =>
-      conversationIds.includes(c.id)
-        ? { ...c, contact: { ...c.contact, assignedTo: newUserId } }
-        : c
-    )
-  );
-};
+    const handleConversationsReassigned = (data) => {
+      const { conversationIds, newUserId } = data;
 
-  const handleUnreadCountUpdate = (data) => {
+      // Update assignedTo locally without reload
+      setChats((prev) =>
+        prev.map((c) =>
+          conversationIds.includes(c.id)
+            ? { ...c, contact: { ...c.contact, assignedTo: newUserId } }
+            : c
+        )
+      );
+    };
+
+    const handleUnreadCountUpdate = (data) => {
       const { conversationId, unreadCount } = data;
 
       const isCurrentChatOpen =
@@ -681,17 +735,17 @@ useEffect(() => {
       );
     };
 
-  const handleConversationAssigned = (data) => {
-     if (data.conversation) {
-    setChats((prev) => {
-      const exists = prev.some((c) => String(c.id) === String(data.conversation.id));
-      if (exists) return prev;
-      return [data.conversation, ...prev];  // Add to top
-    });
-  }
-  };
+    const handleConversationAssigned = (data) => {
+      if (data.conversation) {
+        setChats((prev) => {
+          const exists = prev.some((c) => String(c.id) === String(data.conversation.id));
+          if (exists) return prev;
+          return [data.conversation, ...prev];  // Add to top
+        });
+      }
+    };
 
-       // ── Handle real-time tick updates (1✓ -> 2✓ -> 2✓ blue) ──
+    // ── Handle real-time tick updates (1✓ -> 2✓ -> 2✓ blue) ──
     const handleMessageStatusUpdate = (data) => {
       const { messageId, wamid, status } = data;
       setMessages((prev) =>
@@ -708,12 +762,17 @@ useEffect(() => {
       );
     };
 
+    const handleChannelError = (data) => {
+      toast.error(`Channel Error (${data.channel}): ${data.error}`);
+    };
+
     socket.on("new_message", handleNewMessage);
     socket.on("message_deleted", handleMessageDeleted);
     socket.on("conversations_reassigned", handleConversationsReassigned);
     socket.on("unread_count_update", handleUnreadCountUpdate);
     socket.on("conversation_assigned", handleConversationAssigned);
-    socket.on("message_status_update", handleMessageStatusUpdate); // ← ADD THIS
+    socket.on("message_status_update", handleMessageStatusUpdate);
+    socket.on("channel_error", handleChannelError);
 
     return () => {
       socket.off("new_message", handleNewMessage);
@@ -721,7 +780,8 @@ useEffect(() => {
       socket.off("conversations_reassigned", handleConversationsReassigned);
       socket.off("unread_count_update", handleUnreadCountUpdate);
       socket.off("conversation_assigned", handleConversationAssigned);
-      socket.off("message_status_update", handleMessageStatusUpdate); // ← ADD THIS
+      socket.off("message_status_update", handleMessageStatusUpdate);
+      socket.off("channel_error", handleChannelError);
     };
   }, [socket, activeChatId, loadConversations]);
 
@@ -736,7 +796,7 @@ useEffect(() => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-    // ── Close attach menu when clicking outside ──
+  // ── Close attach menu when clicking outside ──
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (attachMenuRef.current && !attachMenuRef.current.contains(e.target)) {
@@ -747,7 +807,7 @@ useEffect(() => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-    // ── Close emoji picker when clicking outside ──
+  // ── Close emoji picker when clicking outside ──
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target)) {
@@ -760,6 +820,33 @@ useEffect(() => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showEmojiPicker]);
 
+  // ── Close staging emoji picker when clicking outside ──
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (
+        stagingEmojiPickerRef.current &&
+        !stagingEmojiPickerRef.current.contains(e.target)
+      ) {
+        setShowStagingEmojiPicker(false);
+      }
+    };
+    if (showStagingEmojiPicker) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showStagingEmojiPicker]);
+
+  // ── Discard media staging on Escape key ──
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape" && selectedFile) {
+        handleCancelFile();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedFile]);
+
   // ── Close sidebar menu when clicking outside ──
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -768,6 +855,20 @@ useEffect(() => {
         !sidebarMenuRef.current.contains(e.target)
       ) {
         setShowSidebarMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // ── Close channel filter dropdown when clicking outside ──
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (
+        channelFilterRef.current &&
+        !channelFilterRef.current.contains(e.target)
+      ) {
+        setShowChannelFilter(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -795,7 +896,7 @@ useEffect(() => {
   }, [showArchived]);
 
   // ── Handle File Select ──
-    // ── Handle File Select (works for all media types) ──
+  // ── Handle File Select (works for all media types) ──
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -813,8 +914,7 @@ useEffect(() => {
 
     if (file.size > maxSize) {
       toast.warning(
-        `File too large. Max size is ${
-          isImage ? "5MB" : isVideo || isAudio ? "16MB" : "100MB"
+        `File too large. Max size is ${isImage ? "5MB" : isVideo || isAudio ? "16MB" : "100MB"
         }`
       );
       e.target.value = "";
@@ -843,6 +943,12 @@ useEffect(() => {
     setSelectedFile(null);
     setFilePreview(null);
     setFileCaption("");
+    setShowStagingEmojiPicker(false);
+  };
+
+  // ── Handle Staging Emoji Select ──
+  const handleStagingEmojiClick = (emojiData) => {
+    setFileCaption((prev) => prev + emojiData.emoji);
   };
 
   // ── Send File ──
@@ -919,12 +1025,12 @@ useEffect(() => {
           prev.map((m) =>
             m.id === messageId
               ? {
-                  ...m,
-                  isDeleted: true,
-                  text: null,
-                  mediaUrl: null,
-                  caption: null,
-                }
+                ...m,
+                isDeleted: true,
+                text: null,
+                mediaUrl: null,
+                caption: null,
+              }
               : m,
           ),
         );
@@ -945,6 +1051,10 @@ useEffect(() => {
     const res = await createConversation(contactId);
     if (res.success) {
       setShowNewChatModal(false);
+      // Automatically switch channel view to WHATSAPP if currently filtered on another channel
+      if (selectedChannel !== "ALL" && selectedChannel !== "WHATSAPP") {
+        setSelectedChannel("WHATSAPP");
+      }
       await loadConversations();
       setActiveChatId(res.data.id);
       setSearchParams({ filter, conversationId: res.data.id });
@@ -1141,6 +1251,13 @@ useEffect(() => {
   };
 
   // ── Avatar & Tag Colors ──
+  const getAvatarUrl = (url) => {
+    if (!url) return null;
+    if (url.startsWith("http://") || url.startsWith("https://")) return url;
+    const backend = (import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL || "http://localhost:5000").replace(/\/+$/, "");
+    return `${backend}/${url.replace(/^\/+/, "")}`;
+  };
+
   const getAvatarStyle = (name) => {
     const chars = name ? name.charCodeAt(0) : 0;
     const colors = [
@@ -1243,7 +1360,7 @@ useEffect(() => {
   };
 
 
-    // ── Handle Emoji Select ──
+  // ── Handle Emoji Select ──
   const handleEmojiClick = (emojiData) => {
     setTypedMessage((prev) => prev + emojiData.emoji);
   };
@@ -1334,7 +1451,7 @@ useEffect(() => {
   };
 
 
-    // ── Send Location ──
+  // ── Send Location ──
   const handleSendLocation = async () => {
     setLocationError("");
 
@@ -1364,10 +1481,10 @@ useEffect(() => {
 
       const res = await sendLocation({
         to,
-        latitude:       lat,
-        longitude:      lng,
-        name:           locationForm.name    || undefined,
-        address:        locationForm.address || undefined,
+        latitude: lat,
+        longitude: lng,
+        name: locationForm.name || undefined,
+        address: locationForm.address || undefined,
         conversationId: activeChatId,
       });
 
@@ -1555,8 +1672,37 @@ useEffect(() => {
     setUnarchivingId(null);
   };
 
+  // ── Channel Counts ──
+  const activeChannelCounts = {
+    ALL: channelCounts?.ALL || chats.length,
+    WHATSAPP:
+      channelCounts?.WHATSAPP !== undefined && channelCounts?.WHATSAPP !== 0
+        ? channelCounts.WHATSAPP
+        : chats.filter(
+          (c) =>
+            !c.channel ||
+            (c.channel || c.platform || "").toUpperCase() === "WHATSAPP"
+        ).length,
+    MESSENGER:
+      channelCounts?.MESSENGER !== undefined && channelCounts?.MESSENGER !== 0
+        ? channelCounts.MESSENGER
+        : chats.filter(
+          (c) => (c.channel || c.platform || "").toUpperCase() === "MESSENGER"
+        ).length,
+    INSTAGRAM:
+      channelCounts?.INSTAGRAM !== undefined && channelCounts?.INSTAGRAM !== 0
+        ? channelCounts.INSTAGRAM
+        : chats.filter(
+          (c) => (c.channel || c.platform || "").toUpperCase() === "INSTAGRAM"
+        ).length,
+  };
+
   // ── Filters ──
   const filteredChats = chats.filter((c) => {
+    if (selectedChannel && selectedChannel !== "ALL") {
+      const chatChannel = (c.channel || c.platform || "WHATSAPP").toUpperCase();
+      if (chatChannel !== selectedChannel.toUpperCase()) return false;
+    }
     const name = c.contact?.name || "";
     const phone = c.contact?.phone || "";
     return (
@@ -1566,13 +1712,34 @@ useEffect(() => {
   });
 
   const tabCounts = {
-    all: chats.length,
-    unread: chats.filter((c) => c.status === "OPEN" && getUnreadCount(c.id) > 0)
-      .length,
-    open: chats.filter((c) => c.status === "OPEN").length,
-    closed: chats.filter(
-      (c) => c.status === "RESOLVED" || c.status === "CLOSED",
-    ).length,
+    all: chats.filter((c) => {
+      if (selectedChannel && selectedChannel !== "ALL") {
+        const chatChannel = (c.channel || c.platform || "WHATSAPP").toUpperCase();
+        return chatChannel === selectedChannel.toUpperCase();
+      }
+      return true;
+    }).length,
+    unread: chats.filter((c) => {
+      if (selectedChannel && selectedChannel !== "ALL") {
+        const chatChannel = (c.channel || c.platform || "WHATSAPP").toUpperCase();
+        if (chatChannel !== selectedChannel.toUpperCase()) return false;
+      }
+      return c.status === "OPEN" && getUnreadCount(c.id) > 0;
+    }).length,
+    open: chats.filter((c) => {
+      if (selectedChannel && selectedChannel !== "ALL") {
+        const chatChannel = (c.channel || c.platform || "WHATSAPP").toUpperCase();
+        if (chatChannel !== selectedChannel.toUpperCase()) return false;
+      }
+      return c.status === "OPEN";
+    }).length,
+    closed: chats.filter((c) => {
+      if (selectedChannel && selectedChannel !== "ALL") {
+        const chatChannel = (c.channel || c.platform || "WHATSAPP").toUpperCase();
+        if (chatChannel !== selectedChannel.toUpperCase()) return false;
+      }
+      return c.status === "RESOLVED" || c.status === "CLOSED";
+    }).length,
   };
 
   // FIXED: This is the single source of truth for inbox_unread_count
@@ -1602,6 +1769,21 @@ useEffect(() => {
     setSearchParams(params);
   };
 
+  const handleSelectChannelFilter = (channelKey) => {
+    setSelectedChannel(channelKey);
+    setShowChannelFilter(false);
+
+    if (channelKey !== "ALL" && activeChat) {
+      const currentChatChannel = (activeChat.channel || "WHATSAPP").toUpperCase();
+      if (currentChatChannel !== channelKey.toUpperCase()) {
+        setActiveChatId(null);
+        const params = { filter };
+        if (activeTab !== "all") params.tab = activeTab;
+        setSearchParams(params);
+      }
+    }
+  };
+
   const inboxTabs = [
     { label: "All", value: "all", count: tabCounts.all },
     { label: "Unread", value: "unread", count: tabCounts.unread },
@@ -1609,14 +1791,53 @@ useEffect(() => {
     { label: "Closed", value: "closed", count: tabCounts.closed },
   ];
 
-  const filteredContacts = allContacts.filter((c) => {
-    const name = c.name || "";
-    const phone = c.phone || "";
-    return (
-      name.toLowerCase().includes(modalSearch.toLowerCase()) ||
-      phone.includes(modalSearch)
-    );
-  });
+  const channelEmptyStateConfig = {
+    WHATSAPP: {
+      title: "WhatsApp Business",
+      desc: "Send and receive messages with your customers on WhatsApp. Select a conversation to get started.",
+      footer: "End-to-end encrypted • Meta Cloud API",
+      iconBg: "bg-[#25D366] text-white shadow-emerald-500/20",
+      renderIcon: () => <FaWhatsapp className="w-10 h-10 text-white" />,
+    },
+    MESSENGER: {
+      title: "Facebook Messenger",
+      desc: "Connect with customers and manage incoming inquiries from your Facebook Pages. Select a conversation to get started.",
+      footer: "Connected to Meta Messenger Platform",
+      iconBg: "bg-[#0084FF] text-white shadow-blue-500/20",
+      renderIcon: () => <FaFacebookMessenger className="w-10 h-10 text-white" />,
+    },
+    INSTAGRAM: {
+      title: "Instagram Direct",
+      desc: "Respond to Instagram DMs, story mentions, and customer inquiries in real time. Select a conversation to get started.",
+      footer: "Connected to Instagram Graph API",
+      iconBg: "bg-gradient-to-tr from-[#FD1D1D] via-[#E1306C] to-[#833AB4] text-white shadow-pink-500/20",
+      renderIcon: () => <FaInstagram className="w-10 h-10 text-white" />,
+    },
+    ALL: {
+      title: "Unified Business Inbox",
+      desc: "Manage customer conversations across WhatsApp, Instagram, and Facebook Messenger all in one place. Select a conversation to get started.",
+      footer: "Unified Omnichannel Messaging Platform",
+      iconBg: "bg-gradient-to-br from-[#075E54] to-[#128C7E] text-white shadow-teal-500/20",
+      renderIcon: () => (
+        <div className="flex items-center justify-center gap-2 text-white">
+          <FaWhatsapp className="text-xl" />
+          <FaInstagram className="text-xl" />
+          <FaFacebookMessenger className="text-xl" />
+        </div>
+      ),
+    },
+  };
+
+  const filteredContacts = allContacts
+    .filter((c) => Boolean(c.phone))
+    .filter((c) => {
+      const name = c.name || "";
+      const phone = c.phone || "";
+      return (
+        name.toLowerCase().includes(modalSearch.toLowerCase()) ||
+        phone.includes(modalSearch)
+      );
+    });
 
   // ─────────────────────────────────────────────
   // RENDER
@@ -1633,31 +1854,37 @@ useEffect(() => {
 ══════════════════════════════════════ */}
       <div className="w-80 flex flex-col shrink-0 bg-white border-r border-emerald-100">
         {/* Header */}
-        {/* Header */}
         <div className="px-4 pt-4 pb-2 flex items-center justify-between bg-gradient-to-r from-[#075E54] to-[#128C7E] rounded-tl-3xl">
           <div className="flex items-center gap-2.5">
-            <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-white/20 backdrop-blur-sm shrink-0">
-              <FaWhatsapp className="w-4.5 h-4.5 text-white" />
-            </span>
             <div>
               <span className="text-sm font-bold text-white tracking-wide">
-                WhatsApp
+                All Inboxes
               </span>
               <p className="text-[10px] text-emerald-200 font-medium">
-                Business Inbox
+                Unified Business Inbox
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-1.5">
-            {/* ── New Chat Button ── */}
-            <button
-              onClick={() => setShowNewChatModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white text-xs font-semibold rounded-lg transition duration-150 border border-white/10 shrink-0"
-            >
-              <MessageSquarePlus size={13} />
-              <span>New Chat</span>
-            </button>
+            {/* ── New Chat Button (Only for ALL or WHATSAPP channels) ── */}
+            {selectedChannel === "ALL" || selectedChannel === "WHATSAPP" ? (
+              <button
+                onClick={() => setShowNewChatModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white text-xs font-semibold rounded-lg transition duration-150 border border-white/10 shrink-0"
+                title="Start a new WhatsApp conversation"
+              >
+                <MessageSquarePlus size={13} />
+                <span>New Chat</span>
+              </button>
+            ) : (
+              <div
+                className="flex items-center gap-1 px-2.5 py-1 bg-white/10 text-white/80 text-[10px] font-semibold rounded-lg border border-white/10 shrink-0 cursor-default"
+                title="Instagram and Messenger chats are customer-initiated as per Meta API policy."
+              >
+                <span>Inbound only</span>
+              </div>
+            )}
 
             {/* ── 3-Dot Menu (Admin Only) ── */}
             {userRole === "admin" && (
@@ -1703,9 +1930,10 @@ useEffect(() => {
           </div>
         </div>
 
-        {/* Search */}
-        <div className="px-4 py-3 bg-[#F0F2F5]">
-          <div className="relative">
+        {/* Search & Filter Bar */}
+        <div className="px-3 py-2.5 bg-[#F0F2F5] flex items-center gap-2 border-b border-[#E9EDEF]">
+          {/* Search input */}
+          <div className="relative flex-1">
             <Search
               className="absolute left-3 top-2.5 text-[#54656F]"
               size={14}
@@ -1715,8 +1943,153 @@ useEffect(() => {
               placeholder="Search or start new chat..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 text-xs bg-white rounded-lg border-0 text-[#111B21] placeholder-[#667781] focus:outline-none focus:ring-2 focus:ring-[#25D366]/30 transition"
+              className="w-full pl-9 pr-3 py-2 text-xs bg-white rounded-lg border border-transparent focus:border-[#25D366]/40 text-[#111B21] placeholder-[#667781] focus:outline-none focus:ring-2 focus:ring-[#25D366]/20 transition shadow-2xs"
             />
+          </div>
+
+          {/* Filter button with dropdown */}
+          <div className="relative" ref={channelFilterRef}>
+            <button
+              onClick={() => setShowChannelFilter((prev) => !prev)}
+              className={`p-2 rounded-lg border transition-all flex items-center justify-center shrink-0 relative ${selectedChannel !== "ALL"
+                  ? "bg-[#075E54] text-white border-[#075E54] shadow-xs"
+                  : "bg-white text-[#54656F] border-gray-200/80 hover:text-[#075E54] hover:bg-emerald-50/50"
+                }`}
+              title="Filter by channel"
+              aria-label="Filter channels"
+            >
+              <Filter size={15} />
+              {selectedChannel !== "ALL" && (
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-[#25D366] rounded-full ring-2 ring-white" />
+              )}
+            </button>
+
+            {/* Dropdown Menu */}
+            {showChannelFilter && (
+              <div className="absolute right-0 top-full mt-1.5 z-50 bg-white rounded-xl shadow-xl border border-emerald-100 overflow-hidden w-52 animate-in fade-in zoom-in-95 duration-100">
+                <div className="px-3.5 py-2 bg-gradient-to-r from-emerald-50 to-teal-50 border-b border-emerald-100 flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-[#075E54] tracking-wide">
+                    Filter by Channel
+                  </span>
+                  {selectedChannel !== "ALL" && (
+                    <button
+                      onClick={() => handleSelectChannelFilter("ALL")}
+                      className="text-[10px] text-emerald-700 hover:text-emerald-900 font-semibold hover:underline"
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
+
+                <div className="p-1">
+                  {/* All Channels */}
+                  <button
+                    onClick={() => handleSelectChannelFilter("ALL")}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition ${selectedChannel === "ALL"
+                        ? "bg-[#075E54] text-white font-semibold"
+                        : "text-[#111B21] hover:bg-[#F0F2F5] font-medium"
+                      }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`w-2 h-2 rounded-full ${selectedChannel === "ALL" ? "bg-white" : "bg-gray-400"
+                          }`}
+                      />
+                      <span>All Channels</span>
+                    </div>
+                    <span
+                      className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${selectedChannel === "ALL"
+                          ? "bg-white/20 text-white"
+                          : "bg-gray-100 text-gray-600"
+                        }`}
+                    >
+                      {activeChannelCounts.ALL}
+                    </span>
+                  </button>
+
+                  {/* WhatsApp */}
+                  <button
+                    onClick={() => handleSelectChannelFilter("WHATSAPP")}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition ${selectedChannel === "WHATSAPP"
+                        ? "bg-[#25D366] text-white font-semibold"
+                        : "text-[#111B21] hover:bg-emerald-50/70 font-medium"
+                      }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <FaWhatsapp
+                        className={`text-sm ${selectedChannel === "WHATSAPP"
+                            ? "text-white"
+                            : "text-[#25D366]"
+                          }`}
+                      />
+                      <span>WhatsApp</span>
+                    </div>
+                    <span
+                      className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${selectedChannel === "WHATSAPP"
+                          ? "bg-white/25 text-white"
+                          : "bg-emerald-100 text-emerald-800"
+                        }`}
+                    >
+                      {activeChannelCounts.WHATSAPP}
+                    </span>
+                  </button>
+
+                  {/* Messenger */}
+                  <button
+                    onClick={() => handleSelectChannelFilter("MESSENGER")}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition ${selectedChannel === "MESSENGER"
+                        ? "bg-[#0084FF] text-white font-semibold"
+                        : "text-[#111B21] hover:bg-blue-50/70 font-medium"
+                      }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <FaFacebookMessenger
+                        className={`text-sm ${selectedChannel === "MESSENGER"
+                            ? "text-white"
+                            : "text-[#0084FF]"
+                          }`}
+                      />
+                      <span>Messenger</span>
+                    </div>
+                    <span
+                      className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${selectedChannel === "MESSENGER"
+                          ? "bg-white/25 text-white"
+                          : "bg-blue-100 text-blue-800"
+                        }`}
+                    >
+                      {activeChannelCounts.MESSENGER}
+                    </span>
+                  </button>
+
+                  {/* Instagram */}
+                  <button
+                    onClick={() => handleSelectChannelFilter("INSTAGRAM")}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition ${selectedChannel === "INSTAGRAM"
+                        ? "bg-gradient-to-r from-[#FD1D1D] via-[#E1306C] to-[#833AB4] text-white font-semibold"
+                        : "text-[#111B21] hover:bg-fuchsia-50/70 font-medium"
+                      }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <FaInstagram
+                        className={`text-sm ${selectedChannel === "INSTAGRAM"
+                            ? "text-white"
+                            : "text-[#E1306C]"
+                          }`}
+                      />
+                      <span>Instagram</span>
+                    </div>
+                    <span
+                      className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${selectedChannel === "INSTAGRAM"
+                          ? "bg-white/25 text-white"
+                          : "bg-fuchsia-100 text-fuchsia-800"
+                        }`}
+                    >
+                      {activeChannelCounts.INSTAGRAM}
+                    </span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1728,21 +2101,19 @@ useEffect(() => {
               <button
                 key={tab.value}
                 onClick={() => handleTabClick(tab.value)}
-                className={`flex items-center gap-1.5 px-3 py-2.5 text-[11px] font-semibold whitespace-nowrap border-b-2 transition duration-150 shrink-0 ${
-                  isTabActive
-                    ? "border-[#25D366] text-[#075E54]"
-                    : "border-transparent text-[#667781] hover:text-[#111B21] hover:border-emerald-200"
-                }`}
+                className={`flex items-center gap-1.5 px-3 py-2.5 text-[11px] font-semibold whitespace-nowrap border-b-2 transition duration-150 shrink-0 ${isTabActive
+                  ? "border-[#25D366] text-[#075E54]"
+                  : "border-transparent text-[#667781] hover:text-[#111B21] hover:border-emerald-200"
+                  }`}
               >
                 <span>{tab.label}</span>
                 <span
-                  className={`inline-flex items-center justify-center min-w-[18px] h-[17px] px-1 rounded-full text-[9px] font-bold leading-none ${
-                    isTabActive
-                      ? "bg-[#25D366]/15 text-[#075E54]"
-                      : tab.value === "unread" && tab.count > 0
-                        ? "bg-[#25D366] text-white"
-                        : "bg-[#F0F2F5] text-[#667781]"
-                  }`}
+                  className={`inline-flex items-center justify-center min-w-[18px] h-[17px] px-1 rounded-full text-[9px] font-bold leading-none ${isTabActive
+                    ? "bg-[#25D366]/15 text-[#075E54]"
+                    : tab.value === "unread" && tab.count > 0
+                      ? "bg-[#25D366] text-white"
+                      : "bg-[#F0F2F5] text-[#667781]"
+                    }`}
                 >
                   {tab.count > 99 ? "99+" : tab.count}
                 </span>
@@ -1802,13 +2173,11 @@ useEffect(() => {
               return (
                 <div
                   key={chat.id || `chat-${chatIdx}`}
-                  className={`w-full flex items-start gap-3 px-4 py-3.5 border-b border-[#F0F2F5] transition ${
-                    isActive ? "bg-[#F0F2F5]" : "hover:bg-[#F5F6F6] bg-white"
-                  } ${
-                    bulkSelectMode && selectedConvIds.includes(chat.id)
+                  className={`w-full flex items-start gap-3 px-4 py-3.5 border-b border-[#F0F2F5] transition ${isActive ? "bg-[#F0F2F5]" : "hover:bg-[#F5F6F6] bg-white"
+                    } ${bulkSelectMode && selectedConvIds.includes(chat.id)
                       ? "bg-emerald-50 border-l-2 border-l-[#25D366]"
                       : ""
-                  }`}
+                    }`}
                 >
                   {bulkSelectMode && userRole === "admin" && (
                     <div className="flex items-center justify-center pt-3 shrink-0">
@@ -1826,47 +2195,73 @@ useEffect(() => {
                     onClick={() => {
                       if (bulkSelectMode) handleToggleConvSelection(chat.id);
                       else {
-                        setActiveChatId(chat.id);
-                        setSearchParams({ filter, conversationId: chat.id });
+                        handleSelectChat(chat.id);
                       }
                     }}
                   >
-                                      <div className="relative shrink-0">
-                      <div
-                        className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm ${avatarBg}`}
-                      >
-                        {contactName.charAt(0)}
-                      </div>
+                    <div className="relative shrink-0">
+                      {chat.contact?.avatarUrl ? (
+                        <img
+                          src={getAvatarUrl(chat.contact.avatarUrl)}
+                          alt={contactName}
+                          className="w-12 h-12 rounded-full object-cover"
+                          onError={(e) => {
+                            e.target.style.display = "none";
+                          }}
+                        />
+                      ) : (
+                        <div
+                          className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm ${avatarBg}`}
+                        >
+                          {contactName.charAt(0)}
+                        </div>
+                      )}
+
+                      {/* Platform Badge (Bottom-Right) */}
+                      <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center ring-2 ring-white shadow-xs">
+                        {(chat.channel === "WHATSAPP" || !chat.channel) && (
+                          <span className="w-full h-full rounded-full bg-[#25D366] flex items-center justify-center text-white text-[10px]">
+                            <FaWhatsapp />
+                          </span>
+                        )}
+                        {chat.channel === "MESSENGER" && (
+                          <span className="w-full h-full rounded-full bg-[#0084FF] flex items-center justify-center text-white text-[10px]">
+                            <FaFacebookMessenger />
+                          </span>
+                        )}
+                        {chat.channel === "INSTAGRAM" && (
+                          <span className="w-full h-full rounded-full bg-gradient-to-tr from-[#FD1D1D] via-[#E1306C] to-[#833AB4] flex items-center justify-center text-white text-[10px]">
+                            <FaInstagram />
+                          </span>
+                        )}
+                      </span>
                     </div>
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
                         <span
-                          className={`text-sm truncate max-w-[180px] ${
-                            unreadCount > 0
-                              ? "font-bold text-[#111B21]"
-                              : "font-semibold text-[#111B21]"
-                          }`}
+                          className={`text-sm truncate max-w-[180px] ${unreadCount > 0
+                            ? "font-bold text-[#111B21]"
+                            : "font-semibold text-[#111B21]"
+                            }`}
                         >
                           {contactName}
                         </span>
                         <span
-                          className={`text-[10px] ${
-                            unreadCount > 0
-                              ? "text-[#25D366] font-semibold"
-                              : "text-[#667781]"
-                          }`}
+                          className={`text-[10px] ${unreadCount > 0
+                            ? "text-[#25D366] font-semibold"
+                            : "text-[#667781]"
+                            }`}
                         >
                           {timeStr}
                         </span>
                       </div>
                       <div className="flex items-center justify-between mt-0.5">
                         <p
-                          className={`text-xs truncate max-w-[200px] ${
-                            unreadCount > 0
-                              ? "text-[#111B21] font-medium"
-                              : "text-[#667781]"
-                          }`}
+                          className={`text-xs truncate max-w-[200px] ${unreadCount > 0
+                            ? "text-[#111B21] font-medium"
+                            : "text-[#667781]"
+                            }`}
                         >
                           {formatLastMessagePreview(lastMsg)}
                         </p>
@@ -1885,12 +2280,18 @@ useEffect(() => {
           )}
 
           {!loading && tabFilteredChats.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-12 px-4">
-              <div className="w-16 h-16 rounded-full bg-[#25D366]/10 flex items-center justify-center mb-3">
-                <FaWhatsapp className="w-7 h-7 text-[#25D366]" />
+            <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+              <div className="w-16 h-16 rounded-full flex items-center justify-center mb-3 bg-gray-100">
+                {selectedChannel === "WHATSAPP" && <FaWhatsapp className="w-8 h-8 text-[#25D366]" />}
+                {selectedChannel === "MESSENGER" && <FaFacebookMessenger className="w-8 h-8 text-[#0084FF]" />}
+                {selectedChannel === "INSTAGRAM" && <FaInstagram className="w-8 h-8 text-[#E1306C]" />}
+                {selectedChannel === "ALL" && <MessageSquarePlus className="w-8 h-8 text-gray-400" />}
               </div>
-              <p className="text-sm font-medium text-[#667781]">
-                No chats found
+              <p className="text-sm font-semibold text-[#111B21]">
+                No {selectedChannel === "ALL" ? "" : selectedChannel.toLowerCase()} conversations yet
+              </p>
+              <p className="text-xs text-[#667781] mt-1 max-w-xs">
+                When customers message your {selectedChannel === "ALL" ? "channels" : selectedChannel.toLowerCase()} account, conversations will appear here in real time.
               </p>
             </div>
           )}
@@ -1917,33 +2318,188 @@ useEffect(() => {
           MIDDLE CHAT AREA
       ══════════════════════════════════════ */}
       <div className="flex-1 flex flex-col relative overflow-hidden">
+        {/* ── Media Staging Overlay (WhatsApp Web Style) ── */}
+        {selectedFile && (
+          <div className="absolute inset-0 z-40 bg-[#0B141A]/95 backdrop-blur-md flex flex-col animate-in fade-in duration-150">
+            {/* Top Bar: Discard + File Info */}
+            <div className="h-14 px-5 flex items-center justify-between border-b border-white/10 text-white shrink-0 bg-[#111B21]">
+              <button
+                type="button"
+                onClick={handleCancelFile}
+                className="p-2 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition"
+                title="Discard (Esc)"
+              >
+                <X size={20} />
+              </button>
+
+              <div className="flex items-center gap-2 max-w-md truncate">
+                <span className="text-sm font-semibold text-white truncate">
+                  {selectedFile.name}
+                </span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-white/10 text-slate-300 shrink-0 font-mono">
+                  {selectedFile.size < 1024 * 1024
+                    ? (selectedFile.size / 1024).toFixed(1) + " KB"
+                    : (selectedFile.size / (1024 * 1024)).toFixed(1) + " MB"}
+                </span>
+              </div>
+
+              <div className="w-9" />
+            </div>
+
+            {/* Media Preview Canvas */}
+            <div className="flex-1 flex items-center justify-center p-6 overflow-hidden relative select-none">
+              {filePreview && selectedFile.type?.startsWith("image/") ? (
+                <img
+                  src={filePreview}
+                  alt="Preview"
+                  className="max-h-[55vh] max-w-[90%] object-contain rounded-2xl shadow-2xl ring-1 ring-white/10"
+                />
+              ) : filePreview && selectedFile.type?.startsWith("video/") ? (
+                <video
+                  src={filePreview}
+                  controls
+                  autoPlay
+                  className="max-h-[55vh] max-w-[90%] rounded-2xl shadow-2xl ring-1 ring-white/10"
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center p-8 bg-[#111B21]/90 border border-white/10 rounded-2xl max-w-sm w-full text-center shadow-2xl">
+                  <div className="w-16 h-16 rounded-2xl bg-[#075E54]/30 text-[#25D366] flex items-center justify-center mb-4 shadow-inner">
+                    <FileText size={32} />
+                  </div>
+                  <p className="text-sm font-semibold text-white truncate max-w-xs mb-1">
+                    {selectedFile.name}
+                  </p>
+                  <p className="text-xs text-slate-400 uppercase tracking-wider mb-3">
+                    {selectedFile.name.split(".").pop() || "Document"} •{" "}
+                    {selectedFile.size < 1024 * 1024
+                      ? (selectedFile.size / 1024).toFixed(1) + " KB"
+                      : (selectedFile.size / (1024 * 1024)).toFixed(1) + " MB"}
+                  </p>
+                  <span className="text-[11px] text-slate-500">
+                    No preview available for this file type
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Bottom Caption & Send Bar */}
+            <div className="p-4 bg-[#111B21] border-t border-white/10 flex items-center gap-3 shrink-0">
+              {/* Emoji Picker */}
+              <div className="relative" ref={stagingEmojiPickerRef}>
+                <button
+                  type="button"
+                  onClick={() => setShowStagingEmojiPicker((prev) => !prev)}
+                  className="text-slate-400 hover:text-white p-2.5 rounded-full hover:bg-white/10 transition"
+                  title="Emoji"
+                >
+                  <Smile size={22} />
+                </button>
+
+                {showStagingEmojiPicker && (
+                  <div className="absolute bottom-full left-0 mb-3 z-50 shadow-2xl rounded-2xl overflow-hidden border border-white/10">
+                    <EmojiPicker
+                      onEmojiClick={handleStagingEmojiClick}
+                      width={280}
+                      height={340}
+                      searchDisabled={false}
+                      skinTonesDisabled={true}
+                      previewConfig={{ showPreview: false }}
+                      lazyLoadEmojis={true}
+                      emojiStyle="native"
+                      theme="dark"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Single Caption Input */}
+              <input
+                type="text"
+                autoFocus
+                placeholder="Add a caption..."
+                value={fileCaption}
+                onChange={(e) => setFileCaption(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendFile();
+                  }
+                }}
+                className="flex-1 py-3 px-4 bg-white/10 hover:bg-white/15 focus:bg-white/20 border border-white/15 focus:border-[#25D366] rounded-xl text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#25D366]/30 transition"
+              />
+
+              {/* Single Send Button */}
+              <button
+                type="button"
+                onClick={handleSendFile}
+                disabled={uploadingFile}
+                className="w-11 h-11 rounded-full bg-[#075E54] hover:bg-[#064E47] text-white flex items-center justify-center shrink-0 shadow-lg shadow-emerald-900/40 active:scale-95 transition disabled:opacity-50"
+                title="Send (Enter)"
+              >
+                {uploadingFile ? (
+                  <RefreshCw size={18} className="animate-spin" />
+                ) : (
+                  <Send size={18} className="ml-0.5" />
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+
         {activeChat ? (
           <>
             {/* Chat Header */}
             <div className="bg-[#075E54] px-5 py-3 flex items-center justify-between shrink-0 shadow-sm">
               <div className="flex items-center gap-3">
-                <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ring-2 ring-white/20 ${getAvatarStyle(
-                    activeChat.contact?.name,
-                  )}`}
-                >
-                  {(activeChat.contact?.name || "C").charAt(0)}
+                <div className="relative shrink-0">
+                  {activeChat.contact?.avatarUrl ? (
+                    <img
+                      src={getAvatarUrl(activeChat.contact.avatarUrl)}
+                      alt={activeChat.contact?.name || "Customer"}
+                      className="w-10 h-10 rounded-full object-cover ring-2 ring-white/20"
+                      onError={(e) => {
+                        e.target.style.display = "none";
+                      }}
+                    />
+                  ) : (
+                    <div
+                      className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ring-2 ring-white/20 ${getAvatarStyle(
+                        activeChat.contact?.name,
+                      )}`}
+                    >
+                      {(activeChat.contact?.name || "C").charAt(0)}
+                    </div>
+                  )}
+                  {/* Platform Badge */}
+                  <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center ring-1 ring-white shadow-xs">
+                    {(activeChat.channel === "WHATSAPP" || !activeChat.channel) && (
+                      <span className="w-full h-full rounded-full bg-[#25D366] flex items-center justify-center text-white text-[8px]">
+                        <FaWhatsapp />
+                      </span>
+                    )}
+                    {activeChat.channel === "MESSENGER" && (
+                      <span className="w-full h-full rounded-full bg-[#0084FF] flex items-center justify-center text-white text-[8px]">
+                        <FaFacebookMessenger />
+                      </span>
+                    )}
+                    {activeChat.channel === "INSTAGRAM" && (
+                      <span className="w-full h-full rounded-full bg-gradient-to-tr from-[#FD1D1D] via-[#E1306C] to-[#833AB4] flex items-center justify-center text-white text-[8px]">
+                        <FaInstagram />
+                      </span>
+                    )}
+                  </span>
                 </div>
                 <div>
-                  <p className="font-bold text-white text-sm leading-none">
-                    {activeChat.contact?.name}
+                  <p className="font-bold text-white text-sm leading-none flex items-center gap-1.5">
+                    {activeChat.contact?.name || (activeChat.contact?.username ? `@${activeChat.contact.username}` : "Customer")}
                   </p>
                   <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                    <span
-                      className={`w-1.5 h-1.5 rounded-full ${
-                        activeChat.status === "OPEN"
-                          ? "bg-[#25D366]"
-                          : "bg-[#667781]"
-                      }`}
-                    />
                     <p className="text-[10px] text-emerald-200 font-medium">
-                      {activeChat.contact?.phone} ·{" "}
-                      {activeChat.status === "OPEN" ? "Online" : "Offline"}
+                      {activeChat.channel === "INSTAGRAM"
+                        ? `via Instagram DM • @${activeChat.contact?.username || activeChat.contact?.name || "user"}`
+                        : activeChat.channel === "MESSENGER"
+                          ? `via Facebook Messenger`
+                          : `via WhatsApp • ${activeChat.contact?.phone || ""}`}
                     </p>
                     {activeViewers.filter((v) => String(v.userId) !== String(user?.id)).length > 0 && (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#064E47] text-emerald-100 text-[10px] font-medium border border-emerald-400/30 ml-2 shadow-sm">
@@ -1962,7 +2518,7 @@ useEffect(() => {
               </div>
 
 
-              
+
               <div className="flex items-center gap-2">
 
                 {activeChat.status === "OPEN" ? (
@@ -2044,7 +2600,7 @@ useEffect(() => {
                     </div>
                   )}
                 </div>
-                   {/* ⭐ NEW: Details Toggle Button ⭐ */}
+                {/* ⭐ NEW: Details Toggle Button ⭐ */}
                 <button
                   onClick={() => setShowContactPanel((prev) => !prev)}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-white/15 hover:bg-white/25 backdrop-blur-sm border border-white/10 rounded-xl text-white text-xs font-semibold transition duration-150"
@@ -2140,12 +2696,21 @@ useEffect(() => {
                 backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23075E54' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
               }}
             >
-              {messages.length > 0 && (
-                <div className="flex items-center justify-center mb-2">
-                  <span className="px-4 py-1 bg-white/80 backdrop-blur-sm rounded-lg text-[10px] font-semibold text-[#54656F] shadow-sm">
-                    {formatDate(messages[0]?.createdAt)}
-                  </span>
+              {loadingMessages ? (
+                <div className="flex items-center justify-center py-16">
+                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/90 backdrop-blur-sm rounded-full text-xs font-semibold text-[#075E54] shadow-sm">
+                    <RefreshCw size={13} className="animate-spin text-[#25D366]" />
+                    <span>Loading messages...</span>
+                  </div>
                 </div>
+              ) : (
+                messages.length > 0 && (
+                  <div className="flex items-center justify-center mb-2">
+                    <span className="px-4 py-1 bg-white/80 backdrop-blur-sm rounded-lg text-[10px] font-semibold text-[#54656F] shadow-sm">
+                      {formatDate(messages[0]?.createdAt)}
+                    </span>
+                  </div>
+                )
               )}
 
               {messages.map((msg) => {
@@ -2157,7 +2722,7 @@ useEffect(() => {
 
                 const getMediaUrl = (mediaUrl) => {
                   if (!mediaUrl) return "";
-                  
+
                   let cleaned = mediaUrl;
                   if (cleaned.startsWith("undefined/")) {
                     cleaned = cleaned.replace("undefined/", "");
@@ -2185,11 +2750,10 @@ useEffect(() => {
                       className={`flex ${isAgent ? "justify-end" : "justify-start"}`}
                     >
                       <div
-                        className={`max-w-[65%] rounded-lg px-3 py-2 shadow-sm text-[13px] relative opacity-60 ${
-                          isAgent
-                            ? "bg-[#D9FDD3] text-[#111B21] rounded-tr-none"
-                            : "bg-white text-[#111B21] rounded-tl-none"
-                        }`}
+                        className={`max-w-[65%] rounded-lg px-3 py-2 shadow-sm text-[13px] relative opacity-60 ${isAgent
+                          ? "bg-[#D9FDD3] text-[#111B21] rounded-tr-none"
+                          : "bg-white text-[#111B21] rounded-tl-none"
+                          }`}
                       >
                         <p className="italic text-[#667781] text-xs flex items-center gap-1">
                           🚫 This message was deleted
@@ -2264,11 +2828,10 @@ useEffect(() => {
 
                     {/* Message Bubble */}
                     <div
-                      className={`max-w-[65%] rounded-lg px-3 py-2 shadow-sm text-[13px] relative ${
-                        isAgent
-                          ? "bg-[#D9FDD3] text-[#111B21] rounded-tr-none"
-                          : "bg-white text-[#111B21] rounded-tl-none"
-                      }`}
+                      className={`max-w-[65%] rounded-lg px-3 py-2 shadow-sm text-[13px] relative ${isAgent
+                        ? "bg-[#D9FDD3] text-[#111B21] rounded-tr-none"
+                        : "bg-white text-[#111B21] rounded-tl-none"
+                        }`}
                     >
                       {!isAgent && (
                         <div className="flex items-center gap-1 mb-1">
@@ -2401,7 +2964,7 @@ useEffect(() => {
                                 ? msg.mediaSize < 1024 * 1024
                                   ? (msg.mediaSize / 1024).toFixed(1) + " KB"
                                   : (msg.mediaSize / (1024 * 1024)).toFixed(1) +
-                                    " MB"
+                                  " MB"
                                 : ""}
                             </p>
                             {msg.caption && (
@@ -2632,9 +3195,9 @@ useEffect(() => {
                                     className="flex items-center justify-center gap-1.5 py-1.5 px-3 bg-white/70 hover:bg-white border border-[#075E54]/20 rounded-lg text-[12px] font-semibold text-[#075E54] hover:text-[#064E47] transition shadow-xs"
                                   >
                                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                                      <polyline points="15 3 21 3 21 9"/>
-                                      <line x1="10" y1="14" x2="21" y2="3"/>
+                                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                                      <polyline points="15 3 21 3 21 9" />
+                                      <line x1="10" y1="14" x2="21" y2="3" />
                                     </svg>
                                     <span>{title}</span>
                                   </a>
@@ -2649,7 +3212,7 @@ useEffect(() => {
                                     className="flex items-center justify-center gap-1.5 py-1.5 px-3 bg-white/70 hover:bg-white border border-[#075E54]/20 rounded-lg text-[12px] font-semibold text-[#075E54] hover:text-[#064E47] transition shadow-xs"
                                   >
                                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                                      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
                                     </svg>
                                     <span>{title}</span>
                                   </a>
@@ -2675,6 +3238,19 @@ useEffect(() => {
 
                       {/* Time + Ticks */}
                       <div className="mt-1 flex items-center gap-1 justify-end text-[10px] text-[#667781]">
+                        {!isAgent && (
+                          <span className="inline-flex items-center mr-0.5">
+                            {(activeChat.channel === "WHATSAPP" || !activeChat.channel) && (
+                              <FaWhatsapp className="text-[#25D366] text-[11px]" title="via WhatsApp" />
+                            )}
+                            {activeChat.channel === "MESSENGER" && (
+                              <FaFacebookMessenger className="text-[#0084FF] text-[11px]" title="via Messenger" />
+                            )}
+                            {activeChat.channel === "INSTAGRAM" && (
+                              <FaInstagram className="text-[#E1306C] text-[11px]" title="via Instagram" />
+                            )}
+                          </span>
+                        )}
                         <span>{timeStr}</span>
                         {isAgent && (
                           <>
@@ -2707,7 +3283,7 @@ useEffect(() => {
                 );
               })}
 
-              {messages.length === 0 && (
+              {!loadingMessages && messages.length === 0 && (
                 <div className="flex flex-col items-center justify-center my-12">
                   <div className="w-20 h-20 rounded-full bg-white/60 backdrop-blur-sm flex items-center justify-center mb-3 shadow-sm">
                     <FaWhatsapp className="w-10 h-10 text-[#25D366]/40" />
@@ -2773,10 +3349,10 @@ useEffect(() => {
                   </div>
                 )} */}
 
-                {/* REPLACE WITH (adds the banner right underneath it): ** */}
+              {/* REPLACE WITH (adds the banner right underneath it): ** */}
 
 
-                {["RESOLVED", "CLOSED"].includes(activeChat.status) &&
+              {["RESOLVED", "CLOSED"].includes(activeChat.status) &&
                 !activeChat.contact?.isBlocked && (
                   <div className="flex items-center justify-between text-xs bg-amber-50 text-amber-800 px-4 py-2.5 rounded-xl border border-amber-100">
                     <span className="font-semibold">
@@ -2796,7 +3372,7 @@ useEffect(() => {
                   </div>
                 )}
 
-                            {/* ── 24-Hour Window Expired Alert ── */}
+              {/* ── 24-Hour Window Expired Alert ── */}
               {activeChat &&
                 is24hExpired(activeChat) &&
                 activeChat.status === "OPEN" &&
@@ -2804,77 +3380,22 @@ useEffect(() => {
                   <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200/80 rounded-xl text-xs text-amber-900 shadow-xs mb-2">
                     <AlertTriangle size={14} className="text-amber-600 shrink-0" />
                     <span className="font-medium text-[11px] text-amber-800">
-                      ℹ️ It has been more than 24 hours since the customer messaged you. You can only respond using a Template.
+                      {activeChat.channel === "MESSENGER" || activeChat.channel === "INSTAGRAM"
+                        ? "ℹ️ Standard 24h window has ended. Responses will be sent using the 7-day Human Agent window."
+                        : "ℹ️ It has been more than 24 hours since the customer messaged you. You can only respond using a Template."}
                     </span>
                   </div>
                 )}
 
-              
 
-              {/* File Preview */}
-              {selectedFile && (
-                <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-emerald-100 shadow-sm">
-                  {filePreview ? (
-                    <img
-                      src={filePreview}
-                      alt="preview"
-                      className="w-16 h-16 rounded-lg object-cover shrink-0 border border-emerald-100"
-                    />
-                  ) : (
-                    <div className="w-16 h-16 rounded-lg bg-[#075E54]/10 flex flex-col items-center justify-center shrink-0">
-                      <Paperclip size={20} className="text-[#075E54]" />
-                      <span className="text-[9px] text-[#075E54] font-bold mt-1 uppercase">
-                        {selectedFile.name.split(".").pop()}
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-[#111B21] truncate">
-                      {selectedFile.name}
-                    </p>
-                    <p className="text-[10px] text-[#667781] mb-1.5">
-                      {selectedFile.size < 1024 * 1024
-                        ? (selectedFile.size / 1024).toFixed(1) + " KB"
-                        : (selectedFile.size / (1024 * 1024)).toFixed(1) +
-                          " MB"}
-                    </p>
-                    <input
-                      type="text"
-                      placeholder="Add a caption..."
-                      value={fileCaption}
-                      onChange={(e) => setFileCaption(e.target.value)}
-                      className="w-full text-xs py-1 px-2 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#25D366]/30"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1.5 shrink-0">
-                    <button
-                      type="button"
-                      onClick={handleCancelFile}
-                      className="p-1.5 rounded-full bg-red-50 hover:bg-red-100 text-red-500 transition"
-                    >
-                      <X size={14} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSendFile}
-                      disabled={uploadingFile}
-                      className="p-1.5 rounded-full bg-[#075E54] hover:bg-[#064E47] text-white transition disabled:opacity-50"
-                    >
-                      {uploadingFile ? (
-                        <RefreshCw size={14} className="animate-spin" />
-                      ) : (
-                        <Send size={14} />
-                      )}
-                    </button>
-                  </div>
-                </div>
-              )}
+
+
 
               {/* Input Row */}
               <div className="flex items-center gap-2">
-              
 
-                              {/* ── Emoji Picker Button ── */}
+
+                {/* ── Emoji Picker Button ── */}
                 <div className="relative" ref={emojiPickerRef}>
                   <button
                     type="button"
@@ -2886,7 +3407,7 @@ useEffect(() => {
                     <Smile size={22} />
                   </button>
 
-                                  {/* Emoji Picker Popup - Ultra Compact */}
+                  {/* Emoji Picker Popup - Ultra Compact */}
                   {showEmojiPicker && (
                     <div className="absolute bottom-full left-0 mb-2 z-50 shadow-2xl rounded-xl overflow-hidden border border-emerald-100 animate-in fade-in slide-in-from-bottom-2 duration-150">
                       <EmojiPicker
@@ -2921,7 +3442,7 @@ useEffect(() => {
                   onChange={handleFileSelect}
                 />
 
-                                {/* ── WhatsApp-Style Hidden File Inputs ── */}
+                {/* ── WhatsApp-Style Hidden File Inputs ── */}
                 <input
                   type="file"
                   ref={documentInputRef}
@@ -2952,7 +3473,7 @@ useEffect(() => {
                   onChange={handleFileSelect}
                 />
 
-                              {/* ── NEW WhatsApp-Style Attach Button with Menu ── */}
+                {/* ── NEW WhatsApp-Style Attach Button with Menu ── */}
                 <div className="relative" ref={attachMenuRef}>
                   <button
                     type="button"
@@ -2964,7 +3485,7 @@ useEffect(() => {
                     <Paperclip size={20} className="rotate-45" />
                   </button>
 
-                                    {/* ── Popup Attach Menu - Compact ── */}
+                  {/* ── Popup Attach Menu - Compact ── */}
                   {showAttachMenu && (
                     <div className="absolute bottom-full left-0 mb-2 z-50 bg-white rounded-xl shadow-2xl border border-emerald-100 overflow-hidden min-w-[200px] animate-in fade-in slide-in-from-bottom-2 duration-150">
                       {/* Document */}
@@ -2975,11 +3496,11 @@ useEffect(() => {
                       >
                         <div className="w-7 h-7 rounded-full bg-[#7F66FF]/10 flex items-center justify-center shrink-0">
                           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7F66FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                            <polyline points="14 2 14 8 20 8"/>
-                            <line x1="16" y1="13" x2="8" y2="13"/>
-                            <line x1="16" y1="17" x2="8" y2="17"/>
-                            <polyline points="10 9 9 9 8 9"/>
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <polyline points="14 2 14 8 20 8" />
+                            <line x1="16" y1="13" x2="8" y2="13" />
+                            <line x1="16" y1="17" x2="8" y2="17" />
+                            <polyline points="10 9 9 9 8 9" />
                           </svg>
                         </div>
                         <span className="text-xs font-medium text-[#111B21]">Document</span>
@@ -2993,9 +3514,9 @@ useEffect(() => {
                       >
                         <div className="w-7 h-7 rounded-full bg-[#007BFC]/10 flex items-center justify-center shrink-0">
                           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#007BFC" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                            <circle cx="8.5" cy="8.5" r="1.5"/>
-                            <polyline points="21 15 16 10 5 21"/>
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                            <circle cx="8.5" cy="8.5" r="1.5" />
+                            <polyline points="21 15 16 10 5 21" />
                           </svg>
                         </div>
                         <span className="text-xs font-medium text-[#111B21]">Photos & videos</span>
@@ -3027,8 +3548,8 @@ useEffect(() => {
                       >
                         <div className="w-7 h-7 rounded-full bg-[#F7943D]/10 flex items-center justify-center shrink-0">
                           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F7943D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M3 18v-6a9 9 0 0 1 18 0v6"/>
-                            <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/>
+                            <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
+                            <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" />
                           </svg>
                         </div>
                         <span className="text-xs font-medium text-[#111B21]">Audio</span>
@@ -3118,7 +3639,18 @@ useEffect(() => {
                   </div>
                 )}
 
-                {typedMessage.trim() || selectedFile ? (
+                {activeChat?.channel === "INSTAGRAM" && (
+                  <span
+                    className={`text-[10px] font-medium mr-1 ${new TextEncoder().encode(typedMessage).length > 900
+                      ? "text-red-500 font-bold"
+                      : "text-[#667781]"
+                      }`}
+                  >
+                    {new TextEncoder().encode(typedMessage).length}/1000 bytes
+                  </span>
+                )}
+
+                {typedMessage.trim() ? (
                   <button
                     type="submit"
                     disabled={activeChat.contact?.isBlocked}
@@ -3152,28 +3684,51 @@ useEffect(() => {
             className="flex-1 flex flex-col items-center justify-center p-6"
             style={{ backgroundColor: "#F0F2F5" }}
           >
-            <div className="bg-white rounded-3xl shadow-sm border border-emerald-100 p-10 flex flex-col items-center max-w-sm">
-              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-[#25D366]/20 to-[#128C7E]/20 flex items-center justify-center mb-4">
-                <FaWhatsapp className="w-12 h-12 text-[#25D366]" />
-              </div>
-              <h3 className="text-xl font-bold text-[#111B21] mb-1">
-                WhatsApp Business
-              </h3>
-              <p className="text-sm text-[#667781] text-center mb-4">
-                Send and receive messages from your customers. Select a
-                conversation to get started.
-              </p>
-              <div className="flex items-center gap-1.5 text-[10px] text-[#8696A0]">
-                <svg
-                  viewBox="0 0 10 10"
-                  className="w-3 h-3"
-                  fill="currentColor"
-                >
-                  <path d="M5 0a5 5 0 100 10A5 5 0 005 0zm.5 7.5h-1v-1h1v1zm0-2h-1v-3h1v3z" />
-                </svg>
-                End-to-end encrypted
-              </div>
-            </div>
+            {(() => {
+              const currentConfig =
+                channelEmptyStateConfig[selectedChannel] ||
+                channelEmptyStateConfig.ALL;
+              return (
+                <div className="bg-white rounded-3xl shadow-sm border border-emerald-100/80 p-8 md:p-10 flex flex-col items-center max-w-sm text-center animate-in fade-in zoom-in-95 duration-200">
+                  <div
+                    className={`w-20 h-20 rounded-full flex items-center justify-center mb-4 shadow-lg ${currentConfig.iconBg}`}
+                  >
+                    {currentConfig.renderIcon()}
+                  </div>
+                  <h3 className="text-xl font-bold text-[#111B21] mb-1.5">
+                    {currentConfig.title}
+                  </h3>
+                  <p className="text-xs md:text-sm text-[#667781] text-center mb-5 leading-relaxed">
+                    {currentConfig.desc}
+                  </p>
+
+                  {tabFilteredChats.length === 0 && !loading && (
+                    <div className="mb-4 px-3 py-2 bg-[#F0F2F5] rounded-xl text-xs text-[#54656F] flex items-center gap-2">
+                      <span>No {selectedChannel !== "ALL" ? selectedChannel.toLowerCase() : ""} chats in this tab</span>
+                      {selectedChannel !== "ALL" && (
+                        <button
+                          onClick={() => setSelectedChannel("ALL")}
+                          className="text-[#075E54] font-bold hover:underline"
+                        >
+                          Show All
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-1.5 text-[11px] font-medium text-[#8696A0]">
+                    <svg
+                      viewBox="0 0 10 10"
+                      className="w-3 h-3 text-[#075E54]"
+                      fill="currentColor"
+                    >
+                      <path d="M5 0a5 5 0 100 10A5 5 0 005 0zm.5 7.5h-1v-1h1v1zm0-2h-1v-3h1v3z" />
+                    </svg>
+                    <span>{currentConfig.footer}</span>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
       </div>
@@ -3182,32 +3737,42 @@ useEffect(() => {
       {/* ══════════════════════════════════════
           RIGHT PANEL
       ══════════════════════════════════════ */}
-           {activeChat && (
-  <div
-    className={`border-l border-emerald-100 flex flex-col overflow-y-auto shrink-0 bg-white transition-all duration-300 ease-in-out ${
-      showContactPanel ? "w-72 opacity-100" : "w-0 opacity-0 border-l-0"
-    }`}
-  >
-    {/* Profile Header */}
-    <div className="bg-gradient-to-b from-[#075E54] to-[#128C7E] px-6 pt-6 pb-8 flex flex-col items-center text-center relative">
+      {activeChat && (
+        <div
+          className={`border-l border-emerald-100 flex flex-col overflow-y-auto shrink-0 bg-white transition-all duration-300 ease-in-out ${showContactPanel ? "w-72 opacity-100" : "w-0 opacity-0 border-l-0"
+            }`}
+        >
+          {/* Profile Header */}
+          <div className="bg-gradient-to-b from-[#075E54] to-[#128C7E] px-6 pt-6 pb-8 flex flex-col items-center text-center relative">
 
-        {/* ⭐ NEW: Close Button (X) ⭐ */}
-  <button
-    onClick={() => setShowContactPanel(false)}
-    className="absolute top-3 right-3 p-1.5 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition"
-    title="Close panel"
-  >
-    <X size={16} />
-  </button>
-  {/* ⭐ END NEW BUTTON ⭐ */}
-
-            <div
-              className={`w-20 h-20 rounded-full flex items-center justify-center font-bold text-xl ring-4 ring-white/20 shadow-lg mb-3 ${getAvatarStyle(
-                activeChat.contact?.name,
-              )}`}
+            {/* ⭐ NEW: Close Button (X) ⭐ */}
+            <button
+              onClick={() => setShowContactPanel(false)}
+              className="absolute top-3 right-3 p-1.5 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition"
+              title="Close panel"
             >
-              {(activeChat.contact?.name || "C").charAt(0)}
-            </div>
+              <X size={16} />
+            </button>
+            {/* ⭐ END NEW BUTTON ⭐ */}
+
+            {activeChat.contact?.avatarUrl ? (
+              <img
+                src={getAvatarUrl(activeChat.contact.avatarUrl)}
+                alt={activeChat.contact?.name || "Customer"}
+                className="w-20 h-20 rounded-full object-cover ring-4 ring-white/20 shadow-lg mb-3"
+                onError={(e) => {
+                  e.target.style.display = "none";
+                }}
+              />
+            ) : (
+              <div
+                className={`w-20 h-20 rounded-full flex items-center justify-center font-bold text-xl ring-4 ring-white/20 shadow-lg mb-3 ${getAvatarStyle(
+                  activeChat.contact?.name,
+                )}`}
+              >
+                {(activeChat.contact?.name || "C").charAt(0)}
+              </div>
+            )}
             <h3 className="font-bold text-white text-base leading-none">
               {activeChat.contact?.name}
             </h3>
@@ -3216,9 +3781,8 @@ useEffect(() => {
             </p>
             <div className="flex items-center gap-1.5 mt-2">
               <span
-                className={`w-2 h-2 rounded-full ${
-                  activeChat.status === "OPEN" ? "bg-[#25D366]" : "bg-[#667781]"
-                }`}
+                className={`w-2 h-2 rounded-full ${activeChat.status === "OPEN" ? "bg-[#25D366]" : "bg-[#667781]"
+                  }`}
               />
               <span className="text-[10px] text-emerald-200 font-semibold uppercase tracking-wider">
                 {activeChat.status}
@@ -3408,10 +3972,17 @@ useEffect(() => {
           <div className="bg-white rounded-3xl border border-emerald-100 shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-150">
             <div className="px-6 py-4 bg-[#075E54] flex items-center justify-between rounded-t-3xl">
               <div className="flex items-center gap-2.5">
-                <MessageSquarePlus size={16} className="text-white" />
-                <h2 className="text-base font-bold text-white">
-                  New Conversation
-                </h2>
+                <div className="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center text-white">
+                  <FaWhatsapp size={17} />
+                </div>
+                <div>
+                  <h2 className="text-sm font-bold text-white leading-tight">
+                    New WhatsApp Chat
+                  </h2>
+                  <p className="text-[10px] text-emerald-200">
+                    Select a phone contact to start chatting
+                  </p>
+                </div>
               </div>
               <button
                 onClick={() => setShowNewChatModal(false)}
@@ -3484,6 +4055,14 @@ useEffect(() => {
                   </p>
                 )}
               </div>
+
+              {/* Notice about Meta policy */}
+              <div className="pt-2.5 border-t border-[#F0F2F5] text-[10px] text-[#667781] flex items-center gap-1.5">
+                <span className="text-emerald-600 font-bold">ℹ️ Note:</span>
+                <span>
+                  Instagram & Messenger chats appear automatically when customers message your page.
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -3494,7 +4073,7 @@ useEffect(() => {
       ══════════════════════════════════════ */}
       {showArchived && (
         <div className="fixed inset-0 z-50 bg-[#111B21]/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl border border-emerald-100 shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-150">
             {/* Header */}
             <div className="px-6 py-4 bg-[#075E54] flex items-center justify-between rounded-t-3xl">
               <div className="flex items-center gap-2.5">
@@ -3668,9 +4247,9 @@ useEffect(() => {
           </div>
         </div>
       )}
-     
 
-            {/* ══ End Archived Modal ══ */}
+
+      {/* ══ End Archived Modal ══ */}
 
       {/* ══════════════════════════════════════
           LOCATION MODAL
@@ -3771,9 +4350,9 @@ useEffect(() => {
               {/* Helper */}
               <p className="text-[10px] text-[#667781] flex items-center gap-1">
                 <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="10"/>
-                  <line x1="12" y1="8" x2="12" y2="12"/>
-                  <line x1="12" y1="16" x2="12.01" y2="16"/>
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
                 </svg>
                 Find coordinates: Google Maps → right click → copy lat/long
               </p>
@@ -3782,9 +4361,9 @@ useEffect(() => {
               {locationError && (
                 <div className="flex items-center gap-2 px-3 py-2 bg-red-50 rounded-xl border border-red-100">
                   <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="10"/>
-                    <line x1="12" y1="8" x2="12" y2="12"/>
-                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
                   </svg>
                   <p className="text-xs text-red-600 font-medium">{locationError}</p>
                 </div>

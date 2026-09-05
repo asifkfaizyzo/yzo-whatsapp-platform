@@ -42,9 +42,10 @@ export const getAllContactsController = async (req, res) => {
         const limit = parseInt(req.query.limit, 10) || 10;
         const search = req.query.search || '';
         const filter = req.query.filter || 'all';
+        const channel = req.query.channel || null;
         const userId = req.userType === 'USER' ? req.user.id : null;
 
-        const result = await getAllContacts(tenantId, page, limit, search, userId, filter);
+        const result = await getAllContacts(tenantId, page, limit, search, userId, filter, channel);
         return res.status(200).json({ success: true, data: result });
     } catch (error) {
         return res.status(400).json({ success: false, message: error.message });

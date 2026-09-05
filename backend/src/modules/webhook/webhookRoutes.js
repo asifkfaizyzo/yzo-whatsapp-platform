@@ -7,9 +7,11 @@ const router = express.Router();
 
 // Meta verification endpoint (GET)
 router.get('/whatsapp', verifyMetaWebhook);
+router.get('/meta', verifyMetaWebhook);
 
 // Meta message event receiver (POST)
 router.post('/whatsapp', verifyMetaSignature, receiveMetaWebhookEvent);
+router.post('/meta', verifyMetaSignature, receiveMetaWebhookEvent);
 
 
 

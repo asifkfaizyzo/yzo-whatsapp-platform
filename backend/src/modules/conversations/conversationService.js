@@ -8,7 +8,7 @@ import { generateSignedUrl } from "../../lib/utils/signedUrl.js";
 import { createAuditLog } from "../audit/auditLogService.js";
 
 //AUTO / MANUAL: Get or create conversation
-export const getOrCreateConversation = async (contactId, tenantId) => {
+export const getOrCreateConversation = async (contactId, tenantId, channel = 'WHATSAPP') => {
   // 1️⃣ Check if conversation exists
   let conversation = await prisma.conversation.findUnique({
     where: { contactId },
@@ -19,22 +19,13 @@ export const getOrCreateConversation = async (contactId, tenantId) => {
     return conversation;
   }
 
-    // ✅ New conversation created
-  // conversation = await prisma.conversation.create({
-  //   data: {
-  //     contactId,
-  //     tenantId,
-  //     status: 'OPEN',
-  //     unreadCount: 0,   // ← Starts at 0
-  //   },
-  // });
-
   // 3️⃣ If not → create new conversation
   conversation = await prisma.conversation.create({
     data: {
       contactId,
       tenantId,
       status: "OPEN",
+      channel: channel || "WHATSAPP",
     },
   });
 
@@ -74,6 +65,7 @@ export const getAssignedConversations = async ({
   limit,
   status,
   assignmentType,
+  channel,
 }) => {
   try {
     console.log("🔥 SERVICE called with:", {
@@ -81,6 +73,7 @@ export const getAssignedConversations = async ({
       tenantId,
       status,
       assignmentType,
+      channel,
     });
 
     const skip = (page - 1) * limit;
@@ -88,6 +81,10 @@ export const getAssignedConversations = async ({
       tenantId: tenantId,
     };
     whereClause.isArchived = false;
+
+    if (channel && channel !== "ALL") {
+      whereClause.channel = channel;
+    }
 
     console.log("🔥 whereClause:", JSON.stringify(whereClause));
 
@@ -118,6 +115,10 @@ export const getAssignedConversations = async ({
             id: true,
             name: true,
             phone: true,
+            channel: true,
+            channelId: true,
+            username: true,
+            avatarUrl: true,
             assignedTo: true,
             email: true,
             company: true,
@@ -144,37 +145,62 @@ export const getAssignedConversations = async ({
       take: limit,
     });
 
-    // ✅ ADD THIS - Get counts for tabs
-const allCount = await prisma.conversation.count({
-  where: {
-    tenantId,
-    isArchived: false,
-  },
-});
+    // ✅ Get counts for status tabs
+    const allCount = await prisma.conversation.count({
+      where: {
+        tenantId,
+        isArchived: false,
+      },
+    });
 
-const unreadCount = await prisma.conversation.count({
-  where: {
-    tenantId,
-    isArchived: false,
-    unreadCount: { gt: 0 },   // ← Has unread messages
-  },
-});
+    const unreadCount = await prisma.conversation.count({
+      where: {
+        tenantId,
+        isArchived: false,
+        unreadCount: { gt: 0 },
+      },
+    });
 
-const openCount = await prisma.conversation.count({
-  where: {
-    tenantId,
-    isArchived: false,
-    status: 'OPEN',
-  },
-});
+    const openCount = await prisma.conversation.count({
+      where: {
+        tenantId,
+        isArchived: false,
+        status: 'OPEN',
+      },
+    });
 
-const closedCount = await prisma.conversation.count({
-  where: {
-    tenantId,
-    isArchived: false,
-    status: { in: ['CLOSED', 'RESOLVED'] },
-  },
-});
+    const closedCount = await prisma.conversation.count({
+      where: {
+        tenantId,
+        isArchived: false,
+        status: { in: ['CLOSED', 'RESOLVED'] },
+      },
+    });
+
+    // ✅ Get omnichannel platform counts (All, WhatsApp, Messenger, Instagram)
+    const rawChannelCounts = await prisma.conversation.groupBy({
+      by: ['channel'],
+      where: {
+        tenantId,
+        isArchived: false,
+        ...(assignType === "my" && userId ? { contact: { assignedTo: userId } } : {}),
+      },
+      _count: { id: true },
+    });
+
+    const channelCounts = {
+      ALL: 0,
+      WHATSAPP: 0,
+      MESSENGER: 0,
+      INSTAGRAM: 0,
+    };
+
+    rawChannelCounts.forEach((c) => {
+      if (c.channel && channelCounts[c.channel] !== undefined) {
+        channelCounts[c.channel] = c._count.id;
+      }
+      channelCounts.ALL += c._count.id;
+    });
 
     console.log("🔥 Conversations found:", conversations.length);
 
@@ -188,12 +214,13 @@ const closedCount = await prisma.conversation.count({
       page,
       limit,
       totalPages: Math.ceil(total / limit),
-       counts: {              // ✅ ADD - for tab badges
-    all:    allCount,
-    unread: unreadCount,
-    open:   openCount,
-    closed: closedCount,
-  },
+      counts: {
+        all: allCount,
+        unread: unreadCount,
+        open: openCount,
+        closed: closedCount,
+      },
+      channelCounts,
     };
   } catch (error) {
     console.error("❌ SERVICE ERROR message:", error.message);

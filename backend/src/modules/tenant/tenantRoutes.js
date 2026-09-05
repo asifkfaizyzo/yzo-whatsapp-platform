@@ -86,4 +86,9 @@ router.put('/auto-reopen-config', verifyTenant, validate(updateAutoReopenSchema)
 router.get('/whatsapp-credentials', verifyTenant, tenantController.getWhatsappCredentials);
 router.put('/whatsapp-credentials', verifyTenant, tenantController.updateWhatsappCredentials);
 
+// ===================== META (FB & IG) CHANNELS =====================
+router.get('/meta-channels/status', verifyTenant, tenantController.getMetaChannelsStatus);
+router.post('/meta-channels/connect', verifyTenant, tenantController.connectMetaChannels);
+router.delete('/meta-channels/disconnect', verifyTenant, tenantController.disconnectMetaChannels);
+
 export default router;

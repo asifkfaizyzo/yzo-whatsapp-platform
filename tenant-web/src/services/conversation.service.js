@@ -23,10 +23,14 @@ export const createConversation = async (contactId) => {
 /**
  * Get all conversations assigned to the logged-in agent/user
  */
-export const getAssignedConversations = async (page = 1, limit = 20, filter = "all") => {
+export const getAssignedConversations = async (page = 1, limit = 20, filter = "all", channel = undefined) => {
   try {
+    const params = { page, limit, filter };
+    if (channel && channel !== "ALL") {
+      params.channel = channel;
+    }
     const response = await api.get(`${CONV_BASE_URL}/assigned`, {
-      params: { page, limit, filter },  // ✅ simple - backend handles filter
+      params,
     });
 
     return {

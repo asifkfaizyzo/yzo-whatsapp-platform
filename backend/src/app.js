@@ -55,6 +55,12 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Allow Meta and search crawlers cleanly
+app.get('/robots.txt', (req, res) => {
+  res.type('text/plain');
+  res.send('User-agent: *\nAllow: /\n');
+});
+
 // Apply security headers
 app.use(
   helmet({
