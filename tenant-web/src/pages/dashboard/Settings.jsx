@@ -33,7 +33,7 @@ import {
   Sparkles,
   ShoppingBag,
 } from "lucide-react";
-import { FaFacebookMessenger, FaInstagram } from "react-icons/fa";
+import { FaFacebookMessenger, FaInstagram, FaWhatsapp } from "react-icons/fa";
 import { getTags, createTag } from "../../services/tag.service";
 import { useToast } from "../../context/ToastContext";
 import {
@@ -119,11 +119,32 @@ const COUNTRY_OPTIONS = [
 export default function SettingsPage() {
   const toast = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") || "profile");
+  const [activeTab, setActiveTab] = useState(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "whatsapp" || tab === "channels" || tab === "facebook" || tab === "instagram") return "connectors";
+    return tab || "profile";
+  });
+  const [selectedConnector, setSelectedConnector] = useState(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "channels" || tab === "facebook") return "facebook";
+    if (tab === "instagram") return "instagram";
+    return "whatsapp";
+  });
 
   useEffect(() => {
     const tab = searchParams.get("tab");
-    if (tab) {
+    if (tab === "whatsapp") {
+      setActiveTab("connectors");
+      setSelectedConnector("whatsapp");
+    } else if (tab === "channels" || tab === "facebook") {
+      setActiveTab("connectors");
+      setSelectedConnector("facebook");
+    } else if (tab === "instagram") {
+      setActiveTab("connectors");
+      setSelectedConnector("instagram");
+    } else if (tab === "connectors") {
+      setActiveTab("connectors");
+    } else if (tab) {
       setActiveTab(tab);
     } else {
       setActiveTab("profile");
@@ -363,11 +384,17 @@ export default function SettingsPage() {
   };
 
   useEffect(() => {
-    if (activeTab === "whatsapp" && userRole === "admin") {
+    if (
+      (activeTab === "connectors" ||
+        activeTab === "whatsapp" ||
+        activeTab === "channels") &&
+      userRole === "admin"
+    ) {
       fetchWhatsappConfig();
       fetchWhatsappStatusData();
+      fetchMetaChannels();
     }
-  }, [activeTab]);
+  }, [activeTab, userRole]);
 
   // ✅ Fetch WhatsApp status globally (needed for locking profile fields)
   useEffect(() => {
@@ -487,19 +514,36 @@ export default function SettingsPage() {
     }
   };
 
-  useEffect(() => {
-    if (activeTab === "channels" && userRole === "admin") {
-      fetchMetaChannels();
-    }
-  }, [activeTab, userRole]);
-
-  const handleSaveMetaChannels = async (e) => {
-    e.preventDefault();
+  const handleSaveFacebook = async (e) => {
+    e?.preventDefault?.();
     setMetaSaving(true);
     try {
       const payload = {
         facebookPageId: metaForm.facebookPageId,
         facebookPageName: metaForm.facebookPageName,
+      };
+      if (metaForm.facebookPageAccessToken) {
+        payload.facebookPageAccessToken = metaForm.facebookPageAccessToken;
+      }
+      const res = await connectMetaChannels(payload);
+      if (res.success) {
+        toast.success("Facebook Messenger connector updated successfully!");
+        fetchMetaChannels();
+      } else {
+        toast.error(res.message || "Failed to update Facebook Messenger");
+      }
+    } catch (err) {
+      toast.error(err.message || "Failed to update Facebook Messenger");
+    } finally {
+      setMetaSaving(false);
+    }
+  };
+
+  const handleSaveInstagram = async (e) => {
+    e?.preventDefault?.();
+    setMetaSaving(true);
+    try {
+      const payload = {
         instagramAccountId: metaForm.instagramAccountId,
         instagramUsername: metaForm.instagramUsername,
       };
@@ -508,13 +552,13 @@ export default function SettingsPage() {
       }
       const res = await connectMetaChannels(payload);
       if (res.success) {
-        toast.success("Meta channels updated successfully!");
+        toast.success("Instagram Direct connector updated successfully!");
         fetchMetaChannels();
       } else {
-        toast.error(res.message || "Failed to update Meta channels");
+        toast.error(res.message || "Failed to update Instagram Direct");
       }
     } catch (err) {
-      toast.error(err.message || "Failed to update Meta channels");
+      toast.error(err.message || "Failed to update Instagram Direct");
     } finally {
       setMetaSaving(false);
     }
@@ -524,7 +568,13 @@ export default function SettingsPage() {
     try {
       const res = await disconnectMetaChannels(channel);
       if (res.success) {
-        toast.success(`${channel || "Meta"} channel disconnected successfully`);
+        const channelName =
+          channel === "FACEBOOK"
+            ? "Facebook Messenger"
+            : channel === "INSTAGRAM"
+            ? "Instagram Direct"
+            : "Meta";
+        toast.success(`${channelName} connector disconnected successfully`);
         fetchMetaChannels();
       } else {
         toast.error(res.message || "Failed to disconnect");
@@ -845,15 +895,9 @@ export default function SettingsPage() {
               adminOnly: true,
             },
             {
-              id: "whatsapp",
-              label: "WhatsApp API",
-              icon: <Smartphone size={15} />,
-              adminOnly: true,
-            },
-            {
-              id: "channels",
-              label: "Facebook & Instagram",
-              icon: <MessageSquare size={15} />,
+              id: "connectors",
+              label: "Connectors",
+              icon: <Zap size={15} />,
               adminOnly: true,
             },
           ]
@@ -1468,398 +1512,824 @@ export default function SettingsPage() {
             </>
           )}
 
-          {/* Tab 2: WhatsApp Settings - UNCHANGED */}
-          {activeTab === "whatsapp" && (
+          {/* Unified Channel Connectors Tab (WhatsApp, Facebook Messenger, Instagram Direct) */}
+          {(activeTab === "connectors" ||
+            activeTab === "whatsapp" ||
+            activeTab === "channels") && (
             <div className="space-y-6">
-              {loadingStatus ? (
-                <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex items-center gap-3 text-xs text-slate-400">
-                  <RefreshCw
-                    size={14}
-                    className="animate-spin text-[#125EF2]"
-                  />
-                  <span>Checking WhatsApp connection status...</span>
-                </div>
-              ) : whatsappStatus.isConnected ? (
-                <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-6">
-                  {/* Header info & actions */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-100">
-                    <div className="flex items-center gap-3.5">
-                      <div className="w-12 h-12 bg-emerald-500 text-white rounded-2xl flex items-center justify-center shadow-md shadow-emerald-500/20">
-                        <CheckCircle2 size={24} />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="text-base font-bold text-slate-900">
-                            {whatsappStatus.health?.verifiedName || "WhatsApp Business Account"}
-                          </h3>
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200/60">
-                            CONNECTED & ACTIVE
-                          </span>
-                          {whatsappStatus.health?.isMock && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200/60">
-                              MOCK MODE
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-slate-500 font-medium mt-0.5">
-                          {whatsappStatus.health?.displayPhoneNumber || "Meta Cloud API Connected"} · Verified by Meta
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={fetchWhatsappStatusData}
-                        className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700"
-                        title="Refresh live Meta health & limits"
-                      >
-                        <RefreshCw size={13} className={loadingStatus ? "animate-spin text-[#125EF2]" : ""} />
-                        <span>Refresh</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* 4-Card Metrics Grid */}
-                  <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {/* 1. Quality Rating */}
-                    <div className="bg-slate-50/80 border border-slate-200/60 rounded-2xl p-4 flex flex-col justify-between">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Phone Quality</span>
-                        <Activity size={15} className="text-slate-400" />
-                      </div>
-                      <div className="mt-3">
-                        {whatsappStatus.health?.qualityRating === "GREEN" ? (
-                          <div className="flex items-center gap-2">
-                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                            <span className="text-sm font-extrabold text-emerald-700">High Quality (GREEN)</span>
-                          </div>
-                        ) : whatsappStatus.health?.qualityRating === "YELLOW" ? (
-                          <div className="flex items-center gap-2">
-                            <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                            <span className="text-sm font-extrabold text-amber-700">Medium Quality (YELLOW)</span>
-                          </div>
-                        ) : whatsappStatus.health?.qualityRating === "RED" ? (
-                          <div className="flex items-center gap-2">
-                            <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-                            <span className="text-sm font-extrabold text-rose-700">Low Quality (RED)</span>
-                          </div>
-                        ) : (
-                          <span className="text-sm font-bold text-slate-700">Good</span>
-                        )}
-                        <p className="text-[10px] text-slate-400 font-medium mt-1">Calculated by Meta from customer feedback</p>
-                      </div>
-                    </div>
-
-                    {/* 2. Daily Messaging Tier */}
-                    <div className="bg-slate-50/80 border border-slate-200/60 rounded-2xl p-4 flex flex-col justify-between">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Daily Messaging Limit</span>
-                        <Zap size={15} className="text-slate-400" />
-                      </div>
-                      <div className="mt-3">
-                        <div className="text-sm font-extrabold text-slate-900">
-                          {whatsappStatus.health?.tierName || "Tier 1K (1,000 / 24 hrs)"}
-                        </div>
-                        <p className="text-[10px] text-slate-400 font-medium mt-1">Unique recipients per rolling 24h</p>
-                      </div>
-                    </div>
-
-                    {/* 3. 24h Broadcast Usage */}
-                    <div className="bg-slate-50/80 border border-slate-200/60 rounded-2xl p-4 flex flex-col justify-between">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">24h Broadcasts Sent</span>
-                        <BarChart3 size={15} className="text-slate-400" />
-                      </div>
-                      <div className="mt-3">
-                        <div className="text-sm font-extrabold text-slate-900 flex items-baseline justify-between">
-                          <span>{whatsappStatus.health?.sentLast24h || 0}</span>
-                          <span className="text-[11px] font-semibold text-slate-400">
-                            Limit: {whatsappStatus.health?.messagingLimitNumber || 1000}
-                          </span>
-                        </div>
-                        <div className="w-full bg-slate-200 rounded-full h-1.5 mt-2 overflow-hidden">
-                          <div
-                            className="bg-[#125EF2] h-1.5 rounded-full transition-all"
-                            style={{
-                              width: `${Math.min(
-                                100,
-                                Math.round(
-                                  ((whatsappStatus.health?.sentLast24h || 0) /
-                                    (whatsappStatus.health?.messagingLimitNumber || 1000)) *
-                                    100
-                                )
-                              )}%`,
-                            }}
-                          />
-                        </div>
-                        <p className="text-[10px] text-slate-400 font-medium mt-1">
-                          {whatsappStatus.health?.remaining24h ?? 1000} remaining today
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* 4. Verification & IDs */}
-                    <div className="bg-slate-50/80 border border-slate-200/60 rounded-2xl p-4 flex flex-col justify-between">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Meta Verification</span>
-                        <ShieldCheck size={15} className="text-slate-400" />
-                      </div>
-                      <div className="mt-3">
-                        <div className="text-sm font-extrabold text-emerald-700 flex items-center gap-1.5">
-                          <CheckCircle2 size={15} />
-                          <span>Meta Cloud Verified</span>
-                        </div>
-                        <p className="text-[10px] font-mono text-slate-400 truncate mt-1" title={whatsappStatus.phoneNumberId || ""}>
-                          Phone ID: {whatsappStatus.phoneNumberId ? `${whatsappStatus.phoneNumberId.slice(0, 10)}...` : "Configured"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Meta Health Status / Limitation Alert if any */}
-                  {whatsappStatus.health?.canSendMessage === "LIMITED" && whatsappStatus.health?.limitations?.length > 0 && (
-                    <div className="rounded-2xl bg-amber-50 border border-amber-200 p-4 flex items-start gap-3">
-                      <div className="p-2 rounded-xl bg-amber-100 text-amber-700 shrink-0 mt-0.5">
-                        <AlertTriangle size={16} />
-                      </div>
-                      <div className="text-xs text-amber-900">
-                        <span className="font-bold">Meta Account Limitation Active:</span>
-                        <ul className="mt-1 list-disc list-inside space-y-0.5 text-amber-800">
-                          {whatsappStatus.health.limitations.map((info, idx) => (
-                            <li key={idx}>{info}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-                  )}
-
-                  {whatsappStatus.health?.canSendMessage === "BLOCKED" && (
-                    <div className="rounded-2xl bg-rose-50 border border-rose-200 p-4 flex items-start gap-3">
-                      <div className="p-2 rounded-xl bg-rose-100 text-rose-700 shrink-0 mt-0.5">
-                        <AlertCircle size={16} />
-                      </div>
-                      <div className="text-xs text-rose-900">
-                        <span className="font-bold">Meta Messaging Blocked:</span>
-                        <p className="mt-1 text-rose-800">
-                          {whatsappStatus.health?.errors?.[0]?.error_description || "One or more nodes are blocked by Meta. Please check your Meta Business Suite."}
-                        </p>
-                        {whatsappStatus.health?.errors?.[0]?.possible_solution && (
-                          <p className="mt-0.5 text-rose-700 font-medium">
-                            Solution: {whatsappStatus.health.errors[0].possible_solution}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Current Tier & Automatic Upgrades Note */}
-                  <div className="rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 p-4 flex items-start gap-3">
-                    <div className="p-2 rounded-xl bg-blue-100 text-blue-700 shrink-0 mt-0.5">
-                      <Sparkles size={16} />
-                    </div>
-                    <div className="text-xs text-blue-950 space-y-3">
-                      <div>
-                        <span className="font-bold text-blue-900 block mb-1">
-                          Current Messaging Limit: {whatsappStatus.health?.tierName || "Tier 1K (1,000 / 24 hrs)"}
-                        </span>
-                        <p className="text-blue-800/80 leading-relaxed">
-                          Meta calculates this tier based on your business verification and sending history. When you maintain a <strong>High Quality (GREEN)</strong> rating and actively send campaigns, Meta automatically upgrades your daily tier limit (from 250 ➔ 1K/2K ➔ 10K ➔ 100K ➔ Unlimited).
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-gradient-to-r from-amber-50/60 via-slate-50 to-emerald-50/40 border border-slate-200 rounded-2xl p-5 shadow-sm sm:flex sm:items-center sm:justify-between gap-4">
-                  <div className="flex items-center gap-3.5 mb-4 sm:mb-0">
-                    <div className="w-11 h-11 bg-slate-100 border border-slate-200 text-slate-600 rounded-2xl flex items-center justify-center shrink-0">
-                      <Smartphone size={22} />
+              {/* Omnichannel Connectors Overview Banner */}
+              <div className="card p-6 bg-gradient-to-r from-emerald-50/40 via-blue-50/30 to-pink-50/40 border border-slate-100 rounded-3xl">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex -space-x-2">
+                      <span className="w-10 h-10 rounded-2xl bg-[#25D366] text-white flex items-center justify-center text-lg shadow-sm ring-2 ring-white">
+                        <FaWhatsapp />
+                      </span>
+                      <span className="w-10 h-10 rounded-2xl bg-[#0084FF] text-white flex items-center justify-center text-lg shadow-sm ring-2 ring-white">
+                        <FaFacebookMessenger />
+                      </span>
+                      <span className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#FD1D1D] via-[#E1306C] to-[#833AB4] text-white flex items-center justify-center text-lg shadow-sm ring-2 ring-white">
+                        <FaInstagram />
+                      </span>
                     </div>
                     <div>
-                      <h3 className="text-sm font-bold text-slate-800">
-                        WhatsApp Not Connected
-                      </h3>
-                      <p className="text-xs text-slate-500 font-medium mt-0.5">
-                        Connect your Meta WhatsApp Business account via Embedded
-                        Signup or configure API keys.
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-base font-bold text-slate-900">
+                          Omnichannel Connectors
+                        </h2>
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white text-slate-700 border border-slate-200 shadow-2xs">
+                          {
+                            [
+                              whatsappStatus.isConnected,
+                              metaChannels.facebook.connected,
+                              metaChannels.instagram.connected,
+                            ].filter(Boolean).length
+                          }{" "}
+                          of 3 Active
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Manage your compatible messaging channel connectors in one place. Click any channel below to view its live status and configure its connector.
                       </p>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowConnectModal(true)}
-                    className="shrink-0 px-4 py-2.5 bg-[#25D366] hover:bg-[#1ebe5d] text-white rounded-xl font-bold text-xs shadow-sm flex items-center justify-center gap-2 transition"
-                  >
-                    <MessageSquare size={14} />
-                    <span>Connect WhatsApp</span>
-                  </button>
-                </div>
-              )}
 
-              {/* 
-              <form
-                onSubmit={handleWhatsappSave}
-                className="space-y-4 pt-2 border-t border-slate-100"
-              >
-                <h2 className="text-base font-bold text-slate-800 pb-2 border-b border-slate-50">
-                  Meta Cloud API Credentials
-                </h2>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="label text-xs">Phone Number ID</label>
-                    <input
-                      type="text"
-                      value={whatsapp.phoneId}
-                      onChange={(e) =>
-                        setWhatsapp({ ...whatsapp, phoneId: e.target.value })
-                      }
-                      className="input text-xs font-mono"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="label text-xs">
-                      WhatsApp Business Account ID (WABA)
-                    </label>
-                    <input
-                      type="text"
-                      value={whatsapp.wabaId}
-                      onChange={(e) =>
-                        setWhatsapp({ ...whatsapp, wabaId: e.target.value })
-                      }
-                      className="input text-xs font-mono"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="label text-xs">
-                    Permanent System Access Token
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showAccessToken ? "text" : "password"}
-                      value={whatsapp.accessToken}
-                      onChange={(e) =>
-                        setWhatsapp({
-                          ...whatsapp,
-                          accessToken: e.target.value,
-                        })
-                      }
-                      className="input text-xs font-mono pr-10"
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowAccessToken(!showAccessToken)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-650 transition"
-                    >
-                      {showAccessToken ? (
-                        <EyeOff size={15} />
-                      ) : (
-                        <Eye size={15} />
-                      )}
-                    </button>
-                  </div>
-                  <p className="text-[10px] text-slate-400 mt-1 font-medium">
-                    Obtained from Meta App Developer portal under WhatsApp
-                    Settings.
-                  </p>
-                </div>
-
-                <div className="pt-3 flex items-center justify-end">
-                  <button
-                    type="submit"
-                    className="btn-primary py-2 px-4 text-xs font-bold flex items-center gap-1.5"
-                  >
-                    <Save size={14} />
-                    <span>Verify & Sync Credentials</span>
-                  </button>
-                </div>
-              </form>
-              */}
-
-              {/* Danger Zone: Only shown when WhatsApp is connected */}
-              {whatsappStatus.isConnected && (
-                <div className="border border-rose-200 bg-rose-50/40 rounded-2xl p-5 space-y-4">
-                  <div className="flex items-center gap-2 text-rose-700">
-                    <AlertTriangle size={18} />
-                    <h4 className="font-bold text-sm">Danger Zone</h4>
-                  </div>
-                  <p className="text-xs text-rose-900/80 font-medium leading-relaxed">
-                    Disconnecting will remove your WhatsApp integration
-                    credentials, delete synced message templates, and stop message
-                    sending and receiving. You can reconnect anytime.
-                  </p>
-
-                  {!showConfirmDisconnect ? (
+                  <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => {
-                        setDisconnectError(null);
-                        setShowConfirmDisconnect(true);
+                        fetchWhatsappStatusData();
+                        fetchWhatsappConfig();
+                        fetchMetaChannels();
                       }}
-                      className="px-4 py-2 border-2 border-rose-500 text-rose-600 hover:bg-rose-50 rounded-xl font-bold text-xs transition duration-150 flex items-center gap-1.5"
+                      className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5 bg-white hover:bg-slate-50 text-slate-700 shadow-2xs border border-slate-200 rounded-xl"
+                      title="Refresh all channel connection statuses"
                     >
-                      <Unplug size={14} />
-                      <span>Disconnect WhatsApp</span>
+                      <RefreshCw
+                        size={13}
+                        className={
+                          loadingStatus || metaLoading
+                            ? "animate-spin text-[#125EF2]"
+                            : ""
+                        }
+                      />
+                      <span>Refresh All</span>
                     </button>
-                  ) : (
-                    <div className="p-4 bg-white border border-rose-200 rounded-xl space-y-3 shadow-sm">
-                      <p className="text-xs font-bold text-rose-900">
-                        Are you sure you want to disconnect WhatsApp?
-                      </p>
-                      <ul className="text-xs text-rose-800 space-y-1 list-disc list-inside font-medium">
-                        <li>
-                          Remove WhatsApp credentials and system access token
-                        </li>
-                        <li>Delete synced message templates from database</li>
-                        <li>
-                          Stop automated message sending & webhook receiving
-                        </li>
-                        <li>You can reconnect your account anytime later</li>
-                      </ul>
+                  </div>
+                </div>
 
-                      {disconnectError && (
-                        <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-xs font-semibold flex items-center gap-1.5">
-                          <AlertCircle size={14} />
-                          <span>{disconnectError}</span>
+                {/* 3 Interactive Channel Selector Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 mt-6">
+                  {/* WhatsApp Card */}
+                  <div
+                    onClick={() => setSelectedConnector("whatsapp")}
+                    className={`p-4 rounded-2xl border transition-all cursor-pointer select-none flex items-center justify-between ${
+                      selectedConnector === "whatsapp"
+                        ? "bg-white border-emerald-500 ring-2 ring-emerald-500/20 shadow-sm"
+                        : "bg-white/80 border-slate-200 hover:border-emerald-300 hover:bg-white"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0 ${
+                          selectedConnector === "whatsapp"
+                            ? "bg-[#25D366] text-white shadow-xs"
+                            : "bg-emerald-50 text-[#25D366]"
+                        }`}
+                      >
+                        <FaWhatsapp />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-slate-850 truncate">
+                          WhatsApp
+                        </p>
+                        <p className="text-[11px] text-slate-500 truncate">
+                          {whatsappStatus.isConnected
+                            ? whatsappStatus.health?.verifiedName ||
+                              whatsappStatus.health?.displayPhoneNumber ||
+                              "Cloud API Active"
+                            : "Not connected"}
+                        </p>
+                      </div>
+                    </div>
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                        whatsappStatus.isConnected
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                          : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full ${
+                          whatsappStatus.isConnected
+                            ? "bg-emerald-500 animate-pulse"
+                            : "bg-slate-400"
+                        }`}
+                      />
+                      {whatsappStatus.isConnected ? "Active" : "Offline"}
+                    </span>
+                  </div>
+
+                  {/* Facebook Messenger Card */}
+                  <div
+                    onClick={() => setSelectedConnector("facebook")}
+                    className={`p-4 rounded-2xl border transition-all cursor-pointer select-none flex items-center justify-between ${
+                      selectedConnector === "facebook"
+                        ? "bg-white border-[#0084FF] ring-2 ring-[#0084FF]/20 shadow-sm"
+                        : "bg-white/80 border-slate-200 hover:border-blue-300 hover:bg-white"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0 ${
+                          selectedConnector === "facebook"
+                            ? "bg-[#0084FF] text-white shadow-xs"
+                            : "bg-blue-50 text-[#0084FF]"
+                        }`}
+                      >
+                        <FaFacebookMessenger />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-slate-850 truncate">
+                          Messenger
+                        </p>
+                        <p className="text-[11px] text-slate-500 truncate">
+                          {metaChannels.facebook.pageName ||
+                            (metaChannels.facebook.connected
+                              ? "Page Connected"
+                              : "Not connected")}
+                        </p>
+                      </div>
+                    </div>
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                        metaChannels.facebook.connected
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                          : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full ${
+                          metaChannels.facebook.connected
+                            ? "bg-emerald-500 animate-pulse"
+                            : "bg-slate-400"
+                        }`}
+                      />
+                      {metaChannels.facebook.connected ? "Active" : "Offline"}
+                    </span>
+                  </div>
+
+                  {/* Instagram Direct Card */}
+                  <div
+                    onClick={() => setSelectedConnector("instagram")}
+                    className={`p-4 rounded-2xl border transition-all cursor-pointer select-none flex items-center justify-between ${
+                      selectedConnector === "instagram"
+                        ? "bg-white border-[#E1306C] ring-2 ring-[#E1306C]/20 shadow-sm"
+                        : "bg-white/80 border-slate-200 hover:border-pink-300 hover:bg-white"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0 ${
+                          selectedConnector === "instagram"
+                            ? "bg-gradient-to-tr from-[#FD1D1D] via-[#E1306C] to-[#833AB4] text-white shadow-xs"
+                            : "bg-pink-50 text-[#E1306C]"
+                        }`}
+                      >
+                        <FaInstagram />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-slate-850 truncate">
+                          Instagram
+                        </p>
+                        <p className="text-[11px] text-slate-500 truncate">
+                          {metaChannels.instagram.username
+                            ? `@${metaChannels.instagram.username}`
+                            : metaChannels.instagram.connected
+                            ? "Connected"
+                            : "Not connected"}
+                        </p>
+                      </div>
+                    </div>
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                        metaChannels.instagram.connected
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                          : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full ${
+                          metaChannels.instagram.connected
+                            ? "bg-emerald-500 animate-pulse"
+                            : "bg-slate-400"
+                        }`}
+                      />
+                      {metaChannels.instagram.connected ? "Active" : "Offline"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* ═══════════════════════════════════════════════════════════
+                  SUB-CONNECTOR 1: WHATSAPP
+                  ═══════════════════════════════════════════════════════════ */}
+              {selectedConnector === "whatsapp" && (
+                <div className="space-y-6">
+                  {loadingStatus ? (
+                    <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex items-center gap-3 text-xs text-slate-400">
+                      <RefreshCw
+                        size={14}
+                        className="animate-spin text-[#125EF2]"
+                      />
+                      <span>Checking WhatsApp connection status...</span>
+                    </div>
+                  ) : whatsappStatus.isConnected ? (
+                    <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-6">
+                      {/* Header info & actions */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-100">
+                        <div className="flex items-center gap-3.5">
+                          <div className="w-12 h-12 bg-emerald-500 text-white rounded-2xl flex items-center justify-center shadow-md shadow-emerald-500/20">
+                            <CheckCircle2 size={24} />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h3 className="text-base font-bold text-slate-900">
+                                {whatsappStatus.health?.verifiedName || "WhatsApp Business Account"}
+                              </h3>
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200/60">
+                                CONNECTED & ACTIVE
+                              </span>
+                              {whatsappStatus.health?.isMock && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200/60">
+                                  MOCK MODE
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-500 font-medium mt-0.5">
+                              {whatsappStatus.health?.displayPhoneNumber || "Meta Cloud API Connected"} · Verified by Meta
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={fetchWhatsappStatusData}
+                            className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700"
+                            title="Refresh live Meta health & limits"
+                          >
+                            <RefreshCw size={13} className={loadingStatus ? "animate-spin text-[#125EF2]" : ""} />
+                            <span>Refresh</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* 4-Card Metrics Grid */}
+                      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {/* 1. Quality Rating */}
+                        <div className="bg-slate-50/80 border border-slate-200/60 rounded-2xl p-4 flex flex-col justify-between">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Phone Quality</span>
+                            <Activity size={15} className="text-slate-400" />
+                          </div>
+                          <div className="mt-3">
+                            {whatsappStatus.health?.qualityRating === "GREEN" ? (
+                              <div className="flex items-center gap-2">
+                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                                <span className="text-sm font-extrabold text-emerald-700">High Quality (GREEN)</span>
+                              </div>
+                            ) : whatsappStatus.health?.qualityRating === "YELLOW" ? (
+                              <div className="flex items-center gap-2">
+                                <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                                <span className="text-sm font-extrabold text-amber-700">Medium Quality (YELLOW)</span>
+                              </div>
+                            ) : whatsappStatus.health?.qualityRating === "RED" ? (
+                              <div className="flex items-center gap-2">
+                                <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+                                <span className="text-sm font-extrabold text-rose-700">Low Quality (RED)</span>
+                              </div>
+                            ) : (
+                              <span className="text-sm font-bold text-slate-700">Good</span>
+                            )}
+                            <p className="text-[10px] text-slate-400 font-medium mt-1">Calculated by Meta from customer feedback</p>
+                          </div>
+                        </div>
+
+                        {/* 2. Daily Messaging Tier */}
+                        <div className="bg-slate-50/80 border border-slate-200/60 rounded-2xl p-4 flex flex-col justify-between">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Daily Messaging Limit</span>
+                            <Zap size={15} className="text-slate-400" />
+                          </div>
+                          <div className="mt-3">
+                            <div className="text-sm font-extrabold text-slate-900">
+                              {whatsappStatus.health?.tierName || "Tier 1K (1,000 / 24 hrs)"}
+                            </div>
+                            <p className="text-[10px] text-slate-400 font-medium mt-1">Unique recipients per rolling 24h</p>
+                          </div>
+                        </div>
+
+                        {/* 3. 24h Broadcast Usage */}
+                        <div className="bg-slate-50/80 border border-slate-200/60 rounded-2xl p-4 flex flex-col justify-between">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">24h Broadcasts Sent</span>
+                            <BarChart3 size={15} className="text-slate-400" />
+                          </div>
+                          <div className="mt-3">
+                            <div className="text-sm font-extrabold text-slate-900 flex items-baseline justify-between">
+                              <span>{whatsappStatus.health?.sentLast24h || 0}</span>
+                              <span className="text-[11px] font-semibold text-slate-400">
+                                Limit: {whatsappStatus.health?.messagingLimitNumber || 1000}
+                              </span>
+                            </div>
+                            <div className="w-full bg-slate-200 rounded-full h-1.5 mt-2 overflow-hidden">
+                              <div
+                                className="bg-[#125EF2] h-1.5 rounded-full transition-all"
+                                style={{
+                                  width: `${Math.min(
+                                    100,
+                                    Math.round(
+                                      ((whatsappStatus.health?.sentLast24h || 0) /
+                                        (whatsappStatus.health?.messagingLimitNumber || 1000)) *
+                                        100
+                                    )
+                                  )}%`,
+                                }}
+                              />
+                            </div>
+                            <p className="text-[10px] text-slate-400 font-medium mt-1">
+                              {whatsappStatus.health?.remaining24h ?? 1000} remaining today
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* 4. Verification & IDs */}
+                        <div className="bg-slate-50/80 border border-slate-200/60 rounded-2xl p-4 flex flex-col justify-between">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Meta Verification</span>
+                            <ShieldCheck size={15} className="text-slate-400" />
+                          </div>
+                          <div className="mt-3">
+                            <div className="text-sm font-extrabold text-emerald-700 flex items-center gap-1.5">
+                              <CheckCircle2 size={15} />
+                              <span>Meta Cloud Verified</span>
+                            </div>
+                            <p className="text-[10px] font-mono text-slate-400 truncate mt-1" title={whatsappStatus.phoneNumberId || ""}>
+                              Phone ID: {whatsappStatus.phoneNumberId ? `${whatsappStatus.phoneNumberId.slice(0, 10)}...` : "Configured"}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Meta Health Status / Limitation Alert if any */}
+                      {whatsappStatus.health?.canSendMessage === "LIMITED" && whatsappStatus.health?.limitations?.length > 0 && (
+                        <div className="rounded-2xl bg-amber-50 border border-amber-200 p-4 flex items-start gap-3">
+                          <div className="p-2 rounded-xl bg-amber-100 text-amber-700 shrink-0 mt-0.5">
+                            <AlertTriangle size={16} />
+                          </div>
+                          <div className="text-xs text-amber-900">
+                            <span className="font-bold">Meta Account Limitation Active:</span>
+                            <ul className="mt-1 list-disc list-inside space-y-0.5 text-amber-800">
+                              {whatsappStatus.health.limitations.map((info, idx) => (
+                                <li key={idx}>{info}</li>
+                              ))}
+                            </ul>
+                          </div>
                         </div>
                       )}
 
-                      <div className="flex items-center gap-2 pt-1">
-                        <button
-                          type="button"
-                          onClick={handleDisconnectWhatsApp}
-                          disabled={disconnecting}
-                          className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 disabled:opacity-50"
-                        >
-                          {disconnecting ? (
-                            <>
-                              <RefreshCw size={13} className="animate-spin" />
-                              <span>Disconnecting...</span>
-                            </>
-                          ) : (
-                            <>
-                              <Trash2 size={13} />
-                              <span>Yes, Disconnect</span>
-                            </>
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setShowConfirmDisconnect(false)}
-                          disabled={disconnecting}
-                          className="px-4 py-2 border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition disabled:opacity-50"
-                        >
-                          Cancel
-                        </button>
+                      {whatsappStatus.health?.canSendMessage === "BLOCKED" && (
+                        <div className="rounded-2xl bg-rose-50 border border-rose-200 p-4 flex items-start gap-3">
+                          <div className="p-2 rounded-xl bg-rose-100 text-rose-700 shrink-0 mt-0.5">
+                            <AlertCircle size={16} />
+                          </div>
+                          <div className="text-xs text-rose-900">
+                            <span className="font-bold">Meta Messaging Blocked:</span>
+                            <p className="mt-1 text-rose-800">
+                              {whatsappStatus.health?.errors?.[0]?.error_description || "One or more nodes are blocked by Meta. Please check your Meta Business Suite."}
+                            </p>
+                            {whatsappStatus.health?.errors?.[0]?.possible_solution && (
+                              <p className="mt-0.5 text-rose-700 font-medium">
+                                Solution: {whatsappStatus.health.errors[0].possible_solution}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Current Tier & Automatic Upgrades Note */}
+                      <div className="rounded-2xl bg-gradient-to-r from-emerald-50/60 to-blue-50/60 border border-emerald-100 p-4 flex items-start gap-3">
+                        <div className="p-2 rounded-xl bg-emerald-100 text-emerald-700 shrink-0 mt-0.5">
+                          <Sparkles size={16} />
+                        </div>
+                        <div className="text-xs text-slate-800 space-y-1">
+                          <span className="font-bold text-slate-900 block">
+                            Current Messaging Limit: {whatsappStatus.health?.tierName || "Tier 1K (1,000 / 24 hrs)"}
+                          </span>
+                          <p className="text-slate-600 leading-relaxed">
+                            Meta calculates this tier based on your business verification and sending history. When you maintain a <strong>High Quality (GREEN)</strong> rating and actively send campaigns, Meta automatically upgrades your daily tier limit.
+                          </p>
+                        </div>
                       </div>
+
+                      {/* Danger Zone: Only shown when WhatsApp is connected */}
+                      <div className="border border-rose-200 bg-rose-50/40 rounded-2xl p-5 space-y-4">
+                        <div className="flex items-center gap-2 text-rose-700">
+                          <AlertTriangle size={18} />
+                          <h4 className="font-bold text-sm">Disconnect WhatsApp</h4>
+                        </div>
+                        <p className="text-xs text-rose-900/80 font-medium leading-relaxed">
+                          Disconnecting will remove your WhatsApp integration credentials and pause message processing. You can reconnect anytime.
+                        </p>
+
+                        {!showConfirmDisconnect ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDisconnectError(null);
+                              setShowConfirmDisconnect(true);
+                            }}
+                            className="px-4 py-2 border-2 border-rose-500 text-rose-600 hover:bg-rose-50 rounded-xl font-bold text-xs transition duration-150 flex items-center gap-1.5"
+                          >
+                            <Unplug size={14} />
+                            <span>Disconnect WhatsApp</span>
+                          </button>
+                        ) : (
+                          <div className="p-4 bg-white border border-rose-200 rounded-xl space-y-3 shadow-sm">
+                            <p className="text-xs font-bold text-rose-900">
+                              Are you sure you want to disconnect WhatsApp?
+                            </p>
+                            <ul className="text-xs text-rose-800 space-y-1 list-disc list-inside font-medium">
+                              <li>Remove WhatsApp credentials and system access token</li>
+                              <li>Delete synced message templates from database</li>
+                              <li>Stop automated message sending & webhook receiving</li>
+                              <li>You can reconnect your account anytime later</li>
+                            </ul>
+
+                            {disconnectError && (
+                              <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-xs font-semibold flex items-center gap-1.5">
+                                <AlertCircle size={14} />
+                                <span>{disconnectError}</span>
+                              </div>
+                            )}
+
+                            <div className="flex items-center gap-2 pt-1">
+                              <button
+                                type="button"
+                                onClick={handleDisconnectWhatsApp}
+                                disabled={disconnecting}
+                                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 disabled:opacity-50"
+                              >
+                                {disconnecting ? (
+                                  <>
+                                    <RefreshCw size={13} className="animate-spin" />
+                                    <span>Disconnecting...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Trash2 size={13} />
+                                    <span>Yes, Disconnect</span>
+                                  </>
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setShowConfirmDisconnect(false)}
+                                disabled={disconnecting}
+                                className="px-4 py-2 border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition disabled:opacity-50"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-gradient-to-r from-emerald-50/50 via-slate-50 to-emerald-50/30 border border-slate-200 rounded-2xl p-6 shadow-sm sm:flex sm:items-center sm:justify-between gap-4">
+                      <div className="flex items-center gap-3.5 mb-4 sm:mb-0">
+                        <div className="w-12 h-12 bg-emerald-50 border border-emerald-200 text-[#25D366] rounded-2xl flex items-center justify-center shrink-0">
+                          <FaWhatsapp size={24} />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-bold text-slate-800">
+                            WhatsApp Cloud API Not Connected
+                          </h3>
+                          <p className="text-xs text-slate-500 font-medium mt-0.5">
+                            Connect your official Meta WhatsApp Business account via Embedded Signup to start receiving and sending messages.
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowConnectModal(true)}
+                        className="shrink-0 px-5 py-2.5 bg-[#25D366] hover:bg-[#1ebe5d] text-white rounded-xl font-bold text-xs shadow-sm flex items-center justify-center gap-2 transition"
+                      >
+                        <FaWhatsapp size={15} />
+                        <span>Connect WhatsApp</span>
+                      </button>
                     </div>
                   )}
                 </div>
+              )}
+
+              {/* ═══════════════════════════════════════════════════════════
+                  SUB-CONNECTOR 2: FACEBOOK MESSENGER
+                  ═══════════════════════════════════════════════════════════ */}
+              {selectedConnector === "facebook" && (
+                <form
+                  onSubmit={handleSaveFacebook}
+                  className="card p-6 border border-slate-100 space-y-6"
+                >
+                  <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                        <FaFacebookMessenger className="text-[#0084FF] text-base" />
+                        <span>Facebook Messenger Connector Settings</span>
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Configure your Facebook Page credentials to receive and send Messenger chats in the unified inbox.
+                      </p>
+                    </div>
+                    {metaChannels.facebook.connected && (
+                      <button
+                        type="button"
+                        onClick={() => handleDisconnectMeta("FACEBOOK")}
+                        className="px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-lg transition"
+                      >
+                        Disconnect Messenger
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="label text-xs font-semibold text-slate-700">
+                          Facebook Page ID
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. 1226679347185529"
+                          value={metaForm.facebookPageId}
+                          onChange={(e) =>
+                            setMetaForm({
+                              ...metaForm,
+                              facebookPageId: e.target.value,
+                            })
+                          }
+                          className="input text-xs mt-1 font-mono"
+                        />
+                        <p className="text-[10px] text-slate-450 mt-1">
+                          Numeric ID of your Facebook Page (e.g. Sudo Reply)
+                        </p>
+                      </div>
+                      <div>
+                        <label className="label text-xs font-semibold text-slate-700">
+                          Page Display Name
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Sudo Reply"
+                          value={metaForm.facebookPageName}
+                          onChange={(e) =>
+                            setMetaForm({
+                              ...metaForm,
+                              facebookPageName: e.target.value,
+                            })
+                          }
+                          className="input text-xs mt-1"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="label text-xs font-semibold text-slate-700">
+                        Page Access Token
+                      </label>
+                      <div className="relative mt-1">
+                        <input
+                          type={showMetaToken ? "text" : "password"}
+                          placeholder={
+                            metaChannels.facebook.hasToken
+                              ? "•••••••••••••••••••••••• (Token securely stored)"
+                              : "Paste Page Access Token here..."
+                          }
+                          value={metaForm.facebookPageAccessToken}
+                          onChange={(e) =>
+                            setMetaForm({
+                              ...metaForm,
+                              facebookPageAccessToken: e.target.value,
+                            })
+                          }
+                          className="input text-xs pr-10 font-mono"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowMetaToken(!showMetaToken)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition"
+                        >
+                          {showMetaToken ? (
+                            <EyeOff size={14} />
+                          ) : (
+                            <Eye size={14} />
+                          )}
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-2 text-[11px] text-slate-500 font-medium">
+                        <ShieldCheck size={14} className="text-emerald-600 shrink-0" />
+                        <span>Stored securely with AES-256-GCM enterprise encryption.</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Setup Tip */}
+                  <div className="p-3.5 bg-blue-50/60 border border-blue-100 rounded-xl text-xs text-blue-900 flex items-start gap-2.5">
+                    <span className="text-[#0084FF] text-base shrink-0 mt-0.5">ℹ️</span>
+                    <div>
+                      <p className="font-bold">Messenger Connection Tip</p>
+                      <p className="text-[11px] text-blue-800/90 mt-0.5">
+                        Ensure your Facebook Page has approved messaging permissions in Meta App Dashboard, and webhook subscriptions for <strong>messages</strong> and <strong>messaging_postbacks</strong> are active.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Save Button */}
+                  <div className="pt-4 flex items-center justify-end border-t border-slate-100">
+                    <button
+                      type="submit"
+                      disabled={metaSaving}
+                      className="btn-primary py-2 px-5 text-xs font-bold flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                    >
+                      {metaSaving ? (
+                        <RefreshCw size={14} className="animate-spin" />
+                      ) : (
+                        <Save size={14} />
+                      )}
+                      <span>Save Facebook Connector</span>
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* ═══════════════════════════════════════════════════════════
+                  SUB-CONNECTOR 3: INSTAGRAM DIRECT
+                  ═══════════════════════════════════════════════════════════ */}
+              {selectedConnector === "instagram" && (
+                <form
+                  onSubmit={handleSaveInstagram}
+                  className="card p-6 border border-slate-100 space-y-6"
+                >
+                  <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                        <FaInstagram className="text-[#E1306C] text-base" />
+                        <span>Instagram Direct Connector Settings</span>
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Connect your Instagram Professional / Business account to handle customer direct messages and story replies.
+                      </p>
+                    </div>
+                    {metaChannels.instagram.connected && (
+                      <button
+                        type="button"
+                        onClick={() => handleDisconnectMeta("INSTAGRAM")}
+                        className="px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-lg transition"
+                      >
+                        Disconnect Instagram
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="label text-xs font-semibold text-slate-700">
+                          Instagram Account ID (IGBA ID)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. 17841400000000"
+                          value={metaForm.instagramAccountId}
+                          onChange={(e) =>
+                            setMetaForm({
+                              ...metaForm,
+                              instagramAccountId: e.target.value,
+                            })
+                          }
+                          className="input text-xs mt-1 font-mono"
+                        />
+                        <p className="text-[10px] text-slate-450 mt-1">
+                          ID of your connected Instagram Business Account
+                        </p>
+                      </div>
+                      <div>
+                        <label className="label text-xs font-semibold text-slate-700">
+                          Instagram Username / Handle
+                        </label>
+                        <div className="relative mt-1">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">
+                            @
+                          </span>
+                          <input
+                            type="text"
+                            placeholder="sudoreply"
+                            value={metaForm.instagramUsername}
+                            onChange={(e) =>
+                              setMetaForm({
+                                ...metaForm,
+                                instagramUsername: e.target.value.replace(
+                                  /^@/,
+                                  ""
+                                ),
+                              })
+                            }
+                            className="input text-xs pl-7"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Shared Meta Token Status Banner */}
+                    {metaChannels.facebook.hasToken ? (
+                      <div className="rounded-xl bg-emerald-50/80 border border-emerald-200/80 p-3.5 flex items-start gap-2.5">
+                        <CheckCircle2 size={16} className="text-emerald-600 shrink-0 mt-0.5" />
+                        <div className="text-xs">
+                          <span className="font-bold text-emerald-900">
+                            Meta Access Token Linked & Active
+                          </span>
+                          <p className="text-emerald-700/90 text-[11px] mt-0.5">
+                            Instagram Direct uses your verified Meta Page Access Token (encrypted with AES-256-GCM).
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <label className="label text-xs font-semibold text-slate-700">
+                          Meta Page Access Token (Required for Instagram API)
+                        </label>
+                        <div className="relative mt-1">
+                          <input
+                            type={showMetaToken ? "text" : "password"}
+                            placeholder="Paste Page Access Token here..."
+                            value={metaForm.facebookPageAccessToken}
+                            onChange={(e) =>
+                              setMetaForm({
+                                ...metaForm,
+                                facebookPageAccessToken: e.target.value,
+                              })
+                            }
+                            className="input text-xs pr-10 font-mono"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowMetaToken(!showMetaToken)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition"
+                          >
+                            {showMetaToken ? (
+                              <EyeOff size={14} />
+                            ) : (
+                              <Eye size={14} />
+                            )}
+                          </button>
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-2 text-[11px] text-slate-500 font-medium">
+                          <ShieldCheck size={14} className="text-emerald-600 shrink-0" />
+                          <span>Stored securely with AES-256-GCM enterprise encryption.</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Setup Tip */}
+                  <div className="p-3.5 bg-pink-50/60 border border-pink-100 rounded-xl text-xs text-pink-900 flex items-start gap-2.5">
+                    <span className="text-[#E1306C] text-base shrink-0 mt-0.5">ℹ️</span>
+                    <div>
+                      <p className="font-bold">Instagram Setup Checklist</p>
+                      <p className="text-[11px] text-pink-800/90 mt-0.5 leading-relaxed">
+                        1. Ensure your Instagram account is set to <strong>Business</strong> or <strong>Creator</strong>.<br />
+                        2. Connect your Instagram account to your Facebook Page in Meta Business Suite.<br />
+                        3. In the Instagram app, go to Settings &gt; Messages and story replies &gt; Connected tools, and enable <strong>Allow access to messages</strong>.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Save Button */}
+                  <div className="pt-4 flex items-center justify-end border-t border-slate-100">
+                    <button
+                      type="submit"
+                      disabled={metaSaving}
+                      className="btn-primary py-2 px-5 text-xs font-bold flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                    >
+                      {metaSaving ? (
+                        <RefreshCw size={14} className="animate-spin" />
+                      ) : (
+                        <Save size={14} />
+                      )}
+                      <span>Save Instagram Connector</span>
+                    </button>
+                  </div>
+                </form>
               )}
             </div>
           )}
@@ -2337,211 +2807,6 @@ export default function SettingsPage() {
             </form>
           )}
 
-          {/* Meta Channels (Facebook & Instagram) Tab */}
-          {activeTab === "channels" && (
-            <div className="space-y-6">
-              {/* Header Card */}
-              <div className="card p-6 bg-gradient-to-r from-blue-50/50 via-purple-50/30 to-pink-50/50 border border-slate-100">
-                <div className="flex items-center gap-3">
-                  <div className="flex -space-x-2">
-                    <span className="w-10 h-10 rounded-xl bg-[#0084FF] text-white flex items-center justify-center text-lg shadow-sm ring-2 ring-white">
-                      <FaFacebookMessenger />
-                    </span>
-                    <span className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#FD1D1D] via-[#E1306C] to-[#833AB4] text-white flex items-center justify-center text-lg shadow-sm ring-2 ring-white">
-                      <FaInstagram />
-                    </span>
-                  </div>
-                  <div>
-                    <h2 className="text-base font-bold text-slate-800">
-                      Meta Channels Integration
-                    </h2>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Connect your Facebook Page (Sudo Reply) and Instagram Direct to manage all customer conversations in one unified inbox.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Connection Status Overview */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-                  {/* Facebook Status */}
-                  <div className="p-4 rounded-2xl bg-white border border-slate-100 shadow-xs flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-blue-50 text-[#0084FF] flex items-center justify-center text-base">
-                        <FaFacebookMessenger />
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-slate-800">Facebook Page</p>
-                        <p className="text-[11px] text-slate-500">
-                          {metaChannels.facebook.pageName || (metaChannels.facebook.connected ? "Connected" : "Not connected")}
-                        </p>
-                      </div>
-                    </div>
-                    <span
-                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                        metaChannels.facebook.connected
-                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                          : "bg-slate-100 text-slate-500"
-                      }`}
-                    >
-                      <span className={`w-1.5 h-1.5 rounded-full ${metaChannels.facebook.connected ? "bg-emerald-500" : "bg-slate-400"}`} />
-                      {metaChannels.facebook.connected ? "Connected" : "Disconnected"}
-                    </span>
-                  </div>
-
-                  {/* Instagram Status */}
-                  <div className="p-4 rounded-2xl bg-white border border-slate-100 shadow-xs flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-pink-50 text-[#E1306C] flex items-center justify-center text-base">
-                        <FaInstagram />
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-slate-800">Instagram Account</p>
-                        <p className="text-[11px] text-slate-500">
-                          {metaChannels.instagram.username ? `@${metaChannels.instagram.username}` : (metaChannels.instagram.connected ? "Connected" : "Not connected")}
-                        </p>
-                      </div>
-                    </div>
-                    <span
-                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                        metaChannels.instagram.connected
-                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                          : "bg-slate-100 text-slate-500"
-                      }`}
-                    >
-                      <span className={`w-1.5 h-1.5 rounded-full ${metaChannels.instagram.connected ? "bg-emerald-500" : "bg-slate-400"}`} />
-                      {metaChannels.instagram.connected ? "Connected" : "Disconnected"}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Form Card */}
-              <form onSubmit={handleSaveMetaChannels} className="card p-6 border border-slate-100 space-y-6">
-                <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-800">Connection Settings</h3>
-                    <p className="text-xs text-slate-500">
-                      Configure your Meta Page credentials and access token.
-                    </p>
-                  </div>
-                  {(metaChannels.facebook.connected || metaChannels.instagram.connected) && (
-                    <button
-                      type="button"
-                      onClick={() => handleDisconnectMeta()}
-                      className="px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-lg transition"
-                    >
-                      Disconnect Channels
-                    </button>
-                  )}
-                </div>
-
-                {/* Facebook Section */}
-                <div className="space-y-4">
-                  <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                    <FaFacebookMessenger className="text-[#0084FF]" /> Facebook Page Details
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="label text-xs font-semibold text-slate-700">
-                        Facebook Page ID
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. 1226679347185529"
-                        value={metaForm.facebookPageId}
-                        onChange={(e) => setMetaForm({ ...metaForm, facebookPageId: e.target.value })}
-                        className="input text-xs mt-1"
-                      />
-                      <p className="text-[10px] text-slate-450 mt-1">ID of your Facebook Page (Sudo Reply)</p>
-                    </div>
-                    <div>
-                      <label className="label text-xs font-semibold text-slate-700">
-                        Page Display Name
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Sudo Reply"
-                        value={metaForm.facebookPageName}
-                        onChange={(e) => setMetaForm({ ...metaForm, facebookPageName: e.target.value })}
-                        className="input text-xs mt-1"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="label text-xs font-semibold text-slate-700">
-                      Page Access Token
-                    </label>
-                    <div className="relative mt-1">
-                      <input
-                        type={showMetaToken ? "text" : "password"}
-                        placeholder={metaChannels.facebook.hasToken ? "•••••••••••••••••••••••• (Token securely stored)" : "Paste Page Access Token here..."}
-                        value={metaForm.facebookPageAccessToken}
-                        onChange={(e) => setMetaForm({ ...metaForm, facebookPageAccessToken: e.target.value })}
-                        className="input text-xs pr-10"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowMetaToken(!showMetaToken)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                      >
-                        {showMetaToken ? <EyeOff size={14} /> : <Eye size={14} />}
-                      </button>
-                    </div>
-                    <p className="text-[10px] text-slate-450 mt-1">
-                      Encrypted at rest using AES-256-GCM. Requires pages_messaging and pages_manage_metadata permissions.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Instagram Section */}
-                <div className="space-y-4 pt-4 border-t border-slate-100">
-                  <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                    <FaInstagram className="text-[#E1306C]" /> Instagram Direct Details
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="label text-xs font-semibold text-slate-700">
-                        Instagram Account ID (IGBA ID)
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. 17841400000000"
-                        value={metaForm.instagramAccountId}
-                        onChange={(e) => setMetaForm({ ...metaForm, instagramAccountId: e.target.value })}
-                        className="input text-xs mt-1"
-                      />
-                      <p className="text-[10px] text-slate-450 mt-1">ID of your connected Instagram Business Account</p>
-                    </div>
-                    <div>
-                      <label className="label text-xs font-semibold text-slate-700">
-                        Instagram Username / Handle
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. sudoreply"
-                        value={metaForm.instagramUsername}
-                        onChange={(e) => setMetaForm({ ...metaForm, instagramUsername: e.target.value.replace(/^@/, '') })}
-                        className="input text-xs mt-1"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Save Button */}
-                <div className="pt-4 flex items-center justify-end border-t border-slate-100">
-                  <button
-                    type="submit"
-                    disabled={metaSaving}
-                    className="btn-primary py-2 px-5 text-xs font-bold flex items-center gap-1.5 shadow-sm disabled:opacity-50"
-                  >
-                    {metaSaving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
-                    <span>Save & Connect Meta Channels</span>
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
         </div>
       </div>
 
