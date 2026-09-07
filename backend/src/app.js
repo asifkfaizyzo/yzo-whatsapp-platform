@@ -88,7 +88,7 @@ const authLimiter = rateLimit({
 app.use(express.json({
   limit: '10mb',
   verify: (req, res, buf) => {
-    if (req.originalUrl.startsWith('/api/webhook')) {
+    if (req.originalUrl && req.originalUrl.includes('/api/webhook')) {
       req.rawBody = buf;
     }
   }

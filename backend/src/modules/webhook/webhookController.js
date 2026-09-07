@@ -2,10 +2,19 @@ import crypto from 'crypto';
 import { webhookQueue } from '../../queues/webhookQueue.js';
 
 export const verifyMetaSignature = (req, res, next) => {
-  const appSecret = process.env.META_APP_SECRET;
+  // Support single or multiple secrets across Meta products (WhatsApp, Messenger, Instagram)
+  const rawSecrets = [
+    process.env.META_APP_SECRET,
+    process.env.INSTAGRAM_APP_SECRET,
+    process.env.FACEBOOK_APP_SECRET,
+  ]
+    .filter(Boolean)
+    .flatMap(s => s.split(','))
+    .map(s => s.trim().replace(/^["']|["']$/g, ''))
+    .filter(s => s && s !== 'your_meta_app_secret_here');
 
   // Enforce secret requirement in production
-  if (!appSecret || appSecret === 'your_meta_app_secret_here') {
+  if (rawSecrets.length === 0) {
     if (process.env.NODE_ENV === 'production') {
       console.error('❌ META_APP_SECRET is missing in production! Rejecting webhook.');
       return res.status(500).json({ success: false, message: 'Server configuration error' });
@@ -24,14 +33,32 @@ export const verifyMetaSignature = (req, res, next) => {
     return res.status(401).send('Signature missing');
   }
 
-  const signature = signatureHeader.split('sha256=')[1];
-  const expectedSignature = crypto
-    .createHmac('sha256', appSecret)
-    .update(req.rawBody || '')
-    .digest('hex');
+  const receivedSignature = signatureHeader.includes('sha256=')
+    ? signatureHeader.split('sha256=')[1].trim().toLowerCase()
+    : signatureHeader.trim().toLowerCase();
 
-  if (signature !== expectedSignature) {
+  const rawBody = req.rawBody || '';
+
+  const matchedSecret = rawSecrets.find(secret => {
+    const expected = crypto
+      .createHmac('sha256', secret)
+      .update(rawBody)
+      .digest('hex')
+      .toLowerCase();
+    return receivedSignature === expected;
+  });
+
+  if (!matchedSecret) {
     console.warn('⚠️ Webhook signature validation failed! Request unauthorized.');
+    console.warn('🔍 [Meta Webhook Debug]:', {
+      object: req.body?.object || 'unknown',
+      url: req.originalUrl,
+      hasRawBody: Boolean(req.rawBody),
+      rawBodyLength: req.rawBody ? req.rawBody.length : 0,
+      receivedSignaturePrefix: receivedSignature ? receivedSignature.substring(0, 10) + '...' : 'none',
+      configuredSecretsCount: rawSecrets.length,
+      secretPrefixes: rawSecrets.map(s => s.substring(0, 4) + '...'),
+    });
     return res.status(401).send('Invalid signature');
   }
 

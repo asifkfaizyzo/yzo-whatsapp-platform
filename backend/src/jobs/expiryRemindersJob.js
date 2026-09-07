@@ -58,7 +58,7 @@ const processExpiryReminders = async () => {
             where: {
               tenantId: tenant.id,
               reminderType,
-              createdAt: {
+              sentAt: {
                 gte: new Date(Date.now() - 48 * 3600000)
               }
             }
