@@ -8,6 +8,8 @@ import { createNotification } from '../notifications/notificationService.js';
 import flowEngine from '../automation/flowEngineService.js';
 import { emitToTenant, emitToUser } from '../../lib/socket.js';
 import fs from 'fs';
+import path from 'path';
+import { trackUsage } from '../quick-replies/quickReplyService.js';
 
 const CLOSED_STATUSES = ['RESOLVED', 'CLOSED'];
 
@@ -1075,3 +1077,101 @@ export const markConversationAsReadService = async ({
     markedCount: unreadMessages.length,
   };
 };
+
+// ─────────────────────────────────────────────────────────────
+// SEND QUICK REPLY MESSAGE (Text or Pre-uploaded Media)
+// ─────────────────────────────────────────────────────────────
+export const sendQuickReplyMessageService = async ({
+  contactId,
+  tenantId,
+  senderId,
+  senderType,
+  quickReplyId,
+  text,
+  detachMedia = false,
+}) => {
+  const quickReply = await prisma.quickReply.findFirst({
+    where: { id: quickReplyId, tenantId, isActive: true },
+  });
+
+  if (!quickReply) {
+    throw new Error('Quick reply not found or inactive');
+  }
+
+  const messageText = text?.trim() ? text : quickReply.content;
+
+  // Case 1: Has media and media is not explicitly detached by agent
+  if (quickReply.mediaUrl && !detachMedia) {
+    const filePath = path.resolve(process.cwd(), quickReply.mediaUrl);
+    if (!fs.existsSync(filePath)) {
+      throw new Error('Attached media file not found on server');
+    }
+
+    let fileSize = quickReply.mediaSize;
+    if (!fileSize) {
+      try {
+        const stats = await fs.promises.stat(filePath);
+        fileSize = stats.size;
+      } catch {
+        fileSize = 0;
+      }
+    }
+
+    // Copy to contact outbound folder to preserve independent chat history
+    const contactDir = path.join(
+      process.cwd(),
+      'uploads',
+      'tenants',
+      tenantId,
+      'contacts',
+      contactId,
+      'outbound'
+    );
+    await fs.promises.mkdir(contactDir, { recursive: true });
+
+    const ext = path.extname(quickReply.mediaUrl) || '';
+    const uniqueName = `${Date.now()}_qr_${path.basename(quickReply.mediaUrl)}`;
+    const destinationPath = path.join(contactDir, uniqueName);
+    await fs.promises.copyFile(filePath, destinationPath);
+
+    const fileDescriptor = {
+      path: destinationPath,
+      mimetype: quickReply.mediaMimeType || 'application/octet-stream',
+      originalname: quickReply.mediaName || path.basename(filePath),
+      size: fileSize,
+    };
+
+    const contact = await prisma.contact.findUnique({ where: { id: contactId } });
+    if (!contact) throw new Error('Contact not found');
+    const conversation = await getOrCreateConversation(contactId, tenantId, contact.channel || 'WHATSAPP');
+
+    const result = await sendMediaMessageService({
+      contactId,
+      conversationId: conversation.id,
+      tenantId,
+      senderId,
+      senderType,
+      file: fileDescriptor,
+      caption: messageText || null,
+    });
+
+    // Track usage in background without blocking
+    trackUsage(quickReply.id, tenantId).catch(() => {});
+
+    return { ...result, isMedia: true };
+  }
+
+  // Case 2: Text only or media detached
+  const result = await sendMessageService({
+    contactId,
+    tenantId,
+    senderId,
+    senderType,
+    text: messageText,
+  });
+
+  // Track usage in background without blocking
+  trackUsage(quickReply.id, tenantId).catch(() => {});
+
+  return { ...result, isMedia: false };
+};

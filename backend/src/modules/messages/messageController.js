@@ -4,6 +4,7 @@ import {
   handleIncomingMessage,
   sendMessageService,
   sendMediaMessageService,
+  sendQuickReplyMessageService,
   deleteMessageService,
 } from "./messageService.js";
 import upload from "../../middlewares/upload.middleware.js";
@@ -184,9 +185,9 @@ export const incomingMessageController = async (req, res) => {
 export const sendMessage = async (req, res) => {
   try {
     const { contactId } = req.params;
-    const { text }      = req.body;
-    const tenantId      = req.tenantId;
-    const senderType    = req.userType;
+    const { text, quickReplyId, detachMedia } = req.body;
+    const tenantId   = req.tenantId;
+    const senderType = req.userType;
 
     const senderId =
       senderType === "TENANT"
@@ -200,13 +201,75 @@ export const sendMessage = async (req, res) => {
       });
     }
 
-    if (!text?.trim()) {
+    if (!text?.trim() && !quickReplyId) {
       return res.status(400).json({
         success: false,
-        message: "text is required",
+        message: "text or quickReplyId is required",
       });
     }
 
+    // ── If quickReplyId is provided, handle through sendQuickReplyMessageService ──
+    if (quickReplyId) {
+      const message = await sendQuickReplyMessageService({
+        contactId,
+        tenantId,
+        senderId,
+        senderType,
+        quickReplyId,
+        text,
+        detachMedia,
+      });
+
+      if (message.isMedia) {
+        const signedUrl = generateSignedUrl(message.mediaUrl, tenantId);
+        emitToTenant(tenantId, "new_message", {
+          conversationId: message.conversationId,
+          message: {
+            id:             message.id,
+            type:           message.type,
+            text:           message.text,
+            senderId:       message.senderId,
+            senderType:     message.senderType,
+            direction:      "OUTBOUND",
+            isFromCustomer: false,
+            mediaUrl:       signedUrl,
+            mediaName:      message.mediaName,
+            mediaSize:      message.mediaSize,
+            mediaMimeType:  message.mediaMimeType,
+            caption:        message.caption,
+            status:         message.status,
+            createdAt:      message.createdAt,
+          },
+        });
+
+        return res.status(201).json({
+          success: true,
+          data:    message,
+        });
+      }
+
+      // Quick reply sent as text message
+      emitToTenant(tenantId, "new_message", {
+        conversationId: message.conversationId,
+        message: {
+          id:             message.id,
+          type:           "TEXT",
+          text:           message.text,
+          senderId:       message.senderId,
+          senderType:     message.senderType,
+          direction:      "OUTBOUND",
+          isFromCustomer: false,
+          createdAt:      message.createdAt,
+        },
+      });
+
+      return res.status(201).json({
+        success: true,
+        data:    message,
+      });
+    }
+
+    // ── Standard Text Message ──
     const message = await sendMessageService({
       contactId,
       tenantId,

@@ -43,6 +43,7 @@ import publicRoutes from './modules/public/publicRoutes.js';
 
 import { serverAdapter } from './config/bullBoard.js';
 import { bullBoardAuth } from './middlewares/bullBoardAuth.js';
+import quickReplyRoutes from './modules/quick-replies/quickReplyRoute.js';
 
 const app = express();
 
@@ -211,6 +212,7 @@ app.use('/api9', broadcastRoutes)
 app.use('/api2/whatsapp',       whatsappRoutes)
 app.use("/api2/notifications",  notificationRoutes)
 app.use("/api/super-admin/notifications", superAdminNotificationRoutes)
+app.use('/api2/quick-replies', quickReplyRoutes)
 
 app.use("/api2", ticketRoutes)
 app.use("/api",  adminTicketRoutes)
