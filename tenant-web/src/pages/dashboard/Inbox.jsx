@@ -70,7 +70,6 @@ import { useConfirm } from "../../context/ConfirmContext";
 import { useToast } from "../../context/ToastContext";
 import { getQuickReplies } from "../../services/quickReply.service";
 import QuickReplyPopover from "../../components/inbox/QuickReplyPopover";
-import QuickReplyModal from "../../components/inbox/QuickReplyModal";
 
 export default function Inbox() {
   const confirm = useConfirm();
@@ -144,7 +143,6 @@ export default function Inbox() {
   const [showQuickReplyPopover, setShowQuickReplyPopover] = useState(false);
   const [filteredQuickReplies, setFilteredQuickReplies] = useState([]);
   const [quickReplySelectedIndex, setQuickReplySelectedIndex] = useState(0);
-  const [showQuickReplyModal, setShowQuickReplyModal] = useState(false);
   const [stagedQuickReply, setStagedQuickReply] = useState(null);
   const lastQuickRepliesFetchRef = useRef(0);
 
@@ -3673,17 +3671,6 @@ export default function Inbox() {
                   )}
                 </div>
 
-                {/* ── Quick Replies Picker Button ── */}
-                <button
-                  type="button"
-                  disabled={activeChat.contact?.isBlocked}
-                  onClick={() => setShowQuickReplyModal(true)}
-                  className="text-[#54656F] hover:text-[#075E54] p-2 rounded-full hover:bg-white transition disabled:opacity-50"
-                  title="Quick Replies / Canned Responses (Type / to trigger)"
-                >
-                  <Zap size={20} className="fill-[#075E54]/20 hover:fill-[#075E54]" />
-                </button>
-
                 <div className="relative flex-1 flex items-center">
                   {showQuickReplyPopover && (
                     <QuickReplyPopover
@@ -4770,16 +4757,6 @@ export default function Inbox() {
           </div>
         </div>
       )}
-
-      {/* ── Quick Reply Browser Modal ── */}
-      <QuickReplyModal
-        isOpen={showQuickReplyModal}
-        onClose={() => setShowQuickReplyModal(false)}
-        quickReplies={quickRepliesList}
-        onSelectReply={handleSelectQuickReply}
-        contact={activeChat?.contact}
-        user={user}
-      />
     </div>
   );
 }
