@@ -415,7 +415,10 @@ export const sendMetaMediaMessage = async ({
     formData.append('messaging_type', 'RESPONSE');
   }
 
-  const fileBuffer = await fs.promises.readFile(file.path);
+  const resolvedFilePath = path.isAbsolute(file.path)
+    ? file.path
+    : path.resolve(process.cwd(), file.path);
+  const fileBuffer = await fs.promises.readFile(resolvedFilePath);
   const blob = new Blob([fileBuffer], { type: file.mimetype });
   formData.append('filedata', blob, file.originalname || 'attachment');
 
@@ -755,7 +758,9 @@ export const sendMediaMessageService = async ({
     failureReason = 'WhatsApp credentials not configured for tenant';
   }
 
-  const mediaUrl = file.path.replace(/\\/g, '/');
+  const normalizedPath = file.path.replace(/\\/g, '/');
+  const uploadsIdx = normalizedPath.indexOf('uploads/');
+  const mediaUrl = uploadsIdx !== -1 ? normalizedPath.substring(uploadsIdx) : normalizedPath;
 
   if (!mediaUrl.startsWith('uploads/') || mediaUrl.includes('undefined')) {
     if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
@@ -802,7 +807,10 @@ const sendWhatsAppMedia = async ({
   const phoneId = tenant.whatsappPhoneId;
   const cleanPhone = contactPhone.replace('+', '');
 
-  const fileBuffer = fs.readFileSync(file.path);
+  const resolvedFilePath = path.isAbsolute(file.path)
+    ? file.path
+    : path.resolve(process.cwd(), file.path);
+  const fileBuffer = fs.readFileSync(resolvedFilePath);
 
   let uploadMimeType = file.mimetype || 'application/octet-stream';
 
@@ -1118,8 +1126,7 @@ export const sendQuickReplyMessageService = async ({
     }
 
     // Copy to contact outbound folder to preserve independent chat history
-    const contactDir = path.join(
-      process.cwd(),
+    const relativeOutboundDir = path.join(
       'uploads',
       'tenants',
       tenantId,
@@ -1127,15 +1134,17 @@ export const sendQuickReplyMessageService = async ({
       contactId,
       'outbound'
     );
-    await fs.promises.mkdir(contactDir, { recursive: true });
+    const absoluteOutboundDir = path.join(process.cwd(), relativeOutboundDir);
+    await fs.promises.mkdir(absoluteOutboundDir, { recursive: true });
 
     const ext = path.extname(quickReply.mediaUrl) || '';
     const uniqueName = `${Date.now()}_qr_${path.basename(quickReply.mediaUrl)}`;
-    const destinationPath = path.join(contactDir, uniqueName);
+    const destinationPath = path.join(absoluteOutboundDir, uniqueName);
+    const relativeDest = path.join(relativeOutboundDir, uniqueName).replace(/\\/g, '/');
     await fs.promises.copyFile(filePath, destinationPath);
 
     const fileDescriptor = {
-      path: destinationPath,
+      path: relativeDest,
       mimetype: quickReply.mediaMimeType || 'application/octet-stream',
       originalname: quickReply.mediaName || path.basename(filePath),
       size: fileSize,
