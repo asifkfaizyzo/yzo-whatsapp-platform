@@ -11,7 +11,6 @@ import Inbox from "../pages/dashboard/Inbox";
 import Broadcasts from "../pages/dashboard/Broadcasts";
 import Templates from "../pages/dashboard/Templates";
 import Contacts from "../pages/dashboard/Contacts";
-import Team from "../pages/dashboard/Team";
 import Reports from "../pages/dashboard/Reports";
 import Settings from "../pages/dashboard/Settings";
 import ResetPassword from "../pages/auth/ResetPassword";
@@ -136,7 +135,7 @@ function App() {
           <Route path="broadcasts" element={<Broadcasts />} />
           <Route path="templates" element={<Templates />} />
           <Route path="contacts" element={<Contacts />} />
-          <Route path="team" element={<Team />} />
+          <Route path="team" element={<Navigate to="/dashboard/settings?tab=team" replace />} />
           <Route path="reports" element={<Reports />} />
           <Route path="settings" element={<Settings />} />
           <Route path="billing" element={<Billing />} />
@@ -145,6 +144,7 @@ function App() {
           <Route path="automation" element={<Automation />} />
           <Route path="automation/builder/:flowId" element={<FlowBuilder />} />
           <Route path="notifications" element={<Notifications />} /> 
+          <Route path="quick-replies" element={<Navigate to="/dashboard/settings?tab=quick-replies" replace />} /> 
           
         </Route>
 

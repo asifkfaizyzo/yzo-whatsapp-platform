@@ -6,12 +6,16 @@ const MSG_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api6`;
  * Send a message to a contact (tenant/user → contact direction)
  * @param {string} contactId - The contact's ID
  * @param {string} text - The message text
+ * @param {Object} options - Optional { quickReplyId, detachMedia }
  */
-export const sendMessage = async (contactId, text) => {
+export const sendMessage = async (contactId, text, options = {}) => {
   try {
-    const response = await api.post(`${MSG_BASE_URL}/contacts/${contactId}/messages`, {
+    const payload = {
       text,
-    });
+      ...(options.quickReplyId ? { quickReplyId: options.quickReplyId } : {}),
+      ...(options.detachMedia !== undefined ? { detachMedia: options.detachMedia } : {}),
+    };
+    const response = await api.post(`${MSG_BASE_URL}/contacts/${contactId}/messages`, payload);
     return {
       success: true,
       data: response.data.data,

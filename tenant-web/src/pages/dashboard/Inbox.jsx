@@ -37,6 +37,7 @@ import {
   ExternalLink,
   Copy,
   FileText,
+  Zap,
 } from "lucide-react";
 import {
   getAssignedConversations,
@@ -67,6 +68,9 @@ import { getTags } from "../../services/tag.service";
 import { getTenantUsers, assignContact } from "../../services/tenant.service";
 import { useConfirm } from "../../context/ConfirmContext";
 import { useToast } from "../../context/ToastContext";
+import { getQuickReplies } from "../../services/quickReply.service";
+import QuickReplyPopover from "../../components/inbox/QuickReplyPopover";
+import QuickReplyModal from "../../components/inbox/QuickReplyModal";
 
 export default function Inbox() {
   const confirm = useConfirm();
@@ -95,6 +99,8 @@ export default function Inbox() {
     (chatId) => {
       if (String(chatId) === String(activeChatId)) return;
       setActiveChatId(chatId);
+      setStagedQuickReply(null);
+      setShowQuickReplyPopover(false);
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev);
@@ -128,11 +134,61 @@ export default function Inbox() {
   const isTypingRef = useRef(false);
   const prevChatIdRef = useRef(null);
 
-  // ── Media Upload State ──
   const fileInputRef = useRef(null);
   const [selectedFile, setSelectedFile] = useState(null);
   const [filePreview, setFilePreview] = useState(null);
   const [fileCaption, setFileCaption] = useState("");
+
+  // ── Quick Replies State ──
+  const [quickRepliesList, setQuickRepliesList] = useState([]);
+  const [showQuickReplyPopover, setShowQuickReplyPopover] = useState(false);
+  const [filteredQuickReplies, setFilteredQuickReplies] = useState([]);
+  const [quickReplySelectedIndex, setQuickReplySelectedIndex] = useState(0);
+  const [showQuickReplyModal, setShowQuickReplyModal] = useState(false);
+  const [stagedQuickReply, setStagedQuickReply] = useState(null);
+  const lastQuickRepliesFetchRef = useRef(0);
+
+  const loadQuickReplies = useCallback(async (force = false) => {
+    const now = Date.now();
+    if (!force && quickRepliesList.length > 0 && now - lastQuickRepliesFetchRef.current < 5 * 60 * 1000) {
+      return;
+    }
+    try {
+      const res = await getQuickReplies({ limit: 100, includeInactive: false });
+      if (res.success && res.data) {
+        setQuickRepliesList(res.data);
+        lastQuickRepliesFetchRef.current = now;
+      }
+    } catch (err) {
+      console.warn("Failed to load quick replies:", err);
+    }
+  }, [quickRepliesList.length]);
+
+  useEffect(() => {
+    loadQuickReplies();
+  }, [loadQuickReplies]);
+
+  const interpolateQuickReply = (text, contact, authUser) => {
+    if (!text) return "";
+    return text
+      .replace(/{{contactName}}/gi, contact?.name || "Customer")
+      .replace(/{{contactPhone}}/gi, contact?.phone || "")
+      .replace(/{{agentName}}/gi, authUser?.name || "Agent")
+      .replace(/{{companyName}}/gi, authUser?.tenantName || "Our Company")
+      .replace(/{{date}}/gi, new Date().toLocaleDateString())
+      .replace(/{{time}}/gi, new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+  };
+
+  const handleSelectQuickReply = (reply) => {
+    if (!reply) return;
+    const interpolated = interpolateQuickReply(reply.content, activeChat?.contact, user);
+    setTypedMessage(interpolated);
+    if (reply.mediaUrl) {
+      setStagedQuickReply(reply);
+    }
+    setShowQuickReplyPopover(false);
+    setFilteredQuickReplies([]);
+  };
   const [uploadingFile, setUploadingFile] = useState(false);
   const [showStagingEmojiPicker, setShowStagingEmojiPicker] = useState(false);
   const stagingEmojiPickerRef = useRef(null);
@@ -1005,7 +1061,13 @@ export default function Inbox() {
       socket.emit("agent_typing_stop", { conversationId: activeChatId });
     }
 
-    const res = await sendMessage(activeChat.contact.id, messageText);
+    const sendOptions = {};
+    if (stagedQuickReply) {
+      sendOptions.quickReplyId = stagedQuickReply.id;
+      setStagedQuickReply(null);
+    }
+
+    const res = await sendMessage(activeChat.contact.id, messageText, sendOptions);
     if (res.success) {
       if (isClosedOrResolved) loadConversations();
     } else {
@@ -3391,6 +3453,30 @@ export default function Inbox() {
 
 
 
+              {/* ── Staged Quick Reply Attachment Preview ── */}
+              {stagedQuickReply && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-emerald-50 border border-emerald-200/80 rounded-xl text-xs text-[#075E54] shadow-xs animate-in fade-in slide-in-from-bottom-1">
+                  <Paperclip size={14} className="shrink-0 text-[#075E54]" />
+                  <span className="font-semibold">Attached with Quick Reply:</span>
+                  <span className="truncate max-w-xs font-medium text-slate-800">
+                    {stagedQuickReply.mediaName || "Attachment"}
+                  </span>
+                  {stagedQuickReply.mediaSize && (
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      ({(stagedQuickReply.mediaSize / 1024).toFixed(0)} KB)
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setStagedQuickReply(null)}
+                    className="ml-auto rounded-full p-1 text-slate-400 hover:bg-emerald-100 hover:text-red-500 transition"
+                    title="Remove attachment"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              )}
+
               {/* Input Row */}
               <div className="flex items-center gap-2">
 
@@ -3587,57 +3673,128 @@ export default function Inbox() {
                   )}
                 </div>
 
+                {/* ── Quick Replies Picker Button ── */}
+                <button
+                  type="button"
+                  disabled={activeChat.contact?.isBlocked}
+                  onClick={() => setShowQuickReplyModal(true)}
+                  className="text-[#54656F] hover:text-[#075E54] p-2 rounded-full hover:bg-white transition disabled:opacity-50"
+                  title="Quick Replies / Canned Responses (Type / to trigger)"
+                >
+                  <Zap size={20} className="fill-[#075E54]/20 hover:fill-[#075E54]" />
+                </button>
 
-                {!isRecording ? (
-                  <input
-                    type="text"
-                    placeholder={
-                      activeChat.contact?.isBlocked
-                        ? "Cannot send messages to a blocked contact"
-                        : ["RESOLVED", "CLOSED"].includes(activeChat.status)
-                          ? "Type a message to reopen chat..."
-                          : "Type a message"
-                    }
-                    value={typedMessage}
-                    disabled={activeChat.contact?.isBlocked}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setTypedMessage(val);
-                      if (socket && activeChatId) {
-                        if (val.trim().length > 0) {
-                          if (!isTypingRef.current) {
-                            isTypingRef.current = true;
-                            socket.emit("agent_typing_start", { conversationId: activeChatId });
+                <div className="relative flex-1 flex items-center">
+                  {showQuickReplyPopover && (
+                    <QuickReplyPopover
+                      quickReplies={filteredQuickReplies}
+                      selectedIndex={quickReplySelectedIndex}
+                      onSelect={handleSelectQuickReply}
+                      onClose={() => setShowQuickReplyPopover(false)}
+                      contact={activeChat?.contact}
+                      user={user}
+                    />
+                  )}
+
+                  {!isRecording ? (
+                    <input
+                      type="text"
+                      placeholder={
+                        activeChat.contact?.isBlocked
+                          ? "Cannot send messages to a blocked contact"
+                          : ["RESOLVED", "CLOSED"].includes(activeChat.status)
+                            ? "Type a message to reopen chat... (or type / for quick replies)"
+                            : "Type a message (or type / for quick replies)"
+                      }
+                      value={typedMessage}
+                      disabled={activeChat.contact?.isBlocked}
+                      onKeyDown={(e) => {
+                        if (showQuickReplyPopover && filteredQuickReplies.length > 0) {
+                          if (e.key === "ArrowDown") {
+                            e.preventDefault();
+                            setQuickReplySelectedIndex((prev) => (prev + 1) % filteredQuickReplies.length);
+                            return;
                           }
-                          if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-                          typingTimeoutRef.current = setTimeout(() => {
+                          if (e.key === "ArrowUp") {
+                            e.preventDefault();
+                            setQuickReplySelectedIndex((prev) => (prev - 1 + filteredQuickReplies.length) % filteredQuickReplies.length);
+                            return;
+                          }
+                          if (e.key === "Enter" || e.key === "Tab") {
+                            e.preventDefault();
+                            handleSelectQuickReply(filteredQuickReplies[quickReplySelectedIndex]);
+                            return;
+                          }
+                          if (e.key === "Escape") {
+                            e.preventDefault();
+                            setShowQuickReplyPopover(false);
+                            return;
+                          }
+                        }
+                      }}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setTypedMessage(val);
+
+                        // Slash command trigger detection
+                        if (val.startsWith("/")) {
+                          const query = val.replace(/^\/+/, "").toLowerCase().trim();
+                          const matched = quickRepliesList.filter((qr) => {
+                            return (
+                              qr.isActive &&
+                              (qr.shortcut.toLowerCase().includes(query) ||
+                               qr.title.toLowerCase().includes(query) ||
+                               qr.content.toLowerCase().includes(query))
+                            );
+                          });
+
+                          if (matched.length > 0) {
+                            setFilteredQuickReplies(matched);
+                            setQuickReplySelectedIndex(0);
+                            setShowQuickReplyPopover(true);
+                          } else {
+                            setShowQuickReplyPopover(false);
+                          }
+                        } else {
+                          setShowQuickReplyPopover(false);
+                        }
+
+                        if (socket && activeChatId) {
+                          if (val.trim().length > 0) {
+                            if (!isTypingRef.current) {
+                              isTypingRef.current = true;
+                              socket.emit("agent_typing_start", { conversationId: activeChatId });
+                            }
+                            if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+                            typingTimeoutRef.current = setTimeout(() => {
+                              isTypingRef.current = false;
+                              socket.emit("agent_typing_stop", { conversationId: activeChatId });
+                            }, 2500);
+                          } else {
+                            if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
                             isTypingRef.current = false;
                             socket.emit("agent_typing_stop", { conversationId: activeChatId });
-                          }, 2500);
-                        } else {
-                          if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-                          isTypingRef.current = false;
-                          socket.emit("agent_typing_stop", { conversationId: activeChatId });
+                          }
                         }
-                      }
-                    }}
-                    className="flex-1 py-2.5 px-4 bg-white rounded-lg border-0 text-sm text-[#111B21] placeholder-[#667781] focus:outline-none focus:ring-2 focus:ring-[#25D366]/30 disabled:bg-[#F0F2F5] disabled:text-[#667781] disabled:cursor-not-allowed transition"
-                  />
-                ) : (
-                  <div className="flex-1 flex items-center gap-2 py-2.5 px-4 bg-white rounded-lg">
-                    <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
-                    <span className="text-sm text-red-500 font-medium">
-                      Recording... {recordingTime}s
-                    </span>
-                    <button
-                      type="button"
-                      onClick={handleCancelRecording}
-                      className="ml-auto text-red-400 hover:text-red-600 transition"
-                    >
-                      <X size={16} />
-                    </button>
-                  </div>
-                )}
+                      }}
+                      className="w-full py-2.5 px-4 bg-white rounded-lg border-0 text-sm text-[#111B21] placeholder-[#667781] focus:outline-none focus:ring-2 focus:ring-[#25D366]/30 disabled:bg-[#F0F2F5] disabled:text-[#667781] disabled:cursor-not-allowed transition"
+                    />
+                  ) : (
+                    <div className="w-full flex items-center gap-2 py-2.5 px-4 bg-white rounded-lg">
+                      <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
+                      <span className="text-sm text-red-500 font-medium">
+                        Recording... {recordingTime}s
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleCancelRecording}
+                        className="ml-auto text-red-400 hover:text-red-600 transition"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  )}
+                </div>
 
                 {activeChat?.channel === "INSTAGRAM" && (
                   <span
@@ -4613,6 +4770,16 @@ export default function Inbox() {
           </div>
         </div>
       )}
+
+      {/* ── Quick Reply Browser Modal ── */}
+      <QuickReplyModal
+        isOpen={showQuickReplyModal}
+        onClose={() => setShowQuickReplyModal(false)}
+        quickReplies={quickRepliesList}
+        onSelectReply={handleSelectQuickReply}
+        contact={activeChat?.contact}
+        user={user}
+      />
     </div>
   );
 }

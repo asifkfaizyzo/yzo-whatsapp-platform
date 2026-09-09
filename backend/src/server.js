@@ -22,6 +22,7 @@ import { startCleanupWorker } from './workers/cleanupWorker.js';
 import './jobs/checkExpiredSubscriptions.js';
 import './jobs/expiryRemindersJob.js';
 import { startAuditCleanupJob } from './jobs/auditCleanupJob.js';
+import { initQuickReplyIndexes } from './scripts/initQuickReplyIndexes.js';
 
 import { redisConnection } from './config/redis.js';
 
@@ -38,6 +39,7 @@ const webhookWorker = startWebhookWorker();
 const broadcastWorker = startBroadcastWorker();
 startCleanupWorker();
 startAuditCleanupJob(); 
+initQuickReplyIndexes();
 console.log('👷 Background workers and cleanup tasks started successfully!');
 
 server.listen(port, () => {

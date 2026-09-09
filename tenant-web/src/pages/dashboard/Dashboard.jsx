@@ -392,7 +392,7 @@ if (userRole === "admin") {
       subtext: adminCounts.team === 0 ? "Invite team members" : `${adminCounts.team} members`,
       icon: <UserCog size={22} className="text-purple-600" />,
       bg: "bg-purple-50 border-purple-100",
-      link: "/dashboard/team",
+      link: "/dashboard/settings?tab=team",
     },
     {
       label: "Broadcasts",

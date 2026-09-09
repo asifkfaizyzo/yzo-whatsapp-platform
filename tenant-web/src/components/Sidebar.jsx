@@ -14,7 +14,6 @@ import {
   Megaphone,
   FileCode,
   Users,
-  UserCheck,
   BarChart3,
   Settings,
   ChevronDown,
@@ -240,17 +239,10 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
       restrictedForPending: true
     },
     {
-  label: "Contacts",
-  path: "/dashboard/contacts",
-  icon: <Users size={20} />,
-  adminOnly: false,
-  restrictedForPending: true,
-  },
-  {
-      label: "Team",
-      path: "/dashboard/team",
-      icon: <UserCheck size={20} />,
-      adminOnly: true,
+      label: "Contacts",
+      path: "/dashboard/contacts",
+      icon: <Users size={20} />,
+      adminOnly: false,
       restrictedForPending: true,
     },
     {
@@ -282,7 +274,7 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
     return true;
   });
 
-  const mainMenuLabels = ["Dashboard", "Inbox", "Broadcasts", "Templates", "Automation", "Contacts", "Team", "Reports"];
+  const mainMenuLabels = ["Dashboard", "Inbox", "Broadcasts", "Templates", "Automation", "Quick Replies", "Contacts", "Team", "Reports"];
   const mainMenu = menuItems.filter(item => mainMenuLabels.includes(item.label));
   const otherMenu = menuItems.filter(item => !mainMenuLabels.includes(item.label));
 

@@ -109,6 +109,7 @@ model Tenant {
   flows           Flow[]
   keywordTriggers  KeywordTrigger[]
   enterpriseLeads EnterpriseLead[]
+  quickReplies QuickReply[]
 
   subscriptionStatus   SubscriptionStatus  @default(trialing)
   currentPlan          String?
@@ -161,6 +162,7 @@ model User {
   refreshTokens RefreshToken[]   // ← one user can have many refresh tokens
     userTags   UserTagMapping[]
     tickets Ticket[]
+  quickReplies QuickReply[]
 
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -1499,3 +1501,56 @@ model PlatformSettings {
 
   @@map("platform_settings")
 }
+
+// ──────────────────────────────────────────
+// QUICK REPLIES / CANNED RESPONSES MODEL
+// ──────────────────────────────────────────
+
+enum QuickReplyScope {
+  GLOBAL
+  PERSONAL
+}
+
+enum QuickReplyMediaType {
+  IMAGE
+  DOCUMENT
+  VIDEO
+  AUDIO
+}
+
+model QuickReply {
+  id             String               @id @default(cuid())
+  tenantId       String
+  tenant         Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  shortcut       String               // e.g. "pricing", "bank" (normalized lowercase alphanumeric + hyphens)
+  title          String               // e.g. "Standard Pricing Guide"
+  content        String               @db.Text // Message body with raw {{variable}} placeholders
+  category       String               @default("General") // e.g. "Sales", "Support", "Billing"
+
+  scope          QuickReplyScope      @default(GLOBAL)
+  userId         String?              // Set if created by agent or personal
+  user           User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdByType  String               @default("TENANT") // "TENANT" | "USER"
+  createdByName  String?
+
+  // Optional Attachment
+  mediaUrl       String?              // "uploads/tenants/:tenantId/quick-replies/:uuid.ext"
+  mediaName      String?              // Original filename for display
+  mediaSize      Int?
+  mediaMimeType  String?
+  mediaType      QuickReplyMediaType?
+
+  // Lifecycle & Analytics
+  isActive       Boolean              @default(true)
+  usageCount     Int                  @default(0)
+  lastUsedAt     DateTime?
+
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  @@index([tenantId, shortcut])
+  @@index([tenantId, category])
+  @@index([tenantId, scope, isActive])
+  @@index([userId])
+}
