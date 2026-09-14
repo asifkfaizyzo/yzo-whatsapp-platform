@@ -162,11 +162,21 @@ export default function Sidebar({ userRole = "Super Admin" }) {
 
       {/* ── Main Sidebar ── */}
       <aside
-        className={`fixed top-0 left-0 h-screen bg-white border-r border-slate-200 flex flex-col z-40 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] overflow-hidden
+        className={`fixed top-0 left-0 h-screen bg-white border-r border-slate-200 flex flex-col z-40 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]
           ${collapsed ? "w-[72px]" : "w-[260px]"}
           max-md:-translate-x-full max-md:w-[280px] max-md:z-50
           ${mobileOpen ? "max-md:translate-x-0" : ""}`}
       >
+        {/* Border Collapse / Expand Toggle Button (Desktop) */}
+        <button
+          className="hidden md:flex items-center justify-center absolute top-5 -right-3.5 z-50 w-7 h-7 rounded-full bg-white border border-slate-200 text-slate-500 shadow-sm hover:shadow-md hover:bg-slate-50 hover:text-[#125EF2] hover:border-blue-200 transition-all duration-200 cursor-pointer"
+          onClick={toggleCollapse}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+        </button>
+
         {/* ── Brand / Logo Area ── */}
         <div className={`flex items-center justify-between px-4 py-5 min-h-[64px] ${collapsed ? "justify-center px-2" : ""}`}>
           <div className="flex items-center gap-2.5 overflow-hidden whitespace-nowrap">
@@ -179,14 +189,6 @@ export default function Sidebar({ userRole = "Super Admin" }) {
               SudoReply
             </span>
           </div>
-          {/* Desktop collapse toggle */}
-          <button
-            className={`hidden md:flex items-center justify-center w-7 h-7 min-w-[28px] rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-all duration-200 ${collapsed ? "!hidden" : ""}`}
-            onClick={toggleCollapse}
-            aria-label="Collapse sidebar"
-          >
-            <ChevronLeft size={16} />
-          </button>
           {/* Mobile close button */}
           <button
             className="md:hidden flex items-center justify-center w-7 h-7 min-w-[28px] rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-all duration-200"
@@ -197,55 +199,9 @@ export default function Sidebar({ userRole = "Super Admin" }) {
           </button>
         </div>
 
-        {/* Collapsed expand button (centered) */}
-        {collapsed && (
-          <div className="hidden md:flex justify-center pb-2">
-            <button
-              className="flex items-center justify-center w-9 h-7 rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-all duration-200"
-              onClick={toggleCollapse}
-              aria-label="Expand sidebar"
-            >
-              <ChevronRight size={16} />
-            </button>
-          </div>
-        )}
-
         {/* ── Scrollable Content ── */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 sidebar-scroll-area">
-          {/* User Role Indicator Card */}
-          {!collapsed ? (
-            <div className="mb-3 p-3 bg-slate-50 rounded-xl border border-slate-200/80">
-              <p className="text-[11px] text-slate-400 font-medium">Active Role</p>
-              <div className="flex items-center justify-between mt-1">
-                <span className="text-[13px] font-semibold text-slate-800 capitalize">
-                  {userRole}
-                </span>
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border bg-blue-50 text-[#125EF2] border-blue-200">
-                  Full Access
-                </span>
-              </div>
-            </div>
-          ) : (
-            /* Collapsed: show just a small avatar circle */
-            <div className="hidden md:flex justify-center mb-3">
-              <div className="group relative w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 text-xs font-bold uppercase">
-                {(userRole || "A").charAt(0)}
-                {/* Tooltip */}
-                <div className="sidebar-tooltip pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-md bg-slate-800 text-white text-xs font-medium whitespace-nowrap opacity-0 transition-opacity duration-150 z-50 shadow-lg">
-                  {userRole} — Full Access
-                  <div className="absolute right-full top-1/2 -translate-y-1/2 border-[5px] border-transparent border-r-slate-800" />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ── Menu Section ── */}
-          {!collapsed ? (
-            <p className="text-[11px] font-semibold uppercase text-slate-400 tracking-[0.5px] px-4 pt-3 pb-2">Menu</p>
-          ) : (
-            <div className="hidden md:block mx-auto my-2 w-5 h-px bg-slate-200" />
-          )}
-          <nav className="flex flex-col gap-1">
+          <nav className="flex flex-col gap-1 pt-1">
             {mainMenu.map(renderMenuItem)}
           </nav>
 
