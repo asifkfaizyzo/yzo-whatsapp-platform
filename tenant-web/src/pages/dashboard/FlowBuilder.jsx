@@ -27,6 +27,7 @@ import InteractiveButtonsNode from "../../components/automation/NodeTypes/intera
 import CatalogNode from "../../components/automation/NodeTypes/CatalogNode";
 import AskLocationNode from "../../components/automation/NodeTypes/AskLocationNode";
 import SendLocationNode from "../../components/automation/NodeTypes/SendLocationNode";
+import PaymentNode from "../../components/automation/NodeTypes/PaymentNode";
 import { getWhatsappStatus } from "../../services/tenant.service";
 import { useToast } from "../../context/ToastContext";
 
@@ -41,7 +42,9 @@ const nodeTypes = {
   SEND_CATALOG: CatalogNode,
   ASK_LOCATION: AskLocationNode,
   SEND_LOCATION: SendLocationNode,
+  PAYMENT: PaymentNode,
 };
+
 
 function FlowBuilderInner() {
   const { flowId } = useParams();

@@ -360,3 +360,100 @@ export const disconnectMetaChannels = async (channel) => {
     };
   }
 };
+
+/**
+ * Payment Gateway (Razorpay) APIs
+ */
+export const getPaymentGatewayConfig = async () => {
+  try {
+    const response = await api.get(`${TENANT_BASE_URL}/payment-gateway`);
+    return {
+      success: true,
+      data: response.data.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to fetch payment gateway settings",
+    };
+  }
+};
+
+export const updatePaymentGatewayConfig = async (data) => {
+  try {
+    const response = await api.put(`${TENANT_BASE_URL}/payment-gateway`, data);
+    return {
+      success: true,
+      message: response.data.message || "Payment gateway settings updated",
+      data: response.data.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to update payment gateway settings",
+    };
+  }
+};
+
+export const testPaymentGatewayConnection = async (data = {}) => {
+  try {
+    const response = await api.post(`${TENANT_BASE_URL}/payment-gateway/test`, data);
+    return {
+      success: true,
+      message: response.data.message || "Connection successful!",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to test connection",
+    };
+  }
+};
+
+/**
+ * Razorpay 1-Click Partner OAuth APIs
+ */
+export const getRazorpayOAuthUrl = async () => {
+  try {
+    const response = await api.get(`${TENANT_BASE_URL}/payment-gateway/oauth/url`);
+    return {
+      success: true,
+      url: response.data?.url,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.error || error.response?.data?.message || "Failed to generate authorization URL",
+    };
+  }
+};
+
+export const getRazorpayOAuthStatus = async () => {
+  try {
+    const response = await api.get(`${TENANT_BASE_URL}/payment-gateway/oauth/status`);
+    return {
+      success: true,
+      data: response.data?.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.error || "Failed to fetch OAuth status",
+    };
+  }
+};
+
+export const disconnectRazorpayOAuth = async () => {
+  try {
+    const response = await api.post(`${TENANT_BASE_URL}/payment-gateway/oauth/disconnect`);
+    return {
+      success: true,
+      message: response.data?.message || "Disconnected successfully",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.error || error.response?.data?.message || "Failed to disconnect Razorpay",
+    };
+  }
+};

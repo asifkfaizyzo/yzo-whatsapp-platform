@@ -10,6 +10,7 @@ import {
   ShoppingBag,
   Navigation,
   MapPin,
+  CreditCard,
 } from 'lucide-react'
 
 const nodeTypes = [
@@ -21,6 +22,15 @@ const nodeTypes = [
     bg: 'bg-[#EAF2FE]',
     border: 'border-[#CFE0FD]',
   },
+  {
+    type: 'PAYMENT',
+    label: 'Razorpay Pay',
+    description: 'WhatsApp Pay button',
+    icon: <CreditCard size={16} className="text-emerald-600" />,
+    bg: 'bg-emerald-50',
+    border: 'border-emerald-200',
+  },
+
   {
     type: 'ASK_QUESTION',
     label: 'Ask Question',

@@ -91,4 +91,16 @@ router.get('/meta-channels/status', verifyTenant, tenantController.getMetaChanne
 router.post('/meta-channels/connect', verifyTenant, tenantController.connectMetaChannels);
 router.delete('/meta-channels/disconnect', verifyTenant, tenantController.disconnectMetaChannels);
 
-export default router;
+import * as razorpayOAuthController from './razorpayOAuthController.js';
+
+// ===================== PAYMENT GATEWAY (RAZORPAY) =====================
+router.get('/payment-gateway', verifyTenant, tenantController.getPaymentGatewayConfig);
+router.put('/payment-gateway', verifyTenant, tenantController.updatePaymentGatewayConfig);
+router.post('/payment-gateway/test', verifyTenant, tenantController.testPaymentGatewayConnection);
+
+// ===================== PAYMENT GATEWAY (RAZORPAY OAUTH) =====================
+router.get('/payment-gateway/oauth/url', verifyTenant, razorpayOAuthController.getOAuthAuthorizeUrl);
+router.get('/payment-gateway/oauth/status', verifyTenant, razorpayOAuthController.getOAuthStatus);
+router.post('/payment-gateway/oauth/disconnect', verifyTenant, razorpayOAuthController.disconnectRazorpayOAuth);
+
+export default router;

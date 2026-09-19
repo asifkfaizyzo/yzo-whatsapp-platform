@@ -13,9 +13,11 @@ import Templates from "../pages/dashboard/Templates";
 import Contacts from "../pages/dashboard/Contacts";
 import Reports from "../pages/dashboard/Reports";
 import Settings from "../pages/dashboard/Settings";
+import Integrations from "../pages/dashboard/Integrations";
 import ResetPassword from "../pages/auth/ResetPassword";
 import ProtectedRoute from "./ProtectedRoute";
 import Billing from "../pages/dashboard/Billing";
+import RazorpayOAuthCallback from "../pages/dashboard/RazorpayOAuthCallback";
 
 // Landing Pages ✅
 import Home from '../pages/Home'
@@ -137,6 +139,7 @@ function App() {
           <Route path="contacts" element={<Contacts />} />
           <Route path="team" element={<Navigate to="/dashboard/settings?tab=team" replace />} />
           <Route path="reports" element={<Reports />} />
+          <Route path="integrations" element={<Integrations />} />
           <Route path="settings" element={<Settings />} />
           <Route path="billing" element={<Billing />} />
           <Route path="tickets" element={<Tickets />} />
@@ -156,6 +159,11 @@ function App() {
             </ProtectedRoute>
           }
         />
+        {/* Razorpay Partner OAuth Callback Handlers (Intercepts redirect when landing on port 5174) */}
+        <Route path="/api/auth/razorpay/callback" element={<RazorpayOAuthCallback />} />
+        <Route path="/api2/auth/razorpay/callback" element={<RazorpayOAuthCallback />} />
+        <Route path="/auth/razorpay/callback" element={<RazorpayOAuthCallback />} />
+
         {/* Fallback */}
         <Route path="*" element={<NotFound />} />
       </Routes>

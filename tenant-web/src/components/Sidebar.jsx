@@ -15,6 +15,7 @@ import {
   FileCode,
   Users,
   BarChart3,
+  LayoutGrid,
   Settings,
   ChevronDown,
   ChevronUp,
@@ -253,6 +254,13 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
       restrictedForPending: true,
     },
     {
+      label: "Integrations",
+      path: "/dashboard/integrations",
+      icon: <LayoutGrid size={20} />,
+      adminOnly: true,
+      restrictedForPending: false,
+    },
+    {
       label: "Billing",
       path: "/dashboard/billing",
       icon: <CreditCard size={20} />,
@@ -274,7 +282,7 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
     return true;
   });
 
-  const mainMenuLabels = ["Dashboard", "Inbox", "Broadcasts", "Templates", "Automation", "Quick Replies", "Contacts", "Team", "Reports"];
+  const mainMenuLabels = ["Dashboard", "Inbox", "Broadcasts", "Templates", "Automation", "Quick Replies", "Contacts", "Team", "Reports", "Integrations"];
   const mainMenu = menuItems.filter(item => mainMenuLabels.includes(item.label));
   const otherMenu = menuItems.filter(item => !mainMenuLabels.includes(item.label));
 

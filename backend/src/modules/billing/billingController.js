@@ -130,7 +130,7 @@ export const cancelSubscription = async (req, res) => {
         reactivateLink
       });
 
-      sendCancellationAdminAlertEmail(process.env.ADMIN_EMAIL || 'admin@sudoreply.com', {
+      sendCancellationAdminAlertEmail(process.env.ADMIN_EMAIL || process.env.EMAIL_USER || 'info@sudoreply.com', {
         companyName: tenant.tenantName || 'Tenant Company',
         email: tenant.email,
         planName: tenant.currentPlan || (tenant.plan ? tenant.plan.name : "Pro"),
@@ -340,7 +340,7 @@ export const pauseSubscription = async (req, res) => {
     });
 
     // 4. Admin Alert Email
-    const adminEmail = process.env.ADMIN_EMAIL || process.env.EMAIL_USER || 'admin@sudoreply.com';
+    const adminEmail = process.env.ADMIN_EMAIL || process.env.EMAIL_USER || 'info@sudoreply.com';
     sendPauseAdminAlertEmail(adminEmail, {
       companyName: tenant.tenantName,
       tenantEmail: tenant.email,
@@ -452,7 +452,7 @@ export const resumeSubscription = async (req, res) => {
     });
 
     // 4. Admin Alert Email
-    const adminEmail = process.env.ADMIN_EMAIL || process.env.EMAIL_USER || 'admin@sudoreply.com';
+    const adminEmail = process.env.ADMIN_EMAIL || process.env.EMAIL_USER || 'info@sudoreply.com';
     sendResumeAdminAlertEmail(adminEmail, {
       companyName: tenant.tenantName,
       tenantEmail: tenant.email,

@@ -60,6 +60,10 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
       setThumbnailSku(node.data?.options?.thumbnailSku || "");
     }
 
+    if (node.type === "PAYMENT") {
+      setContent(node.data?.content || "Please complete your payment using the button below:");
+    }
+
     if (node.type === "SEND_LOCATION") {
       setStoreName(node.data?.options?.storeName || "");
       setStoreAddress(node.data?.options?.address || node.data?.content || "");
@@ -319,6 +323,11 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
         latitude: storeLat ? Number(storeLat) : 19.1136,
         longitude: storeLng ? Number(storeLng) : 72.8697,
       };
+    }
+
+    if (node.type === "PAYMENT") {
+      newData.content = content || "Please complete your payment using the button below:";
+      newData.options = {};
     }
 
     if (node.type === "CONDITION") {
@@ -1171,6 +1180,39 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
                   className="w-full text-xs border border-slate-200 rounded-xl p-2 focus:outline-none focus:border-[#125EF2] transition"
                 />
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* PAYMENT */}
+        {node.type === "PAYMENT" && (
+          <div className="space-y-3">
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+              <p className="text-xs font-bold text-emerald-800">💳 Razorpay Online Payment</p>
+              <p className="text-[11px] text-emerald-700 mt-1 leading-relaxed">
+                Generates a secure Razorpay Payment Link and delivers an interactive "Pay Now" button on WhatsApp. Pauses the flow until the customer completes payment.
+              </p>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-slate-600 block mb-1.5">
+                Message Body
+              </label>
+              <textarea
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder="e.g. Please complete your payment using the button below:"
+                rows={3}
+                className="w-full text-xs border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-emerald-500 transition resize-none"
+              />
+              <p className="text-[10px] text-slate-400 mt-1">
+                Amount and currency will be automatically populated from the order.
+              </p>
+            </div>
+
+            <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-[11px] text-slate-600">
+              <p className="font-semibold text-slate-700 mb-0.5">ℹ️ Flow Automation</p>
+              When payment succeeds, the flow automatically resumes along the connected output handle.
             </div>
           </div>
         )}

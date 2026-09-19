@@ -44,8 +44,11 @@ import publicRoutes from './modules/public/publicRoutes.js';
 import { serverAdapter } from './config/bullBoard.js';
 import { bullBoardAuth } from './middlewares/bullBoardAuth.js';
 import quickReplyRoutes from './modules/quick-replies/quickReplyRoute.js';
+import { handleOAuthCallback } from './modules/tenant/razorpayOAuthController.js';
+import orderRoutes from './modules/orders/orderRoutes.js';
 
 const app = express();
+
 
 app.set('trust proxy', 1);
 // Add Health Check Endpoint
@@ -185,6 +188,9 @@ app.use('/api/flows', flowRoutes)
 // ──────────────────────────────────────
 // PUBLIC ROUTES — accessible from both frontends
 // ──────────────────────────────────────
+app.get('/api/auth/razorpay/callback', handleOAuthCallback);
+app.get('/api2/auth/razorpay/callback', handleOAuthCallback);
+app.get('/auth/razorpay/callback', handleOAuthCallback);
 app.use('/api',  publicRoutes);
 app.use('/api2', publicRoutes);
 
@@ -234,6 +240,8 @@ app.use('/api/admin/subscriptions', adminSubscriptionsRoute);
 
 app.use('/api/superadmin/audit-logs', auditLogRoutes);
 app.use('/api/dlq', dlqRoutes);
+app.use('/api2/orders', orderRoutes);
+
 
 
 // ──────────────────────────────────────
