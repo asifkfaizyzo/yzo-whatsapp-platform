@@ -1,7 +1,7 @@
 // src/pages/dashboard/Settings.jsx
 
 import React, { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import {
   Settings,
   User,
@@ -33,6 +33,8 @@ import {
   ShieldCheck,
   Sparkles,
   ShoppingBag,
+  CreditCard,
+  LayoutGrid,
 } from "lucide-react";
 import { FaFacebookMessenger, FaInstagram, FaWhatsapp } from "react-icons/fa";
 import { getTags, createTag } from "../../services/tag.service";
@@ -60,6 +62,9 @@ import {
 import WhatsAppConnect from "../../components/whatsapp/WhatsAppConnect";
 import QuickReplies from "./QuickReplies";
 import Team from "./Team";
+import PaymentGatewaySettings from "../../components/settings/PaymentGatewaySettings";
+import IntegrationsStore from "../../components/settings/IntegrationsStore";
+
 
 // 🆕 API base URL for logo display
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
@@ -121,6 +126,7 @@ const COUNTRY_OPTIONS = [
 
 export default function SettingsPage() {
   const toast = useToast();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(() => {
     const tab = searchParams.get("tab");
@@ -147,6 +153,8 @@ export default function SettingsPage() {
       setSelectedConnector("instagram");
     } else if (tab === "connectors") {
       setActiveTab("connectors");
+    } else if (tab === "payment" || tab === "integrations") {
+      navigate("/dashboard/integrations", { replace: true });
     } else if (tab) {
       setActiveTab(tab);
     } else {
@@ -2819,6 +2827,9 @@ export default function SettingsPage() {
               )}
             </form>
           )}
+
+          {/* Tab: Integrations (App Store & Gateway) */}
+          {(activeTab === "integrations" || activeTab === "payment") && <IntegrationsStore />}
 
         </div>
       </div>

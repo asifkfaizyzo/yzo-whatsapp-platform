@@ -1468,3 +1468,164 @@ export const deleteTenantLogo = async (req, res) => {
     res.status(400).json({ success: false, message: error.message });
   }
 };
+
+// =========== Payment Gateway Configuration ===========
+export const getPaymentGatewayConfig = async (req, res) => {
+  try {
+    const tenantId = req.tenant?.id || req.tenantId;
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: {
+        id: true,
+        razorpayAuthType: true,
+        razorpayAccountId: true,
+        razorpayAccountStatus: true,
+        razorpayKycStatus: true,
+        razorpayWebhookId: true,
+        razorpayKeyId: true,
+        razorpayKeySecret: true,
+        razorpayWebhookSecret: true,
+        enableOnlinePayment: true,
+        enableCod: true,
+        paymentLinkExpiryMins: true,
+        defaultCurrency: true,
+      }
+    });
+
+    if (!tenant) {
+      return res.status(404).json({ success: false, message: 'Tenant not found' });
+    }
+
+    const host = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+    const webhookUrl = `${host}/api/webhook/razorpay/order/${tenant.id}`;
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        razorpayAuthType: tenant.razorpayAuthType || 'DIRECT_KEYS',
+        razorpayAccountId: tenant.razorpayAccountId || null,
+        razorpayAccountStatus: tenant.razorpayAccountStatus || 'DISCONNECTED',
+        razorpayKycStatus: tenant.razorpayKycStatus || 'PENDING',
+        razorpayWebhookId: tenant.razorpayWebhookId || null,
+        razorpayKeyId: tenant.razorpayKeyId || '',
+        hasKeySecret: Boolean(tenant.razorpayKeySecret),
+        hasWebhookSecret: Boolean(tenant.razorpayWebhookSecret),
+        enableOnlinePayment: Boolean(tenant.enableOnlinePayment),
+        enableCod: Boolean(tenant.enableCod),
+        paymentLinkExpiryMins: tenant.paymentLinkExpiryMins || 30,
+        defaultCurrency: tenant.defaultCurrency || 'INR',
+        webhookUrl,
+      }
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const updatePaymentGatewayConfig = async (req, res) => {
+  try {
+    const tenantId = req.tenant?.id || req.tenantId;
+    const {
+      razorpayAuthType,
+      razorpayKeyId,
+      razorpayKeySecret,
+      razorpayWebhookSecret,
+      enableOnlinePayment,
+      enableCod,
+      paymentLinkExpiryMins,
+      defaultCurrency,
+    } = req.body;
+
+    const updateData = {};
+    if (razorpayAuthType !== undefined) {
+      updateData.razorpayAuthType = razorpayAuthType === 'OAUTH' ? 'OAUTH' : 'DIRECT_KEYS';
+    }
+    if (razorpayKeyId !== undefined) updateData.razorpayKeyId = razorpayKeyId ? razorpayKeyId.trim() : null;
+    if (razorpayKeySecret && razorpayKeySecret.trim() !== '') {
+      updateData.razorpayKeySecret = encrypt(razorpayKeySecret.trim());
+    }
+    if (razorpayWebhookSecret && razorpayWebhookSecret.trim() !== '') {
+      updateData.razorpayWebhookSecret = encrypt(razorpayWebhookSecret.trim());
+    }
+    if (enableOnlinePayment !== undefined) updateData.enableOnlinePayment = Boolean(enableOnlinePayment);
+    if (enableCod !== undefined) updateData.enableCod = Boolean(enableCod);
+    if (paymentLinkExpiryMins !== undefined) updateData.paymentLinkExpiryMins = Math.max(5, Math.min(1440, Number(paymentLinkExpiryMins) || 30));
+    if (defaultCurrency !== undefined) updateData.defaultCurrency = defaultCurrency || 'INR';
+
+    const updated = await prisma.tenant.update({
+      where: { id: tenantId },
+      data: updateData,
+    });
+
+    // Invalidate cached Razorpay client instance across workers
+    const { invalidateTenantRazorpayCache } = await import('../orders/orderPaymentService.js');
+    await invalidateTenantRazorpayCache(tenantId);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Payment gateway settings updated successfully',
+      data: {
+        razorpayAuthType: updated.razorpayAuthType || 'DIRECT_KEYS',
+        razorpayKeyId: updated.razorpayKeyId,
+        hasKeySecret: Boolean(updated.razorpayKeySecret),
+        hasWebhookSecret: Boolean(updated.razorpayWebhookSecret),
+        enableOnlinePayment: updated.enableOnlinePayment,
+        enableCod: updated.enableCod,
+        paymentLinkExpiryMins: updated.paymentLinkExpiryMins,
+        defaultCurrency: updated.defaultCurrency,
+      }
+    });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+export const testPaymentGatewayConnection = async (req, res) => {
+  try {
+    const tenantId = req.tenant?.id || req.tenantId;
+    const { razorpayKeyId, razorpayKeySecret } = req.body;
+
+    let keyId = razorpayKeyId;
+    let secret = razorpayKeySecret;
+
+    if (!keyId || !secret) {
+      // Fallback to stored credentials
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { razorpayKeyId: true, razorpayKeySecret: true }
+      });
+      if (!tenant?.razorpayKeyId || !tenant?.razorpayKeySecret) {
+        return res.status(400).json({
+          success: false,
+          message: 'Both Key ID and Key Secret are required to test connection.'
+        });
+      }
+      keyId = tenant.razorpayKeyId;
+      secret = decrypt(tenant.razorpayKeySecret);
+    }
+
+    const Razorpay = (await import('razorpay')).default;
+    const rzp = new Razorpay({
+      key_id: keyId,
+      key_secret: secret,
+    });
+
+    // Benign lightweight API call
+    await rzp.payments.all({ count: 1 });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Connection successful! Your Razorpay credentials are valid and active.'
+    });
+
+  } catch (error) {
+    console.error('Razorpay test connection failed:', error.message);
+    const isAuthError = error.statusCode === 401 || (error.message && error.message.toLowerCase().includes('authenticate'));
+    return res.status(400).json({
+      success: false,
+      message: isAuthError
+        ? 'Authentication failed: Invalid Razorpay Key ID or Key Secret.'
+        : `Connection failed: ${error.message}`
+    });
+  }
+};

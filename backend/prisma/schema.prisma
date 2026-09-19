@@ -30,12 +30,34 @@ enum TenantStatus {
   BLOCKED
 }
 
+//─────────────────Razorpay Partner OAuth Enums─────────────────
+enum RazorpayAuthType {
+  DIRECT_KEYS
+  OAUTH
+}
+
+enum RazorpayAccountStatus {
+  CONNECTED
+  KYC_PENDING
+  VERIFIED
+  SUSPENDED
+  DISCONNECTED
+}
+
+enum RazorpayKycStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  NOT_APPLICABLE
+}
+
 //─────────────────enum ChannelType────────────────────
 enum ChannelType {
   WHATSAPP
   MESSENGER
   INSTAGRAM
 }
+
 
 
 
@@ -130,13 +152,34 @@ model Tenant {
   autopayEnabled         Boolean   @default(false)
   autopayMethod          String?
 
+  // ── Merchant Order Commerce Payment Gateway ──
+  razorpayKeyId          String?
+  razorpayKeySecret      String?       // Encrypted with AES-256-GCM
+  razorpayWebhookSecret  String?       // Encrypted with AES-256-GCM
+  enableOnlinePayment    Boolean       @default(false)
+  enableCod              Boolean       @default(true)
+  defaultCurrency        String        @default("INR")
+  paymentLinkExpiryMins  Int           @default(30)
+  autoConfirmOnPayment   Boolean       @default(true)
+
+  // ── 1-Click Razorpay Partner OAuth Fields ──
+  razorpayAuthType       RazorpayAuthType      @default(DIRECT_KEYS)
+  razorpayAccountId      String?               // "acc_xxxxxxxx"
+  razorpayAccessToken    String?               // AES-256-GCM encrypted
+  razorpayRefreshToken   String?               // AES-256-GCM encrypted
+  razorpayTokenExpiresAt DateTime?
+  razorpayWebhookId      String?               // "hook_xxxxxxxx"
+  razorpayAccountStatus  RazorpayAccountStatus @default(DISCONNECTED)
+  razorpayKycStatus      RazorpayKycStatus     @default(PENDING)
+
   subscriptionReminders SubscriptionReminder[]
   invoices             Invoice[]
   cancellationSurvey   CancellationSurvey?
   dataDeletions        TenantDataDeletion[]
 
   @@index([whatsappPhoneId])
-    @@index([status])
+  @@index([status])
+  @@index([razorpayAccountId])
   auditLogs   AuditLog[] @relation("TenantAuditLogs")
 }
 
@@ -1001,6 +1044,7 @@ enum FlowNodeType {
   SEND_CATALOG
   ASK_LOCATION
   SEND_LOCATION
+  PAYMENT
 }
 
 enum FlowTriggerType {
@@ -1024,6 +1068,25 @@ enum OrderStatus {
   PENDING
   CONFIRMED
   CANCELLED
+  REVIEW_REQUIRED
+}
+
+enum OrderPaymentStatus {
+  UNPAID
+  PROCESSING
+  PAID
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+  REFUND_FAILED
+  EXPIRED
+  CANCELLED
+  AMOUNT_MISMATCH
+}
+
+enum OrderPaymentMethod {
+  RAZORPAY
+  COD
 }
 
 // ──────────────────────────────────────────
@@ -1060,38 +1123,78 @@ model Flow {
 // ──────────────────────────────────────────
 
 model Order {
-  id                 String        @id @default(cuid())
-  orderNumber        String        @unique
-  tenantId           String
-  tenant             Tenant        @relation(fields: [tenantId], references: [id])
-  conversationId     String?
-  conversation       Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
-  contactId          String
-  contact            Contact       @relation(fields: [contactId], references: [id])
+  id                     String              @id @default(cuid())
+  orderNumber            String              @unique
+  tenantId               String
+  tenant                 Tenant              @relation(fields: [tenantId], references: [id])
+  conversationId         String?
+  conversation           Conversation?       @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  contactId              String
+  contact                Contact             @relation(fields: [contactId], references: [id])
 
-  catalogId          String?
-  totalAmount        Decimal       @db.Decimal(10, 2)
-  currency           String        @default("INR")
-  customerNote       String?
-  status             OrderStatus   @default(PENDING)
+  catalogId              String?
+  totalAmount            Decimal             @db.Decimal(10, 2)
+  currency               String              @default("INR")
+  customerNote           String?
+  status                 OrderStatus         @default(PENDING)
 
-  deliveryType       DeliveryType?
-  deliveryLat        Float?
-  deliveryLng        Float?
-  deliveryName       String?
-  deliveryAddress    String?
+  // Payment Tracking Fields
+  paymentStatus          OrderPaymentStatus  @default(UNPAID)
+  paymentMethod          OrderPaymentMethod?
+  paymentLinkUrl         String?
+  paymentLinkExpiresAt   DateTime?
+  paymentAmount          Decimal?            @db.Decimal(10, 2)
+  paymentCurrency        String              @default("INR")
+  razorpayOrderId        String?
+  razorpayPaymentId      String?
+  razorpayPaymentLinkId  String?
+  paidAt                 DateTime?
+  refundId               String?
+  refundedAt             DateTime?
+  adminNotes             String?
 
-  wamid              String?       @unique
+  deliveryType           DeliveryType?
+  deliveryLat            Float?
+  deliveryLng            Float?
+  deliveryName           String?
+  deliveryAddress        String?
 
-  items              OrderItem[]
+  wamid                  String?        @unique
 
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
+  items                  OrderItem[]
+
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
 
   @@index([tenantId, status])
   @@index([conversationId])
   @@index([contactId])
+  @@index([razorpayPaymentLinkId])
+  @@index([razorpayPaymentId])
+  @@index([paymentStatus])
 }
+
+// ──────────────────────────────────────────
+// WEBHOOK IDEMPOTENCY MODEL
+// ──────────────────────────────────────────
+
+model WebhookEvent {
+  id          String   @id @default(cuid())
+  provider    String   @default("RAZORPAY")
+  eventId     String   // from x-razorpay-event-id header
+  eventType   String
+  tenantId    String?
+  payload     Json?
+  processed   Boolean  @default(false)
+  processedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@unique([provider, eventId])
+  @@index([tenantId, processedAt])
+  @@index([processedAt])
+  @@index([createdAt])
+}
+
 
 model OrderItem {
   id                 String   @id @default(cuid())
@@ -1553,4 +1656,5 @@ model QuickReply {
   @@index([tenantId, category])
   @@index([tenantId, scope, isActive])
   @@index([userId])
-}
+}
+

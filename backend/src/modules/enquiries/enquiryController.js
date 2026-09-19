@@ -31,7 +31,7 @@ export const submitEnquiry = async (req, res) => {
 
     // Send emails (non-blocking)
     sendEnquiryConfirmationEmail(email, name).catch(console.error);
-    const adminEmail = process.env.EMAIL_USER || 'admin@sudoreply.com';
+    const adminEmail = process.env.EMAIL_USER || 'info@sudoreply.com';
     sendEnquiryNotificationEmail(adminEmail, { name, email, subject, message }).catch(console.error);
 
     return res.status(201).json({ 

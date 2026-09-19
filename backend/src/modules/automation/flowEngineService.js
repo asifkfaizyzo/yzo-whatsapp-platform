@@ -225,8 +225,10 @@ if (conversation.mode === 'QUEUED') {
       const isConfirm = textLower === 'confirm order' || textLower === 'confirm' || textLower === 'yes' || textLower.startsWith('btn_confirm')
       const isCancel = textLower === 'cancel order' || textLower === 'cancel' || textLower === 'no' || textLower.startsWith('btn_cancel')
       const isModify = textLower.includes('modify') || textLower.includes('reorder') || textLower.includes('change cart') || textLower.startsWith('btn_modify')
+      const isCodSwitch = textLower === 'cod' || textLower === 'cash on delivery' || textLower === 'pay on delivery'
+      const isPayRetry = textLower === 'pay' || textLower === 'pay online' || textLower === 'retry' || textLower === 'retry payment'
 
-      if (!isConfirm && !isCancel && !isModify) {
+      if (!isConfirm && !isCancel && !isModify && !isCodSwitch && !isPayRetry) {
         return false
       }
 
@@ -241,7 +243,7 @@ if (conversation.mode === 'QUEUED') {
         activeOrder = await prisma.order.findFirst({
           where: {
             conversationId: conversation.id,
-            status: 'PENDING'
+            status: { in: ['PENDING', 'CONFIRMED'] }
           },
           orderBy: { createdAt: 'desc' }
         }).catch(() => null)
@@ -252,16 +254,154 @@ if (conversation.mode === 'QUEUED') {
 
       console.log(`🛍️ [ORDER ACTION] Processing "${userMessage}" for order ${orderNumber} (ID: ${activeOrderId})`)
 
+      // ── Handle Switching from Online Payment to COD ──
+      if (isCodSwitch && activeOrderId) {
+        const tenant = await prisma.tenant.findUnique({
+          where: { id: conversation.tenantId },
+          select: { enableCod: true }
+        })
+
+        if (tenant?.enableCod) {
+          await prisma.order.update({
+            where: { id: activeOrderId },
+            data: {
+              paymentMethod: 'COD',
+              paymentStatus: 'UNPAID',
+              status: 'CONFIRMED',
+              adminNotes: 'Customer opted for Cash on Delivery'
+            }
+          })
+
+          emitToTenant(conversation.tenantId, 'order_status_update', {
+            orderId: activeOrderId,
+            paymentMethod: 'COD',
+            status: 'CONFIRMED'
+          })
+
+          const codMsg = `✅ *Switched to Cash on Delivery*\n\nOrder #${orderNumber} is now confirmed for *Cash on Delivery*! 🚚\n\nPlease keep ${activeOrder?.currency || 'INR'} ${activeOrder ? Number(activeOrder.totalAmount).toFixed(2) : ''} ready upon delivery.`
+          await flowEngine.sendBotTextMessage(conversation, contact, codMsg)
+          await flowEngine.saveBotMessage(conversation.id, codMsg)
+          await flowEngine.endFlow(conversation)
+          return true
+        }
+      }
+
+      // ── Handle Payment Link Retry / Resend ──
+      if (isPayRetry && activeOrderId) {
+        try {
+          const { resendOrderPaymentLink } = await import('../orders/orderPaymentService.js')
+          const { paymentLink, order: freshOrder } = await resendOrderPaymentLink({
+            orderId: activeOrderId,
+            tenantId: conversation.tenantId,
+          })
+
+          const payBody = `💳 *Payment Link for Order #${orderNumber}*\n\n💰 Total Amount: *${freshOrder.currency} ${Number(freshOrder.totalAmount).toFixed(2)}*\n\nPlease tap the button below to complete your payment:`
+          await flowEngine.sendWhatsAppPaymentCTA(conversation.tenantId, contact.phone, {
+            headerText: '💳 Complete Payment',
+            bodyText: payBody,
+            buttonText: 'Pay Now',
+            url: paymentLink.short_url,
+          })
+          await flowEngine.saveBotMessage(conversation.id, payBody)
+          return true
+        } catch (err) {
+          console.error('Error resending payment link:', err.message)
+        }
+      }
+
+      // ── Handle Order Confirmation ──
       if (isConfirm) {
+        const tenant = await prisma.tenant.findUnique({
+          where: { id: conversation.tenantId },
+          select: {
+            id: true,
+            enableOnlinePayment: true,
+            enableCod: true,
+            razorpayKeyId: true,
+            razorpayKeySecret: true,
+            defaultCurrency: true,
+            paymentLinkExpiryMins: true,
+          }
+        })
+
+        const canPayOnline = Boolean(tenant?.enableOnlinePayment && tenant?.razorpayKeyId && tenant?.razorpayKeySecret)
+
+        if (canPayOnline && activeOrder) {
+          try {
+            const { createOrderPaymentLink } = await import('../orders/orderPaymentService.js')
+            const { paymentLink, fallbackCod } = await createOrderPaymentLink({
+              order: activeOrder,
+              tenant,
+              contact
+            })
+
+            if (fallbackCod) {
+              const confirmMsg = `🎉 *Order #${orderNumber} Confirmed!*\n\nThank you! Your order has been placed with Cash on Delivery (Total: ${activeOrder.currency} ${Number(activeOrder.totalAmount).toFixed(2)}). We will notify you once it's on the way! 🚚`
+              await flowEngine.sendBotTextMessage(conversation, contact, confirmMsg)
+              await flowEngine.saveBotMessage(conversation.id, confirmMsg)
+              await flowEngine.endFlow(conversation)
+              return true
+            }
+
+            // Send Meta WhatsApp CTA URL interactive button
+            const payBody = `📦 *Order #${orderNumber} Confirmed!*\n\n💰 Total Amount: *${activeOrder.currency} ${Number(activeOrder.totalAmount).toFixed(2)}*\n\nPlease tap the button below to complete your payment securely.${tenant.enableCod ? '\n\n💡 _Prefer Cash on Delivery? Simply reply *COD*._' : ''}`
+            
+            await flowEngine.sendWhatsAppPaymentCTA(conversation.tenantId, contact.phone, {
+              headerText: '💳 Complete Payment',
+              bodyText: payBody,
+              footerText: `Expires in ${tenant.paymentLinkExpiryMins || 30} mins`,
+              buttonText: 'Pay Now',
+              url: paymentLink.short_url,
+            })
+
+            await flowEngine.saveBotMessage(conversation.id, payBody, {
+              type: 'TEXT',
+              buttons: [{ id: 'pay_now', title: 'Pay Now', url: paymentLink.short_url }]
+            })
+
+            // Hold conversation waiting for payment webhook callback
+            await prisma.conversation.update({
+              where: { id: conversation.id },
+              data: {
+                currentNodeId: 'WAITING_FOR_PAYMENT',
+                mode: 'BOT',
+                flowData: {
+                  ...conversation.flowData,
+                  activeOrderId: activeOrder.id,
+                  paymentLinkId: paymentLink.id,
+                }
+              }
+            })
+
+            return true
+
+          } catch (payLinkErr) {
+            console.error('❌ Failed to generate Razorpay payment link:', payLinkErr.message)
+            if (tenant?.enableCod) {
+              await prisma.order.update({
+                where: { id: activeOrder.id },
+                data: { paymentMethod: 'COD', paymentStatus: 'UNPAID', status: 'CONFIRMED' }
+              })
+              const confirmMsg = `🎉 *Order #${orderNumber} Confirmed!*\n\nYour order has been confirmed with Cash on Delivery (Total: ${activeOrder.currency} ${Number(activeOrder.totalAmount).toFixed(2)}). We will notify you once it's on the way! 🚚`
+              await flowEngine.sendBotTextMessage(conversation, contact, confirmMsg)
+              await flowEngine.saveBotMessage(conversation.id, confirmMsg)
+              await flowEngine.endFlow(conversation)
+              return true
+            }
+          }
+        }
+
+        // Standard COD Order Confirmation
         if (activeOrderId) {
           await prisma.order.update({
             where: { id: activeOrderId },
-            data: { status: 'CONFIRMED' }
+            data: { status: 'CONFIRMED', paymentMethod: 'COD', paymentStatus: 'UNPAID' }
           }).catch(err => console.error('Error confirming order in DB:', err.message))
 
           emitToTenant(conversation.tenantId, 'order_status_update', {
             orderId: activeOrderId,
-            status: 'CONFIRMED'
+            status: 'CONFIRMED',
+            paymentMethod: 'COD'
           })
         }
 
@@ -276,12 +416,13 @@ if (conversation.mode === 'QUEUED') {
         if (activeOrderId) {
           await prisma.order.update({
             where: { id: activeOrderId },
-            data: { status: 'CANCELLED' }
+            data: { status: 'CANCELLED', paymentStatus: 'CANCELLED' }
           }).catch(err => console.error('Error cancelling order in DB:', err.message))
 
           emitToTenant(conversation.tenantId, 'order_status_update', {
             orderId: activeOrderId,
-            status: 'CANCELLED'
+            status: 'CANCELLED',
+            paymentStatus: 'CANCELLED'
           })
         }
 
@@ -306,6 +447,7 @@ if (conversation.mode === 'QUEUED') {
       return false
     }
   },
+
 
   // ─────────────────────────────────────────
   // Trigger Event: ORDER_RECEIVED (WhatsApp cart order)
@@ -563,9 +705,16 @@ if (conversation.mode === 'QUEUED') {
         )
         break
 
+      case 'PAYMENT':
+        await flowEngine.handlePaymentNode(
+          node, conversation, contact, userMessage, isNewContact
+        )
+        break
+
       case 'END_FLOW':
         await flowEngine.endFlow(conversation)
         break
+
 
       default:
         console.log('⚠️ Unknown node type:', node.type)
@@ -2441,7 +2590,337 @@ saveBotMediaMessage: async (conversationId, mediaData) => {
   } catch (error) {
     console.error('❌ saveBotMessage error:', error)
   }
-}
+},
+
+  // ─────────────────────────────────────────
+  // PAYMENT Node
+  // ─────────────────────────────────────────
+  handlePaymentNode: async (node, conversation, contact, userMessage, isNewContact = false) => {
+    console.log(`💳 Executing PAYMENT node: ${node.id}`)
+    try {
+      const activeOrderId = conversation.flowData?.activeOrderId
+      let order = null
+      if (activeOrderId) {
+        order = await prisma.order.findUnique({
+          where: { id: activeOrderId }
+        })
+      }
+      if (!order) {
+        order = await prisma.order.findFirst({
+          where: { conversationId: conversation.id, status: 'PENDING' },
+          orderBy: { createdAt: 'desc' }
+        })
+      }
+
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: conversation.tenantId },
+        select: {
+          id: true,
+          enableOnlinePayment: true,
+          enableCod: true,
+          razorpayKeyId: true,
+          razorpayKeySecret: true,
+          defaultCurrency: true,
+          paymentLinkExpiryMins: true,
+        }
+      })
+
+      if (!order || !tenant) {
+        console.warn('⚠️ No active order or tenant found for PAYMENT node')
+        if (node.nextNodeId) {
+          const nextNode = await flowService.getNodeById(node.nextNodeId)
+          if (nextNode) return await flowEngine.executeNode(nextNode, conversation, contact, userMessage, isNewContact)
+        }
+        return await flowEngine.endFlow(conversation)
+      }
+
+      const { createOrderPaymentLink } = await import('../orders/orderPaymentService.js')
+      const { paymentLink, fallbackCod } = await createOrderPaymentLink({
+        order,
+        tenant,
+        contact
+      })
+
+      if (fallbackCod) {
+        const codMsg = `🎉 *Order #${order.orderNumber} Placed!*\n\nTotal Amount: ${order.currency} ${Number(order.totalAmount).toFixed(2)} (Cash on Delivery)`
+        await flowEngine.sendBotTextMessage(conversation, contact, codMsg)
+        await flowEngine.saveBotMessage(conversation.id, codMsg)
+        if (node.nextNodeId) {
+          const nextNode = await flowService.getNodeById(node.nextNodeId)
+          if (nextNode) return await flowEngine.executeNode(nextNode, conversation, contact, userMessage, isNewContact)
+        }
+        return await flowEngine.endFlow(conversation)
+      }
+
+      const payBody = node.content || `📦 *Payment for Order #${order.orderNumber}*\n\n💰 Total Amount: *${order.currency} ${Number(order.totalAmount).toFixed(2)}*\n\nPlease tap the button below to complete your payment securely:${tenant.enableCod ? '\n\n💡 _Prefer Cash on Delivery? Reply *COD*._' : ''}`
+
+      await flowEngine.sendWhatsAppPaymentCTA(conversation.tenantId, contact.phone, {
+        headerText: '💳 Complete Payment',
+        bodyText: payBody,
+        footerText: `Expires in ${tenant.paymentLinkExpiryMins || 30} mins`,
+        buttonText: 'Pay Now',
+        url: paymentLink.short_url,
+      })
+
+      await flowEngine.saveBotMessage(conversation.id, payBody, {
+        type: 'TEXT',
+        buttons: [{ id: 'pay_now', title: 'Pay Now', url: paymentLink.short_url }]
+      })
+
+      // Hold conversation at this PAYMENT node waiting for webhook
+      await prisma.conversation.update({
+        where: { id: conversation.id },
+        data: {
+          currentNodeId: node.id,
+          mode: 'BOT',
+          flowData: {
+            ...conversation.flowData,
+            activeOrderId: order.id,
+            paymentLinkId: paymentLink.id,
+          }
+        }
+      })
+
+      console.log(`⏸️ Conversation ${conversation.id} waiting for payment confirmation on node ${node.id}`)
+
+    } catch (err) {
+      console.error('❌ Failed in handlePaymentNode:', err.message)
+      if (node.nextNodeId) {
+        const nextNode = await flowService.getNodeById(node.nextNodeId)
+        if (nextNode) return await flowEngine.executeNode(nextNode, conversation, contact, userMessage, isNewContact)
+      }
+      await flowEngine.endFlow(conversation)
+    }
+  },
+
+  // ─────────────────────────────────────────
+  // Resume Flow After Successful Payment
+  // ─────────────────────────────────────────
+  resumeFlowAfterPayment: async (order, paymentStatus) => {
+    try {
+      console.log(`▶️ [resumeFlowAfterPayment] Order #${order.orderNumber} paid. Resuming flow...`)
+
+      let conversation = null
+      if (order.conversationId) {
+        conversation = await prisma.conversation.findUnique({
+          where: { id: order.conversationId },
+          include: { contact: true }
+        })
+      }
+
+      if (!conversation && order.contactId) {
+        conversation = await prisma.conversation.findFirst({
+          where: { contactId: order.contactId, tenantId: order.tenantId },
+          include: { contact: true }
+        })
+      }
+
+      if (!conversation || !conversation.contact) {
+        console.log(`⚠️ [resumeFlowAfterPayment] No conversation found for order ${order.orderNumber}`)
+        return
+      }
+
+      const contact = conversation.contact
+      const confirmMsg = `🎉 *Payment Received!*\n\nPayment for Order #${order.orderNumber} has been received successfully.\n\n💰 *Amount:* ${order.currency} ${Number(order.totalAmount).toFixed(2)}\n🔖 *Transaction ID:* ${order.razorpayPaymentId || 'N/A'}\n\nYour order is confirmed and our team has started processing it! 🚚`
+
+      // 24-hour Meta messaging window check
+      const lastActivity = conversation.updatedAt ? new Date(conversation.updatedAt).getTime() : 0
+      const isWithin24Hours = (Date.now() - lastActivity) < (24 * 60 * 60 * 1000)
+
+      if (isWithin24Hours) {
+        await flowEngine.sendBotTextMessage(conversation, contact, confirmMsg)
+        await flowEngine.saveBotMessage(conversation.id, confirmMsg)
+      } else {
+        console.warn(`⚠️ [resumeFlowAfterPayment] Outside 24h window for contact ${contact.phone}. Free-form message withheld.`)
+        await flowEngine.saveBotMessage(conversation.id, confirmMsg)
+      }
+
+      // Check if conversation was paused on a PAYMENT node
+      if (conversation.currentNodeId) {
+        const currentNode = await flowService.getNodeById(conversation.currentNodeId)
+        if (currentNode && currentNode.type === 'PAYMENT' && currentNode.nextNodeId) {
+          const nextNode = await flowService.getNodeById(currentNode.nextNodeId)
+          if (nextNode) {
+            console.log(`▶️ Advancing flow to next node: ${nextNode.id} (${nextNode.type})`)
+            await prisma.conversation.update({
+              where: { id: conversation.id },
+              data: { currentNodeId: nextNode.id }
+            })
+            const updatedConv = { ...conversation, currentNodeId: nextNode.id }
+            await flowEngine.executeNode(nextNode, updatedConv, contact)
+            return
+          }
+        }
+      }
+
+      await flowEngine.endFlow(conversation)
+
+    } catch (err) {
+      console.error('❌ resumeFlowAfterPayment error:', err)
+    }
+  },
+
+  // ─────────────────────────────────────────
+  // Handle Payment Failed Alert
+  // ─────────────────────────────────────────
+  handlePaymentFailed: async (order, reason) => {
+    try {
+      let conversation = null
+      if (order.conversationId) {
+        conversation = await prisma.conversation.findUnique({
+          where: { id: order.conversationId },
+          include: { contact: true }
+        })
+      }
+
+      if (!conversation || !conversation.contact) return
+
+      const contact = conversation.contact
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: order.tenantId },
+        select: { enableCod: true }
+      })
+
+      const failMsg = `⚠️ *Payment Unsuccessful*\n\nYour payment for Order #${order.orderNumber} could not be processed (${reason || 'Payment failed'}).\n\nTap below to retry your payment${tenant?.enableCod ? ', or reply *COD* to switch to Cash on Delivery.' : '.'}`
+
+      if (order.paymentLinkUrl) {
+        await flowEngine.sendWhatsAppPaymentCTA(conversation.tenantId, contact.phone, {
+          headerText: '⚠️ Payment Retry',
+          bodyText: failMsg,
+          buttonText: 'Retry Payment',
+          url: order.paymentLinkUrl,
+        })
+      } else {
+        await flowEngine.sendBotTextMessage(conversation, contact, failMsg)
+      }
+
+      await flowEngine.saveBotMessage(conversation.id, failMsg)
+    } catch (err) {
+      console.error('❌ handlePaymentFailed error:', err)
+    }
+  },
+
+  // ─────────────────────────────────────────
+  // Handle Payment Link Expired Alert
+  // ─────────────────────────────────────────
+  handlePaymentExpired: async (order) => {
+    try {
+      let conversation = null
+      if (order.conversationId) {
+        conversation = await prisma.conversation.findUnique({
+          where: { id: order.conversationId },
+          include: { contact: true }
+        })
+      }
+
+      if (!conversation || !conversation.contact) return
+
+      const contact = conversation.contact
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: order.tenantId },
+        select: { enableCod: true }
+      })
+
+      const expireMsg = `⏰ *Payment Link Expired*\n\nThe payment link for Order #${order.orderNumber} has expired.\n\nReply *PAY* to generate a fresh payment link${tenant?.enableCod ? ', or reply *COD* to pay on delivery.' : '.'}`
+
+      await flowEngine.sendBotTextMessage(conversation, contact, expireMsg)
+      await flowEngine.saveBotMessage(conversation.id, expireMsg)
+    } catch (err) {
+      console.error('❌ handlePaymentExpired error:', err)
+    }
+  },
+
+  // ─────────────────────────────────────────
+  // Send Interactive CTA URL (Payment Button)
+  // ─────────────────────────────────────────
+  sendWhatsAppPaymentCTA: async (tenantId, phone, { headerText, bodyText, footerText, buttonText, url }) => {
+    try {
+      if (process.env.MOCK_WHATSAPP === 'true') {
+        console.log('\n╔══════════════════════════════════════╗')
+        console.log('║  📱 MOCK WHATSAPP - PAYMENT CTA URL  ║')
+        console.log('╠══════════════════════════════════════╣')
+        console.log(`║  To     : ${phone}`)
+        console.log(`║  Header : ${headerText || 'Complete Payment'}`)
+        console.log(`║  Body   : ${bodyText}`)
+        console.log(`║  Button : [${buttonText || 'Pay Now'}] -> ${url}`)
+        console.log('╚══════════════════════════════════════╝\n')
+        return { messages: [{ id: 'mock_cta_' + Date.now() }] }
+      }
+
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: {
+          whatsappPhoneId: true,
+          whatsappAccessToken: true,
+        }
+      })
+
+      if (!tenant?.whatsappPhoneId || !tenant?.whatsappAccessToken) {
+        console.error('❌ Tenant WhatsApp credentials not configured')
+        return null
+      }
+
+      const token = decrypt(tenant.whatsappAccessToken)
+      const apiUrl = `https://graph.facebook.com/v21.0/${tenant.whatsappPhoneId}/messages`
+
+      const payload = {
+        messaging_product: 'whatsapp',
+        to: phone,
+        type: 'interactive',
+        interactive: {
+          type: 'cta_url',
+          ...(headerText ? { header: { type: 'text', text: headerText } } : {}),
+          body: { text: bodyText },
+          ...(footerText ? { footer: { text: footerText } } : {}),
+          action: {
+            name: 'cta_url',
+            parameters: {
+              display_text: (buttonText || 'Pay Now').slice(0, 20),
+              url: url
+            }
+          }
+        }
+      }
+
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(15000)
+          })
+
+          const result = await response.json()
+          if (result.messages?.[0]?.id) {
+            console.log(`📤 WhatsApp Payment CTA sent: ${result.messages[0].id}`)
+            return result
+          } else {
+            console.warn(`⚠️ Payment CTA send attempt ${attempt} failed:`, result)
+            // If cta_url is not supported for this WABA or number, fall back to standard text message with link
+            if (attempt === 2) {
+              console.log('🔄 Falling back to standard text message with payment link')
+              const fallbackText = `${headerText ? `*${headerText}*\n\n` : ''}${bodyText}\n\n👉 Pay here: ${url}`
+              return await flowEngine.sendWhatsAppMessage(tenantId, phone, fallbackText)
+            }
+          }
+        } catch (fetchErr) {
+          console.warn(`⚠️ Payment CTA fetch error (attempt ${attempt}/2):`, fetchErr.message)
+          if (attempt === 2) {
+            const fallbackText = `${bodyText}\n\n👉 Pay here: ${url}`
+            return await flowEngine.sendWhatsAppMessage(tenantId, phone, fallbackText)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('❌ sendWhatsAppPaymentCTA error:', error)
+      return null
+    }
+  }
 
 }
+
 export default flowEngine
