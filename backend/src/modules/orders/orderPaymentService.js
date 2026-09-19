@@ -51,6 +51,7 @@ export const createTenantRazorpayInstance = async (tenantId) => {
       id: true,
       razorpayAuthType: true,
       razorpayAccountId: true,
+      razorpayAccessToken: true,
       razorpayKeyId: true,
       razorpayKeySecret: true,
       enableOnlinePayment: true,
@@ -69,20 +70,33 @@ export const createTenantRazorpayInstance = async (tenantId) => {
       throw new Error(`Razorpay sub-merchant account not connected for tenant ${tenantId}`);
     }
 
-    const masterKeyId = process.env.RAZORPAY_KEY_ID;
-    const masterKeySecret = process.env.RAZORPAY_KEY_SECRET;
-
-    if (!masterKeyId || !masterKeySecret) {
-      throw new Error('Master Razorpay Partner credentials not configured on platform');
+    if (tenant.razorpayAccessToken) {
+      try {
+        const decryptedToken = decrypt(tenant.razorpayAccessToken);
+        instance = new Razorpay({
+          oauthToken: decryptedToken,
+        });
+      } catch (tokenErr) {
+        console.warn(`⚠️ [RazorpayOAuth] Failed to decrypt access token for tenant ${tenantId}:`, tokenErr.message);
+      }
     }
 
-    instance = new Razorpay({
-      key_id: masterKeyId,
-      key_secret: masterKeySecret,
-      headers: {
-        'X-Razorpay-Account': tenant.razorpayAccountId,
-      },
-    });
+    if (!instance) {
+      const masterKeyId = process.env.RAZORPAY_KEY_ID;
+      const masterKeySecret = process.env.RAZORPAY_KEY_SECRET;
+
+      if (!masterKeyId || !masterKeySecret) {
+        throw new Error('Master Razorpay Partner credentials not configured on platform');
+      }
+
+      instance = new Razorpay({
+        key_id: masterKeyId,
+        key_secret: masterKeySecret,
+        headers: {
+          'X-Razorpay-Account': tenant.razorpayAccountId,
+        },
+      });
+    }
   } else {
     // DIRECT_KEYS mode (backward compatible)
     if (!tenant.razorpayKeyId || !tenant.razorpayKeySecret) {
