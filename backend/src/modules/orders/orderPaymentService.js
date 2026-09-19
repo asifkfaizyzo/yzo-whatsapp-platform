@@ -191,6 +191,7 @@ export const createOrderPaymentLink = async ({ order, tenant, contact }) => {
       (typeof errorDetail === 'string' && errorDetail.toLowerCase().includes('unauthorized'));
 
     if (isAuthError) {
+      await invalidateTenantRazorpayCache(tenant.id);
       if (tenant.razorpayAuthType === 'OAUTH') {
         // Revocation detected: disconnect OAuth and turn off online payment
         await prisma.tenant.update({
