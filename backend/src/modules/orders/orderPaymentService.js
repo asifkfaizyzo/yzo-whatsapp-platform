@@ -193,10 +193,12 @@ export const createOrderPaymentLink = async ({ order, tenant, contact }) => {
     if (isAuthError) {
       await invalidateTenantRazorpayCache(tenant.id);
       if (tenant.razorpayAuthType === 'OAUTH') {
-        // Revocation detected: disconnect OAuth and turn off online payment
+        // Revocation/invalid account detected: disconnect OAuth and reset account ID
         await prisma.tenant.update({
           where: { id: tenant.id },
           data: {
+            razorpayAuthType: 'DIRECT_KEYS',
+            razorpayAccountId: null,
             razorpayAccountStatus: 'DISCONNECTED',
             enableOnlinePayment: false,
           },
