@@ -50,18 +50,27 @@ function verifyAndExtractState(signedState) {
 /**
  * Helper to provision programmatic webhook for sub-merchant account with 3x retry
  */
-async function provisionSubMerchantWebhook(accountId, alertEmail, webhookSecret, req) {
+async function provisionSubMerchantWebhook(accountId, alertEmail, webhookSecret, req, accessToken = null) {
   const partnerKey = process.env.RAZORPAY_KEY_ID;
   const partnerSecret = process.env.RAZORPAY_KEY_SECRET;
   const backendUrl = req ? getDynamicBackendUrl(req) : (process.env.BACKEND_URL || 'http://localhost:5000');
   const webhookUrl = `${backendUrl}/api/webhook/razorpay/partner`;
 
-  if (!partnerKey || !partnerSecret) {
-    console.warn('⚠️ [RazorpayOAuth] RAZORPAY_KEY_ID / SECRET not configured. Skipping programmatic webhook creation.');
+  const headers = {
+    'Content-Type': 'application/json',
+  };
+
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`;
+  } else if (partnerKey && partnerSecret) {
+    const basicAuth = Buffer.from(`${partnerKey}:${partnerSecret}`).toString('base64');
+    headers['Authorization'] = `Basic ${basicAuth}`;
+    headers['X-Razorpay-Account'] = accountId;
+  } else {
+    console.warn('⚠️ [RazorpayOAuth] Neither OAuth access token nor Partner key/secret available. Skipping webhook creation.');
     return null;
   }
 
-  const basicAuth = Buffer.from(`${partnerKey}:${partnerSecret}`).toString('base64');
   const payload = {
     url: webhookUrl,
     alert_email: alertEmail || process.env.EMAIL_USER || 'info@sudoreply.com',
@@ -69,7 +78,6 @@ async function provisionSubMerchantWebhook(accountId, alertEmail, webhookSecret,
     events: [
       'payment_link.paid',
       'payment_link.cancelled',
-      'payment_link.expired',
       'payment.captured',
       'payment.failed',
       'refund.processed',
@@ -80,14 +88,10 @@ async function provisionSubMerchantWebhook(accountId, alertEmail, webhookSecret,
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       const response = await axios.post(
-        `https://api.razorpay.com/v1/accounts/${accountId}/webhooks`,
+        'https://api.razorpay.com/v1/webhooks',
         payload,
         {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Basic ${basicAuth}`,
-            'X-Razorpay-Account': accountId,
-          },
+          headers,
           timeout: 10000,
         }
       );
@@ -110,20 +114,24 @@ async function provisionSubMerchantWebhook(accountId, alertEmail, webhookSecret,
 /**
  * Helper to delete sub-merchant webhook on disconnect
  */
-async function deleteSubMerchantWebhook(accountId, webhookId) {
+async function deleteSubMerchantWebhook(accountId, webhookId, accessToken = null) {
   if (!accountId || !webhookId) return;
 
-  const partnerKey = process.env.RAZORPAY_KEY_ID;
-  const partnerSecret = process.env.RAZORPAY_KEY_SECRET;
-  if (!partnerKey || !partnerSecret) return;
+  const headers = {};
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`;
+  } else {
+    const partnerKey = process.env.RAZORPAY_KEY_ID;
+    const partnerSecret = process.env.RAZORPAY_KEY_SECRET;
+    if (!partnerKey || !partnerSecret) return;
+    const basicAuth = Buffer.from(`${partnerKey}:${partnerSecret}`).toString('base64');
+    headers['Authorization'] = `Basic ${basicAuth}`;
+    headers['X-Razorpay-Account'] = accountId;
+  }
 
-  const basicAuth = Buffer.from(`${partnerKey}:${partnerSecret}`).toString('base64');
   try {
-    await axios.delete(`https://api.razorpay.com/v1/accounts/${accountId}/webhooks/${webhookId}`, {
-      headers: {
-        Authorization: `Basic ${basicAuth}`,
-        'X-Razorpay-Account': accountId,
-      },
+    await axios.delete(`https://api.razorpay.com/v1/webhooks/${webhookId}`, {
+      headers,
       timeout: 8000,
     });
     console.log(`🗑️ [RazorpayOAuth] Deleted webhook ${webhookId} for ${accountId}`);
@@ -387,7 +395,8 @@ export async function handleOAuthCallback(req, res) {
       razorpay_account_id,
       tenant.email,
       webhookSecret,
-      req
+      req,
+      access_token
     );
 
     // 4. Save credentials to Database (Option A: KYC-Gated Online Payment Activation)
