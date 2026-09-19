@@ -75,13 +75,13 @@ async function provisionSubMerchantWebhook(accountId, alertEmail, webhookSecret,
     url: webhookUrl,
     alert_email: alertEmail || process.env.EMAIL_USER || 'info@sudoreply.com',
     secret: webhookSecret,
-    events: [
-      'payment_link.paid',
-      'payment_link.cancelled',
-      'payment.captured',
-      'payment.failed',
-      'refund.processed',
-    ],
+    events: {
+      'payment_link.paid': true,
+      'payment_link.cancelled': true,
+      'payment.captured': true,
+      'payment.failed': true,
+      'refund.processed': true,
+    },
   };
 
   let webhookId = null;
