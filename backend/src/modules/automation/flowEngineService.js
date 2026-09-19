@@ -2626,7 +2626,7 @@ saveBotMediaMessage: async (conversationId, mediaData) => {
       })
 
       if (!order || !tenant) {
-        console.warn('⚠️ No active order or tenant found for PAYMENT node')
+        console.warn('⚠️ No active order or tenant found for PAYMENT node. Ensure an order is created prior to the Payment node.')
         if (node.nextNodeId) {
           const nextNode = await flowService.getNodeById(node.nextNodeId)
           if (nextNode) return await flowEngine.executeNode(nextNode, conversation, contact, userMessage, isNewContact)
@@ -2654,18 +2654,27 @@ saveBotMediaMessage: async (conversationId, mediaData) => {
 
       const payBody = node.content || `📦 *Payment for Order #${order.orderNumber}*\n\n💰 Total Amount: *${order.currency} ${Number(order.totalAmount).toFixed(2)}*\n\nPlease tap the button below to complete your payment securely:${tenant.enableCod ? '\n\n💡 _Prefer Cash on Delivery? Reply *COD*._' : ''}`
 
-      await flowEngine.sendWhatsAppPaymentCTA(conversation.tenantId, contact.phone, {
-        headerText: '💳 Complete Payment',
-        bodyText: payBody,
-        footerText: `Expires in ${tenant.paymentLinkExpiryMins || 30} mins`,
-        buttonText: 'Pay Now',
-        url: paymentLink.short_url,
-      })
+      let ctaResult = null;
+      if (contact.phone) {
+        ctaResult = await flowEngine.sendWhatsAppPaymentCTA(conversation.tenantId, contact.phone, {
+          headerText: '💳 Complete Payment',
+          bodyText: payBody,
+          footerText: `Expires in ${tenant.paymentLinkExpiryMins || 30} mins`,
+          buttonText: 'Pay Now',
+          url: paymentLink.short_url,
+        });
+      }
+
+      if (!ctaResult) {
+        // Fallback for Instagram, Messenger, or missing WABA CTA support
+        const fallbackPayMsg = `${payBody}\n\n👉 *Pay Here:* ${paymentLink.short_url}`;
+        await flowEngine.sendBotTextMessage(conversation, contact, fallbackPayMsg);
+      }
 
       await flowEngine.saveBotMessage(conversation.id, payBody, {
         type: 'TEXT',
         buttons: [{ id: 'pay_now', title: 'Pay Now', url: paymentLink.short_url }]
-      })
+      });
 
       // Hold conversation at this PAYMENT node waiting for webhook
       await prisma.conversation.update({
