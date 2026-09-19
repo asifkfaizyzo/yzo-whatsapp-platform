@@ -2731,6 +2731,21 @@ saveBotMediaMessage: async (conversationId, mediaData) => {
 
       const contact = conversation.contact
 
+      // Send detailed payment receipt message (Order #, Amount & Transaction ID)
+      const confirmMsg = `🎉 *Payment Received!*\n\nPayment for Order #${order.orderNumber} has been received successfully.\n\n💰 *Amount:* ${order.currency} ${Number(order.totalAmount).toFixed(2)}\n🔖 *Transaction ID:* ${order.razorpayPaymentId || 'N/A'}\n\nYour order is confirmed and our team has started processing it! 🚚`
+
+      // 24-hour Meta messaging window check
+      const lastActivity = conversation.updatedAt ? new Date(conversation.updatedAt).getTime() : 0
+      const isWithin24Hours = (Date.now() - lastActivity) < (24 * 60 * 60 * 1000)
+
+      if (isWithin24Hours) {
+        await flowEngine.sendBotTextMessage(conversation, contact, confirmMsg)
+        await flowEngine.saveBotMessage(conversation.id, confirmMsg)
+      } else {
+        console.warn(`⚠️ [resumeFlowAfterPayment] Outside 24h window for contact ${contact.phone}. Free-form message withheld.`)
+        await flowEngine.saveBotMessage(conversation.id, confirmMsg)
+      }
+
       // Check if conversation was paused on a PAYMENT node — if so, advance to next flow node
       if (conversation.currentNodeId) {
         const currentNode = await flowService.getNodeById(conversation.currentNodeId)
@@ -2747,21 +2762,6 @@ saveBotMediaMessage: async (conversationId, mediaData) => {
             return
           }
         }
-      }
-
-      // Default fallback confirmation message if no next node is connected in flow builder
-      const confirmMsg = `🎉 *Payment Received!*\n\nPayment for Order #${order.orderNumber} has been received successfully.\n\n💰 *Amount:* ${order.currency} ${Number(order.totalAmount).toFixed(2)}\n🔖 *Transaction ID:* ${order.razorpayPaymentId || 'N/A'}\n\nYour order is confirmed and our team has started processing it! 🚚`
-
-      // 24-hour Meta messaging window check
-      const lastActivity = conversation.updatedAt ? new Date(conversation.updatedAt).getTime() : 0
-      const isWithin24Hours = (Date.now() - lastActivity) < (24 * 60 * 60 * 1000)
-
-      if (isWithin24Hours) {
-        await flowEngine.sendBotTextMessage(conversation, contact, confirmMsg)
-        await flowEngine.saveBotMessage(conversation.id, confirmMsg)
-      } else {
-        console.warn(`⚠️ [resumeFlowAfterPayment] Outside 24h window for contact ${contact.phone}. Free-form message withheld.`)
-        await flowEngine.saveBotMessage(conversation.id, confirmMsg)
       }
 
       await flowEngine.endFlow(conversation)
