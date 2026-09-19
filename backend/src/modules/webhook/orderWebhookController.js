@@ -359,6 +359,11 @@ export const processOrderWebhookJob = async (job) => {
 
       // ── 1. PAYMENT LINK PAID ─────────────────────────────────
       case 'payment_link.paid': {
+        if (order.paymentStatus === 'PAID') {
+          console.log(`ℹ️ [OrderWebhook] Order #${order.orderNumber} is already marked as PAID. Skipping duplicate webhook.`);
+          break;
+        }
+
         const paymentId = paymentLinkEntity?.payment_id || paymentEntity?.id || null;
         const paidPaise = paymentLinkEntity?.amount_paid || paymentEntity?.amount || 0;
         const expectedPaise = Math.round(Number(order.totalAmount) * 100);
