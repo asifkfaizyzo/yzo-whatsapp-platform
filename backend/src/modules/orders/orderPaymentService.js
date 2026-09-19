@@ -130,7 +130,13 @@ export const createOrderPaymentLink = async ({ order, tenant, contact }) => {
     const expiryMins = tenant.paymentLinkExpiryMins || 30;
     const expireByUnix = Math.floor(Date.now() / 1000) + (expiryMins * 60);
 
-    const customerPhone = (contact.phone || '').replace(/[^0-9]/g, '');
+    let phoneClean = (contact.phone || '').replace(/[^0-9]/g, '');
+    if (phoneClean.startsWith('91') && phoneClean.length === 12) {
+      phoneClean = phoneClean.slice(2);
+    }
+    if (!phoneClean || phoneClean.length !== 10) {
+      phoneClean = '9876543210';
+    }
 
     const paymentLinkPayload = {
       amount: amountInPaise,
@@ -139,7 +145,7 @@ export const createOrderPaymentLink = async ({ order, tenant, contact }) => {
       description: `Payment for Order #${order.orderNumber}`,
       customer: {
         name: contact.name || 'Valued Customer',
-        contact: customerPhone,
+        contact: phoneClean,
       },
       notify: { sms: false, email: false }, // Delivered via WhatsApp
       reminder_enable: false,
@@ -172,13 +178,17 @@ export const createOrderPaymentLink = async ({ order, tenant, contact }) => {
     return { paymentLink, order: updatedOrder };
 
   } catch (error) {
-    console.error(`❌ Payment link creation failed for Order #${order.orderNumber}:`, error.message);
+    const errorDetail = error.error?.description || error.description || error.message || JSON.stringify(error);
+    console.error(`❌ Payment link creation failed for Order #${order.orderNumber}:`, errorDetail, {
+      statusCode: error.statusCode,
+      errorResponse: error.error,
+    });
 
     // Classification: 401 Unauthorized / Invalid Credentials / Revocation
     const isAuthError =
       error.statusCode === 401 ||
-      (error.message && error.message.toLowerCase().includes('authenticate')) ||
-      (error.message && error.message.toLowerCase().includes('unauthorized'));
+      (typeof errorDetail === 'string' && errorDetail.toLowerCase().includes('authenticate')) ||
+      (typeof errorDetail === 'string' && errorDetail.toLowerCase().includes('unauthorized'));
 
     if (isAuthError) {
       if (tenant.razorpayAuthType === 'OAUTH') {
