@@ -139,10 +139,11 @@ export const createOrderPaymentLink = async ({ order, tenant, contact }) => {
   try {
     const rzp = await createTenantRazorpayInstance(tenant.id);
 
-    // Calculate integer paise
+    // Calculate integer paise (Razorpay API requires minimum 15 mins expiry + 1 min buffer for network latency)
     const amountInPaise = Math.round(Number(order.totalAmount) * 100);
-    const expiryMins = tenant.paymentLinkExpiryMins || 30;
-    const expireByUnix = Math.floor(Date.now() / 1000) + (expiryMins * 60);
+    const configuredMins = Number(tenant.paymentLinkExpiryMins) || 30;
+    const safeExpiryMins = Math.max(16, configuredMins + 1);
+    const expireByUnix = Math.floor(Date.now() / 1000) + (safeExpiryMins * 60);
 
     let phoneClean = (contact.phone || '').replace(/[^0-9]/g, '');
     if (phoneClean.startsWith('91') && phoneClean.length === 12) {
