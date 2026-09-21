@@ -317,6 +317,9 @@ if (conversation.mode === 'QUEUED') {
             id: true,
             enableOnlinePayment: true,
             enableCod: true,
+            razorpayAuthType: true,
+            razorpayAccountId: true,
+            razorpayAccessToken: true,
             razorpayKeyId: true,
             razorpayKeySecret: true,
             defaultCurrency: true,
@@ -324,7 +327,9 @@ if (conversation.mode === 'QUEUED') {
           }
         })
 
-        const canPayOnline = Boolean(tenant?.enableOnlinePayment && tenant?.razorpayKeyId && tenant?.razorpayKeySecret)
+        const hasOAuth = tenant?.razorpayAuthType === 'OAUTH' && Boolean(tenant?.razorpayAccountId || tenant?.razorpayAccessToken);
+        const hasDirectKeys = Boolean(tenant?.razorpayKeyId && tenant?.razorpayKeySecret);
+        const canPayOnline = Boolean(tenant?.enableOnlinePayment && (hasOAuth || hasDirectKeys));
 
         if (canPayOnline && activeOrder) {
           try {
