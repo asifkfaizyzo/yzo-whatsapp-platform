@@ -46,6 +46,7 @@ export default function PaymentGatewaySettings({ onBack } = {}) {
   // Manual Keys accordion (for advanced developers, collapsed by default)
   const [showManualKeys, setShowManualKeys] = useState(false);
   const [savingManual, setSavingManual] = useState(false);
+  const [savingGeneral, setSavingGeneral] = useState(false);
   const [testingManual, setTestingManual] = useState(false);
   const [showKeySecret, setShowKeySecret] = useState(false);
   const [showWebhookSecret, setShowWebhookSecret] = useState(false);
@@ -171,6 +172,28 @@ export default function PaymentGatewaySettings({ onBack } = {}) {
     setCopiedWebhook(true);
     toast.success("Webhook URL copied!");
     setTimeout(() => setCopiedWebhook(false), 2000);
+  };
+
+  const handleSaveGeneralSettings = async () => {
+    setSavingGeneral(true);
+    try {
+      const payload = {
+        enableCod: form.enableCod,
+        paymentLinkExpiryMins: Number(form.paymentLinkExpiryMins) || 30,
+        enableOnlinePayment: form.enableOnlinePayment,
+      };
+
+      const res = await updatePaymentGatewayConfig(payload);
+      if (res.success) {
+        toast.success("Checkout settings saved successfully!");
+        fetchConfig();
+      } else {
+        toast.error(res.message || "Failed to save settings");
+      }
+    } catch (err) {
+      toast.error(err.message || "Error saving settings");
+    }
+    setSavingGeneral(false);
   };
 
   const handleTestManualConnection = async () => {
@@ -475,6 +498,75 @@ export default function PaymentGatewaySettings({ onBack } = {}) {
               </div>
             </div>
           )}
+
+          {/* CHECKOUT SETTINGS & CONTROLS */}
+          <div className="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-2xs space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                  Checkout & Payment Controls
+                </h4>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Configure payment methods, link expiration, and Cash on Delivery rules.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-4 pt-1">
+              {/* Enable COD Toggle */}
+              <div className="p-4 rounded-xl border border-slate-200/80 bg-slate-50/50 flex items-center justify-between gap-3">
+                <div>
+                  <h5 className="text-xs font-bold text-slate-800">Cash on Delivery (COD) / Pay on Pickup</h5>
+                  <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                    Allow customers to pay in cash or at counter if they prefer not to pay online.
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={form.enableCod}
+                    onChange={(e) => setForm({ ...form, enableCod: e.target.checked })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                </label>
+              </div>
+
+              {/* Payment Link Expiry Input */}
+              <div className="p-4 rounded-xl border border-slate-200/80 bg-slate-50/50 flex items-center justify-between gap-3">
+                <div>
+                  <h5 className="text-xs font-bold text-slate-800">Payment Link Expiry Time</h5>
+                  <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                    Auto-expire unpaid payment links (e.g. 10 or 15 mins for food orders).
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <input
+                    type="number"
+                    min="5"
+                    max="1440"
+                    value={form.paymentLinkExpiryMins}
+                    onChange={(e) => setForm({ ...form, paymentLinkExpiryMins: Math.max(5, Math.min(1440, Number(e.target.value) || 15)) })}
+                    className="w-16 text-xs text-center font-bold px-2 py-1.5 rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                  <span className="text-xs font-semibold text-slate-500">mins</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Save Settings Button */}
+            <div className="flex justify-end pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={handleSaveGeneralSettings}
+                disabled={savingGeneral}
+                className="px-4 py-2 text-xs font-bold rounded-xl bg-[#0C83FD] text-white hover:bg-[#125EF2] transition flex items-center gap-2 shadow-xs disabled:opacity-50"
+              >
+                {savingGeneral ? <RefreshCw size={14} className="animate-spin text-white" /> : <Save size={14} />}
+                <span>{savingGeneral ? "Saving..." : "Save Checkout Settings"}</span>
+              </button>
+            </div>
+          </div>
 
           {/* DEVELOPER OPTIONS ACCORDION */}
           <div className="rounded-xl border border-slate-200/70 bg-slate-50/50 overflow-hidden">
