@@ -225,7 +225,7 @@ if (conversation.mode === 'QUEUED') {
       const isConfirm = textLower === 'confirm order' || textLower === 'confirm' || textLower === 'yes' || textLower.startsWith('btn_confirm')
       const isCancel = textLower === 'cancel order' || textLower === 'cancel' || textLower === 'no' || textLower.startsWith('btn_cancel')
       const isModify = textLower.includes('modify') || textLower.includes('reorder') || textLower.includes('change cart') || textLower.startsWith('btn_modify')
-      const isCodSwitch = textLower === 'cod' || textLower === 'cash on delivery' || textLower === 'pay on delivery'
+      const isCodSwitch = textLower === 'cod' || textLower === 'cash on delivery' || textLower === 'pay on delivery' || textLower.startsWith('btn_cod')
       const isPayRetry = textLower === 'pay' || textLower === 'pay online' || textLower === 'retry' || textLower === 'retry payment'
 
       if (!isConfirm && !isCancel && !isModify && !isCodSwitch && !isPayRetry) {
@@ -303,6 +303,18 @@ if (conversation.mode === 'QUEUED') {
             url: paymentLink.short_url,
           })
           await flowEngine.saveBotMessage(conversation.id, payBody)
+
+          // Send follow-up interactive buttons for Cancel / COD
+          const tenant = await prisma.tenant.findUnique({
+            where: { id: conversation.tenantId },
+            select: { enableCod: true }
+          })
+          const payOptionsButtons = [
+            ...(tenant?.enableCod ? [{ id: `btn_cod_${activeOrderId}`, title: 'Pay Cash on Delivery' }] : []),
+            { id: `btn_cancel_${activeOrderId}`, title: 'Cancel Order' }
+          ]
+          await flowEngine.sendBotInteractiveButtons(conversation, contact, 'Or select an option below:', payOptionsButtons)
+
           return true
         } catch (err) {
           console.error('Error resending payment link:', err.message)
@@ -349,7 +361,7 @@ if (conversation.mode === 'QUEUED') {
             }
 
             // Send Meta WhatsApp CTA URL interactive button
-            const payBody = `📦 *Order #${orderNumber} Confirmed!*\n\n💰 Total Amount: *${activeOrder.currency} ${Number(activeOrder.totalAmount).toFixed(2)}*\n\nPlease tap the button below to complete your payment securely.${tenant.enableCod ? '\n\n💡 _Prefer Cash on Delivery? Simply reply *COD*._' : ''}`
+            const payBody = `📦 *Order #${orderNumber} Confirmed!*\n\n💰 Total Amount: *${activeOrder.currency} ${Number(activeOrder.totalAmount).toFixed(2)}*\n\nPlease tap the button below to complete your payment securely.${tenant.enableCod ? '\n\n💡 _Prefer Cash on Delivery? Simply reply *COD* or tap below._' : ''}`
             
             await flowEngine.sendWhatsAppPaymentCTA(conversation.tenantId, contact.phone, {
               headerText: '💳 Complete Payment',
@@ -363,6 +375,13 @@ if (conversation.mode === 'QUEUED') {
               type: 'TEXT',
               buttons: [{ id: 'pay_now', title: 'Pay Now', url: paymentLink.short_url }]
             })
+
+            // Send follow-up interactive buttons for Cancel Order (and COD if enabled)
+            const payOptionsButtons = [
+              ...(tenant.enableCod ? [{ id: `btn_cod_${activeOrder.id}`, title: 'Pay Cash on Delivery' }] : []),
+              { id: `btn_cancel_${activeOrder.id}`, title: 'Cancel Order' }
+            ]
+            await flowEngine.sendBotInteractiveButtons(conversation, contact, 'Or select an option below:', payOptionsButtons)
 
             // Hold conversation waiting for payment webhook callback
             await prisma.conversation.update({
@@ -434,7 +453,16 @@ if (conversation.mode === 'QUEUED') {
         const cancelMsg = `❌ *Order #${orderNumber} Cancelled*\n\nYour order has been cancelled. If you would like to start a new order anytime, simply message us "menu" or "order"!`
         await flowEngine.sendBotTextMessage(conversation, contact, cancelMsg)
         await flowEngine.saveBotMessage(conversation.id, cancelMsg)
-        await flowEngine.endFlow(conversation)
+
+        await prisma.conversation.update({
+          where: { id: conversation.id },
+          data: {
+            currentFlowId: null,
+            currentNodeId: null,
+            flowData: {},
+            mode: 'BOT'
+          }
+        })
         return true
       }
 
@@ -2680,6 +2708,13 @@ saveBotMediaMessage: async (conversationId, mediaData) => {
         type: 'TEXT',
         buttons: [{ id: 'pay_now', title: 'Pay Now', url: paymentLink.short_url }]
       });
+
+      // Send follow-up interactive buttons for Cancel Order (and COD if enabled)
+      const payOptionsButtons = [
+        ...(tenant.enableCod ? [{ id: `btn_cod_${order.id}`, title: 'Pay Cash on Delivery' }] : []),
+        { id: `btn_cancel_${order.id}`, title: 'Cancel Order' }
+      ]
+      await flowEngine.sendBotInteractiveButtons(conversation, contact, 'Or select an option below:', payOptionsButtons)
 
       // Hold conversation at this PAYMENT node waiting for webhook
       await prisma.conversation.update({
