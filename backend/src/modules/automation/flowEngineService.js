@@ -295,7 +295,7 @@ if (conversation.mode === 'QUEUED') {
             tenantId: conversation.tenantId,
           })
 
-          const payBody = `💳 *Payment Link for Order #${orderNumber}*\n\n💰 Total Amount: *${freshOrder.currency} ${Number(freshOrder.totalAmount).toFixed(2)}*\n\nPlease tap the button below to complete your payment:`
+          const payBody = `💳 *Payment Link for Order #${orderNumber}*\n\n💰 Total Amount: *${freshOrder.currency} ${Number(freshOrder.totalAmount).toFixed(2)}*\n\nPlease tap the button below to complete your payment:\n\n❌ _Want to cancel? Reply *Cancel*._`
           await flowEngine.sendWhatsAppPaymentCTA(conversation.tenantId, contact.phone, {
             headerText: '💳 Complete Payment',
             bodyText: payBody,
@@ -303,18 +303,6 @@ if (conversation.mode === 'QUEUED') {
             url: paymentLink.short_url,
           })
           await flowEngine.saveBotMessage(conversation.id, payBody)
-
-          // Send follow-up interactive buttons for Cancel / COD
-          const tenant = await prisma.tenant.findUnique({
-            where: { id: conversation.tenantId },
-            select: { enableCod: true }
-          })
-          const payOptionsButtons = [
-            ...(tenant?.enableCod ? [{ id: `btn_cod_${activeOrderId}`, title: 'Pay Cash on Delivery' }] : []),
-            { id: `btn_cancel_${activeOrderId}`, title: 'Cancel Order' }
-          ]
-          await flowEngine.sendBotInteractiveButtons(conversation, contact, 'Or select an option below:', payOptionsButtons)
-
           return true
         } catch (err) {
           console.error('Error resending payment link:', err.message)
@@ -361,7 +349,7 @@ if (conversation.mode === 'QUEUED') {
             }
 
             // Send Meta WhatsApp CTA URL interactive button
-            const payBody = `📦 *Order #${orderNumber} Confirmed!*\n\n💰 Total Amount: *${activeOrder.currency} ${Number(activeOrder.totalAmount).toFixed(2)}*\n\nPlease tap the button below to complete your payment securely.${tenant.enableCod ? '\n\n💡 _Prefer Cash on Delivery? Simply reply *COD* or tap below._' : ''}`
+            const payBody = `📦 *Order #${orderNumber} Confirmed!*\n\n💰 Total Amount: *${activeOrder.currency} ${Number(activeOrder.totalAmount).toFixed(2)}*\n\nPlease tap the button below to complete your payment securely.${tenant.enableCod ? '\n\n💡 _Prefer Cash on Delivery? Simply reply *COD*._' : ''}\n❌ _Want to cancel? Reply *Cancel*._`
             
             await flowEngine.sendWhatsAppPaymentCTA(conversation.tenantId, contact.phone, {
               headerText: '💳 Complete Payment',
@@ -375,13 +363,6 @@ if (conversation.mode === 'QUEUED') {
               type: 'TEXT',
               buttons: [{ id: 'pay_now', title: 'Pay Now', url: paymentLink.short_url }]
             })
-
-            // Send follow-up interactive buttons for Cancel Order (and COD if enabled)
-            const payOptionsButtons = [
-              ...(tenant.enableCod ? [{ id: `btn_cod_${activeOrder.id}`, title: 'Pay Cash on Delivery' }] : []),
-              { id: `btn_cancel_${activeOrder.id}`, title: 'Cancel Order' }
-            ]
-            await flowEngine.sendBotInteractiveButtons(conversation, contact, 'Or select an option below:', payOptionsButtons)
 
             // Hold conversation waiting for payment webhook callback
             await prisma.conversation.update({
@@ -2708,13 +2689,6 @@ saveBotMediaMessage: async (conversationId, mediaData) => {
         type: 'TEXT',
         buttons: [{ id: 'pay_now', title: 'Pay Now', url: paymentLink.short_url }]
       });
-
-      // Send follow-up interactive buttons for Cancel Order (and COD if enabled)
-      const payOptionsButtons = [
-        ...(tenant.enableCod ? [{ id: `btn_cod_${order.id}`, title: 'Pay Cash on Delivery' }] : []),
-        { id: `btn_cancel_${order.id}`, title: 'Cancel Order' }
-      ]
-      await flowEngine.sendBotInteractiveButtons(conversation, contact, 'Or select an option below:', payOptionsButtons)
 
       // Hold conversation at this PAYMENT node waiting for webhook
       await prisma.conversation.update({
