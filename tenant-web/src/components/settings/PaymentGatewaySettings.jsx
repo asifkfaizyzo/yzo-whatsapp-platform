@@ -537,16 +537,16 @@ export default function PaymentGatewaySettings({ onBack } = {}) {
                 <div>
                   <h5 className="text-xs font-bold text-slate-800">Payment Link Expiry Time</h5>
                   <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
-                    Auto-expire unpaid payment links (e.g. 10 or 15 mins for food orders).
+                    Auto-expire unpaid payment links (minimum 15 mins required by Razorpay).
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
                   <input
                     type="number"
-                    min="5"
+                    min="15"
                     max="1440"
                     value={form.paymentLinkExpiryMins}
-                    onChange={(e) => setForm({ ...form, paymentLinkExpiryMins: Math.max(5, Math.min(1440, Number(e.target.value) || 15)) })}
+                    onChange={(e) => setForm({ ...form, paymentLinkExpiryMins: Math.max(15, Math.min(1440, Number(e.target.value) || 15)) })}
                     className="w-16 text-xs text-center font-bold px-2 py-1.5 rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
                   <span className="text-xs font-semibold text-slate-500">mins</span>
