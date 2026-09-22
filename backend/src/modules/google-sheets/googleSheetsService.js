@@ -265,7 +265,9 @@ export const seedDefaultFields = async (tenantId) => {
     { fieldName: 'Total Amount',   fieldKey: 'total_amount',   fieldType: 'number',   fieldCategory: 'default', isRequired: false, isActive: true, columnOrder: 6 },
     { fieldName: 'Payment Status', fieldKey: 'payment_status', fieldType: 'dropdown', fieldCategory: 'default', isRequired: false, isActive: true, columnOrder: 7, options: ['Pending', 'Paid', 'Failed', 'Refunded'] },
     { fieldName: 'Payment Method', fieldKey: 'payment_method', fieldType: 'dropdown', fieldCategory: 'default', isRequired: false, isActive: true, columnOrder: 8, options: ['Cash on Delivery', 'Online Payment', 'UPI', 'Bank Transfer', 'Pending'] },
-    { fieldName: 'Notes',          fieldKey: 'notes',          fieldType: 'text',     fieldCategory: 'default', isRequired: false, isActive: true, columnOrder: 9 },
+    { fieldName: 'Products',       fieldKey: 'products',       fieldType: 'text',     fieldCategory: 'default', isRequired: false, isActive: true, columnOrder: 9 },
+    { fieldName: 'Delivery Location', fieldKey: 'delivery_location', fieldType: 'text', fieldCategory: 'default', isRequired: false, isActive: true, columnOrder: 10 },
+    { fieldName: 'Notes',          fieldKey: 'notes',          fieldType: 'text',     fieldCategory: 'default', isRequired: false, isActive: true, columnOrder: 11 },
   ];
 
   if (existing.length === 0) {
@@ -1008,6 +1010,12 @@ export async function logLeadStatusToSheet(tenantId, payload) {
 
       if (lh.includes('amount'))
         return payload["Total Amount"] || payload["Amount"] || payload.total_amount || payload.amount || '0.00';
+
+      if (lh.includes('product') || lh.includes('items'))
+        return payload["Products"] || payload["Items"] || payload.products || payload.items || '';
+
+      if (lh.includes('location') || lh.includes('address'))
+        return payload["Delivery Location"] || payload["Location"] || payload["Address"] || payload.delivery_location || payload.location || payload.address || '';
 
       if (lh.includes('notes'))
         return payload["Notes"] || payload.notes || '';

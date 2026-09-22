@@ -23,6 +23,31 @@ const flowEngine = {
       console.log(`   BotPaused       : ${conversation.botPaused}`)
       console.log(`   IsNewContact    : ${isNewContact}`)
 
+      // ── Handle Incoming Location Message for Google Sheets Syncing ──
+      const isLocationMsg = (typeof userMessage === 'string' && (userMessage.includes('📍 Location') || userMessage.includes('maps.google.com'))) ||
+                            extraData?.message?.locLatitude ||
+                            extraData?.locLatitude;
+      
+      if (isLocationMsg) {
+        const locText = extraData?.message?.locAddress ||
+                        extraData?.message?.locName ||
+                        (extraData?.message?.locLatitude ? `https://maps.google.com/?q=${extraData.message.locLatitude},${extraData.message.locLongitude}` : (typeof userMessage === 'string' ? userMessage : 'Location Shared'));
+
+        const tenantId = conversation?.tenantId;
+        const resolvedName = contact?.name || contact?.pushName || conversation?.contactName || "WhatsApp Customer";
+        const resolvedPhone = contact?.phone || contact?.wa_id || conversation?.contactPhone || "";
+
+        if (tenantId && resolvedPhone) {
+          logLeadStatusToSheet(tenantId, {
+            "Timestamp": new Date().toLocaleString(),
+            "Contact Name": resolvedName,
+            "Phone": resolvedPhone,
+            "Delivery Location": String(locText),
+            "Notes": "Location received via WhatsApp"
+          }).catch(e => console.warn('[GoogleSheets Sync] Location log warning:', e.message));
+        }
+      }
+
       // ── CASE 1: Agent is handling → notify agent only ──
       if (conversation.mode === 'AGENT' || conversation.botPaused) {
         console.log('👤 Agent is handling - skipping bot')
@@ -457,6 +482,31 @@ if (conversation.mode === 'QUEUED') {
               paymentMethod: 'COD'
             });
 
+            // 📊 Sync Confirmed Order to Google Sheets
+            try {
+              const fullOrder = await prisma.order.findUnique({
+                where: { id: activeOrderId },
+                include: { items: true }
+              });
+              const productSummary = (fullOrder?.items || []).map(i => `${i.productName || 'Item'} (x${i.quantity || 1})`).join(', ');
+
+              logLeadStatusToSheet(conversation.tenantId, {
+                "Timestamp": new Date().toLocaleString(),
+                "Contact Name": actualContact?.name || actualContact?.pushName || conversation?.contactName || "WhatsApp Customer",
+                "Phone": actualContact?.phone || actualContact?.wa_id || conversation?.contactPhone || "Unknown Phone",
+                "Order ID": orderNumber || activeOrderId,
+                "Order Status": "CONFIRMED",
+                "Payment Status": "UNPAID",
+                "Payment Method": "Cash on Delivery",
+                "Amount": String(fullOrder?.totalAmount || "0.00"),
+                "Products": productSummary,
+                "Delivery Location": fullOrder?.deliveryAddress || "",
+                "Notes": "Order confirmed via Cash on Delivery"
+              }).catch(e => console.warn('[GoogleSheets Sync] Confirm log warning:', e.message));
+            } catch (sheetErr) {
+              console.warn('[GoogleSheets Sync] Warning on confirm:', sheetErr.message);
+            }
+
             const confirmMsg = `🎉 *Order #${orderNumber} Confirmed!*\n\nYour order has been placed with Cash on Delivery. We will notify you once it's on the way! 🚚`;
             await flowEngine.sendBotTextMessage(conversation, actualContact, confirmMsg);
             await flowEngine.saveBotMessage(conversation.id, confirmMsg);
@@ -478,6 +528,31 @@ if (conversation.mode === 'QUEUED') {
               status: 'CANCELLED',
               paymentStatus: 'CANCELLED'
             });
+
+            // 📊 Sync Cancelled Order to Google Sheets
+            try {
+              const fullOrder = await prisma.order.findUnique({
+                where: { id: activeOrderId },
+                include: { items: true }
+              });
+              const productSummary = (fullOrder?.items || []).map(i => `${i.productName || 'Item'} (x${i.quantity || 1})`).join(', ');
+
+              logLeadStatusToSheet(conversation.tenantId, {
+                "Timestamp": new Date().toLocaleString(),
+                "Contact Name": actualContact?.name || actualContact?.pushName || conversation?.contactName || "WhatsApp Customer",
+                "Phone": actualContact?.phone || actualContact?.wa_id || conversation?.contactPhone || "Unknown Phone",
+                "Order ID": orderNumber || activeOrderId,
+                "Order Status": "CANCELLED",
+                "Payment Status": "CANCELLED",
+                "Payment Method": fullOrder?.paymentMethod || "Pending",
+                "Amount": String(fullOrder?.totalAmount || "0.00"),
+                "Products": productSummary,
+                "Delivery Location": fullOrder?.deliveryAddress || "",
+                "Notes": "Order cancelled by customer"
+              }).catch(e => console.warn('[GoogleSheets Sync] Cancel log warning:', e.message));
+            } catch (sheetErr) {
+              console.warn('[GoogleSheets Sync] Warning on cancel:', sheetErr.message);
+            }
           }
 
           const cancelMsg = `❌ *Order #${orderNumber} Cancelled*\n\nYour order has been cancelled. If you would like to start a new order anytime, simply message us "menu" or "order"!`;
@@ -522,6 +597,13 @@ if (conversation.mode === 'QUEUED') {
 
       // Automatically sync order details to connected Google Sheet
       try {
+        const productSummary = (order.items || []).map(i => {
+          const rawName = (i.productName || i.productRetailerId || 'Item').replace(/^SKU:\s*/i, '');
+          return `${rawName} (x${i.quantity || 1})`;
+        }).join(', ');
+
+        const locationStr = order.deliveryAddress || order.deliveryName || '';
+
         logLeadStatusToSheet(tenantId, {
           "Timestamp": new Date().toLocaleString(),
           "Contact Name": contact?.name || contact?.pushName || conversation?.contactName || "WhatsApp Customer",
@@ -531,6 +613,8 @@ if (conversation.mode === 'QUEUED') {
           "Payment Status": order.paymentStatus || "UNPAID",
           "Payment Method": order.paymentMethod || "Pending",
           "Amount": String(order.totalAmount || "0.00"),
+          "Products": productSummary,
+          "Delivery Location": locationStr,
           "Notes": `Order #${order.orderNumber || order.id} received`
         }).catch(e => console.warn('[GoogleSheets Sync] Log warning:', e.message));
       } catch (err) {
