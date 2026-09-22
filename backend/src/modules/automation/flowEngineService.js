@@ -501,157 +501,9 @@ if (conversation.mode === 'QUEUED') {
       }
 
       // ═══════════════════════════════════════════════════
-      // BRANCH B: GOOGLE SHEETS TRACKING & INTERACTIVE MENU
+      // BRANCH B: CUSTOM AUTOMATION FLOWS HANDLE ALL OTHER MESSAGES
       // ═══════════════════════════════════════════════════
-
-      // Ignore initial greetings from logging to Google Sheets
-      const isGreeting = ['hi', 'hello', 'hey', 'start', 'menu'].includes(textLower);
-      if (isGreeting) {
-        return {
-          reply: "Welcome to our store! 👋\n\nHow can we help you today?",
-          buttons: [
-            { id: "btn_order_status", title: "Order Status" },
-            { id: "btn_agent", title: "Talk to Agent" },
-            { id: "btn_services", title: "Our Services" }
-          ]
-        };
-      }
-
-      // Triggers for Google Sheets & Interactive Chatbot
-      const isOrderStatus  = textLower.includes('order status') || textLower.includes('btn_order_status');
-      const isTalkToAgent  = textLower.includes('talk to agent') || textLower.includes('btn_agent');
-      const isOurServices  = textLower.includes('our services') || textLower.includes('btn_services');
-      const isConfirmOrder = textLower.includes('confirm') || textLower.includes('book');
-      const isPaymentDone  = textLower.includes('paid') || textLower.includes('pay');
-      const isOrderId      = textLower.startsWith('ord-') || /^\d{4,}$/.test(textLower);
-      const isCod          = textLower.includes('cash on delivery') || textLower.includes('btn_cod');
-      const isOnlinePay    = textLower.includes('online payment') || textLower.includes('btn_online');
-
-      const isButtonClick = isOrderStatus || isTalkToAgent || isOurServices || isConfirmOrder || isPaymentDone || isCod || isOnlinePay || textLower.startsWith('btn_');
-
-      if (!isButtonClick && !isOrderId) {
-        return false; // Regular text message, skip tracking
-      }
-
-      // Resolve Contact Details
-      const getValidName = (...names) => {
-        for (const n of names) {
-          if (n && typeof n === 'string') {
-            const clean = n.trim();
-            if (clean && !['unknown', 'lead', 'whatsapp customer', '-'].includes(clean.toLowerCase())) {
-              return clean;
-            }
-          }
-        }
-        return null;
-      };
-
-      const resolvedName = getValidName(
-        actualContact?.name,
-        actualContact?.pushName,
-        actualContact?.profile?.name,
-        conversation?.contactName
-      ) || "WhatsApp Customer";
-
-      const resolvedPhone = actualContact?.phone || actualContact?.wa_id || conversation?.contactPhone || "Unknown Phone";
-      const tenantId = conversation?.tenantId || 'cmscul28c0000ujponqq2pc2o';
-
-      const flowData = conversation?.flowData || {};
-      const existingOrderId = flowData.orderId;
-      const finalOrderId = isOrderId ? msgStr.toUpperCase() : (existingOrderId || ('ORD-' + Math.floor(1000 + Math.random() * 9000)));
-
-      // Map Single-Row Progression & Chatbot Interactive Reply
-      let orderStatus  = flowData.status || "Inquiry";
-      let paymentStatus = flowData.paymentStatus || "Pending";
-      let paymentMethod = flowData.paymentMethod || "Pending";
-      let actionNotes  = `Clicked "${msgStr}"`;
-      let botResponse  = null;
-
-      if (isOrderStatus) {
-        orderStatus = "Order Status Inquiry";
-        actionNotes = "Clicked Order Status button";
-        botResponse = {
-          reply: `Hello ${resolvedName}! 📦\n\nPlease reply with your **Order ID** (e.g., ORD-9021) so we can check your status.`
-        };
-      } else if (isOrderId) {
-        orderStatus = "Confirmed";
-        actionNotes = `Provided Order ID: ${msgStr.toUpperCase()}`;
-        botResponse = {
-          reply: `Thank you, ${resolvedName}! We found your order **${msgStr.toUpperCase()}**.\n\nStatus: **Confirmed**\n\nPlease select your preferred payment method below to proceed:`,
-          buttons: [
-            { id: "btn_online", title: "Online Payment" },
-            { id: "btn_cod", title: "Cash on Delivery" },
-            { id: "btn_agent", title: "Talk to Agent" }
-          ]
-        };
-      } else if (isOnlinePay) {
-        paymentMethod = "Online Payment";
-        actionNotes = "Selected Online Payment";
-        botResponse = {
-          reply: `You have selected **Online Payment** 💳\n\nPlease make your payment. Once you are done, tap the button below to confirm:`,
-          buttons: [
-            { id: "btn_paid", title: "I Have Paid" },
-            { id: "btn_agent", title: "Talk to Agent" }
-          ]
-        };
-      } else if (isCod) {
-        orderStatus = "Processing";
-        paymentStatus = "Pending";
-        paymentMethod = "Cash on Delivery";
-        actionNotes = "Selected Cash on Delivery";
-        botResponse = {
-          reply: `Thank you! Your order **${finalOrderId}** has been placed via **Cash on Delivery** 🚚.\n\nYou will pay once the delivery agent arrives.`
-        };
-      } else if (isPaymentDone) {
-        orderStatus = "Payment Complete";
-        paymentStatus = "Paid";
-        paymentMethod = "Online Payment";
-        actionNotes = "Payment confirmed by contact";
-        botResponse = {
-          reply: `Awesome, ${resolvedName}! 🎉\n\nYour payment for **${finalOrderId}** has been marked as **Paid**. Our team is processing your order!`
-        };
-      } else if (isTalkToAgent) {
-        orderStatus = "Needs Support / Agent";
-        actionNotes = "Requested support agent";
-        botResponse = {
-          reply: `An agent has been notified and will assist you shortly, ${resolvedName}.`
-        };
-      } else if (isOurServices) {
-        orderStatus = "Services Inquiry";
-        actionNotes = "Browsing services";
-        botResponse = {
-          reply: `Here are our top services:\n1. Express Order Delivery\n2. Custom Solutions\n3. 24/7 Support`
-        };
-      }
-
-      // Persist updated flowData on conversation object (in-memory)
-      if (conversation) {
-        conversation.flowData = { ...flowData, orderId: finalOrderId, status: orderStatus, paymentStatus, paymentMethod };
-      }
-
-      // Upsert to Google Sheets (Updates single row by phone number)
-      const sheetPayload = {
-        "Timestamp": new Date().toLocaleString(),
-        "Contact Name": resolvedName,
-        "Phone": resolvedPhone,
-        "Order ID": finalOrderId,
-        "Order Status": orderStatus,
-        "Payment Status": paymentStatus,
-        "Payment Method": paymentMethod,
-        "Amount": flowData.amount || "150.00",
-        "Notes": actionNotes
-      };
-
-      console.log(`🛍️ [ORDER ACTION] Triggering Google Sheets log for "${resolvedName}" (${resolvedPhone})...`);
-
-      try {
-        await logLeadStatusToSheet(tenantId, sheetPayload);
-        console.log(`✅ [ORDER ACTION] Successfully written to Google Sheets for tenant ${tenantId}`);
-      } catch (sheetErr) {
-        console.error(`❌ [ORDER ACTION] Google Sheets write error:`, sheetErr.message || sheetErr);
-      }
-
-      return botResponse || true;
+      return false;
     } catch (error) {
       console.error('Error in handleOrderConfirmationAction:', error);
       return false;
@@ -667,6 +519,23 @@ if (conversation.mode === 'QUEUED') {
       const tenantId = conversation.tenantId
 
       console.log(`🛍️ Triggering ORDER_RECEIVED flow for order ${order.orderNumber} (tenant: ${tenantId})`)
+
+      // Automatically sync order details to connected Google Sheet
+      try {
+        logLeadStatusToSheet(tenantId, {
+          "Timestamp": new Date().toLocaleString(),
+          "Contact Name": contact?.name || contact?.pushName || conversation?.contactName || "WhatsApp Customer",
+          "Phone": contact?.phone || contact?.wa_id || conversation?.contactPhone || "Unknown Phone",
+          "Order ID": order.orderNumber || order.id,
+          "Order Status": order.status || "PENDING",
+          "Payment Status": order.paymentStatus || "UNPAID",
+          "Payment Method": order.paymentMethod || "Pending",
+          "Amount": String(order.totalAmount || "0.00"),
+          "Notes": `Order #${order.orderNumber || order.id} received`
+        }).catch(e => console.warn('[GoogleSheets Sync] Log warning:', e.message));
+      } catch (err) {
+        console.warn('[GoogleSheets Sync] Warning:', err.message);
+      }
 
       const flow = await flowService.findOrderFlow(tenantId)
 
