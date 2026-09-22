@@ -181,6 +181,9 @@ model Tenant {
   @@index([status])
   @@index([razorpayAccountId])
   auditLogs   AuditLog[] @relation("TenantAuditLogs")
+
+  googleSheetConnection GoogleSheetConnection?
+  sheetFields           SheetField[]
 }
 
 
@@ -1657,4 +1660,53 @@ model QuickReply {
   @@index([tenantId, scope, isActive])
   @@index([userId])
 }
-
+
+
+// ──────────────────────────────────────────
+// GOOGLE SHEET INTEGRATION MODELS
+// ──────────────────────────────────────────
+
+model GoogleSheetConnection {
+  id           String   @id @default(cuid())
+  tenantId     String   @unique              // ONE connection per tenant
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  accessToken  String   @db.Text
+  refreshToken String   @db.Text
+  tokenExpiry  DateTime?
+
+  connectedBy  String?                       // userId who connected it
+  status       String   @default("active")    // active | revoked | expired
+  connectedAt  DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("google_sheet_connections")
+}
+
+
+
+// 🆕 Stores each field (column) configuration per tenant
+model SheetField {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  fieldName    String                    // Display name: "Payment Status", "Delivery City"
+  fieldKey     String                    // Internal key: "payment_status", "delivery_city"
+  fieldType    String   @default("text") // text | number | date | dropdown | email | phone | url | yesno
+  fieldCategory String  @default("custom") // system | default | custom
+
+  isActive     Boolean  @default(true)   // Toggle ON/OFF (for default fields)
+  isRequired   Boolean  @default(false)
+  columnOrder  Int                       // Position in sheet (1, 2, 3...)
+
+  options      Json?                     // For dropdowns: ["Paid", "Pending", "Failed"]
+  defaultValue String?                   // Optional default value
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([tenantId, fieldKey])         // Prevent duplicate field keys per tenant
+  @@index([tenantId])
+  @@map("sheet_fields")
+}
