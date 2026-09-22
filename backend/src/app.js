@@ -15,6 +15,7 @@ import planRoutes from "./modules/plans/planRoutes.js";
 import templateRoutes from './modules/templates/templateRoutes.js';
 import broadcastRoutes from './modules/broadcasts/broadcastRoutes.js';
 import whatsappRoutes from './modules/whatsapp/whatsappRoutes.js';
+import googleSheetsRoutes from './modules/google-sheets/googleSheetsRoutes.js';
 import notificationRoutes from "./modules/notifications/notificationRoutes.js";
 import superAdminNotificationRoutes from "./modules/SuperAdminNotifications/superAdminNotificationRoutes.js";
 import revenueRoutes from "./modules/revenue/revenueRoutes.js";
@@ -46,6 +47,8 @@ import { bullBoardAuth } from './middlewares/bullBoardAuth.js';
 import quickReplyRoutes from './modules/quick-replies/quickReplyRoute.js';
 import { handleOAuthCallback } from './modules/tenant/razorpayOAuthController.js';
 import orderRoutes from './modules/orders/orderRoutes.js';
+
+
 
 const app = express();
 
@@ -216,6 +219,8 @@ app.use('/api8', templateRoutes)
 app.use('/api9', broadcastRoutes)
 
 app.use('/api2/whatsapp',       whatsappRoutes)
+app.use('/api/google-sheets', googleSheetsRoutes);
+app.use('/api2/google-sheets', googleSheetsRoutes);
 app.use("/api2/notifications",  notificationRoutes)
 app.use("/api/super-admin/notifications", superAdminNotificationRoutes)
 app.use('/api2/quick-replies', quickReplyRoutes)

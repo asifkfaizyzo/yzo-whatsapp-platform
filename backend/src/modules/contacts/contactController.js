@@ -2,6 +2,7 @@
 
 import { userCreateContact } from './userContactService.js';
 import prisma from '../../config/prisma.js';
+import { logLeadStatusToSheet } from '../google-sheets/googleSheetsService.js';
 import { assignByPriority } from './userContactService.js';
 import {
     createContact, getAllContacts, getContactById, updateContact,
@@ -71,6 +72,19 @@ export const updateContactController = async (req, res) => {
         const tenantId = req.tenantId;
         const data = req.body;
         const result = await updateContact(id, tenantId, data);
+
+        // 🟢 AUTO-LOG TO GOOGLE SHEETS IF STATUS UPDATED OR CONFIRMED
+        if (data.status || data.isConfirmed) {
+            const statusLabel = data.status || (data.isConfirmed ? 'CONFIRMED' : 'UPDATED');
+            logLeadStatusToSheet(tenantId, {
+                contactName: result.name || data.name,
+                phone: result.phone || data.phone,
+                status: statusLabel,
+                notes: data.notes || `Contact updated by agent`,
+                agentOrBot: 'Agent'
+            }).catch(err => console.error('Google Sheets log failed on updateContact:', err.message));
+        }
+
         return res.status(200).json({ success: true, data: result });
     } catch (error) {
         return res.status(400).json({ success: false, message: error.message });
