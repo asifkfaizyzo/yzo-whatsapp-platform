@@ -58,15 +58,15 @@ const flowEngine = {
         if (conversation) {
           conversation.flowData = { ...(conversation.flowData || {}), deliveryAddress: locText, location: locText };
 
-          // Check if an active PENDING order already exists for this conversation
+          // Check if an active PENDING or unconfirmed order already exists for this conversation
           let activeOrder = await prisma.order.findFirst({
-            where: { conversationId: conversation.id, status: 'PENDING' },
+            where: { conversationId: conversation.id, status: { in: ['PENDING', 'CONFIRMED'] } },
             orderBy: { createdAt: 'desc' },
             include: { items: true }
           }).catch(() => null);
 
           if (activeOrder) {
-            // Update existing pending order's deliveryAddress
+            // Update existing order's deliveryAddress
             activeOrder = await prisma.order.update({
               where: { id: activeOrder.id },
               data: { deliveryAddress: locText }
@@ -1627,7 +1627,6 @@ handleSendMessage: async (node, conversation, contact, userMessage, isNewContact
               deliveryLng: Number(extraData.locLongitude),
               deliveryName: extraData.locName || null,
               deliveryAddress: locationAddress,
-              status: 'CONFIRMED'
             }
           }).catch(err => console.error('Order update error:', err.message))
         }
@@ -1641,7 +1640,6 @@ handleSendMessage: async (node, conversation, contact, userMessage, isNewContact
             data: {
               deliveryType: 'HOME_DELIVERY',
               deliveryAddress: locationAddress,
-              status: 'CONFIRMED'
             }
           }).catch(err => console.error('Order update error:', err.message))
         }
