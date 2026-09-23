@@ -1112,7 +1112,7 @@ export const processWebhookJob = async (job) => {
         const existingPendingOrder = await prisma.order.findFirst({
           where: {
             conversationId: result.conversation.id,
-            status: { in: ['PENDING', 'CONFIRMED'] }
+            status: 'PENDING'
           },
           orderBy: { createdAt: 'desc' }
         });

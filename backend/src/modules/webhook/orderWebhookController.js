@@ -556,7 +556,7 @@ export const processOrderWebhookJob = async (job) => {
             "Order ID": order.orderNumber || order.id,
             "Order Status": "CANCELLED",
             "Payment Status": "CANCELLED",
-            "Payment Method": fullOrder?.paymentMethod || "Pending",
+            "Payment Method": fullOrder?.paymentMethod === 'RAZORPAY' ? 'Razorpay' : (fullOrder?.paymentMethod === 'COD' ? 'Cash on Delivery' : 'Pending'),
             "Amount": String(fullOrder?.totalAmount || ""),
             "Products": productSummary,
             "Delivery Location": fullOrder?.deliveryAddress || "",
