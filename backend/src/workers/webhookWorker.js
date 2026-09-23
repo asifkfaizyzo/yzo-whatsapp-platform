@@ -1108,45 +1108,90 @@ export const processWebhookJob = async (job) => {
         const currency = items[0]?.currency || 'INR';
         const totalAmount = items.reduce((sum, it) => sum + (Number(it.item_price || 0) * Number(it.quantity || 1)), 0);
 
-        // Generate consistent orderNumber from saved text or collision-proof pattern
-        const orderMatch = text ? text.match(/#([A-Z0-9_-]+)/) : null;
-        const orderNumber = orderMatch ? orderMatch[1] : `ORD-${tenant.id.slice(-4).toUpperCase()}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
-
-        const existingFlowData = result.conversation.flowData || {};
-        const createdOrder = await prisma.order.create({
-          data: {
-            orderNumber,
-            tenantId: tenant.id,
+        // Check if an existing PENDING order exists for this conversation (e.g. created when location was sent!)
+        const existingPendingOrder = await prisma.order.findFirst({
+          where: {
             conversationId: result.conversation.id,
-            contactId: contact.id,
-            catalogId,
-            totalAmount,
-            currency,
-            customerNote,
-            deliveryType: existingFlowData.deliveryType || null,
-            deliveryAddress: existingFlowData.deliveryAddress || null,
-            deliveryName: existingFlowData.deliveryName || null,
-            deliveryLat: existingFlowData.deliveryLat || null,
-            deliveryLng: existingFlowData.deliveryLng || null,
-            status: 'PENDING',
-            wamid: messageId,
-            items: {
-              create: items.map(it => ({
-                tenantId: tenant.id,
-                productRetailerId: it.product_retailer_id,
-                productName: it.product_retailer_id,
-                quantity: Number(it.quantity || 1),
-                itemPrice: Number(it.item_price || 0),
-                currency: it.currency || currency,
-              }))
-            }
+            status: 'PENDING'
           },
-          include: {
-            items: true
-          }
+          orderBy: { createdAt: 'desc' }
         });
 
-        console.log(`✅ [ORDER CREATED] Order #${createdOrder.orderNumber} saved (ID: ${createdOrder.id})`);
+        const existingFlowData = result.conversation.flowData || {};
+        const deliveryAddress = existingFlowData.deliveryAddress || existingPendingOrder?.deliveryAddress || null;
+
+        let createdOrder;
+
+        if (existingPendingOrder) {
+          // Delete old empty order items if any, then add new items
+          await prisma.orderItem.deleteMany({
+            where: { orderId: existingPendingOrder.id }
+          }).catch(() => null);
+
+          createdOrder = await prisma.order.update({
+            where: { id: existingPendingOrder.id },
+            data: {
+              catalogId,
+              totalAmount,
+              currency,
+              customerNote,
+              deliveryAddress: deliveryAddress || existingPendingOrder.deliveryAddress,
+              wamid: messageId,
+              items: {
+                create: items.map(it => ({
+                  tenantId: tenant.id,
+                  productRetailerId: it.product_retailer_id,
+                  productName: it.product_retailer_id,
+                  quantity: Number(it.quantity || 1),
+                  itemPrice: Number(it.item_price || 0),
+                  currency: it.currency || currency,
+                }))
+              }
+            },
+            include: {
+              items: true
+            }
+          });
+          console.log(`✅ [ORDER UPDATED] Existing Order #${createdOrder.orderNumber} updated with items (ID: ${createdOrder.id})`);
+        } else {
+          // Generate consistent orderNumber from saved text or collision-proof pattern
+          const orderMatch = text ? text.match(/#([A-Z0-9_-]+)/) : null;
+          const orderNumber = orderMatch ? orderMatch[1] : `ORD-${tenant.id.slice(-4).toUpperCase()}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+
+          createdOrder = await prisma.order.create({
+            data: {
+              orderNumber,
+              tenantId: tenant.id,
+              conversationId: result.conversation.id,
+              contactId: contact.id,
+              catalogId,
+              totalAmount,
+              currency,
+              customerNote,
+              deliveryType: existingFlowData.deliveryType || null,
+              deliveryAddress: deliveryAddress,
+              deliveryName: existingFlowData.deliveryName || null,
+              deliveryLat: existingFlowData.deliveryLat || null,
+              deliveryLng: existingFlowData.deliveryLng || null,
+              status: 'PENDING',
+              wamid: messageId,
+              items: {
+                create: items.map(it => ({
+                  tenantId: tenant.id,
+                  productRetailerId: it.product_retailer_id,
+                  productName: it.product_retailer_id,
+                  quantity: Number(it.quantity || 1),
+                  itemPrice: Number(it.item_price || 0),
+                  currency: it.currency || currency,
+                }))
+              }
+            },
+            include: {
+              items: true
+            }
+          });
+          console.log(`✅ [ORDER CREATED] New Order #${createdOrder.orderNumber} saved (ID: ${createdOrder.id})`);
+        }
 
         // Emit new_order socket event to tenant
         emitToTenant(tenant.id, 'new_order', {

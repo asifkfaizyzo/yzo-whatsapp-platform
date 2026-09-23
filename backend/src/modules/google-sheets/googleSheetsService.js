@@ -1008,12 +1008,19 @@ export async function logLeadStatusToSheet(tenantId, payload) {
         const phoneMatches = rowPhone && cleanTarget && (rowPhone === cleanTarget || rowPhone.endsWith(cleanTarget.slice(-8)));
 
         if (phoneMatches) {
-          // If order ID is present in payload, only update if the row has the SAME order ID
+          const cleanRowOrd = rowOrderId.replace(/^#/, '').trim().toLowerCase();
+          const cleanTargetOrd = targetOrderId.replace(/^#/, '').trim().toLowerCase();
+
+          // Match if order IDs match (ignoring leading '#'), or if matching recent contact order
           let orderIdMatches = false;
-          if (targetOrderId && rowOrderId) {
-            orderIdMatches = rowOrderId.toLowerCase() === targetOrderId.toLowerCase();
-          } else if (!targetOrderId && !rowOrderId) {
-            orderIdMatches = true; // General lead update for contacts without order IDs
+          if (cleanTargetOrd && cleanRowOrd) {
+            orderIdMatches = cleanRowOrd === cleanTargetOrd;
+          } else if (!cleanTargetOrd && !cleanRowOrd) {
+            orderIdMatches = true;
+          } else if (cleanTargetOrd && !cleanRowOrd) {
+            orderIdMatches = true;
+          } else if (!cleanTargetOrd && cleanRowOrd) {
+            orderIdMatches = true;
           }
 
           if (orderIdMatches) {
