@@ -1000,32 +1000,44 @@ export async function logLeadStatusToSheet(tenantId, payload) {
     let existingRowIndex = -1;
 
     if (phoneColIndex !== -1 && targetPhone) {
-      const cleanTarget = targetPhone.replace(/[^0-9]/g, '');
-      for (let i = 1; i < rows.length; i++) {
-        const rowPhone = String(rows[i][phoneColIndex] || '').trim().replace(/[^0-9]/g, '');
-        const rowOrderId = orderIdColIndex !== -1 ? String(rows[i][orderIdColIndex] || '').trim() : '';
+      const cleanTargetPhone = targetPhone.replace(/[^0-9]/g, '');
+      const cleanTargetOrd = targetOrderId.replace(/^#/, '').trim().toLowerCase();
 
-        const phoneMatches = rowPhone && cleanTarget && (rowPhone === cleanTarget || rowPhone.endsWith(cleanTarget.slice(-8)));
+      // PASS 1: Exact match by Order ID & Phone Number
+      if (cleanTargetOrd) {
+        for (let i = 1; i < rows.length; i++) {
+          const rowPhone = String(rows[i][phoneColIndex] || '').trim().replace(/[^0-9]/g, '');
+          const rowOrderId = orderIdColIndex !== -1 ? String(rows[i][orderIdColIndex] || '').trim() : '';
 
-        if (phoneMatches) {
+          const phoneMatches = rowPhone && cleanTargetPhone && (rowPhone === cleanTargetPhone || rowPhone.endsWith(cleanTargetPhone.slice(-8)) || cleanTargetPhone.endsWith(rowPhone.slice(-8)));
           const cleanRowOrd = rowOrderId.replace(/^#/, '').trim().toLowerCase();
-          const cleanTargetOrd = targetOrderId.replace(/^#/, '').trim().toLowerCase();
 
-          // Match if order IDs match (ignoring leading '#'), or if matching recent contact order
-          let orderIdMatches = false;
-          if (cleanTargetOrd && cleanRowOrd) {
-            orderIdMatches = cleanRowOrd === cleanTargetOrd;
-          } else if (!cleanTargetOrd && !cleanRowOrd) {
-            orderIdMatches = true;
-          } else if (cleanTargetOrd && !cleanRowOrd) {
-            orderIdMatches = true;
-          } else if (!cleanTargetOrd && cleanRowOrd) {
-            orderIdMatches = true;
-          }
-
-          if (orderIdMatches) {
-            existingRowIndex = i + 1; // Google Sheets row numbers are 1-based
+          if (phoneMatches && cleanRowOrd && cleanRowOrd === cleanTargetOrd) {
+            existingRowIndex = i + 1; // 1-based Google Sheets row index
             break;
+          }
+        }
+      }
+
+      // PASS 2: If no exact Order ID match, match most recent PENDING / draft row for this phone number
+      if (existingRowIndex === -1) {
+        const leadStatusColIndex = headers.findIndex(h =>
+          ['lead status', 'order status', 'status'].includes(h.toLowerCase())
+        );
+
+        for (let i = rows.length - 1; i >= 1; i--) {
+          const rowPhone = String(rows[i][phoneColIndex] || '').trim().replace(/[^0-9]/g, '');
+          const rowOrderId = orderIdColIndex !== -1 ? String(rows[i][orderIdColIndex] || '').trim() : '';
+          const rowStatus = leadStatusColIndex !== -1 ? String(rows[i][leadStatusColIndex] || '').trim().toUpperCase() : '';
+
+          const phoneMatches = rowPhone && cleanTargetPhone && (rowPhone === cleanTargetPhone || rowPhone.endsWith(cleanTargetPhone.slice(-8)) || cleanTargetPhone.endsWith(rowPhone.slice(-8)));
+
+          if (phoneMatches) {
+            const isPendingRow = !rowOrderId || ['PENDING', 'LOCATION RECEIVED', 'NEW LEAD', 'LOCATION SHARED', 'ORDER RECEIVED'].includes(rowStatus);
+            if (isPendingRow) {
+              existingRowIndex = i + 1;
+              break;
+            }
           }
         }
       }
@@ -1111,12 +1123,12 @@ export async function logLeadStatusToSheet(tenantId, payload) {
         requestBody: { values: [newRowValues] },
       });
     } else {
-      console.log(`[GoogleSheets] ➕ Appending new row for ${targetPhone}`);
-      await sheets.spreadsheets.values.append({
+      const nextRowIndex = Math.max(2, rows.length + 1);
+      console.log(`[GoogleSheets] ➕ Writing new row at #${nextRowIndex} for ${targetPhone}`);
+      await sheets.spreadsheets.values.update({
         spreadsheetId,
-        range: `'${TAB_NAME}'!A1`,
+        range: `'${TAB_NAME}'!A${nextRowIndex}`,
         valueInputOption: 'RAW',
-        insertDataOption: 'INSERT_ROWS',
         requestBody: { values: [newRowValues] },
       });
     }

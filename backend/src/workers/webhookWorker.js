@@ -1108,11 +1108,11 @@ export const processWebhookJob = async (job) => {
         const currency = items[0]?.currency || 'INR';
         const totalAmount = items.reduce((sum, it) => sum + (Number(it.item_price || 0) * Number(it.quantity || 1)), 0);
 
-        // Check if an existing PENDING order exists for this conversation (e.g. created when location was sent!)
+        // Check if an existing active order exists for this conversation (e.g. created when location was sent!)
         const existingPendingOrder = await prisma.order.findFirst({
           where: {
             conversationId: result.conversation.id,
-            status: 'PENDING'
+            status: { in: ['PENDING', 'CONFIRMED'] }
           },
           orderBy: { createdAt: 'desc' }
         });
