@@ -58,9 +58,9 @@ const flowEngine = {
         if (conversation) {
           conversation.flowData = { ...(conversation.flowData || {}), deliveryAddress: locText, location: locText };
 
-          // Check if an active PENDING or unconfirmed order already exists for this conversation
+          // Check if an active PENDING order already exists for this conversation
           let activeOrder = await prisma.order.findFirst({
-            where: { conversationId: conversation.id, status: { in: ['PENDING', 'CONFIRMED'] } },
+            where: { conversationId: conversation.id, status: 'PENDING' },
             orderBy: { createdAt: 'desc' },
             include: { items: true }
           }).catch(() => null);
@@ -691,7 +691,7 @@ if (conversation.mode === 'QUEUED') {
                 "Order ID": orderNumber || activeOrderId,
                 "Order Status": "CANCELLED",
                 "Payment Status": "CANCELLED",
-                "Payment Method": fullOrder?.paymentMethod || "Pending",
+                "Payment Method": fullOrder?.paymentMethod === 'RAZORPAY' ? 'Razorpay' : (fullOrder?.paymentMethod === 'COD' ? 'Cash on Delivery' : 'Pending'),
                 "Amount": String(fullOrder?.totalAmount || "0.00"),
                 "Products": productSummary,
                 "Delivery Location": fullOrder?.deliveryAddress || "",
@@ -747,7 +747,7 @@ if (conversation.mode === 'QUEUED') {
                 "Order ID": orderNumber || activeOrderId,
                 "Order Status": "REORDERING",
                 "Payment Status": "CANCELLED",
-                "Payment Method": fullOrder?.paymentMethod || "Pending",
+                "Payment Method": fullOrder?.paymentMethod === 'RAZORPAY' ? 'Razorpay' : (fullOrder?.paymentMethod === 'COD' ? 'Cash on Delivery' : 'Pending'),
                 "Amount": String(fullOrder?.totalAmount || ""),
                 "Products": productSummary,
                 "Delivery Location": fullOrder?.deliveryAddress || "",
@@ -814,7 +814,7 @@ if (conversation.mode === 'QUEUED') {
           "Order ID": order.orderNumber || order.id,
           "Order Status": "ORDER RECEIVED",
           "Payment Status": "UNPAID",
-          "Payment Method": order.paymentMethod || "Pending",
+          "Payment Method": order.paymentMethod === 'RAZORPAY' ? 'Razorpay' : (order.paymentMethod === 'COD' ? 'Cash on Delivery' : 'Pending'),
           "Amount": String(order.totalAmount || ""),
           "Products": productSummary,
           "Delivery Location": locationStr,
