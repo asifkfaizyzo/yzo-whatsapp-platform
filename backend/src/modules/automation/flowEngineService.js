@@ -44,13 +44,11 @@ const flowEngine = {
                             extraData?.message?.locLatitude;
       
       if (isLocationMsg) {
-        let locText = extraData?.locAddress ||
-                        extraData?.message?.locAddress ||
-                        extraData?.locName ||
-                        extraData?.message?.locName ||
-                        (extraData?.locLatitude ? `https://maps.google.com/?q=${extraData.locLatitude},${extraData.locLongitude}` :
-                         (extraData?.message?.locLatitude ? `https://maps.google.com/?q=${extraData.message.locLatitude},${extraData.message.locLongitude}` :
-                         (textStr !== 'LOCATION_RECEIVED' ? textStr : 'Location Shared')));
+        let locText = (extraData?.locLatitude && extraData?.locLongitude)
+          ? `https://maps.google.com/?q=${extraData.locLatitude},${extraData.locLongitude}`
+          : ((extraData?.message?.locLatitude && extraData?.message?.locLongitude)
+            ? `https://maps.google.com/?q=${extraData.message.locLatitude},${extraData.message.locLongitude}`
+            : (extraData?.locAddress || extraData?.message?.locAddress || extraData?.locName || extraData?.message?.locName || (textStr !== 'LOCATION_RECEIVED' ? textStr : 'Location Shared')));
 
         if (isTextAddress && textStr) {
           locText = textStr.replace(/^(address|location|delivery address|addr):\s*/i, '').trim() || textStr;
@@ -64,34 +62,17 @@ const flowEngine = {
             data: { flowData: conversation.flowData }
           }).catch(() => null);
 
-          let targetOrderId = null;
-          // If there's an active pending order, update its deliveryAddress in DB & sync to its row
+          // If there's an active order, update its deliveryAddress in DB
           const activeOrder = await prisma.order.findFirst({
             where: { conversationId: conversation.id, status: { in: ['PENDING', 'CONFIRMED'] } },
             orderBy: { createdAt: 'desc' }
           }).catch(() => null);
 
           if (activeOrder) {
-            targetOrderId = activeOrder.orderNumber || activeOrder.id;
             await prisma.order.update({
               where: { id: activeOrder.id },
               data: { deliveryAddress: locText }
             }).catch(() => null);
-          }
-
-          const tenantId = conversation?.tenantId;
-          const resolvedName = contact?.name || contact?.pushName || conversation?.contactName || "WhatsApp Customer";
-          const resolvedPhone = contact?.phone || contact?.wa_id || conversation?.contactPhone || "";
-
-          // Only sync to Google Sheet if there is an active order (updates order row) or explicit address
-          if (tenantId && resolvedPhone && targetOrderId) {
-            logLeadStatusToSheet(tenantId, {
-              "Contact Name": resolvedName,
-              "Phone": resolvedPhone,
-              "Order ID": targetOrderId,
-              "Delivery Location": String(locText),
-              "Notes": isTextAddress ? "Text address updated via WhatsApp" : "Location pin updated via WhatsApp"
-            }).catch(e => console.warn('[GoogleSheets Sync] Location log warning:', e.message));
           }
         }
       }
@@ -1590,7 +1571,7 @@ handleSendMessage: async (node, conversation, contact, userMessage, isNewContact
 
       if (extraData?.locLatitude && extraData?.locLongitude) {
         // Native WhatsApp location received
-        locationAddress = extraData.locAddress || extraData.locName || `GPS: ${Number(extraData.locLatitude).toFixed(4)}, ${Number(extraData.locLongitude).toFixed(4)}`
+        locationAddress = `https://maps.google.com/?q=${extraData.locLatitude},${extraData.locLongitude}`
 
         if (activeOrderId) {
           await prisma.order.update({

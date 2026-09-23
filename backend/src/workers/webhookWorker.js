@@ -896,7 +896,7 @@ export const processWebhookJob = async (job) => {
       locLongitude = loc.longitude || null;
       locName = loc.name || null;
       locAddress = loc.address || null;
-      text = locAddress || locName || (locLatitude ? `📍 Location: ${locLatitude}, ${locLongitude}` : '📍 Location Shared');
+      text = (locLatitude && locLongitude) ? `https://maps.google.com/?q=${locLatitude},${locLongitude}` : (locAddress || locName || 'Location Shared');
 
       console.log(`📍 Location received: lat=${loc.latitude}, lng=${loc.longitude}, text="${text}"`);
 
