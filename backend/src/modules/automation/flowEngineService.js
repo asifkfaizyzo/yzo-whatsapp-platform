@@ -108,7 +108,7 @@ const flowEngine = {
               "Order Status": "PENDING",
               "Payment Status": "UNPAID",
               "Payment Method": "Pending",
-              "Amount": String(activeOrder.totalAmount || "0.00"),
+              "Amount": activeOrder.totalAmount ? String(activeOrder.totalAmount) : "0",
               "Products": productSummary,
               "Delivery Location": locText,
               "Notes": "Location received via WhatsApp"
@@ -515,11 +515,59 @@ if (conversation.mode === 'QUEUED') {
               });
 
               if (fallbackCod) {
+                // 📊 Sync fallback COD Confirmed Order to Google Sheets
+                try {
+                  const fullOrder = await prisma.order.findUnique({
+                    where: { id: activeOrder.id },
+                    include: { items: true }
+                  });
+                  const productSummary = (fullOrder?.items || []).map(i => `${i.productName || 'Item'} (x${i.quantity || 1})`).join(', ');
+                  logLeadStatusToSheet(conversation.tenantId, {
+                    "Timestamp": new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+                    "Contact Name": actualContact?.name || actualContact?.pushName || conversation?.contactName || "WhatsApp Customer",
+                    "Phone": actualContact?.phone || actualContact?.wa_id || conversation?.contactPhone || "Unknown Phone",
+                    "Order ID": orderNumber || activeOrder.id,
+                    "Order Status": "CONFIRMED",
+                    "Payment Status": "UNPAID",
+                    "Payment Method": "Cash on Delivery",
+                    "Amount": fullOrder?.totalAmount ? String(fullOrder.totalAmount) : "0",
+                    "Products": productSummary,
+                    "Delivery Location": fullOrder?.deliveryAddress || "",
+                    "Notes": "Order confirmed via Cash on Delivery (Fallback)"
+                  }).catch(e => console.warn('[GoogleSheets Sync] Fallback COD log warning:', e.message));
+                } catch (sheetErr) {
+                  console.warn('[GoogleSheets Sync] Warning on fallback COD:', sheetErr.message);
+                }
+
                 const confirmMsg = `🎉 *Order #${orderNumber} Confirmed!*\n\nThank you! Your order has been placed with Cash on Delivery (Total: ${activeOrder.currency} ${Number(activeOrder.totalAmount).toFixed(2)}). We will notify you once it's on the way! 🚚`;
                 await flowEngine.sendBotTextMessage(conversation, actualContact, confirmMsg);
                 await flowEngine.saveBotMessage(conversation.id, confirmMsg);
                 await flowEngine.endFlow(conversation);
                 return true;
+              }
+
+              // 📊 Sync Online Payment Confirmed Order to Google Sheets
+              try {
+                const fullOrder = await prisma.order.findUnique({
+                  where: { id: activeOrder.id },
+                  include: { items: true }
+                });
+                const productSummary = (fullOrder?.items || []).map(i => `${i.productName || 'Item'} (x${i.quantity || 1})`).join(', ');
+                logLeadStatusToSheet(conversation.tenantId, {
+                  "Timestamp": new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+                  "Contact Name": actualContact?.name || actualContact?.pushName || conversation?.contactName || "WhatsApp Customer",
+                  "Phone": actualContact?.phone || actualContact?.wa_id || conversation?.contactPhone || "Unknown Phone",
+                  "Order ID": orderNumber || activeOrder.id,
+                  "Order Status": "CONFIRMED",
+                  "Payment Status": "UNPAID",
+                  "Payment Method": "Razorpay",
+                  "Amount": fullOrder?.totalAmount ? String(fullOrder.totalAmount) : "0",
+                  "Products": productSummary,
+                  "Delivery Location": fullOrder?.deliveryAddress || "",
+                  "Notes": "Order confirmed. Waiting for online payment."
+                }).catch(e => console.warn('[GoogleSheets Sync] Online pay log warning:', e.message));
+              } catch (sheetErr) {
+                console.warn('[GoogleSheets Sync] Warning on online pay:', sheetErr.message);
               }
 
               const payBody = `📦 *Order #${orderNumber} Confirmed!*\n\n💰 Total Amount: *${activeOrder.currency} ${Number(activeOrder.totalAmount).toFixed(2)}*\n\nPlease tap the button below to complete your payment securely.${tenant.enableCod ? '\n\n💡 _Prefer Cash on Delivery? Simply reply *COD*._' : ''}\n❌ _Want to cancel? Reply *Cancel*._`;
