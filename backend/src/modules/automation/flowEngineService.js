@@ -353,6 +353,31 @@ if (conversation.mode === 'QUEUED') {
               status: 'CONFIRMED'
             });
 
+            // 📊 Sync COD Confirmed Order to Google Sheets
+            try {
+              const fullOrder = await prisma.order.findUnique({
+                where: { id: activeOrderId },
+                include: { items: true }
+              });
+              const productSummary = (fullOrder?.items || []).map(i => `${i.productName || 'Item'} (x${i.quantity || 1})`).join(', ');
+
+              logLeadStatusToSheet(conversation.tenantId, {
+                "Timestamp": new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+                "Contact Name": actualContact?.name || actualContact?.pushName || conversation?.contactName || "WhatsApp Customer",
+                "Phone": actualContact?.phone || actualContact?.wa_id || conversation?.contactPhone || "Unknown Phone",
+                "Order ID": orderNumber || activeOrderId,
+                "Order Status": "CONFIRMED",
+                "Payment Status": "UNPAID",
+                "Payment Method": "Cash on Delivery",
+                "Amount": String(fullOrder?.totalAmount || ""),
+                "Products": productSummary,
+                "Delivery Location": fullOrder?.deliveryAddress || "",
+                "Notes": "Customer selected Cash on Delivery"
+              }).catch(e => console.warn('[GoogleSheets Sync] COD log warning:', e.message));
+            } catch (sheetErr) {
+              console.warn('[GoogleSheets Sync] Warning on COD:', sheetErr.message);
+            }
+
             const codMsg = `✅ *Switched to Cash on Delivery*\n\nOrder #${orderNumber} is now confirmed for *Cash on Delivery*! 🚚\n\nPlease keep ${activeOrder?.currency || 'INR'} ${activeOrder ? Number(activeOrder.totalAmount).toFixed(2) : ''} ready upon delivery.`;
             await flowEngine.sendBotTextMessage(conversation, actualContact, codMsg);
             await flowEngine.saveBotMessage(conversation.id, codMsg);
@@ -650,32 +675,6 @@ if (conversation.mode === 'QUEUED') {
       const tenantId = conversation.tenantId
 
       console.log(`🛍️ Triggering ORDER_RECEIVED flow for order ${order.orderNumber} (tenant: ${tenantId})`)
-
-      // Automatically sync order details to connected Google Sheet
-      try {
-        const productSummary = (order.items || []).map(i => {
-          const rawName = (i.productName || i.productRetailerId || 'Item').replace(/^SKU:\s*/i, '');
-          return `${rawName} (x${i.quantity || 1})`;
-        }).join(', ');
-
-        const locationStr = order.deliveryAddress || order.deliveryName || '';
-
-        logLeadStatusToSheet(tenantId, {
-          "Timestamp": new Date().toLocaleString(),
-          "Contact Name": contact?.name || contact?.pushName || conversation?.contactName || "WhatsApp Customer",
-          "Phone": contact?.phone || contact?.wa_id || conversation?.contactPhone || "Unknown Phone",
-          "Order ID": order.orderNumber || order.id,
-          "Order Status": order.status || "PENDING",
-          "Payment Status": order.paymentStatus || "UNPAID",
-          "Payment Method": order.paymentMethod || "Pending",
-          "Amount": String(order.totalAmount || "0.00"),
-          "Products": productSummary,
-          "Delivery Location": locationStr,
-          "Notes": `Order #${order.orderNumber || order.id} received`
-        }).catch(e => console.warn('[GoogleSheets Sync] Log warning:', e.message));
-      } catch (err) {
-        console.warn('[GoogleSheets Sync] Warning:', err.message);
-      }
 
       const flow = await flowService.findOrderFlow(tenantId)
 
