@@ -112,9 +112,10 @@ export const syncFieldsToSheet = async (tenantId) => {
             backgroundColor: { red: 1, green: 1, blue: 1 }, // White background
             textFormat: { bold: false, foregroundColor: { red: 0, green: 0, blue: 0 }, fontSize: 10 },
             horizontalAlignment: 'LEFT',
+            wrapStrategy: 'WRAP',
           },
         },
-        fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)',
+        fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,wrapStrategy)',
       },
     });
 
@@ -1033,8 +1034,13 @@ export async function logLeadStatusToSheet(tenantId, payload) {
           const phoneMatches = rowPhone && cleanTargetPhone && (rowPhone === cleanTargetPhone || rowPhone.endsWith(cleanTargetPhone.slice(-8)) || cleanTargetPhone.endsWith(rowPhone.slice(-8)));
 
           if (phoneMatches) {
-            const isPendingRow = !rowOrderId || ['PENDING', 'LOCATION RECEIVED', 'NEW LEAD', 'LOCATION SHARED', 'ORDER RECEIVED'].includes(rowStatus);
-            if (isPendingRow) {
+            const isPendingRow = !rowStatus || ['PENDING', 'LOCATION RECEIVED', 'NEW LEAD', 'LOCATION SHARED', 'ORDER RECEIVED'].includes(rowStatus);
+            
+            // Only overwrite if this row has NO Order ID yet (it's a pure lead/draft).
+            // We should NOT overwrite rows that already belong to a DIFFERENT Order ID!
+            const canClaim = !rowOrderId;
+            
+            if (isPendingRow && canClaim) {
               existingRowIndex = i + 1;
               break;
             }
