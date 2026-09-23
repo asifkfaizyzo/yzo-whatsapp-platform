@@ -928,6 +928,33 @@ export async function logLeadStatusToSheet(tenantId, payload) {
 
     const headers = rows[0].map(h => String(h).trim());
 
+    // 💡 Auto-check if required columns (Products, Delivery Location, etc.) are missing from Row 1 and add them
+    const requiredHeaders = ['Timestamp', 'Contact Name', 'Phone Number', 'Lead Status', 'Order ID', 'Total Amount', 'Payment Status', 'Payment Method', 'Products', 'Delivery Location', 'Notes'];
+    let headersUpdated = false;
+
+    for (const reqH of requiredHeaders) {
+      const exists = headers.some(h => h.toLowerCase() === reqH.toLowerCase());
+      if (!exists) {
+        headers.push(reqH);
+        headersUpdated = true;
+      }
+    }
+
+    if (headersUpdated) {
+      try {
+        const lastColLetter = getColumnLetter(headers.length);
+        await sheets.spreadsheets.values.update({
+          spreadsheetId,
+          range: `'${TAB_NAME}'!A1:${lastColLetter}1`,
+          valueInputOption: 'USER_ENTERED',
+          requestBody: { values: [headers] },
+        });
+        console.log(`[GoogleSheets] ➕ Auto-updated Row 1 headers to include missing columns: ${headers.join(', ')}`);
+      } catch (headerUpdateErr) {
+        console.warn('[GoogleSheets] Header auto-update notice:', headerUpdateErr.message);
+      }
+    }
+
     // 2. Find Phone & Order ID Columns for Smart Order History Matching
     const phoneColIndex = headers.findIndex(h => 
       ['phone', 'phone number', 'contact phone', 'wa_id'].includes(h.toLowerCase())
@@ -1009,7 +1036,7 @@ export async function logLeadStatusToSheet(tenantId, payload) {
         return payload["Payment Status"] || payload.payment_status || payload.paymentStatus || "Pending";
 
       if (lh.includes('amount'))
-        return payload["Total Amount"] || payload["Amount"] || payload.total_amount || payload.amount || '0.00';
+        return payload["Total Amount"] || payload["Amount"] || payload.total_amount || payload.amount || '';
 
       if (lh.includes('product') || lh.includes('items'))
         return payload["Products"] || payload["Items"] || payload.products || payload.items || '';
