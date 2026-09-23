@@ -23,15 +23,60 @@ const flowEngine = {
       console.log(`   BotPaused       : ${conversation.botPaused}`)
       console.log(`   IsNewContact    : ${isNewContact}`)
 
-      // ── Handle Incoming Location Message for Google Sheets Syncing ──
-      const isLocationMsg = (typeof userMessage === 'string' && (userMessage.includes('📍 Location') || userMessage.includes('maps.google.com'))) ||
-                            extraData?.message?.locLatitude ||
-                            extraData?.locLatitude;
+      // ── Handle Incoming Location & Text Address Messages for Google Sheets Syncing ──
+      const textStr = typeof userMessage === 'string' ? userMessage.trim() : '';
+      const textLower = textStr.toLowerCase();
+
+      const isTextAddress = textLower.startsWith('address:') ||
+                            textLower.startsWith('location:') ||
+                            textLower.startsWith('delivery address:') ||
+                            textLower.startsWith('addr:') ||
+                            textLower.includes('my address is') ||
+                            textLower.includes('landmark:') ||
+                            textLower.includes('pincode:') ||
+                            textLower.includes('house no') ||
+                            textLower.includes('flat no');
+
+      const isLocationMsg = isTextAddress ||
+                            (typeof userMessage === 'string' && (userMessage.includes('📍 Location') || userMessage.includes('maps.google.com') || userMessage === 'LOCATION_RECEIVED')) ||
+                            extraData?.messageType === 'LOCATION' ||
+                            extraData?.locLatitude ||
+                            extraData?.message?.locLatitude;
       
       if (isLocationMsg) {
-        const locText = extraData?.message?.locAddress ||
+        let locText = extraData?.locAddress ||
+                        extraData?.message?.locAddress ||
+                        extraData?.locName ||
                         extraData?.message?.locName ||
-                        (extraData?.message?.locLatitude ? `https://maps.google.com/?q=${extraData.message.locLatitude},${extraData.message.locLongitude}` : (typeof userMessage === 'string' ? userMessage : 'Location Shared'));
+                        (extraData?.locLatitude ? `https://maps.google.com/?q=${extraData.locLatitude},${extraData.locLongitude}` :
+                         (extraData?.message?.locLatitude ? `https://maps.google.com/?q=${extraData.message.locLatitude},${extraData.message.locLongitude}` :
+                         (textStr !== 'LOCATION_RECEIVED' ? textStr : 'Location Shared')));
+
+        if (isTextAddress && textStr) {
+          locText = textStr.replace(/^(address|location|delivery address|addr):\s*/i, '').trim() || textStr;
+        }
+
+        // Persist location on conversation flowData & active pending order
+        if (conversation) {
+          conversation.flowData = { ...(conversation.flowData || {}), deliveryAddress: locText, location: locText };
+          await prisma.conversation.update({
+            where: { id: conversation.id },
+            data: { flowData: conversation.flowData }
+          }).catch(() => null);
+
+          // If there's an active pending order, update its deliveryAddress
+          const activeOrder = await prisma.order.findFirst({
+            where: { conversationId: conversation.id, status: 'PENDING' },
+            orderBy: { createdAt: 'desc' }
+          }).catch(() => null);
+
+          if (activeOrder) {
+            await prisma.order.update({
+              where: { id: activeOrder.id },
+              data: { deliveryAddress: locText }
+            }).catch(() => null);
+          }
+        }
 
         const tenantId = conversation?.tenantId;
         const resolvedName = contact?.name || contact?.pushName || conversation?.contactName || "WhatsApp Customer";
@@ -39,11 +84,11 @@ const flowEngine = {
 
         if (tenantId && resolvedPhone) {
           logLeadStatusToSheet(tenantId, {
-            "Timestamp": new Date().toLocaleString(),
+            "Timestamp": new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
             "Contact Name": resolvedName,
             "Phone": resolvedPhone,
             "Delivery Location": String(locText),
-            "Notes": "Location received via WhatsApp"
+            "Notes": isTextAddress ? "Text address received via WhatsApp" : "Location pin received via WhatsApp"
           }).catch(e => console.warn('[GoogleSheets Sync] Location log warning:', e.message));
         }
       }
@@ -675,6 +720,32 @@ if (conversation.mode === 'QUEUED') {
       const tenantId = conversation.tenantId
 
       console.log(`🛍️ Triggering ORDER_RECEIVED flow for order ${order.orderNumber} (tenant: ${tenantId})`)
+
+      // Automatically sync received order details to connected Google Sheet
+      try {
+        const productSummary = (order.items || []).map(i => {
+          const rawName = (i.productName || i.productRetailerId || 'Item').replace(/^SKU:\s*/i, '');
+          return `${rawName} (x${i.quantity || 1})`;
+        }).join(', ');
+
+        const locationStr = order.deliveryAddress || order.deliveryName || conversation?.flowData?.deliveryAddress || conversation?.flowData?.location || '';
+
+        logLeadStatusToSheet(tenantId, {
+          "Timestamp": new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+          "Contact Name": contact?.name || contact?.pushName || conversation?.contactName || "WhatsApp Customer",
+          "Phone": contact?.phone || contact?.wa_id || conversation?.contactPhone || "Unknown Phone",
+          "Order ID": order.orderNumber || order.id,
+          "Order Status": "ORDER RECEIVED",
+          "Payment Status": "UNPAID",
+          "Payment Method": order.paymentMethod || "Pending",
+          "Amount": String(order.totalAmount || ""),
+          "Products": productSummary,
+          "Delivery Location": locationStr,
+          "Notes": `Order #${order.orderNumber || order.id} received`
+        }).catch(e => console.warn('[GoogleSheets Sync] Order received log warning:', e.message));
+      } catch (err) {
+        console.warn('[GoogleSheets Sync] Warning on triggerOrderFlow:', err.message);
+      }
 
       const flow = await flowService.findOrderFlow(tenantId)
 
