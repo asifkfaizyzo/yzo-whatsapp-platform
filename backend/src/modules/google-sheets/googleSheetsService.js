@@ -1024,11 +1024,17 @@ export async function logLeadStatusToSheet(tenantId, payload) {
       }
     }
 
+    const existingRow = existingRowIndex > 0 ? rows[existingRowIndex - 1] : null;
+
     // 3. Construct row values — wrapped safely in headers.map()
-    const newRowValues = headers.map(header => {
+    const newRowValues = headers.map((header, colIdx) => {
       const lh = header.toLowerCase();
 
       if (lh.includes('timestamp') || lh === 'date') {
+        // 🔒 Keep original creation timestamp if updating an existing row
+        if (existingRow && existingRow[colIdx] && String(existingRow[colIdx]).trim().length > 0) {
+          return existingRow[colIdx];
+        }
         const rawTs = payload["Timestamp"] || payload.timestamp;
         if (rawTs) return rawTs;
         try {

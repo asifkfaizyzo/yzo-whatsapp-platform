@@ -64,32 +64,35 @@ const flowEngine = {
             data: { flowData: conversation.flowData }
           }).catch(() => null);
 
-          // If there's an active pending order, update its deliveryAddress
+          let targetOrderId = null;
+          // If there's an active pending order, update its deliveryAddress in DB & sync to its row
           const activeOrder = await prisma.order.findFirst({
-            where: { conversationId: conversation.id, status: 'PENDING' },
+            where: { conversationId: conversation.id, status: { in: ['PENDING', 'CONFIRMED'] } },
             orderBy: { createdAt: 'desc' }
           }).catch(() => null);
 
           if (activeOrder) {
+            targetOrderId = activeOrder.orderNumber || activeOrder.id;
             await prisma.order.update({
               where: { id: activeOrder.id },
               data: { deliveryAddress: locText }
             }).catch(() => null);
           }
-        }
 
-        const tenantId = conversation?.tenantId;
-        const resolvedName = contact?.name || contact?.pushName || conversation?.contactName || "WhatsApp Customer";
-        const resolvedPhone = contact?.phone || contact?.wa_id || conversation?.contactPhone || "";
+          const tenantId = conversation?.tenantId;
+          const resolvedName = contact?.name || contact?.pushName || conversation?.contactName || "WhatsApp Customer";
+          const resolvedPhone = contact?.phone || contact?.wa_id || conversation?.contactPhone || "";
 
-        if (tenantId && resolvedPhone) {
-          logLeadStatusToSheet(tenantId, {
-            "Timestamp": new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
-            "Contact Name": resolvedName,
-            "Phone": resolvedPhone,
-            "Delivery Location": String(locText),
-            "Notes": isTextAddress ? "Text address received via WhatsApp" : "Location pin received via WhatsApp"
-          }).catch(e => console.warn('[GoogleSheets Sync] Location log warning:', e.message));
+          // Only sync to Google Sheet if there is an active order (updates order row) or explicit address
+          if (tenantId && resolvedPhone && targetOrderId) {
+            logLeadStatusToSheet(tenantId, {
+              "Contact Name": resolvedName,
+              "Phone": resolvedPhone,
+              "Order ID": targetOrderId,
+              "Delivery Location": String(locText),
+              "Notes": isTextAddress ? "Text address updated via WhatsApp" : "Location pin updated via WhatsApp"
+            }).catch(e => console.warn('[GoogleSheets Sync] Location log warning:', e.message));
+          }
         }
       }
 
