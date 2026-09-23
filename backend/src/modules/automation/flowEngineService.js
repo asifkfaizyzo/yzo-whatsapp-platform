@@ -57,23 +57,68 @@ const flowEngine = {
         // Persist location on conversation flowData & active pending order
         if (conversation) {
           conversation.flowData = { ...(conversation.flowData || {}), deliveryAddress: locText, location: locText };
+
+          // Check if an active PENDING order already exists for this conversation
+          let activeOrder = await prisma.order.findFirst({
+            where: { conversationId: conversation.id, status: 'PENDING' },
+            orderBy: { createdAt: 'desc' },
+            include: { items: true }
+          }).catch(() => null);
+
+          if (activeOrder) {
+            // Update existing pending order's deliveryAddress
+            activeOrder = await prisma.order.update({
+              where: { id: activeOrder.id },
+              data: { deliveryAddress: locText }
+            }).catch(() => activeOrder);
+          } else {
+            // 🆕 NO active pending order exists -> CREATE AN ORDER FIRST!
+            const tenantId = conversation.tenantId;
+            const orderNumber = `ORD-${tenantId.slice(-4).toUpperCase()}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+
+            activeOrder = await prisma.order.create({
+              data: {
+                orderNumber,
+                tenantId,
+                conversationId: conversation.id,
+                contactId: contact.id,
+                deliveryAddress: locText,
+                status: 'PENDING',
+                totalAmount: 0,
+                currency: 'INR',
+              }
+            }).catch(err => {
+              console.error('❌ Error creating initial order on location receive:', err.message);
+              return null;
+            });
+          }
+
+          if (activeOrder) {
+            conversation.flowData.activeOrderId = activeOrder.id;
+            conversation.flowData.activeOrderNumber = activeOrder.orderNumber;
+
+            // 📊 Immediately log / update Google Sheets for this Order!
+            const productSummary = (activeOrder.items || []).map(i => `${i.productName || 'Item'} (x${i.quantity || 1})`).join(', ');
+
+            logLeadStatusToSheet(conversation.tenantId, {
+              "Timestamp": new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+              "Contact Name": contact?.name || contact?.pushName || conversation?.contactName || "WhatsApp Customer",
+              "Phone": contact?.phone || contact?.wa_id || conversation?.contactPhone || "Unknown Phone",
+              "Order ID": activeOrder.orderNumber,
+              "Order Status": "PENDING",
+              "Payment Status": "UNPAID",
+              "Payment Method": "Pending",
+              "Amount": String(activeOrder.totalAmount || "0.00"),
+              "Products": productSummary,
+              "Delivery Location": locText,
+              "Notes": "Location received via WhatsApp"
+            }).catch(e => console.warn('[GoogleSheets Sync] Location receive sheet log warning:', e.message));
+          }
+
           await prisma.conversation.update({
             where: { id: conversation.id },
             data: { flowData: conversation.flowData }
           }).catch(() => null);
-
-          // If there's an active order, update its deliveryAddress in DB
-          const activeOrder = await prisma.order.findFirst({
-            where: { conversationId: conversation.id, status: { in: ['PENDING', 'CONFIRMED'] } },
-            orderBy: { createdAt: 'desc' }
-          }).catch(() => null);
-
-          if (activeOrder) {
-            await prisma.order.update({
-              where: { id: activeOrder.id },
-              data: { deliveryAddress: locText }
-            }).catch(() => null);
-          }
         }
       }
 
