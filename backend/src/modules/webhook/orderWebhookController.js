@@ -6,6 +6,7 @@ import { orderWebhookQueue } from '../../queues/orderWebhookQueue.js';
 import { emitToTenant } from '../../lib/socket.js';
 import { createNotification } from '../notifications/notificationService.js';
 import flowEngine from '../automation/flowEngineService.js';
+import { logLeadStatusToSheet } from '../google-sheets/googleSheetsService.js';
 
 /**
  * Phase 1: Ingest Razorpay Webhook (< 200ms)
@@ -543,6 +544,27 @@ export const processOrderWebhookJob = async (job) => {
           status: 'CANCELLED',
           orderNumber: order.orderNumber,
         });
+
+        // Sync to Google Sheets
+        try {
+          const fullOrder = await prisma.order.findUnique({ where: { id: order.id }, include: { items: true, contact: true } });
+          const productSummary = (fullOrder?.items || []).map(i => `${i.productName || 'Item'} (x${i.quantity || 1})`).join(', ');
+          logLeadStatusToSheet(tenantId, {
+            "Timestamp": new Date().toLocaleString(),
+            "Contact Name": fullOrder?.contact?.name || fullOrder?.contact?.pushName || "WhatsApp Customer",
+            "Phone": fullOrder?.contact?.phone || fullOrder?.contact?.wa_id || "",
+            "Order ID": order.orderNumber || order.id,
+            "Order Status": "CANCELLED",
+            "Payment Status": "CANCELLED",
+            "Payment Method": fullOrder?.paymentMethod || "Pending",
+            "Amount": String(fullOrder?.totalAmount || ""),
+            "Products": productSummary,
+            "Delivery Location": fullOrder?.deliveryAddress || "",
+            "Notes": "Payment link cancelled on gateway"
+          }).catch(e => console.warn('[GoogleSheets Sync] Cancel webhook log warning:', e.message));
+        } catch (e) {
+          console.warn('[GoogleSheets Sync] Error on cancel webhook:', e.message);
+        }
         break;
       }
 
