@@ -207,6 +207,32 @@ export const syncFieldsToSheet = async (tenantId) => {
       }
     }
 
+    // 📏 D. Auto-set comfortable column widths so users don't need to manually resize
+    for (let i = 0; i < activeFields.length; i++) {
+      const field = activeFields[i];
+      let width = 160;
+      const fk = (field.fieldKey || '').toLowerCase();
+      if (fk.includes('product') || fk.includes('item')) width = 320;
+      else if (fk.includes('location') || fk.includes('address')) width = 320;
+      else if (fk.includes('name')) width = 200;
+      else if (fk.includes('phone')) width = 170;
+      else if (fk.includes('timestamp') || fk.includes('date')) width = 190;
+      else if (fk.includes('note')) width = 260;
+
+      requests.push({
+        updateDimensionProperties: {
+          range: {
+            sheetId: tabNumericId,
+            dimension: 'COLUMNS',
+            startIndex: i,
+            endIndex: i + 1,
+          },
+          properties: { pixelSize: width },
+          fields: 'pixelSize',
+        },
+      });
+    }
+
     // 5. Commit batch update
     if (requests.length > 0) {
       await sheets.spreadsheets.batchUpdate({
@@ -982,8 +1008,13 @@ export async function logLeadStatusToSheet(tenantId, payload) {
         const phoneMatches = rowPhone && cleanTarget && (rowPhone === cleanTarget || rowPhone.endsWith(cleanTarget.slice(-8)));
 
         if (phoneMatches) {
-          // Matches if: Order ID matches exactly OR row has the same active order
-          const orderIdMatches = !targetOrderId || !rowOrderId || rowOrderId.toLowerCase() === targetOrderId.toLowerCase();
+          // If order ID is present in payload, only update if the row has the SAME order ID
+          let orderIdMatches = false;
+          if (targetOrderId && rowOrderId) {
+            orderIdMatches = rowOrderId.toLowerCase() === targetOrderId.toLowerCase();
+          } else if (!targetOrderId && !rowOrderId) {
+            orderIdMatches = true; // General lead update for contacts without order IDs
+          }
 
           if (orderIdMatches) {
             existingRowIndex = i + 1; // Google Sheets row numbers are 1-based
@@ -997,8 +1028,15 @@ export async function logLeadStatusToSheet(tenantId, payload) {
     const newRowValues = headers.map(header => {
       const lh = header.toLowerCase();
 
-      if (lh.includes('timestamp') || lh === 'date')
-        return payload["Timestamp"] || payload.timestamp || new Date().toLocaleString();
+      if (lh.includes('timestamp') || lh === 'date') {
+        const rawTs = payload["Timestamp"] || payload.timestamp;
+        if (rawTs) return rawTs;
+        try {
+          return new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+        } catch {
+          return new Date().toLocaleString();
+        }
+      }
 
       if (lh.includes('contact name') || lh === 'name')
         return payload["Contact Name"] || payload.contact_name || payload.contactName || '';

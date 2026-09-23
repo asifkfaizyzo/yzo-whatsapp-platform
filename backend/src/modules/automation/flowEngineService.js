@@ -571,6 +571,62 @@ if (conversation.mode === 'QUEUED') {
           return true;
         }
 
+        // ── Handle Order Modification / Reorder ──
+        if (isModify) {
+          if (activeOrderId) {
+            await prisma.order.update({
+              where: { id: activeOrderId },
+              data: { status: 'CANCELLED', paymentStatus: 'CANCELLED', adminNotes: 'Customer requested modification / reorder' }
+            }).catch(err => console.error('Error updating order on modify:', err.message));
+
+            emitToTenant(conversation.tenantId, 'order_status_update', {
+              orderId: activeOrderId,
+              status: 'CANCELLED',
+              paymentStatus: 'CANCELLED'
+            });
+
+            // 📊 Sync Modified/Reordered Order status to Google Sheets
+            try {
+              const fullOrder = await prisma.order.findUnique({
+                where: { id: activeOrderId },
+                include: { items: true }
+              });
+              const productSummary = (fullOrder?.items || []).map(i => `${i.productName || 'Item'} (x${i.quantity || 1})`).join(', ');
+
+              logLeadStatusToSheet(conversation.tenantId, {
+                "Timestamp": new Date().toLocaleString(),
+                "Contact Name": actualContact?.name || actualContact?.pushName || conversation?.contactName || "WhatsApp Customer",
+                "Phone": actualContact?.phone || actualContact?.wa_id || conversation?.contactPhone || "Unknown Phone",
+                "Order ID": orderNumber || activeOrderId,
+                "Order Status": "REORDERING",
+                "Payment Status": "CANCELLED",
+                "Payment Method": fullOrder?.paymentMethod || "Pending",
+                "Amount": String(fullOrder?.totalAmount || ""),
+                "Products": productSummary,
+                "Delivery Location": fullOrder?.deliveryAddress || "",
+                "Notes": "Customer requested order modification"
+              }).catch(e => console.warn('[GoogleSheets Sync] Reorder log warning:', e.message));
+            } catch (sheetErr) {
+              console.warn('[GoogleSheets Sync] Warning on reorder:', sheetErr.message);
+            }
+          }
+
+          const modifyMsg = `🔄 *Order Modification Requested*\n\nYour previous order #${orderNumber} selection has been reset. You can now browse products and place a new order! 🛒`;
+          await flowEngine.sendBotTextMessage(conversation, actualContact, modifyMsg);
+          await flowEngine.saveBotMessage(conversation.id, modifyMsg);
+
+          await prisma.conversation.update({
+            where: { id: conversation.id },
+            data: {
+              currentFlowId: null,
+              currentNodeId: null,
+              flowData: {},
+              mode: 'BOT'
+            }
+          });
+          return true;
+        }
+
         // If we got here with an order action but no branch handled it, still return true
         return true;
       }
