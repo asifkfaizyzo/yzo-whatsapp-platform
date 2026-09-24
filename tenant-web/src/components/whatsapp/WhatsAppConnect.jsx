@@ -346,10 +346,10 @@ return createPortal(
           <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-6 border-b border-gray-100 shrink-0">
             <div>
               <p className="text-sm text-green-600 font-semibold mb-1">
-                {step === 1 ? "Step 1 of 2" : "Step 2 of 2"}
+                Official API Integration
               </p>
               <h2 className="text-xl font-bold text-gray-900">
-                {step === 1 ? "Choose Your Setup Type" : "Connect with Meta"}
+                Connect WhatsApp API
               </h2>
             </div>
             <button
@@ -372,212 +372,59 @@ return createPortal(
             </button>
           </div>
 
-          {/* Step 1 */}
-          {step === 1 && (
-            <div className="p-6">
-              <p className="text-gray-500 mb-6">
-                Choose how you want to connect your WhatsApp number.
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                <div
-                  onClick={() => setSelectedType("existing")}
-                  className={`border-2 rounded-xl p-5 cursor-pointer transition-all ${selectedType === "existing"
-                    ? "border-green-600 bg-green-50"
-                    : "border-gray-200 hover:border-green-300"
-                    }`}
-                >
-                  <div className="flex items-center gap-3 mb-3">
-                    <span className="text-2xl">📱</span>
-                    <h3 className="font-bold text-gray-900">
-                      Existing WA Business Number
-                    </h3>
-                  </div>
-                  <p className="text-xs text-gray-500 mb-4">
-                    Use your current WhatsApp Business App number
-                  </p>
-                  <div className="space-y-2">
-                    {[
-                      "No new number needed",
-                      "Continue using WhatsApp Business App",
-                      "Messages sync between Sudoreply & app",
-                    ].map((item, i) => (
-                      <div key={i} className="flex items-start gap-2">
-                        <span className="text-green-600 mt-0.5 flex-shrink-0 text-xs">
-                          ✓
-                        </span>
-                        <span className="text-xs text-gray-600">{item}</span>
-                      </div>
-                    ))}
-                    {[
-                      "Slower broadcast speeds",
-                      "WA Business App v2.24.4+ required",
-                    ].map((item, i) => (
-                      <div key={i} className="flex items-start gap-2">
-                        <span className="text-orange-500 mt-0.5 flex-shrink-0 text-xs">
-                          ⚠
-                        </span>
-                        <span className="text-xs text-gray-600">{item}</span>
-                      </div>
-                    ))}
-                  </div>
-                  {selectedType === "existing" && (
-                    <p className="mt-3 text-xs font-semibold text-green-600">
-                      ✓ Selected
-                    </p>
-                  )}
-                </div>
+          <div className="p-6">
+            <p className="text-gray-600 mb-6 font-medium">
+              Please read Meta's official guidelines before connecting a phone number:
+            </p>
 
-                <div
-                  onClick={() => setSelectedType("new")}
-                  className={`border-2 rounded-xl p-5 cursor-pointer transition-all ${selectedType === "new"
-                    ? "border-green-600 bg-green-50"
-                    : "border-gray-200 hover:border-green-300"
-                    }`}
-                >
-                  <div className="flex items-center gap-3 mb-3">
-                    <span className="text-2xl">🆕</span>
-                    <div>
-                      <h3 className="font-bold text-gray-900">New Number</h3>
-                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
-                        Recommended
-                      </span>
-                    </div>
-                  </div>
-                  <p className="text-xs text-gray-500 mb-4">
-                    Fresh number not registered on WhatsApp
-                  </p>
-                  <div className="space-y-2">
-                    {[
-                      "Faster broadcast speeds",
-                      "Full API control via Sudoreply",
-                      "Business name shown to all customers",
-                      "WhatsApp calling available",
-                    ].map((item, i) => (
-                      <div key={i} className="flex items-start gap-2">
-                        <span className="text-green-600 mt-0.5 flex-shrink-0 text-xs">
-                          ✓
-                        </span>
-                        <span className="text-xs text-gray-600">{item}</span>
-                      </div>
-                    ))}
-                    {["Cannot use WhatsApp Business App"].map((item, i) => (
-                      <div key={i} className="flex items-start gap-2">
-                        <span className="text-red-500 mt-0.5 flex-shrink-0 text-xs">
-                          ✗
-                        </span>
-                        <span className="text-xs text-gray-600">{item}</span>
-                      </div>
-                    ))}
-                  </div>
-                  {selectedType === "new" && (
-                    <p className="mt-3 text-xs font-semibold text-green-600">
-                      ✓ Selected
-                    </p>
-                  )}
+            <div className="space-y-4 mb-6">
+              <div className="border border-green-200 bg-green-50 rounded-xl p-5">
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-2xl">🌟</span>
+                  <h3 className="font-bold text-green-900">
+                    Option A: Use a Fresh Phone Number (Recommended)
+                  </h3>
                 </div>
+                <ul className="text-sm text-green-800 space-y-2 ml-9 list-disc">
+                  <li>Best for a clean, fast setup.</li>
+                  <li>The number must not be currently registered on any personal or business WhatsApp app.</li>
+                </ul>
               </div>
 
-              {error && (
-                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
-                  {error}
+              <div className="border border-orange-200 bg-orange-50 rounded-xl p-5">
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-2xl">⚠️</span>
+                  <h3 className="font-bold text-orange-900">
+                    Option B: Use an Existing WhatsApp Number
+                  </h3>
                 </div>
-              )}
-
-              <button
-                onClick={() => {
-                  if (!selectedType) {
-                    setError("Please select a setup type to continue.");
-                    return;
-                  }
-                  setError(null);
-                  setStep(2);
-                }}
-                className="w-full bg-green-600 text-white py-3 px-6 rounded-xl font-semibold hover:bg-green-700 transition-colors"
-              >
-                Continue →
-              </button>
+                <ul className="text-sm text-orange-800 space-y-2 ml-9 list-disc">
+                  <li>Meta does not allow a number to be on the mobile app and the Cloud API at the same time.</li>
+                  <li>You <span className="font-bold">MUST</span> delete the WhatsApp account from your mobile app (Settings &gt; Account &gt; Delete Account) before proceeding.</li>
+                  <li>You will no longer be able to use the WhatsApp mobile app. All messages will be handled exclusively inside Sudo Reply.</li>
+                </ul>
+              </div>
             </div>
-          )}
 
-          {/* Step 2 — Launch Meta */}
-          {step === 2 && (
-            <div className="p-6">
-              <p className="text-gray-500 mb-6">
-                Make sure you have everything ready before connecting.
-              </p>
-
-              <div className="bg-gray-50 rounded-xl p-4 mb-4">
-                <h3 className="font-semibold text-gray-900 mb-3">Requirements</h3>
-                <div className="space-y-2">
-                  {(selectedType === "existing"
-                    ? [
-                      "WhatsApp Business App version 2.24.4 or higher",
-                      "Facebook/Meta account with admin access",
-                      "Active website or GST Certificate for verification",
-                      "Phone number on WhatsApp Business App",
-                    ]
-                    : [
-                      "Fresh number not on WhatsApp Personal or Business",
-                      "Able to receive OTP via call or SMS",
-                      "Facebook/Meta account with admin access",
-                      "Active website or GST Certificate for verification",
-                    ]
-                  ).map((req, i) => (
-                    <div key={i} className="flex items-start gap-2">
-                      <span className="text-green-600 mt-0.5 flex-shrink-0 text-sm">✓</span>
-                      <span className="text-sm text-gray-600">{req}</span>
-                    </div>
-                  ))}
-                </div>
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+                {error}
               </div>
+            )}
 
-              <div className="bg-blue-50 rounded-xl p-4 mb-6">
-                <h3 className="font-semibold text-gray-900 mb-3">What happens next</h3>
-                <div className="space-y-2">
-                  {[
-                    "A Meta window will open for you to login",
-                    "Select or create your Business Portfolio",
-                    "Select or create your WhatsApp Business Account",
-                    "Add and verify your phone number",
-                    "Your account will be connected to Sudoreply",
-                  ].map((item, i) => (
-                    <div key={i} className="flex items-start gap-2">
-                      <span className="w-5 h-5 bg-blue-200 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
-                        {i + 1}
-                      </span>
-                      <span className="text-sm text-gray-600">{item}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {error && (
-                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
-                  {error}
-                </div>
-              )}
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => { setStep(1); setError(null); }}
-                  className="flex-1 border-2 border-gray-200 text-gray-700 py-3 px-6 rounded-xl font-semibold hover:border-gray-300 transition-colors"
-                >
-                  ← Back
-                </button>
-                <button
-                  onClick={launchEmbeddedSignup}
-                  className="flex-1 bg-green-600 text-white py-3 px-6 rounded-xl font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
-                >
-                  <span>💬</span>
-                  Connect with Meta
-                </button>
-              </div>
-
-              <p className="text-center text-xs text-gray-400 mt-4">
-                🔒 Secured by Meta — Sudoreply never stores your Facebook credentials
-              </p>
-            </div>
-          )}
+            <button
+              onClick={launchEmbeddedSignup}
+              className="w-full bg-[#1877F2] text-white py-3.5 px-6 rounded-xl font-semibold hover:bg-[#166FE5] transition-colors flex items-center justify-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+              </svg>
+              Continue with Facebook / Meta
+            </button>
+            <p className="text-center text-xs text-gray-400 mt-4">
+              🔒 Secured by Meta — Sudoreply never stores your Facebook credentials
+            </p>
+          </div>
         </div>
       </div>,
       document.body
