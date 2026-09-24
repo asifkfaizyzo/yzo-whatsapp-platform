@@ -183,3 +183,44 @@ export const markConversationAsRead = async (conversationId) => {
     };
   }
 };
+
+
+/**
+ * Get media, links, or docs for a specific conversation
+ */
+export const getConversationMedia = async (conversationId, type = "media", page = 1, limit = 50) => {
+  try {
+    const response = await api.get(`${CONV_BASE_URL}/media/${conversationId}`, {
+      params: { type, page, limit },
+    });
+    return {
+      success: true,
+      data: response.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to fetch media",
+    };
+  }
+};
+
+
+/**
+ * Toggle Pin / Unpin conversation
+ */
+export const togglePinConversation = async (conversationId) => {
+  try {
+    const response = await api.patch(`${CONV_BASE_URL}/pin/${conversationId}`);
+    return {
+      success: true,
+      message: response.data.message,
+      conversation: response.data.conversation,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.error || error.response?.data?.message || "Failed to toggle pin state",
+    };
+  }
+};

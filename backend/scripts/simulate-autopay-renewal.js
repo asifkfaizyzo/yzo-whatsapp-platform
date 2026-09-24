@@ -23,7 +23,11 @@ async function main() {
       where: {
         razorpaySubscriptionId: { not: null },
       },
-      orderBy: { updatedAt: "desc" },
+       orderBy: [
+        { isPinned: "desc" },
+        { pinnedAt: "desc" },
+        { updatedAt: "desc" },
+      ],
       include: { plan: true },
     });
   }

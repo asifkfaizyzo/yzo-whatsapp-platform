@@ -398,6 +398,8 @@ model Conversation {
 
    // ── Archive ── 
   isArchived    Boolean   @default(false)
+  isPinned       Boolean   @default(false)
+  pinnedAt       DateTime?
   archivedAt    DateTime?
   archivedBy    String?   // userId or tenantId who archived
   archivedByRole String?  // "TENANT" | "USER"

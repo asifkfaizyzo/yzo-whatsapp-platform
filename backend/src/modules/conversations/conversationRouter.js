@@ -27,5 +27,9 @@ router.patch('/mark-read/:conversationId',verifyTenantOrUser,conversationControl
 
 // ── Bulk Reassign ──────────────────────────────────────────
 router.patch( "/bulk-reassign", verifyTenantOrUser, conversationController.bulkReassignConversationsController);
+// ── Media, Links & Docs ────────────────────────────────────
+router.get( "/media/:conversationId", verifyTenantOrUser, conversationController.getConversationMediaController);
+
+router.patch("/pin/:id", conversationController.togglePinController);
 
 export default router;
