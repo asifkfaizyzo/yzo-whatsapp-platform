@@ -1,3 +1,4 @@
+import prisma from "../../config/prisma.js";
 import {
        togglePinConversation,getOrCreateConversation,getConversationByContact,
        getAssignedConversations,getMessages,updateConversationStatus,
