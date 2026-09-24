@@ -1,5 +1,6 @@
 // src/components/settings/GoogleSheetsSettings.jsx
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -846,10 +847,10 @@ export default function GoogleSheetsSettings({ onBack } = {}) {
         </div>
       </div>
 
-      {/* ── Add/Edit Field Modal ── */}
-      {showFieldModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-150">
+           {/* ── Add/Edit Field Modal ── */}
+      {showFieldModal && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 relative z-10 animate-in zoom-in-95 duration-150">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-sm font-bold text-slate-800">
                 {editingField ? `Edit Column (${editingField.fieldName})` : "Add Custom Column"}
@@ -966,12 +967,13 @@ export default function GoogleSheetsSettings({ onBack } = {}) {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-            {/* ── Disconnect Modal ── */}
-      {showDisconnectModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
+      {/* ── Disconnect Modal ── */}
+      {showDisconnectModal && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
           <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 space-y-4 relative z-10 animate-in zoom-in-95 duration-150">
             <div className="w-10 h-10 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center border border-rose-100">
               <AlertTriangle size={20} />
@@ -1004,7 +1006,8 @@ export default function GoogleSheetsSettings({ onBack } = {}) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
