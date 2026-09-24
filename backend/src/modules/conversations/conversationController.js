@@ -1,9 +1,9 @@
 import {
-       getOrCreateConversation,getConversationByContact,
+       togglePinConversation,getOrCreateConversation,getConversationByContact,
        getAssignedConversations,getMessages,updateConversationStatus,
        archiveConversation,unarchiveConversation,deleteConversation,
        getArchivedConversations,  bulkReassignConversations, 
-       markConversationAsRead, 
+       markConversationAsRead,  getConversationMedia, 
        } from './conversationService.js';
 
 
@@ -480,5 +480,84 @@ export const markConversationAsReadController = async (req, res) => {
       return res.status(404).json({ success: false, message: error.message });
     }
     return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+
+// ── Get Conversation Media / Links / Docs Controller ────
+export const getConversationMediaController = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const tenantId = req.tenantId;
+    const type = req.query.type || "media";
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 50;
+
+    const data = await getConversationMedia({
+      conversationId,
+      tenantId,
+      type,
+      page,
+      limit,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Conversation media fetched successfully",
+      ...data,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to fetch conversation media",
+    });
+  }
+};
+
+
+
+// ─────────────────────────────────────────────────────────────
+// TOGGLE PIN / UNPIN CONVERSATION
+// ─────────────────────────────────────────────────────────────
+export const togglePinController = async (req, res) => {
+  try {
+    const { id } = req.params;
+    let tenantId = req.tenantId || req.user?.tenantId || req.headers["x-tenant-id"];
+
+    if (!tenantId) {
+      const conv = await prisma.conversation.findUnique({
+        where: { id },
+        select: { tenantId: true },
+      });
+      if (conv) {
+        tenantId = conv.tenantId;
+      }
+    }
+
+    if (!tenantId) {
+      return res.status(400).json({ success: false, error: "tenantId is required" });
+    }
+
+    const updated = await togglePinConversation(id, tenantId);
+
+    return res.status(200).json({
+      success: true,
+      message: updated.isPinned ? "Chat pinned to top" : "Chat unpinned",
+      conversation: updated,
+    });
+  } catch (error) {
+    // Graceful limit response instead of system error
+    if (error.message && error.message.includes("pin up to 3 chats")) {
+      return res.status(200).json({
+        success: false,
+        message: "Maximum 3 chats can be pinned at a time.",
+      });
+    }
+
+    console.error("❌ togglePinController error:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to toggle pin state",
+    });
   }
 };

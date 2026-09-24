@@ -7,6 +7,7 @@ import api from "../../lib/axios";
 import EmojiPicker from "emoji-picker-react";
 import {
   Search,
+  Pin,
   Filter,
   Send,
   Paperclip,
@@ -32,6 +33,7 @@ import {
   AlertTriangle,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   ShoppingBag,
   Navigation,
   ExternalLink,
@@ -50,6 +52,8 @@ import {
   getArchivedConversations,
   bulkReassignConversations,
   markConversationAsRead,
+  getConversationMedia,
+  togglePinConversation,
 } from "../../services/conversation.service";
 import {
   sendMessage,
@@ -84,10 +88,69 @@ export default function Inbox() {
     searchParams.get("filter") || (userRole === "admin" ? "all" : "my");
   const activeTab = searchParams.get("tab") || "all";
 
-  // ── Core State ──
+    // ── Core State ──
   const [chats, setChats] = useState([]);
   const [activeChatId, setActiveChatId] = useState(urlConversationId || null);
   const [loadingMessages, setLoadingMessages] = useState(false);
+
+    // Handle Toggle Pin / Unpin Chat (Max 3 pinned chats)
+  const handleTogglePin = async (e, convId) => {
+    e?.stopPropagation();
+    if (!convId) return;
+
+    const targetChat = chats.find((c) => String(c.id) === String(convId));
+    if (!targetChat) return;
+
+    const isCurrentlyPinned = Boolean(targetChat.isPinned);
+
+    // 1️⃣ Friendly limit check before calling backend API
+    if (!isCurrentlyPinned) {
+      const currentPinnedCount = chats.filter((c) => Boolean(c.isPinned)).length;
+      if (currentPinnedCount >= 3) {
+        toast.info("Maximum 3 chats can be pinned at a time.");
+        return;
+      }
+    }
+
+    try {
+      const res = await togglePinConversation(convId);
+
+      if (res.success && res.conversation) {
+        const newPinnedState = Boolean(res.conversation.isPinned);
+        toast.success(newPinnedState ? "Chat pinned to top" : "Chat unpinned");
+
+        setChats((prev) => {
+          const updated = prev.map((c) =>
+            String(c.id) === String(convId)
+              ? {
+                  ...c,
+                  isPinned: newPinnedState,
+                  pinnedAt: res.conversation.pinnedAt,
+                }
+              : c
+          );
+
+          // Strict boolean sorting function
+          return [...updated].sort((a, b) => {
+            const aPinned = Boolean(a.isPinned);
+            const bPinned = Boolean(b.isPinned);
+            if (aPinned !== bPinned) return aPinned ? -1 : 1;
+            if (aPinned && bPinned) {
+              return new Date(b.pinnedAt || 0) - new Date(a.pinnedAt || 0);
+            }
+            return (
+              new Date(b.updatedAt || b.lastActivityAt || 0) -
+              new Date(a.updatedAt || a.lastActivityAt || 0)
+            );
+          });
+        });
+      } else {
+        toast.info(res.message || "Maximum 3 chats can be pinned at a time.");
+      }
+    } catch (err) {
+      toast.info("Maximum 3 chats can be pinned at a time.");
+    }
+  };
 
   // Sync activeChatId with URL conversationId (e.g. clicking Inbox in sidebar clears selection)
   useEffect(() => {
@@ -198,8 +261,34 @@ export default function Inbox() {
   const recordingTimerRef = useRef(null);
   const audioChunksRef = useRef([]);
 
-  // ── Scroll ──
+    // ── Scroll ──
   const messagesEndRef = useRef(null);
+  const chatContainerRef = useRef(null);
+  const [showScrollArrow, setShowScrollArrow] = useState(false);
+
+  const scrollToBottom = (smooth = false) => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTo({
+        top: chatContainerRef.current.scrollHeight,
+        behavior: smooth ? "smooth" : "auto",
+      });
+    }
+  };
+
+  const handleScroll = () => {
+    const container = chatContainerRef.current;
+    if (!container) return;
+    const isScrolledUp =
+      container.scrollHeight - container.scrollTop - container.clientHeight > 350;
+    setShowScrollArrow(isScrolledUp);
+  };
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      scrollToBottom(false);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [messages, activeChatId]);
 
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const attachMenuRef = useRef(null);
@@ -231,21 +320,6 @@ export default function Inbox() {
   });
   const [locationError, setLocationError] = useState("");
   const [sendingLocation, setSendingLocation] = useState(false);
-
-  const scrollToBottom = () => {
-    if (!messagesEndRef.current) return;
-    const chatContainer = messagesEndRef.current.parentElement;
-    if (chatContainer) {
-      chatContainer.scrollTop = chatContainer.scrollHeight;
-    }
-  };
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      scrollToBottom(true);
-    }, 100);
-    return () => clearTimeout(timer);
-  }, [messages, activeChatId]);
 
   // ── New Chat Modal ──
   const [showNewChatModal, setShowNewChatModal] = useState(false);
@@ -280,11 +354,48 @@ export default function Inbox() {
   // ── Image Preview Lightbox State ──
   const [previewImageModal, setPreviewImageModal] = useState(null);
 
-  // ── Right Contact Panel State ──
+    // ── Right Contact Panel State & Media Tab State ──
   const [showContactPanel, setShowContactPanel] = useState(() => {
     const saved = localStorage.getItem("inbox_contact_panel_open");
-    return saved === "true"; // default: closed
+    return saved === "true";
   });
+
+  const [rightPanelSubView, setRightPanelSubView] = useState("info"); // "info" | "media"
+  const [mediaActiveTab, setMediaActiveTab] = useState("media"); // "media" | "docs" | "links"
+  const [mediaItems, setMediaItems] = useState([]);
+  const [loadingMediaItems, setLoadingMediaItems] = useState(false);
+  const [mediaCategoryCounts, setMediaCategoryCounts] = useState({ media: 0, docs: 0, links: 0 });
+
+  // Load Media Items for Right Panel
+  const loadMediaCategory = useCallback(async (convId, category) => {
+    if (!convId) return;
+    setLoadingMediaItems(true);
+    try {
+      const res = await getConversationMedia(convId, category, 1, 50);
+      if (res.success && res.data) {
+        setMediaItems(res.data.items || []);
+        if (res.data.counts) {
+          setMediaCategoryCounts(res.data.counts);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch media:", err);
+    } finally {
+      setLoadingMediaItems(false);
+    }
+  }, []);
+
+  // Fetch initial summary count when active chat changes
+  useEffect(() => {
+    if (activeChatId && showContactPanel) {
+      loadMediaCategory(activeChatId, mediaActiveTab);
+    }
+  }, [activeChatId, showContactPanel, mediaActiveTab, loadMediaCategory]);
+
+  // Reset subview to "info" when switching active chat
+  useEffect(() => {
+    setRightPanelSubView("info");
+  }, [activeChatId]);
 
   // Persist panel state
   useEffect(() => {
@@ -321,31 +432,60 @@ export default function Inbox() {
   // };
 
   // ⭐ Smart 24h Expired Check (Looks ONLY at Customer Messages)
+  
+  // const is24hExpired = (chat) => {
+  //   if (!chat) return false;
+
+  //   // 1. Check incomingAt (recorded when customer messages)
+  //   let lastCustomerTime = chat.incomingAt ? new Date(chat.incomingAt).getTime() : null;
+
+  //   // 2. Fallback: Search messages array for the last customer message
+  //   if (!lastCustomerTime && Array.isArray(chat.messages)) {
+  //     const lastInboundMsg = chat.messages.find(
+  //       (m) => m.isFromCustomer || m.direction === "INBOUND" || m.senderType === "CONTACT"
+  //     );
+  //     if (lastInboundMsg?.createdAt) {
+  //       lastCustomerTime = new Date(lastInboundMsg.createdAt).getTime();
+  //     }
+  //   }
+
+  //   // 3. If customer NEVER messaged -> Session is EXPIRED by default!
+  //   if (!lastCustomerTime) return true;
+
+  //   if (isNaN(lastCustomerTime)) return false;
+
+  //   // 4. Calculate hours difference
+  //   const hoursDiff = (Date.now() - lastCustomerTime) / (1000 * 60 * 60);
+  //   return hoursDiff >= 24;
+  // };
+  
+
+      // Helper: Check if 24-hour messaging window has expired since customer's last message
+      // Helper: Check if 24-hour messaging window has expired since customer's last message
   const is24hExpired = (chat) => {
     if (!chat) return false;
 
-    // 1. Check incomingAt (recorded when customer messages)
-    let lastCustomerTime = chat.incomingAt ? new Date(chat.incomingAt).getTime() : null;
+    // Do NOT show banner if chat is already RESOLVED or CLOSED
+    if (chat.status !== "OPEN") return false;
 
-    // 2. Fallback: Search messages array for the last customer message
-    if (!lastCustomerTime && Array.isArray(chat.messages)) {
-      const lastInboundMsg = chat.messages.find(
-        (m) => m.isFromCustomer || m.direction === "INBOUND" || m.senderType === "CONTACT"
-      );
-      if (lastInboundMsg?.createdAt) {
-        lastCustomerTime = new Date(lastInboundMsg.createdAt).getTime();
-      }
-    }
+    // Get the MOST RECENT customer message from the end of the messages array
+    const inboundMsgs = (chat.messages || []).filter(
+      (m) => m.isFromCustomer || m.direction === "INBOUND"
+    );
+    const lastInboundMsg = inboundMsgs[inboundMsgs.length - 1];
 
-    // 3. If customer NEVER messaged -> Session is EXPIRED by default!
-    if (!lastCustomerTime) return true;
+    // Pick the newest incoming message timestamp first, fallback to chat.incomingAt
+    const lastCustomerMsgTime = lastInboundMsg?.createdAt || chat.incomingAt;
 
-    if (isNaN(lastCustomerTime)) return false;
+    // If customer has never messaged, don't expire
+    if (!lastCustomerMsgTime) return false;
 
-    // 4. Calculate hours difference
-    const hoursDiff = (Date.now() - lastCustomerTime) / (1000 * 60 * 60);
-    return hoursDiff >= 24;
+    const elapsed = Date.now() - new Date(lastCustomerMsgTime).getTime();
+    const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+
+    return elapsed > TWENTY_FOUR_HOURS;
   };
+
 
   // ── Helpers ──
   const formatLastMessagePreview = (msg) => {
@@ -609,7 +749,9 @@ export default function Inbox() {
         return;
       }
 
-      const isFromCustomer = message?.isFromCustomer === true;
+      // const isFromCustomer = message?.isFromCustomer === true;
+            const isFromCustomer =
+        message?.isFromCustomer === true || message?.direction === "INBOUND";
       const isCurrentChatOpen =
         activeChatId && String(activeChatId) === String(conversationId);
 
@@ -679,7 +821,9 @@ export default function Inbox() {
           return prevChats;
         }
 
-        const msgCreatedAt = message.createdAt || new Date().toISOString();
+              const msgCreatedAt = message.createdAt || new Date().toISOString();
+        const isCustomerMsg =
+          message?.isFromCustomer === true || message?.direction === "INBOUND";
 
         // Update the specific chat
         const updated = prevChats.map((c) => {
@@ -687,6 +831,7 @@ export default function Inbox() {
             return {
               ...c,
               status: "OPEN",
+              incomingAt: isCustomerMsg ? msgCreatedAt : c.incomingAt,
               lastMessageAt: msgCreatedAt,
               updatedAt: msgCreatedAt,
               messages: [
@@ -694,6 +839,8 @@ export default function Inbox() {
                   id: message.id,
                   text: message.text,
                   createdAt: msgCreatedAt,
+                  isFromCustomer: message.isFromCustomer,
+                  direction: message.direction,
                 },
               ],
             };
@@ -702,7 +849,13 @@ export default function Inbox() {
         });
 
         // Reorder (only when we have a truly new message)
+                // Reorder (only when we have a truly new message - pinned chats stay on top)
         return updated.sort((a, b) => {
+          if (a.isPinned !== b.isPinned) return b.isPinned ? 1 : -1;
+          if (a.isPinned && b.isPinned) {
+            return new Date(b.pinnedAt || 0) - new Date(a.pinnedAt || 0);
+          }
+
           const dateA = a.messages?.[0]?.createdAt || a.updatedAt;
           const dateB = b.messages?.[0]?.createdAt || b.updatedAt;
           const timeA = dateA ? new Date(dateA).getTime() : 0;
@@ -789,12 +942,22 @@ export default function Inbox() {
       );
     };
 
-    const handleConversationAssigned = (data) => {
+       const handleConversationAssigned = (data) => {
       if (data.conversation) {
         setChats((prev) => {
           const exists = prev.some((c) => String(c.id) === String(data.conversation.id));
           if (exists) return prev;
-          return [data.conversation, ...prev];  // Add to top
+          
+          const updated = [data.conversation, ...prev];
+          
+          // Sort: Pinned chats stay at the top, unpinned sorted by activity/created date
+          return updated.sort((a, b) => {
+            if (a.isPinned !== b.isPinned) return b.isPinned ? -1 : 1;
+            if (a.isPinned && b.isPinned) {
+              return new Date(b.pinnedAt) - new Date(a.pinnedAt);
+            }
+            return new Date(b.lastActivityAt || b.updatedAt || b.createdAt) - new Date(a.lastActivityAt || a.updatedAt || a.createdAt);
+          });
         });
       }
     };
@@ -1310,7 +1473,30 @@ export default function Inbox() {
     setAssigningUser(false);
   };
 
-  // ── Avatar & Tag Colors ──
+    // ── Media & Avatar Helpers ──
+  const getMediaUrl = (mediaUrl) => {
+    if (!mediaUrl) return "";
+
+    let cleaned = mediaUrl;
+    if (cleaned.startsWith("undefined/")) {
+      cleaned = cleaned.replace("undefined/", "");
+    }
+    if (cleaned.includes("localhost") || cleaned.includes("backend:5000")) {
+      cleaned = cleaned.replace(/^https?:\/\/[^\/]+/, "").replace(/^\/+/, "");
+    }
+
+    if (
+      cleaned.startsWith("http://") ||
+      cleaned.startsWith("https://")
+    ) {
+      return cleaned;
+    }
+
+    const backend = (import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL || "http://localhost:5000").replace(/\/+$/, "");
+    const cleanPath = cleaned.startsWith("/") ? cleaned : `/${cleaned}`;
+    return `${backend}${cleanPath}`;
+  };
+
   const getAvatarUrl = (url) => {
     if (!url) return null;
     if (url.startsWith("http://") || url.startsWith("https://")) return url;
@@ -2297,31 +2483,44 @@ export default function Inbox() {
                       </span>
                     </div>
 
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
+                                         <div className="flex-1 min-w-0">
+                      {/* Name on Left, Time + Pin Icon on Right */}
+                      <div className="flex items-center justify-between gap-1.5">
                         <span
-                          className={`text-sm truncate max-w-[180px] ${unreadCount > 0
-                            ? "font-bold text-[#111B21]"
-                            : "font-semibold text-[#111B21]"
-                            }`}
+                          className={`text-sm truncate max-w-[170px] ${
+                            unreadCount > 0
+                              ? "font-bold text-[#111B21]"
+                              : "font-semibold text-[#111B21]"
+                          }`}
                         >
                           {contactName}
                         </span>
-                        <span
-                          className={`text-[10px] ${unreadCount > 0
-                            ? "text-[#25D366] font-semibold"
-                            : "text-[#667781]"
+
+                        {/* Timestamp + Pin Icon */}
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span
+                            className={`text-[10px] ${
+                              unreadCount > 0
+                                ? "text-[#25D366] font-semibold"
+                                : "text-[#667781]"
                             }`}
-                        >
-                          {timeStr}
-                        </span>
+                          >
+                            {timeStr}
+                          </span>
+                          {chat.isPinned && (
+                            <Pin className="w-3 h-3 text-[#667781] fill-[#667781] rotate-45 shrink-0" />
+                          )}
+                        </div>
                       </div>
+
+                      {/* Message Preview + Unread Count */}
                       <div className="flex items-center justify-between mt-0.5">
                         <p
-                          className={`text-xs truncate max-w-[200px] ${unreadCount > 0
-                            ? "text-[#111B21] font-medium"
-                            : "text-[#667781]"
-                            }`}
+                          className={`text-xs truncate max-w-[200px] ${
+                            unreadCount > 0
+                              ? "text-[#111B21] font-medium"
+                              : "text-[#667781]"
+                          }`}
                         >
                           {formatLastMessagePreview(lastMsg)}
                         </p>
@@ -2660,7 +2859,8 @@ export default function Inbox() {
                     </div>
                   )}
                 </div>
-                {/* ⭐ NEW: Details Toggle Button ⭐ */}
+             
+                             {/* ⭐ NEW: Details Toggle Button ⭐ */}
                 <button
                   onClick={() => setShowContactPanel((prev) => !prev)}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-white/15 hover:bg-white/25 backdrop-blur-sm border border-white/10 rounded-xl text-white text-xs font-semibold transition duration-150"
@@ -2681,6 +2881,23 @@ export default function Inbox() {
 
 
             </div>
+
+                        {/* ── 24-Hour Window Expired Notice (Top Small Compact Banner) ── */}
+            {activeChat &&
+              is24hExpired(activeChat) &&
+              activeChat.status === "OPEN" &&
+              !activeChat.contact?.isBlocked && (
+                <div className="flex items-center justify-center py-1.5 bg-[#ECE5DD] shrink-0">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 border border-amber-200/80 rounded-lg text-[10px] font-medium text-amber-900 shadow-xs">
+                    <AlertTriangle size={12} className="text-amber-600 shrink-0" />
+                    <span>
+                      {activeChat.channel === "MESSENGER" || activeChat.channel === "INSTAGRAM"
+                        ? "Standard 24h window has ended. Responses will use 7-day Human Agent window."
+                        : "It has been more than 24 hours since customer messaged. You can only respond using a Template."}
+                    </span>
+                  </div>
+                </div>
+              )}
 
             {/* Collision Warning Alert Banner */}
             {typingAgents.filter((t) => String(t.userId) !== String(user?.id)).length > 0 && (
@@ -2750,7 +2967,9 @@ export default function Inbox() {
 
             {/* Message Thread */}
             <div
-              className="flex-1 p-6 overflow-y-auto space-y-3"
+              ref={chatContainerRef}
+              onScroll={handleScroll}
+              className="flex-1 p-6 overflow-y-auto space-y-3 relative"
               style={{
                 backgroundColor: "#ECE5DD",
                 backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23075E54' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
@@ -2777,30 +2996,7 @@ export default function Inbox() {
                 const isAgent = !msg.isFromCustomer;
                 const timeStr = formatTime(msg.createdAt);
 
-                const BACKEND_URL =
-                  import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
-
-                const getMediaUrl = (mediaUrl) => {
-                  if (!mediaUrl) return "";
-
-                  let cleaned = mediaUrl;
-                  if (cleaned.startsWith("undefined/")) {
-                    cleaned = cleaned.replace("undefined/", "");
-                  }
-                  if (cleaned.includes("localhost") || cleaned.includes("backend:5000")) {
-                    cleaned = cleaned.replace(/^https?:\/\/[^\/]+/, "").replace(/^\/+/, "");
-                  }
-
-                  if (
-                    cleaned.startsWith("http://") ||
-                    cleaned.startsWith("https://")
-                  ) {
-                    return cleaned;
-                  }
-
-                  const cleanPath = cleaned.startsWith("/") ? cleaned : `/${cleaned}`;
-                  return `${BACKEND_URL.replace(/\/+$/, '')}${cleanPath}`;
-                };
+               
 
                 // ── DELETED MESSAGE UI ──
                 if (msg.isDeleted) {
@@ -3353,7 +3549,8 @@ export default function Inbox() {
                   </p>
                 </div>
               )}
-              {/* Live Typing Indicator Pill */}
+            
+                        {/* Live Typing Indicator Pill */}
               {typingAgents.filter((t) => String(t.userId) !== String(user?.id)).length > 0 && (
                 <div className="flex items-center gap-2.5 px-4 py-2 bg-white/90 backdrop-blur-md rounded-full w-fit shadow-md border border-emerald-200/60 mb-2 transition-all">
                   <span className="text-xs text-[#075E54] font-bold">
@@ -3373,6 +3570,18 @@ export default function Inbox() {
               )}
               <div ref={messagesEndRef} />
             </div>
+
+            {/* ── Floating WhatsApp-Style Scroll To Bottom Button ── */}
+            {showScrollArrow && (
+              <button
+                type="button"
+                onClick={() => scrollToBottom(true)}
+                className="absolute bottom-20 right-6 z-30 p-2.5 bg-white hover:bg-[#F0F2F5] text-[#54656F] hover:text-[#075E54] rounded-full shadow-md border border-[#E9EDEF] transition duration-200 ease-in-out hover:scale-105 active:scale-95 flex items-center justify-center animate-in fade-in zoom-in-95"
+                title="Scroll to bottom"
+              >
+                <ChevronDown size={18} className="stroke-[2.5]" />
+              </button>
+            )}
 
             {/* Input Bar */}
             <form
@@ -3431,25 +3640,6 @@ export default function Inbox() {
                     </button>
                   </div>
                 )}
-
-              {/* ── 24-Hour Window Expired Alert ── */}
-              {activeChat &&
-                is24hExpired(activeChat) &&
-                activeChat.status === "OPEN" &&
-                !activeChat.contact?.isBlocked && (
-                  <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200/80 rounded-xl text-xs text-amber-900 shadow-xs mb-2">
-                    <AlertTriangle size={14} className="text-amber-600 shrink-0" />
-                    <span className="font-medium text-[11px] text-amber-800">
-                      {activeChat.channel === "MESSENGER" || activeChat.channel === "INSTAGRAM"
-                        ? "ℹ️ Standard 24h window has ended. Responses will be sent using the 7-day Human Agent window."
-                        : "ℹ️ It has been more than 24 hours since the customer messaged you. You can only respond using a Template."}
-                    </span>
-                  </div>
-                )}
-
-
-
-
 
               {/* ── Staged Quick Reply Attachment Preview ── */}
               {stagedQuickReply && (
@@ -3878,232 +4068,500 @@ export default function Inbox() {
       </div>
       {/* ══ End Middle Chat Area ══ */}
 
-      {/* ══════════════════════════════════════
-          RIGHT PANEL
+           {/* ══════════════════════════════════════
+          RIGHT PANEL (WhatsApp Style Info & Media)
       ══════════════════════════════════════ */}
       {activeChat && (
         <div
-          className={`border-l border-emerald-100 flex flex-col overflow-y-auto shrink-0 bg-white transition-all duration-300 ease-in-out ${showContactPanel ? "w-72 opacity-100" : "w-0 opacity-0 border-l-0"
-            }`}
+          className={`border-l border-emerald-100 flex flex-col overflow-y-auto shrink-0 bg-white transition-all duration-300 ease-in-out ${
+            showContactPanel ? "w-72 opacity-100" : "w-0 opacity-0 border-l-0"
+          }`}
         >
-          {/* Profile Header */}
-          <div className="bg-gradient-to-b from-[#075E54] to-[#128C7E] px-6 pt-6 pb-8 flex flex-col items-center text-center relative">
+          {/* ──────────────────────────────────────────
+              SUB-VIEW 1: CONTACT INFO
+          ────────────────────────────────────────── */}
+          {rightPanelSubView === "info" && (
+            <>
+              {/* Profile Header */}
+              <div className="bg-gradient-to-b from-[#075E54] to-[#128C7E] px-6 pt-6 pb-8 flex flex-col items-center text-center relative">
+                <button
+                  onClick={() => setShowContactPanel(false)}
+                  className="absolute top-3 right-3 p-1.5 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition"
+                  title="Close panel"
+                >
+                  <X size={16} />
+                </button>
 
-            {/* ⭐ NEW: Close Button (X) ⭐ */}
-            <button
-              onClick={() => setShowContactPanel(false)}
-              className="absolute top-3 right-3 p-1.5 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition"
-              title="Close panel"
-            >
-              <X size={16} />
-            </button>
-            {/* ⭐ END NEW BUTTON ⭐ */}
-
-            {activeChat.contact?.avatarUrl ? (
-              <img
-                src={getAvatarUrl(activeChat.contact.avatarUrl)}
-                alt={activeChat.contact?.name || "Customer"}
-                className="w-20 h-20 rounded-full object-cover ring-4 ring-white/20 shadow-lg mb-3"
-                onError={(e) => {
-                  e.target.style.display = "none";
-                }}
-              />
-            ) : (
-              <div
-                className={`w-20 h-20 rounded-full flex items-center justify-center font-bold text-xl ring-4 ring-white/20 shadow-lg mb-3 ${getAvatarStyle(
-                  activeChat.contact?.name,
-                )}`}
-              >
-                {(activeChat.contact?.name || "C").charAt(0)}
-              </div>
-            )}
-            <h3 className="font-bold text-white text-base leading-none">
-              {activeChat.contact?.name}
-            </h3>
-            <p className="text-xs text-emerald-200 mt-1.5 font-mono">
-              {activeChat.contact?.phone}
-            </p>
-            <div className="flex items-center gap-1.5 mt-2">
-              <span
-                className={`w-2 h-2 rounded-full ${activeChat.status === "OPEN" ? "bg-[#25D366]" : "bg-[#667781]"
-                  }`}
-              />
-              <span className="text-[10px] text-emerald-200 font-semibold uppercase tracking-wider">
-                {activeChat.status}
-              </span>
-            </div>
-          </div>
-
-          {/* Info Sections */}
-          <div className="p-4 space-y-3">
-            {/* Contact Info */}
-            <div className="bg-[#F0F2F5] rounded-2xl p-3.5 space-y-2.5">
-              <p className="text-[10px] font-bold text-[#075E54] uppercase tracking-wider flex items-center gap-1.5">
-                <Phone size={11} /> Contact Info
-              </p>
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <Phone size={12} className="text-[#25D366] shrink-0" />
-                  <div>
-                    <p className="text-[9px] text-[#667781]">Phone</p>
-                    <p className="text-[11px] font-semibold text-[#111B21]">
-                      {activeChat.contact?.phone}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Mail size={12} className="text-[#25D366] shrink-0" />
-                  <div>
-                    <p className="text-[9px] text-[#667781]">Email</p>
-                    <p className="text-[11px] font-semibold text-[#111B21]">
-                      {activeChat.contact?.email || "N/A"}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Building2 size={12} className="text-[#25D366] shrink-0" />
-                  <div>
-                    <p className="text-[9px] text-[#667781]">Company</p>
-                    <p className="text-[11px] font-semibold text-[#111B21]">
-                      {activeChat.contact?.company || "N/A"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Agent */}
-            <div className="bg-[#F0F2F5] rounded-2xl p-3.5">
-              <div className="flex items-center justify-between mb-1.5">
-                <p className="text-[10px] font-bold text-[#075E54] uppercase tracking-wider flex items-center gap-1.5">
-                  <UserCheck size={11} /> Agent
-                </p>
-                <span className="text-[10px] font-semibold text-[#111B21]">
-                  {activeChat.contact?.assignedTo ? (
-                    allAgents.find(
-                      (a) => a.id === activeChat.contact?.assignedTo,
-                    )?.name || "Assigned"
-                  ) : (
-                    <span className="text-[#667781] font-normal italic">
-                      Unassigned
-                    </span>
-                  )}
-                </span>
-              </div>
-              {userRole === "admin" && (
-                <div className="flex items-center gap-1.5 mt-2">
-                  <select
-                    value={selectedAgent}
-                    onChange={(e) => setSelectedAgent(e.target.value)}
-                    className="flex-1 text-[10px] py-1 px-1.5 rounded-md border border-slate-200 bg-white text-[#111B21] focus:outline-none focus:ring-1 focus:ring-[#25D366]/40"
-                  >
-                    <option value="">
-                      {activeChat.contact?.assignedTo
-                        ? "Change agent"
-                        : "Select agent"}
-                    </option>
-                    {allAgents.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.name}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    onClick={handleAssignAgent}
-                    disabled={!selectedAgent || assigningUser}
-                    className="px-2 py-1 bg-[#075E54] hover:bg-[#064E47] text-white text-[9px] font-bold rounded-md transition disabled:opacity-30"
-                  >
-                    {assigningUser ? "..." : "Save"}
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Tags */}
-            <div className="bg-[#F0F2F5] rounded-2xl p-3.5">
-              <p className="text-[10px] font-bold text-[#075E54] uppercase tracking-wider flex items-center gap-1.5 mb-2">
-                <Tag size={11} /> Tags
-              </p>
-              <div className="flex flex-wrap gap-1">
-                {(activeChat.contact?.contactTags || []).map((ct, i) => (
-                  <span
-                    key={ct.tag?.id || i}
-                    className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[9px] font-semibold border ${getTagColor(
-                      ct.tag?.name,
+                {activeChat.contact?.avatarUrl ? (
+                  <img
+                    src={getAvatarUrl(activeChat.contact.avatarUrl)}
+                    alt={activeChat.contact?.name || "Customer"}
+                    className="w-20 h-20 rounded-full object-cover ring-4 ring-white/20 shadow-lg mb-3"
+                    onError={(e) => {
+                      e.target.style.display = "none";
+                    }}
+                  />
+                ) : (
+                  <div
+                    className={`w-20 h-20 rounded-full flex items-center justify-center font-bold text-xl ring-4 ring-white/20 shadow-lg mb-3 ${getAvatarStyle(
+                      activeChat.contact?.name
                     )}`}
                   >
-                    {ct.tag?.name}
-                    {userRole === "admin" && (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveTag(ct.tag?.id)}
-                        className="hover:text-red-500 transition ml-0.5"
-                        title="Remove"
-                      >
-                        <X size={8} />
-                      </button>
+                    {(activeChat.contact?.name || "C").charAt(0)}
+                  </div>
+                )}
+                <h3 className="font-bold text-white text-base leading-none">
+                  {activeChat.contact?.name}
+                </h3>
+                <p className="text-xs text-emerald-200 mt-1.5 font-mono">
+                  {activeChat.contact?.phone}
+                </p>
+                <div className="flex items-center gap-1.5 mt-2">
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      activeChat.status === "OPEN" ? "bg-[#25D366]" : "bg-[#667781]"
+                    }`}
+                  />
+                  <span className="text-[10px] text-emerald-200 font-semibold uppercase tracking-wider">
+                    {activeChat.status}
+                  </span>
+                </div>
+              </div>
+
+              {/* Info Sections */}
+              <div className="p-4 space-y-3">
+
+                {/* ── WhatsApp-Style "Media, links and docs" Section Card ── */}
+                <div className="bg-[#F0F2F5] rounded-2xl p-3.5 space-y-2">
+                  <button
+                    onClick={() => {
+                      setRightPanelSubView("media");
+                      setMediaActiveTab("media");
+                    }}
+                    className="w-full flex items-center justify-between group text-left"
+                  >
+                    <span className="text-[10px] font-bold text-[#075E54] uppercase tracking-wider flex items-center gap-1.5">
+                      <FileText size={11} /> Media, links and docs
+                    </span>
+                    <div className="flex items-center gap-1 text-[#667781] group-hover:text-[#075E54] transition">
+                      <span className="text-[11px] font-bold">
+                        {mediaCategoryCounts.media + mediaCategoryCounts.docs + mediaCategoryCounts.links}
+                      </span>
+                      <ChevronRight size={13} />
+                    </div>
+                  </button>
+
+                                 {/* Thumbnail Row */}
+                  <div className="flex items-center gap-1.5 pt-1 overflow-x-auto scrollbar-none">
+                    {mediaCategoryCounts.media + mediaCategoryCounts.docs + mediaCategoryCounts.links === 0 ? (
+                      <p className="text-[10px] text-[#667781] italic">No media shared yet</p>
+                    ) : (
+                      mediaItems.slice(0, 4).map((item, idx) => (
+                        <div
+                          key={item.id || idx}
+                          onClick={() => {
+                            setRightPanelSubView("media");
+                            setMediaActiveTab(item.type === "FILE" ? "docs" : item.links?.length > 0 ? "links" : "media");
+                          }}
+                          className="w-12 h-12 rounded-xl bg-white border border-slate-200 shrink-0 overflow-hidden flex items-center justify-center cursor-pointer hover:opacity-80 transition shadow-2xs"
+                        >
+                          {item.type === "IMAGE" && item.mediaUrl ? (
+                            <img src={getMediaUrl(item.mediaUrl)} alt="" className="w-full h-full object-cover" />
+                          ) : item.type === "VIDEO" ? (
+                            <div className="text-[#075E54] text-[10px] font-bold">🎥 Video</div>
+                          ) : item.type === "FILE" ? (
+                            <FileText size={16} className="text-[#075E54]" />
+                          ) : (
+                            <ExternalLink size={14} className="text-[#075E54]" />
+                          )}
+                        </div>
+                      ))
                     )}
+                  </div>
+                </div>
+
+                {/* Contact Info */}
+                <div className="bg-[#F0F2F5] rounded-2xl p-3.5 space-y-2.5">
+                  <p className="text-[10px] font-bold text-[#075E54] uppercase tracking-wider flex items-center gap-1.5">
+                    <Phone size={11} /> Contact Info
+                  </p>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <Phone size={12} className="text-[#25D366] shrink-0" />
+                      <div>
+                        <p className="text-[9px] text-[#667781]">Phone</p>
+                        <p className="text-[11px] font-semibold text-[#111B21]">
+                          {activeChat.contact?.phone}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Mail size={12} className="text-[#25D366] shrink-0" />
+                      <div>
+                        <p className="text-[9px] text-[#667781]">Email</p>
+                        <p className="text-[11px] font-semibold text-[#111B21]">
+                          {activeChat.contact?.email || "N/A"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Building2 size={12} className="text-[#25D366] shrink-0" />
+                      <div>
+                        <p className="text-[9px] text-[#667781]">Company</p>
+                        <p className="text-[11px] font-semibold text-[#111B21]">
+                          {activeChat.contact?.company || "N/A"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                
+                {/* ⭐ Pin / Unpin Chat Card ⭐ */}
+                <div className="bg-[#F0F2F5] rounded-2xl p-3.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-[#075E54] uppercase tracking-wider flex items-center gap-1.5">
+                      <Pin size={11} className={activeChat?.isPinned ? "rotate-45 fill-[#075E54]" : ""} /> Chat Pin
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => handleTogglePin(e, activeChat?.id)}
+                      className={`px-3 py-1 rounded-xl text-[10px] font-bold border transition-all ${
+                        activeChat?.isPinned
+                          ? "bg-emerald-100 text-emerald-800 border-emerald-300 hover:bg-emerald-200"
+                          : "bg-white text-[#111B21] border-slate-200 hover:bg-slate-100"
+                      }`}
+                    >
+                      {activeChat?.isPinned ? "Unpin Chat" : "Pin Chat"}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Agent */}
+                <div className="bg-[#F0F2F5] rounded-2xl p-3.5">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className="text-[10px] font-bold text-[#075E54] uppercase tracking-wider flex items-center gap-1.5">
+                      <UserCheck size={11} /> Agent
+                    </p>
+                    <span className="text-[10px] font-semibold text-[#111B21]">
+                      {activeChat.contact?.assignedTo ? (
+                        allAgents.find(
+                          (a) => a.id === activeChat.contact?.assignedTo
+                        )?.name || "Assigned"
+                      ) : (
+                        <span className="text-[#667781] font-normal italic">
+                          Unassigned
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                  {userRole === "admin" && (
+                    <div className="flex items-center gap-1.5 mt-2">
+                      <select
+                        value={selectedAgent}
+                        onChange={(e) => setSelectedAgent(e.target.value)}
+                        className="flex-1 text-[10px] py-1 px-1.5 rounded-md border border-slate-200 bg-white text-[#111B21] focus:outline-none focus:ring-1 focus:ring-[#25D366]/40"
+                      >
+                        <option value="">
+                          {activeChat.contact?.assignedTo
+                            ? "Change agent"
+                            : "Select agent"}
+                        </option>
+                        {allAgents.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.name}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={handleAssignAgent}
+                        disabled={!selectedAgent || assigningUser}
+                        className="px-2 py-1 bg-[#075E54] hover:bg-[#064E47] text-white text-[9px] font-bold rounded-md transition disabled:opacity-30"
+                      >
+                        {assigningUser ? "..." : "Save"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Tags */}
+                <div className="bg-[#F0F2F5] rounded-2xl p-3.5">
+                  <p className="text-[10px] font-bold text-[#075E54] uppercase tracking-wider flex items-center gap-1.5 mb-2">
+                    <Tag size={11} /> Tags
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    {(activeChat.contact?.contactTags || []).map((ct, i) => (
+                      <span
+                        key={ct.tag?.id || i}
+                        className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[9px] font-semibold border ${getTagColor(
+                          ct.tag?.name
+                        )}`}
+                      >
+                        {ct.tag?.name}
+                        {userRole === "admin" && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveTag(ct.tag?.id)}
+                            className="hover:text-red-500 transition ml-0.5"
+                            title="Remove"
+                          >
+                            <X size={8} />
+                          </button>
+                        )}
+                      </span>
+                    ))}
+                    {(activeChat.contact?.contactTags || []).length === 0 && (
+                      <span className="text-[10px] text-[#667781] italic">
+                        No tags
+                      </span>
+                    )}
+                  </div>
+                  {userRole === "admin" && (
+                    <div className="flex items-center gap-1.5 mt-2">
+                      <select
+                        value={selectedTag}
+                        onChange={(e) => setSelectedTag(e.target.value)}
+                        className="flex-1 text-[10px] py-1 px-1.5 rounded-md border border-slate-200 bg-white text-[#111B21] focus:outline-none focus:ring-1 focus:ring-[#25D366]/40"
+                      >
+                        <option value="">+ Add tag</option>
+                        {allTags.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.name}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={handleAssignTag}
+                        disabled={!selectedTag || assigningTag}
+                        className="px-2 py-1 bg-[#075E54] hover:bg-[#064E47] text-white text-[9px] font-bold rounded-md transition disabled:opacity-30"
+                      >
+                        {assigningTag ? "..." : "Add"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Session */}
+                <div className="bg-[#F0F2F5] rounded-2xl p-3.5 space-y-1.5">
+                  <p className="text-[10px] font-bold text-[#075E54] uppercase tracking-wider flex items-center gap-1.5">
+                    <CalendarDays size={11} /> Session
+                  </p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] text-[#667781]">Created</span>
+                    <span className="text-[10px] text-[#111B21] font-semibold">
+                      {formatDate(activeChat.createdAt, {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                    </span>
+                  </div>
+                  <div className="h-px bg-emerald-100" />
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] text-[#667781]">Last Activity</span>
+                    <span className="text-[10px] text-[#111B21] font-semibold">
+                      {formatDate(activeChat.updatedAt, {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* ──────────────────────────────────────────
+              SUB-VIEW 2: MEDIA, LINKS & DOCS DRAWER
+          ────────────────────────────────────────── */}
+          {rightPanelSubView === "media" && (
+            <div className="flex flex-col h-full bg-white animate-in slide-in-from-right-4 duration-200">
+              {/* Header */}
+              <div className="p-4 bg-[#075E54] text-white flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setRightPanelSubView("info")}
+                    className="p-1 rounded-lg hover:bg-white/10 transition text-white"
+                    title="Back to Contact Info"
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+                  <span className="text-xs font-bold tracking-wide">
+                    Media, links and docs
                   </span>
-                ))}
-                {(activeChat.contact?.contactTags || []).length === 0 && (
-                  <span className="text-[10px] text-[#667781] italic">
-                    No tags
-                  </span>
+                </div>
+                <button
+                  onClick={() => setShowContactPanel(false)}
+                  className="p-1 rounded-lg hover:bg-white/10 transition text-white/70 hover:text-white"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* 3 Tabs Header */}
+              <div className="flex items-center border-b border-slate-200 bg-[#F0F2F5] shrink-0">
+                <button
+                  onClick={() => setMediaActiveTab("media")}
+                  className={`flex-1 py-2.5 text-center text-[11px] font-bold border-b-2 transition ${
+                    mediaActiveTab === "media"
+                      ? "border-[#075E54] text-[#075E54] bg-white"
+                      : "border-transparent text-[#667781] hover:text-[#111B21]"
+                  }`}
+                >
+                  Media ({mediaCategoryCounts.media})
+                </button>
+
+                <button
+                  onClick={() => setMediaActiveTab("docs")}
+                  className={`flex-1 py-2.5 text-center text-[11px] font-bold border-b-2 transition ${
+                    mediaActiveTab === "docs"
+                      ? "border-[#075E54] text-[#075E54] bg-white"
+                      : "border-transparent text-[#667781] hover:text-[#111B21]"
+                  }`}
+                >
+                  Docs ({mediaCategoryCounts.docs})
+                </button>
+
+                <button
+                  onClick={() => setMediaActiveTab("links")}
+                  className={`flex-1 py-2.5 text-center text-[11px] font-bold border-b-2 transition ${
+                    mediaActiveTab === "links"
+                      ? "border-[#075E54] text-[#075E54] bg-white"
+                      : "border-transparent text-[#667781] hover:text-[#111B21]"
+                  }`}
+                >
+                  Links ({mediaCategoryCounts.links})
+                </button>
+              </div>
+
+              {/* Items List */}
+              <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                {loadingMediaItems ? (
+                  <div className="flex items-center justify-center py-12 text-xs text-[#667781] gap-2">
+                    <RefreshCw size={14} className="animate-spin text-[#25D366]" />
+                    <span>Loading...</span>
+                  </div>
+                ) : mediaItems.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <FileText size={28} className="text-slate-300 mb-2" />
+                    <p className="text-xs font-semibold text-slate-600">No {mediaActiveTab} shared</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                      Attachments shared in this chat will appear here
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                                      {/* TAB 1: MEDIA GRID (Photos, Videos, Audios) */}
+                    {mediaActiveTab === "media" && (
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {mediaItems.map((item) => (
+                          <div
+                            key={item.id}
+                            onClick={() =>
+                              setPreviewImageModal({
+                                type: item.type,
+                                url: getMediaUrl(item.mediaUrl),
+                                name: item.mediaName,
+                                caption: item.caption,
+                              })
+                            }
+                            className="aspect-square bg-slate-100 rounded-xl overflow-hidden relative cursor-pointer group border border-slate-200 hover:opacity-90 transition shadow-2xs"
+                          >
+                            {item.type === "IMAGE" && item.mediaUrl ? (
+                              <img
+                                src={getMediaUrl(item.mediaUrl)}
+                                alt={item.mediaName || "Media"}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : item.type === "VIDEO" ? (
+                              <div className="w-full h-full flex items-center justify-center bg-slate-800 text-white text-[9px] font-bold">
+                                🎥 Video
+                              </div>
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center bg-emerald-50 text-[#075E54] text-[9px] font-bold">
+                                🎵 Audio
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* TAB 2: DOCUMENTS */}
+                    {mediaActiveTab === "docs" && (
+                      <div className="space-y-2">
+                        {mediaItems.map((item) => (
+                          <div
+                            key={item.id}
+                            onClick={() =>
+                              setPreviewImageModal({
+                                type: "FILE",
+                                url: getMediaUrl(item.mediaUrl),
+                                name: item.mediaName,
+                                caption: item.caption,
+                              })
+                            }
+                            className="p-2.5 rounded-xl border border-slate-200 bg-[#F0F2F5] hover:bg-emerald-50 transition cursor-pointer flex items-center gap-2.5 group"
+                          >
+                            
+                            <div className="w-8 h-8 rounded-lg bg-[#075E54]/10 text-[#075E54] flex items-center justify-center shrink-0">
+                              <Paperclip size={15} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[11px] font-bold text-[#111B21] truncate group-hover:text-[#075E54]">
+                                {item.mediaName || "Document"}
+                              </p>
+                              <p className="text-[9px] text-[#667781]">
+                                {item.mediaSize
+                                  ? item.mediaSize < 1024 * 1024
+                                    ? (item.mediaSize / 1024).toFixed(1) + " KB"
+                                    : (item.mediaSize / (1024 * 1024)).toFixed(1) + " MB"
+                                  : "Document"}{" "}
+                                • {formatDate(item.createdAt, { month: "short", day: "numeric" })}
+                              </p>
+                            </div>
+                            <Eye size={15} className="text-[#075E54] shrink-0 opacity-70 group-hover:opacity-100" />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* TAB 3: LINKS */}
+                    {mediaActiveTab === "links" && (
+                      <div className="space-y-2">
+                        {mediaItems.map((item) => {
+                          const links = item.links && item.links.length > 0 ? item.links : [item.text];
+                          return links.map((linkUrl, idx) => (
+                            <a
+                              key={`${item.id}-${idx}`}
+                              href={linkUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-2.5 rounded-xl border border-slate-200 bg-[#F0F2F5] hover:bg-emerald-50 transition block group"
+                            >
+                              <div className="flex items-center gap-2 mb-1">
+                                <ExternalLink size={13} className="text-[#075E54] shrink-0" />
+                                <span className="text-[11px] font-bold text-[#075E54] truncate group-hover:underline">
+                                  {linkUrl}
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-[#111B21] line-clamp-2 leading-relaxed">
+                                {item.text}
+                              </p>
+                              <p className="text-[8px] text-[#667781] mt-1">
+                                {formatDate(item.createdAt, { month: "short", day: "numeric" })}
+                              </p>
+                            </a>
+                          ));
+                        })}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
-              {userRole === "admin" && (
-                <div className="flex items-center gap-1.5 mt-2">
-                  <select
-                    value={selectedTag}
-                    onChange={(e) => setSelectedTag(e.target.value)}
-                    className="flex-1 text-[10px] py-1 px-1.5 rounded-md border border-slate-200 bg-white text-[#111B21] focus:outline-none focus:ring-1 focus:ring-[#25D366]/40"
-                  >
-                    <option value="">+ Add tag</option>
-                    {allTags.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    onClick={handleAssignTag}
-                    disabled={!selectedTag || assigningTag}
-                    className="px-2 py-1 bg-[#075E54] hover:bg-[#064E47] text-white text-[9px] font-bold rounded-md transition disabled:opacity-30"
-                  >
-                    {assigningTag ? "..." : "Add"}
-                  </button>
-                </div>
-              )}
             </div>
-
-            {/* Session */}
-            <div className="bg-[#F0F2F5] rounded-2xl p-3.5 space-y-1.5">
-              <p className="text-[10px] font-bold text-[#075E54] uppercase tracking-wider flex items-center gap-1.5">
-                <CalendarDays size={11} /> Session
-              </p>
-              <div className="flex items-center justify-between">
-                <span className="text-[9px] text-[#667781]">Created</span>
-                <span className="text-[10px] text-[#111B21] font-semibold">
-                  {formatDate(activeChat.createdAt, {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  })}
-                </span>
-              </div>
-              <div className="h-px bg-emerald-100" />
-              <div className="flex items-center justify-between">
-                <span className="text-[9px] text-[#667781]">Last Activity</span>
-                <span className="text-[10px] text-[#111B21] font-semibold">
-                  {formatDate(activeChat.updatedAt, {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  })}
-                </span>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
       )}
       {/* ══ End Right Panel ══ */}

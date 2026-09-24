@@ -140,7 +140,11 @@ export const getAssignedConversations = async ({
           },
         },
       },
-      orderBy: { updatedAt: "desc" },
+        orderBy: [
+        { isPinned: "desc" },
+        { pinnedAt: "desc" },
+        { updatedAt: "desc" },
+      ],
       skip,
       take: limit,
     });
@@ -869,4 +873,181 @@ export const markConversationAsRead = async ({
   });
 
   return { success: true };
+};
+
+
+// ── Get Conversation Media, Links, and Docs ──────────────
+export const getConversationMedia = async ({
+  conversationId,
+  tenantId,
+  type = "media", // "media" | "docs" | "links"
+  page = 1,
+  limit = 50,
+}) => {
+  const conversation = await prisma.conversation.findFirst({
+    where: { id: conversationId, tenantId },
+  });
+
+  if (!conversation) {
+    throw new Error("Conversation not found");
+  }
+
+  const skip = (page - 1) * limit;
+  let whereClause = {
+    conversationId,
+    isDeleted: false,
+  };
+
+  if (type === "media") {
+    whereClause.type = { in: ["IMAGE", "VIDEO", "AUDIO"] };
+    whereClause.mediaUrl = { not: null };
+  } else if (type === "docs") {
+    whereClause.type = "FILE";
+    whereClause.mediaUrl = { not: null };
+  } else if (type === "links") {
+    whereClause.OR = [
+      { text: { contains: "http://" } },
+      { text: { contains: "https://" } },
+    ];
+  }
+
+  const messages = await prisma.message.findMany({
+    where: whereClause,
+    orderBy: { createdAt: "desc" },
+    skip,
+    take: limit,
+  });
+
+  const total = await prisma.message.count({ where: whereClause });
+
+  // Get total counts for all 3 categories (for badges)
+  const mediaCount = await prisma.message.count({
+    where: { conversationId, isDeleted: false, type: { in: ["IMAGE", "VIDEO", "AUDIO"] }, mediaUrl: { not: null } },
+  });
+
+  const docsCount = await prisma.message.count({
+    where: { conversationId, isDeleted: false, type: "FILE", mediaUrl: { not: null } },
+  });
+
+  const linksCount = await prisma.message.count({
+    where: {
+      conversationId,
+      isDeleted: false,
+      OR: [{ text: { contains: "http://" } }, { text: { contains: "https://" } }],
+    },
+  });
+
+    // Format and generate signed URLs for files (exact same logic as getMessages)
+  const items = messages.map((msg) => {
+    let signedMediaUrl = null;
+
+    if (!msg.isDeleted && msg.mediaUrl) {
+      let relativePath = msg.mediaUrl;
+
+      if (relativePath.startsWith("http")) {
+        try {
+          const url = new URL(relativePath);
+          relativePath = url.pathname.substring(1);
+        } catch (err) {
+          relativePath = null;
+        }
+      }
+
+      if (relativePath && relativePath.includes("undefined/")) {
+        relativePath = relativePath.replace("undefined/", "");
+      }
+
+      if (relativePath && relativePath.startsWith("/")) {
+        relativePath = relativePath.substring(1);
+      }
+
+      if (relativePath && relativePath.startsWith("uploads/")) {
+        signedMediaUrl = generateSignedUrl(relativePath, tenantId);
+      } else {
+        signedMediaUrl = msg.mediaUrl;
+      }
+    }
+
+    // Extract URLs if type is 'links'
+    let extractedLinks = [];
+    if (type === "links" && msg.text) {
+      const urlRegex = /(https?:\/\/[^\s]+)/g;
+      const matches = msg.text.match(urlRegex);
+      if (matches) {
+        extractedLinks = matches;
+      }
+    }
+
+    return {
+      id: msg.id,
+      type: msg.type,
+      text: msg.text,
+      mediaUrl: signedMediaUrl,
+      mediaName: msg.mediaName,
+      mediaSize: msg.mediaSize,
+      mediaMimeType: msg.mediaMimeType,
+      caption: msg.caption,
+      createdAt: msg.createdAt,
+      senderType: msg.senderType,
+      direction: msg.direction,
+      links: extractedLinks,
+    };
+  }); 
+
+  return {
+    items,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+    counts: {
+      media: mediaCount,
+      docs: docsCount,
+      links: linksCount,
+    },
+  };
+};
+
+
+// ── Toggle Pin / Unpin Conversation (Max 3 pinned per tenant) ──────────────
+export const togglePinConversation = async (conversationId, tenantId) => {
+  const conversation = await prisma.conversation.findFirst({
+    where: { id: conversationId, tenantId },
+  });
+
+  if (!conversation) {
+    const error = new Error("Conversation not found");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // If attempting to PIN
+  if (!conversation.isPinned) {
+    const pinnedCount = await prisma.conversation.count({
+      where: {
+        tenantId,
+        isPinned: true,
+        isArchived: false,
+      },
+    });
+
+    if (pinnedCount >= 3) {
+      const error = new Error("You can only pin up to 3 chats");
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+
+  const updated = await prisma.conversation.update({
+    where: { id: conversationId },
+    data: {
+      isPinned: !conversation.isPinned,
+      pinnedAt: !conversation.isPinned ? new Date() : null,
+    },
+    include: {
+      contact: true,
+    },
+  });
+
+  return updated;
 };

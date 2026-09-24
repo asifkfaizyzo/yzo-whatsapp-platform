@@ -353,9 +353,9 @@ export default function GoogleSheetsSettings({ onBack } = {}) {
           </div>
         </div>
 
-        {/* Top Header Action */}
-        <div className="shrink-0">
-          {isConnected ? (
+                {/* Top Header Action - Show Disconnect ONLY when connected */}
+        {isConnected && (
+          <div className="shrink-0">
             <button
               type="button"
               onClick={() => setShowDisconnectModal(true)}
@@ -364,22 +364,8 @@ export default function GoogleSheetsSettings({ onBack } = {}) {
               <Unlink size={13} />
               <span>Disconnect</span>
             </button>
-          ) : (
-            <button
-              type="button"
-              onClick={handleConnect}
-              disabled={connecting}
-              className="px-5 py-2.5 text-xs font-bold rounded-xl bg-[#0F9D58] text-white hover:bg-[#0C7C45] transition flex items-center gap-2 shadow-sm hover:shadow disabled:opacity-60"
-            >
-              {connecting ? (
-                <RefreshCw size={14} className="animate-spin text-white" />
-              ) : (
-                <FileSpreadsheet size={14} />
-              )}
-              <span>{connecting ? "Connecting..." : "Connect Google Sheets"}</span>
-            </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* ────────────────────────────────────────────── */}
@@ -983,10 +969,10 @@ export default function GoogleSheetsSettings({ onBack } = {}) {
         </div>
       )}
 
-      {/* ── Disconnect Modal ── */}
+            {/* ── Disconnect Modal ── */}
       {showDisconnectModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 space-y-4 relative z-10 animate-in zoom-in-95 duration-150">
             <div className="w-10 h-10 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center border border-rose-100">
               <AlertTriangle size={20} />
             </div>
@@ -998,7 +984,7 @@ export default function GoogleSheetsSettings({ onBack } = {}) {
               </p>
             </div>
 
-            <div className="flex items-center justify-end gap-2.5 pt-2">
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
               <button
                 type="button"
                 disabled={disconnecting}
