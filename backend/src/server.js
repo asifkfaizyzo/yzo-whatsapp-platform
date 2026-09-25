@@ -25,6 +25,7 @@ import './jobs/expiryRemindersJob.js';
 import { startAuditCleanupJob } from './jobs/auditCleanupJob.js';
 import { startWebhookEventsCleanupJob } from './jobs/cleanupWebhookEventsJob.js';
 import { initQuickReplyIndexes } from './scripts/initQuickReplyIndexes.js';
+import { startZohoSyncWorker } from './workers/zohoSyncWorker.js';
 
 import { redisConnection } from './config/redis.js';
 
@@ -40,6 +41,7 @@ initSocket(server);
 const webhookWorker = startWebhookWorker();
 const orderWebhookWorker = startOrderWebhookWorker();
 const broadcastWorker = startBroadcastWorker();
+const zohoSyncWorker = startZohoSyncWorker();
 startCleanupWorker();
 startAuditCleanupJob(); 
 startWebhookEventsCleanupJob();
@@ -62,6 +64,7 @@ const gracefulShutdown = async (signal) => {
       if (webhookWorker) await webhookWorker.close();
       if (orderWebhookWorker) await orderWebhookWorker.close();
       if (broadcastWorker) await broadcastWorker.close();
+      if (zohoSyncWorker) await zohoSyncWorker.close();
       console.log('👷 BullMQ workers closed successfully.');
 
       // Safely close Redis connection

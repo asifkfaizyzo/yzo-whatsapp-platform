@@ -51,6 +51,13 @@ enum RazorpayKycStatus {
   NOT_APPLICABLE
 }
 
+//─────────────────Zoho Connection Status─────────────────
+enum ZohoConnectionStatus {
+  DISCONNECTED
+  CONNECTED
+  REFRESH_FAILED
+}
+
 //─────────────────enum ChannelType────────────────────
 enum ChannelType {
   WHATSAPP
@@ -76,6 +83,18 @@ model Tenant {
   companySize String?
   country     String?
   useCase     String?
+
+  // ── Zoho CRM Integration ──
+  zohoAccessToken        String?               // AES-256-GCM encrypted
+  zohoRefreshToken       String?               // AES-256-GCM encrypted
+  zohoTokenExpiresAt     DateTime?
+  zohoAccountId          String?               // Zoho user ID (zuid)
+  zohoDataCenter         String?               // "us" | "eu" | "in" | "au" | "jp" | "ca" | "sa" | "uk"
+  zohoApiDomain          String?               // e.g. "https://www.zohoapis.com"
+  zohoAccountEmail       String?               // Connected Zoho user email (display only)
+  zohoConnectionStatus   ZohoConnectionStatus  @default(DISCONNECTED)
+  zohoConnectedAt        DateTime?
+  zohoScopes             String?               // Comma-separated granted scopes
 
   logo      String?
   timezone  String?  @default("Asia/Kolkata")
@@ -270,6 +289,8 @@ model Contact {
   channelId   String?     // PSID for Messenger, IGSID for Instagram, phone for WhatsApp
   username    String?     // Instagram @username
   avatarUrl   String?
+
+  providerMappings ContactProviderMapping[]
 
   // Link to Tag model
   contactTags ContactTagMapping[]
@@ -1524,6 +1545,14 @@ enum AuditAction {
 
   // ── SETTINGS ──        
   GST_SETTINGS_UPDATED 
+
+  // ── ZOHO INTEGRATION ──
+  ZOHO_CONNECTED
+  ZOHO_DISCONNECTED
+  ZOHO_TOKEN_REFRESH_FAILED
+  ZOHO_SYNC_STARTED
+  ZOHO_SYNC_COMPLETED
+  ZOHO_SYNC_FAILED
 }
 
 enum AuditModule {
@@ -1535,6 +1564,7 @@ enum AuditModule {
   SYSTEM
   CONVERSATIONS 
   SETTINGS
+  INTEGRATIONS
 }
 
 model AuditLog {
@@ -1709,4 +1739,21 @@ model SheetField {
   @@unique([tenantId, fieldKey])         // Prevent duplicate field keys per tenant
   @@index([tenantId])
   @@map("sheet_fields")
+}
+
+//──────────────────Contact Provider Mapping──────────────────
+// Maps Sudo Reply contacts to external CRM/provider contact IDs
+model ContactProviderMapping {
+  id                String   @id @default(cuid())
+  contactId         String
+  contact           Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  tenantId          String
+  provider          String   // "ZOHO" — future: "HUBSPOT", "SALESFORCE"
+  providerContactId String   // External provider's record ID
+  lastSyncedAt      DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([contactId, provider])
+  @@unique([tenantId, provider, providerContactId])
 }

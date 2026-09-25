@@ -310,7 +310,7 @@ export const processMetaPageOrInstagramJob = async (job, body) => {
           }
         }
 
-        // Upsert Contact with composite unique key
+                // Upsert Contact with composite unique key
         const isNewContact = !contact;
         contact = await prisma.contact.upsert({
           where: {
@@ -336,6 +336,15 @@ export const processMetaPageOrInstagramJob = async (job, body) => {
           },
         });
 
+        // Trigger real-time Zoho CRM sync for newly created social contacts
+        if (isNewContact) {
+          try {
+            const { autoSyncContactToZoho } = await import('../modules/zoho/zohoContactService.js');
+            autoSyncContactToZoho(tenant.id, contact.id).catch(() => {});
+          } catch (_) {}
+        }
+
+        // 7. Save message via handleIncomingMessage
         // 7. Save message via handleIncomingMessage
         const result = await handleIncomingMessage({
           contactId: contact.id,
@@ -729,6 +738,12 @@ export const processWebhookJob = async (job) => {
           whatsappId: normalizedPhone.replace(/^\+/, '').slice(-10)
         }
       });
+      if (isNewContact) {
+  try {
+    const { autoSyncContactToZoho } = await import('../modules/zoho/zohoContactService.js');
+    autoSyncContactToZoho(tenant.id, contact.id).catch(() => {});
+  } catch (_) {}
+}
       console.log(`🆕 New contact: ${contact.name} (${normalizedPhone})`);
     } else {
       console.log(`♻️ Existing contact: ${contact.name} (${normalizedPhone})`);

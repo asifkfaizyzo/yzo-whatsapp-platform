@@ -47,6 +47,10 @@ import quickReplyRoutes from './modules/quick-replies/quickReplyRoute.js';
 import { handleOAuthCallback } from './modules/tenant/razorpayOAuthController.js';
 import orderRoutes from './modules/orders/orderRoutes.js';
 
+import zohoRoutes from './modules/zoho/zohoRoutes.js';
+import { handleZohoWebhook } from './modules/zoho/zohoWebhookController.js';
+import { zohoCallbackHandler } from './modules/zoho/zohoController.js';
+
 
 
 const app = express();
@@ -193,6 +197,15 @@ app.use('/api/flows', flowRoutes)
 app.get('/api/auth/razorpay/callback', handleOAuthCallback);
 app.get('/api2/auth/razorpay/callback', handleOAuthCallback);
 app.get('/auth/razorpay/callback', handleOAuthCallback);
+
+// Zoho OAuth Callbacks
+app.get('/api/zoho/callback', zohoCallbackHandler);
+app.get('/api2/zoho/callback', zohoCallbackHandler);
+app.get('/auth/zoho/callback', zohoCallbackHandler);
+
+// ADD to public webhook routes section 
+app.post('/api/zoho/webhook', handleZohoWebhook);
+
 app.use('/api',  publicRoutes);
 app.use('/api2', publicRoutes);
 
@@ -246,6 +259,8 @@ app.use('/api/superadmin/audit-logs', auditLogRoutes);
 app.use('/api/dlq', dlqRoutes);
 app.use('/api2/orders', orderRoutes);
 
+//zoho
+app.use('/api2/zoho', zohoRoutes);
 
 
 // ──────────────────────────────────────
