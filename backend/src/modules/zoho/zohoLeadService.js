@@ -14,6 +14,19 @@ export async function createZohoLead(tenantId, contact) {
     const canCreate = await hasZohoFeature(tenantId, 'leads');
     if (!canCreate) return null;
 
+    // Check if already mapped as lead or contact
+    const existingMapping = await prisma.contactProviderMapping.findFirst({
+      where: {
+        contactId: contact.id,
+        provider: { in: ['ZOHO', 'ZOHO_LEAD'] },
+      },
+    });
+
+    if (existingMapping) {
+      console.log(`ℹ️ [ZohoLead] Contact ${contact.id} already mapped to Zoho. Skipping lead creation.`);
+      return existingMapping.providerContactId;
+    }
+
     const { firstName, lastName } = splitContactName(contact.name);
 
     const leadPayload = {

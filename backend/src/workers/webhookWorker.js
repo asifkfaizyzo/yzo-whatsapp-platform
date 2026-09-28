@@ -987,7 +987,7 @@ export const processWebhookJob = async (job) => {
       wamid: messageId,
     });
 
-    // Log message as Zoho Note (Phase 4)
+    // ── Phase 4: Log message as Zoho Note ──
     try {
       const { logMessageAsZohoNote } = await import('../modules/zoho/zohoNoteService.js');
       logMessageAsZohoNote(tenant.id, contact.id, {
@@ -1005,6 +1005,14 @@ export const processWebhookJob = async (job) => {
         createdAt: new Date(),
       }).catch(() => {});
     } catch (_) {}
+
+    // ── Phase 4: Create Zoho Lead for new contacts ──
+    if (isNewContact) {
+      try {
+        const { createZohoLead } = await import('../modules/zoho/zohoLeadService.js');
+        createZohoLead(tenant.id, contact).catch(() => {});
+      } catch (_) {}
+    }
 
     // ── Socket: emit to tenant room ────────────────────────
     emitToTenant(tenant.id, 'new_message', {
@@ -1174,7 +1182,7 @@ export const processWebhookJob = async (job) => {
 
         console.log(`✅ [ORDER CREATED] Order #${createdOrder.orderNumber} saved (ID: ${createdOrder.id})`);
 
-        // Create Zoho Deal from order (Phase 4)
+        // ── Phase 4: Create Zoho Deal from order ──
         try {
           const { createZohoDealFromOrder } = await import('../modules/zoho/zohoDealService.js');
           createZohoDealFromOrder(tenant.id, createdOrder, contact).catch(() => {});

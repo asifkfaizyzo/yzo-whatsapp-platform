@@ -26,6 +26,7 @@ import { startAuditCleanupJob } from './jobs/auditCleanupJob.js';
 import { startWebhookEventsCleanupJob } from './jobs/cleanupWebhookEventsJob.js';
 import { initQuickReplyIndexes } from './scripts/initQuickReplyIndexes.js';
 import { startZohoSyncWorker } from './workers/zohoSyncWorker.js';
+import { startZohoStaleTaskJob } from './jobs/zohoStaleTaskJob.js';
 
 import { redisConnection } from './config/redis.js';
 
@@ -45,6 +46,7 @@ const zohoSyncWorker = startZohoSyncWorker();
 startCleanupWorker();
 startAuditCleanupJob(); 
 startWebhookEventsCleanupJob();
+startZohoStaleTaskJob();
 initQuickReplyIndexes();
 console.log('👷 Background workers and cleanup tasks started successfully!');
 

@@ -6,31 +6,20 @@ import { hasZohoFeature } from './zohoPlanService.js';
 
 /**
  * Create a Deal in Zoho CRM when a WhatsApp order is placed.
- * Called from webhook worker when messageType === 'order'.
- * Non-blocking — failures are silently logged.
  */
 export async function createZohoDealFromOrder(tenantId, order, contact) {
   try {
     const canCreate = await hasZohoFeature(tenantId, 'deals');
-    if (!canCreate) {
-      console.log(`ℹ️ [ZohoDeal] Deals not available on this Zoho plan. Skipping.`);
-      return;
-    }
+    if (!canCreate) return;
 
-    // Find Zoho contact mapping
-    const mapping = await prisma.contactProviderMapping.findUnique({
+    const mapping = await prisma.contactProviderMapping.findFirst({
       where: {
-        contactId_provider: {
-          contactId: contact.id,
-          provider: 'ZOHO',
-        },
+        contactId: contact.id,
+        provider: { in: ['ZOHO', 'ZOHO_LEAD'] },
       },
     });
 
-    if (!mapping) {
-      console.log(`ℹ️ [ZohoDeal] Contact ${contact.id} not synced to Zoho. Skipping deal creation.`);
-      return;
-    }
+    if (!mapping) return;
 
     const dealName = `WhatsApp Order #${order.orderNumber}`;
     const amount = Number(order.totalAmount) || 0;
@@ -39,11 +28,16 @@ export async function createZohoDealFromOrder(tenantId, order, contact) {
       Deal_Name: dealName,
       Amount: amount,
       Stage: 'Qualification',
-      Contact_Name: mapping.providerContactId,
       Lead_Source: 'WhatsApp',
       Description: buildDealDescription(order),
-      Closing_Date: getClosingDate(7), // 7 days from now
+      Closing_Date: getClosingDate(7),
     };
+
+    if (mapping.provider === 'ZOHO_LEAD') {
+      dealPayload.Contact_Name = mapping.providerContactId;
+    } else {
+      dealPayload.Contact_Name = mapping.providerContactId;
+    }
 
     const response = await zohoRequest(tenantId, {
       method: 'POST',
@@ -56,9 +50,8 @@ export async function createZohoDealFromOrder(tenantId, order, contact) {
     const result = response?.data?.[0];
 
     if (result && result.code === 'SUCCESS' && result.details?.id) {
-      console.log(`💰 [ZohoDeal] Created Deal "${dealName}" (${result.details.id}) for order ${order.orderNumber}`);
+      console.log(`💰 [ZohoDeal] Created Deal "${dealName}" (${result.details.id})`);
 
-      // Store mapping for future updates (e.g., when payment confirmed → move stage)
       await prisma.contactProviderMapping.upsert({
         where: {
           contactId_provider: {
@@ -80,8 +73,6 @@ export async function createZohoDealFromOrder(tenantId, order, contact) {
           metadata: { orderNumber: order.orderNumber, orderId: order.id },
         },
       });
-    } else {
-      console.warn(`⚠️ [ZohoDeal] Failed to create deal:`, result?.message);
     }
   } catch (error) {
     console.error(`❌ [ZohoDeal] Failed for order ${order.orderNumber}:`, error.response?.data || error.message);
@@ -109,6 +100,7 @@ export async function updateZohoDealStage(tenantId, orderId, paymentStatus) {
     const stageMap = {
       PAID: 'Closed Won',
       UNPAID: 'Qualification',
+      PROCESSING: 'Negotiation',
       FAILED: 'Closed Lost',
       REFUNDED: 'Closed Lost',
       CANCELLED: 'Closed Lost',
@@ -126,7 +118,7 @@ export async function updateZohoDealStage(tenantId, orderId, paymentStatus) {
       },
     });
 
-    console.log(`💰 [ZohoDeal] Updated Deal ${mapping.providerContactId} stage to "${newStage}"`);
+    console.log(`💰 [ZohoDeal] Updated Deal stage to "${newStage}" for order ${orderId}`);
   } catch (error) {
     console.error(`❌ [ZohoDeal] Stage update failed:`, error.message);
   }
@@ -149,5 +141,5 @@ function buildDealDescription(order) {
 function getClosingDate(daysFromNow) {
   const d = new Date();
   d.setDate(d.getDate() + daysFromNow);
-  return d.toISOString().split('T')[0]; // YYYY-MM-DD
+  return d.toISOString().split('T')[0];
 }

@@ -11,17 +11,14 @@ import { hasZohoFeature } from './zohoPlanService.js';
  */
 export async function logMessageAsZohoNote(tenantId, contactId, message) {
   try {
-    // Check if notes feature is available
     const canLog = await hasZohoFeature(tenantId, 'notes');
     if (!canLog) return;
 
-    // Find Zoho contact mapping
-    const mapping = await prisma.contactProviderMapping.findUnique({
+    // Find Zoho contact mapping (check both ZOHO and ZOHO_LEAD providers)
+    const mapping = await prisma.contactProviderMapping.findFirst({
       where: {
-        contactId_provider: {
-          contactId,
-          provider: 'ZOHO',
-        },
+        contactId,
+        provider: { in: ['ZOHO', 'ZOHO_LEAD'] },
       },
     });
 
@@ -59,10 +56,12 @@ export async function logMessageAsZohoNote(tenantId, contactId, message) {
       noteContent += message.text || `[${message.type}]`;
     }
 
-    // Zoho Notes API — attach to Contact
+    // Determine the Zoho module based on provider type
+    const zohoModule = mapping.provider === 'ZOHO_LEAD' ? 'Leads' : 'Contacts';
+
     await zohoRequest(tenantId, {
       method: 'POST',
-      url: `/crm/v7/Contacts/${mapping.providerContactId}/Notes`,
+      url: `/crm/v7/${zohoModule}/${mapping.providerContactId}/Notes`,
       data: {
         data: [
           {
@@ -73,7 +72,7 @@ export async function logMessageAsZohoNote(tenantId, contactId, message) {
       },
     });
 
-    console.log(`📝 [ZohoNote] Logged ${message.direction} message for contact ${contactId} → Zoho`);
+    console.log(`📝 [ZohoNote] Logged ${message.direction} message for contact ${contactId} → Zoho ${zohoModule}`);
   } catch (error) {
     // Non-blocking
     console.error(`❌ [ZohoNote] Failed for contact ${contactId}:`, error.response?.data || error.message);

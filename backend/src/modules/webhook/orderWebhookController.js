@@ -413,6 +413,12 @@ export const processOrderWebhookJob = async (job) => {
 
         console.log(`✅ [OrderWebhook] Order #${order.orderNumber} marked as PAID & CONFIRMED`);
 
+        // ── Phase 4: Update Zoho Deal stage ──
+        try {
+          const { updateZohoDealStage } = await import('../zoho/zohoDealService.js');
+          updateZohoDealStage(tenantId, order.id, 'PAID').catch(() => {});
+        } catch (_) {}
+
         emitToTenant(tenantId, 'order_status_update', {
           orderId: order.id,
           paymentStatus: 'PAID',
@@ -460,6 +466,12 @@ export const processOrderWebhookJob = async (job) => {
           });
 
           console.log(`✅ [OrderWebhook] payment.captured: Order #${order.orderNumber} confirmed`);
+
+          // ── Phase 4: Update Zoho Deal stage ──
+          try {
+            const { updateZohoDealStage } = await import('../zoho/zohoDealService.js');
+            updateZohoDealStage(tenantId, order.id, 'PAID').catch(() => {});
+          } catch (_) {}
 
           emitToTenant(tenantId, 'order_status_update', {
             orderId: order.id,
