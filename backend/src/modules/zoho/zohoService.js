@@ -1,5 +1,3 @@
-// src/modules/zoho/zohoService.js
-
 import crypto from 'crypto';
 import axios from 'axios';
 import prisma from '../../config/prisma.js';
@@ -14,13 +12,15 @@ import {
   ZOHO_STATE_REDIS_PREFIX,
   ZOHO_STATE_TTL_SECONDS,
 } from './zohoConstants.js';
-import { zohoRequest } from './zohoClient.js';
+import { zohoRequest, extractAndSaveRateLimits } from './zohoClient.js';
+import { detectZohoPlan } from './zohoPlanService.js';
 
 /**
  * Dynamic URL resolvers matching platform patterns
  */
 export function getDynamicBackendUrl(req) {
   if (process.env.BACKEND_URL) return process.env.BACKEND_URL.replace(/\/+$/, '');
+  if (!req || !req.headers) return 'http://localhost:5000'; // Safe background fallback
   const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
   const host = req.headers['x-forwarded-host'] || req.headers.host || 'localhost:5000';
   return `${protocol}://${host}`;
@@ -196,6 +196,11 @@ export async function handleOAuthCallback(queryParams, req) {
         timeout: 10000,
       });
 
+      // 🎯 CAPTURE LIVE RATE LIMIT HEADERS IMMEDIATELY ON CONNECTION
+      if (userRes.headers) {
+        await extractAndSaveRateLimits(tenantId, userRes.headers);
+      }
+
       const currentUser = userRes.data?.users?.[0];
       if (currentUser) {
         connectedUserId = currentUser.id || currentUser.zuid || null;
@@ -260,6 +265,11 @@ export async function handleOAuthCallback(queryParams, req) {
       tenantId: existingTenant.id,
     });
 
+    // Run plan detection + webhook subscriptions in background
+    postConnectionSetup(tenantId).catch((err) => {
+      console.warn('⚠️ [ZohoOAuth] Post-connection setup failed:', err.message);
+    });
+
     emitToTenant(tenantId, 'zoho_connection_updated', {
       status: 'CONNECTED',
       accountEmail: connectedUserEmail,
@@ -302,6 +312,18 @@ export async function getZohoConnectionStatus(tenantId) {
     throw new Error('Tenant not found');
   }
 
+  // Fetch cached rate limit details from Redis
+  let rateLimit = null;
+  try {
+    const cachedLimit = await redisConnection.get(`zoho_rate_limit:${tenantId}`);
+    if (cachedLimit) {
+      rateLimit = JSON.parse(cachedLimit);
+    }
+  } catch (err) {
+    console.warn('⚠️ [ZohoService] Failed to fetch rate limit from Redis:', err.message);
+  }
+
+  // 🚫 ZERO FAKE FALLBACKS — Only return real Zoho headers if they exist
   const dcInfo = ZOHO_DC_MAP[(tenant.zohoDataCenter || 'us').toLowerCase()];
 
   return {
@@ -314,6 +336,7 @@ export async function getZohoConnectionStatus(tenantId) {
     apiDomain: tenant.zohoApiDomain || null,
     connectedAt: tenant.zohoConnectedAt || null,
     scopes: tenant.zohoScopes ? tenant.zohoScopes.split(',') : [],
+    rateLimit, // Will be null until real headers arrive from Zoho!
   };
 }
 
@@ -328,6 +351,15 @@ export async function testZohoConnection(tenantId) {
 
   const currentUser = result?.users?.[0];
 
+  // Retrieve the newly extracted rate limits directly
+  let rateLimit = null;
+  try {
+    const cached = await redisConnection.get(`zoho_rate_limit:${tenantId}`);
+    if (cached) {
+      rateLimit = JSON.parse(cached);
+    }
+  } catch (_) {}
+
   return {
     success: true,
     message: 'Zoho CRM connection is active and valid',
@@ -339,9 +371,9 @@ export async function testZohoConnection(tenantId) {
           profile: currentUser.profile?.name || null,
         }
       : null,
+    rateLimit, // <-- Pass rateLimit directly in the response
   };
 }
-
 /**
  * Disconnect Zoho CRM integration for the authenticated tenant.
  */
@@ -360,6 +392,13 @@ export async function disconnectZoho(tenantId, meta = {}) {
 
   if (!tenant) {
     throw new Error('Tenant not found');
+  }
+
+  // Best-effort notification unsubscription
+  try {
+    await unsubscribeFromZohoNotifications(tenantId);
+  } catch (err) {
+    console.warn('⚠️ [ZohoOAuth] Failed to unsubscribe from notifications:', err.message);
   }
 
   // Best-effort token revocation with Zoho
@@ -418,15 +457,26 @@ export async function disconnectZoho(tenantId, meta = {}) {
   return { message: 'Zoho CRM integration disconnected successfully' };
 }
 
-
 /**
- * Subscribe to Zoho CRM Contact change notifications.
- * Creates a webhook subscription in Zoho so that contact create/update/delete
- * events are pushed to Sudo Reply's webhook endpoint.
+ * Subscribe to Zoho CRM Contact change notifications (Contact edits flow back to Sudo).
  */
 export async function subscribeToZohoNotifications(tenantId) {
-  const backendUrl = getDynamicBackendUrl({ headers: {} });
-  const webhookUrl = `${process.env.BACKEND_URL || backendUrl}/api/zoho/webhook`;
+  const backendUrl = getDynamicBackendUrl();
+  const webhookUrl = `${backendUrl}/api/zoho/webhook`;
+
+  // Zoho Security Enforcement: Webhook URL MUST use HTTPS protocol
+  if (webhookUrl.startsWith('http://localhost') || !webhookUrl.startsWith('https://')) {
+    console.warn(
+      `⚠️ [ZohoSetup] Zoho CRM Webhooks require a secure HTTPS endpoint. ` +
+      `Skipping subscription on localhost/HTTP. ` +
+      `Current endpoint: ${webhookUrl}\n` +
+      `💡 TIP: Use ngrok/localtunnel to generate a secure HTTPS tunnel, and set BACKEND_URL in your .env`
+    );
+    return { success: false, message: 'HTTPS required for Zoho webhook' };
+  }
+
+  // Generate a clean alphanumeric channel ID (no underscores or special characters)
+  const cleanChannelId = `sudo${tenantId.replace(/[^a-zA-Z0-9]/g, '')}contacts`.substring(0, 32);
 
   try {
     const response = await zohoRequest(tenantId, {
@@ -435,14 +485,16 @@ export async function subscribeToZohoNotifications(tenantId) {
       data: {
         watch: [
           {
-            channel_id: `sudo_${tenantId}_contacts`,
-            channel_expiry: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+            channel_id: cleanChannelId,
+            channel_expiry: new Date(Date.now() + 23 * 60 * 60 * 1000).toISOString(), // 23h safety window
             events: [
-              { module: 'Contacts', methods: ['POST', 'PUT', 'DELETE'] },
+              'Contacts.create',
+              'Contacts.edit',
+              'Contacts.delete'
             ],
             channel_type: 'webhook',
             notify_url: webhookUrl,
-            token: tenantId, // Used to identify tenant on inbound webhook
+            token: tenantId,
           },
         ],
       },
@@ -451,12 +503,17 @@ export async function subscribeToZohoNotifications(tenantId) {
     console.log(`✅ [ZohoService] Notification subscription created for tenant ${tenantId}`);
     return { success: true, data: response };
   } catch (error) {
-    // Notifications scope may not be granted yet — non-fatal
-    console.warn(`⚠️ [ZohoService] Could not create Zoho notification subscription for tenant ${tenantId}:`, error.response?.data || error.message);
+    const errorData = error.response?.data;
+    
+    // Print detailed human-readable validation errors instead of [Object]
+    console.error(
+      `⚠️ [ZohoService] Notification subscription rejected by Zoho:\n`,
+      JSON.stringify(errorData, null, 2)
+    );
+    
     return { success: false, message: error.message };
   }
 }
-
 /**
  * Unsubscribe from Zoho CRM notifications on disconnect.
  */
@@ -473,5 +530,28 @@ export async function unsubscribeFromZohoNotifications(tenantId) {
     console.log(`🗑️ [ZohoService] Notification subscription removed for tenant ${tenantId}`);
   } catch (error) {
     console.warn(`⚠️ [ZohoService] Could not remove Zoho notification subscription:`, error.message);
+  }
+}
+
+/**
+ * Post-connection setup: Detect plan + subscribe to notifications
+ */
+export async function postConnectionSetup(tenantId) {
+  // 1. Detect Zoho plan
+  try {
+    const plan = await detectZohoPlan(tenantId, true);
+    console.log(`📊 [ZohoSetup] Plan detected: ${plan.edition} for tenant ${tenantId}`);
+
+    // Emit live update to frontend so UI updates instantly without refresh!
+    emitToTenant(tenantId, 'zoho_plan_updated', plan);
+  } catch (err) {
+    console.warn(`⚠️ [ZohoSetup] Plan detection failed:`, err.message);
+  }
+
+  // 2. Subscribe to Zoho notifications (for bidirectional sync)
+  try {
+    await subscribeToZohoNotifications(tenantId);
+  } catch (err) {
+    console.warn(`⚠️ [ZohoSetup] Notification subscription failed:`, err.message);
   }
 }

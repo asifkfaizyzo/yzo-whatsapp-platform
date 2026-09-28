@@ -1,4 +1,5 @@
 // src/components/settings/ZohoSettings.jsx
+
 import React, { useState, useEffect } from "react";
 import {
   ArrowLeft,
@@ -17,7 +18,10 @@ import {
   Database,
   Calendar,
   Loader2,
-  Sparkles
+  Sparkles,
+  Lock,
+  Layers,
+  BarChart3,
 } from "lucide-react";
 import ZohoLogo from "./ZohoLogo";
 import { useToast } from "../../context/ToastContext";
@@ -29,6 +33,7 @@ import {
   triggerZohoSync,
   triggerZohoIncrementalSync,
   getZohoSyncStatus,
+  getZohoPlanInfo,
 } from "../../services/zoho.service";
 
 export default function ZohoSettings({ onBack } = {}) {
@@ -49,6 +54,26 @@ export default function ZohoSettings({ onBack } = {}) {
     dataCenterLabel: null,
     connectedAt: null,
     scopes: [],
+    rateLimit: null, // Holds limit, remaining, reset, and updatedAt
+  });
+
+  // ── Plan Information ──
+  const [planLoading, setPlanLoading] = useState(false);
+  const [planInfo, setPlanInfo] = useState({
+    edition: "Free",
+    companyName: null,
+    currencySymbol: "₹",
+    countryCode: "IN",
+    features: {
+      contacts: true,
+      leads: true,
+      tasks: true,
+      deals: false,
+      notes: true,
+      webhooks: false,
+      customModules: false,
+      blueprints: false,
+    },
   });
 
   // ── Sync Status ──
@@ -61,7 +86,7 @@ export default function ZohoSettings({ onBack } = {}) {
     lastSyncedAt: null,
   });
 
-  // ── Fetch Status on Mount ──
+  // ── Fetch Connection, Plan & Sync Stats ──
   const fetchStatusAndStats = async (showLoadingIndicator = true) => {
     if (showLoadingIndicator) setLoading(true);
     try {
@@ -69,13 +94,30 @@ export default function ZohoSettings({ onBack } = {}) {
       if (res.success && res.data) {
         setConnection(res.data);
         if (res.data.connected) {
-          await fetchSyncStats();
+          await Promise.allSettled([
+            fetchSyncStats(),
+            fetchPlanDetails(),
+          ]);
         }
       }
     } catch (err) {
       console.error("Failed to load Zoho status:", err);
     } finally {
       if (showLoadingIndicator) setLoading(false);
+    }
+  };
+
+  const fetchPlanDetails = async () => {
+    setPlanLoading(true);
+    try {
+      const res = await getZohoPlanInfo();
+      if (res.success && res.data) {
+        setPlanInfo(res.data);
+      }
+    } catch (err) {
+      console.error("Failed to load Zoho plan details:", err);
+    } finally {
+      setPlanLoading(false);
     }
   };
 
@@ -96,7 +138,7 @@ export default function ZohoSettings({ onBack } = {}) {
   useEffect(() => {
     fetchStatusAndStats();
 
-    // Catch OAuth redirection feedbacks
+    // Catch OAuth redirection callbacks
     const params = new URLSearchParams(window.location.search);
     const connectedParam = params.get("connected");
     const errorParam = params.get("error");
@@ -135,7 +177,7 @@ export default function ZohoSettings({ onBack } = {}) {
     }
   };
 
-  // ── Test Active Session ──
+    // ── Test Active Session ──
   const handleTestConnection = async () => {
     setTesting(true);
     try {
@@ -144,6 +186,11 @@ export default function ZohoSettings({ onBack } = {}) {
         toast.success(
           `Connection healthy! Verified account: ${res.data?.user?.email || "Zoho User"}`
         );
+        // Immediately set rateLimit in component state
+        if (res.data?.rateLimit) {
+          setConnection((prev) => ({ ...prev, rateLimit: res.data.rateLimit }));
+        }
+        fetchStatusAndStats(false);
       } else {
         toast.error(res.message || "Connection check failed. Reconnect required.");
       }
@@ -163,6 +210,7 @@ export default function ZohoSettings({ onBack } = {}) {
         toast.success("Background full synchronization queued. Updating progress...");
         setTimeout(() => {
           fetchSyncStats();
+          fetchStatusAndStats(false); // Refresh API credits remaining
         }, 1500);
       } else {
         toast.error(res.message || "Sync request rejected");
@@ -183,6 +231,7 @@ export default function ZohoSettings({ onBack } = {}) {
         toast.success("Incremental sync queued — only modified contacts will update.");
         setTimeout(() => {
           fetchSyncStats();
+          fetchStatusAndStats(false); // Refresh API credits remaining
         }, 2000);
       } else {
         toast.error(res.message || "Incremental sync request rejected");
@@ -210,6 +259,7 @@ export default function ZohoSettings({ onBack } = {}) {
           dataCenterLabel: null,
           connectedAt: null,
           scopes: [],
+          rateLimit: null,
         });
         setSyncStats({
           totalContacts: 0,
@@ -237,6 +287,12 @@ export default function ZohoSettings({ onBack } = {}) {
   }
 
   const isConnected = connection.connected;
+  const features = planInfo.features || {};
+
+  // Rate limit computations
+  const rateLimit = connection.rateLimit;
+  const usedCredits = rateLimit ? rateLimit.limit - rateLimit.remaining : 0;
+  const usagePercentage = rateLimit ? Math.round((usedCredits / rateLimit.limit) * 100) : 0;
 
   return (
     <div className="w-full space-y-6 animate-in fade-in duration-150">
@@ -274,6 +330,26 @@ export default function ZohoSettings({ onBack } = {}) {
               ) : (
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
                   Ready to Connect
+                </span>
+              )}
+
+              {/* Connected Plan Badge */}
+              {isConnected && (
+                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold capitalize border ${
+                  planInfo.edition === "Enterprise" || planInfo.edition === "Ultimate" || planInfo.edition === "Trial"
+                    ? "bg-purple-50 text-purple-700 border-purple-200"
+                    : planInfo.edition === "Professional"
+                      ? "bg-blue-50 text-blue-700 border-blue-200"
+                      : planInfo.edition === "Standard"
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        : "bg-slate-50 text-slate-700 border-slate-200"
+                }`}>
+                  {planInfo.edition === "Enterprise" || planInfo.edition === "Ultimate" || planInfo.edition === "Trial" ? (
+                    <Sparkles size={11} className="text-purple-500" />
+                  ) : (
+                    <Layers size={11} />
+                  )}
+                  {planInfo.edition} Edition
                 </span>
               )}
             </div>
@@ -554,9 +630,139 @@ export default function ZohoSettings({ onBack } = {}) {
           )}
         </div>
 
-        {/* Right Column: Multi DC & Info Cards */}
+        {/* Right Column: Multi DC, Plan Details, & Info Cards */}
         <div className="lg:col-span-4 space-y-5">
-          {/* Multi DC Notice Card */}
+          {/* Zoho API limits & metrics (Only displays when Zoho sends active rate headers) */}
+          {isConnected && rateLimit && (
+            <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-2xs space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <BarChart3 size={14} className="text-[#009A44]" />
+                  <h4 className="text-xs font-bold text-slate-800">Zoho API Usage Limits</h4>
+                </div>
+                <span className="text-[10px] text-slate-400 font-medium">Live Quota</span>
+              </div>
+
+              {/* Progress metrics */}
+              <div className="space-y-1.5 pt-1">
+                <div className="flex justify-between text-xs font-bold text-slate-700">
+                  <span>API Credits Used</span>
+                  <span>{usagePercentage}%</span>
+                </div>
+
+                <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden border border-slate-50">
+                  <div
+                    style={{ width: `${usagePercentage}%` }}
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      usagePercentage > 85
+                        ? "bg-rose-500"
+                        : usagePercentage > 60
+                          ? "bg-amber-500"
+                          : "bg-emerald-500"
+                    }`}
+                  />
+                </div>
+
+                <div className="flex justify-between text-[10px] text-slate-400 font-semibold pt-1">
+                  <span>{usedCredits.toLocaleString()} Credits Used</span>
+                  <span>{rateLimit.remaining.toLocaleString()} Left</span>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-slate-100 grid grid-cols-2 gap-2 text-[10px]">
+                <div className="p-2 bg-slate-50/50 rounded-lg">
+                  <span className="block text-slate-400 font-bold uppercase tracking-wider">Quota Limit</span>
+                  <span className="text-xs font-extrabold text-slate-700 mt-0.5">{rateLimit.limit.toLocaleString()}</span>
+                </div>
+                <div className="p-2 bg-slate-50/50 rounded-lg">
+                  <span className="block text-slate-400 font-bold uppercase tracking-wider">Recorded At</span>
+                  <span className="text-xs font-extrabold text-slate-700 mt-0.5">
+                    {new Date(rateLimit.updatedAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Plan Capability matrix details */}
+          {isConnected && (
+            <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-2xs space-y-3.5">
+              <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+                <ShieldCheck size={14} className="text-[#009A44]" />
+                <h4 className="text-xs font-bold text-slate-800">Plan Capabilities</h4>
+              </div>
+
+              {planLoading ? (
+                <div className="flex items-center gap-2 py-3 justify-center text-xs text-slate-400">
+                  <RefreshCw className="animate-spin text-[#009A44]" size={12} />
+                  <span>Loading capabilities...</span>
+                </div>
+              ) : (
+                <div className="space-y-3 text-xs">
+                  <div className="flex items-center justify-between pb-1.5 border-b border-slate-50">
+                    <span className="text-slate-500">Contact Sync</span>
+                    <span className="font-bold text-emerald-600 flex items-center gap-1">
+                      <Check size={12} strokeWidth={3} /> Active
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between pb-1.5 border-b border-slate-50">
+                    <span className="text-slate-500">Conversation Notes</span>
+                    {features.notes ? (
+                      <span className="font-bold text-emerald-600 flex items-center gap-1">
+                        <Check size={12} strokeWidth={3} /> Active
+                      </span>
+                    ) : (
+                      <span className="font-semibold text-slate-400 flex items-center gap-1" title="Requires Standard Plan+">
+                        <Lock size={11} /> Locked
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between pb-1.5 border-b border-slate-50">
+                    <span className="text-slate-500">Auto Deal Creation</span>
+                    {features.deals ? (
+                      <span className="font-bold text-emerald-600 flex items-center gap-1">
+                        <Check size={12} strokeWidth={3} /> Active
+                      </span>
+                    ) : (
+                      <span className="font-semibold text-slate-400 flex items-center gap-1" title="Requires Standard Plan+">
+                        <Lock size={11} /> Locked
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between pb-1.5 border-b border-slate-50">
+                    <span className="text-slate-500">Bidirectional Sync</span>
+                    {features.webhooks ? (
+                      <span className="font-bold text-emerald-600 flex items-center gap-1">
+                        <Check size={12} strokeWidth={3} /> Active
+                      </span>
+                    ) : (
+                      <span className="font-semibold text-slate-400 flex items-center gap-1" title="Requires Professional Plan+">
+                        <Lock size={11} /> Locked
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between pb-1.5 border-b border-slate-50">
+                    <span className="text-slate-500">Custom CRM Modules</span>
+                    {features.customModules ? (
+                      <span className="font-bold text-emerald-600 flex items-center gap-1">
+                        <Check size={12} strokeWidth={3} /> Active
+                      </span>
+                    ) : (
+                      <span className="font-semibold text-slate-400 flex items-center gap-1" title="Requires Enterprise Plan+">
+                        <Lock size={11} /> Locked
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Multi DC Support Notice */}
           <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-2xs space-y-3">
             <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
               <Server size={14} className="text-[#009A44]" />

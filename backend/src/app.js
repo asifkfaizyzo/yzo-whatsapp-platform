@@ -53,6 +53,7 @@ import { zohoCallbackHandler } from './modules/zoho/zohoController.js';
 
 
 
+
 const app = express();
 
 
@@ -259,8 +260,11 @@ app.use('/api/superadmin/audit-logs', auditLogRoutes);
 app.use('/api/dlq', dlqRoutes);
 app.use('/api2/orders', orderRoutes);
 
-//zoho
+// Zoho Router mounting (protects status, disconnect, etc.)
 app.use('/api2/zoho', zohoRoutes);
+
+// Zoho public webhook endpoint
+app.post('/api/zoho/webhook', handleZohoWebhook);
 
 
 // ──────────────────────────────────────

@@ -1,4 +1,4 @@
-// src/modules/zoho/zohoRoutes.js 
+// src/modules/zoho/zohoRoutes.js
 
 import express from 'express';
 import { verifyTenant, requireApprovedTenant } from '../../middlewares/authTenant.js';
@@ -9,6 +9,7 @@ const router = express.Router();
 // ── Connection Management ──
 router.get('/connect', verifyTenant, requireApprovedTenant, zohoController.getConnectUrl);
 router.get('/status', verifyTenant, zohoController.getStatus);
+router.get('/plan', verifyTenant, zohoController.getPlanInfo);
 router.post('/test', verifyTenant, requireApprovedTenant, zohoController.testConnection);
 router.post('/disconnect', verifyTenant, requireApprovedTenant, zohoController.disconnect);
 

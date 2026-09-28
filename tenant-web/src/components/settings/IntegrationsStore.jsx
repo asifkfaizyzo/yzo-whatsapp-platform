@@ -1,4 +1,4 @@
-// src/components/settings/IntegrationsStore.jsx (UPDATED FOR ZOHO)
+// src/components/settings/IntegrationsStore.jsx
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ArrowRight, RefreshCw } from "lucide-react";

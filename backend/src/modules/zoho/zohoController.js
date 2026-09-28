@@ -10,6 +10,7 @@ import {
 } from './zohoService.js';
 import { getTenantSyncStats } from './zohoContactService.js';
 import { zohoSyncQueue } from '../../queues/zohoSyncQueue.js';
+import { detectZohoPlan } from './zohoPlanService.js';
 
 export const getConnectUrl = async (req, res) => {
   try {
@@ -165,6 +166,23 @@ export const triggerIncrementalSync = async (req, res) => {
       message: 'Incremental sync job enqueued',
       data: { jobId: job.id, syncType: 'INCREMENTAL' },
     });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+};
+/**
+ * GET /api2/zoho/plan
+ * Returns detected Zoho plan and available features
+ */
+export const getPlanInfo = async (req, res) => {
+  try {
+    const tenantId = req.tenant?.id || req.tenantId;
+    if (!tenantId) {
+      return res.status(401).json({ success: false, message: 'Tenant not authenticated' });
+    }
+
+    const plan = await detectZohoPlan(tenantId);
+    return res.status(200).json({ success: true, data: plan });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
   }

@@ -1,4 +1,5 @@
 // src/services/zoho.service.js
+
 import api from "../lib/axios";
 
 const ZOHO_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api2/zoho`;
@@ -35,6 +36,24 @@ export const getZohoStatus = async () => {
     return {
       success: false,
       message: error.response?.data?.message || "Failed to fetch Zoho status",
+    };
+  }
+};
+
+/**
+ * Fetch Zoho CRM plan info and capabilities
+ */
+export const getZohoPlanInfo = async () => {
+  try {
+    const response = await api.get(`${ZOHO_BASE_URL}/plan`);
+    return {
+      success: true,
+      data: response.data.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to fetch Zoho plan info",
     };
   }
 };
@@ -95,24 +114,6 @@ export const triggerZohoSync = async (syncType = "FULL") => {
 };
 
 /**
- * Fetch contact sync statistics
- */
-export const getZohoSyncStatus = async () => {
-  try {
-    const response = await api.get(`${ZOHO_BASE_URL}/sync/status`);
-    return {
-      success: true,
-      data: response.data.data,
-    };
-  } catch (error) {
-    return {
-      success: false,
-      message: error.response?.data?.message || "Failed to fetch sync status",
-    };
-  }
-};
-
-/**
  * Trigger incremental contact sync (only changed contacts)
  */
 export const triggerZohoIncrementalSync = async () => {
@@ -127,6 +128,24 @@ export const triggerZohoIncrementalSync = async () => {
     return {
       success: false,
       message: error.response?.data?.message || "Failed to start incremental sync",
+    };
+  }
+};
+
+/**
+ * Fetch contact sync statistics
+ */
+export const getZohoSyncStatus = async () => {
+  try {
+    const response = await api.get(`${ZOHO_BASE_URL}/sync/status`);
+    return {
+      success: true,
+      data: response.data.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to fetch sync status",
     };
   }
 };

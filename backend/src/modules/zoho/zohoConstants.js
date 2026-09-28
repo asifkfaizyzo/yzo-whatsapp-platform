@@ -1,10 +1,5 @@
 // src/modules/zoho/zohoConstants.js
 
-/**
- * Zoho Data Center (DC) domain maps.
- * Maps location codes returned in the OAuth callback to their respective
- * Accounts (token/auth) and API base URLs.
- */
 export const ZOHO_DC_MAP = {
   us: {
     location: 'us',
@@ -57,25 +52,49 @@ export const ZOHO_DC_MAP = {
 };
 
 /**
- * Phase 1 Minimal OAuth Scopes
- * Strictly limited to:
- * - CRM Contact & Module read/write
- * - User profile identity check
+ * Phase 1-3 Scopes (connection + contact sync)
  */
-export const ZOHO_PHASE_1_SCOPES = [
+export const ZOHO_BASE_SCOPES = [
   'ZohoCRM.modules.ALL',
   'ZohoCRM.users.ALL',
 ];
 
 /**
- * Default Zoho Accounts authorization entry point for Multi-DC apps.
+ * Phase 4+ Scopes (plan detection + notifications + settings)
  */
-export const ZOHO_DEFAULT_AUTH_URL = 'https://accounts.zoho.com/oauth/v2/auth';
+export const ZOHO_EXTENDED_SCOPES = [
+  'ZohoCRM.settings.ALL',
+  'ZohoCRM.notifications.ALL',
+];
 
 /**
- * Redis Key Prefix & TTL Constants
+ * All scopes combined — used for new connections
  */
+export const ZOHO_PHASE_1_SCOPES = [
+  ...ZOHO_BASE_SCOPES,
+  ...ZOHO_EXTENDED_SCOPES,
+];
+
+export const ZOHO_DEFAULT_AUTH_URL = 'https://accounts.zoho.com/oauth/v2/auth';
 export const ZOHO_STATE_REDIS_PREFIX = 'zoho_oauth_state:';
-export const ZOHO_STATE_TTL_SECONDS = 600; // 10 minutes
+export const ZOHO_STATE_TTL_SECONDS = 600;
 export const ZOHO_LOCK_TTL_SECONDS = 30;
-export const ZOHO_REFRESH_BUFFER_MS = 5 * 60 * 1000; // 5 minutes buffer
+export const ZOHO_REFRESH_BUFFER_MS = 5 * 60 * 1000;
+
+/**
+ * Plan Detection Cache
+ */
+export const ZOHO_PLAN_CACHE_PREFIX = 'zoho_plan:';
+export const ZOHO_PLAN_CACHE_TTL_SECONDS = 86400; // 24 hours
+
+/**
+ * Feature availability by Zoho edition
+ */
+export const ZOHO_FEATURE_MATRIX = {
+  Free:         { contacts: true, leads: true, tasks: true, deals: false, notes: true, webhooks: false, customModules: false, blueprints: false },
+  Standard:     { contacts: true, leads: true, tasks: true, deals: true,  notes: true, webhooks: false, customModules: false, blueprints: false },
+  Professional: { contacts: true, leads: true, tasks: true, deals: true,  notes: true, webhooks: true,  customModules: false, blueprints: false },
+  Enterprise:   { contacts: true, leads: true, tasks: true, deals: true,  notes: true, webhooks: true,  customModules: true,  blueprints: true  },
+  Ultimate:     { contacts: true, leads: true, tasks: true, deals: true,  notes: true, webhooks: true,  customModules: true,  blueprints: true  },
+  Trial:        { contacts: true, leads: true, tasks: true, deals: true,  notes: true, webhooks: true,  customModules: true,  blueprints: true  },
+};

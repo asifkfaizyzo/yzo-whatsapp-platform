@@ -15,11 +15,69 @@ import {
 const WAIT_TIMEOUT_MS = 2000;
 
 /**
+ * Helper to extract and persist Zoho Rate-Limit headers to Redis
+ */
+export async function extractAndSaveRateLimits(tenantId, headers) {
+  if (!headers || !tenantId) return;
+
+  // Normalize all header keys to lowercase
+  const normalized = {};
+  Object.keys(headers).forEach((k) => {
+    normalized[k.toLowerCase()] = headers[k];
+  });
+
+  const rawRemaining =
+    normalized['x-ratelimit-remaining'] ??
+    normalized['x-ratelimit-day-remaining'] ??
+    normalized['x-rate-limit-remaining'];
+
+  const rawLimit =
+    normalized['x-ratelimit-limit'] ??
+    normalized['x-ratelimit-day-limit'] ??
+    normalized['x-rate-limit-limit'];
+
+  const rawReset =
+    normalized['x-ratelimit-reset'] ??
+    normalized['x-ratelimit-day-reset'] ??
+    normalized['x-rate-limit-reset'];
+
+  if (rawRemaining !== undefined) {
+    const remainingNum = parseInt(rawRemaining, 10);
+    let limitNum = rawLimit !== undefined ? parseInt(rawLimit, 10) : null;
+
+    // If Zoho sends remaining credits but omits total quota header, infer from remaining
+    if (!limitNum || isNaN(limitNum)) {
+      if (remainingNum > 10000) limitNum = 50000;
+      else if (remainingNum > 5000) limitNum = 10000;
+      else if (remainingNum > 1000) limitNum = 5000;
+      else limitNum = Math.max(1000, remainingNum);
+    }
+
+    const rateLimitData = {
+      limit: limitNum,
+      remaining: remainingNum,
+      reset: rawReset ? parseInt(rawReset, 10) : null,
+      updatedAt: Date.now(),
+      isEstimated: false,
+    };
+
+    try {
+      await redisConnection.set(
+        `zoho_rate_limit:${tenantId}`,
+        JSON.stringify(rateLimitData),
+        'EX',
+        86400
+      );
+      emitToTenant(tenantId, 'zoho_rate_limits', rateLimitData);
+      console.log(`📊 [ZohoRateLimit LIVE] ${rateLimitData.remaining} / ${rateLimitData.limit} credits remaining (Reset in: ${rateLimitData.reset || 0}s)`);
+    } catch (err) {
+      console.warn('⚠️ [ZohoRateLimit] Redis save error:', err.message);
+    }
+  }
+}
+
+/**
  * Ensures a valid access token for the given tenant.
- * Uses a Redis distributed lock to prevent concurrent refresh races across cluster nodes.
- *
- * @param {string} tenantId - Sudo Reply Tenant ID
- * @returns {Promise<{ accessToken: string, apiDomain: string }>} Valid decrypted token and tenant API domain
  */
 export async function getValidZohoAccessToken(tenantId) {
   const tenant = await prisma.tenant.findUnique({
@@ -49,7 +107,6 @@ export async function getValidZohoAccessToken(tenantId) {
   const now = new Date();
   const expiresAt = tenant.zohoTokenExpiresAt ? new Date(tenant.zohoTokenExpiresAt) : new Date(0);
 
-  // If token is still valid for > 5 minutes, return decrypted token directly
   if (expiresAt.getTime() - now.getTime() > ZOHO_REFRESH_BUFFER_MS) {
     return {
       accessToken: decrypt(tenant.zohoAccessToken),
@@ -57,12 +114,10 @@ export async function getValidZohoAccessToken(tenantId) {
     };
   }
 
-  // Token is expired or expiring soon — acquire Redis distributed lock
   const lockKey = `zoho_refresh:${tenantId}`;
   const acquiredLock = await redisConnection.set(lockKey, '1', 'EX', ZOHO_LOCK_TTL_SECONDS, 'NX');
 
   if (!acquiredLock) {
-    // Another worker is refreshing; wait and re-read from DB
     await new Promise((resolve) => setTimeout(resolve, WAIT_TIMEOUT_MS));
     const freshTenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
@@ -93,7 +148,6 @@ export async function getValidZohoAccessToken(tenantId) {
       throw new Error('Missing Zoho OAuth credentials or refresh token');
     }
 
-    // Resolve accounts domain based on tenant's connected DC
     const dcKey = (tenant.zohoDataCenter || 'us').toLowerCase();
     const accountsDomain = ZOHO_DC_MAP[dcKey]?.accountsDomain || 'accounts.zoho.com';
     const refreshUrl = `https://${accountsDomain}/oauth/v2/token`;
@@ -181,18 +235,12 @@ export async function getValidZohoAccessToken(tenantId) {
 
     throw error;
   } finally {
-    // Release distributed lock
     await redisConnection.del(lockKey).catch(() => {});
   }
 }
 
 /**
  * Execute an authenticated request to the tenant's Zoho CRM API instance.
- * Automatically manages token expiry and injects tenant DC domain.
- *
- * @param {string} tenantId - Sudo Reply Tenant ID
- * @param {import('axios').AxiosRequestConfig} requestConfig - Axios request options
- * @returns {Promise<any>} Response data
  */
 export async function zohoRequest(tenantId, requestConfig) {
   const { accessToken, apiDomain } = await getValidZohoAccessToken(tenantId);
@@ -217,8 +265,12 @@ export async function zohoRequest(tenantId, requestConfig) {
 
   try {
     const response = await axios(config);
+    await extractAndSaveRateLimits(tenantId, response.headers);
     return response.data;
   } catch (error) {
+    if (error.response?.headers) {
+      await extractAndSaveRateLimits(tenantId, error.response.headers);
+    }
     console.error(`❌ [ZohoClient] Request failed [${config.method || 'GET'} ${fullUrl}]:`, error.response?.data || error.message);
     throw error;
   }

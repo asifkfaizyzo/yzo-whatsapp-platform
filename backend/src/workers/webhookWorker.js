@@ -1,5 +1,3 @@
-// src/workers/webhookWorker.js
-
 import { Worker } from 'bullmq';
 import { QUEUE_NAME_WEBHOOK } from '../queues/webhookQueue.js';
 import { redisConnection } from '../config/redis.js';
@@ -310,7 +308,7 @@ export const processMetaPageOrInstagramJob = async (job, body) => {
           }
         }
 
-                // Upsert Contact with composite unique key
+        // Upsert Contact with composite unique key
         const isNewContact = !contact;
         contact = await prisma.contact.upsert({
           where: {
@@ -344,7 +342,6 @@ export const processMetaPageOrInstagramJob = async (job, body) => {
           } catch (_) {}
         }
 
-        // 7. Save message via handleIncomingMessage
         // 7. Save message via handleIncomingMessage
         const result = await handleIncomingMessage({
           contactId: contact.id,
@@ -674,7 +671,7 @@ export const processWebhookJob = async (job) => {
       }
     }
 
-    return; // ✅ status handled, stop here // ✅ status handled, stop here
+    return; // ✅ status handled, stop here
   }
 
 
@@ -739,11 +736,11 @@ export const processWebhookJob = async (job) => {
         }
       });
       if (isNewContact) {
-  try {
-    const { autoSyncContactToZoho } = await import('../modules/zoho/zohoContactService.js');
-    autoSyncContactToZoho(tenant.id, contact.id).catch(() => {});
-  } catch (_) {}
-}
+        try {
+          const { autoSyncContactToZoho } = await import('../modules/zoho/zohoContactService.js');
+          autoSyncContactToZoho(tenant.id, contact.id).catch(() => {});
+        } catch (_) {}
+      }
       console.log(`🆕 New contact: ${contact.name} (${normalizedPhone})`);
     } else {
       console.log(`♻️ Existing contact: ${contact.name} (${normalizedPhone})`);
@@ -990,6 +987,25 @@ export const processWebhookJob = async (job) => {
       wamid: messageId,
     });
 
+    // Log message as Zoho Note (Phase 4)
+    try {
+      const { logMessageAsZohoNote } = await import('../modules/zoho/zohoNoteService.js');
+      logMessageAsZohoNote(tenant.id, contact.id, {
+        direction: 'INBOUND',
+        senderType: 'CONTACT',
+        type,
+        text,
+        mediaName,
+        caption,
+        channel: 'WhatsApp',
+        locLatitude,
+        locLongitude,
+        locName,
+        locAddress,
+        createdAt: new Date(),
+      }).catch(() => {});
+    } catch (_) {}
+
     // ── Socket: emit to tenant room ────────────────────────
     emitToTenant(tenant.id, 'new_message', {
       conversationId: result.conversation.id,
@@ -1013,10 +1029,6 @@ export const processWebhookJob = async (job) => {
         createdAt: result.message.createdAt,
       }
     });
-
-
-
-    // ── Socket: emit notification to tenant ────────────────
 
     // ── Save + Emit notification ───────────────────────────
     const notifMessage = text
@@ -1060,7 +1072,6 @@ export const processWebhookJob = async (job) => {
     // ── Socket: emit to assigned user ──────────────────────
     if (contact.assignedTo) {
       emitToUser(contact.assignedTo, 'new_message', {
-
         conversationId: result.conversation.id,
         message: {
           id: result.message.id,
@@ -1162,6 +1173,12 @@ export const processWebhookJob = async (job) => {
         });
 
         console.log(`✅ [ORDER CREATED] Order #${createdOrder.orderNumber} saved (ID: ${createdOrder.id})`);
+
+        // Create Zoho Deal from order (Phase 4)
+        try {
+          const { createZohoDealFromOrder } = await import('../modules/zoho/zohoDealService.js');
+          createZohoDealFromOrder(tenant.id, createdOrder, contact).catch(() => {});
+        } catch (_) {}
 
         // Emit new_order socket event to tenant
         emitToTenant(tenant.id, 'new_order', {
