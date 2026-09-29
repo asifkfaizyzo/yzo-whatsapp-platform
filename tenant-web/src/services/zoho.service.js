@@ -149,3 +149,40 @@ export const getZohoSyncStatus = async () => {
     };
   }
 };
+
+/**
+ * Fetch Zoho automation settings and preferences
+ */
+export const getZohoPreferences = async () => {
+  try {
+    const response = await api.get(`${ZOHO_BASE_URL}/preferences`);
+    return {
+      success: true,
+      data: response.data.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to fetch preferences",
+    };
+  }
+};
+
+/**
+ * Save new Zoho preferences and automation toggles
+ */
+export const updateZohoPreferences = async (preferences) => {
+  try {
+    const response = await api.put(`${ZOHO_BASE_URL}/preferences`, preferences);
+    return {
+      success: true,
+      data: response.data.data,
+      message: response.data?.message || "Preferences updated successfully",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to update preferences",
+    };
+  }
+};

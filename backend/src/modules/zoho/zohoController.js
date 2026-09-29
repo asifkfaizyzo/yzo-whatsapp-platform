@@ -11,6 +11,15 @@ import {
 import { getTenantSyncStats } from './zohoContactService.js';
 import { zohoSyncQueue } from '../../queues/zohoSyncQueue.js';
 import { detectZohoPlan } from './zohoPlanService.js';
+import { redisConnection } from '../../config/redis.js';
+
+const DEFAULT_PREFERENCES = {
+  syncDestination: 'CONTACTS', // 'CONTACTS' | 'LEADS'
+  logConversationNotes: true,
+  createDealsOnOrders: true,
+  createFollowUpTasks: true,
+  autoSyncNewContacts: true,
+};
 
 export const getConnectUrl = async (req, res) => {
   try {
@@ -170,6 +179,7 @@ export const triggerIncrementalSync = async (req, res) => {
     return res.status(400).json({ success: false, message: error.message });
   }
 };
+
 /**
  * GET /api2/zoho/plan
  * Returns detected Zoho plan and available features
@@ -183,6 +193,59 @@ export const getPlanInfo = async (req, res) => {
 
     const plan = await detectZohoPlan(tenantId);
     return res.status(200).json({ success: true, data: plan });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * GET /api2/zoho/preferences
+ * Fetches tenant-specific Zoho automation toggles
+ */
+export const getPreferences = async (req, res) => {
+  try {
+    const tenantId = req.tenant?.id || req.tenantId;
+    if (!tenantId) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
+    const key = `zoho_prefs:${tenantId}`;
+    const raw = await redisConnection.get(key);
+    const prefs = raw ? { ...DEFAULT_PREFERENCES, ...JSON.parse(raw) } : DEFAULT_PREFERENCES;
+
+    return res.status(200).json({ success: true, data: prefs });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * PUT /api2/zoho/preferences
+ * Updates tenant-specific Zoho automation toggles in Redis
+ */
+export const updatePreferences = async (req, res) => {
+  try {
+    const tenantId = req.tenant?.id || req.tenantId;
+    if (!tenantId) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
+    const key = `zoho_prefs:${tenantId}`;
+    const current = await redisConnection.get(key);
+    const existing = current ? JSON.parse(current) : DEFAULT_PREFERENCES;
+
+    const updated = {
+      ...existing,
+      ...req.body,
+    };
+
+    await redisConnection.set(key, JSON.stringify(updated));
+
+    return res.status(200).json({
+      success: true,
+      message: 'Zoho integration preferences updated',
+      data: updated,
+    });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
   }

@@ -1,3 +1,5 @@
+// src/server.js
+
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -27,6 +29,7 @@ import { startWebhookEventsCleanupJob } from './jobs/cleanupWebhookEventsJob.js'
 import { initQuickReplyIndexes } from './scripts/initQuickReplyIndexes.js';
 import { startZohoSyncWorker } from './workers/zohoSyncWorker.js';
 import { startZohoStaleTaskJob } from './jobs/zohoStaleTaskJob.js';
+import { startZohoWatchRenewalJob } from './jobs/zohoWatchRenewalJob.js';
 
 import { redisConnection } from './config/redis.js';
 
@@ -47,6 +50,7 @@ startCleanupWorker();
 startAuditCleanupJob(); 
 startWebhookEventsCleanupJob();
 startZohoStaleTaskJob();
+startZohoWatchRenewalJob(); // ✅ Handled and running alongside workers
 initQuickReplyIndexes();
 console.log('👷 Background workers and cleanup tasks started successfully!');
 
@@ -81,8 +85,5 @@ const gracefulShutdown = async (signal) => {
   });
 };
 
-
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-
-

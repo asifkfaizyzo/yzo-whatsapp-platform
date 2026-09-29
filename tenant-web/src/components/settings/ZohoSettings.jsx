@@ -34,6 +34,8 @@ import {
   triggerZohoIncrementalSync,
   getZohoSyncStatus,
   getZohoPlanInfo,
+  getZohoPreferences,
+  updateZohoPreferences,
 } from "../../services/zoho.service";
 
 export default function ZohoSettings({ onBack } = {}) {
@@ -86,7 +88,18 @@ export default function ZohoSettings({ onBack } = {}) {
     lastSyncedAt: null,
   });
 
-  // ── Fetch Connection, Plan & Sync Stats ──
+  // ── Automation Preferences ──
+  const [preferences, setPreferences] = useState({
+    syncDestination: "CONTACTS",
+    logConversationNotes: true,
+    createDealsOnOrders: true,
+    createFollowUpTasks: true,
+    autoSyncNewContacts: true,
+  });
+  const [prefsLoading, setPrefsLoading] = useState(false);
+  const [prefsSaving, setPrefsSaving] = useState(false);
+
+  // ── Fetch Connection, Plan, Sync Stats & Preferences ──
   const fetchStatusAndStats = async (showLoadingIndicator = true) => {
     if (showLoadingIndicator) setLoading(true);
     try {
@@ -97,6 +110,7 @@ export default function ZohoSettings({ onBack } = {}) {
           await Promise.allSettled([
             fetchSyncStats(),
             fetchPlanDetails(),
+            fetchPreferences(),
           ]);
         }
       }
@@ -132,6 +146,45 @@ export default function ZohoSettings({ onBack } = {}) {
       console.error("Failed to fetch Zoho sync statistics:", err);
     } finally {
       setSyncLoading(false);
+    }
+  };
+
+  const fetchPreferences = async () => {
+    setPrefsLoading(true);
+    try {
+      const res = await getZohoPreferences();
+      if (res.success && res.data) {
+        setPreferences((prev) => ({ ...prev, ...res.data }));
+      }
+    } catch (err) {
+      console.error("Failed to load Zoho preferences:", err);
+    } finally {
+      setPrefsLoading(false);
+    }
+  };
+
+  // ── Update Individual Preference Toggle ──
+  const handleUpdatePreference = async (key, value) => {
+    // Optimistic UI update
+    const previous = preferences;
+    const updated = { ...preferences, [key]: value };
+    setPreferences(updated);
+    setPrefsSaving(true);
+
+    try {
+      const res = await updateZohoPreferences({ [key]: value });
+      if (res.success) {
+        if (res.data) setPreferences((prev) => ({ ...prev, ...res.data }));
+        toast.success("Preference updated");
+      } else {
+        setPreferences(previous); // Revert on failure
+        toast.error(res.message || "Failed to update preference");
+      }
+    } catch (err) {
+      setPreferences(previous);
+      toast.error("Could not save preference");
+    } finally {
+      setPrefsSaving(false);
     }
   };
 
@@ -177,7 +230,7 @@ export default function ZohoSettings({ onBack } = {}) {
     }
   };
 
-    // ── Test Active Session ──
+  // ── Test Active Session ──
   const handleTestConnection = async () => {
     setTesting(true);
     try {
@@ -546,6 +599,120 @@ export default function ZohoSettings({ onBack } = {}) {
                       : "Never Synced"}
                   </span>
                 </div>
+              </div>
+
+              {/* ── AUTOMATION & SYNC PREFERENCES CARD ── */}
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-2xs space-y-5">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                  <div>
+                    <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <Sparkles size={14} className="text-[#009A44]" />
+                      <span>Automation & Workflow Preferences</span>
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Configure how Sudo Reply synchronizes data into your Zoho CRM modules.
+                    </p>
+                  </div>
+                  {prefsSaving && (
+                    <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-slate-400">
+                      <RefreshCw size={11} className="animate-spin text-[#009A44]" />
+                      Saving...
+                    </span>
+                  )}
+                </div>
+
+                {prefsLoading ? (
+                  <div className="py-8 flex flex-col items-center gap-2 text-slate-400">
+                    <Loader2 size={22} className="animate-spin text-[#009A44]" />
+                    <span className="text-xs font-semibold">Loading preferences...</span>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Switch 1: Auto-Sync on Creation */}
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50/70 border border-slate-100">
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-800">Auto-Sync New Contacts</h4>
+                        <p className="text-[11px] text-slate-500">Instantly push new WhatsApp leads to Zoho CRM.</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={preferences.autoSyncNewContacts}
+                          onChange={(e) => handleUpdatePreference('autoSyncNewContacts', e.target.checked)}
+                          className="sr-only peer"
+                        />
+                        <div className="w-9 h-5 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#009A44]" />
+                      </label>
+                    </div>
+
+                    {/* Switch 2: Conversation Notes */}
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50/70 border border-slate-100">
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-800">Log Chat History as Notes</h4>
+                        <p className="text-[11px] text-slate-500">Attach WhatsApp conversation logs to Zoho Contact records.</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={preferences.logConversationNotes}
+                          onChange={(e) => handleUpdatePreference('logConversationNotes', e.target.checked)}
+                          className="sr-only peer"
+                        />
+                        <div className="w-9 h-5 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#009A44]" />
+                      </label>
+                    </div>
+
+                    {/* Switch 3: Deal Creation */}
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50/70 border border-slate-100">
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-800">Create Deals on WhatsApp Orders</h4>
+                        <p className="text-[11px] text-slate-500">Automatically generate a Zoho CRM Deal when an order is placed.</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={preferences.createDealsOnOrders}
+                          onChange={(e) => handleUpdatePreference('createDealsOnOrders', e.target.checked)}
+                          className="sr-only peer"
+                        />
+                        <div className="w-9 h-5 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#009A44]" />
+                      </label>
+                    </div>
+
+                    {/* Switch 4: Follow-up Tasks */}
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50/70 border border-slate-100">
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-800">Auto-Create Follow-up Tasks</h4>
+                        <p className="text-[11px] text-slate-500">Create reminder tasks in Zoho for conversations unresolved after 24h.</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={preferences.createFollowUpTasks}
+                          onChange={(e) => handleUpdatePreference('createFollowUpTasks', e.target.checked)}
+                          className="sr-only peer"
+                        />
+                        <div className="w-9 h-5 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#009A44]" />
+                      </label>
+                    </div>
+
+                    {/* Sync Destination Selector */}
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50/70 border border-slate-100">
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-800">Sync Destination Module</h4>
+                        <p className="text-[11px] text-slate-500">Choose which Zoho module receives new contacts.</p>
+                      </div>
+                      <select
+                        value={preferences.syncDestination}
+                        onChange={(e) => handleUpdatePreference('syncDestination', e.target.value)}
+                        className="text-xs font-semibold bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#009A44]/20 focus:border-[#009A44] cursor-pointer"
+                      >
+                        <option value="CONTACTS">Contacts</option>
+                        <option value="LEADS">Leads</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
               </div>
             </>
           ) : (

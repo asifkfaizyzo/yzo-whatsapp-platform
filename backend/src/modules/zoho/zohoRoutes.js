@@ -18,4 +18,8 @@ router.post('/sync/contacts', verifyTenant, requireApprovedTenant, zohoControlle
 router.post('/sync/incremental', verifyTenant, requireApprovedTenant, zohoController.triggerIncrementalSync);
 router.get('/sync/status', verifyTenant, zohoController.getSyncStatus);
 
+// ── Integration Preferences ──
+router.get('/preferences', verifyTenant, zohoController.getPreferences);
+router.put('/preferences', verifyTenant, requireApprovedTenant, zohoController.updatePreferences);
+
 export default router;
