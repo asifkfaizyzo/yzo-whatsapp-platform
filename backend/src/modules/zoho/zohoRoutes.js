@@ -28,4 +28,7 @@ router.post('/events', verifyTenant, requireApprovedTenant, zohoController.bookE
 router.post('/tickets/:ticketId/sync-case', verifyTenant, requireApprovedTenant, zohoController.syncTicketCase);
 router.post('/invoices/:invoiceId/send-whatsapp', verifyTenant, requireApprovedTenant, zohoController.dispatchInvoice);
 
+
+router.post('/sync/pull', verifyTenant, requireApprovedTenant, zohoController.triggerPullSync);
+
 export default router;
