@@ -452,3 +452,115 @@ export async function getTenantSyncStats(tenantId) {
     lastSyncedAt: latestMapping?.lastSyncedAt || null,
   };
 }
+
+/**
+ * PULL SYNC: Fetches all contacts from Zoho CRM and creates/updates them in Sudo Reply.
+ */
+export async function pullContactsFromZoho(tenantId) {
+  console.log(`📥 [ZohoPullSync] Starting inbound contact import from Zoho CRM for tenant ${tenantId}`);
+
+  let page = 1;
+  let totalImported = 0;
+  let totalUpdated = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    const response = await zohoRequest(tenantId, {
+      method: 'GET',
+      url: `/crm/v7/Contacts?page=${page}&per_page=100`,
+    });
+
+    const zohoContacts = response?.data || [];
+    if (zohoContacts.length === 0) break;
+
+    for (const zc of zohoContacts) {
+      const recordId = zc.id;
+      const fullName = `${zc.First_Name || ''} ${zc.Last_Name || ''}`.trim() || zc.Full_Name || 'Zoho Contact';
+      const rawPhone = zc.Phone || zc.Mobile || null;
+      const email = zc.Email || null;
+      const company = zc.Company || zc.Account_Name?.name || null;
+
+      let cleanPhone = null;
+      if (rawPhone) {
+        const digits = rawPhone.replace(/\D/g, '');
+        if (digits.length >= 10) {
+          cleanPhone = digits.length === 10 ? `+91${digits}` : `+${digits}`;
+        }
+      }
+
+      // 1. Check existing mapping
+      let mapping = await prisma.contactProviderMapping.findFirst({
+        where: { tenantId, provider: 'ZOHO', providerContactId: recordId },
+        include: { contact: true },
+      });
+
+      if (mapping && mapping.contact) {
+        // Update existing contact
+        await prisma.contact.update({
+          where: { id: mapping.contact.id },
+          data: {
+            name: fullName || mapping.contact.name,
+            email: email || mapping.contact.email,
+            company: company || mapping.contact.company,
+          },
+        });
+        totalUpdated++;
+      } else {
+        // 2. Check if contact exists by phone in Sudo Reply
+        let contact = null;
+        if (cleanPhone) {
+          contact = await prisma.contact.findFirst({
+            where: { phone: cleanPhone, tenantId },
+          });
+        }
+
+        if (!contact && email) {
+          contact = await prisma.contact.findFirst({
+            where: { email, tenantId },
+          });
+        }
+
+        // 3. If not found, create new contact in Sudo Reply
+        if (!contact) {
+          contact = await prisma.contact.create({
+            data: {
+              tenantId,
+              name: fullName,
+              phone: cleanPhone,
+              email: email || null,
+              company: company || null,
+              whatsappId: cleanPhone ? cleanPhone.replace(/\D/g, '').slice(-10) : null,
+              channel: 'WHATSAPP',
+            },
+          });
+          totalImported++;
+        }
+
+        // 4. Save mapping
+        await prisma.contactProviderMapping.upsert({
+          where: {
+            tenantId_provider_providerContactId: {
+              tenantId,
+              provider: 'ZOHO',
+              providerContactId: recordId,
+            },
+          },
+          update: { contactId: contact.id, lastSyncedAt: new Date() },
+          create: {
+            tenantId,
+            contactId: contact.id,
+            provider: 'ZOHO',
+            providerContactId: recordId,
+            lastSyncedAt: new Date(),
+          },
+        });
+      }
+    }
+
+    hasMore = response?.info?.more_records || false;
+    page++;
+  }
+
+  console.log(`✅ [ZohoPullSync] Completed: ${totalImported} imported, ${totalUpdated} updated`);
+  return { totalImported, totalUpdated };
+}

@@ -1,3 +1,5 @@
+// src/modules/zoho/zohoService.js
+
 import crypto from 'crypto';
 import axios from 'axios';
 import prisma from '../../config/prisma.js';
@@ -20,6 +22,13 @@ import { detectZohoPlan } from './zohoPlanService.js';
  */
 export function getDynamicBackendUrl(req) {
   if (process.env.BACKEND_URL) return process.env.BACKEND_URL.replace(/\/+$/, '');
+  if (process.env.BASE_URL && process.env.BASE_URL.startsWith('http')) return process.env.BASE_URL.replace(/\/+$/, '');
+  
+  // If running behind a reverse proxy in production
+  if (process.env.NODE_ENV === 'production') {
+    return 'https://sudoreply.com';
+  }
+
   if (!req || !req.headers) return 'http://localhost:5000'; // Safe background fallback
   const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
   const host = req.headers['x-forwarded-host'] || req.headers.host || 'localhost:5000';
@@ -374,6 +383,7 @@ export async function testZohoConnection(tenantId) {
     rateLimit, // <-- Pass rateLimit directly in the response
   };
 }
+
 /**
  * Disconnect Zoho CRM integration for the authenticated tenant.
  */
@@ -462,21 +472,25 @@ export async function disconnectZoho(tenantId, meta = {}) {
  */
 export async function subscribeToZohoNotifications(tenantId) {
   const backendUrl = getDynamicBackendUrl();
-  const webhookUrl = `${backendUrl}/api/zoho/webhook`;
+  const webhookUrl = `${backendUrl.replace(/\/+$/, '')}/api/zoho/webhook`;
 
   // Zoho Security Enforcement: Webhook URL MUST use HTTPS protocol
   if (webhookUrl.startsWith('http://localhost') || !webhookUrl.startsWith('https://')) {
     console.warn(
       `⚠️ [ZohoSetup] Zoho CRM Webhooks require a secure HTTPS endpoint. ` +
-      `Skipping subscription on localhost/HTTP. ` +
-      `Current endpoint: ${webhookUrl}\n` +
-      `💡 TIP: Use ngrok/localtunnel to generate a secure HTTPS tunnel, and set BACKEND_URL in your .env`
+      `Skipping subscription on HTTP: ${webhookUrl}\n` +
+      `💡 Ensure BACKEND_URL="https://sudoreply.com" is set in your .env`
     );
     return { success: false, message: 'HTTPS required for Zoho webhook' };
   }
 
-  // Generate a clean alphanumeric channel ID (no underscores or special characters)
-  const cleanChannelId = `sudo${tenantId.replace(/[^a-zA-Z0-9]/g, '')}contacts`.substring(0, 32);
+  // Generate clean 32-character alphanumeric channel IDs (no underscores or special characters)
+  const cleanTenantHash = tenantId.replace(/[^a-zA-Z0-9]/g, '');
+  const contactsChannelId = `sudo${cleanTenantHash}c`.substring(0, 32);
+  const leadsChannelId = `sudo${cleanTenantHash}l`.substring(0, 32);
+
+  // 23-hour safety expiry window (Zoho max expiry is 24h)
+  const channelExpiry = new Date(Date.now() + 23 * 60 * 60 * 1000).toISOString();
 
   try {
     const response = await zohoRequest(tenantId, {
@@ -485,8 +499,8 @@ export async function subscribeToZohoNotifications(tenantId) {
       data: {
         watch: [
           {
-            channel_id: cleanChannelId,
-            channel_expiry: new Date(Date.now() + 23 * 60 * 60 * 1000).toISOString(), // 23h safety window
+            channel_id: contactsChannelId,
+            channel_expiry: channelExpiry,
             events: [
               'Contacts.create',
               'Contacts.edit',
@@ -496,40 +510,62 @@ export async function subscribeToZohoNotifications(tenantId) {
             notify_url: webhookUrl,
             token: tenantId,
           },
+          {
+            channel_id: leadsChannelId,
+            channel_expiry: channelExpiry,
+            events: [
+              'Leads.create',
+              'Leads.edit',
+              'Leads.delete'
+            ],
+            channel_type: 'webhook',
+            notify_url: webhookUrl,
+            token: tenantId,
+          }
         ],
       },
     });
 
-    console.log(`✅ [ZohoService] Notification subscription created for tenant ${tenantId}`);
+    console.log(`✅ [ZohoService] Notification subscription created on Zoho CRM for tenant ${tenantId} -> ${webhookUrl}`);
     return { success: true, data: response };
   } catch (error) {
     const errorData = error.response?.data;
-    
-    // Print detailed human-readable validation errors instead of [Object]
     console.error(
       `⚠️ [ZohoService] Notification subscription rejected by Zoho:\n`,
-      JSON.stringify(errorData, null, 2)
+      JSON.stringify(errorData || error.message, null, 2)
     );
-    
     return { success: false, message: error.message };
   }
 }
+
 /**
  * Unsubscribe from Zoho CRM notifications on disconnect.
  */
 export async function unsubscribeFromZohoNotifications(tenantId) {
+  const cleanTenantHash = tenantId.replace(/[^a-zA-Z0-9]/g, '');
+  const contactsChannelId = `sudo${cleanTenantHash}c`.substring(0, 32);
+  const leadsChannelId = `sudo${cleanTenantHash}l`.substring(0, 32);
+
   try {
     await zohoRequest(tenantId, {
       method: 'POST',
       url: '/crm/v7/actions/watch',
       data: {
-        _method: 'DELETE',
-        channel_id: `sudo_${tenantId}_contacts`,
+        watch: [
+          {
+            channel_id: contactsChannelId,
+            _method: 'DELETE',
+          },
+          {
+            channel_id: leadsChannelId,
+            _method: 'DELETE',
+          }
+        ],
       },
     });
-    console.log(`🗑️ [ZohoService] Notification subscription removed for tenant ${tenantId}`);
+    console.log(`🗑️ [ZohoService] Notification subscriptions removed for tenant ${tenantId}`);
   } catch (error) {
-    console.warn(`⚠️ [ZohoService] Could not remove Zoho notification subscription:`, error.message);
+    console.warn(`⚠️ [ZohoService] Could not remove Zoho notification subscription:`, error.response?.data || error.message);
   }
 }
 

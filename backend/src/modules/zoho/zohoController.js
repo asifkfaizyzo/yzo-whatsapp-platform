@@ -8,7 +8,10 @@ import {
   testZohoConnection,
   disconnectZoho,
 } from './zohoService.js';
-import { getTenantSyncStats } from './zohoContactService.js';
+import {
+  getTenantSyncStats,
+  pullContactsFromZoho, 
+} from './zohoContactService.js';
 import { zohoSyncQueue } from '../../queues/zohoSyncQueue.js';
 import { detectZohoPlan } from './zohoPlanService.js';
 import { redisConnection } from '../../config/redis.js';
@@ -326,6 +329,24 @@ export const dispatchInvoice = async (req, res) => {
 
     const result = await sendZohoInvoiceToWhatsApp(tenantId, contactId, invoiceId);
     return res.status(200).json({ success: result.success, data: result });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+export const triggerPullSync = async (req, res) => {
+  try {
+    const tenantId = req.tenant?.id || req.tenantId;
+    if (!tenantId) {
+      return res.status(401).json({ success: false, message: 'Tenant not authenticated' });
+    }
+
+    const result = await pullContactsFromZoho(tenantId);
+    return res.status(200).json({
+      success: true,
+      message: `Imported ${result.totalImported} new contacts and updated ${result.totalUpdated} from Zoho CRM`,
+      data: result,
+    });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
   }
