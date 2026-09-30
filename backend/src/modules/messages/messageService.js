@@ -617,6 +617,18 @@ export const sendMessageService = async ({
     },
   });
 
+  // ── Phase 4: Log outbound message as Zoho Note ──
+  try {
+    const { logMessageAsZohoNote } = await import('../zoho/zohoNoteService.js');
+    logMessageAsZohoNote(tenantId, contactId, {
+      direction: 'OUTBOUND',
+      senderType,
+      type: 'TEXT',
+      text,
+      createdAt: new Date(),
+    }).catch(() => {});
+  } catch (_) {}
+
   return { ...message, conversationId: conversation.id };
 };
 
@@ -1183,4 +1195,4 @@ export const sendQuickReplyMessageService = async ({
   trackUsage(quickReply.id, tenantId).catch(() => {});
 
   return { ...result, isMedia: false };
-};
+};

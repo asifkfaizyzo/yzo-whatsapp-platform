@@ -1,7 +1,13 @@
+// src/app.js
+
 import cookieParser from 'cookie-parser';
 import express from 'express';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import cors from 'cors';
+import path from "path";
+
+// Route Imports
 import superadminRoutes from './modules/superadmin/superadminRoute.js';
 import tenantRoutes from './modules/tenant/tenantRoutes.js';
 import userRoutes from './modules/users/userRoutes.js';
@@ -9,7 +15,6 @@ import contactRoutes from './modules/contacts/contactRoutes.js';
 import conversationRoutes from './modules/conversations/conversationRouter.js';
 import messageRoutes from './modules/messages/messageRoute.js';
 import tagRoutes from './modules/tags/tagRoutes.js';
-import cors from 'cors'
 import webhookRoutes from './modules/webhook/webhookRoutes.js';
 import planRoutes from "./modules/plans/planRoutes.js";
 import templateRoutes from './modules/templates/templateRoutes.js';
@@ -21,39 +26,38 @@ import superAdminNotificationRoutes from "./modules/SuperAdminNotifications/supe
 import revenueRoutes from "./modules/revenue/revenueRoutes.js";
 import ticketRoutes from "./modules/tickets/ticketRoutes.js";
 import adminTicketRoutes from "./modules/tickets/adminTicketRoutes.js";
-import flowRoutes from './modules/automation/flowRoutes.js'
-import path from "path";
+import flowRoutes from './modules/automation/flowRoutes.js';
+import mediaRoutes from './modules/messages/mediaRoute.js';
+import quickReplyRoutes from './modules/quick-replies/quickReplyRoute.js';
+import orderRoutes from './modules/orders/orderRoutes.js';
 
 // Enquiries and Enterprise Leads
 import enquiryRoutes from './modules/enquiries/enquiryRoute.js';
 import enterpriseLeadRoutes from './modules/enterprise-leads/enterpriseLeadRoute.js';
 import enterpriseLeadAdminRoutes from './modules/enterprise-leads/enterpriseLeadAdminRoute.js';
-
 import billingRoutes from './modules/billing/billingRoutes.js';
 import adminSubscriptionsRoute from './modules/admin-subscriptions/adminSubscriptionsRoute.js';
-
 import auditLogRoutes from './modules/audit/auditLogRoutes.js';
 import dlqRoutes from './modules/webhook/dlqRoutes.js';
-import mediaRoutes from './modules/messages/mediaRoute.js';
+
+// Zoho CRM Integration Imports
+import zohoRoutes from './modules/zoho/zohoRoutes.js';
+import { handleZohoWebhook } from './modules/zoho/zohoWebhookController.js';
+import { zohoCallbackHandler } from './modules/zoho/zohoController.js';
+import { triggerOutboundMessage } from './modules/zoho/zohoTriggerController.js';
+
+// Other Imports
 import { verifyTenantOrUser } from './middlewares/authVerfyTenOrUser.js';
-import { verifySuperAdmin } from './middlewares/authSuperAdmin.js';
-
 import analyticsRoutes from './modules/analytics/analyticsRoutes.js';
-
 import publicRoutes from './modules/public/publicRoutes.js';
-
 import { serverAdapter } from './config/bullBoard.js';
 import { bullBoardAuth } from './middlewares/bullBoardAuth.js';
-import quickReplyRoutes from './modules/quick-replies/quickReplyRoute.js';
 import { handleOAuthCallback } from './modules/tenant/razorpayOAuthController.js';
-import orderRoutes from './modules/orders/orderRoutes.js';
-
-
 
 const app = express();
 
-
 app.set('trust proxy', 1);
+
 // Add Health Check Endpoint
 app.get('/api/health', (req, res) => {
   res.status(200).json({
@@ -75,8 +79,8 @@ app.use(
     crossOriginOpenerPolicy: {
       policy: "same-origin-allow-popups",
     },
-    crossOriginResourcePolicy: false,  // 🆕 Allow cross-origin resources
-    frameguard: false,                 // 🆕 Allow iframe embedding for document previews
+    crossOriginResourcePolicy: false,
+    frameguard: false,
   })
 );
 
@@ -103,14 +107,10 @@ app.use(express.json({
 }));
 app.use(express.urlencoded({ extended: true }));
 
-// 📊 Bull Board Queue Management Dashboard (Secured with Basic Auth)
+// 📊 Bull Board Queue Dashboard (Secured with Basic Auth)
 app.use('/admin/queues', bullBoardAuth, serverAdapter.getRouter());
 
-// 🔧 ═══════════════════════════════════════════════════════════
-// 🔧 STATIC FILES - UPDATED
-// 🔧 ═══════════════════════════════════════════════════════════
-
-// ✅ PUBLIC: Logos accessible without auth (needed for <img> tags in browser)
+// 🔧 STATIC LOGO FILES
 app.use("/uploads/logos", (req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
   res.header("Cross-Origin-Resource-Policy", "cross-origin");
@@ -125,17 +125,7 @@ app.use("/uploads/logos", (req, res, next) => {
   }
 }));
 
-// // 🔒 PROTECTED: All other uploads (tickets, contacts, etc.) require auth
-// app.use("/uploads", verifyTenantOrUser, (req, res, next) => {
-//   res.header("Access-Control-Allow-Origin", "*");
-//   res.header("Cross-Origin-Resource-Policy", "cross-origin");
-//   next();
-// }, express.static(path.join(process.cwd(), "uploads")));
-
-
 app.use('/api/media', mediaRoutes);
-
-// 🔧 ═══════════════════════════════════════════════════════════
 
 app.use(cookieParser());
 
@@ -144,9 +134,19 @@ const allowedOrigins = (process.env.FRONTEND_URLS || '')
   .split(",")
   .map((url) => url.trim());
 
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true,
+}));
+
 // ── Static Files ──
 app.use("/uploads", (req, res, next) => {
-  // 🔒 Security: Block direct static web access to invoices
   if (req.path.startsWith("/invoices")) {
     return res.status(403).json({
       success: false,
@@ -160,18 +160,6 @@ app.use("/uploads", (req, res, next) => {
   next();
 }, express.static(path.join(process.cwd(), "uploads")));
 
-
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
-  credentials: true,
-}));
-
 // ── Rate Limiting on Auth Routes ──
 app.use('/api/login',                    authLimiter);
 app.use('/api/create',                   authLimiter);
@@ -182,77 +170,88 @@ app.use('/api2/reset-password',          authLimiter);
 app.use('/api3/login',                   authLimiter);
 
 // ──────────────────────────────────────
-// ⭐ SPECIFIC ROUTES FIRST
+// ⭐ SPECIFIC WEBHOOK ROUTES FIRST
 // ──────────────────────────────────────
-
-app.use('/api/webhook', webhookRoutes)
-app.use('/api/flows', flowRoutes)
+app.use('/api/webhook', webhookRoutes);
+app.use('/api/flows', flowRoutes);
 
 // ──────────────────────────────────────
-// PUBLIC ROUTES — accessible from both frontends
+// PUBLIC OAUTH CALLBACKS & WEBHOOKS
 // ──────────────────────────────────────
 app.get('/api/auth/razorpay/callback', handleOAuthCallback);
 app.get('/api2/auth/razorpay/callback', handleOAuthCallback);
 app.get('/auth/razorpay/callback', handleOAuthCallback);
+
+// Zoho CRM OAuth Redirect Endpoints
+app.get('/api/zoho/callback', zohoCallbackHandler);
+app.get('/api2/zoho/callback', zohoCallbackHandler);
+app.get('/auth/zoho/callback', zohoCallbackHandler);
+
+// Zoho CRM Webhook Ingestion & Messaging Trigger
+app.post('/api/zoho/webhook', handleZohoWebhook);
+app.post('/api/zoho/trigger/message', triggerOutboundMessage);
+
+// General Public Endpoints
 app.use('/api',  publicRoutes);
 app.use('/api2', publicRoutes);
 
 // ──────────────────────────────────────
-// MAIN ROUTES
+// MAIN SaaS ROUTES
 // ──────────────────────────────────────
+app.use('/api',  superadminRoutes);
+app.use('/api2', tenantRoutes);
+app.use('/api3', userRoutes);
 
-app.use('/api',  superadminRoutes)
-app.use('/api2', tenantRoutes)
-app.use('/api3', userRoutes)
+app.use('/api4',          contactRoutes);
+app.use('/api2/contacts', contactRoutes);
 
-app.use('/api4',          contactRoutes)
-app.use('/api2/contacts', contactRoutes)
+app.use('/api5', conversationRoutes);
+app.use('/api6', messageRoutes);
+app.use('/api7', tagRoutes);
 
-app.use('/api5', conversationRoutes)
-app.use('/api6', messageRoutes)
-app.use('/api7', tagRoutes)
+app.use("/api/plans",  planRoutes);
+app.use("/api2/plans", planRoutes);
 
-app.use("/api/plans",  planRoutes)
-app.use("/api2/plans", planRoutes)
+app.use('/api8', templateRoutes);
+app.use('/api9', broadcastRoutes);
 
-app.use('/api8', templateRoutes)
-app.use('/api9', broadcastRoutes)
-
-app.use('/api2/whatsapp',       whatsappRoutes)
+app.use('/api2/whatsapp',       whatsappRoutes);
 app.use('/api/google-sheets', googleSheetsRoutes);
 app.use('/api2/google-sheets', googleSheetsRoutes);
-app.use("/api2/notifications",  notificationRoutes)
-app.use("/api/super-admin/notifications", superAdminNotificationRoutes)
-app.use('/api2/quick-replies', quickReplyRoutes)
+app.use("/api2/notifications",  notificationRoutes);
+app.use("/api/super-admin/notifications", superAdminNotificationRoutes);
+app.use('/api2/quick-replies', quickReplyRoutes);
 
-app.use("/api2", ticketRoutes)
-app.use("/api",  adminTicketRoutes)
-app.use("/api",  revenueRoutes)
+app.use("/api2", ticketRoutes);
+app.use("/api",  adminTicketRoutes);
+app.use("/api",  revenueRoutes);
 
-// Analytics
+// Analytics & Reports
 app.use('/api2/analytics', analyticsRoutes);
-
-// Enquiries and Enterprise Leads mounting
 app.use("/api", enquiryRoutes);
 app.use("/api2", enquiryRoutes);
+
+// Enterprise Leads
 app.use("/api/register/enterprise-lead", enterpriseLeadRoutes);
 app.use("/api2/register/enterprise-lead", enterpriseLeadRoutes);
 app.use("/api/admin/enterprise-leads", enterpriseLeadAdminRoutes);
 
+// Billing & Subscriptions
 app.use('/api/billing', billingRoutes);
 app.use('/api2/billing', billingRoutes);
 app.use('/api/admin/subscriptions', adminSubscriptionsRoute);
 
+// Security Audit logs & DLQ Failovers
 app.use('/api/superadmin/audit-logs', auditLogRoutes);
 app.use('/api/dlq', dlqRoutes);
 app.use('/api2/orders', orderRoutes);
 
-
+// Zoho Protected API endpoints
+app.use('/api2/zoho', zohoRoutes);
 
 // ──────────────────────────────────────
 // ERROR HANDLERS
 // ──────────────────────────────────────
-// 404
 app.use((req, res, next) => {
   res.status(404).json({
     success: false,
@@ -260,7 +259,6 @@ app.use((req, res, next) => {
   });
 });
 
-// Global Error
 app.use((err, req, res, next) => {
   console.error('❌ Server Error:', err.stack);
   const isProduction = process.env.NODE_ENV === 'production';
@@ -272,6 +270,5 @@ app.use((err, req, res, next) => {
       : (err.message || 'Internal Server Error')
   });
 });
-
 
 export default app;
