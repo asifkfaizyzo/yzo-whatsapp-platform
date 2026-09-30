@@ -334,13 +334,10 @@ export const dispatchInvoice = async (req, res) => {
   }
 };
 
+
 export const triggerPullSync = async (req, res) => {
   try {
     const tenantId = req.tenant?.id || req.tenantId;
-    if (!tenantId) {
-      return res.status(401).json({ success: false, message: 'Tenant not authenticated' });
-    }
-
     const result = await pullContactsFromZoho(tenantId);
     return res.status(200).json({
       success: true,

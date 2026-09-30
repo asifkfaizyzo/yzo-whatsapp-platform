@@ -189,3 +189,20 @@ export const updateZohoPreferences = async (preferences) => {
     };
   }
 };
+
+
+export const triggerZohoPullSync = async () => {
+  try {
+    const response = await api.post(`${ZOHO_BASE_URL}/sync/pull`);
+    return {
+      success: true,
+      message: response.data?.message || "Import completed",
+      data: response.data?.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to pull contacts from Zoho",
+    };
+  }
+};

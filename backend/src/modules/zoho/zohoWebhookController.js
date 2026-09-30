@@ -11,6 +11,7 @@ import { processZohoWebhookEvent } from './zohoWebhookService.js';
 export const handleZohoWebhook = async (req, res) => {
   try {
     const body = req.body;
+    console.log('📥 [ZohoWebhook] Inbound notification received:', JSON.stringify(body));
 
     if (!body || !body.notifications) {
       return res.status(200).json({ status: 'ignored', reason: 'no_notifications' });
