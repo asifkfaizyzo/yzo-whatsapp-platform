@@ -1,5 +1,4 @@
-// src/workers/webhookWorker.js
-
+//src/workers/webhookWorker.js
 import { Worker } from 'bullmq';
 import { QUEUE_NAME_WEBHOOK } from '../queues/webhookQueue.js';
 import { redisConnection } from '../config/redis.js';
@@ -66,6 +65,33 @@ export const downloadMetaMediaFromUrl = async ({ url, type, tenantId, contactId 
   } catch (err) {
     console.warn(`⚠️ Meta media download failed for ${url}, falling back to original URL:`, err.message);
     return { publicUrl: url, fileName: `${type}_attachment`, fileSize: null, localPath: null };
+  }
+};
+
+// ─────────────────────────────────────────────────────────────
+// UNIFIED ZOHO AUTO-SYNC TRIGGER (Preference-scoped)
+// Routes newly created contacts to EITHER Contacts OR Leads
+// based on tenant's syncDestination preference — never both.
+// ─────────────────────────────────────────────────────────────
+const triggerZohoAutoSyncForNewContact = async (tenantId, contact) => {
+  try {
+    const { getTenantZohoPreferences, autoSyncContactToZoho } = await import('../modules/zoho/zohoContactService.js');
+    const prefs = await getTenantZohoPreferences(tenantId);
+
+    if (!prefs?.autoSyncNewContacts) return;
+
+    if (prefs.syncDestination === 'LEADS') {
+      const { createZohoLead } = await import('../modules/zoho/zohoLeadService.js');
+      createZohoLead(tenantId, contact).catch((err) => {
+        console.error('⚠️ [WebhookWorker] createZohoLead failed:', err.message);
+      });
+    } else {
+      autoSyncContactToZoho(tenantId, contact.id).catch((err) => {
+        console.error('⚠️ [WebhookWorker] autoSyncContactToZoho failed:', err.message);
+      });
+    }
+  } catch (err) {
+    console.error('⚠️ [WebhookWorker] Zoho trigger error:', err.message);
   }
 };
 
@@ -335,6 +361,11 @@ export const processMetaPageOrInstagramJob = async (job, body) => {
             phone: null,
           },
         });
+
+        // ── Preference-scoped Zoho auto-sync for new social contacts ──
+        if (isNewContact) {
+          await triggerZohoAutoSyncForNewContact(tenant.id, contact);
+        }
 
         // 7. Save message via handleIncomingMessage
         const result = await handleIncomingMessage({
@@ -665,7 +696,7 @@ export const processWebhookJob = async (job) => {
       }
     }
 
-    return; // ✅ status handled, stop here // ✅ status handled, stop here
+    return; // ✅ status handled, stop here
   }
 
 
@@ -975,6 +1006,31 @@ export const processWebhookJob = async (job) => {
       wamid: messageId,
     });
 
+    // ── Phase 4: Log message as Zoho Note ──
+    try {
+      const { logMessageAsZohoNote } = await import('../modules/zoho/zohoNoteService.js');
+      logMessageAsZohoNote(tenant.id, contact.id, {
+        direction: 'INBOUND',
+        senderType: 'CONTACT',
+        type,
+        text,
+        mediaName,
+        caption,
+        channel: 'WhatsApp',
+        locLatitude,
+        locLongitude,
+        locName,
+        locAddress,
+        createdAt: new Date(),
+      }).catch(() => {});
+    } catch (_) {}
+
+    // ── Preference-scoped Zoho auto-sync for new WhatsApp contacts ──
+    // Routes to EITHER Contacts module OR Leads module based on tenant preference — never both.
+    if (isNewContact) {
+      await triggerZohoAutoSyncForNewContact(tenant.id, contact);
+    }
+
     // ── Socket: emit to tenant room ────────────────────────
     emitToTenant(tenant.id, 'new_message', {
       conversationId: result.conversation.id,
@@ -998,10 +1054,6 @@ export const processWebhookJob = async (job) => {
         createdAt: result.message.createdAt,
       }
     });
-
-
-
-    // ── Socket: emit notification to tenant ────────────────
 
     // ── Save + Emit notification ───────────────────────────
     const notifMessage = text
@@ -1045,7 +1097,6 @@ export const processWebhookJob = async (job) => {
     // ── Socket: emit to assigned user ──────────────────────
     if (contact.assignedTo) {
       emitToUser(contact.assignedTo, 'new_message', {
-
         conversationId: result.conversation.id,
         message: {
           id: result.message.id,
@@ -1192,6 +1243,12 @@ export const processWebhookJob = async (job) => {
           });
           console.log(`✅ [ORDER CREATED] New Order #${createdOrder.orderNumber} saved (ID: ${createdOrder.id})`);
         }
+
+        // ── Phase 4: Create Zoho Deal from order ──
+        try {
+          const { createZohoDealFromOrder } = await import('../modules/zoho/zohoDealService.js');
+          createZohoDealFromOrder(tenant.id, createdOrder, contact).catch(() => {});
+        } catch (_) {}
 
         // Emit new_order socket event to tenant
         emitToTenant(tenant.id, 'new_order', {

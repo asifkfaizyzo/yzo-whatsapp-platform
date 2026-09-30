@@ -109,6 +109,8 @@ export const createContact = async (data, tenantId, userId) => {
         }
     });
 
+    triggerZohoAutoSync(tenantId, contact.id);
+
     return {
         message: 'Contact created successfully',
         contact: finalContact
@@ -383,6 +385,8 @@ export const updateContact = async (contactId, tenantId, data) => {
         }
     });
 
+    triggerZohoAutoSync(tenantId, contactId);
+
     return {
         message: 'Contact updated successfully',
         contact: contactWithTags,
@@ -650,9 +654,10 @@ export const importContactsFromCSV = async (filePath, tenantId) => {
             }
         }
 
-        // Auto Assign
+        // Auto Assign + Zoho Auto-Sync
         for (const c of summary.createdContacts) {
             await assignContactByPriority(c.id, tenantId).catch(console.error);
+            triggerZohoAutoSync(tenantId, c.id);
         }
 
         deleteTempFile();
@@ -897,3 +902,18 @@ export const getTagById = async (tagId) => {
         where: { id: tagId }
     });
 }; 
+
+/**
+ * Auto-sync hook: Push contact to Zoho CRM if integration is connected.
+ * Non-blocking — runs in background via dynamic import to avoid circular deps.
+ */
+async function triggerZohoAutoSync(tenantId, contactId) {
+  try {
+    const { autoSyncContactToZoho } = await import('../zoho/zohoContactService.js');
+    autoSyncContactToZoho(tenantId, contactId).catch((err) => {
+      console.error(`[ZohoAutoSync] Background error for contact ${contactId}:`, err.message);
+    });
+  } catch (_) {
+    // Zoho module not available — silently ignore
+  }
+}

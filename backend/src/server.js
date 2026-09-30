@@ -1,3 +1,5 @@
+// src/server.js
+
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -25,6 +27,9 @@ import './jobs/expiryRemindersJob.js';
 import { startAuditCleanupJob } from './jobs/auditCleanupJob.js';
 import { startWebhookEventsCleanupJob } from './jobs/cleanupWebhookEventsJob.js';
 import { initQuickReplyIndexes } from './scripts/initQuickReplyIndexes.js';
+import { startZohoSyncWorker } from './workers/zohoSyncWorker.js';
+import { startZohoStaleTaskJob } from './jobs/zohoStaleTaskJob.js';
+import { startZohoWatchRenewalJob } from './jobs/zohoWatchRenewalJob.js';
 
 import { redisConnection } from './config/redis.js';
 
@@ -40,9 +45,12 @@ initSocket(server);
 const webhookWorker = startWebhookWorker();
 const orderWebhookWorker = startOrderWebhookWorker();
 const broadcastWorker = startBroadcastWorker();
+const zohoSyncWorker = startZohoSyncWorker();
 startCleanupWorker();
 startAuditCleanupJob(); 
 startWebhookEventsCleanupJob();
+startZohoStaleTaskJob();
+startZohoWatchRenewalJob(); // ✅ Handled and running alongside workers
 initQuickReplyIndexes();
 console.log('👷 Background workers and cleanup tasks started successfully!');
 
@@ -62,6 +70,7 @@ const gracefulShutdown = async (signal) => {
       if (webhookWorker) await webhookWorker.close();
       if (orderWebhookWorker) await orderWebhookWorker.close();
       if (broadcastWorker) await broadcastWorker.close();
+      if (zohoSyncWorker) await zohoSyncWorker.close();
       console.log('👷 BullMQ workers closed successfully.');
 
       // Safely close Redis connection
@@ -76,8 +85,5 @@ const gracefulShutdown = async (signal) => {
   });
 };
 
-
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-
-
