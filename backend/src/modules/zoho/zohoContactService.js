@@ -4,14 +4,46 @@ import prisma from '../../config/prisma.js';
 import { zohoRequest } from './zohoClient.js';
 import { emitToTenant } from '../../lib/socket.js';
 import { createAuditLog } from '../audit/auditLogService.js';
+import { redisConnection } from '../../config/redis.js';
 
 const BATCH_SIZE = 100;
+const SYNC_LOCK_TTL = 30;
+
+const DEFAULT_PREFERENCES = {
+  syncDestination: 'CONTACTS',
+  logConversationNotes: true,
+  createDealsOnOrders: true,
+  createFollowUpTasks: true,
+  autoSyncNewContacts: true,
+};
 
 /**
- * Deterministic Name Split Rule:
- * - Multi-word: everything before the last space -> First_Name, last word -> Last_Name
- * - Single-word: First_Name = null, word -> Last_Name
- * - Empty/whitespace: Last_Name = "Unknown"
+ * Centralized preferences loader from Redis with standard defaults
+ */
+export async function getTenantZohoPreferences(tenantId) {
+  try {
+    const key = `zoho_prefs:${tenantId}`;
+    const raw = await redisConnection.get(key);
+    return raw ? { ...DEFAULT_PREFERENCES, ...JSON.parse(raw) } : DEFAULT_PREFERENCES;
+  } catch (err) {
+    console.warn(`⚠️ [ZohoPreferences] Redis error for tenant ${tenantId}, using defaults:`, err.message);
+    return DEFAULT_PREFERENCES;
+  }
+}
+
+/**
+ * Helper to check connection status cleanly
+ */
+async function isZohoConnected(tenantId) {
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: { zohoConnectionStatus: true },
+  });
+  return tenant?.zohoConnectionStatus === 'CONNECTED';
+}
+
+/**
+ * Deterministic Name Split Rule
  */
 export function splitContactName(rawName) {
   const trimmed = (rawName || '').trim();
@@ -37,7 +69,6 @@ export function splitContactName(rawName) {
 
 /**
  * Transforms a Sudo Reply Contact into an enriched Zoho CRM Contact payload.
- * Includes Lead Source, Description, Tags, and channel metadata.
  */
 export function formatContactForZoho(contact, existingZohoId = null) {
   const { firstName, lastName } = splitContactName(contact.name);
@@ -74,18 +105,16 @@ export function formatContactForZoho(contact, existingZohoId = null) {
 
 /**
  * AUTO-SYNC: Push a single contact to Zoho CRM in real-time.
- * Called automatically when a contact is created or updated in Sudo Reply.
- * Non-blocking — failures are logged but do not interrupt the main flow.
+ * Strictly respects active connection, lock triggers, and preferences.
  */
 export async function autoSyncContactToZoho(tenantId, contactId) {
   try {
-    const tenant = await prisma.tenant.findUnique({
-      where: { id: tenantId },
-      select: { zohoConnectionStatus: true },
-    });
+    if (!(await isZohoConnected(tenantId))) return;
 
-    if (!tenant || tenant.zohoConnectionStatus !== 'CONNECTED') {
-      return; // Zoho not connected — silently skip
+    // Check preference
+    const prefs = await getTenantZohoPreferences(tenantId);
+    if (!prefs.autoSyncNewContacts || prefs.syncDestination !== 'CONTACTS') {
+      return; // Sync disabled or routed to Leads instead
     }
 
     const contact = await prisma.contact.findUnique({
@@ -97,13 +126,12 @@ export async function autoSyncContactToZoho(tenantId, contactId) {
     });
 
     if (!contact || !contact.isActive || contact.isBlocked) {
-      return; // Skip inactive/blocked contacts
+      return;
     }
 
     const existingMapping = contact.providerMappings?.[0];
     const zohoPayload = formatContactForZoho(contact, existingMapping?.providerContactId);
 
-    // Attach Zoho Tags if contact has Sudo Reply tags
     if (contact.contactTags && contact.contactTags.length > 0) {
       const tagNames = contact.contactTags
         .map((ct) => ct.tag?.name)
@@ -111,6 +139,15 @@ export async function autoSyncContactToZoho(tenantId, contactId) {
       if (tagNames.length > 0) {
         zohoPayload.Tag = tagNames.join(', ');
       }
+    }
+
+    // Set loop prevention lock in Redis
+    const lockKeyContact = `zoho_sync_lock:${contactId}`;
+    await redisConnection.set(lockKeyContact, '1', 'EX', SYNC_LOCK_TTL);
+
+    if (existingMapping?.providerContactId) {
+      const lockKeyRecord = `zoho_sync_lock:${existingMapping.providerContactId}`;
+      await redisConnection.set(lockKeyRecord, '1', 'EX', SYNC_LOCK_TTL);
     }
 
     const response = await zohoRequest(tenantId, {
@@ -126,6 +163,10 @@ export async function autoSyncContactToZoho(tenantId, contactId) {
 
     if (result && result.code === 'SUCCESS' && result.details?.id) {
       const zohoRecordId = result.details.id;
+
+      // Lock the newly generated Zoho ID as well
+      const lockKeyNewRecord = `zoho_sync_lock:${zohoRecordId}`;
+      await redisConnection.set(lockKeyNewRecord, '1', 'EX', SYNC_LOCK_TTL);
 
       await prisma.contactProviderMapping.upsert({
         where: {
@@ -152,7 +193,6 @@ export async function autoSyncContactToZoho(tenantId, contactId) {
       console.warn(`⚠️ [ZohoAutoSync] Contact ${contact.id} failed:`, result?.message || 'Unknown');
     }
   } catch (error) {
-    // Non-blocking: log but never crash the main flow
     console.error(`❌ [ZohoAutoSync] Failed for contact ${contactId}:`, error.response?.data || error.message);
   }
 }
@@ -193,7 +233,6 @@ export async function syncTenantContactsToZoho(tenantId, options = {}) {
 
   emitToTenant(tenantId, 'zoho_sync_started', { syncType });
 
-  // Dynamically resolve incremental sync date using the last synced contact mapping timestamp
   let lastSyncedAt = null;
   if (syncType === 'INCREMENTAL') {
     const latestMapping = await prisma.contactProviderMapping.findFirst({
@@ -210,14 +249,12 @@ export async function syncTenantContactsToZoho(tenantId, options = {}) {
   let totalUpdated = 0;
   let totalFailed = 0;
 
-  // Build base where clause
   const baseWhere = {
     tenantId,
     isActive: true,
     isBlocked: false,
   };
 
-  // Incremental filter
   if (syncType === 'INCREMENTAL' && lastSyncedAt) {
     baseWhere.updatedAt = { gte: lastSyncedAt };
     console.log(`📅 [ZohoSync] Incremental mode: syncing contacts updated since ${lastSyncedAt}`);
@@ -242,7 +279,6 @@ export async function syncTenantContactsToZoho(tenantId, options = {}) {
         const existingMapping = c.providerMappings?.[0];
         const payload = formatContactForZoho(c, existingMapping?.providerContactId);
 
-        // Attach tags
         if (c.contactTags && c.contactTags.length > 0) {
           const tagNames = c.contactTags.map((ct) => ct.tag?.name).filter(Boolean);
           if (tagNames.length > 0) {
@@ -252,6 +288,15 @@ export async function syncTenantContactsToZoho(tenantId, options = {}) {
 
         return payload;
       });
+
+      // Apply loop locks for the batch chunk
+      for (const c of contacts) {
+        await redisConnection.set(`zoho_sync_lock:${c.id}`, '1', 'EX', SYNC_LOCK_TTL);
+        const existingId = c.providerMappings?.[0]?.providerContactId;
+        if (existingId) {
+          await redisConnection.set(`zoho_sync_lock:${existingId}`, '1', 'EX', SYNC_LOCK_TTL);
+        }
+      }
 
       let response;
       try {
@@ -267,12 +312,11 @@ export async function syncTenantContactsToZoho(tenantId, options = {}) {
         const status = apiError.response?.status;
         const errorData = apiError.response?.data;
 
-        // Rate limit handling
         if (status === 429) {
           const retryAfter = parseInt(apiError.response?.headers?.['retry-after'] || '60', 10);
           console.warn(`⏳ [ZohoSync] Rate limited. Waiting ${retryAfter}s before retrying batch at offset ${offset}`);
           await new Promise((r) => setTimeout(r, retryAfter * 1000));
-          continue; // Retry same batch
+          continue;
         }
 
         console.error(`❌ [ZohoSync] Batch API error at offset ${offset}:`, errorData || apiError.message);
@@ -293,6 +337,8 @@ export async function syncTenantContactsToZoho(tenantId, options = {}) {
 
           if (action === 'insert') totalCreated++;
           else totalUpdated++;
+
+          await redisConnection.set(`zoho_sync_lock:${zohoRecordId}`, '1', 'EX', SYNC_LOCK_TTL);
 
           await prisma.contactProviderMapping.upsert({
             where: {
@@ -331,7 +377,6 @@ export async function syncTenantContactsToZoho(tenantId, options = {}) {
 
       if (contacts.length < BATCH_SIZE) break;
 
-      // Rate-limit courtesy delay between batches (1 second)
       await new Promise((r) => setTimeout(r, 1000));
     }
 

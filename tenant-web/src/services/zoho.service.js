@@ -43,9 +43,12 @@ export const getZohoStatus = async () => {
 /**
  * Fetch Zoho CRM plan info and capabilities
  */
-export const getZohoPlanInfo = async () => {
+
+
+export const getZohoPlanInfo = async (forceRefresh = false) => {
   try {
-    const response = await api.get(`${ZOHO_BASE_URL}/plan`);
+    const url = forceRefresh ? `${ZOHO_BASE_URL}/plan?refresh=true` : `${ZOHO_BASE_URL}/plan`;
+    const response = await api.get(url);
     return {
       success: true,
       data: response.data.data,

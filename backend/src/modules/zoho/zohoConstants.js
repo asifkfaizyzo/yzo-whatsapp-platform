@@ -61,10 +61,12 @@ export const ZOHO_BASE_SCOPES = [
 
 /**
  * Phase 4+ Scopes (plan detection + notifications + settings)
+ * Enhanced with ZohoCRM.org.READ for native plan detection
  */
 export const ZOHO_EXTENDED_SCOPES = [
   'ZohoCRM.settings.ALL',
   'ZohoCRM.notifications.ALL',
+  'ZohoCRM.org.READ',
 ];
 
 /**

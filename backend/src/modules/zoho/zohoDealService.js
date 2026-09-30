@@ -3,12 +3,28 @@
 import prisma from '../../config/prisma.js';
 import { zohoRequest } from './zohoClient.js';
 import { hasZohoFeature } from './zohoPlanService.js';
+import { getTenantZohoPreferences } from './zohoContactService.js';
+import { redisConnection } from '../../config/redis.js';
+
+const SYNC_LOCK_TTL = 30;
 
 /**
  * Create a Deal in Zoho CRM when a WhatsApp order is placed.
  */
 export async function createZohoDealFromOrder(tenantId, order, contact) {
   try {
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { zohoConnectionStatus: true },
+    });
+
+    if (!tenant || tenant.zohoConnectionStatus !== 'CONNECTED') {
+      return;
+    }
+
+    const prefs = await getTenantZohoPreferences(tenantId);
+    if (!prefs.createDealsOnOrders) return;
+
     const canCreate = await hasZohoFeature(tenantId, 'deals');
     if (!canCreate) return;
 
@@ -38,6 +54,10 @@ export async function createZohoDealFromOrder(tenantId, order, contact) {
     } else {
       dealPayload.Contact_Name = mapping.providerContactId;
     }
+
+    // Lock key for deals
+    const lockKeyDeal = `zoho_sync_lock_deal:${order.id}`;
+    await redisConnection.set(lockKeyDeal, '1', 'EX', SYNC_LOCK_TTL);
 
     const response = await zohoRequest(tenantId, {
       method: 'POST',
@@ -84,6 +104,18 @@ export async function createZohoDealFromOrder(tenantId, order, contact) {
  */
 export async function updateZohoDealStage(tenantId, orderId, paymentStatus) {
   try {
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { zohoConnectionStatus: true },
+    });
+
+    if (!tenant || tenant.zohoConnectionStatus !== 'CONNECTED') {
+      return;
+    }
+
+    const prefs = await getTenantZohoPreferences(tenantId);
+    if (!prefs.createDealsOnOrders) return;
+
     const canUpdate = await hasZohoFeature(tenantId, 'deals');
     if (!canUpdate) return;
 

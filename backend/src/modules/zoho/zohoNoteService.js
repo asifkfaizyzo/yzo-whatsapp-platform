@@ -3,18 +3,31 @@
 import prisma from '../../config/prisma.js';
 import { zohoRequest } from './zohoClient.js';
 import { hasZohoFeature } from './zohoPlanService.js';
+import { getTenantZohoPreferences } from './zohoContactService.js';
 
 /**
- * Log a WhatsApp message as a Note in the Zoho Contact record.
- * Called from webhook worker for every inbound/outbound message.
- * Non-blocking — failures are silently logged.
+ * Log a WhatsApp message as a Note in the Zoho Contact/Lead record.
+ * Checked against active connection, feature capability, and note logging preferences.
  */
 export async function logMessageAsZohoNote(tenantId, contactId, message) {
   try {
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { zohoConnectionStatus: true },
+    });
+
+    if (!tenant || tenant.zohoConnectionStatus !== 'CONNECTED') {
+      return; // Silent bypass — avoid decryptions/errors for unconnected tenants
+    }
+
+    const prefs = await getTenantZohoPreferences(tenantId);
+    if (!prefs.logConversationNotes) {
+      return; // Notes logging preference is disabled
+    }
+
     const canLog = await hasZohoFeature(tenantId, 'notes');
     if (!canLog) return;
 
-    // Find Zoho contact mapping (check both ZOHO and ZOHO_LEAD providers)
     const mapping = await prisma.contactProviderMapping.findFirst({
       where: {
         contactId,
@@ -22,7 +35,7 @@ export async function logMessageAsZohoNote(tenantId, contactId, message) {
       },
     });
 
-    if (!mapping) return; // Contact not synced to Zoho yet
+    if (!mapping) return;
 
     const direction = message.direction === 'INBOUND' ? '📥 From Customer' : '📤 From Agent';
     const senderLabel = message.senderType === 'CONTACT'
@@ -56,7 +69,6 @@ export async function logMessageAsZohoNote(tenantId, contactId, message) {
       noteContent += message.text || `[${message.type}]`;
     }
 
-    // Determine the Zoho module based on provider type
     const zohoModule = mapping.provider === 'ZOHO_LEAD' ? 'Leads' : 'Contacts';
 
     await zohoRequest(tenantId, {
@@ -66,7 +78,7 @@ export async function logMessageAsZohoNote(tenantId, contactId, message) {
         data: [
           {
             Note_Title: `${direction} — ${new Date().toLocaleDateString('en-IN')}`,
-            Note_Content: noteContent.substring(0, 5000), // Zoho limit
+            Note_Content: noteContent.substring(0, 5000),
           },
         ],
       },
@@ -74,7 +86,6 @@ export async function logMessageAsZohoNote(tenantId, contactId, message) {
 
     console.log(`📝 [ZohoNote] Logged ${message.direction} message for contact ${contactId} → Zoho ${zohoModule}`);
   } catch (error) {
-    // Non-blocking
     console.error(`❌ [ZohoNote] Failed for contact ${contactId}:`, error.response?.data || error.message);
   }
 }

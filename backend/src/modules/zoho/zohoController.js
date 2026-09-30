@@ -190,6 +190,7 @@ export const triggerIncrementalSync = async (req, res) => {
  * GET /api2/zoho/plan
  * Returns detected Zoho plan and available features
  */
+
 export const getPlanInfo = async (req, res) => {
   try {
     const tenantId = req.tenant?.id || req.tenantId;
@@ -197,13 +198,13 @@ export const getPlanInfo = async (req, res) => {
       return res.status(401).json({ success: false, message: 'Tenant not authenticated' });
     }
 
-    const plan = await detectZohoPlan(tenantId);
+    const forceRefresh = req.query.refresh === 'true' || req.query.force === 'true';
+    const plan = await detectZohoPlan(tenantId, forceRefresh);
     return res.status(200).json({ success: true, data: plan });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
   }
 };
-
 /**
  * GET /api2/zoho/preferences
  * Fetches tenant-specific Zoho automation toggles

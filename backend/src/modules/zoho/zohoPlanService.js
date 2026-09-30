@@ -1,4 +1,5 @@
-//src/modules/zoho/zohoPlanService.js
+// src/modules/zoho/zohoPlanService.js
+
 import { redisConnection } from '../../config/redis.js';
 import { zohoRequest } from './zohoClient.js';
 import { emitToTenant } from '../../lib/socket.js';
@@ -10,12 +11,12 @@ import {
 
 /**
  * Detect the Zoho CRM edition for a tenant.
- * Caches result in Redis for 24 hours to minimize API calls.
+ * Caches result in Redis for 24 hours unless forceRefresh = true.
  */
 export async function detectZohoPlan(tenantId, forceRefresh = false) {
   const cacheKey = `${ZOHO_PLAN_CACHE_PREFIX}${tenantId}`;
 
-  // Return cached result if available
+  // Return cached result if available and not forcing refresh
   if (!forceRefresh) {
     const cached = await redisConnection.get(cacheKey);
     if (cached) {
@@ -33,24 +34,55 @@ export async function detectZohoPlan(tenantId, forceRefresh = false) {
 
     const org = response?.org?.[0];
 
+    // 🔍 Debug log to see exact fields returned by Zoho CRM API
+    console.log('🔍 [ZohoPlan Debug] Raw Org Data:', JSON.stringify(org, null, 2));
+
     if (!org) {
-      console.warn(`⚠️ [ZohoPlan] No org data returned for tenant ${tenantId}`);
-      return getFallbackPlan(tenantId);
+      console.warn(`⚠️ [ZohoPlan] No org data returned for tenant ${tenantId}, probing features...`);
+      return await probeFeatures(tenantId);
     }
 
-    const edition = normalizeEdition(org.edition);
+    // 1. Check Trial Details First (Zoho Trial accounts store the actual tier here)
+    const licenseDetails = org.license_details || {};
+    const isTrial = Boolean(
+      org.is_trial ||
+      licenseDetails.trial_type ||
+      licenseDetails.trial_expiry ||
+      org.trial_days_remaining !== undefined ||
+      org.trial_type
+    );
+
+    const trialType = licenseDetails.trial_type || org.trial_type || org.trial_edition;
+    const paidType = licenseDetails.paid_type || org.edition || org.edition_type || org.plan_type;
+
+    // Prioritize active trial tier over base paid tier
+    const rawEdition = (isTrial && trialType) ? trialType : (paidType || 'Free');
+    let edition = normalizeEdition(rawEdition, org);
+
+    // 2. Double-Check Verification: If it resolved to "Free", but Deals or Webhooks are accessible,
+    // it's an Enterprise/Professional trial that Zoho labeled as base "free"
+    if (edition === 'Free') {
+      const isActuallyHigherPlan = await quickProbeIfEnterpriseOrPro(tenantId);
+      if (isActuallyHigherPlan) {
+        edition = isActuallyHigherPlan;
+        console.log(`✨ [ZohoPlan] Corrected Free label to ${edition} based on active module accessibility.`);
+      }
+    }
+
     const planData = {
       edition,
+      isTrial,
+      trialDaysRemaining: org.trial_days_remaining || licenseDetails.trial_days_remaining || null,
       companyName: org.company_name || null,
       currencySymbol: org.currency_symbol || '₹',
       countryCode: org.country_code || 'IN',
-      totalLicenses: org.license_details?.total_licenses || null,
-      usedLicenses: org.license_details?.used_licenses || null,
+      totalLicenses: licenseDetails.total_licenses || org.user_count || 1,
+      usedLicenses: licenseDetails.used_licenses || 1,
       detectedAt: new Date().toISOString(),
-      features: ZOHO_FEATURE_MATRIX[edition] || ZOHO_FEATURE_MATRIX.Free,
+      features: ZOHO_FEATURE_MATRIX[edition] || ZOHO_FEATURE_MATRIX.Enterprise,
     };
 
-    // Cache for 24 hours
+    // Cache in Redis
     await redisConnection.set(
       cacheKey,
       JSON.stringify(planData),
@@ -58,113 +90,129 @@ export async function detectZohoPlan(tenantId, forceRefresh = false) {
       ZOHO_PLAN_CACHE_TTL_SECONDS
     );
 
-    console.log(`✅ [ZohoPlan] Detected ${edition} plan for tenant ${tenantId}`);
+    console.log(`✅ [ZohoPlan] Detected ${edition} plan (Trial: ${planData.isTrial}) for tenant ${tenantId}`);
 
-    // Emit live update to frontend so UI updates instantly without refresh!
+    // Emit live socket event to update frontend instantly
     try {
       emitToTenant(tenantId, 'zoho_plan_updated', planData);
-    } catch (socketErr) {
-      console.warn(`⚠️ [ZohoPlan] Failed to emit socket update for tenant ${tenantId}:`, socketErr.message);
-    }
+    } catch (_) {}
 
     return planData;
   } catch (error) {
-    const status = error.response?.status;
-    const responseCode = error.response?.data?.code;
-
-    const isScopeMismatch = 
-      status === 403 || 
-      status === 401 || 
-      responseCode === 'OAUTH_SCOPE_MISMATCH';
-
-    if (isScopeMismatch) {
-      console.warn(`⚠️ [ZohoPlan] settings.ALL scope not authorized or restricted for tenant ${tenantId}. Running feature probes...`);
-      return await probeFeatures(tenantId);
-    }
-
-    console.error(`❌ [ZohoPlan] Plan detection failed for tenant ${tenantId}:`, error.message);
-    return getFallbackPlan(tenantId);
+    console.warn(`⚠️ [ZohoPlan] Direct org query failed (${error.response?.status || error.message}). Probing features...`);
+    return await probeFeatures(tenantId);
   }
 }
 
 /**
- * Normalize Zoho edition string to our standard keys
+ * Quick verification to detect if Deals and Webhooks are active (impossible on Zoho Free edition)
  */
-function normalizeEdition(raw) {
+async function quickProbeIfEnterpriseOrPro(tenantId) {
+  try {
+    // Probe 1: Deals (Standard+)
+    const dealsRes = await zohoRequest(tenantId, { method: 'GET', url: '/crm/v7/Deals?fields=id&per_page=1' });
+    const hasDeals = Boolean(dealsRes && !dealsRes.status);
+
+    // Probe 2: Watch / Webhooks (Professional+)
+    const watchRes = await zohoRequest(tenantId, { method: 'GET', url: '/crm/v7/actions/watch' });
+    const hasWebhooks = Boolean(watchRes);
+
+    if (hasDeals && hasWebhooks) {
+      return 'Enterprise';
+    } else if (hasWebhooks) {
+      return 'Professional';
+    } else if (hasDeals) {
+      return 'Standard';
+    }
+    return null;
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
+ * Normalize Zoho edition string to standard keys
+ */
+function normalizeEdition(raw, orgData = {}) {
+  if (!raw && orgData.is_trial) return 'Enterprise';
   if (!raw) return 'Free';
-  const lower = raw.toLowerCase().trim();
+
+  const lower = String(raw).toLowerCase().trim();
+
   if (lower.includes('ultimate')) return 'Ultimate';
   if (lower.includes('enterprise')) return 'Enterprise';
   if (lower.includes('professional') || lower.includes('pro')) return 'Professional';
   if (lower.includes('standard') || lower.includes('classic')) return 'Standard';
-  if (lower.includes('trial')) return 'Trial';
+  if (lower.includes('trial')) return 'Enterprise';
   if (lower.includes('free')) return 'Free';
+
   return 'Free';
 }
 
 /**
- * Fallback: Probe individual features to determine capabilities.
- * Multi-DC, plan-agnostic approach using standard module scopes.
+ * Fallback: Probe individual module access to determine edition
  */
 async function probeFeatures(tenantId) {
   const features = { ...ZOHO_FEATURE_MATRIX.Free };
+  let dealsAvailable = false;
+  let webhooksAvailable = false;
+  let customModulesAvailable = false;
 
-  // Probe for Deals (Standard+) with a clean 200 OK query
+  // 1. Probe Deals (Standard+)
   try {
     await zohoRequest(tenantId, { method: 'GET', url: '/crm/v7/Deals?fields=id&per_page=1' });
+    dealsAvailable = true;
     features.deals = true;
   } catch (err) {
-    const responseCode = err.response?.data?.code;
     const status = err.response?.status;
-    features.deals = (status !== 403 && responseCode !== 'OAUTH_SCOPE_MISMATCH');
+    dealsAvailable = (status !== 403 && status !== 401);
+    features.deals = dealsAvailable;
   }
 
-  // Probes for Webhooks/Watch (Professional+)
+  // 2. Probe Webhooks / Watch (Professional+)
   try {
     await zohoRequest(tenantId, { method: 'GET', url: '/crm/v7/actions/watch' });
+    webhooksAvailable = true;
     features.webhooks = true;
   } catch (err) {
-    const responseCode = err.response?.data?.code;
     const status = err.response?.status;
-    features.webhooks = (status !== 403 && responseCode !== 'OAUTH_SCOPE_MISMATCH');
+    webhooksAvailable = (status !== 403 && status !== 401);
+    features.webhooks = webhooksAvailable;
   }
 
-  // Probe Layouts/Custom modules to check for Enterprise/Ultimate
-  let hasEnterpriseLayouts = false;
+  // 3. Probe Custom Layouts / Modules (Enterprise+)
   try {
-    // Standard layouts endpoint. If accessible, we check for multi-layout support (Enterprise only)
-    const layoutsRes = await zohoRequest(tenantId, { method: 'GET', url: '/crm/v7/settings/layouts?module=Contacts' });
-    const layoutsCount = layoutsRes?.layouts?.length || 0;
-    if (layoutsCount > 1) {
-      hasEnterpriseLayouts = true;
+    const res = await zohoRequest(tenantId, { method: 'GET', url: '/crm/v7/settings/layouts?module=Contacts' });
+    if (res?.layouts?.length >= 1) {
+      customModulesAvailable = true;
+      features.customModules = true;
+      features.blueprints = true;
     }
-  } catch (err) {
-    // If blocked, fallback to testing a custom field structure
+  } catch (_) {
+    if (dealsAvailable && webhooksAvailable) {
+      customModulesAvailable = true;
+      features.customModules = true;
+    }
   }
 
-  // Infer edition from probes
+  // Infer edition based on probe results
   let edition = 'Free';
-  if (hasEnterpriseLayouts) {
+  if (customModulesAvailable || (dealsAvailable && webhooksAvailable)) {
     edition = 'Enterprise';
-  } else if (features.webhooks) {
+  } else if (webhooksAvailable) {
     edition = 'Professional';
-  } else if (features.deals) {
+  } else if (dealsAvailable) {
     edition = 'Standard';
-  }
-
-  // Enterprise override for Sudo Reply Trial mode
-  // If we have deals and webhooks, and the user's trial setup supports it, we elevate to Enterprise!
-  if (features.deals && features.webhooks) {
-    edition = 'Enterprise';
   }
 
   const planData = {
     edition,
+    isTrial: true,
     companyName: null,
     currencySymbol: '₹',
     countryCode: 'IN',
-    totalLicenses: null,
-    usedLicenses: null,
+    totalLicenses: 1,
+    usedLicenses: 1,
     detectedAt: new Date().toISOString(),
     features: ZOHO_FEATURE_MATRIX[edition] || ZOHO_FEATURE_MATRIX.Enterprise,
     detectedVia: 'probes',
@@ -173,31 +221,11 @@ async function probeFeatures(tenantId) {
   const cacheKey = `${ZOHO_PLAN_CACHE_PREFIX}${tenantId}`;
   await redisConnection.set(cacheKey, JSON.stringify(planData), 'EX', ZOHO_PLAN_CACHE_TTL_SECONDS);
 
-  // Emit live update to frontend so UI updates instantly without refresh!
   try {
     emitToTenant(tenantId, 'zoho_plan_updated', planData);
-  } catch (socketErr) {
-    console.warn(`⚠️ [ZohoPlan] Failed to emit socket update for tenant ${tenantId} during probe:`, socketErr.message);
-  }
+  } catch (_) {}
 
   return planData;
-}
-
-/**
- * Fallback plan when detection completely fails
- */
-function getFallbackPlan(tenantId) {
-  return {
-    edition: 'Unknown',
-    companyName: null,
-    currencySymbol: '₹',
-    countryCode: 'IN',
-    totalLicenses: null,
-    usedLicenses: null,
-    detectedAt: null,
-    features: ZOHO_FEATURE_MATRIX.Free,
-    detectedVia: 'fallback',
-  };
 }
 
 /**

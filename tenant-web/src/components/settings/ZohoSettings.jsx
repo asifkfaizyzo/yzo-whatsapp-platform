@@ -121,12 +121,15 @@ export default function ZohoSettings({ onBack } = {}) {
     }
   };
 
-  const fetchPlanDetails = async () => {
+  const fetchPlanDetails = async (forceRefresh = false) => {
     setPlanLoading(true);
     try {
-      const res = await getZohoPlanInfo();
+      const res = await getZohoPlanInfo(forceRefresh);
       if (res.success && res.data) {
         setPlanInfo(res.data);
+        if (forceRefresh) {
+          toast.success(`Plan updated: ${res.data.edition} Edition`);
+        }
       }
     } catch (err) {
       console.error("Failed to load Zoho plan details:", err);
@@ -854,9 +857,21 @@ export default function ZohoSettings({ onBack } = {}) {
           {/* Plan Capability matrix details */}
           {isConnected && (
             <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-2xs space-y-3.5">
-              <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
-                <ShieldCheck size={14} className="text-[#009A44]" />
-                <h4 className="text-xs font-bold text-slate-800">Plan Capabilities</h4>
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck size={14} className="text-[#009A44]" />
+                  <h4 className="text-xs font-bold text-slate-800">Plan Capabilities</h4>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => fetchPlanDetails(true)}
+                  disabled={planLoading}
+                  title="Re-detect Zoho CRM Plan"
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-[#009A44] transition disabled:opacity-50"
+                >
+                  <RefreshCw size={11} className={planLoading ? "animate-spin text-[#009A44]" : ""} />
+                  <span>Re-detect</span>
+                </button>
               </div>
 
               {planLoading ? (

@@ -69,6 +69,33 @@ export const downloadMetaMediaFromUrl = async ({ url, type, tenantId, contactId 
 };
 
 // ─────────────────────────────────────────────────────────────
+// UNIFIED ZOHO AUTO-SYNC TRIGGER (Preference-scoped)
+// Routes newly created contacts to EITHER Contacts OR Leads
+// based on tenant's syncDestination preference — never both.
+// ─────────────────────────────────────────────────────────────
+const triggerZohoAutoSyncForNewContact = async (tenantId, contact) => {
+  try {
+    const { getTenantZohoPreferences, autoSyncContactToZoho } = await import('../modules/zoho/zohoContactService.js');
+    const prefs = await getTenantZohoPreferences(tenantId);
+
+    if (!prefs?.autoSyncNewContacts) return;
+
+    if (prefs.syncDestination === 'LEADS') {
+      const { createZohoLead } = await import('../modules/zoho/zohoLeadService.js');
+      createZohoLead(tenantId, contact).catch((err) => {
+        console.error('⚠️ [WebhookWorker] createZohoLead failed:', err.message);
+      });
+    } else {
+      autoSyncContactToZoho(tenantId, contact.id).catch((err) => {
+        console.error('⚠️ [WebhookWorker] autoSyncContactToZoho failed:', err.message);
+      });
+    }
+  } catch (err) {
+    console.error('⚠️ [WebhookWorker] Zoho trigger error:', err.message);
+  }
+};
+
+// ─────────────────────────────────────────────────────────────
 // FACEBOOK MESSENGER & INSTAGRAM PROCESSOR
 // ─────────────────────────────────────────────────────────────
 export const processMetaPageOrInstagramJob = async (job, body) => {
@@ -335,12 +362,9 @@ export const processMetaPageOrInstagramJob = async (job, body) => {
           },
         });
 
-        // Trigger real-time Zoho CRM sync for newly created social contacts
+        // ── Preference-scoped Zoho auto-sync for new social contacts ──
         if (isNewContact) {
-          try {
-            const { autoSyncContactToZoho } = await import('../modules/zoho/zohoContactService.js');
-            autoSyncContactToZoho(tenant.id, contact.id).catch(() => {});
-          } catch (_) {}
+          await triggerZohoAutoSyncForNewContact(tenant.id, contact);
         }
 
         // 7. Save message via handleIncomingMessage
@@ -736,12 +760,6 @@ export const processWebhookJob = async (job) => {
           whatsappId: normalizedPhone.replace(/^\+/, '').slice(-10)
         }
       });
-      if (isNewContact) {
-        try {
-          const { autoSyncContactToZoho } = await import('../modules/zoho/zohoContactService.js');
-          autoSyncContactToZoho(tenant.id, contact.id).catch(() => {});
-        } catch (_) {}
-      }
       console.log(`🆕 New contact: ${contact.name} (${normalizedPhone})`);
     } else {
       console.log(`♻️ Existing contact: ${contact.name} (${normalizedPhone})`);
@@ -1007,12 +1025,10 @@ export const processWebhookJob = async (job) => {
       }).catch(() => {});
     } catch (_) {}
 
-    // ── Phase 4: Create Zoho Lead for new contacts ──
+    // ── Preference-scoped Zoho auto-sync for new WhatsApp contacts ──
+    // Routes to EITHER Contacts module OR Leads module based on tenant preference — never both.
     if (isNewContact) {
-      try {
-        const { createZohoLead } = await import('../modules/zoho/zohoLeadService.js');
-        createZohoLead(tenant.id, contact).catch(() => {});
-      } catch (_) {}
+      await triggerZohoAutoSyncForNewContact(tenant.id, contact);
     }
 
     // ── Socket: emit to tenant room ────────────────────────

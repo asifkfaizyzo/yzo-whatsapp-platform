@@ -3,18 +3,35 @@
 import prisma from '../../config/prisma.js';
 import { zohoRequest } from './zohoClient.js';
 import { hasZohoFeature } from './zohoPlanService.js';
-import { splitContactName } from './zohoContactService.js';
+import { splitContactName, getTenantZohoPreferences } from './zohoContactService.js';
+import { redisConnection } from '../../config/redis.js';
+
+const SYNC_LOCK_TTL = 30;
 
 /**
  * Create a Lead in Zoho CRM for a new WhatsApp contact.
- * Used when tenant prefers Lead-first workflow (qualify before converting to Contact).
+ * Strictly respects active connection, preference settings, and lock mechanisms.
  */
 export async function createZohoLead(tenantId, contact) {
   try {
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { zohoConnectionStatus: true },
+    });
+
+    if (!tenant || tenant.zohoConnectionStatus !== 'CONNECTED') {
+      return null;
+    }
+
+    // Check preference
+    const prefs = await getTenantZohoPreferences(tenantId);
+    if (!prefs.autoSyncNewContacts || prefs.syncDestination !== 'LEADS') {
+      return null; // Sync disabled or routed to Contacts instead
+    }
+
     const canCreate = await hasZohoFeature(tenantId, 'leads');
     if (!canCreate) return null;
 
-    // Check if already mapped as lead or contact
     const existingMapping = await prisma.contactProviderMapping.findFirst({
       where: {
         contactId: contact.id,
@@ -44,6 +61,10 @@ export async function createZohoLead(tenantId, contact) {
     }
     if (contact.company) leadPayload.Company = contact.company;
 
+    // Apply loop prevention lock in Redis
+    const lockKeyContact = `zoho_sync_lock:${contact.id}`;
+    await redisConnection.set(lockKeyContact, '1', 'EX', SYNC_LOCK_TTL);
+
     const response = await zohoRequest(tenantId, {
       method: 'POST',
       url: '/crm/v7/Leads',
@@ -56,6 +77,10 @@ export async function createZohoLead(tenantId, contact) {
 
     if (result && result.code === 'SUCCESS' && result.details?.id) {
       const zohoLeadId = result.details.id;
+
+      // Lock newly generated lead ID as well
+      const lockKeyLead = `zoho_sync_lock:${zohoLeadId}`;
+      await redisConnection.set(lockKeyLead, '1', 'EX', SYNC_LOCK_TTL);
 
       await prisma.contactProviderMapping.upsert({
         where: {

@@ -6,10 +6,10 @@ import { createNotification } from '../notifications/notificationService.js';
 import { zohoRequest } from './zohoClient.js';
 import { redisConnection } from '../../config/redis.js';
 
-const SYNC_LOCK_TTL = 30; // 30 seconds loop-prevention window
+const SYNC_LOCK_TTL = 30;
 
 /**
- * Process inbound Zoho CRM webhook notification with loop prevention.
+ * Process inbound Zoho CRM webhook notification with robust loop prevention and match-by-phone fallback.
  */
 export async function processZohoWebhookEvent(body) {
   try {
@@ -17,9 +17,9 @@ export async function processZohoWebhookEvent(body) {
 
     for (const notification of notifications) {
       const module = notification.module;
-      const operation = notification.operation; // "insert", "update", "delete"
+      const operation = notification.operation;
       const recordId = notification.ids?.[0];
-      const token = notification.token; // Tenant ID
+      const token = notification.token;
 
       if (!token || !recordId) continue;
 
@@ -30,12 +30,11 @@ export async function processZohoWebhookEvent(body) {
 
       if (!tenant) continue;
 
-      // Handle Contact & Lead module events
       if (module !== 'Contacts' && module !== 'Leads') continue;
 
       const providerType = module === 'Leads' ? 'ZOHO_LEAD' : 'ZOHO';
 
-      const mapping = await prisma.contactProviderMapping.findUnique({
+      let mapping = await prisma.contactProviderMapping.findUnique({
         where: {
           tenantId_provider_providerContactId: {
             tenantId: tenant.id,
@@ -66,14 +65,6 @@ export async function processZohoWebhookEvent(body) {
 
       // ── Handle Insert / Update from Zoho ──
       if (operation === 'update' || operation === 'insert') {
-        // Loop prevention: check if this update was initiated by Sudo Reply
-        const lockKey = `zoho_sync_lock:${mapping?.contactId || recordId}`;
-        const isLocked = await redisConnection.get(lockKey);
-        if (isLocked) {
-          console.log(`🔒 [ZohoWebhook] Ignoring echoed update for contact (loop prevention active)`);
-          continue;
-        }
-
         // Fetch fresh record details from Zoho CRM
         let zohoRecord = null;
         try {
@@ -90,22 +81,69 @@ export async function processZohoWebhookEvent(body) {
         if (!zohoRecord) continue;
 
         const fullName = `${zohoRecord.First_Name || ''} ${zohoRecord.Last_Name || ''}`.trim() || zohoRecord.Full_Name || 'Zoho Contact';
-        const phone = zohoRecord.Phone || zohoRecord.Mobile || null;
+        const rawPhone = zohoRecord.Phone || zohoRecord.Mobile || null;
         const email = zohoRecord.Email || null;
         const company = zohoRecord.Company || zohoRecord.Account_Name?.name || null;
 
-        if (mapping && mapping.contact) {
-          // Set lock so Sudo Reply's updateContact hook doesn't push back to Zoho
-          await redisConnection.set(lockKey, '1', 'EX', SYNC_LOCK_TTL);
+        // Clean and normalize phone number for comparison
+        let cleanPhone = null;
+        if (rawPhone) {
+          const digits = rawPhone.replace(/\D/g, '');
+          if (digits.length >= 8 && digits.length <= 15) {
+            cleanPhone = `+${digits}`;
+          }
+        }
 
-          // Update existing contact in Sudo Reply
+        // 🎯 FALLBACK: If no mapping exists, attempt matching by phone to resolve links
+        if (!mapping && cleanPhone) {
+          const matchedContact = await prisma.contact.findFirst({
+            where: {
+              phone: cleanPhone,
+              tenantId: tenant.id,
+            },
+          });
+
+          if (matchedContact) {
+            console.log(`🔗 [ZohoWebhook] Matching Zoho ${module} ${recordId} on-the-fly to Contact "${matchedContact.name}"`);
+            mapping = await prisma.contactProviderMapping.create({
+              data: {
+                tenantId: tenant.id,
+                contactId: matchedContact.id,
+                provider: providerType,
+                providerContactId: recordId,
+                lastSyncedAt: new Date(),
+              },
+              include: {
+                contact: true,
+              },
+            });
+          }
+        }
+
+        if (mapping && mapping.contact) {
+          // Loop prevention check on BOTH contact ID and Zoho record ID
+          const lockKeyContact = `zoho_sync_lock:${mapping.contactId}`;
+          const lockKeyRecord = `zoho_sync_lock:${recordId}`;
+
+          const isLockedContact = await redisConnection.get(lockKeyContact);
+          const isLockedRecord = await redisConnection.get(lockKeyRecord);
+
+          if (isLockedContact || isLockedRecord) {
+            console.log(`🔒 [ZohoWebhook] Ignoring echoed update for contact ${mapping.contactId} (prevention locks active)`);
+            continue;
+          }
+
+          // Apply temporary locks to suppress loops on Sudo Reply local updates
+          await redisConnection.set(lockKeyContact, '1', 'EX', SYNC_LOCK_TTL);
+          await redisConnection.set(lockKeyRecord, '1', 'EX', SYNC_LOCK_TTL);
+
           const updatedContact = await prisma.contact.update({
             where: { id: mapping.contact.id },
             data: {
               name: fullName || mapping.contact.name,
               email: email || mapping.contact.email,
               company: company || mapping.contact.company,
-              ...(phone && !mapping.contact.phone ? { phone, whatsappId: phone.replace(/\D/g, '').slice(-10) } : {}),
+              ...(cleanPhone && !mapping.contact.phone ? { phone: cleanPhone, whatsappId: cleanPhone.replace(/\D/g, '').slice(-10) } : {}),
             },
           });
 
