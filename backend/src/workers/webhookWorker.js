@@ -1,3 +1,4 @@
+//src/workers/webhookWorker.js
 import { Worker } from 'bullmq';
 import { QUEUE_NAME_WEBHOOK } from '../queues/webhookQueue.js';
 import { redisConnection } from '../config/redis.js';

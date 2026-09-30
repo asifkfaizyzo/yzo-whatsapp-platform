@@ -13,6 +13,12 @@ import { zohoSyncQueue } from '../../queues/zohoSyncQueue.js';
 import { detectZohoPlan } from './zohoPlanService.js';
 import { redisConnection } from '../../config/redis.js';
 
+// New service imports for Cases, Products, Events, and Invoices
+import { getZohoProducts } from './zohoProductService.js';
+import { createZohoCalendarEvent } from './zohoEventService.js';
+import { syncTicketToZohoCase } from './zohoCaseService.js';
+import { sendZohoInvoiceToWhatsApp } from './zohoInvoiceService.js';
+
 const DEFAULT_PREFERENCES = {
   syncDestination: 'CONTACTS', // 'CONTACTS' | 'LEADS'
   logConversationNotes: true,
@@ -246,6 +252,79 @@ export const updatePreferences = async (req, res) => {
       message: 'Zoho integration preferences updated',
       data: updated,
     });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * GET /api2/zoho/products
+ * Fetch products from Zoho CRM
+ */
+export const listProducts = async (req, res) => {
+  try {
+    const tenantId = req.tenant?.id || req.tenantId;
+    const { search, page, limit } = req.query;
+
+    const data = await getZohoProducts(tenantId, { search, page, limit });
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * POST /api2/zoho/events
+ * Schedule an appointment in Zoho CRM and send WhatsApp confirmation
+ */
+export const bookEvent = async (req, res) => {
+  try {
+    const tenantId = req.tenant?.id || req.tenantId;
+    const { contactId, title, startTime, endTime, venue } = req.body;
+
+    if (!contactId || !startTime) {
+      return res.status(400).json({ success: false, message: 'contactId and startTime are required' });
+    }
+
+    const result = await createZohoCalendarEvent(tenantId, contactId, { title, startTime, endTime, venue });
+    return res.status(200).json({ success: result.success, data: result });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * POST /api2/zoho/tickets/:ticketId/sync-case
+ * Push a ticket to Zoho Cases
+ */
+export const syncTicketCase = async (req, res) => {
+  try {
+    const tenantId = req.tenant?.id || req.tenantId;
+    const { ticketId } = req.params;
+
+    const caseId = await syncTicketToZohoCase(tenantId, ticketId);
+    return res.status(200).json({ success: Boolean(caseId), data: { caseId } });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * POST /api2/zoho/invoices/:invoiceId/send-whatsapp
+ * Send a Zoho invoice notification over WhatsApp
+ */
+export const dispatchInvoice = async (req, res) => {
+  try {
+    const tenantId = req.tenant?.id || req.tenantId;
+    const { invoiceId } = req.params;
+    const { contactId } = req.body;
+
+    if (!contactId) {
+      return res.status(400).json({ success: false, message: 'contactId is required' });
+    }
+
+    const result = await sendZohoInvoiceToWhatsApp(tenantId, contactId, invoiceId);
+    return res.status(200).json({ success: result.success, data: result });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
   }

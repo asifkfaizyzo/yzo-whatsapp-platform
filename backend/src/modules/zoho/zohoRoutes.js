@@ -18,8 +18,14 @@ router.post('/sync/contacts', verifyTenant, requireApprovedTenant, zohoControlle
 router.post('/sync/incremental', verifyTenant, requireApprovedTenant, zohoController.triggerIncrementalSync);
 router.get('/sync/status', verifyTenant, zohoController.getSyncStatus);
 
-// ── Integration Preferences ──
+// ── Preferences ──
 router.get('/preferences', verifyTenant, zohoController.getPreferences);
 router.put('/preferences', verifyTenant, requireApprovedTenant, zohoController.updatePreferences);
+
+// ── Phase 6 Advanced CRM Endpoints ──
+router.get('/products', verifyTenant, requireApprovedTenant, zohoController.listProducts);
+router.post('/events', verifyTenant, requireApprovedTenant, zohoController.bookEvent);
+router.post('/tickets/:ticketId/sync-case', verifyTenant, requireApprovedTenant, zohoController.syncTicketCase);
+router.post('/invoices/:invoiceId/send-whatsapp', verifyTenant, requireApprovedTenant, zohoController.dispatchInvoice);
 
 export default router;
