@@ -98,7 +98,7 @@ export async function processZohoWebhookEvent(body) {
           continue;
         }
 
-        // Fetch fresh record details from Zoho CRM
+        // Fresh record lookup from Zoho CRM
         let zohoRecord = null;
         try {
           const res = await zohoRequest(tenant.id, {
@@ -228,16 +228,25 @@ export async function processZohoWebhookEvent(body) {
             await redisConnection.set(`zoho_sync_lock:${contact.id}`, '1', 'EX', SYNC_LOCK_TTL);
             await redisConnection.set(lockKeyRecord, '1', 'EX', SYNC_LOCK_TTL);
 
+            // Clean up any conflicting mapping for this recordId
+            await prisma.contactProviderMapping.deleteMany({
+              where: {
+                tenantId: tenant.id,
+                provider: providerType,
+                providerContactId: recordId,
+                contactId: { not: contact.id },
+              },
+            }).catch(() => {});
+
             await prisma.contactProviderMapping.upsert({
               where: {
-                tenantId_provider_providerContactId: {
-                  tenantId: tenant.id,
+                contactId_provider: {
+                  contactId: contact.id,
                   provider: providerType,
-                  providerContactId: recordId,
                 },
               },
               update: {
-                contactId: contact.id,
+                providerContactId: recordId,
                 lastSyncedAt: new Date(),
               },
               create: {

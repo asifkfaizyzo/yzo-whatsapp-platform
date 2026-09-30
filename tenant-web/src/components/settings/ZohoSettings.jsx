@@ -36,6 +36,7 @@ import {
   getZohoPlanInfo,
   getZohoPreferences,
   updateZohoPreferences,
+  triggerZohoPullSync,
 } from "../../services/zoho.service";
 
 export default function ZohoSettings({ onBack } = {}) {
@@ -299,6 +300,24 @@ export default function ZohoSettings({ onBack } = {}) {
     }
   };
 
+  // ── Trigger Pull Sync (Import Contacts From Zoho) ──
+  const handleTriggerPullSync = async () => {
+    setSyncTriggering(true);
+    try {
+      const res = await triggerZohoPullSync();
+      if (res.success) {
+        toast.success(res.message || "Imported contacts from Zoho!");
+        fetchSyncStats();
+      } else {
+        toast.error(res.message);
+      }
+    } catch (err) {
+      toast.error("Failed to import from Zoho");
+    } finally {
+      setSyncTriggering(false);
+    }
+  };
+
   // ── Disconnect Connection Flow ──
   const handleDisconnectConfirm = async () => {
     setDisconnecting(true);
@@ -524,6 +543,16 @@ export default function ZohoSettings({ onBack } = {}) {
 
                   {/* Sync Action Buttons */}
                   <div className="flex flex-wrap items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleTriggerPullSync}
+                      disabled={syncTriggering || syncLoading}
+                      className="px-3.5 py-2 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition shadow-2xs disabled:opacity-50"
+                    >
+                      <RefreshCw size={13} className={syncTriggering ? "animate-spin text-emerald-700" : "text-emerald-700"} />
+                      <span>Import from Zoho (Pull)</span>
+                    </button>
+
                     <button
                       type="button"
                       onClick={handleTriggerIncrementalSync}
@@ -802,8 +831,8 @@ export default function ZohoSettings({ onBack } = {}) {
 
         {/* Right Column: Multi DC, Plan Details, & Info Cards */}
         <div className="lg:col-span-4 space-y-5">
-          {/* Zoho API limits & metrics (Only displays when Zoho sends active rate headers) */}
-          {isConnected && rateLimit && (
+          {/* Zoho API limits & metrics (ONLY 100% REAL DATA / HONEST UI) */}
+          {isConnected && (
             <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-2xs space-y-3">
               <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                 <div className="flex items-center gap-2">
@@ -813,44 +842,64 @@ export default function ZohoSettings({ onBack } = {}) {
                 <span className="text-[10px] text-slate-400 font-medium">Live Quota</span>
               </div>
 
-              {/* Progress metrics */}
-              <div className="space-y-1.5 pt-1">
-                <div className="flex justify-between text-xs font-bold text-slate-700">
-                  <span>API Credits Used</span>
-                  <span>{usagePercentage}%</span>
-                </div>
+              {rateLimit ? (
+                <>
+                  {/* Progress metrics */}
+                  <div className="space-y-1.5 pt-1">
+                    <div className="flex justify-between text-xs font-bold text-slate-700">
+                      <span>API Credits Used</span>
+                      <span>{usagePercentage}%</span>
+                    </div>
 
-                <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden border border-slate-50">
-                  <div
-                    style={{ width: `${usagePercentage}%` }}
-                    className={`h-full rounded-full transition-all duration-500 ${
-                      usagePercentage > 85
-                        ? "bg-rose-500"
-                        : usagePercentage > 60
-                          ? "bg-amber-500"
-                          : "bg-emerald-500"
-                    }`}
-                  />
-                </div>
+                    {/* Progress bar */}
+                    <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden border border-slate-50">
+                      <div
+                        style={{ width: `${usagePercentage}%` }}
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          usagePercentage > 85
+                            ? "bg-rose-500"
+                            : usagePercentage > 60
+                              ? "bg-amber-500"
+                              : "bg-emerald-500"
+                        }`}
+                      />
+                    </div>
 
-                <div className="flex justify-between text-[10px] text-slate-400 font-semibold pt-1">
-                  <span>{usedCredits.toLocaleString()} Credits Used</span>
-                  <span>{rateLimit.remaining.toLocaleString()} Left</span>
-                </div>
-              </div>
+                    <div className="flex justify-between text-[10px] text-slate-400 font-semibold pt-1">
+                      <span>{usedCredits.toLocaleString()} Credits Used</span>
+                      <span>{rateLimit.remaining.toLocaleString()} Left</span>
+                    </div>
+                  </div>
 
-              <div className="pt-2 border-t border-slate-100 grid grid-cols-2 gap-2 text-[10px]">
-                <div className="p-2 bg-slate-50/50 rounded-lg">
-                  <span className="block text-slate-400 font-bold uppercase tracking-wider">Quota Limit</span>
-                  <span className="text-xs font-extrabold text-slate-700 mt-0.5">{rateLimit.limit.toLocaleString()}</span>
+                  {/* Detailed info */}
+                  <div className="pt-2 border-t border-slate-100 grid grid-cols-2 gap-2 text-[10px]">
+                    <div className="p-2 bg-slate-50/50 rounded-lg">
+                      <span className="block text-slate-400 font-bold uppercase tracking-wider">Quota Limit</span>
+                      <span className="text-xs font-extrabold text-slate-700 mt-0.5">{rateLimit.limit.toLocaleString()}</span>
+                    </div>
+                    <div className="p-2 bg-slate-50/50 rounded-lg">
+                      <span className="block text-slate-400 font-bold uppercase tracking-wider">Recorded At</span>
+                      <span className="text-xs font-extrabold text-slate-700 mt-0.5">
+                        {new Date(rateLimit.updatedAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="py-3 text-center space-y-2">
+                  <p className="text-[11px] text-slate-500 leading-relaxed">
+                    Awaiting first API request to record quota. Live quota will be recorded on your first contact sync or connection test.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleTestConnection}
+                    disabled={testing}
+                    className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold rounded-lg transition"
+                  >
+                    {testing ? "Testing..." : "Record Live Quota"}
+                  </button>
                 </div>
-                <div className="p-2 bg-slate-50/50 rounded-lg">
-                  <span className="block text-slate-400 font-bold uppercase tracking-wider">Recorded At</span>
-                  <span className="text-xs font-extrabold text-slate-700 mt-0.5">
-                    {new Date(rateLimit.updatedAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
-              </div>
+              )}
             </div>
           )}
 

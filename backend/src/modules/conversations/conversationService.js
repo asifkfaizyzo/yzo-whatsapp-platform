@@ -1,3 +1,4 @@
+//src/modules/conversations/conversationService.js
 import bcrypt from "bcrypt";
 import pkg from "@prisma/client";
 import prisma from "../../config/prisma.js";
@@ -141,10 +142,8 @@ export const getAssignedConversations = async ({
         },
       },
         orderBy: [
-        { isPinned: "desc" },
-        { pinnedAt: "desc" },
-        { updatedAt: "desc" },
-      ],
+  { updatedAt: "desc" }
+],
       skip,
       take: limit,
     });

@@ -453,8 +453,10 @@ export async function getTenantSyncStats(tenantId) {
   };
 }
 
+
 /**
- * PULL SYNC: Fetches all contacts from Zoho CRM and creates/updates them in Sudo Reply.
+ * PULL SYNC: Imports all contacts from Zoho CRM down into Sudo Reply.
+ * Handles duplicate resolution, phone formatting, and unique constraint safety.
  */
 export async function pullContactsFromZoho(tenantId) {
   console.log(`📥 [ZohoPullSync] Starting inbound contact import from Zoho CRM for tenant ${tenantId}`);
@@ -464,11 +466,19 @@ export async function pullContactsFromZoho(tenantId) {
   let totalUpdated = 0;
   let hasMore = true;
 
+  const requiredFields = 'id,First_Name,Last_Name,Full_Name,Phone,Mobile,Email,Company,Account_Name';
+
   while (hasMore) {
-    const response = await zohoRequest(tenantId, {
-      method: 'GET',
-      url: `/crm/v7/Contacts?page=${page}&per_page=100`,
-    });
+    let response;
+    try {
+      response = await zohoRequest(tenantId, {
+        method: 'GET',
+        url: `/crm/v7/Contacts?fields=${requiredFields}&page=${page}&per_page=100`,
+      });
+    } catch (apiErr) {
+      console.error(`❌ [ZohoPullSync] Failed to fetch page ${page}:`, apiErr.response?.data || apiErr.message);
+      break;
+    }
 
     const zohoContacts = response?.data || [];
     if (zohoContacts.length === 0) break;
@@ -478,49 +488,52 @@ export async function pullContactsFromZoho(tenantId) {
       const fullName = `${zc.First_Name || ''} ${zc.Last_Name || ''}`.trim() || zc.Full_Name || 'Zoho Contact';
       const rawPhone = zc.Phone || zc.Mobile || null;
       const email = zc.Email || null;
-      const company = zc.Company || zc.Account_Name?.name || null;
+      const company = zc.Company || zc.Account_Name?.name || (typeof zc.Account_Name === 'string' ? zc.Account_Name : null);
 
       let cleanPhone = null;
       if (rawPhone) {
         const digits = rawPhone.replace(/\D/g, '');
-        if (digits.length >= 10) {
-          cleanPhone = digits.length === 10 ? `+91${digits}` : `+${digits}`;
-        }
+        if (digits.length === 10) cleanPhone = `+91${digits}`;
+        else if (digits.length === 11 && digits.startsWith('0')) cleanPhone = `+91${digits.slice(1)}`;
+        else if (digits.length >= 8) cleanPhone = `+${digits}`;
       }
 
-      // 1. Check existing mapping
+      // 1. Check if mapping already exists by Zoho record ID
       let mapping = await prisma.contactProviderMapping.findFirst({
         where: { tenantId, provider: 'ZOHO', providerContactId: recordId },
         include: { contact: true },
       });
 
-      if (mapping && mapping.contact) {
-        // Update existing contact
+      let contact = mapping?.contact || null;
+
+      if (contact) {
+        // Update existing contact in Sudo Reply
         await prisma.contact.update({
-          where: { id: mapping.contact.id },
+          where: { id: contact.id },
           data: {
-            name: fullName || mapping.contact.name,
-            email: email || mapping.contact.email,
-            company: company || mapping.contact.company,
+            name: fullName || contact.name,
+            email: email || contact.email,
+            company: company || contact.company,
+            ...(cleanPhone && !contact.phone ? { phone: cleanPhone, whatsappId: cleanPhone.replace(/\D/g, '').slice(-10) } : {}),
           },
         });
         totalUpdated++;
       } else {
         // 2. Check if contact exists by phone in Sudo Reply
-        let contact = null;
         if (cleanPhone) {
           contact = await prisma.contact.findFirst({
             where: { phone: cleanPhone, tenantId },
           });
         }
 
+        // 3. Check if contact exists by email in Sudo Reply
         if (!contact && email) {
           contact = await prisma.contact.findFirst({
             where: { email, tenantId },
           });
         }
 
-        // 3. If not found, create new contact in Sudo Reply
+        // 4. If not found, create new contact in Sudo Reply
         if (!contact) {
           contact = await prisma.contact.create({
             data: {
@@ -534,18 +547,36 @@ export async function pullContactsFromZoho(tenantId) {
             },
           });
           totalImported++;
-        }
 
-        // 4. Save mapping
+          emitToTenant(tenantId, 'new_contact', { contact, source: 'ZOHO_CRM' });
+        } else {
+          totalUpdated++;
+        }
+      }
+
+      if (contact) {
+        // Remove any old conflicting mapping for this recordId on another contact
+        await prisma.contactProviderMapping.deleteMany({
+          where: {
+            tenantId,
+            provider: 'ZOHO',
+            providerContactId: recordId,
+            contactId: { not: contact.id },
+          },
+        }).catch(() => {});
+
+        // Safely upsert on contactId_provider
         await prisma.contactProviderMapping.upsert({
           where: {
-            tenantId_provider_providerContactId: {
-              tenantId,
+            contactId_provider: {
+              contactId: contact.id,
               provider: 'ZOHO',
-              providerContactId: recordId,
             },
           },
-          update: { contactId: contact.id, lastSyncedAt: new Date() },
+          update: {
+            providerContactId: recordId,
+            lastSyncedAt: new Date(),
+          },
           create: {
             tenantId,
             contactId: contact.id,
@@ -557,7 +588,7 @@ export async function pullContactsFromZoho(tenantId) {
       }
     }
 
-    hasMore = response?.info?.more_records || false;
+    hasMore = Boolean(response?.info?.more_records);
     page++;
   }
 
