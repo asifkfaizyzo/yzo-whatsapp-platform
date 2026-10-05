@@ -430,7 +430,7 @@ export const setupWhatsApp = async (req, res) => {
 
     console.log("[WhatsApp] Verifying with access token...");
     const verifyRes = await fetch(
-      `https://graph.facebook.com/v22.0/${phoneNumberId}?fields=whatsapp_business_account,display_phone_number,verified_name&access_token=${accessToken}`
+      `https://graph.facebook.com/v22.0/${phoneNumberId}?access_token=${accessToken}`
     );
     const verifyData = await verifyRes.json();
 
@@ -442,11 +442,11 @@ export const setupWhatsApp = async (req, res) => {
       });
     }
 
-    const resolvedWabaId = wabaId?.trim() || verifyData.whatsapp_business_account?.id;
+    const resolvedWabaId = wabaId?.trim();
     if (!resolvedWabaId) {
       return res.status(400).json({
         success: false,
-        message: "Could not determine WhatsApp Business Account (WABA) ID. Please provide it or verify token permissions.",
+        message: "WhatsApp Business Account (WABA) ID is required. Please provide your WABA ID.",
       });
     }
 

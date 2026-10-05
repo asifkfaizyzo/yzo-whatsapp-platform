@@ -327,12 +327,16 @@ export default function SettingsPage() {
       setManualConnectError("Please enter your Phone Number ID.");
       return;
     }
+    if (!manualWabaId?.trim()) {
+      setManualConnectError("Please enter your WhatsApp Business Account (WABA) ID.");
+      return;
+    }
     setSavingManualConnect(true);
     setManualConnectError(null);
     try {
       const res = await setupWhatsappManual({
         phoneNumberId: manualPhoneId.trim(),
-        wabaId: manualWabaId?.trim() || undefined,
+        wabaId: manualWabaId.trim(),
         accessToken: manualAccessToken.trim() || undefined,
       });
       if (res.success) {
@@ -2305,17 +2309,18 @@ export default function SettingsPage() {
                             {/* WABA ID */}
                             <div>
                               <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                                WhatsApp Business Account (WABA) ID <span className="text-slate-400 font-normal lowercase">(optional - auto-detected)</span>
+                                WhatsApp Business Account (WABA) ID <span className="text-red-500">*</span>
                               </label>
                               <input
                                 type="text"
-                                placeholder="e.g. 982710492817293 (Leave blank to auto-detect)"
+                                required
+                                placeholder="e.g. 2207266990115846"
                                 value={manualWabaId}
                                 onChange={(e) => setManualWabaId(e.target.value)}
                                 className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-mono text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
                               />
                               <p className="text-[10px] text-slate-400 mt-1">
-                                Optional. Leave blank if you can't find it; SudoReply will auto-detect it from your Phone Number ID!
+                                Your WhatsApp Business Account ID (e.g. 2207266990115846).
                               </p>
                             </div>
                           </div>
