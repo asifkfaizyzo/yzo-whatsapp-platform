@@ -201,5 +201,7 @@ export const setupWhatsAppSchema = z.object({
   body: z.object({
     phoneNumberId: z.string({ required_error: "phoneNumberId is required" }).min(1),
     wabaId: z.string({ required_error: "wabaId is required" }).min(1),
+    accessToken: z.string().optional().or(z.literal("")).nullable(),
   }),
 });
+

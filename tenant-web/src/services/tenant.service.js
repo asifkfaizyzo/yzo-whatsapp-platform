@@ -261,6 +261,30 @@ export const disconnectWhatsapp = async () => {
   }
 };
 
+/**
+ * Setup WhatsApp manually with credentials (Phone ID, WABA ID, optional Access Token)
+ */
+export const setupWhatsappManual = async ({ phoneNumberId, wabaId, accessToken }) => {
+  try {
+    const response = await api.post(`${TENANT_BASE_URL}/whatsapp/setup`, {
+      phoneNumberId,
+      wabaId,
+      accessToken,
+    });
+    return {
+      success: response.data?.success !== false,
+      data: response.data,
+      message: response.data?.message || "WhatsApp connected successfully",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to setup WhatsApp with provided credentials",
+    };
+  }
+};
+
+
 
 
 // Find the base URL pattern used by other tenant functions in this file

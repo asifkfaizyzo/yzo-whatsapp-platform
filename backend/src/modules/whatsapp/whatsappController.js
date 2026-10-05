@@ -387,7 +387,7 @@ await notifySuperAdminWhatsAppStatus({
 // POST /api2/whatsapp/setup
 // ─────────────────────────────────────────────────────────────────────────────
 export const setupWhatsApp = async (req, res) => {
-  const { phoneNumberId, wabaId } = req.body;
+  const { phoneNumberId, wabaId, accessToken: customToken } = req.body;
   const tenantId = req.tenantId;
 
   if (!phoneNumberId || !wabaId) {
@@ -418,19 +418,19 @@ export const setupWhatsApp = async (req, res) => {
       });
     }
 
-    const accessToken = process.env.META_SYSTEM_USER_TOKEN;
+    const accessToken = customToken?.trim() || process.env.META_SYSTEM_USER_TOKEN;
 
     if (!accessToken) {
-      console.error("❌ META_SYSTEM_USER_TOKEN not set");
-      return res.status(500).json({
+      console.error("❌ No access token provided and META_SYSTEM_USER_TOKEN not set");
+      return res.status(400).json({
         success: false,
-        message: "System configuration error",
+        message: "Permanent Access Token is required. Please provide it in the connection form or configure META_SYSTEM_USER_TOKEN on the server.",
       });
     }
 
-    console.log("[WhatsApp] Verifying with system user token...");
+    console.log("[WhatsApp] Verifying with access token...");
     const verifyRes = await fetch(
-      `https://graph.facebook.com/v25.0/${phoneNumberId}?access_token=${accessToken}`
+      `https://graph.facebook.com/v22.0/${phoneNumberId}?access_token=${accessToken}`
     );
     const verifyData = await verifyRes.json();
 
