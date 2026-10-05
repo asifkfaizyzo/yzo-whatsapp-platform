@@ -34,32 +34,11 @@ router.post('/calls/permissions/request', verifyTenantOrUser, checkSubscriptionA
 // All other routes require a verified, approved tenant admin
 router.use(verifyTenant, requireApprovedTenant);
 
-// POST /api2/whatsapp/exchange-token
-// Exchanges auth code for long-lived access token and saves WABA/Phone to tenant
-router.post('/exchange-token', exchangeToken);
-
 // POST /api2/whatsapp/setup
-// Saves WABA ID + Phone Number ID directly (fallback system token approach)
-router.post('/setup',validate(setupWhatsAppSchema), setupWhatsApp);
+router.post('/setup', validate(setupWhatsAppSchema), setupWhatsApp);
 
-// POST /api2/whatsapp/register-phone
-// Completes Cloud API phone number registration with Meta
-router.post('/register-phone', registerPhoneNumber);
-
-// GET /api2/whatsapp/status
-// Returns whether this tenant has a WhatsApp number connected
-router.get('/status', getWhatsAppStatus);
-
-// GET /api2/whatsapp/my-businesses
-// Fetches Meta Business Portfolios using system user token (business_management)
-// router.get('/my-businesses', getMyBusinesses);
-
-// GET /api2/whatsapp/my-wabas
-// Returns available WABAs for fallback connection
 router.get('/my-wabas', getMyWabas);
 
-// POST /api2/whatsapp/disconnect
-// Disconnects WhatsApp integration for the tenant
 router.post('/disconnect', disconnectWhatsApp);
 
 // Call Settings Routes (Tenant Admin only)
