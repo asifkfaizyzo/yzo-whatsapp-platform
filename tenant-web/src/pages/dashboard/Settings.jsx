@@ -327,16 +327,12 @@ export default function SettingsPage() {
       setManualConnectError("Please enter your Phone Number ID.");
       return;
     }
-    if (!manualWabaId?.trim()) {
-      setManualConnectError("Please enter your WhatsApp Business Account (WABA) ID.");
-      return;
-    }
     setSavingManualConnect(true);
     setManualConnectError(null);
     try {
       const res = await setupWhatsappManual({
         phoneNumberId: manualPhoneId.trim(),
-        wabaId: manualWabaId.trim(),
+        wabaId: manualWabaId?.trim() || undefined,
         accessToken: manualAccessToken.trim() || undefined,
       });
       if (res.success) {
@@ -2263,11 +2259,8 @@ export default function SettingsPage() {
                           <Key size={18} className="text-emerald-600" />
                         </div>
                         <div>
-                          <h4 className="text-xs sm:text-sm font-bold text-slate-800 flex items-center gap-2">
-                            <span>Manual / Direct API Configuration</span>
-                            <span className="text-[10px] font-semibold uppercase px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200">
-                              Expandable
-                            </span>
+                          <h4 className="text-xs sm:text-sm font-bold text-slate-800">
+                            Manual / Direct API Configuration
                           </h4>
                           <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5 font-medium">
                             Connect using Phone Number ID, WABA ID & Permanent Token (For portfolio owners & direct Cloud API)
@@ -2312,18 +2305,17 @@ export default function SettingsPage() {
                             {/* WABA ID */}
                             <div>
                               <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                                WhatsApp Business Account (WABA) ID <span className="text-red-500">*</span>
+                                WhatsApp Business Account (WABA) ID <span className="text-slate-400 font-normal lowercase">(optional - auto-detected)</span>
                               </label>
                               <input
                                 type="text"
-                                required
-                                placeholder="e.g. 982710492817293"
+                                placeholder="e.g. 982710492817293 (Leave blank to auto-detect)"
                                 value={manualWabaId}
                                 onChange={(e) => setManualWabaId(e.target.value)}
                                 className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-mono text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
                               />
                               <p className="text-[10px] text-slate-400 mt-1">
-                                Found at top of WhatsApp Manager or in Settings → Account info.
+                                Optional. Leave blank if you can't find it; SudoReply will auto-detect it from your Phone Number ID!
                               </p>
                             </div>
                           </div>
