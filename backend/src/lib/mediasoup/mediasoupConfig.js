@@ -2,8 +2,8 @@ import os from 'os';
 
 export const mediasoupConfig = {
   worker: {
-    rtcMinPort: 40000,
-    rtcMaxPort: 49999,
+    rtcMinPort: process.env.MEDIASOUP_MIN_PORT ? parseInt(process.env.MEDIASOUP_MIN_PORT) : 40000,
+    rtcMaxPort: process.env.MEDIASOUP_MAX_PORT ? parseInt(process.env.MEDIASOUP_MAX_PORT) : 40200,
     logLevel: 'warn',
     logTags: [
       'info',
