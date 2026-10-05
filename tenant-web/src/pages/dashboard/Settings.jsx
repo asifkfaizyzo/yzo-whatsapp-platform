@@ -2224,34 +2224,34 @@ export default function SettingsPage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="bg-gradient-to-r from-emerald-50/50 via-slate-50 to-emerald-50/30 border border-slate-200 rounded-2xl p-6 shadow-sm sm:flex sm:items-center sm:justify-between gap-4">
-                      <div className="flex items-center gap-3.5 mb-4 sm:mb-0">
-                        <div className="w-12 h-12 bg-emerald-50 border border-emerald-200 text-[#25D366] rounded-2xl flex items-center justify-center shrink-0">
-                          <FaWhatsapp size={24} />
+                    <>
+                      <div className="bg-gradient-to-r from-emerald-50/50 via-slate-50 to-emerald-50/30 border border-slate-200 rounded-2xl p-6 shadow-sm sm:flex sm:items-center sm:justify-between gap-4">
+                        <div className="flex items-center gap-3.5 mb-4 sm:mb-0">
+                          <div className="w-12 h-12 bg-emerald-50 border border-emerald-200 text-[#25D366] rounded-2xl flex items-center justify-center shrink-0">
+                            <FaWhatsapp size={24} />
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-bold text-slate-800">
+                              WhatsApp Cloud API Not Connected
+                            </h3>
+                            <p className="text-xs text-slate-500 font-medium mt-0.5">
+                              Connect your official Meta WhatsApp Business account
+                              via Embedded Signup to start receiving and sending
+                              messages.
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <h3 className="text-sm font-bold text-slate-800">
-                            WhatsApp Cloud API Not Connected
-                          </h3>
-                          <p className="text-xs text-slate-500 font-medium mt-0.5">
-                            Connect your official Meta WhatsApp Business account
-                            via Embedded Signup to start receiving and sending
-                            messages.
-                          </p>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setShowConnectModal(true)}
+                          className="shrink-0 px-5 py-2.5 bg-[#25D366] hover:bg-[#1ebe5d] text-white rounded-xl font-bold text-xs shadow-sm flex items-center justify-center gap-2 transition"
+                        >
+                          <FaWhatsapp size={15} />
+                          <span>Connect WhatsApp</span>
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setShowConnectModal(true)}
-                        className="shrink-0 px-5 py-2.5 bg-[#25D366] hover:bg-[#1ebe5d] text-white rounded-xl font-bold text-xs shadow-sm flex items-center justify-center gap-2 transition"
-                      >
-                        <FaWhatsapp size={15} />
-                        <span>Connect WhatsApp</span>
-                      </button>
-                    </div>
-                  )}
 
-                  {/* Expandable Manual / Direct API Configuration */}
+                      {/* Expandable Manual / Direct API Configuration */}
                   <div className="mt-4 border border-slate-200/80 bg-white rounded-2xl shadow-sm overflow-hidden transition-all">
                     <button
                       type="button"
@@ -2314,13 +2314,13 @@ export default function SettingsPage() {
                               <input
                                 type="text"
                                 required
-                                placeholder="e.g. 2207266990115846"
+                                placeholder="e.g. 109283746592817"
                                 value={manualWabaId}
                                 onChange={(e) => setManualWabaId(e.target.value)}
                                 className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-mono text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
                               />
                               <p className="text-[10px] text-slate-400 mt-1">
-                                Your WhatsApp Business Account ID (e.g. 2207266990115846).
+                                Found in WhatsApp Manager → Account Settings. <strong>Note:</strong> Make sure to enter your WhatsApp Business Account (WABA) ID, not your Business Portfolio ID.
                               </p>
                             </div>
                           </div>
@@ -2388,8 +2388,10 @@ export default function SettingsPage() {
                       </div>
                     )}
                   </div>
-                </div>
+                </>
               )}
+            </div>
+          )}
 
               {/* ═══════════════════════════════════════════════════════════
                   SUB-CONNECTOR 2: FACEBOOK MESSENGER

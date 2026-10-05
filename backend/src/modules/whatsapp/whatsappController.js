@@ -41,8 +41,8 @@ const notifySuperAdminWhatsAppStatus = async ({
       actorType:   'TENANT',
       actorName:   tenantName,
       actorEmail:  tenantEmail,
-      action:      isConnected ? 'WHATSAPP_CONNECTED' : 'WHATSAPP_DISCONNECTED',
-      module:      'WHATSAPP',
+      action:      'TENANT_UPDATED',
+      module:      'INTEGRATIONS',
       description: `Tenant "${tenantName}" ${isConnected ? 'connected' : 'disconnected'} WhatsApp${phoneNumberId ? ` — Phone ID: ${phoneNumberId}` : ''}`,
       targetId:    phoneNumberId || null,
       targetType:  'WHATSAPP',
@@ -51,6 +51,7 @@ const notifySuperAdminWhatsAppStatus = async ({
       metadata: {
         phoneNumberId: phoneNumberId || null,
         wabaId:        wabaId        || null,
+        event:         isConnected ? 'WHATSAPP_CONNECTED' : 'WHATSAPP_DISCONNECTED',
         action,
       },
     });
@@ -447,6 +448,20 @@ export const setupWhatsApp = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "WhatsApp Business Account (WABA) ID is required. Please provide your WABA ID.",
+      });
+    }
+
+    // Verify WABA ID exists and is accessible with this token
+    console.log(`[WhatsApp] Verifying WABA ID ${resolvedWabaId}...`);
+    const wabaVerifyRes = await fetch(
+      `https://graph.facebook.com/v22.0/${resolvedWabaId}?access_token=${accessToken}`
+    );
+    const wabaVerifyData = await wabaVerifyRes.json();
+    if (wabaVerifyData.error) {
+      console.error("[WhatsApp] WABA verification failed:", wabaVerifyData.error);
+      return res.status(400).json({
+        success: false,
+        message: `WABA ID verification failed: ${wabaVerifyData.error.message}. Please make sure you entered the WhatsApp Business Account ID (WABA ID), NOT your Meta Business Portfolio / Manager ID.`,
       });
     }
 
