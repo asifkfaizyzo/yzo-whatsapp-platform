@@ -1,7 +1,7 @@
 import express from 'express';
 import { verifyTenant, requireApprovedTenant } from '../../middlewares/authTenant.js';
 import { verifyTenantOrUser } from '../../middlewares/authVerfyTenOrUser.js';
-import { setupWhatsApp, getWhatsAppStatus, getMyWabas, disconnectWhatsApp,sendLocation, } from './whatsappController.js';
+import { setupWhatsApp, getWhatsAppStatus, getMyWabas, disconnectWhatsApp, sendLocation, registerPhoneNumber } from './whatsappController.js';
 import { 
   acceptCall, rejectCall, terminateCall, initiateCall, 
   getCallPermissions, requestCallPermission,
@@ -40,6 +40,7 @@ router.post('/setup', validate(setupWhatsAppSchema), setupWhatsApp);
 router.get('/my-wabas', getMyWabas);
 
 router.post('/disconnect', disconnectWhatsApp);
+router.post('/register-phone', registerPhoneNumber);
 
 // Call Settings Routes (Tenant Admin only)
 router.get('/calls/settings/:phoneId', getCallSettings);
