@@ -21,6 +21,7 @@ import { initSocket } from './lib/socket.js';
 import { startWebhookWorker } from './workers/webhookWorker.js';
 import { startOrderWebhookWorker } from './workers/orderWebhookWorker.js';
 import { startBroadcastWorker } from './workers/broadcastWorker.js';
+import { startCallMediaWorker } from './workers/callMediaWorker.js';
 import { startCleanupWorker } from './workers/cleanupWorker.js';
 import './jobs/checkExpiredSubscriptions.js';
 import './jobs/expiryRemindersJob.js';
@@ -30,6 +31,7 @@ import { initQuickReplyIndexes } from './scripts/initQuickReplyIndexes.js';
 import { startZohoSyncWorker } from './workers/zohoSyncWorker.js';
 import { startZohoStaleTaskJob } from './jobs/zohoStaleTaskJob.js';
 import { startZohoWatchRenewalJob } from './jobs/zohoWatchRenewalJob.js';
+import { initializeMediasoup } from './lib/mediasoup/mediasoupService.js';
 
 import { redisConnection } from './config/redis.js';
 
@@ -45,6 +47,7 @@ initSocket(server);
 const webhookWorker = startWebhookWorker();
 const orderWebhookWorker = startOrderWebhookWorker();
 const broadcastWorker = startBroadcastWorker();
+const callMediaWorker = startCallMediaWorker();
 const zohoSyncWorker = startZohoSyncWorker();
 startCleanupWorker();
 startAuditCleanupJob(); 
@@ -53,6 +56,12 @@ startZohoStaleTaskJob();
 startZohoWatchRenewalJob(); // ✅ Handled and running alongside workers
 initQuickReplyIndexes();
 console.log('👷 Background workers and cleanup tasks started successfully!');
+
+// Initialize Mediasoup for WebRTC Calling
+initializeMediasoup().catch(err => {
+  console.error('❌ Failed to initialize Mediasoup:', err);
+  process.exit(1);
+});
 
 server.listen(port, () => {
     console.log(`🚀 Server is running on http://localhost:${port} [Updated Enum Fix: ${new Date().toISOString()}]`);
@@ -70,6 +79,7 @@ const gracefulShutdown = async (signal) => {
       if (webhookWorker) await webhookWorker.close();
       if (orderWebhookWorker) await orderWebhookWorker.close();
       if (broadcastWorker) await broadcastWorker.close();
+      if (callMediaWorker) await callMediaWorker.close();
       if (zohoSyncWorker) await zohoSyncWorker.close();
       console.log('👷 BullMQ workers closed successfully.');
 

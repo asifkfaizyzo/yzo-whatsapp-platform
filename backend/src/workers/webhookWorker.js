@@ -17,6 +17,7 @@ import path from 'path';
 import https from 'https';
 import http from 'http';
 import { GRAPH_BASE_URL } from '../config/meta.js';
+import { handleCallEvents, handleCallPermissionReply, handleAccountSettingsUpdate } from '../modules/whatsapp/callWebhookHandler.js';
 
 // ─────────────────────────────────────────────────────────────
 // META MEDIA & AVATAR PERSISTENCE HELPER
@@ -442,6 +443,43 @@ export const processWebhookJob = async (job) => {
     throw new Error('Simulated failure for DLQ test');
   }
 
+  const phoneId = value?.metadata?.phone_number_id || value?.phone_number_id;
+  const wabaId = entry?.id;
+  let tenant = null;
+  if (phoneId) {
+    tenant = await prisma.tenant.findFirst({ where: { whatsappPhoneId: String(phoneId) } });
+  }
+  if (!tenant && wabaId) {
+    tenant = await prisma.tenant.findFirst({ where: { whatsappWabaId: String(wabaId) } });
+  }
+  if (!tenant) {
+    // Fallback to configured tenant with WhatsApp phone ID
+    tenant = await prisma.tenant.findFirst({ where: { whatsappPhoneId: { not: null } } });
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // Handle WhatsApp Calls Webhooks (Phase 2)
+  // ═══════════════════════════════════════════════════════════
+  const isCallEvent = 
+    change?.field === 'calls' || 
+    Boolean(value?.calls) || 
+    Boolean(value?.call) ||
+    Boolean(value?.call_id) ||
+    Boolean(value?.call_recordings) || 
+    Boolean(value?.statuses && value.statuses.some(s => s.id?.startsWith('wacid.') || s.type === 'call')) ||
+    (value?.event && ['connect', 'terminate'].includes(value.event));
+
+  if (isCallEvent) {
+    console.log(`📞 [WebhookWorker] Processing Call Event (Field: ${change?.field}) for Tenant: ${tenant?.id || 'none'}`);
+    await handleCallEvents(value, tenant);
+    if (!value?.messages) return; // if it only contains call data, return.
+  }
+  
+  if (change?.field === 'account_settings_update') {
+    await handleAccountSettingsUpdate(value);
+    return;
+  }
+  
   // ═══════════════════════════════════════════════════════════
   // A0. Handle Template Status Updates (Meta approval/rejection)
   // ═══════════════════════════════════════════════════════════
@@ -778,6 +816,19 @@ export const processWebhookJob = async (job) => {
     let locLongitude = null;
     let locName = null;
     let locAddress = null;
+
+    // ── Handle Call Permission Reply ──────────────────────
+    if (messageType === 'interactive' && message.interactive?.type === 'call_permission_reply') {
+      await handleCallPermissionReply(message, tenant, phoneId);
+      return;
+    }
+
+    // ── Handle Voicemail (audio with wacid prefix) ───────
+    if (messageType === 'audio' && messageId.startsWith('wacid.')) {
+      console.log(`🎙️ [Webhook] Voicemail received for wacid: ${messageId}`);
+      // TODO: Route to Voicemail logic (Phase 6)
+      return;
+    }
 
     // ── TEXT ───────────────────────────────────────────────
     if (messageType === 'text') {

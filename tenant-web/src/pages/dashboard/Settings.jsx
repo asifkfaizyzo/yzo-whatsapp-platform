@@ -36,6 +36,7 @@ import {
   ShoppingBag,
   CreditCard,
   LayoutGrid,
+  PhoneCall,
 } from "lucide-react";
 import { FaFacebookMessenger, FaInstagram, FaWhatsapp } from "react-icons/fa";
 import { getTags, createTag } from "../../services/tag.service";
@@ -65,6 +66,7 @@ import QuickReplies from "./QuickReplies";
 import Team from "./Team";
 import PaymentGatewaySettings from "../../components/settings/PaymentGatewaySettings";
 import IntegrationsStore from "../../components/settings/IntegrationsStore";
+import CallSettings from "./CallSettings";
 
 
 // 🆕 API base URL for logo display
@@ -953,6 +955,12 @@ export default function SettingsPage() {
               id: "reopen",
               label: "Auto-Reopen Rules",
               icon: <RefreshCw size={15} />,
+              adminOnly: true,
+            },
+            {
+              id: "calls",
+              label: "WhatsApp Calling",
+              icon: <PhoneCall size={15} />,
               adminOnly: true,
             },
                         {
@@ -2807,6 +2815,9 @@ export default function SettingsPage() {
               </div>
             </div>
           )}
+
+          {/* Tab: WhatsApp Calling */}
+          {activeTab === "calls" && userRole === "admin" && <CallSettings />}
 
           {/* Tab 5: Auto-Reopen Rules - UNCHANGED */}
           {activeTab === "reopen" && (
