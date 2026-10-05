@@ -406,48 +406,99 @@ export const performTemplateSync = async (tenant) => {
     if (mt.status === 'PAUSED')   localStatus = 'PAUSED';
     if (mt.status === 'DISABLED') localStatus = 'DISABLED';
 
-    const dbTemp = await prisma.template.upsert({
-      where: {
-        name_language_tenantId: {
-          name: mt.name,
-          language: mt.language,
-          tenantId: tenant.id
-        }
-      },
-      update: {
-        metaTemplateId:       mt.id,
-        status:               localStatus,
-        components,
-        headerParams,
-        bodyParams,
-        headerType:           derivedHeaderType,
-        headerText:           derivedHeaderText,
-        headerMediaHandle:    derivedHeaderMediaHandle,
-        footerText:           derivedFooterText,
-        buttons:              derivedButtons,
-        lastSyncedAt:         now,
-      },
-      create: {
-        tenantId:             tenant.id,
-        metaTemplateId:       mt.id,
-        name:                 mt.name,
-        language:             mt.language,
-        category:             mt.category,
-        status:               localStatus,
-        components,
-        headerParams,
-        bodyParams,
-        headerType:           derivedHeaderType,
-        headerText:           derivedHeaderText,
-        headerMediaHandle:    derivedHeaderMediaHandle,
-        footerText:           derivedFooterText,
-        buttons:              derivedButtons,
-        createdById:          null,
-        lastSyncedAt:         now,
-      }
-    });
+    try {
+      let dbTemp;
+      const existingByMetaId = mt.id
+        ? await prisma.template.findUnique({ where: { metaTemplateId: mt.id } })
+        : null;
 
-    synced.push(dbTemp);
+      const existingByName = await prisma.template.findUnique({
+        where: {
+          name_language_tenantId: {
+            name: mt.name,
+            language: mt.language,
+            tenantId: tenant.id
+          }
+        }
+      });
+
+      if (existingByMetaId) {
+        // If a separate placeholder row exists with this name/language for this tenant, reassign any broadcasts & clean it up
+        if (existingByName && existingByName.id !== existingByMetaId.id) {
+          await prisma.broadcast.updateMany({
+            where: { templateId: existingByName.id },
+            data: { templateId: existingByMetaId.id },
+          }).catch(() => {});
+          await prisma.template.delete({ where: { id: existingByName.id } }).catch(() => {});
+        }
+
+        dbTemp = await prisma.template.update({
+          where: { id: existingByMetaId.id },
+          data: {
+            tenantId:             tenant.id,
+            metaTemplateId:       mt.id,
+            name:                 mt.name,
+            language:             mt.language,
+            category:             mt.category,
+            status:               localStatus,
+            components,
+            headerParams,
+            bodyParams,
+            headerType:           derivedHeaderType,
+            headerText:           derivedHeaderText,
+            headerMediaHandle:    derivedHeaderMediaHandle,
+            footerText:           derivedFooterText,
+            buttons:              derivedButtons,
+            lastSyncedAt:         now,
+          }
+        });
+      } else if (existingByName) {
+        dbTemp = await prisma.template.update({
+          where: { id: existingByName.id },
+          data: {
+            metaTemplateId:       mt.id,
+            category:             mt.category,
+            status:               localStatus,
+            components,
+            headerParams,
+            bodyParams,
+            headerType:           derivedHeaderType,
+            headerText:           derivedHeaderText,
+            headerMediaHandle:    derivedHeaderMediaHandle,
+            footerText:           derivedFooterText,
+            buttons:              derivedButtons,
+            lastSyncedAt:         now,
+          }
+        });
+      } else {
+        dbTemp = await prisma.template.create({
+          data: {
+            tenantId:             tenant.id,
+            metaTemplateId:       mt.id,
+            name:                 mt.name,
+            language:             mt.language,
+            category:             mt.category,
+            status:               localStatus,
+            components,
+            headerParams,
+            bodyParams,
+            headerType:           derivedHeaderType,
+            headerText:           derivedHeaderText,
+            headerMediaHandle:    derivedHeaderMediaHandle,
+            footerText:           derivedFooterText,
+            buttons:              derivedButtons,
+            createdById:          null,
+            lastSyncedAt:         now,
+          }
+        });
+      }
+
+      if (dbTemp) {
+        synced.push(dbTemp);
+      }
+    } catch (itemErr) {
+      console.error(`[Templates] Error syncing template "${mt.name}" (${mt.id}):`, itemErr.message);
+    }
   }
 
   return synced;
