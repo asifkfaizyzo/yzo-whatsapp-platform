@@ -74,11 +74,53 @@ import { useConfirm } from "../../context/ConfirmContext";
 import { useToast } from "../../context/ToastContext";
 import { getQuickReplies } from "../../services/quickReply.service";
 import QuickReplyPopover from "../../components/inbox/QuickReplyPopover";
+import { useCallStore } from "../../store/useCallStore";
 
 export default function Inbox() {
   const confirm = useConfirm();
   const toast = useToast();
   const { user, accessToken } = useAuthStore();
+  const setCall = useCallStore(s => s.setCall);
+  const globalActiveCall = useCallStore(s => s.activeCall);
+
+  const handleRequestCallPermission = async (contact) => {
+    try {
+      const res = await api.post('/whatsapp/calls/permissions/request', { contactId: contact.id });
+      if (res.data?.success) {
+        toast.success("Call permission request sent to user!");
+      } else {
+        toast.error("Failed to send permission request.");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error(typeof err.response?.data?.error === 'object' ? JSON.stringify(err.response.data.error) : (err.response?.data?.error || err.message || "Error sending permission request."));
+    }
+  };
+
+  const handleInitiateCall = async (contact) => {
+    if (globalActiveCall) return toast.error("A call is already in progress.");
+    try {
+      const res = await api.post('/whatsapp/calls/initiate', { contactId: contact.id });
+      if (res.data?.success) {
+        const callId = res.data?.callId || res.data?.data?.calls?.[0]?.id || res.data?.data?.id;
+        setCall({
+          wacid: callId || 'temp_' + Date.now(),
+          status: 'DIALING',
+          direction: 'BUSINESS_INITIATED',
+          contactId: contact.id,
+          fromNumber: contact.phone || null,
+        });
+      } else {
+        toast.error("Failed to start call: Invalid response from Meta.");
+      }
+    } catch (err) {
+      if (err.response?.data?.error === 'NO_CALL_PERMISSION') {
+        toast.error("User has not granted call permission.");
+      } else {
+        toast.error(err.response?.data?.message || "Failed to initiate call.");
+      }
+    }
+  };
 
   const userRole = user?.type === "TENANT" ? "admin" : "agent";
 
@@ -2780,7 +2822,26 @@ export default function Inbox() {
 
               <div className="flex items-center gap-2">
 
-                {activeChat.status === "OPEN" ? (
+                {activeChat.channel === "WHATSAPP" && (
+                    <>
+                      <button
+                        onClick={() => handleRequestCallPermission(activeChat.contact)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-500/20 hover:bg-yellow-500/40 backdrop-blur-sm border border-yellow-500/30 rounded-xl text-white text-xs font-semibold transition duration-150 mr-2"
+                        title="Request Call Permission"
+                      >
+                        <span>Ask Permission</span>
+                      </button>
+                      <button
+                        onClick={() => handleInitiateCall(activeChat.contact)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-[#125EF2]/20 hover:bg-[#125EF2]/40 backdrop-blur-sm border border-[#125EF2]/30 rounded-xl text-white text-xs font-semibold transition duration-150 mr-2"
+                        title="Initiate WhatsApp Call"
+                      >
+                        <Phone size={13} className="text-blue-100" />
+                        <span>Call</span>
+                      </button>
+                    </>
+                  )}
+                  {activeChat.status === "OPEN" ? (
                   <button
                     onClick={() => handleUpdateStatus("RESOLVED")}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-white/15 hover:bg-white/25 backdrop-blur-sm border border-white/10 rounded-xl text-white text-xs font-semibold transition duration-150"

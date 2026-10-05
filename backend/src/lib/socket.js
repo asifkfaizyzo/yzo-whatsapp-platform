@@ -2,6 +2,7 @@
 // backend/src/lib/socket.js
 import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
+import { registerCallSocketHandlers } from '../modules/whatsapp/callSocketHandler.js';
 
 let io = null;
 
@@ -94,11 +95,18 @@ export const initSocket = (server) => {
       }, 2000);
     }
 
+    // Automatically join tenant room from verified token
+    if (socket.tenantId) {
+      socket.join(socket.tenantId);
+      console.log(`👤 Socket ${socket.id} automatically joined tenant room: ${socket.tenantId}`);
+    }
+
     // Room joining
     socket.on('join_tenant', (tenantId) => {
-      if (tenantId && socket.tenantId === tenantId) {
-        socket.join(tenantId);
-        console.log(`👤 Socket ${socket.id} joined tenant room: ${tenantId}`);
+      const targetId = tenantId || socket.tenantId;
+      if (targetId && (socket.tenantId === targetId || socket.userType === 'SUPERADMIN')) {
+        socket.join(targetId);
+        console.log(`👤 Socket ${socket.id} joined tenant room: ${targetId}`);
       }
     });
 
@@ -240,6 +248,9 @@ export const initSocket = (server) => {
         broadcastTyping(conversationId);
       }
     });
+
+    // ── WhatsApp WebRTC Calling ──
+    registerCallSocketHandlers(socket, io);
 
     // ── Disconnect ──
     socket.on('disconnect', () => {

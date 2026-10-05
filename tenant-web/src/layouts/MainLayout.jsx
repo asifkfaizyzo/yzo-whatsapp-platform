@@ -8,6 +8,8 @@ import ExpiredSubscriptionBanner from "../components/billing/ExpiredSubscription
 import api from "../lib/axios";
 import { useAuthStore } from "../store/useAuthStore";
 import { useWhatsAppStore } from "../store/useWhatsAppStore";
+import CallOverlay from "../components/calls/CallOverlay";
+import { useCallSocketListener } from "../hooks/useCallSocketListener";
 
 export default function MainLayout() {
   const navigate = useNavigate();
@@ -22,6 +24,9 @@ export default function MainLayout() {
   const fetchStatus = useWhatsAppStore((s) => s.fetchStatus);
   const bindSocket = useWhatsAppStore((s) => s.bindSocket);
   const resetWa = useWhatsAppStore((s) => s.reset);
+
+  // ✅ Global Call Listeners
+  useCallSocketListener();
 
   // ✅ Bootstrap WhatsApp status once when app loads
   useEffect(() => {
@@ -155,6 +160,9 @@ export default function MainLayout() {
           <Outlet context={{ tenantStatus }} />
         </main>
       </div>
+
+      {/* Global Call Overlay */}
+      <CallOverlay />
     </div>
   );
 }

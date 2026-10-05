@@ -1759,3 +1759,121 @@ model ContactProviderMapping {
   @@unique([contactId, provider])
   @@unique([tenantId, provider, providerContactId])
 }
+
+// ============================================
+// WHATSAPP BUSINESS CALLING API
+// ============================================
+
+// 1. Business Phone Call Settings
+model WaPhoneCallSetting {
+  businessPhoneId          String   @id // Primary Key: whatsappPhoneId
+  status                   String   @default("ENABLED") // 'ENABLED', 'DISABLED'
+  callIconVisibility       String   @default("DEFAULT") // 'DEFAULT', 'DISABLE_ALL'
+  callIconCountries        Json?    // restrict_to_user_countries
+  callbackPermissionStatus String   @default("ENABLED")
+  callHours                Json?    // Full call_hours object (timezone, weekly, holidays)
+  voicemailConfig          Json?    // triggers, timeout_seconds, status
+  voicemailMediaId         String?  // Meta Media ID for uploaded greeting
+  
+  recordingDefaultEnabled  Boolean  @default(true)
+  recordingDefaultPurpose  String   @default("quality assurance and training") @db.VarChar(250)
+  transcriptionDefaultEnabled Boolean @default(true)
+  transcriptionDefaultPurpose String @default("quality assurance and training") @db.VarChar(250)
+  announcementLanguage     String   @default("en_US")
+  audioCodecs              Json?    // additional_codecs: ["PCMA", "PCMU"]
+  srtpKeyExchange          String   @default("DTLS") // 'DTLS' | 'SDES'
+
+  updatedAt                DateTime @default(now()) @updatedAt
+  
+  @@map("wa_phone_call_settings")
+}
+
+// 2. Call Permissions Tracking
+model WaCallPermission {
+  id                      String   @id @default(cuid())
+  businessPhoneId         String
+  userWaId                String
+  userBsuid               String?
+  permissionStatus        String   @default("no_permission") // 'no_permission', 'temporary', 'permanent'
+  expirationTimestamp     BigInt?  // Epoch seconds; NULL if permanent
+  responseSource          String?  // 'user_action', 'automatic'
+  isPermanent             Boolean  @default(false)
+  unansweredConsecutive   Int      @default(0)
+  
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@unique([businessPhoneId, userWaId])
+  @@map("wa_call_permissions")
+}
+
+// 3. Call Logs & State
+model WaCall {
+  id                      String   @id @default(cuid())
+  wacid                   String   @unique // WhatsApp Call ID (wacid.xxx)
+  businessPhoneId         String
+  direction               String   // 'BUSINESS_INITIATED', 'USER_INITIATED'
+  fromNumber              String?
+  toNumber                String?
+  fromBsuid               String?
+  toBsuid                 String?
+  
+  status                  String   // 'INITIATED', 'RINGING', 'ACCEPTED', 'REJECTED', 'COMPLETED', 'FAILED'
+  startTime               BigInt?  // Epoch seconds
+  endTime                 BigInt?
+  duration                Int?     // Seconds
+  
+  bizOpaqueData           String?  @db.VarChar(512)
+  ctaPayload              String?  @db.VarChar(512)
+  deeplinkPayload         String?  @db.VarChar(512)
+  sdpAnswer               String?  @db.Text // Cached SDP Answer
+
+  assignedAgentId         String?
+  conversationId          String?
+  
+  errorCode               Int?
+  errorMessage            String?  @db.Text
+  
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  
+  recordings              WaCallRecording[]
+  transcripts             WaCallTranscript[]
+
+  @@map("wa_calls")
+}
+
+// 4. Call Recordings
+model WaCallRecording {
+  id                      String   @id @default(cuid())
+  callId                  String
+  call                    WaCall   @relation(fields: [callId], references: [id], onDelete: Cascade)
+  wacid                   String
+  metaMediaId             String
+  mediaUrl                String?  @db.Text // Local path like uploads/calls/audio.ogg
+  mimeType                String   @default("audio/ogg; codecs=opus") @db.VarChar(64)
+  sha256                  String?  @db.VarChar(128)
+  downloadStatus          String   @default("PENDING") // 'PENDING', 'DOWNLOADED', 'EXPIRED', 'FAILED'
+  createdAt               DateTime @default(now())
+
+  @@map("wa_call_recordings")
+}
+
+// 5. Call Transcripts
+model WaCallTranscript {
+  id                      String   @id @default(cuid())
+  callId                  String
+  call                    WaCall   @relation(fields: [callId], references: [id], onDelete: Cascade)
+  wacid                   String
+  metaDocumentId          String
+  mediaUrl                String?  @db.Text // Local path like uploads/calls/transcript.json
+  detectedLanguage        String?  @db.VarChar(16)
+  confidence              Decimal? @db.Decimal(4,3)
+  duration                Decimal? @db.Decimal(8,2)
+  fullText                String?  @db.Text
+  segments                Json?    // Word and speaker detail
+  downloadStatus          String   @default("PENDING") // 'PENDING', 'DOWNLOADED', 'EXPIRED', 'FAILED'
+  createdAt               DateTime @default(now())
+
+  @@map("wa_call_transcripts")
+}
