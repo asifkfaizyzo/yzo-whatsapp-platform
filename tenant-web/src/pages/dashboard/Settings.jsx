@@ -37,6 +37,8 @@ import {
   CreditCard,
   LayoutGrid,
   PhoneCall,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { FaFacebookMessenger, FaInstagram, FaWhatsapp } from "react-icons/fa";
 import { getTags, createTag } from "../../services/tag.service";
@@ -51,6 +53,7 @@ import {
   updateWhatsappConfig,
   getWhatsappStatus,
   disconnectWhatsapp,
+  setupWhatsappManual,
   uploadTenantLogo,
   deleteTenantLogo,
   getMetaChannelsStatus,
@@ -308,6 +311,52 @@ export default function SettingsPage() {
   const [disconnectError, setDisconnectError] = useState(null);
   const [showConfirmDisconnect, setShowConfirmDisconnect] = useState(false);
   const [showConnectModal, setShowConnectModal] = useState(false);
+
+  // Expandable Manual WhatsApp Setup in Connectors Tab
+  const [isManualExpanded, setIsManualExpanded] = useState(false);
+  const [manualPhoneId, setManualPhoneId] = useState("");
+  const [manualWabaId, setManualWabaId] = useState("");
+  const [manualAccessToken, setManualAccessToken] = useState("");
+  const [showManualToken, setShowManualToken] = useState(false);
+  const [savingManualConnect, setSavingManualConnect] = useState(false);
+  const [manualConnectError, setManualConnectError] = useState(null);
+
+  const handleManualConnectSubmit = async (e) => {
+    e.preventDefault();
+    if (!manualPhoneId?.trim()) {
+      setManualConnectError("Please enter your Phone Number ID.");
+      return;
+    }
+    if (!manualWabaId?.trim()) {
+      setManualConnectError("Please enter your WhatsApp Business Account (WABA) ID.");
+      return;
+    }
+    setSavingManualConnect(true);
+    setManualConnectError(null);
+    try {
+      const res = await setupWhatsappManual({
+        phoneNumberId: manualPhoneId.trim(),
+        wabaId: manualWabaId.trim(),
+        accessToken: manualAccessToken.trim() || undefined,
+      });
+      if (res.success) {
+        toast.success("WhatsApp connected successfully!");
+        setManualPhoneId("");
+        setManualWabaId("");
+        setManualAccessToken("");
+        setIsManualExpanded(false);
+        fetchWhatsappStatusData();
+        fetchWhatsappConfig();
+      } else {
+        setManualConnectError(res.message || "Failed to setup WhatsApp with provided credentials.");
+      }
+    } catch (err) {
+      setManualConnectError(err.response?.data?.message || "Verification failed. Check your IDs and Token.");
+    } finally {
+      setSavingManualConnect(false);
+    }
+  };
+
 
   const [webhook, setWebhook] = useState({
     url: "https://api.sudoreply.com/webhooks/whatsapp",
@@ -2201,6 +2250,147 @@ export default function SettingsPage() {
                       </button>
                     </div>
                   )}
+
+                  {/* Expandable Manual / Direct API Configuration */}
+                  <div className="mt-4 border border-slate-200/80 bg-white rounded-2xl shadow-sm overflow-hidden transition-all">
+                    <button
+                      type="button"
+                      onClick={() => setIsManualExpanded(!isManualExpanded)}
+                      className="w-full p-4 sm:p-5 flex items-center justify-between text-left hover:bg-slate-50/70 transition-colors"
+                    >
+                      <div className="flex items-center gap-3.5">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center shrink-0">
+                          <Key size={18} className="text-emerald-600" />
+                        </div>
+                        <div>
+                          <h4 className="text-xs sm:text-sm font-bold text-slate-800 flex items-center gap-2">
+                            <span>Manual / Direct API Configuration</span>
+                            <span className="text-[10px] font-semibold uppercase px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200">
+                              Expandable
+                            </span>
+                          </h4>
+                          <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5 font-medium">
+                            Connect using Phone Number ID, WABA ID & Permanent Token (For portfolio owners & direct Cloud API)
+                          </p>
+                        </div>
+                      </div>
+                      <div className="p-2 text-slate-400 hover:text-slate-600 rounded-lg">
+                        {isManualExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                      </div>
+                    </button>
+
+                    {isManualExpanded && (
+                      <div className="p-5 pt-0 border-t border-slate-100 animate-in fade-in duration-150">
+                        <div className="bg-emerald-50/60 border border-emerald-200/70 rounded-xl p-3.5 mb-4 text-xs text-emerald-900 leading-relaxed mt-4">
+                          <div className="font-bold text-emerald-950 mb-0.5 flex items-center gap-1.5">
+                            <span>⚡</span>
+                            <span>Direct WABA Connection:</span>
+                          </div>
+                          If your WhatsApp number is already registered inside Meta Business Suite (WhatsApp Manager), enter your credentials below to connect directly without going through the Facebook login popup.
+                        </div>
+
+                        <form onSubmit={handleManualConnectSubmit} className="space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Phone Number ID */}
+                            <div>
+                              <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                                Phone Number ID <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                required
+                                placeholder="e.g. 582910492817293"
+                                value={manualPhoneId}
+                                onChange={(e) => setManualPhoneId(e.target.value)}
+                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-mono text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
+                              />
+                              <p className="text-[10px] text-slate-400 mt-1">
+                                Found in Meta Business Suite → WhatsApp Accounts → WhatsApp Manager → Phone Numbers table.
+                              </p>
+                            </div>
+
+                            {/* WABA ID */}
+                            <div>
+                              <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                                WhatsApp Business Account (WABA) ID <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                required
+                                placeholder="e.g. 982710492817293"
+                                value={manualWabaId}
+                                onChange={(e) => setManualWabaId(e.target.value)}
+                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-mono text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
+                              />
+                              <p className="text-[10px] text-slate-400 mt-1">
+                                Found at top of WhatsApp Manager or in Settings → Account info.
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Permanent Access Token */}
+                          <div>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                                Permanent Access Token / System User Token
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => setShowManualToken(!showManualToken)}
+                                className="text-[11px] font-semibold text-emerald-600 hover:text-emerald-700"
+                              >
+                                {showManualToken ? "Hide Token" : "Show Token"}
+                              </button>
+                            </div>
+                            <input
+                              type={showManualToken ? "text" : "password"}
+                              placeholder="EAAB... (Optional if configured in backend environment)"
+                              value={manualAccessToken}
+                              onChange={(e) => setManualAccessToken(e.target.value)}
+                              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-mono text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
+                            />
+                            <p className="text-[10px] text-slate-400 mt-1">
+                              Generated in Meta Business Settings → System Users (with <code className="text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded font-mono">whatsapp_business_management</code> & <code className="text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded font-mono">whatsapp_business_messaging</code>).
+                            </p>
+                          </div>
+
+                          {manualConnectError && (
+                            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-xs font-semibold flex items-center gap-2">
+                              <AlertCircle size={15} className="shrink-0" />
+                              <span>{manualConnectError}</span>
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-end gap-2 pt-2">
+                            <button
+                              type="button"
+                              onClick={() => setIsManualExpanded(false)}
+                              className="px-4 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl text-xs font-bold transition"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="submit"
+                              disabled={savingManualConnect}
+                              className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition flex items-center gap-2 disabled:opacity-50"
+                            >
+                              {savingManualConnect ? (
+                                <>
+                                  <RefreshCw size={14} className="animate-spin" />
+                                  <span>Verifying & Connecting...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <CheckCircle2 size={14} />
+                                  <span>Verify & Connect WhatsApp</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </form>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 

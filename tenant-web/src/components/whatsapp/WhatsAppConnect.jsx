@@ -313,120 +313,120 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
               </div>
             ))}
           </div>
-          { error && (
-        <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
-          {error}
-        </div>
-      )}
-  <button
-    onClick={() => {
-      setShowSelector(false);
-      setAvailableWabas([]);
-    }}
-    className="mt-4 w-full text-gray-600 py-2 hover:text-gray-800"
-  >
-    Cancel
-  </button>
-        </div>
-      </div>,
-    document.body
-    );
-}
-
-// ── Loading Screen (custom animated loader) ─────────────────────────
-if (isLoading) {
-  return <WhatsAppLoader visible={true} />;
-}
-
-// ── Main UI ──────────────────────────────────────────────────────────
-return createPortal(
-  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" style={{ zIndex: 99999 }}>
-    <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-          {/* Header */}
-          <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-6 border-b border-gray-100 shrink-0">
-            <div>
-              <p className="text-sm text-green-600 font-semibold mb-1">
-                Official API Integration
-              </p>
-              <h2 className="text-xl font-bold text-gray-900">
-                Connect WhatsApp API
-              </h2>
+          {error && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+              {error}
             </div>
-            <button
-              onClick={onClose}
-              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
-            >
-              <svg
-                className="w-5 h-5 text-gray-500"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          </div>
-
-          <div className="p-6">
-            <p className="text-gray-600 mb-6 font-medium">
-              Please read Meta's official guidelines before connecting a phone number:
-            </p>
-
-            <div className="space-y-4 mb-6">
-              <div className="border border-green-200 bg-green-50 rounded-xl p-5">
-                <div className="flex items-center gap-3 mb-2">
-                  <span className="text-2xl">🌟</span>
-                  <h3 className="font-bold text-green-900">
-                    Option A: Use a Fresh Phone Number (Recommended)
-                  </h3>
-                </div>
-                <ul className="text-sm text-green-800 space-y-2 ml-9 list-disc">
-                  <li>Best for a clean, fast setup.</li>
-                  <li>The number must not be currently registered on any personal or business WhatsApp app.</li>
-                </ul>
-              </div>
-
-              <div className="border border-orange-200 bg-orange-50 rounded-xl p-5">
-                <div className="flex items-center gap-3 mb-2">
-                  <span className="text-2xl">⚠️</span>
-                  <h3 className="font-bold text-orange-900">
-                    Option B: Use an Existing WhatsApp Number
-                  </h3>
-                </div>
-                <ul className="text-sm text-orange-800 space-y-2 ml-9 list-disc">
-                  <li>Meta does not allow a number to be on the mobile app and the Cloud API at the same time.</li>
-                  <li>You <span className="font-bold">MUST</span> delete the WhatsApp account from your mobile app (Settings &gt; Account &gt; Delete Account) before proceeding.</li>
-                  <li>You will no longer be able to use the WhatsApp mobile app. All messages will be handled exclusively inside Sudo Reply.</li>
-                </ul>
-              </div>
-            </div>
-
-            {error && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
-                {error}
-              </div>
-            )}
-
-            <button
-              onClick={launchEmbeddedSignup}
-              className="w-full bg-[#1877F2] text-white py-3.5 px-6 rounded-xl font-semibold hover:bg-[#166FE5] transition-colors flex items-center justify-center gap-2"
-            >
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-              </svg>
-              Continue with Facebook / Meta
-            </button>
-            <p className="text-center text-xs text-gray-400 mt-4">
-              🔒 Secured by Meta — Sudoreply never stores your Facebook credentials
-            </p>
-          </div>
+          )}
+          <button
+            onClick={() => {
+              setShowSelector(false);
+              setAvailableWabas([]);
+            }}
+            className="mt-4 w-full text-gray-600 py-2 hover:text-gray-800"
+          >
+            Cancel
+          </button>
         </div>
       </div>,
       document.body
-      );
+    );
+  }
+
+  // ── Loading Screen (custom animated loader) ─────────────────────────
+  if (isLoading) {
+    return <WhatsAppLoader visible={true} />;
+  }
+
+  // ── Main UI ──────────────────────────────────────────────────────────
+  return createPortal(
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" style={{ zIndex: 99999 }}>
+      <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-6 border-b border-gray-100 shrink-0">
+          <div>
+            <p className="text-sm text-green-600 font-semibold mb-1">
+              Official API Integration
+            </p>
+            <h2 className="text-xl font-bold text-gray-900">
+              Connect WhatsApp API
+            </h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+          >
+            <svg
+              className="w-5 h-5 text-gray-500"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <div className="p-6">
+          <p className="text-gray-600 mb-6 font-medium">
+            Please read Meta's official guidelines before connecting a phone number:
+          </p>
+
+          <div className="space-y-4 mb-6">
+            <div className="border border-green-200 bg-green-50 rounded-xl p-5">
+              <div className="flex items-center gap-3 mb-2">
+                <span className="text-2xl">🌟</span>
+                <h3 className="font-bold text-green-900">
+                  Option A: Use a Fresh Phone Number (Recommended)
+                </h3>
+              </div>
+              <ul className="text-sm text-green-800 space-y-2 ml-9 list-disc">
+                <li>Best for a clean, fast setup.</li>
+                <li>The number must not be currently registered on any personal or business WhatsApp app.</li>
+              </ul>
+            </div>
+
+            <div className="border border-orange-200 bg-orange-50 rounded-xl p-5">
+              <div className="flex items-center gap-3 mb-2">
+                <span className="text-2xl">⚠️</span>
+                <h3 className="font-bold text-orange-900">
+                  Option B: Use an Existing WhatsApp Number
+                </h3>
+              </div>
+              <ul className="text-sm text-orange-800 space-y-2 ml-9 list-disc">
+                <li>Meta does not allow a number to be on the mobile app and the Cloud API at the same time.</li>
+                <li>You <span className="font-bold">MUST</span> delete the WhatsApp account from your mobile app (Settings &gt; Account &gt; Delete Account) before proceeding.</li>
+                <li>You will no longer be able to use the WhatsApp mobile app. All messages will be handled exclusively inside Sudo Reply.</li>
+              </ul>
+            </div>
+          </div>
+
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+              {error}
+            </div>
+          )}
+
+          <button
+            onClick={launchEmbeddedSignup}
+            className="w-full bg-[#1877F2] text-white py-3.5 px-6 rounded-xl font-semibold hover:bg-[#166FE5] transition-colors flex items-center justify-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+            </svg>
+            Continue with Facebook / Meta
+          </button>
+          <p className="text-center text-xs text-gray-400 mt-4">
+            🔒 Secured by Meta — Sudoreply never stores your Facebook credentials
+          </p>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
 }
