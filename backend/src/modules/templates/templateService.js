@@ -7,14 +7,23 @@ const META_API_VERSION = 'v23.0';
 // 1. Fetch templates catalog from Meta Business Account (WABA)
 // ─────────────────────────────────────────────────────────────
 export const fetchMetaTemplates = async (tenant) => {
-  const url = `https://graph.facebook.com/${META_API_VERSION}/${tenant.whatsappWabaId}/message_templates?limit=100`;
+  const token = decrypt(tenant.whatsappAccessToken);
+  const wabaId = tenant.whatsappWabaId;
+  const url = `https://graph.facebook.com/${META_API_VERSION}/${wabaId}/message_templates?limit=100`;
+
+  console.log(`[Templates] Fetching Meta templates for WABA: ${wabaId}...`);
   const response = await fetch(url, {
-    headers: { 'Authorization': `Bearer ${decrypt(tenant.whatsappAccessToken)}` }
+    headers: { 'Authorization': `Bearer ${token}` }
   });
 
   if (!response.ok) {
     const errorData = await response.json();
-    throw new Error(errorData.error?.message || 'Failed to fetch templates from Meta');
+    console.error(`[Templates] Fetch failed for WABA ${wabaId}:`, errorData);
+    let msg = errorData.error?.message || 'Failed to fetch templates from Meta';
+    if (msg.includes('message_templates') || errorData.error?.code === 100) {
+      msg = `Invalid WABA ID (${wabaId}). Please ensure your WhatsApp Business Account (WABA) ID is connected, not your Meta Business Portfolio ID.`;
+    }
+    throw new Error(msg);
   }
 
   const payload = await response.json();
