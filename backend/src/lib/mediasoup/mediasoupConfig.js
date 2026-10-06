@@ -1,4 +1,12 @@
-import os from 'os';
+let detectedPublicIp = null;
+
+export const setAnnouncedIp = (ip) => {
+  detectedPublicIp = ip;
+};
+
+export const getAnnouncedIp = () => {
+  return process.env.MEDIASOUP_ANNOUNCED_IP || detectedPublicIp || '72.61.241.109';
+};
 
 export const mediasoupConfig = {
   worker: {
@@ -24,6 +32,7 @@ export const mediasoupConfig = {
         mimeType: 'audio/opus',
         clockRate: 48000,
         channels: 2,
+        preferredPayloadType: 111,
         parameters: {
           useinbandfec: 1,
           minptime: 10,
@@ -41,12 +50,14 @@ export const mediasoupConfig = {
     // Meta requires our gateway to be controlling/ice-full, but Mediasoup's PlainTransport 
     // or WebRtcTransport will handle the negotiation. 
     // Listen IPs must be public if deployed, local for dev.
-    listenIps: [
-      {
-        ip: process.env.MEDIASOUP_LISTEN_IP || '0.0.0.0',
-        announcedIp: process.env.MEDIASOUP_ANNOUNCED_IP || null
-      }
-    ],
+    get listenIps() {
+      return [
+        {
+          ip: process.env.MEDIASOUP_LISTEN_IP || '0.0.0.0',
+          announcedIp: getAnnouncedIp()
+        }
+      ];
+    },
     initialAvailableOutgoingBitrate: 800000,
     maxSctpMessageSize: 262144,
     enableUdp: true,

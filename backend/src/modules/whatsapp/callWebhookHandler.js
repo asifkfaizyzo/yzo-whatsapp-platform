@@ -2,8 +2,11 @@ import prisma from '../../config/prisma.js';
 import { emitToTenant } from '../../lib/socket.js';
 import { redisConnection } from '../../config/redis.js';
 import { createWebRtcTransport, generateMetaSdp, processMetaSdpAnswer } from '../../lib/mediasoup/mediasoupService.js';
-import { activeCalls, activeOutboundTransports } from './callSocketHandler.js';
+import { activeCalls, activeOutboundTransports, bridgeAgentToMeta } from './callSocketHandler.js';
 import { callMediaQueue } from '../../queues/callMediaQueue.js';
+import axios from 'axios';
+import { GRAPH_BASE_URL } from '../../config/meta.js';
+import { decrypt } from '../../lib/crypto.js';
 
 export const handleCallEvents = async (value, tenant) => {
   console.log('[Webhook] Incoming call event:', JSON.stringify(value, null, 2));
@@ -39,14 +42,62 @@ export const handleCallEvents = async (value, tenant) => {
         console.log(`🔔 [Incoming Call] Inbound call received: ${wacid}`);
         
         let sdpAnswer = null;
+        let metaTransport = null;
+        let metaProducer = null;
         try {
-          const { params: metaTransportParams } = await createWebRtcTransport();
-          sdpAnswer = generateMetaSdp(metaTransportParams, 'answer'); 
+          const res = await createWebRtcTransport();
+          metaTransport = res.transport;
+          sdpAnswer = generateMetaSdp(res.params, 'answer'); 
           if (sdpAnswer) {
             await redisConnection.set(`sdp-answer:${wacid}`, sdpAnswer, 'EX', 120);
           }
+
+          // If Meta provided an SDP offer, process it to establish DTLS and metaProducer immediately
+          const metaSdpOffer = call.session?.sdp;
+          if (metaSdpOffer) {
+            try {
+              metaProducer = await processMetaSdpAnswer(metaTransport, metaSdpOffer);
+              console.log(`✅ [Mediasoup] Inbound call ${wacid} metaProducer ready: ${metaProducer.id}`);
+            } catch (pErr) {
+              console.warn(`⚠️ [Mediasoup] Error processing incoming SDP offer:`, pErr.message);
+            }
+          }
+
+          const existingCall = activeCalls.get(wacid) || {};
+          activeCalls.set(wacid, {
+            ...existingCall,
+            metaTransport,
+            ...(metaProducer && { metaProducer })
+          });
+
+          // Route agent's mic to Meta if agent is already producing
+          await bridgeAgentToMeta(activeCalls.get(wacid));
+
         } catch (mediaErr) {
           console.warn("⚠️ [Mediasoup] Could not create transport for incoming call:", mediaErr.message);
+        }
+
+        // Send pre_accept to Meta to negotiate media early (<500ms)
+        if (tenant?.whatsappAccessToken && phoneId && sdpAnswer) {
+          try {
+            const token = decrypt(tenant.whatsappAccessToken);
+            await axios.post(
+              `${GRAPH_BASE_URL}/${phoneId}/calls`,
+              {
+                messaging_product: 'whatsapp',
+                call_id: wacid,
+                action: 'pre_accept',
+                session: {
+                  sdp_type: 'answer',
+                  sdp: sdpAnswer
+                }
+              },
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+            console.log(`✅ [Meta API] pre_accept acknowledged for ${wacid}`);
+          } catch (preAcceptErr) {
+            console.warn(`⚠️ [Meta API] pre_accept notice:`, preAcceptErr.response?.data || preAcceptErr.message);
+          }
         }
 
         const fromNumber = typeof call.from === 'string' ? call.from : call.from?.phone_number || call.from?.id;
@@ -85,21 +136,33 @@ export const handleCallEvents = async (value, tenant) => {
       } else {
         // Outbound call connected
         const sdpAnswer = call.session?.sdp;
-        const toNumber = typeof call.to === 'string' ? call.to : call.to?.phone_number;
-        const metaTransport = activeOutboundTransports.get(toNumber);
+        const rawToNumber = typeof call.to === 'string' ? call.to : call.to?.phone_number;
+        const cleanTo = rawToNumber ? String(rawToNumber).replace(/\D/g, '') : null;
+
+        const metaTransport = 
+          activeOutboundTransports.get(wacid) || 
+          (cleanTo && activeOutboundTransports.get(cleanTo)) || 
+          (rawToNumber && activeOutboundTransports.get(rawToNumber)) ||
+          activeCalls.get(wacid)?.metaTransport;
         
         if (metaTransport && sdpAnswer) {
           try {
              const metaProducer = await processMetaSdpAnswer(metaTransport, sdpAnswer);
+             console.log(`✅ [Mediasoup] Outbound call ${wacid} metaProducer ready: ${metaProducer.id}`);
+             
+             const existing = activeCalls.get(wacid) || {};
              activeCalls.set(wacid, {
+               ...existing,
                metaTransport,
-               metaProducer,
-               sendTransport: null,
-               recvTransport: null,
-               producer: null,
-               consumer: null
+               metaProducer
              });
-             activeOutboundTransports.delete(toNumber);
+
+             // Route agent's mic to Meta if agent is already producing
+             await bridgeAgentToMeta(activeCalls.get(wacid));
+
+             activeOutboundTransports.delete(wacid);
+             if (cleanTo) activeOutboundTransports.delete(cleanTo);
+             if (rawToNumber) activeOutboundTransports.delete(rawToNumber);
           } catch(e) {
              console.error("Failed to process Meta SDP Answer:", e);
           }
@@ -139,6 +202,12 @@ export const handleCallEvents = async (value, tenant) => {
          if (call.start_timestamp) updateData.startTime = BigInt(call.start_timestamp);
          if (call.end_timestamp) updateData.endTime = BigInt(call.end_timestamp);
          if (call.duration) updateData.duration = call.duration;
+         const endingCall = activeCalls.get(wacid);
+         if (endingCall) {
+           if (endingCall.metaTransport) try { endingCall.metaTransport.close(); } catch (_) {}
+           if (endingCall.sendTransport) try { endingCall.sendTransport.close(); } catch (_) {}
+           if (endingCall.recvTransport) try { endingCall.recvTransport.close(); } catch (_) {}
+         }
          activeCalls.delete(wacid);
       }
 

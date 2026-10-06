@@ -28,10 +28,14 @@ export const acceptCall = async (req, res) => {
     const token = decrypt(tenant.whatsappAccessToken);
     if (!token) throw new Error('WhatsApp access token not configured');
 
-    // Fetch cached SDP Answer
-    const sdpAnswer = await redisConnection.get(`sdp-answer:${wacid}`);
+    // Fetch cached SDP Answer (Redis first, fallback to DB)
+    let sdpAnswer = await redisConnection.get(`sdp-answer:${wacid}`);
     if (!sdpAnswer) {
-      console.warn(`[acceptCall] SDP answer not found in Redis for wacid: ${wacid}`);
+      const dbCall = await prisma.waCall.findUnique({ where: { wacid } });
+      sdpAnswer = dbCall?.sdpAnswer;
+      if (!sdpAnswer) {
+        console.warn(`[acceptCall] SDP answer not found in Redis or DB for wacid: ${wacid}`);
+      }
     }
 
     try {
@@ -191,8 +195,10 @@ export const initiateCall = async (req, res) => {
 
     // 3. Request Mediasoup SDP Offer for Meta
     let sdpOffer = null;
+    let outboundTransport = null;
     try {
       const { transport, params: metaTransportParams } = await createWebRtcTransport();
+      outboundTransport = transport;
       sdpOffer = generateMetaSdp(metaTransportParams, 'offer');
       activeOutboundTransports.set(toNumber, transport);
     } catch (mediaErr) {
@@ -229,6 +235,16 @@ export const initiateCall = async (req, res) => {
     );
 
     const callId = response.data?.calls?.[0]?.id || response.data?.id;
+
+    // Associate outbound transport with callId
+    if (callId && outboundTransport) {
+      activeOutboundTransports.set(callId, outboundTransport);
+      const existing = activeCalls.get(callId) || {};
+      activeCalls.set(callId, {
+        ...existing,
+        metaTransport: outboundTransport
+      });
+    }
 
     // Immediately persist outbound call in DB
     if (callId) {
