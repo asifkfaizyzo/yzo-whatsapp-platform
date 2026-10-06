@@ -11,7 +11,7 @@ export default function CallOverlay() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
   
-  const { initDevice, createTransports, startProducing, startConsuming, endCall } = useWebRTC();
+  const { initDevice, createTransports, startProducing, startConsuming, muteMic, endCall, remoteAudioRef } = useWebRTC();
   const phoneId = useWhatsAppStore(s => s.wabaData?.phone_numbers?.data?.[0]?.id);
 
   // Auto-setup WebRTC when call is accepted
@@ -95,7 +95,9 @@ export default function CallOverlay() {
   };
 
   const toggleMute = () => {
-    setIsMuted(!isMuted);
+    const next = !isMuted;
+    setIsMuted(next);
+    muteMic(next);
   };
 
   const formatDuration = (seconds) => {
@@ -119,6 +121,9 @@ export default function CallOverlay() {
   return (
     <div className="fixed bottom-6 right-6 w-[340px] bg-[#111b21] rounded-2xl shadow-2xl overflow-hidden z-[9999] border border-[#222e35] text-[#e9edef] animate-in slide-in-from-bottom-6 duration-300 font-sans select-none">
       
+      {/* Hidden WebRTC Audio Output Element */}
+      <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
+
       {/* Top Header - WhatsApp Encryption Tag */}
       <div className="pt-3 px-4 flex items-center justify-center gap-1.5 text-[11px] text-[#8696a0] tracking-wide">
         <Lock className="w-3 h-3 text-[#00a884]" />

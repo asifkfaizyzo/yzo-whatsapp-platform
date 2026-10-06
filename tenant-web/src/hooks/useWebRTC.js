@@ -10,7 +10,8 @@ export const useWebRTC = () => {
   const [consumer, setConsumer] = useState(null);
 
   const localMediaStream = useRef(null);
-  const remoteAudioRef = useRef(new Audio());
+  const remoteAudioRef = useRef(null);
+  const fallbackAudioRef = useRef(new Audio());
 
   const initDevice = useCallback(async () => {
     const socket = getSocket();
@@ -97,35 +98,66 @@ export const useWebRTC = () => {
     }
   }, []);
 
-  const startConsuming = useCallback(async (currentDevice, recvTx, callId) => {
+  const startConsuming = useCallback(async (currentDevice, recvTx, callId, retryCount = 0) => {
     const socket = getSocket();
     if (!socket || !currentDevice || !recvTx) return;
 
     socket.emit('consume', { callId, rtpCapabilities: currentDevice.rtpCapabilities }, async (res) => {
       if (res.error) {
-        console.error('Consume error:', res.error);
+        console.warn(`[WebRTC] Consume attempt ${retryCount + 1} notice:`, res.error);
+        if (retryCount < 4) {
+          setTimeout(() => {
+            startConsuming(currentDevice, recvTx, callId, retryCount + 1);
+          }, 1200);
+        }
         return;
       }
 
-      const newConsumer = await recvTx.consume({
-        id: res.id,
-        producerId: res.producerId,
-        kind: res.kind,
-        rtpParameters: res.rtpParameters
-      });
+      try {
+        const newConsumer = await recvTx.consume({
+          id: res.id,
+          producerId: res.producerId,
+          kind: res.kind,
+          rtpParameters: res.rtpParameters
+        });
 
-      setConsumer(newConsumer);
+        setConsumer(newConsumer);
 
-      // Play audio
-      const { track } = newConsumer;
-      const remoteStream = new MediaStream([track]);
-      remoteAudioRef.current.srcObject = remoteStream;
-      await remoteAudioRef.current.play();
+        // Play incoming audio
+        const { track } = newConsumer;
+        const remoteStream = new MediaStream([track]);
+        const audioElement = remoteAudioRef.current || fallbackAudioRef.current;
+        if (audioElement) {
+          audioElement.srcObject = remoteStream;
+          audioElement.volume = 1.0;
+          audioElement.autoplay = true;
+          try {
+            await audioElement.play();
+            console.log('🔊 [WebRTC] Customer audio successfully playing');
+          } catch (playErr) {
+            console.warn('⚠️ [WebRTC] Audio auto-play notice:', playErr);
+          }
+        }
 
-      // Tell backend to resume the stream
-      socket.emit('resumeConsumer', { callId });
+        // Tell backend to resume the stream
+        socket.emit('resumeConsumer', { callId });
+      } catch (err) {
+        console.error('Failed to attach consumer:', err);
+      }
     });
   }, []);
+
+  const muteMic = useCallback((muted) => {
+    if (localMediaStream.current) {
+      localMediaStream.current.getAudioTracks().forEach(track => {
+        track.enabled = !muted;
+      });
+    }
+    if (producer) {
+      if (muted) producer.pause();
+      else producer.resume();
+    }
+  }, [producer]);
 
   const endCall = useCallback(() => {
     if (producer) producer.close();
@@ -139,6 +171,9 @@ export const useWebRTC = () => {
     
     if (remoteAudioRef.current) {
       remoteAudioRef.current.srcObject = null;
+    }
+    if (fallbackAudioRef.current) {
+      fallbackAudioRef.current.srcObject = null;
     }
 
     setDevice(null);
@@ -154,6 +189,8 @@ export const useWebRTC = () => {
     createTransports,
     startProducing,
     startConsuming,
-    endCall
+    muteMic,
+    endCall,
+    remoteAudioRef
   };
 };
