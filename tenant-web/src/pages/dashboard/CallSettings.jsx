@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { PhoneCall, PhoneForwarded, Upload, X, Loader2, Save } from 'lucide-react';
+import { PhoneCall, PhoneForwarded, Upload, X, Loader2, Save, Sliders, History } from 'lucide-react';
 import api from '../../lib/axios';
 import { useToast } from '../../context/ToastContext';
 import { useWhatsAppStore } from '../../store/useWhatsAppStore';
+import { useAuthStore } from '../../store/useAuthStore';
+import CallLogsTable from '../../components/calls/CallLogsTable';
 
 export default function CallSettings() {
+  const [activeSubTab, setActiveSubTab] = useState('logs');
   const [settings, setSettings] = useState({
     status: 'ENABLED',
     callIconVisibility: 'DEFAULT'
@@ -14,9 +17,16 @@ export default function CallSettings() {
   const [voicemailFile, setVoicemailFile] = useState(null);
   const [uploading, setUploading] = useState(false);
 
-  const { wabaData } = useWhatsAppStore();
-  const phoneId = wabaData?.phone_numbers?.data?.[0]?.id;
+  const { phoneNumberId, loading: waLoading, fetchStatus } = useWhatsAppStore();
+  const user = useAuthStore((s) => s.user);
+  const phoneId = phoneNumberId || user?.whatsappPhoneId || user?.tenant?.whatsappPhoneId;
   const toast = useToast();
+
+  useEffect(() => {
+    if (!phoneNumberId && typeof fetchStatus === 'function') {
+      fetchStatus();
+    }
+  }, [phoneNumberId, fetchStatus]);
 
   useEffect(() => {
     if (phoneId) {
@@ -83,6 +93,15 @@ export default function CallSettings() {
     }
   };
 
+  if (loading || (waLoading && !phoneId)) {
+    return (
+      <div className="p-8 text-center text-slate-500 flex items-center justify-center gap-2">
+        <Loader2 className="w-5 h-5 animate-spin text-[#125EF2]" />
+        <span className="text-sm font-medium">Loading WhatsApp call settings...</span>
+      </div>
+    );
+  }
+
   if (!phoneId) {
     return (
       <div className="p-6 text-center text-slate-500">
@@ -93,10 +112,47 @@ export default function CallSettings() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-base font-bold text-slate-800 pb-3 border-b border-slate-50 flex items-center gap-2">
-        <PhoneCall className="w-5 h-5 text-[#125EF2]" />
-        WhatsApp Calling Configuration
-      </h2>
+      {/* ── Top Header & Sub-Tabs ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-3">
+        <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
+          <PhoneCall className="w-5 h-5 text-[#125EF2]" />
+          WhatsApp Calling
+        </h2>
+
+        {/* Sub-Tabs Selector */}
+        <div className="flex items-center gap-1.5 p-1 bg-slate-100/80 rounded-xl self-start sm:self-auto">
+          <button
+            onClick={() => setActiveSubTab('logs')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+              activeSubTab === 'logs'
+                ? 'bg-white text-slate-800 shadow-xs'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <History className="w-3.5 h-3.5 text-[#125EF2]" />
+            <span>Call Logs & Recordings</span>
+          </button>
+
+          <button
+            onClick={() => setActiveSubTab('config')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+              activeSubTab === 'config'
+                ? 'bg-white text-slate-800 shadow-xs'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Sliders className="w-3.5 h-3.5 text-slate-500" />
+            <span>Settings & Voicemail</span>
+          </button>
+        </div>
+      </div>
+
+      {/* ── Tab 1: Call Logs & Recordings ── */}
+      {activeSubTab === 'logs' && <CallLogsTable />}
+
+      {/* ── Tab 2: Meta Configuration ── */}
+      {activeSubTab === 'config' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
 
       {/* Meta API Settings */}
       <div className="space-y-4">
@@ -172,7 +228,9 @@ export default function CallSettings() {
         </div>
         {voicemailFile && <p className="text-xs text-emerald-600 mt-2 font-medium">Selected: {voicemailFile.name}</p>}
       </div>
-
     </div>
-  );
+  )}
+
+</div>
+);
 }

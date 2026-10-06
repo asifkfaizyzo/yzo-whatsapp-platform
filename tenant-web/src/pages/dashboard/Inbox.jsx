@@ -40,7 +40,12 @@ import {
   Copy,
   FileText,
   Zap,
+  PhoneCall,
+  PhoneIncoming,
+  PhoneOutgoing,
 } from "lucide-react";
+import CallMessageBubble from "../../components/inbox/CallMessageBubble";
+import ContactCallsDrawer from "../../components/inbox/ContactCallsDrawer";
 import {
   getAssignedConversations,
   getConversationMessages,
@@ -104,17 +109,29 @@ export default function Inbox() {
       const sdpOffer = await webrtcService.initiateOutboundCall();
       const res = await api.post('/whatsapp/calls/initiate', {
         contactId: contact.id,
+        conversationId: activeChatId,
         sdpOffer
       });
       if (res.data?.success) {
         const callId = res.data?.callId || res.data?.data?.calls?.[0]?.id || res.data?.data?.id;
-        setCall({
+        const callData = {
           wacid: callId || 'temp_' + Date.now(),
           status: 'DIALING',
           direction: 'BUSINESS_INITIATED',
           contactId: contact.id,
           fromNumber: contact.phone || null,
-        });
+        };
+        setCall(callData);
+        setActiveChatCalls((prev) => [
+          ...prev.filter((c) => c.wacid !== callData.wacid),
+          {
+            ...callData,
+            createdAt: new Date().toISOString(),
+            duration: 0,
+            recordings: [],
+            transcripts: [],
+          },
+        ]);
       } else {
         toast.error("Failed to start call: Invalid response from Meta.");
         webrtcService.endCall();
@@ -224,6 +241,24 @@ export default function Inbox() {
     [activeChatId, setSearchParams]
   );
   const [messages, setMessages] = useState([]);
+  const [activeChatCalls, setActiveChatCalls] = useState([]);
+  const [loadingCalls, setLoadingCalls] = useState(false);
+
+  // Merged timeline of messages and calls chronologically
+  const timelineItems = React.useMemo(() => {
+    const msgs = (messages || []).map((m) => ({
+      ...m,
+      _itemType: "MESSAGE",
+      _time: new Date(m.createdAt).getTime() || 0,
+    }));
+    const cls = (activeChatCalls || []).map((c) => ({
+      ...c,
+      _itemType: "CALL",
+      _time: new Date(c.createdAt).getTime() || 0,
+    }));
+    return [...msgs, ...cls].sort((a, b) => a._time - b._time);
+  }, [messages, activeChatCalls]);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [typedMessage, setTypedMessage] = useState("");
   const [loading, setLoading] = useState(true);
@@ -445,6 +480,34 @@ export default function Inbox() {
   useEffect(() => {
     setRightPanelSubView("info");
   }, [activeChatId]);
+
+  // Load Calls for Active Conversation
+  const loadConversationCalls = useCallback(async (convId) => {
+    if (!convId) {
+      setActiveChatCalls([]);
+      return;
+    }
+    setLoadingCalls(true);
+    try {
+      const res = await api.get(`/whatsapp/calls/conversation/${convId}`);
+      if (res.data?.success) {
+        setActiveChatCalls(res.data.data || []);
+      }
+    } catch (err) {
+      console.warn("Failed to load calls for conversation:", err);
+    } finally {
+      setLoadingCalls(false);
+    }
+  }, []);
+
+  // Fetch calls when active chat changes
+  useEffect(() => {
+    if (activeChatId) {
+      loadConversationCalls(activeChatId);
+    } else {
+      setActiveChatCalls([]);
+    }
+  }, [activeChatId, loadConversationCalls]);
 
   // Persist panel state
   useEffect(() => {
@@ -1032,6 +1095,63 @@ export default function Inbox() {
       toast.error(`Channel Error (${data.channel}): ${data.error}`);
     };
 
+    // ── Call Socket Listeners ──
+    const handleCallStatusUpdate = (data) => {
+      if (!data?.wacid) return;
+      setActiveChatCalls((prev) => {
+        const idx = prev.findIndex((c) => c.wacid === data.wacid);
+        if (idx === -1) {
+          if (activeChatId) loadConversationCalls(activeChatId);
+          return prev;
+        }
+        const updated = [...prev];
+        updated[idx] = {
+          ...updated[idx],
+          status: data.status,
+          ...(data.duration != null && { duration: data.duration }),
+        };
+        return updated;
+      });
+    };
+
+    const handleCallRecordingReady = (data) => {
+      if (!data?.wacid) return;
+      setActiveChatCalls((prev) =>
+        prev.map((c) => {
+          if (c.wacid === data.wacid) {
+            const recs = c.recordings || [];
+            return {
+              ...c,
+              recordings: [
+                ...recs.filter((r) => r.wacid !== data.wacid),
+                data.recording || { mediaUrl: data.mediaUrl, downloadStatus: "DOWNLOADED" },
+              ],
+            };
+          }
+          return c;
+        })
+      );
+    };
+
+    const handleCallTranscriptReady = (data) => {
+      if (!data?.wacid) return;
+      setActiveChatCalls((prev) =>
+        prev.map((c) => {
+          if (c.wacid === data.wacid) {
+            const trans = c.transcripts || [];
+            return {
+              ...c,
+              transcripts: [
+                ...trans.filter((t) => t.wacid !== data.wacid),
+                data.transcript || { fullText: data.fullText, mediaUrl: data.mediaUrl, downloadStatus: "DOWNLOADED" },
+              ],
+            };
+          }
+          return c;
+        })
+      );
+    };
+
     socket.on("new_message", handleNewMessage);
     socket.on("message_deleted", handleMessageDeleted);
     socket.on("conversations_reassigned", handleConversationsReassigned);
@@ -1039,6 +1159,9 @@ export default function Inbox() {
     socket.on("conversation_assigned", handleConversationAssigned);
     socket.on("message_status_update", handleMessageStatusUpdate);
     socket.on("channel_error", handleChannelError);
+    socket.on("call_status_update", handleCallStatusUpdate);
+    socket.on("call_recording_ready", handleCallRecordingReady);
+    socket.on("call_transcript_ready", handleCallTranscriptReady);
 
     return () => {
       socket.off("new_message", handleNewMessage);
@@ -1048,8 +1171,11 @@ export default function Inbox() {
       socket.off("conversation_assigned", handleConversationAssigned);
       socket.off("message_status_update", handleMessageStatusUpdate);
       socket.off("channel_error", handleChannelError);
+      socket.off("call_status_update", handleCallStatusUpdate);
+      socket.off("call_recording_ready", handleCallRecordingReady);
+      socket.off("call_transcript_ready", handleCallTranscriptReady);
     };
-  }, [socket, activeChatId, loadConversations]);
+  }, [socket, activeChatId, loadConversations, loadConversationCalls]);
 
   // ── Close conv menu when clicking outside ──
   useEffect(() => {
@@ -3051,16 +3177,27 @@ export default function Inbox() {
                   </div>
                 </div>
               ) : (
-                messages.length > 0 && (
+                timelineItems.length > 0 && (
                   <div className="flex items-center justify-center mb-2">
                     <span className="px-4 py-1 bg-white/80 backdrop-blur-sm rounded-lg text-[10px] font-semibold text-[#54656F] shadow-sm">
-                      {formatDate(messages[0]?.createdAt)}
+                      {formatDate(timelineItems[0]?.createdAt)}
                     </span>
                   </div>
                 )
               )}
 
-              {messages.map((msg) => {
+              {timelineItems.map((item, itemIdx) => {
+                if (item._itemType === "CALL") {
+                  return (
+                    <CallMessageBubble
+                      key={item.id || item.wacid || `call-${itemIdx}`}
+                      call={item}
+                      onCallContact={() => handleInitiateCall(activeChat.contact)}
+                    />
+                  );
+                }
+
+                const msg = item;
                 const isAgent = !msg.isFromCustomer;
                 const timeStr = formatTime(msg.createdAt);
 
@@ -4248,6 +4385,47 @@ export default function Inbox() {
                   </div>
                 </div>
 
+                {/* ── WhatsApp-Style "Calls & Recordings" Section Card ── */}
+                <div className="bg-[#F0F2F5] rounded-2xl p-3.5 space-y-2">
+                  <button
+                    onClick={() => setRightPanelSubView("calls")}
+                    className="w-full flex items-center justify-between group text-left"
+                  >
+                    <span className="text-[10px] font-bold text-[#075E54] uppercase tracking-wider flex items-center gap-1.5">
+                      <PhoneCall size={11} /> Calls & Recordings
+                    </span>
+                    <div className="flex items-center gap-1 text-[#667781] group-hover:text-[#075E54] transition">
+                      <span className="text-[11px] font-bold text-[#075E54]">
+                        {activeChatCalls.length}
+                      </span>
+                      <ChevronRight size={13} />
+                    </div>
+                  </button>
+
+                  {activeChatCalls.length === 0 ? (
+                    <p className="text-[10px] text-[#667781] italic">No calls yet</p>
+                  ) : (
+                    <div className="flex items-center justify-between pt-1">
+                      <div className="flex items-center gap-1.5 text-xs text-[#111B21]">
+                        {activeChatCalls[activeChatCalls.length - 1].direction === "BUSINESS_INITIATED" ? (
+                          <PhoneOutgoing size={13} className="text-[#075E54]" />
+                        ) : (
+                          <PhoneIncoming size={13} className="text-[#075E54]" />
+                        )}
+                        <span className="text-[11px] font-medium text-[#111B21]">
+                          Latest: {activeChatCalls[activeChatCalls.length - 1].duration ? `${activeChatCalls[activeChatCalls.length - 1].duration}s` : activeChatCalls[activeChatCalls.length - 1].status}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => setRightPanelSubView("calls")}
+                        className="text-[10px] text-[#075E54] font-bold hover:underline"
+                      >
+                        View All
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 {/* Contact Info */}
                 <div className="bg-[#F0F2F5] rounded-2xl p-3.5 space-y-2.5">
                   <p className="text-[10px] font-bold text-[#075E54] uppercase tracking-wider flex items-center gap-1.5">
@@ -4629,6 +4807,20 @@ export default function Inbox() {
                 )}
               </div>
             </div>
+          )}
+
+          {/* ──────────────────────────────────────────
+              SUB-VIEW 3: CALLS & RECORDINGS DRAWER
+          ────────────────────────────────────────── */}
+          {rightPanelSubView === "calls" && (
+            <ContactCallsDrawer
+              contact={activeChat.contact}
+              calls={activeChatCalls}
+              loading={loadingCalls}
+              onBack={() => setRightPanelSubView("info")}
+              onInitiateCall={() => handleInitiateCall(activeChat.contact)}
+              onRefresh={() => loadConversationCalls(activeChatId)}
+            />
           )}
         </div>
       )}

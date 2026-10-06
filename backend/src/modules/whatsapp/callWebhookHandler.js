@@ -41,67 +41,43 @@ export const handleCallEvents = async (value, tenant) => {
       if (isUserInitiated) {
         console.log(`🔔 [Incoming Call] Inbound call received: ${wacid}`);
         
-        let sdpAnswer = null;
-        let metaTransport = null;
-        let metaProducer = null;
-        try {
-          const res = await createWebRtcTransport();
-          metaTransport = res.transport;
-          sdpAnswer = generateMetaSdp(res.params, 'answer'); 
-          if (sdpAnswer) {
-            await redisConnection.set(`sdp-answer:${wacid}`, sdpAnswer, 'EX', 120);
-          }
-
-          // If Meta provided an SDP offer, process it to establish DTLS and metaProducer immediately
-          const metaSdpOffer = call.session?.sdp;
-          if (metaSdpOffer) {
-            try {
-              metaProducer = await processMetaSdpAnswer(metaTransport, metaSdpOffer);
-              console.log(`✅ [Mediasoup] Inbound call ${wacid} metaProducer ready: ${metaProducer.id}`);
-            } catch (pErr) {
-              console.warn(`⚠️ [Mediasoup] Error processing incoming SDP offer:`, pErr.message);
-            }
-          }
-
-          const existingCall = activeCalls.get(wacid) || {};
-          activeCalls.set(wacid, {
-            ...existingCall,
-            metaTransport,
-            ...(metaProducer && { metaProducer })
-          });
-
-          // Route agent's mic to Meta if agent is already producing
-          await bridgeAgentToMeta(activeCalls.get(wacid));
-
-        } catch (mediaErr) {
-          console.warn("⚠️ [Mediasoup] Could not create transport for incoming call:", mediaErr.message);
-        }
-
-        // Send pre_accept to Meta to negotiate media early (<500ms)
-        if (tenant?.whatsappAccessToken && phoneId && sdpAnswer) {
-          try {
-            const token = decrypt(tenant.whatsappAccessToken);
-            await axios.post(
-              `${GRAPH_BASE_URL}/${phoneId}/calls`,
-              {
-                messaging_product: 'whatsapp',
-                call_id: wacid,
-                action: 'pre_accept',
-                session: {
-                  sdp_type: 'answer',
-                  sdp: sdpAnswer
-                }
-              },
-              { headers: { Authorization: `Bearer ${token}` } }
-            );
-            console.log(`✅ [Meta API] pre_accept acknowledged for ${wacid}`);
-          } catch (preAcceptErr) {
-            console.warn(`⚠️ [Meta API] pre_accept notice:`, preAcceptErr.response?.data || preAcceptErr.message);
-          }
+        // Cache Meta's incoming SDP offer for direct WebRTC negotiation upon agent accept
+        const metaSdpOffer = call.session?.sdp;
+        if (metaSdpOffer) {
+          await redisConnection.set(`sdp-offer:${wacid}`, metaSdpOffer, 'EX', 180);
         }
 
         const fromNumber = typeof call.from === 'string' ? call.from : call.from?.phone_number || call.from?.id;
         const toNumber = typeof call.to === 'string' ? call.to : call.to?.phone_number || phoneId;
+
+        let resolvedConvId = null;
+        if (fromNumber && tenant) {
+          try {
+            const cleanFrom = String(fromNumber).replace(/\D/g, '');
+            const contact = await prisma.contact.findFirst({
+              where: {
+                tenantId: tenant.id,
+                OR: [
+                  { phone: fromNumber },
+                  { phone: cleanFrom },
+                  { phone: `+${cleanFrom}` },
+                  ...(cleanFrom.length >= 10 ? [{ phone: { endsWith: cleanFrom.slice(-10) } }] : [])
+                ]
+              },
+              include: {
+                conversations: {
+                  take: 1,
+                  orderBy: { updatedAt: 'desc' }
+                }
+              }
+            });
+            if (contact?.conversations?.[0]) {
+              resolvedConvId = contact.conversations[0].id;
+            }
+          } catch (lookupErr) {
+            console.warn('Error looking up contact for inbound call:', lookupErr.message);
+          }
+        }
 
         await prisma.waCall.upsert({
           where: { wacid },
@@ -117,11 +93,11 @@ export const handleCallEvents = async (value, tenant) => {
             bizOpaqueData: call.biz_opaque_callback_data || null,
             ctaPayload: call.cta_payload || null,
             deeplinkPayload: call.deeplink_payload || null,
-            sdpAnswer: sdpAnswer || null,
+            conversationId: resolvedConvId,
           },
           update: {
             status: 'RINGING',
-            ...(sdpAnswer && { sdpAnswer }),
+            ...(resolvedConvId && { conversationId: resolvedConvId }),
           }
         });
 

@@ -4,6 +4,7 @@ import { useWebRTC } from '../../hooks/useWebRTC';
 import api from '../../lib/axios';
 import { Phone, PhoneOff, Mic, MicOff, User, Lock } from 'lucide-react';
 import { useWhatsAppStore } from '../../store/useWhatsAppStore';
+import { startRingtone, stopRingtone } from '../../lib/ringtoneService';
 
 export default function CallOverlay() {
   const { activeCall, updateCallStatus, clearCall } = useCallStore();
@@ -13,6 +14,20 @@ export default function CallOverlay() {
   
   const { acceptIncomingCall, handleRemoteAnswer, muteMic, endCall, remoteAudioRef } = useWebRTC();
   const phoneId = useWhatsAppStore(s => s.wabaData?.phone_numbers?.data?.[0]?.id);
+
+  const isInboundRinging = activeCall?.status === 'RINGING' && activeCall?.direction === 'USER_INITIATED';
+
+  // Ringtone for incoming WhatsApp calls
+  useEffect(() => {
+    if (isInboundRinging) {
+      startRingtone();
+    } else {
+      stopRingtone();
+    }
+    return () => {
+      stopRingtone();
+    };
+  }, [isInboundRinging]);
 
   // Apply Meta SDP answer whenever received
   useEffect(() => {
@@ -35,6 +50,7 @@ export default function CallOverlay() {
   }, [activeCall?.status]);
 
   const handleAccept = async () => {
+    stopRingtone();
     try {
       updateCallStatus('ACCEPTING...');
       let sdpAnswer = null;
@@ -55,6 +71,7 @@ export default function CallOverlay() {
   };
 
   const handleReject = async () => {
+    stopRingtone();
     try {
       await api.post('/whatsapp/calls/reject', {
         wacid: activeCall.wacid,
@@ -68,6 +85,7 @@ export default function CallOverlay() {
   };
 
   const handleTerminate = async () => {
+    stopRingtone();
     try {
       await api.post('/whatsapp/calls/terminate', {
         wacid: activeCall.wacid,
@@ -95,7 +113,6 @@ export default function CallOverlay() {
 
   if (!activeCall) return null;
 
-  const isInboundRinging = activeCall.status === 'RINGING' && activeCall.direction === 'USER_INITIATED';
   const isOutboundDialing = ['DIALING', 'RINGING', 'CONNECTING'].includes(activeCall.status) && activeCall.direction === 'BUSINESS_INITIATED';
   const isDeclined = activeCall.status === 'REJECTED';
   const isEnded = ['COMPLETED', 'TERMINATED', 'ENDED'].includes(activeCall.status);
