@@ -5,6 +5,7 @@ import { redisConnection } from '../../config/redis.js';
 import { createWebRtcTransport, generateMetaSdp } from '../../lib/mediasoup/mediasoupService.js';
 import { activeCalls, activeOutboundTransports } from './callSocketHandler.js';
 import { emitToTenant } from '../../lib/socket.js';
+import { decrypt } from '../../lib/crypto.js';
 import FormData from 'form-data';
 import fs from 'fs';
 
@@ -12,7 +13,7 @@ import fs from 'fs';
 const getTenantToken = async (tenantId) => {
   const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
   if (!tenant || !tenant.whatsappAccessToken) throw new Error('WhatsApp not configured');
-  return tenant.whatsappAccessToken;
+  return decrypt(tenant.whatsappAccessToken);
 };
 
 // POST /api/whatsapp/calls/accept
@@ -24,7 +25,7 @@ export const acceptCall = async (req, res) => {
     if (!tenant) throw new Error('Tenant not found');
 
     phoneId = phoneId || tenant.whatsappPhoneId;
-    const token = tenant.whatsappAccessToken;
+    const token = decrypt(tenant.whatsappAccessToken);
     if (!token) throw new Error('WhatsApp access token not configured');
 
     // Fetch cached SDP Answer
@@ -77,7 +78,7 @@ export const rejectCall = async (req, res) => {
     if (!tenant) throw new Error('Tenant not found');
 
     phoneId = phoneId || tenant.whatsappPhoneId;
-    const token = tenant.whatsappAccessToken;
+    const token = decrypt(tenant.whatsappAccessToken);
 
     if (wacid && wacid.startsWith('wacid.') && phoneId && token) {
       try {
@@ -129,7 +130,7 @@ export const terminateCall = async (req, res) => {
       }
     }
 
-    const token = tenant.whatsappAccessToken;
+    const token = decrypt(tenant.whatsappAccessToken);
 
     if (wacid && wacid.startsWith('wacid.') && phoneId && token) {
       try {
@@ -175,7 +176,7 @@ export const initiateCall = async (req, res) => {
     phoneId = phoneId || tenant.whatsappPhoneId;
     if (!phoneId) throw new Error('WhatsApp Phone ID not configured');
     
-    const token = tenant.whatsappAccessToken;
+    const token = decrypt(tenant.whatsappAccessToken);
     if (!token) throw new Error('WhatsApp Access Token not configured');
 
     // 1. Verify rate limits (simplistic check for 100/day can be done via DB)
