@@ -2,6 +2,7 @@ import { Worker } from 'bullmq';
 import { QUEUE_NAME_CALL_MEDIA } from '../queues/callMediaQueue.js';
 import { redisConnection } from '../config/redis.js';
 import prisma from '../config/prisma.js';
+import { decrypt } from '../lib/crypto.js';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
@@ -10,7 +11,7 @@ import path from 'path';
 const getTenantToken = async (tenantId) => {
   const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
   if (!tenant || !tenant.whatsappAccessToken) throw new Error('WhatsApp not configured');
-  return tenant.whatsappAccessToken;
+  return decrypt(tenant.whatsappAccessToken);
 };
 
 export const processCallMediaJob = async (job) => {
