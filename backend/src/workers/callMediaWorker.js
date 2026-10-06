@@ -3,6 +3,7 @@ import { QUEUE_NAME_CALL_MEDIA } from '../queues/callMediaQueue.js';
 import { redisConnection } from '../config/redis.js';
 import prisma from '../config/prisma.js';
 import { decrypt } from '../lib/crypto.js';
+import { emitToTenant } from '../lib/socket.js';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
@@ -37,9 +38,6 @@ export const processCallMediaJob = async (job) => {
 
   // 2. Verify SHA256 Integrity
   const actualHash = crypto.createHash('sha256').update(buffer).digest('base64');
-  // Note: Meta sometimes provides hex or base64. Ensure safe comparison.
-  // We'll trust it if it succeeds, but log warnings on mismatch.
-  // Actually Meta sha256 is usually base64 for media. 
   
   // 3. Save locally
   const saveDir = path.join(process.cwd(), 'uploads', 'calls', tenantId);
@@ -59,56 +57,85 @@ export const processCallMediaJob = async (job) => {
 
   // 4. Update Database
   if (type === 'RECORDING') {
-    await prisma.waCallRecording.upsert({
-      where: { id: wacid }, // we can use wacid as ID or create one
-      create: {
-        callId: wacid, // Assuming Call ID is wacid, but wait, WaCall relation is by id...
-        // Wait, WaCall ID is cuid, wacid is unique. We need to lookup WaCall first.
-        call: { connect: { wacid } },
+    const existingRec = await prisma.waCallRecording.findFirst({ where: { wacid } });
+    let recRecord;
+    if (existingRec) {
+      recRecord = await prisma.waCallRecording.update({
+        where: { id: existingRec.id },
+        data: {
+          mediaUrl: publicUrl,
+          downloadStatus: 'DOWNLOADED'
+        }
+      });
+    } else {
+      recRecord = await prisma.waCallRecording.create({
+        data: {
+          call: { connect: { wacid } },
+          wacid,
+          metaMediaId: mediaObj.id,
+          mediaUrl: publicUrl,
+          mimeType: mediaObj.mime_type || 'audio/ogg; codecs=opus',
+          sha256: expectedHash,
+          downloadStatus: 'DOWNLOADED'
+        }
+      });
+    }
+
+    if (tenantId) {
+      console.log(`📢 [Socket] Emitting call_recording_ready to tenant ${tenantId} for ${wacid}`);
+      emitToTenant(tenantId, 'call_recording_ready', {
         wacid,
-        metaMediaId: mediaObj.id,
         mediaUrl: publicUrl,
-        mimeType: mediaObj.mime_type || 'audio/ogg',
-        sha256: expectedHash,
-        downloadStatus: 'DOWNLOADED'
-      },
-      update: {
-        mediaUrl: publicUrl,
-        downloadStatus: 'DOWNLOADED'
-      }
-    });
+        recording: recRecord
+      });
+    }
   } else if (type === 'TRANSCRIPTION') {
-     // Save transcript segments if JSON
      let fullText = null;
      let segments = null;
      try {
        const json = JSON.parse(buffer.toString('utf-8'));
-       // Extract meta transcription format
-       fullText = json.dialog?.[0]?.text || null;
+       fullText = json.dialog?.[0]?.text || json.text || null;
        segments = json.dialog || null;
      } catch (e) { console.warn('Could not parse transcript JSON'); }
 
-     await prisma.waCallTranscript.upsert({
-       where: { id: wacid },
-       create: {
-         call: { connect: { wacid } },
+     const existingTrans = await prisma.waCallTranscript.findFirst({ where: { wacid } });
+     let transRecord;
+     if (existingTrans) {
+       transRecord = await prisma.waCallTranscript.update({
+         where: { id: existingTrans.id },
+         data: {
+           mediaUrl: publicUrl,
+           fullText,
+           segments,
+           downloadStatus: 'DOWNLOADED'
+         }
+       });
+     } else {
+       transRecord = await prisma.waCallTranscript.create({
+         data: {
+           call: { connect: { wacid } },
+           wacid,
+           metaDocumentId: mediaObj.id,
+           mediaUrl: publicUrl,
+           fullText,
+           segments,
+           downloadStatus: 'DOWNLOADED'
+         }
+       });
+     }
+
+     if (tenantId) {
+       console.log(`📢 [Socket] Emitting call_transcript_ready to tenant ${tenantId} for ${wacid}`);
+       emitToTenant(tenantId, 'call_transcript_ready', {
          wacid,
-         metaDocumentId: mediaObj.id,
-         mediaUrl: publicUrl,
          fullText,
-         segments,
-         downloadStatus: 'DOWNLOADED'
-       },
-       update: {
          mediaUrl: publicUrl,
-         fullText,
-         segments,
-         downloadStatus: 'DOWNLOADED'
-       }
-     });
+         transcript: transRecord
+       });
+     }
   }
 
-  console.log(`✅ [CallMediaWorker] Downloaded ${type} for call ${wacid}`);
+  console.log(`✅ [CallMediaWorker] Downloaded and persisted ${type} for call ${wacid}`);
 };
 
 export const startCallMediaWorker = () => {

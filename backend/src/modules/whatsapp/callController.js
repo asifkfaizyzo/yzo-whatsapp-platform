@@ -172,7 +172,7 @@ export const terminateCall = async (req, res) => {
 // POST /api/whatsapp/calls/initiate
 export const initiateCall = async (req, res) => {
   try {
-    let { phoneId, contactId, sdpOffer: clientSdpOffer } = req.body; 
+    let { phoneId, contactId, sdpOffer: clientSdpOffer, conversationId: reqConvId } = req.body; 
     const tenantId = req.tenant?.id || req.user?.tenantId;
     const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
     if (!tenant) throw new Error('Tenant not found');
@@ -189,6 +189,17 @@ export const initiateCall = async (req, res) => {
     const contact = await prisma.contact.findUnique({ where: { id: contactId } });
     if (!contact) throw new Error('Contact not found');
     if (!contact.phone) throw new Error('Contact has no phone number');
+
+    // Resolve conversationId if not explicitly provided
+    let resolvedConversationId = reqConvId || null;
+    if (!resolvedConversationId && contactId) {
+      const conv = await prisma.conversation.findFirst({
+        where: { contactId, tenantId: tenant.id },
+        select: { id: true },
+        orderBy: { updatedAt: 'desc' }
+      });
+      if (conv) resolvedConversationId = conv.id;
+    }
     
     // Clean phone number (remove +, spaces, etc.)
     const toNumber = contact.phone.replace(/\D/g, '');
@@ -264,10 +275,12 @@ export const initiateCall = async (req, res) => {
           status: 'DIALING',
           bizOpaqueData: requestBody.biz_opaque_callback_data,
           assignedAgentId: req.user?.id || null,
+          conversationId: resolvedConversationId,
         },
         update: {
           status: 'DIALING',
           businessPhoneId: phoneId,
+          ...(resolvedConversationId && { conversationId: resolvedConversationId }),
         }
       });
     }
@@ -407,5 +420,259 @@ export const uploadVoicemailGreeting = async (req, res) => {
   } catch (error) {
     if (req.file) fs.unlinkSync(req.file.path);
     res.status(500).json({ error: 'Failed to upload voicemail greeting' });
+  }
+};
+
+// GET /api2/whatsapp/calls/history
+export const getCallHistory = async (req, res) => {
+  try {
+    const tenantId = req.tenant?.id || req.user?.tenantId;
+    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
+    if (!tenant) throw new Error('Tenant not found');
+
+    const phoneId = tenant.whatsappPhoneId;
+    const { 
+      page = 1, 
+      limit = 20, 
+      search = '', 
+      direction, 
+      status, 
+      dateFrom, 
+      dateTo 
+    } = req.query;
+
+    const pageNum = Math.max(1, parseInt(page, 10));
+    const take = Math.min(100, Math.max(1, parseInt(limit, 10)));
+    const skip = (pageNum - 1) * take;
+
+    const where = {};
+    if (phoneId) {
+      where.businessPhoneId = phoneId;
+    }
+
+    if (direction && ['BUSINESS_INITIATED', 'USER_INITIATED'].includes(direction)) {
+      where.direction = direction;
+    }
+
+    if (status && status !== 'ALL') {
+      where.status = status;
+    }
+
+    if (search && search.trim()) {
+      const q = search.trim();
+      where.OR = [
+        { fromNumber: { contains: q, mode: 'insensitive' } },
+        { toNumber: { contains: q, mode: 'insensitive' } },
+        { wacid: { contains: q, mode: 'insensitive' } }
+      ];
+    }
+
+    if (dateFrom || dateTo) {
+      where.createdAt = {};
+      if (dateFrom) where.createdAt.gte = new Date(dateFrom);
+      if (dateTo) where.createdAt.lte = new Date(dateTo);
+    }
+
+    const [calls, total] = await Promise.all([
+      prisma.waCall.findMany({
+        where,
+        include: {
+          recordings: true,
+          transcripts: true
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take
+      }),
+      prisma.waCall.count({ where })
+    ]);
+
+    // KPI aggregates for this tenant's phone
+    const baseWhere = phoneId ? { businessPhoneId: phoneId } : {};
+    const [totalCallsCount, answeredCount, missedCount, durationAgg] = await Promise.all([
+      prisma.waCall.count({ where: baseWhere }),
+      prisma.waCall.count({ 
+        where: { 
+          ...baseWhere, 
+          status: { in: ['ACCEPTED', 'COMPLETED'] } 
+        } 
+      }),
+      prisma.waCall.count({ 
+        where: { 
+          ...baseWhere, 
+          status: { in: ['FAILED', 'REJECTED'] } 
+        } 
+      }),
+      prisma.waCall.aggregate({
+        where: baseWhere,
+        _sum: { duration: true }
+      })
+    ]);
+
+    const totalDurationSeconds = durationAgg._sum?.duration || 0;
+
+    // Serialize BigInt safely
+    const serializedCalls = calls.map(c => ({
+      ...c,
+      startTime: c.startTime ? Number(c.startTime) : null,
+      endTime: c.endTime ? Number(c.endTime) : null
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        calls: serializedCalls,
+        pagination: {
+          total,
+          page: pageNum,
+          limit: take,
+          totalPages: Math.ceil(total / take)
+        },
+        kpis: {
+          totalCalls: totalCallsCount,
+          answered: answeredCount,
+          missed: missedCount,
+          totalDurationSeconds
+        }
+      }
+    });
+  } catch (error) {
+    console.error('getCallHistory error:', error);
+    res.status(500).json({ error: error.message || 'Failed to fetch call history' });
+  }
+};
+
+// GET /api2/whatsapp/calls/conversation/:conversationId
+export const getConversationCalls = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const tenantId = req.user?.tenantId || (req.user?.type === 'TENANT' ? req.user.id : null);
+
+    const conversation = await prisma.conversation.findFirst({
+      where: {
+        id: conversationId,
+        ...(tenantId ? { tenantId } : {})
+      },
+      include: {
+        contact: true
+      }
+    });
+
+    if (!conversation) {
+      return res.status(404).json({ success: false, message: 'Conversation not found' });
+    }
+
+    const phone = conversation.contact?.phone || '';
+    const cleanPhone = phone ? phone.replace(/\D/g, '') : '';
+    const phoneSuffix = cleanPhone.length >= 10 ? cleanPhone.slice(-10) : cleanPhone;
+
+    const phoneConditions = [];
+    if (phone) {
+      phoneConditions.push({ fromNumber: phone }, { toNumber: phone });
+    }
+    if (cleanPhone) {
+      phoneConditions.push({ fromNumber: cleanPhone }, { toNumber: cleanPhone });
+      phoneConditions.push({ fromNumber: `+${cleanPhone}` }, { toNumber: `+${cleanPhone}` });
+    }
+    if (phoneSuffix) {
+      phoneConditions.push({ fromNumber: { endsWith: phoneSuffix } });
+      phoneConditions.push({ toNumber: { endsWith: phoneSuffix } });
+    }
+
+    const calls = await prisma.waCall.findMany({
+      where: {
+        OR: [
+          { conversationId: conversation.id },
+          ...phoneConditions
+        ]
+      },
+      include: {
+        recordings: true,
+        transcripts: true
+      },
+      orderBy: {
+        createdAt: 'asc' // chronological for timeline
+      }
+    });
+
+    const serializedCalls = calls.map(c => ({
+      ...c,
+      startTime: c.startTime ? Number(c.startTime) : null,
+      endTime: c.endTime ? Number(c.endTime) : null,
+    }));
+
+    res.json({ success: true, data: serializedCalls });
+  } catch (error) {
+    console.error('getConversationCalls error:', error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to fetch calls for conversation' });
+  }
+};
+
+// GET /api2/whatsapp/calls/contact/:contactId
+export const getContactCalls = async (req, res) => {
+  try {
+    const { contactId } = req.params;
+    const tenantId = req.user?.tenantId || (req.user?.type === 'TENANT' ? req.user.id : null);
+
+    const contact = await prisma.contact.findFirst({
+      where: {
+        id: contactId,
+        ...(tenantId ? { tenantId } : {})
+      },
+      include: {
+        conversations: {
+          select: { id: true }
+        }
+      }
+    });
+
+    if (!contact) {
+      return res.status(404).json({ success: false, message: 'Contact not found' });
+    }
+
+    const convIds = (contact.conversations || []).map(c => c.id);
+    const phone = contact.phone || '';
+    const cleanPhone = phone ? phone.replace(/\D/g, '') : '';
+    const phoneSuffix = cleanPhone.length >= 10 ? cleanPhone.slice(-10) : cleanPhone;
+
+    const orConditions = [];
+    if (convIds.length > 0) {
+      orConditions.push({ conversationId: { in: convIds } });
+    }
+    if (phone) {
+      orConditions.push({ fromNumber: phone }, { toNumber: phone });
+    }
+    if (cleanPhone) {
+      orConditions.push({ fromNumber: cleanPhone }, { toNumber: cleanPhone });
+      orConditions.push({ fromNumber: `+${cleanPhone}` }, { toNumber: `+${cleanPhone}` });
+    }
+    if (phoneSuffix) {
+      orConditions.push({ fromNumber: { endsWith: phoneSuffix } });
+      orConditions.push({ toNumber: { endsWith: phoneSuffix } });
+    }
+
+    const calls = await prisma.waCall.findMany({
+      where: {
+        OR: orConditions.length > 0 ? orConditions : [{ id: 'none' }]
+      },
+      include: {
+        recordings: true,
+        transcripts: true
+      },
+      orderBy: {
+        createdAt: 'desc' // newest first for sidebar
+      }
+    });
+
+    const serializedCalls = calls.map(c => ({
+      ...c,
+      startTime: c.startTime ? Number(c.startTime) : null,
+      endTime: c.endTime ? Number(c.endTime) : null,
+    }));
+
+    res.json({ success: true, data: serializedCalls });
+  } catch (error) {
+    console.error('getContactCalls error:', error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to fetch contact calls' });
   }
 };

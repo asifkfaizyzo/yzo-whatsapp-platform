@@ -148,6 +148,7 @@ function App() {
           <Route path="automation/builder/:flowId" element={<FlowBuilder />} />
           <Route path="notifications" element={<Notifications />} /> 
           <Route path="quick-replies" element={<Navigate to="/dashboard/settings?tab=quick-replies" replace />} /> 
+          <Route path="calls" element={<Navigate to="/dashboard/settings?tab=calls" replace />} /> 
           
         </Route>
 

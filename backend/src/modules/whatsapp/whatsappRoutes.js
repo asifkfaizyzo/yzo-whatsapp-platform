@@ -5,7 +5,8 @@ import { setupWhatsApp, getWhatsAppStatus, getMyWabas, disconnectWhatsApp, sendL
 import { 
   acceptCall, rejectCall, terminateCall, initiateCall, 
   getCallPermissions, requestCallPermission,
-  getCallSettings, updateCallSettings, uploadVoicemailGreeting
+  getCallSettings, updateCallSettings, uploadVoicemailGreeting,
+  getCallHistory, getConversationCalls, getContactCalls
 } from './callController.js';
 import multer from 'multer';
 
@@ -28,6 +29,9 @@ router.post('/calls/accept', verifyTenantOrUser, acceptCall);
 router.post('/calls/reject', verifyTenantOrUser, rejectCall);
 router.post('/calls/terminate', verifyTenantOrUser, terminateCall);
 router.post('/calls/initiate', verifyTenantOrUser, checkSubscriptionAccess, initiateCall);
+router.get('/calls/history', verifyTenantOrUser, getCallHistory);
+router.get('/calls/conversation/:conversationId', verifyTenantOrUser, getConversationCalls);
+router.get('/calls/contact/:contactId', verifyTenantOrUser, getContactCalls);
 router.get('/calls/permissions/:contactId', verifyTenantOrUser, getCallPermissions);
 router.post('/calls/permissions/request', verifyTenantOrUser, checkSubscriptionAccess, requestCallPermission);
 

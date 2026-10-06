@@ -4,6 +4,7 @@ import { useCallStore } from '../store/useCallStore';
 import { useToast } from '../context/ToastContext';
 import { useAuthStore } from '../store/useAuthStore';
 import * as webrtcService from '../lib/webrtcService';
+import { stopRingtone } from '../lib/ringtoneService';
 
 export const useCallSocketListener = () => {
   const { setCall, updateCallStatus, clearCall } = useCallStore();
@@ -55,6 +56,7 @@ export const useCallSocketListener = () => {
       
       if (['COMPLETED', 'FAILED', 'REJECTED'].includes(normalized)) {
         webrtcService.endCall();
+        stopRingtone();
         setTimeout(() => {
           clearCall();
         }, 3000); // clear after 3s so user sees 'Call Ended' or 'Call Declined'
