@@ -5,8 +5,8 @@ export const useCallStore = create((set) => ({
   
   // Modifiers
   setCall: (callData) => set({ activeCall: callData }),
-  updateCallStatus: (status, wacid) => set((state) => ({ 
-    activeCall: state.activeCall ? { ...state.activeCall, status, ...(wacid && { wacid }) } : null 
+  updateCallStatus: (status, wacid, extra = {}) => set((state) => ({ 
+    activeCall: state.activeCall ? { ...state.activeCall, status, ...(wacid && { wacid }), ...extra } : null 
   })),
   clearCall: () => set({ activeCall: null }),
 }));

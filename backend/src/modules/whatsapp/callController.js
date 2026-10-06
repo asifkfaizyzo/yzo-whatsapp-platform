@@ -19,7 +19,7 @@ const getTenantToken = async (tenantId) => {
 // POST /api/whatsapp/calls/accept
 export const acceptCall = async (req, res) => {
   try {
-    let { wacid, phoneId } = req.body;
+    let { wacid, phoneId, sdpAnswer: clientSdpAnswer } = req.body;
     const tenantId = req.tenant?.id || req.user?.tenantId;
     const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
     if (!tenant) throw new Error('Tenant not found');
@@ -28,13 +28,13 @@ export const acceptCall = async (req, res) => {
     const token = decrypt(tenant.whatsappAccessToken);
     if (!token) throw new Error('WhatsApp access token not configured');
 
-    // Fetch cached SDP Answer (Redis first, fallback to DB)
-    let sdpAnswer = await redisConnection.get(`sdp-answer:${wacid}`);
+    // Fetch SDP Answer (Client direct answer first, Redis second, fallback to DB)
+    let sdpAnswer = clientSdpAnswer || await redisConnection.get(`sdp-answer:${wacid}`);
     if (!sdpAnswer) {
       const dbCall = await prisma.waCall.findUnique({ where: { wacid } });
       sdpAnswer = dbCall?.sdpAnswer;
       if (!sdpAnswer) {
-        console.warn(`[acceptCall] SDP answer not found in Redis or DB for wacid: ${wacid}`);
+        console.warn(`[acceptCall] SDP answer not found in client payload, Redis, or DB for wacid: ${wacid}`);
       }
     }
 
@@ -172,7 +172,7 @@ export const terminateCall = async (req, res) => {
 // POST /api/whatsapp/calls/initiate
 export const initiateCall = async (req, res) => {
   try {
-    let { phoneId, contactId } = req.body; 
+    let { phoneId, contactId, sdpOffer: clientSdpOffer } = req.body; 
     const tenantId = req.tenant?.id || req.user?.tenantId;
     const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
     if (!tenant) throw new Error('Tenant not found');
@@ -193,16 +193,21 @@ export const initiateCall = async (req, res) => {
     // Clean phone number (remove +, spaces, etc.)
     const toNumber = contact.phone.replace(/\D/g, '');
 
-    // 3. Request Mediasoup SDP Offer for Meta
-    let sdpOffer = null;
+    // 3. Obtain SDP Offer for Meta (Direct Browser WebRTC first, fallback to Mediasoup)
+    let sdpOffer = clientSdpOffer || null;
     let outboundTransport = null;
-    try {
-      const { transport, params: metaTransportParams } = await createWebRtcTransport();
-      outboundTransport = transport;
-      sdpOffer = generateMetaSdp(metaTransportParams, 'offer');
-      activeOutboundTransports.set(toNumber, transport);
-    } catch (mediaErr) {
-      console.warn('Mediasoup createWebRtcTransport warning:', mediaErr.message);
+    if (clientSdpOffer) {
+      console.log(`🌐 [WebRTC] Using client direct browser SDP offer for outbound call to: ${toNumber}`);
+    } else {
+      console.log(`🌐 [WebRTC] No client SDP offer provided, falling back to Mediasoup for: ${toNumber}`);
+      try {
+        const { transport, params: metaTransportParams } = await createWebRtcTransport();
+        outboundTransport = transport;
+        sdpOffer = generateMetaSdp(metaTransportParams, 'offer');
+        activeOutboundTransports.set(toNumber, transport);
+      } catch (mediaErr) {
+        console.warn('Mediasoup createWebRtcTransport warning:', mediaErr.message);
+      }
     }
 
     const requestBody = {

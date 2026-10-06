@@ -3,6 +3,7 @@ import { getSocket } from '../lib/socket';
 import { useCallStore } from '../store/useCallStore';
 import { useToast } from '../context/ToastContext';
 import { useAuthStore } from '../store/useAuthStore';
+import * as webrtcService from '../lib/webrtcService';
 
 export const useCallSocketListener = () => {
   const { setCall, updateCallStatus, clearCall } = useCallStore();
@@ -25,7 +26,8 @@ export const useCallSocketListener = () => {
         fromNumber: data.fromNumber,
         direction: 'USER_INITIATED',
         status: 'RINGING',
-        ctaPayload: data.ctaPayload
+        ctaPayload: data.ctaPayload,
+        sdpOffer: data.sdpOffer || null
       });
       // Play a ringing sound in a real app
     };
@@ -43,9 +45,16 @@ export const useCallSocketListener = () => {
         normalized = 'FAILED';
       }
 
-      updateCallStatus(normalized, data.wacid);
+      updateCallStatus(normalized, data.wacid, {
+        ...(data.sdpAnswer && { sdpAnswer: data.sdpAnswer })
+      });
+
+      if (data.sdpAnswer) {
+        webrtcService.handleRemoteAnswer(data.sdpAnswer);
+      }
       
       if (['COMPLETED', 'FAILED', 'REJECTED'].includes(normalized)) {
+        webrtcService.endCall();
         setTimeout(() => {
           clearCall();
         }, 3000); // clear after 3s so user sees 'Call Ended' or 'Call Declined'
