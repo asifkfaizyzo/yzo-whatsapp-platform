@@ -11,15 +11,15 @@ export default function CallOverlay() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
   
-  const { initDevice, createTransports, startProducing, startConsuming, muteMic, endCall, remoteAudioRef } = useWebRTC();
+  const { acceptIncomingCall, handleRemoteAnswer, muteMic, endCall, remoteAudioRef } = useWebRTC();
   const phoneId = useWhatsAppStore(s => s.wabaData?.phone_numbers?.data?.[0]?.id);
 
-  // Auto-setup WebRTC when call is accepted
+  // Apply Meta SDP answer whenever received
   useEffect(() => {
-    if (activeCall?.status === 'ACCEPTED' && !isConnecting) {
-      setupMedia();
+    if (activeCall?.sdpAnswer) {
+      handleRemoteAnswer(activeCall.sdpAnswer);
     }
-  }, [activeCall?.status]);
+  }, [activeCall?.sdpAnswer]);
 
   // Duration timer when call is active
   useEffect(() => {
@@ -34,30 +34,17 @@ export default function CallOverlay() {
     return () => clearInterval(interval);
   }, [activeCall?.status]);
 
-  const setupMedia = async () => {
-    try {
-      setIsConnecting(true);
-      const device = await initDevice();
-      const txs = await createTransports(device, activeCall.wacid);
-      
-      // Start microphone
-      await startProducing(txs.sendTx);
-      // Listen to caller
-      await startConsuming(device, txs.recvTx, activeCall.wacid);
-      
-      setIsConnecting(false);
-    } catch (err) {
-      console.warn('Media setup notice (requires VPS/public IP for full UDP audio):', err.message);
-      setIsConnecting(false);
-    }
-  };
-
   const handleAccept = async () => {
     try {
       updateCallStatus('ACCEPTING...');
+      let sdpAnswer = null;
+      if (activeCall.sdpOffer) {
+        sdpAnswer = await acceptIncomingCall(activeCall.sdpOffer);
+      }
       await api.post('/whatsapp/calls/accept', {
         wacid: activeCall.wacid,
-        phoneId: phoneId
+        phoneId: phoneId,
+        ...(sdpAnswer && { sdpAnswer })
       });
       updateCallStatus('ACCEPTED');
     } catch (err) {
@@ -109,7 +96,7 @@ export default function CallOverlay() {
   if (!activeCall) return null;
 
   const isInboundRinging = activeCall.status === 'RINGING' && activeCall.direction === 'USER_INITIATED';
-  const isOutboundDialing = ['DIALING', 'RINGING'].includes(activeCall.status) && activeCall.direction === 'BUSINESS_INITIATED';
+  const isOutboundDialing = ['DIALING', 'RINGING', 'CONNECTING'].includes(activeCall.status) && activeCall.direction === 'BUSINESS_INITIATED';
   const isDeclined = activeCall.status === 'REJECTED';
   const isEnded = ['COMPLETED', 'TERMINATED', 'ENDED'].includes(activeCall.status);
   const isFailed = activeCall.status === 'FAILED';

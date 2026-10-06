@@ -75,6 +75,7 @@ import { useToast } from "../../context/ToastContext";
 import { getQuickReplies } from "../../services/quickReply.service";
 import QuickReplyPopover from "../../components/inbox/QuickReplyPopover";
 import { useCallStore } from "../../store/useCallStore";
+import * as webrtcService from "../../lib/webrtcService";
 
 export default function Inbox() {
   const confirm = useConfirm();
@@ -100,7 +101,11 @@ export default function Inbox() {
   const handleInitiateCall = async (contact) => {
     if (globalActiveCall) return toast.error("A call is already in progress.");
     try {
-      const res = await api.post('/whatsapp/calls/initiate', { contactId: contact.id });
+      const sdpOffer = await webrtcService.initiateOutboundCall();
+      const res = await api.post('/whatsapp/calls/initiate', {
+        contactId: contact.id,
+        sdpOffer
+      });
       if (res.data?.success) {
         const callId = res.data?.callId || res.data?.data?.calls?.[0]?.id || res.data?.data?.id;
         setCall({
@@ -112,12 +117,14 @@ export default function Inbox() {
         });
       } else {
         toast.error("Failed to start call: Invalid response from Meta.");
+        webrtcService.endCall();
       }
     } catch (err) {
+      webrtcService.endCall();
       if (err.response?.data?.error === 'NO_CALL_PERMISSION') {
         toast.error("User has not granted call permission.");
       } else {
-        toast.error(err.response?.data?.message || "Failed to initiate call.");
+        toast.error(err.response?.data?.message || err.message || "Failed to initiate call.");
       }
     }
   };

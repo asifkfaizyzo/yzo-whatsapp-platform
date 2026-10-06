@@ -131,6 +131,7 @@ export const handleCallEvents = async (value, tenant) => {
             wacid,
             fromNumber,
             ctaPayload: call.cta_payload || null,
+            sdpOffer: call.session?.sdp || null
           });
         }
       } else {
@@ -170,11 +171,18 @@ export const handleCallEvents = async (value, tenant) => {
 
         await prisma.waCall.updateMany({
           where: { wacid },
-          data: { status: 'ACCEPTED' }
+          data: { 
+            status: 'CONNECTING',
+            ...(sdpAnswer && { sdpAnswer })
+          }
         });
 
         if (tenant) {
-          emitToTenant(tenant.id, 'call_status_update', { wacid, status: 'ACCEPTED' });
+          emitToTenant(tenant.id, 'call_status_update', { 
+            wacid, 
+            status: 'CONNECTING',
+            sdpAnswer: sdpAnswer || call.session?.sdp || null
+          });
         }
       }
     } 
