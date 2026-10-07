@@ -778,6 +778,27 @@ export default function Inbox() {
     };
   }, [activeChatId]);
 
+  useEffect(() => {
+    if (!socket) return;
+
+    const refreshInboxAfterConnect = async () => {
+      await loadConversations(true);
+      if (!activeChatId) return;
+
+      try {
+        const res = await getConversationMessages(activeChatId, 50);
+        if (res.success) setMessages(res.data?.messages || []);
+      } catch (err) {
+        console.error("Failed to refresh messages after socket connect:", err);
+      }
+    };
+
+    socket.on("connect", refreshInboxAfterConnect);
+    if (socket.connected) refreshInboxAfterConnect();
+
+    return () => socket.off("connect", refreshInboxAfterConnect);
+  }, [socket, activeChatId, loadConversations]);
+
   // ── Socket Connection ──
   // FIXED: Added user room joining for USER type + correct dependencies
   useEffect(() => {

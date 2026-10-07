@@ -16,7 +16,8 @@ export const startOrderWebhookWorker = () => {
   );
 
   worker.on('completed', (job) => {
-    console.log(`✅ [OrderWebhookWorker] Job ${job.id} (${job.data?.event}) processed successfully`);
+    const eventName = job.data?.topic || job.data?.event || job.name;
+    console.log(`✅ [OrderWebhookWorker] Job ${job.id} (${eventName}) processed successfully`);
   });
 
   worker.on('failed', async (job, err) => {

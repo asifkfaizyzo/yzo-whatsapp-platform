@@ -1,5 +1,6 @@
 // backend/src/modules/webhook/orderWebhookController.js
 import crypto from 'crypto';
+import axios from 'axios'; // 👈 ADD THIS LINE
 import prisma from '../../config/prisma.js';
 import { decrypt } from '../../lib/crypto.js';
 import { orderWebhookQueue } from '../../queues/orderWebhookQueue.js';
@@ -7,6 +8,16 @@ import { emitToTenant } from '../../lib/socket.js';
 import { createNotification } from '../notifications/notificationService.js';
 import flowEngine from '../automation/flowEngineService.js';
 import { logLeadStatusToSheet } from '../google-sheets/googleSheetsService.js';
+import {
+  buildWooCustomerWelcomeTemplateParameters,
+  buildWooShipmentTemplateParameters,
+  buildWooCustomerWelcomeMessage,
+  buildWooOrderLifecycleMessage,
+  extractWooTrackingInfo,
+  findWooCustomerWelcomeTemplate,
+  findWooShipmentTemplate,
+  getWooPaymentStatus,
+} from '../woocommerce/woocommerceOrderLifecycle.js';
 
 /**
  * Phase 1: Ingest Razorpay Webhook (< 200ms)
@@ -287,7 +298,507 @@ export const handlePartnerWebhook = async (req, res) => {
  * Phase 2: Async BullMQ Job Processor
  * Performs atomic idempotency check via DB WebhookEvent table and handles all 7 payment events.
  */
+const processWooCustomerCreated = async ({ tenantId, payload }) => {
+  const billing = payload.billing || {};
+  const customerName = `${payload.first_name || billing.first_name || ''} ${payload.last_name || billing.last_name || ''}`.trim()
+    || payload.username
+    || 'Customer';
+  const email = payload.email || billing.email || '';
+  let phoneDigits = String(payload.phone || billing.phone || '').replace(/\D/g, '');
+  if (phoneDigits.length === 10) phoneDigits = `91${phoneDigits}`;
+  const phone = phoneDigits ? `+${phoneDigits}` : '';
+
+  if (!phone) {
+    console.warn(
+      `[WooCommerce Welcome] Customer ${payload.id || 'unknown'} has no phone number; welcome message skipped`
+    );
+    return { ignored: true, reason: 'customer_phone_missing' };
+  }
+
+  let contact = await prisma.contact.findFirst({ where: { tenantId, phone } });
+  if (!contact) {
+    contact = await prisma.contact.create({
+      data: { tenantId, phone, name: customerName, email },
+    });
+  } else if (!contact.name || contact.name === 'Customer') {
+    contact = await prisma.contact.update({
+      where: { id: contact.id },
+      data: { name: customerName, email },
+    });
+  }
+
+  let conversation = await prisma.conversation.findFirst({
+    where: { tenantId, contactId: contact.id },
+  });
+  if (!conversation) {
+    conversation = await prisma.conversation.create({
+      data: { tenantId, contactId: contact.id, status: 'OPEN' },
+    });
+  }
+
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: {
+      tenantName: true,
+      whatsappPhoneId: true,
+      whatsappAccessToken: true,
+    },
+  });
+  const storeName = tenant?.tenantName || 'our store';
+  const messageText = buildWooCustomerWelcomeMessage({ customerName, storeName });
+
+  if (process.env.NODE_ENV === 'production') {
+    const templates = await prisma.template.findMany({
+      where: {
+        tenantId,
+        status: 'APPROVED',
+        name: { contains: 'welcome' },
+      },
+      orderBy: { name: 'asc' },
+      select: { name: true, language: true, components: true, status: true },
+    });
+    const template = findWooCustomerWelcomeTemplate(templates);
+    if (!template) {
+      console.warn(
+        `[WooCommerce Welcome] No synced APPROVED welcome template found for tenant ${tenantId}`
+      );
+      return { ignored: true, reason: 'approved_welcome_template_missing' };
+    }
+    if (!tenant?.whatsappPhoneId || !tenant?.whatsappAccessToken) {
+      console.warn(
+        `[WooCommerce Welcome] WhatsApp is not connected for tenant ${tenantId}; welcome message skipped`
+      );
+      return { ignored: true, reason: 'whatsapp_not_connected' };
+    }
+
+    const templateParameters = buildWooCustomerWelcomeTemplateParameters({
+      template,
+      customerName,
+      storeName,
+    });
+    const token = decrypt(tenant.whatsappAccessToken);
+    const cleanRecipientPhone = phone.replace(/\D/g, '');
+    await axios.post(
+      `https://graph.facebook.com/v21.0/${tenant.whatsappPhoneId}/messages`,
+      {
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: cleanRecipientPhone,
+        type: 'template',
+        template: {
+          name: template.name,
+          language: { code: template.language || 'en_US' },
+          components: templateParameters.length
+            ? [{
+                type: 'body',
+                parameters: templateParameters.map((text) => ({ type: 'text', text })),
+              }]
+            : [],
+        },
+      },
+      { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } },
+    );
+  } else {
+    console.log(
+      `[WooCommerce Welcome] Development mode: welcome message recorded internally for ${phone}`
+    );
+  }
+
+  const messageRecord = await prisma.message.create({
+    data: {
+      conversationId: conversation.id,
+      senderId: 'SYSTEM',
+      senderType: 'SYSTEM',
+      direction: 'OUTBOUND',
+      text: messageText,
+      type: 'TEXT',
+      status: 'sent',
+    },
+  });
+  await prisma.conversation.update({
+    where: { id: conversation.id },
+    data: { lastMessageAt: new Date(), updatedAt: new Date() },
+  });
+
+  try {
+    emitToTenant(tenantId, 'new_message', {
+      message: messageRecord,
+      conversationId: conversation.id,
+      contact,
+    });
+  } catch (socketError) {
+    console.error('[WooCommerce Welcome] Socket emit failed:', socketError.message);
+  }
+
+  console.log(
+    `[WooCommerce Welcome] Customer ${payload.id || 'unknown'} welcome processed for tenant ${tenantId}`
+  );
+  return { success: true, type: 'WOOCOMMERCE_CUSTOMER_WELCOME', contactId: contact.id };
+};
+
 export const processOrderWebhookJob = async (job) => {
+
+
+  const { name, data } = job;
+
+  if (name === 'woocommerce-order' || data?.type === 'WOOCOMMERCE') {
+    if (data?.topic === 'customer.created') {
+      console.log(
+        `[WooCommerce Account Event] Processing customer.created for customer ${data.payload?.id || 'unknown'}`
+      );
+      return processWooCustomerCreated(data);
+    }
+    if (['customer.login', 'customer.logout'].includes(data?.topic)) {
+      console.log(
+        `[WooCommerce Account Event] Processed "${data.topic}" for customer ${data.payload?.id || 'unknown'} (logging only)`
+      );
+      return { success: true, type: data.topic, loggingOnly: true };
+    }
+
+    console.log('2️⃣ Worker picked up job! Job name:', name, '| TenantId:', data?.tenantId);
+    const { tenantId, topic, payload } = data;
+    console.log(`\n📦 [OrderWebhookWorker] Processing WooCommerce Order #${payload?.id} for tenant ${tenantId}`);
+
+    if (!topic || !topic.includes('order')) return { ignored: true };
+
+    const externalOrderId = String(payload.id);
+    const orderNumber = String(payload.number || payload.id);
+    const status = payload.status || 'pending';
+    const paymentMethod = payload.payment_method_title || payload.payment_method || 'COD';
+    const paymentStatus = getWooPaymentStatus(payload);
+    const paymentStatusLabel = paymentStatus.charAt(0) + paymentStatus.slice(1).toLowerCase();
+    const total = parseFloat(payload.total || '0.0');
+    const currency = payload.currency || 'INR';
+    const billing = payload.billing || {};
+    const shipping = payload.shipping || {};
+
+    const customerName = `${billing.first_name || ''} ${billing.last_name || ''}`.trim() || 'Customer';
+    const customerEmail = billing.email || '';
+
+    let cleanDigits = (billing.phone || shipping.phone || '').replace(/\D/g, '');
+    if (cleanDigits.length === 10) cleanDigits = `91${cleanDigits}`;
+    const customerPhone = cleanDigits ? `+${cleanDigits}` : '';
+
+    const lineItems = (payload.line_items || []).map(item => ({
+      id: item.id,
+      name: item.name,
+      quantity: item.quantity,
+      price: item.price,
+      total: item.total
+    }));
+    const wooConnection = await prisma.wooCommerceConnection.findUnique({
+      where: { tenantId },
+      select: { trackingUrlTemplates: true }
+    });
+    const trackingInfo = extractWooTrackingInfo(payload, wooConnection?.trackingUrlTemplates || {});
+
+    const orderKey = {
+      tenantId_source_externalOrderId: {
+        tenantId,
+        source: 'WOOCOMMERCE',
+        externalOrderId
+      }
+    };
+
+    const previousOrder = await prisma.ecommerceOrder.findUnique({
+      where: orderKey,
+      select: { status: true, paymentStatus: true, trackingInfo: true, reviewRequestedAt: true, reviewRating: true }
+    });
+    const isNewOrder = !previousOrder;
+    const previousStatus = previousOrder?.status?.toLowerCase();
+    const hasStatusChanged = Boolean(previousStatus && previousStatus !== status.toLowerCase());
+    const previousPaymentStatus = previousOrder?.paymentStatus?.toLowerCase();
+    const hasPaymentStatusChanged = Boolean(
+      previousPaymentStatus && previousPaymentStatus !== paymentStatus.toLowerCase()
+    );
+    const hasTrackingChanged = Boolean(
+      trackingInfo && JSON.stringify(trackingInfo) !== JSON.stringify(previousOrder?.trackingInfo || [])
+    );
+    console.log(
+      `[WooCommerce Lifecycle] #${orderNumber} (${topic}) order status: ${previousStatus || 'new'} -> ${status.toLowerCase()}, payment: ${previousPaymentStatus || 'new'} -> ${paymentStatus.toLowerCase()}, tracking: ${hasTrackingChanged ? 'changed' : 'unchanged'}`
+    );
+    const currentNormalizedStatus = status.toLowerCase().replace(/^wc-/, '');
+    const previousNormalizedStatus = previousStatus?.replace(/^wc-/, '');
+    const isDelivered = ['completed', 'delivered'].includes(currentNormalizedStatus);
+    const wasDelivered = ['completed', 'delivered'].includes(previousNormalizedStatus);
+    const reviewRequestedAt = isDelivered && (!previousOrder || !wasDelivered)
+      ? new Date()
+      : undefined;
+
+    // 1. Upsert Order in DB
+    const order = await prisma.ecommerceOrder.upsert({
+      where: orderKey,
+      update: {
+        status, paymentMethod, paymentStatus, total, customerName,
+        customerPhone, customerEmail, shippingAddress: shipping, lineItems,
+        ...(trackingInfo ? { trackingInfo } : {}),
+        ...(reviewRequestedAt ? { reviewRequestedAt } : {})
+      },
+      create: {
+        tenantId, source: 'WOOCOMMERCE', externalOrderId, orderNumber,
+        status, paymentMethod, paymentStatus, total, currency, customerName,
+        customerPhone, customerEmail, shippingAddress: shipping, lineItems,
+        trackingInfo: trackingInfo || undefined,
+        reviewRequestedAt
+      }
+    });
+     console.log('3️⃣ DB Upsert succeeded! Order ID in DB:', order.id);
+
+    // 2. Upsert Contact & Conversation for Live Chat
+    if (customerPhone) {
+      let contact = await prisma.contact.findFirst({
+        where: { tenantId, phone: customerPhone }
+      });
+
+      if (!contact) {
+        contact = await prisma.contact.create({
+          data: { tenantId, phone: customerPhone, name: customerName, email: customerEmail }
+        });
+      } else if (!contact.name || contact.name === 'Customer') {
+        contact = await prisma.contact.update({
+          where: { id: contact.id },
+          data: { name: customerName, email: customerEmail }
+        });
+      }
+
+      let conversation = await prisma.conversation.findFirst({
+        where: { tenantId, contactId: contact.id }
+      });
+
+      if (!conversation) {
+        conversation = await prisma.conversation.create({
+          data: { tenantId, contactId: contact.id, status: 'OPEN' }
+        });
+      }
+
+      const itemsList = lineItems.map(i => `${i.name} (x${i.quantity})`).join(', ');
+      const messageText = buildWooOrderLifecycleMessage({
+        isNewOrder: isNewOrder && topic === 'order.created',
+        previousStatus,
+        status,
+        previousPaymentStatus,
+        paymentStatus,
+        paymentMethod,
+        customerName,
+        orderNumber,
+        currency,
+        total,
+        lineItems: itemsList,
+        hasTrackingChanged,
+        trackingInfo: trackingInfo || previousOrder?.trackingInfo || [],
+      });
+
+      let messageRecord = null;
+      if (messageText) {
+        messageRecord = await prisma.message.create({
+          data: {
+            conversationId: conversation.id,
+            senderId: 'SYSTEM',
+            senderType: 'SYSTEM',
+            direction: 'OUTBOUND',
+            text: messageText,
+            type: 'TEXT',
+            status: 'sent'
+          }
+        });
+
+        await prisma.conversation.update({
+          where: { id: conversation.id },
+          data: { lastMessageAt: new Date(), updatedAt: new Date() }
+        });
+      }
+
+      // Realtime Sockets
+      try {
+        const orderPayload = { order, contact };
+        if (messageRecord) {
+          const msgPayload = { message: messageRecord, conversationId: conversation.id, contact };
+          emitToTenant(tenantId, 'new_message', msgPayload);
+        }
+        emitToTenant(tenantId, 'woocommerce_order_received', orderPayload);
+      } catch (sockErr) {
+        console.error('Socket error:', sockErr.message);
+      }
+
+      // 3. Log to Google Sheet
+      const formattedStatus = status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Processing';
+      const deliveryLocation = [
+        shipping.address_1 || billing.address_1 || '',
+        shipping.city || billing.city || '',
+        shipping.state || billing.state || '',
+        shipping.postcode || billing.postcode || ''
+      ].filter(Boolean).join(', ') || 'N/A';
+      const trackingProvider = trackingInfo?.map((item) => item.provider).filter(Boolean).join(', ') || '';
+      const trackingNumber = trackingInfo?.map((item) => item.number).filter(Boolean).join(', ') || '';
+      const trackingLink = trackingInfo?.map((item) => item.url).filter(Boolean).join(', ') || '';
+
+      await logLeadStatusToSheet(tenantId, {
+        "Contact Name": customerName,
+        "Phone Number": customerPhone,
+        "Order Status": formattedStatus,
+        "Lead Status": formattedStatus,
+        "Order ID": `#${orderNumber}`,
+        "Total Amount": `${currency} ${total}`,
+        "Payment Status": paymentStatusLabel,
+        "Payment Method": paymentMethod,
+        "Tracking Provider": trackingProvider,
+        "Tracking Number": trackingNumber,
+        "Tracking Link": trackingLink,
+        "Products": itemsList || '1 Item',
+        "Delivery Location": deliveryLocation,
+        "Notes": (payload.customer_note || '').trim() || `WooCommerce Order #${orderNumber}`,
+        "Timestamp": new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })
+      });
+
+      // 4. WhatsApp Template Notification
+      if (messageText && process.env.NODE_ENV !== 'production') {
+        console.log(`🧪 [Worker] Development mock: order notification recorded in platform for ${customerPhone}`);
+      } else if (messageText && process.env.NODE_ENV === 'production' && isNewOrder) {
+        const whatsappConnection = await prisma.tenant.findUnique({
+          where: { id: tenantId },
+          select: { whatsappPhoneId: true, whatsappAccessToken: true }
+        });
+        const phoneNumberId = whatsappConnection?.whatsappPhoneId;
+        const whatsappToken = whatsappConnection?.whatsappAccessToken
+          ? decrypt(whatsappConnection.whatsappAccessToken)
+          : null;
+
+        if (phoneNumberId && whatsappToken) {
+          try {
+            const cleanRecipientPhone = customerPhone.replace(/\+/g, '');
+            const tenantTemplate = await prisma.template?.findFirst({
+              where: {
+                tenantId,
+                status: 'APPROVED',
+                OR: [{ category: 'UTILITY' }, { name: { contains: 'order' } }]
+              }
+            }).catch(() => null);
+
+            const templatePayload = tenantTemplate
+              ? {
+                  messaging_product: 'whatsapp',
+                  recipient_type: 'individual',
+                  to: cleanRecipientPhone,
+                  type: 'template',
+                  template: {
+                    name: tenantTemplate.name,
+                    language: { code: tenantTemplate.language || 'en_US' },
+                    components: [{
+                      type: 'body',
+                      parameters: [
+                        { type: 'text', text: customerName },
+                        { type: 'text', text: orderNumber },
+                        { type: 'text', text: currency },
+                        { type: 'text', text: String(total) },
+                        { type: 'text', text: paymentMethod }
+                      ]
+                    }]
+                  }
+                }
+              : {
+                  messaging_product: 'whatsapp',
+                  recipient_type: 'individual',
+                  to: cleanRecipientPhone,
+                  type: 'template',
+                  template: { name: 'hello_world', language: { code: 'en_US' } }
+                };
+
+            const waResponse = await axios.post(
+              `https://graph.facebook.com/v21.0/${phoneNumberId}/messages`,
+              templatePayload,
+              { headers: { 'Authorization': `Bearer ${whatsappToken}`, 'Content-Type': 'application/json' } }
+            );
+            console.log(`✅ [Worker] WhatsApp order template accepted for ${cleanRecipientPhone} (message ID: ${waResponse.data?.messages?.[0]?.id || 'unknown'})`);
+          } catch (waErr) {
+            console.error('⚠️ [Worker] WhatsApp template error:', waErr.response?.data || waErr.message);
+          }
+        } else {
+          console.warn(`⚠️ [Worker] WhatsApp order notification skipped for tenant ${tenantId}: WhatsApp is not connected`);
+        }
+      } else if (
+        messageText
+        && process.env.NODE_ENV === 'production'
+        && !isNewOrder
+        && ['shipped', 'completed'].includes(currentNormalizedStatus)
+        && (hasStatusChanged || hasTrackingChanged)
+      ) {
+        const shipmentTrackingInfo = trackingInfo || previousOrder?.trackingInfo || [];
+        const templateParameters = buildWooShipmentTemplateParameters({
+          customerName,
+          orderNumber,
+          trackingInfo: shipmentTrackingInfo,
+        });
+
+        if (!templateParameters) {
+          console.warn(
+            `[Worker] Shipment WhatsApp notification skipped for order #${orderNumber}: courier name and tracking URL are required`
+          );
+        } else {
+          const whatsappConnection = await prisma.tenant.findUnique({
+            where: { id: tenantId },
+            select: { whatsappPhoneId: true, whatsappAccessToken: true }
+          });
+          const phoneNumberId = whatsappConnection?.whatsappPhoneId;
+          const whatsappToken = whatsappConnection?.whatsappAccessToken
+            ? decrypt(whatsappConnection.whatsappAccessToken)
+            : null;
+
+          if (!phoneNumberId || !whatsappToken) {
+            console.warn(
+              `[Worker] Shipment WhatsApp notification skipped for tenant ${tenantId}: WhatsApp is not connected`
+            );
+          } else {
+            const approvedTemplates = await prisma.template.findMany({
+              where: { tenantId, status: 'APPROVED' },
+              select: { name: true, language: true, status: true, components: true }
+            });
+            const shipmentTemplate = findWooShipmentTemplate(approvedTemplates);
+
+            if (!shipmentTemplate) {
+              console.warn(
+                `[Worker] Shipment WhatsApp notification skipped for tenant ${tenantId}: sync an APPROVED shipment template with four body placeholders`
+              );
+            } else {
+              try {
+                const cleanRecipientPhone = customerPhone.replace(/\D/g, '');
+                const waResponse = await axios.post(
+                  `https://graph.facebook.com/v21.0/${phoneNumberId}/messages`,
+                  {
+                    messaging_product: 'whatsapp',
+                    recipient_type: 'individual',
+                    to: cleanRecipientPhone,
+                    type: 'template',
+                    template: {
+                      name: shipmentTemplate.name,
+                      language: { code: shipmentTemplate.language || 'en_US' },
+                      components: [{
+                        type: 'body',
+                        parameters: templateParameters.map((text) => ({ type: 'text', text }))
+                      }]
+                    }
+                  },
+                  { headers: { Authorization: `Bearer ${whatsappToken}`, 'Content-Type': 'application/json' } }
+                );
+                console.log(
+                  `[Worker] Shipment WhatsApp template "${shipmentTemplate.name}" accepted for order #${orderNumber} (message ID: ${waResponse.data?.messages?.[0]?.id || 'unknown'})`
+                );
+              } catch (waErr) {
+                console.error(
+                  `[Worker] Shipment WhatsApp template error for order #${orderNumber}:`,
+                  waErr.response?.data?.error?.message || waErr.message
+                );
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return { success: true, type: 'WOOCOMMERCE', orderId: order.id };
+  }
+  // 👆👆👆 END OF WOOCOMMERCE BLOCK 👆👆👆
+
+
   const { tenantId, eventId, event, payload } = job.data;
   const uniqueKey = `${event}_${eventId}`;
 

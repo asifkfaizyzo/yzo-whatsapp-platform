@@ -204,6 +204,9 @@ model Tenant {
 
   googleSheetConnection GoogleSheetConnection?
   sheetFields           SheetField[]
+  shopifyConnection     ShopifyConnection?
+  woocommerceConnection WooCommerceConnection?
+  ecommerceOrders EcommerceOrder[]
 }
 
 
@@ -1717,6 +1720,49 @@ model GoogleSheetConnection {
 }
 
 
+// ──────────────────────────────────────────
+// SHOPIFY INTEGRATION MODEL
+// ──────────────────────────────────────────
+model ShopifyConnection {
+  id            String   @id @default(cuid())
+  tenantId      String   @unique
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  shopName      String
+  accessToken   String   @db.Text
+  webhookSecret String?  @db.Text
+
+  connectedBy   String?
+  status        String   @default("active")
+  connectedAt   DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("shopify_connections")
+}
+
+// ──────────────────────────────────────────
+// WOOCOMMERCE INTEGRATION MODEL
+// ──────────────────────────────────────────
+model WooCommerceConnection {
+  id             String   @id @default(cuid())
+  tenantId       String   @unique
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  storeUrl       String
+  consumerKey    String   @db.Text
+  consumerSecret String   @db.Text
+  webhookSecret  String?  @db.Text
+  trackingUrlTemplates Json @default("{}")
+
+  connectedBy    String?
+  status         String   @default("active")
+  connectedAt    DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("woocommerce_connections")
+}
+
+
 
 // 🆕 Stores each field (column) configuration per tenant
 model SheetField {
@@ -1877,4 +1923,40 @@ model WaCallTranscript {
   createdAt               DateTime @default(now())
 
   @@map("wa_call_transcripts")
+}
+
+
+model EcommerceOrder {
+  id              String   @id @default(cuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  source          String   @default("WOOCOMMERCE") // WOOCOMMERCE | SHOPIFY later
+  externalOrderId String
+  orderNumber     String
+  status          String
+
+  paymentMethod   String?
+  paymentStatus   String?
+  currency        String   @default("INR")
+  total           Float    @default(0.0)
+
+  customerName    String?
+  customerPhone   String
+  customerEmail   String?
+
+  shippingAddress Json?
+  lineItems       Json
+  trackingInfo    Json?
+  reviewRequestedAt DateTime?
+  reviewRating     Int?
+  reviewReceivedAt DateTime?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([tenantId, source, externalOrderId])
+  @@index([tenantId, customerPhone])
+  @@index([tenantId, createdAt])
+  @@map("ecommerce_orders")
 }
