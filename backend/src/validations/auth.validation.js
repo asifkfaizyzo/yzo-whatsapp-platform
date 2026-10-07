@@ -108,6 +108,13 @@ export const googleLoginSchema = z.object({
   }),
 });
 
+// =========== Facebook Login Schema ===========
+export const facebookLoginSchema = z.object({
+  body: z.object({
+    accessToken: z.string({ required_error: 'Facebook Access Token is required' }),
+  }),
+});
+
 // =========== Change Password Schema ===========
 export const changePasswordSchema = z.object({
   body: z.object({

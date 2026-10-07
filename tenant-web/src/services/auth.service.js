@@ -340,3 +340,23 @@ export const loginWithGoogle = async (credential) => {
     };
   }
 };
+
+// Facebook Login
+export const loginWithFacebook = async (accessToken) => {
+  try {
+    const response = await api.post("/facebook-login", { accessToken });
+
+    // Log user details and save in Zustand store
+    useAuthStore.getState().login(response.data.data.user, response.data.data.accessToken);
+
+    return {
+      success: true,
+      data: response.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Facebook sign-in failed",
+    };
+  }
+};
