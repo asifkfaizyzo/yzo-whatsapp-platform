@@ -6,6 +6,7 @@ import { OAuth2Client } from 'google-auth-library';
 import { emitToTenant, emitToUser,emitToSuperAdmin,} from "../../lib/socket.js";
 import fs from 'fs';
 import path from 'path';
+import axios from 'axios';
 
 import { generateAccessToken, generateRefreshToken, verifyAccessToken, verifyRefreshToken } from '../auth/jwtservice.js';
 import { saveRefreshToken, deleteRefreshToken, findRefreshToken } from '../auth/refreshtokenService.js';
@@ -1390,7 +1391,123 @@ export const loginOrRegisterWithGoogleService = async (credential) => {
   };
 };
 
+// =========== Facebook Sign-In & On-the-Fly Registration Service ===========
+export const loginOrRegisterWithFacebookService = async (accessToken) => {
+  // 1. Verify Token with Meta Graph API
+  let fbData;
+  try {
+    const response = await axios.get(`https://graph.facebook.com/me?fields=id,name,email,first_name,last_name&access_token=${accessToken}`);
+    fbData = response.data;
+  } catch (error) {
+    throw new Error('Invalid Facebook Access Token or Meta API failure');
+  }
 
+  const { id: facebookId, name, email: fbEmail, first_name: firstName, last_name: lastName } = fbData;
+
+  // Fallback if user signed up for Facebook with a phone number (missing email)
+  const email = fbEmail || `fb_${facebookId}@sudoreply.local`;
+
+  // 2. Check if user or tenant already exists by email OR facebookId
+  let tenant = await prisma.tenant.findUnique({ where: { email } });
+  let user = await prisma.user.findUnique({ where: { email } });
+
+  // Also look up tenant by facebookId
+  if (!tenant) {
+    tenant = await prisma.tenant.findUnique({ where: { facebookId } });
+  }
+
+  // Scenario A: User (Agent) already exists with this email
+  if (user) {
+    const jwtAccessToken = generateAccessToken({
+      id: user.id,
+      email: user.email,
+      type: 'USER',
+    });
+    const jwtRefreshToken = generateRefreshToken({
+      id: user.id,
+      type: 'USER',
+    });
+    await saveRefreshToken({
+      token: jwtRefreshToken,
+      userId: user.id,
+    });
+
+    return {
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        type: 'USER',
+        status: 'APPROVED',
+      },
+      accessToken: jwtAccessToken,
+      refreshToken: jwtRefreshToken,
+    };
+  }
+
+  // Scenario B: Tenant does not exist yet (JIT sign up)
+  if (!tenant) {
+    tenant = await prisma.tenant.create({
+      data: {
+        tenantName: name ? `${name}'s Workspace` : 'Facebook Workspace',
+        email,
+        facebookId,
+        firstName,
+        lastName,
+        authProvider: 'FACEBOOK',
+        status: 'APPROVED', // Auto-approve Facebook-verified signups
+        onboardingStep: 4,  // Immediately advance to Step 4 (Company info)
+        onboardingCompleted: false,
+      },
+    });
+  } else {
+    // Scenario C: Tenant exists but doesn't have Facebook linked yet (or was found by facebookId)
+    if (tenant.authProvider !== 'FACEBOOK' || !tenant.facebookId) {
+      tenant = await prisma.tenant.update({
+        where: { id: tenant.id },
+        data: {
+          facebookId,
+          authProvider: 'FACEBOOK',
+          ...(tenant.email ? {} : { email }),
+        },
+      });
+    }
+  }
+
+  // 3. Issue Token credentials
+  const jwtAccessToken = generateAccessToken({
+    id: tenant.id,
+    email: tenant.email,
+    type: 'TENANT',
+  });
+  const jwtRefreshToken = generateRefreshToken({
+    id: tenant.id,
+    type: 'TENANT',
+  });
+  await saveRefreshToken({
+    token: jwtRefreshToken,
+    tenantId: tenant.id,
+  });
+
+  return {
+    user: {
+      id: tenant.id,
+      name: tenant.tenantName,
+      email: tenant.email,
+      type: 'TENANT',
+      status: tenant.status,
+      planId: tenant.planId,
+      planStatus: tenant.planStatus,
+      billingType: tenant.billingType,
+      onboardingStep: tenant.onboardingStep,
+      onboardingCompleted: tenant.onboardingCompleted,
+      firstName: tenant.firstName,
+      lastName: tenant.lastName,
+    },
+    accessToken: jwtAccessToken,
+    refreshToken: jwtRefreshToken,
+  };
+};
 
 //Update tenant password
 export const updateTenantPasswordService = async (

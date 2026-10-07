@@ -28,11 +28,13 @@ import {
   registerStep5,
   verifyEmailOtp,
   loginWithGoogle,
+  loginWithFacebook,
 } from "../../services/auth.service";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useToast } from "../../context/ToastContext";
 import FormError from "../../components/FormError";
 import { GoogleLogin } from "@react-oauth/google";
+import FacebookLoginButton from "../../components/auth/FacebookLoginButton";
 
 // Validation Schemas for each step
 const step1Schema = z.object({
@@ -137,6 +139,7 @@ export default function Register() {
   const [step, setStep] = useState(1);
   const [generalError, setGeneralError] = useState("");
   const [googleError, setGoogleError] = useState("");
+  const [fbError, setFbError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [successTimer, setSuccessTimer] = useState(3);
@@ -163,6 +166,28 @@ export default function Register() {
 
   const handleGoogleError = () => {
     setGoogleError("Google Sign-In was unsuccessful. Please try again.");
+  };
+
+  const handleFacebookSuccess = async (accessToken) => {
+    setGeneralError("");
+    setFbError("");
+    setIsLoading(true);
+    const result = await loginWithFacebook(accessToken);
+    setIsLoading(false);
+    if (result.success) {
+      const tenantUser = result.data?.data?.user;
+      if (tenantUser?.type === "TENANT" && !tenantUser?.onboardingCompleted) {
+        setStep(tenantUser.onboardingStep || 4);
+      } else {
+        navigate("/dashboard");
+      }
+    } else {
+      setFbError(result.message || "Facebook registration failed.");
+    }
+  };
+
+  const handleFacebookError = (errorMsg) => {
+    setFbError(errorMsg);
   };
 
   // Sync step state with user onboarding stage from Zustand store
@@ -558,6 +583,12 @@ export default function Register() {
                     </div>
                   )}
 
+                  {fbError && (
+                    <div className="mb-4 rounded-xl bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-600">
+                      {fbError}
+                    </div>
+                  )}
+
                   <div className="flex justify-center w-full">
                     <GoogleLogin
                       onSuccess={handleGoogleSuccess}
@@ -565,6 +596,16 @@ export default function Register() {
                       shape="pill"
                       theme="outline"
                       width="340px"
+                      text="signup_with"
+                      logo_alignment="center"
+                    />
+                  </div>
+                  
+                  <div className="flex justify-center w-full mt-3">
+                    <FacebookLoginButton
+                      onSuccess={handleFacebookSuccess}
+                      onError={handleFacebookError}
+                      text="Sign up with Facebook"
                     />
                   </div>
                 </>

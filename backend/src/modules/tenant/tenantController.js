@@ -25,6 +25,7 @@ import {
     getAutoReopenConfigService,
     updateAutoReopenConfigService,
     loginOrRegisterWithGoogleService,
+    loginOrRegisterWithFacebookService,
     updateTenantPasswordService,
     forgotPasswordTenantService,
     resetPasswordTenantService,
@@ -1013,6 +1014,34 @@ export const googleLoginTenant = async (req, res) => {
         return res.status(400).json({
             success: false,
             message: error.message || 'Google Auth failed',
+        });
+    }
+};
+
+// =========== Facebook Login Controller Handler ===========
+export const facebookLoginTenant = async (req, res) => {
+    try {
+        const { accessToken: facebookAccessToken } = req.body;
+        const result = await loginOrRegisterWithFacebookService(facebookAccessToken);
+        const { accessToken, refreshToken, user } = result;
+
+        res.cookie('tenant_refreshToken', refreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+            path: '/',
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: 'Facebook login successful',
+            data: { user, accessToken },
+        });
+    } catch (error) {
+        return res.status(400).json({
+            success: false,
+            message: error.message || 'Facebook Auth failed',
         });
     }
 };

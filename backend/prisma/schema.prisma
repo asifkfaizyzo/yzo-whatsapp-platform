@@ -104,7 +104,8 @@ model Tenant {
   otpExpiresAt             DateTime?
 
   googleId     String?  @unique
-  authProvider String   @default("LOCAL") // "LOCAL" | "GOOGLE"
+  facebookId   String?  @unique
+  authProvider String   @default("LOCAL") // "LOCAL" | "GOOGLE" | "FACEBOOK"
   
    whatsappPhoneId     String?  
    whatsappWabaId      String?  

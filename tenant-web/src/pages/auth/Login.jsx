@@ -1,11 +1,12 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useAuthStore } from "../../store/useAuthStore";
-import { login, loginWithGoogle } from "../../services/auth.service";
+import { login, loginWithGoogle, loginWithFacebook } from "../../services/auth.service";
 import { useFormHandler } from "../../hooks/useFormHandler";
 import { loginSchema } from "../../validations/auth.validation";
 import FormError from "../../components/FormError";
 import { GoogleLogin } from "@react-oauth/google";
+import FacebookLoginButton from "../../components/auth/FacebookLoginButton";
 import { Mail, Lock, Eye, EyeOff, Loader2 } from "lucide-react";
 
 const benefits = [
@@ -27,6 +28,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const { isAuthenticated, user, isHydrated } = useAuthStore();
   const [googleError, setGoogleError] = useState("");
+  const [fbError, setFbError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
   const handleGoogleSuccess = async (credentialResponse) => {
@@ -45,6 +47,24 @@ export default function LoginPage() {
 
   const handleGoogleError = () => {
     setGoogleError("Google Sign-In was unsuccessful. Please try again.");
+  };
+
+  const handleFacebookSuccess = async (accessToken) => {
+    const result = await loginWithFacebook(accessToken);
+    if (result.success) {
+      const tenantUser = result.data?.data?.user;
+      if (tenantUser?.type === "TENANT" && !tenantUser?.onboardingCompleted) {
+        navigate("/register");
+      } else {
+        navigate("/dashboard");
+      }
+    } else {
+      setFbError(result.message);
+    }
+  };
+
+  const handleFacebookError = (errorMsg) => {
+    setFbError(errorMsg);
   };
 
   // ✅ If already logged in, redirect away from login page
@@ -246,6 +266,12 @@ export default function LoginPage() {
                 {googleError}
               </div>
             )}
+            
+            {fbError && (
+              <div className="mb-4 rounded-xl bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-600">
+                {fbError}
+              </div>
+            )}
 
             {/* Google Button */}
             <div className="flex justify-center w-full">
@@ -255,6 +281,17 @@ export default function LoginPage() {
                 shape="pill"
                 theme="outline"
                 width="340px"
+                text="signin_with"
+                logo_alignment="center"
+              />
+            </div>
+
+            {/* Facebook Button */}
+            <div className="flex justify-center w-full mt-3">
+              <FacebookLoginButton
+                onSuccess={handleFacebookSuccess}
+                onError={handleFacebookError}
+                text="Log in with Facebook"
               />
             </div>
 
