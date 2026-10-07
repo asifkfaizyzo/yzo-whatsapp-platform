@@ -53,7 +53,7 @@ export default function FacebookLoginButton({ onSuccess, onError, disabled, text
           onError("Facebook login was cancelled or failed.");
         }
       },
-      { scope: "public_profile" }
+      { scope: "business_management" }
     );
   };
 
