@@ -202,7 +202,7 @@ export const handleCallEvents = async (value, tenant) => {
 
       if (tenant) {
         console.log(`📢 [Socket] Emitting call_status_update to tenant ${tenant.id}: ${wacid} -> ${status}`);
-        emitToTenant(tenant.id, 'call_status_update', { wacid, status });
+        emitToTenant(tenant.id, 'call_status_update', { wacid, status, duration: call.duration != null ? call.duration : undefined });
       }
     }
   }
@@ -237,31 +237,107 @@ export const handleCallEvents = async (value, tenant) => {
 
     if (tenant) {
       console.log(`📢 [Socket] Emitting status update from statuses array to tenant ${tenant.id}: ${wacid} -> ${status}`);
-      emitToTenant(tenant.id, 'call_status_update', { wacid, status });
+      emitToTenant(tenant.id, 'call_status_update', { wacid, status, duration: stat.duration != null ? stat.duration : undefined });
     }
   }
 
   // 3. Handle Call Recording & Transcription Available
-  const recordings = value.call_recordings || [];
-  for (const rec of recordings) {
-     if (tenant) {
-       await callMediaQueue.add('process-call-recording', {
-         type: 'RECORDING',
-         payload: rec,
-         tenantId: tenant.id
-       });
-     }
+  const extractedRecordings = [];
+  if (Array.isArray(value?.call_recordings)) {
+    extractedRecordings.push(...value.call_recordings);
+  } else if (value?.call_recordings) {
+    extractedRecordings.push(value.call_recordings);
+  }
+  if (Array.isArray(value?.call_recording)) {
+    extractedRecordings.push(...value.call_recording);
+  } else if (value?.call_recording) {
+    extractedRecordings.push(value.call_recording);
+  }
+  if (Array.isArray(value?.recordings)) {
+    extractedRecordings.push(...value.recordings);
+  } else if (value?.recordings) {
+    extractedRecordings.push(value.recordings);
+  }
+  if (value?.recording) {
+    extractedRecordings.push(value.recording);
   }
 
-  const transcriptions = value.call_transcriptions || [];
-  for (const trans of transcriptions) {
-     if (tenant) {
-       await callMediaQueue.add('process-call-transcription', {
-         type: 'TRANSCRIPTION',
-         payload: trans,
-         tenantId: tenant.id
-       });
-     }
+  // Check inside calls array
+  for (const c of calls) {
+    const cWacid = c.id || c.call_id;
+    if (c.recording) extractedRecordings.push({ ...c.recording, wacid: cWacid });
+    if (Array.isArray(c.recordings)) {
+      extractedRecordings.push(...c.recordings.map((r) => ({ ...r, wacid: cWacid })));
+    }
+    if (Array.isArray(c.call_recordings)) {
+      extractedRecordings.push(...c.call_recordings.map((r) => ({ ...r, wacid: cWacid })));
+    }
+    if (c.audio) {
+      extractedRecordings.push({ audio: c.audio, wacid: cWacid });
+    }
+  }
+
+  // Check root audio object
+  if (value?.audio) {
+    const rootWacid = value.call_id || value.wacid || (typeof value.id === 'string' && value.id.startsWith('wacid.') ? value.id : calls[0]?.id);
+    extractedRecordings.push({ audio: value.audio, wacid: rootWacid });
+  }
+
+  for (const rec of extractedRecordings) {
+    if (tenant) {
+      const recWacid = rec.wacid || rec.call_id || (typeof rec.id === 'string' && rec.id.startsWith('wacid.') ? rec.id : null) || calls[0]?.id || calls[0]?.call_id;
+      console.log(`🎙️ [CallWebhook] Queuing call recording for wacid: ${recWacid}`, JSON.stringify(rec));
+      await callMediaQueue.add('process-call-recording', {
+        type: 'RECORDING',
+        payload: rec,
+        wacid: recWacid,
+        tenantId: tenant.id
+      });
+    }
+  }
+
+  const extractedTranscriptions = [];
+  if (Array.isArray(value?.call_transcriptions)) {
+    extractedTranscriptions.push(...value.call_transcriptions);
+  } else if (value?.call_transcriptions) {
+    extractedTranscriptions.push(value.call_transcriptions);
+  }
+  if (Array.isArray(value?.call_transcription)) {
+    extractedTranscriptions.push(...value.call_transcription);
+  } else if (value?.call_transcription) {
+    extractedTranscriptions.push(value.call_transcription);
+  }
+  if (Array.isArray(value?.transcriptions)) {
+    extractedTranscriptions.push(...value.transcriptions);
+  } else if (value?.transcriptions) {
+    extractedTranscriptions.push(value.transcriptions);
+  }
+  if (value?.transcription) {
+    extractedTranscriptions.push(value.transcription);
+  }
+
+  for (const c of calls) {
+    const cWacid = c.id || c.call_id;
+    if (c.transcription) extractedTranscriptions.push({ ...c.transcription, wacid: cWacid });
+    if (Array.isArray(c.transcriptions)) {
+      extractedTranscriptions.push(...c.transcriptions.map((t) => ({ ...t, wacid: cWacid })));
+    }
+    if (Array.isArray(c.call_transcriptions)) {
+      extractedTranscriptions.push(...c.call_transcriptions.map((t) => ({ ...t, wacid: cWacid })));
+    }
+  }
+
+  for (const trans of extractedTranscriptions) {
+    if (tenant) {
+      const transWacid = trans.wacid || trans.call_id || (typeof trans.id === 'string' && trans.id.startsWith('wacid.') ? trans.id : null) || calls[0]?.id || calls[0]?.call_id;
+      console.log(`📝 [CallWebhook] Queuing call transcription for wacid: ${transWacid}`, JSON.stringify(trans));
+      await callMediaQueue.add('process-call-transcription', {
+        type: 'TRANSCRIPTION',
+        payload: trans,
+        wacid: transWacid,
+        tenantId: tenant.id
+      });
+    }
   }
 };
 

@@ -463,10 +463,17 @@ export const processWebhookJob = async (job) => {
   // ═══════════════════════════════════════════════════════════
   const isCallEvent = 
     change?.field === 'calls' || 
+    change?.field === 'call_recordings' ||
+    change?.field === 'call_recording' || 
     Boolean(value?.calls) || 
     Boolean(value?.call) ||
     Boolean(value?.call_id) ||
     Boolean(value?.call_recordings) || 
+    Boolean(value?.call_recording) ||
+    Boolean(value?.recordings) ||
+    Boolean(value?.recording) ||
+    Boolean(value?.call_transcriptions) ||
+    Boolean(value?.call_transcription) || 
     Boolean(value?.statuses && value.statuses.some(s => s.id?.startsWith('wacid.') || s.type === 'call')) ||
     (value?.event && ['connect', 'terminate'].includes(value.event));
 

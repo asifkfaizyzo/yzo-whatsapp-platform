@@ -1146,40 +1146,52 @@ export default function Inbox() {
 
     const handleCallRecordingReady = (data) => {
       if (!data?.wacid) return;
-      setActiveChatCalls((prev) =>
-        prev.map((c) => {
+      setActiveChatCalls((prev) => {
+        const found = prev.some((c) => c.wacid === data.wacid);
+        if (!found) {
+          if (activeChatId) loadConversationCalls(activeChatId);
+          return prev;
+        }
+        return prev.map((c) => {
           if (c.wacid === data.wacid) {
             const recs = c.recordings || [];
+            const newRec = data.recording || { mediaUrl: data.mediaUrl, downloadStatus: "DOWNLOADED" };
             return {
               ...c,
               recordings: [
-                ...recs.filter((r) => r.wacid !== data.wacid),
-                data.recording || { mediaUrl: data.mediaUrl, downloadStatus: "DOWNLOADED" },
+                ...recs.filter((r) => r.id !== newRec.id && r.mediaUrl !== newRec.mediaUrl),
+                newRec,
               ],
             };
           }
           return c;
-        })
-      );
+        });
+      });
     };
 
     const handleCallTranscriptReady = (data) => {
       if (!data?.wacid) return;
-      setActiveChatCalls((prev) =>
-        prev.map((c) => {
+      setActiveChatCalls((prev) => {
+        const found = prev.some((c) => c.wacid === data.wacid);
+        if (!found) {
+          if (activeChatId) loadConversationCalls(activeChatId);
+          return prev;
+        }
+        return prev.map((c) => {
           if (c.wacid === data.wacid) {
             const trans = c.transcripts || [];
+            const newTrans = data.transcript || { fullText: data.fullText, mediaUrl: data.mediaUrl, downloadStatus: "DOWNLOADED" };
             return {
               ...c,
               transcripts: [
-                ...trans.filter((t) => t.wacid !== data.wacid),
-                data.transcript || { fullText: data.fullText, mediaUrl: data.mediaUrl, downloadStatus: "DOWNLOADED" },
+                ...trans.filter((t) => t.id !== newTrans.id && t.mediaUrl !== newTrans.mediaUrl),
+                newTrans,
               ],
             };
           }
           return c;
-        })
-      );
+        });
+      });
     };
 
     socket.on("new_message", handleNewMessage);
