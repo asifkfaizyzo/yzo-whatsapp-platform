@@ -50,7 +50,17 @@ export const acceptCall = async (req, res) => {
               sdp_type: 'answer',
               sdp: sdpAnswer
             }
-          })
+          }),
+          recording: {
+            status: "ENABLED",
+            purpose: "quality assurance",
+            announcement_language: "en_US"
+          },
+          transcription: {
+            status: "ENABLED",
+            purpose: "quality assurance",
+            announcement_language: "en_US"
+          }
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -232,13 +242,13 @@ export const initiateCall = async (req, res) => {
         }
       }),
       recording: {
-         status: "enabled",
-         purpose: "Quality assurance",
+         status: "ENABLED",
+         purpose: "quality assurance",
          announcement_language: "en_US"
       },
       transcription: {
-         status: "enabled",
-         purpose: "Quality assurance",
+         status: "ENABLED",
+         purpose: "quality assurance",
          announcement_language: "en_US"
       },
       biz_opaque_callback_data: `agent_${req.user?.id || 'tenant'}`
