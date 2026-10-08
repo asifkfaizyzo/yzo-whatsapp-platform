@@ -22,9 +22,16 @@ export const saveWooCommerceTrackingUrlTemplates = async (templates) => {
 
 // 👇 NEW — 1-Click OAuth
 export const getWooCommerceOAuthUrl = async (storeUrl) => {
+  const apiBase = import.meta.env.VITE_API_URL || "/api2";
+
+  const oauthPath = apiBase.endsWith("/api2")
+    ? "/woocommerce/oauth/url"
+    : "/api2/woocommerce/oauth/url";
+
   const res = await api.get(
-    `/woocommerce/oauth/url?storeUrl=${encodeURIComponent(storeUrl)}`
+    `${oauthPath}?storeUrl=${encodeURIComponent(storeUrl)}`
   );
+
   return res.data;
 };
 
