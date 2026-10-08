@@ -1,8 +1,15 @@
 import axios from "axios";
 import { useAuthStore } from "../store/useAuthStore.js"; // 👈 Adjust path to your authStore file
 
+const configuredBaseURL = import.meta.env.VITE_API_URL || "/api2";
+const normalizedBaseURL = configuredBaseURL
+  .replace(/\/+$/, "")
+  .endsWith("/api2")
+  ? configuredBaseURL.replace(/\/+$/, "")
+  : `${configuredBaseURL.replace(/\/+$/, "")}/api2`;
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "/api2",
+  baseURL: normalizedBaseURL,
   withCredentials: true,
   headers: {
     "Content-Type": "application/json",
@@ -49,7 +56,7 @@ api.interceptors.request.use(
 
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(error),
 );
 
 export default api;
