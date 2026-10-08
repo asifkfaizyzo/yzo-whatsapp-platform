@@ -272,6 +272,9 @@ export const handleCallEvents = async (value, tenant) => {
     if (Array.isArray(c.call_recordings)) {
       extractedRecordings.push(...c.call_recordings.map((r) => ({ ...r, wacid: cWacid })));
     }
+    if (c.call_recording) {
+      extractedRecordings.push({ ...c.call_recording, wacid: cWacid });
+    }
     if (c.audio) {
       extractedRecordings.push({ audio: c.audio, wacid: cWacid });
     }
@@ -324,6 +327,9 @@ export const handleCallEvents = async (value, tenant) => {
     }
     if (Array.isArray(c.call_transcriptions)) {
       extractedTranscriptions.push(...c.call_transcriptions.map((t) => ({ ...t, wacid: cWacid })));
+    }
+    if (c.call_transcript) {
+      extractedTranscriptions.push({ ...c.call_transcript, wacid: cWacid });
     }
   }
 
