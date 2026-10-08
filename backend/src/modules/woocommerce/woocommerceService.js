@@ -4,7 +4,7 @@ import axios from 'axios';
  * Programmatically creates order.created, order.updated, and customer.created webhooks in WooCommerce
  */
 export const autoProvisionWebhooks = async (tenantId, storeUrl, consumerKey, consumerSecret) => {
-  const backendUrl = process.env.BACKEND_URL || 'https://shrimp-twitter-verbally.ngrok-free.dev';
+  const backendUrl = process.env.BACKEND_URL || 'https://api.sudoreply.com';
   const webhookDeliveryUrl = `${backendUrl}/api2/woocommerce/webhook?tenantId=${tenantId}`;
   const secret = process.env.WOOCOMMERCE_WEBHOOK_SECRET || 'sudoreply_wc_webhook_secret_key';
 

@@ -36,7 +36,7 @@ export const getWooCommerceOAuthUrl = async (req, res) => {
       }
     });
 
-    const backendUrl = process.env.BACKEND_URL || 'https://shrimp-twitter-verbally.ngrok-free.dev';
+    const backendUrl = process.env.BACKEND_URL || 'https://api.sudoreply.com';
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5174';
 
     const callbackUrl = `${backendUrl}/api2/woocommerce/oauth/callback`;
