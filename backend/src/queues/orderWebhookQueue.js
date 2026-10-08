@@ -15,3 +15,12 @@ export const orderWebhookQueue = new Queue(QUEUE_NAME_ORDER_WEBHOOK, {
     removeOnFail: { count: 5000 }
   }
 });
+
+
+
+// ── ADD THIS AT THE BOTTOM OF src/queues/orderWebhookQueue.js ──
+export const addOrderWebhookJob = async (jobName, data, customJobId = null) => {
+  return await orderWebhookQueue.add(jobName, data, {
+    jobId: customJobId || undefined,
+  });
+};

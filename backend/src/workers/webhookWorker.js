@@ -18,6 +18,7 @@ import https from 'https';
 import http from 'http';
 import { GRAPH_BASE_URL } from '../config/meta.js';
 import { handleCallEvents, handleCallPermissionReply, handleAccountSettingsUpdate } from '../modules/whatsapp/callWebhookHandler.js';
+import { parseWooReviewRating } from '../modules/woocommerce/woocommerceOrderLifecycle.js';
 
 // ─────────────────────────────────────────────────────────────
 // META MEDIA & AVATAR PERSISTENCE HELPER
@@ -743,7 +744,7 @@ export const processWebhookJob = async (job) => {
   // ═══════════════════════════════════════════════════════════
   if (message) {
     const messageId = message.id;
-    console.log('📥 [META WEBHOOK INBOUND WAMID]:', messageId); // ← ADD DEBUG LOG
+    console.log('📥 [META WEBHOOK INBOUND WAMID]:', messageId);
 
     // ── Idempotency check ──────────────────────────────────
     const isNew = await isNewWebhookEvent(`msg:${messageId}`);
@@ -753,19 +754,14 @@ export const processWebhookJob = async (job) => {
     }
     console.log(`✅ [Dedup] Processing NEW message: ${messageId}`);
 
-    const phoneId = value.metadata?.phone_number_id;
-    const customerPhone = message.from;
-    const messageType = message.type; // "text"|"image"|"video"|"audio"|"document"|"sticker"
-
-    // ── Find tenant ────────────────────────────────────────
-    const tenant = await prisma.tenant.findFirst({
-      where: { whatsappPhoneId: phoneId }
-    });
-
+    // Reuse outer context tenant setup to bypass duplicate db hits
     if (!tenant) {
       console.log(`⚠️ No tenant found for phoneId: ${phoneId}`);
       return;
     }
+
+    const customerPhone = message.from;
+    const messageType = message.type; // "text"|"image"|"video"|"audio"|"document"|"sticker"
 
     // ── Check subscription ─────────────────────────────────
     const subStatus = tenant.subscriptionStatus;
@@ -826,7 +822,6 @@ export const processWebhookJob = async (job) => {
     // ── Handle Voicemail (audio with wacid prefix) ───────
     if (messageType === 'audio' && messageId.startsWith('wacid.')) {
       console.log(`🎙️ [Webhook] Voicemail received for wacid: ${messageId}`);
-      // TODO: Route to Voicemail logic (Phase 6)
       return;
     }
 
@@ -846,7 +841,7 @@ export const processWebhookJob = async (job) => {
         const downloaded = await downloadWhatsAppMedia({
           mediaId: media.id,
           mimeType: media.mime_type,
-          fileName: null,           // images have no filename
+          fileName: null,
           tenantId: tenant.id,
           contactId: contact.id,
           accessToken: decrypt(tenant.whatsappAccessToken),
@@ -858,7 +853,6 @@ export const processWebhookJob = async (job) => {
 
       } catch (err) {
         console.error(`❌ Image download failed:`, err.message);
-        // Still save message but without media
         text = '[Image - download failed]';
         type = 'TEXT';
       }
@@ -927,7 +921,7 @@ export const processWebhookJob = async (job) => {
         const downloaded = await downloadWhatsAppMedia({
           mediaId: media.id,
           mimeType: media.mime_type,
-          fileName: media.filename || null,  // documents have filename
+          fileName: media.filename || null,
           tenantId: tenant.id,
           contactId: contact.id,
           accessToken: decrypt(tenant.whatsappAccessToken),
@@ -1017,7 +1011,6 @@ export const processWebhookJob = async (job) => {
       const currency = items[0]?.currency || 'INR';
       const totalAmount = items.reduce((sum, it) => sum + (Number(it.item_price || 0) * Number(it.quantity || 1)), 0);
 
-      // Collision-proof unique order number
       const orderNumber = `ORD-${tenant.id.slice(-4).toUpperCase()}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
 
       const formattedItems = items.map(it => `• *${it.product_retailer_id}* (x${it.quantity}) — ${it.currency || currency} ${it.item_price}`).join('\n');
@@ -1026,7 +1019,6 @@ export const processWebhookJob = async (job) => {
 
       console.log(`🛍️ [ORDER WEBHOOK] Received order ${orderNumber} with ${items.length} items. Total: ${currency} ${totalAmount}`);
 
-      // ── UNSUPPORTED ────────────────────────────────────────
     } else {
       console.log(`ℹ️ Unsupported message type: ${messageType} - skipping`);
       return;
@@ -1077,9 +1069,41 @@ export const processWebhookJob = async (job) => {
     } catch (_) {}
 
     // ── Preference-scoped Zoho auto-sync for new WhatsApp contacts ──
-    // Routes to EITHER Contacts module OR Leads module based on tenant preference — never both.
     if (isNewContact) {
       await triggerZohoAutoSyncForNewContact(tenant.id, contact);
+    }
+
+    // ── WooCommerce Review Rating Detection ──
+    const reviewRating = parseWooReviewRating(text);
+    if (reviewRating !== null) {
+      const customerDigits = String(contact.phone || '').replace(/\D/g, '');
+      const recentReviewRequests = await prisma.ecommerceOrder.findMany({
+        where: {
+          tenantId: tenant.id,
+          source: 'WOOCOMMERCE',
+          status: { in: ['completed', 'delivered', 'wc-completed', 'wc-delivered'] },
+          reviewRequestedAt: { gte: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000) },
+          reviewRating: null,
+        },
+        orderBy: { reviewRequestedAt: 'desc' },
+        take: 20,
+      });
+      const reviewOrder = recentReviewRequests.find((candidate) => {
+        const orderDigits = String(candidate.customerPhone || '').replace(/\D/g, '');
+        return orderDigits && customerDigits && (
+          orderDigits === customerDigits ||
+          orderDigits.endsWith(customerDigits.slice(-8)) ||
+          customerDigits.endsWith(orderDigits.slice(-8))
+        );
+      });
+
+      if (reviewOrder) {
+        await prisma.ecommerceOrder.updateMany({
+          where: { id: reviewOrder.id, tenantId: tenant.id, reviewRating: null },
+          data: { reviewRating, reviewReceivedAt: new Date() },
+        });
+        console.log(`⭐ [WooCommerce] Saved ${reviewRating}/5 review for order #${reviewOrder.orderNumber}`);
+      }
     }
 
     // ── Socket: emit to tenant room ────────────────────────
@@ -1087,7 +1111,7 @@ export const processWebhookJob = async (job) => {
       conversationId: result.conversation.id,
       message: {
         id: result.message.id,
-        type: result.message.type,        // ✅ correct type now
+        type: result.message.type,
         text: result.message.text,
         senderId: result.message.senderId,
         senderType: 'CONTACT',
@@ -1118,11 +1142,10 @@ export const processWebhookJob = async (job) => {
       messageId: result.message.id,
     };
 
-    // ✅ Save tenant notification to DB then emit
     try {
       const tenantNotif = await createNotification({
         tenantId: tenant.id,
-        userId: null,           // tenant-wide
+        userId: null,
         type: 'new_message',
         title: notifTitle,
         message: notifMessage,
@@ -1170,11 +1193,10 @@ export const processWebhookJob = async (job) => {
         }
       });
 
-      // ✅ Save user notification to DB then emit
       try {
         const userNotif = await createNotification({
           tenantId: tenant.id,
-          userId: contact.assignedTo,   // user-specific
+          userId: contact.assignedTo,
           type: 'new_message',
           title: notifTitle,
           message: notifMessage,
@@ -1210,7 +1232,6 @@ export const processWebhookJob = async (job) => {
         const currency = items[0]?.currency || 'INR';
         const totalAmount = items.reduce((sum, it) => sum + (Number(it.item_price || 0) * Number(it.quantity || 1)), 0);
 
-        // Check if an existing active order exists for this conversation (e.g. created when location was sent!)
         const existingPendingOrder = await prisma.order.findFirst({
           where: {
             conversationId: result.conversation.id,
@@ -1225,7 +1246,6 @@ export const processWebhookJob = async (job) => {
         let createdOrder;
 
         if (existingPendingOrder) {
-          // Delete old empty order items if any, then add new items
           await prisma.orderItem.deleteMany({
             where: { orderId: existingPendingOrder.id }
           }).catch(() => null);
@@ -1256,7 +1276,6 @@ export const processWebhookJob = async (job) => {
           });
           console.log(`✅ [ORDER UPDATED] Existing Order #${createdOrder.orderNumber} updated with items (ID: ${createdOrder.id})`);
         } else {
-          // Generate consistent orderNumber from saved text or collision-proof pattern
           const orderMatch = text ? text.match(/#([A-Z0-9_-]+)/) : null;
           const orderNumber = orderMatch ? orderMatch[1] : `ORD-${tenant.id.slice(-4).toUpperCase()}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
 
@@ -1301,7 +1320,6 @@ export const processWebhookJob = async (job) => {
           createZohoDealFromOrder(tenant.id, createdOrder, contact).catch(() => {});
         } catch (_) {}
 
-        // Emit new_order socket event to tenant
         emitToTenant(tenant.id, 'new_order', {
           order: createdOrder,
           conversationId: result.conversation.id,
@@ -1309,7 +1327,6 @@ export const processWebhookJob = async (job) => {
           contactPhone: contact.phone
         });
 
-        // Trigger Event-based Order Flow
         await flowEngine.triggerOrderFlow(result.conversation, contact, createdOrder);
 
       } catch (orderErr) {
@@ -1352,7 +1369,7 @@ const downloadWhatsAppMedia = async ({
   }
 
   const metaData = await metaRes.json();
-  const downloadUrl = metaData.url;  // temporary, expires soon
+  const downloadUrl = metaData.url;
 
   if (!downloadUrl) {
     throw new Error('No download URL returned from Meta API');
@@ -1393,7 +1410,7 @@ const downloadWhatsAppMedia = async ({
       path: urlObj.pathname + urlObj.search,
       method: 'GET',
       headers: {
-        Authorization: `Bearer ${accessToken}`,  // ✅ Required for WhatsApp CDN
+        Authorization: `Bearer ${accessToken}`,
       },
     };
 
@@ -1427,7 +1444,6 @@ const downloadWhatsAppMedia = async ({
       reject(err);
     });
 
-    // 30 second timeout
     request.setTimeout(30000, () => {
       request.destroy();
       if (fs.existsSync(localPath)) fs.unlinkSync(localPath);
@@ -1485,12 +1501,11 @@ const MIME_TO_EXT = {
   'application/vnd.ms-excel': '.xls',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
   'text/plain': '.txt',
-  'image/webp; codecs=vp8': '.webp',  // sticker format
+  'image/webp; codecs=vp8': '.webp',
 };
 
 const getExtFromMime = (mimeType) => {
   if (!mimeType) return '.bin';
-  // Handle mime types with params like "audio/ogg; codecs=opus"
   const baseMime = mimeType.split(';')[0].trim().toLowerCase();
   return MIME_TO_EXT[mimeType] || MIME_TO_EXT[baseMime] || '.bin';
 };

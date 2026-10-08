@@ -21,6 +21,9 @@ import templateRoutes from './modules/templates/templateRoutes.js';
 import broadcastRoutes from './modules/broadcasts/broadcastRoutes.js';
 import whatsappRoutes from './modules/whatsapp/whatsappRoutes.js';
 import googleSheetsRoutes from './modules/google-sheets/googleSheetsRoutes.js';
+import shopifyRoutes from './modules/shopify/shopifyRoutes.js';
+import woocommerceRoutes from './modules/woocommerce/woocommerceRoutes.js';
+import { handleWooCommerceWebhook } from './modules/webhook/woocommerceWebhookController.js';
 import notificationRoutes from "./modules/notifications/notificationRoutes.js";
 import superAdminNotificationRoutes from "./modules/SuperAdminNotifications/superAdminNotificationRoutes.js";
 import revenueRoutes from "./modules/revenue/revenueRoutes.js";
@@ -97,10 +100,21 @@ const authLimiter = rateLimit({
 });
 
 // ── Body Parser ──
+// app.use(express.json({
+//   limit: '10mb',
+//   verify: (req, res, buf) => {
+//     if (req.originalUrl && req.originalUrl.includes('/api/webhook')) {
+//       req.rawBody = buf;
+//     }
+//   }
+// }));
+// app.use(express.urlencoded({ extended: true }));
+
+// ── Body Parser ──
 app.use(express.json({
   limit: '10mb',
   verify: (req, res, buf) => {
-    if (req.originalUrl && req.originalUrl.includes('/api/webhook')) {
+    if (req.originalUrl && (req.originalUrl.includes('webhook') || req.originalUrl.includes('auth-events'))) {
       req.rawBody = buf;
     }
   }
@@ -175,6 +189,13 @@ app.use('/api3/login',                   authLimiter);
 app.use('/api/webhook', webhookRoutes);
 app.use('/api/flows', flowRoutes);
 
+// WooCommerce Direct Webhook Aliases (Fixes 404 errors)
+app.post('/api/webhooks/woocommerce', handleWooCommerceWebhook);
+app.post('/api/woocommerce/webhook', handleWooCommerceWebhook);
+
+app.post('/api2/webhooks/woocommerce', handleWooCommerceWebhook);
+app.post('/api2/woocommerce/webhook', handleWooCommerceWebhook);
+
 // ──────────────────────────────────────
 // PUBLIC OAUTH CALLBACKS & WEBHOOKS
 // ──────────────────────────────────────
@@ -218,9 +239,11 @@ app.use('/api9', broadcastRoutes);
 app.use('/api2/whatsapp',       whatsappRoutes);
 app.use('/api/google-sheets', googleSheetsRoutes);
 app.use('/api2/google-sheets', googleSheetsRoutes);
-app.use("/api2/notifications",  notificationRoutes);
-app.use("/api/super-admin/notifications", superAdminNotificationRoutes);
-app.use('/api2/quick-replies', quickReplyRoutes);
+app.use('/api2/shopify', shopifyRoutes);
+app.use('/api2/woocommerce', woocommerceRoutes);
+app.use("/api2/notifications",  notificationRoutes)
+app.use("/api/super-admin/notifications", superAdminNotificationRoutes)
+app.use('/api2/quick-replies', quickReplyRoutes)
 
 app.use("/api2", ticketRoutes);
 app.use("/api",  adminTicketRoutes);

@@ -3,6 +3,8 @@ import rateLimit from 'express-rate-limit';
 import { verifyMetaWebhook, receiveMetaWebhookEvent, verifyMetaSignature } from './webhookController.js';
 import { handleRazorpayWebhook } from './razorpayWebhookController.js';
 import { handleTenantOrderWebhook, handlePartnerWebhook } from './orderWebhookController.js';
+import { handleShopifyWebhook } from './shopifyWebhookController.js';        
+import { handleWooCommerceWebhook } from './woocommerceWebhookController.js';
 
 const router = express.Router();
 
@@ -32,4 +34,7 @@ router.post("/razorpay/order/:tenantId", webhookRateLimiter, handleTenantOrderWe
 // Programmatic Partner & Sub-Merchant Commerce Razorpay webhook endpoint (OAuth Mode)
 router.post("/razorpay/partner", webhookRateLimiter, handlePartnerWebhook);
 
-export default router;
+router.post("/shopify", webhookRateLimiter, handleShopifyWebhook);
+router.post("/woocommerce", webhookRateLimiter, handleWooCommerceWebhook);
+
+export default router;
