@@ -454,6 +454,7 @@ export const uploadVoicemailGreeting = async (req, res) => {
         calling: {
           voicemail: {
             status: "ENABLED",
+            triggers: ["REJECT", "TIMEOUT"],
             audio: {
               default: {
                 announcement_media_id: mediaId
