@@ -1211,6 +1211,11 @@ export default function Inbox() {
     socket.on("call_status_update", handleCallStatusUpdate);
     socket.on("call_recording_ready", handleCallRecordingReady);
     socket.on("call_transcript_ready", handleCallTranscriptReady);
+    
+    const handleConversationsUpdated = () => {
+      loadConversations(true);
+    };
+    socket.on("conversations_updated", handleConversationsUpdated);
 
     return () => {
       socket.off("new_message", handleNewMessage);
@@ -1223,6 +1228,7 @@ export default function Inbox() {
       socket.off("call_status_update", handleCallStatusUpdate);
       socket.off("call_recording_ready", handleCallRecordingReady);
       socket.off("call_transcript_ready", handleCallTranscriptReady);
+      socket.off("conversations_updated", handleConversationsUpdated);
     };
   }, [socket, activeChatId, loadConversations, loadConversationCalls]);
 
