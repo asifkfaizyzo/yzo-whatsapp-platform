@@ -205,14 +205,15 @@ export default function CallSettings() {
           Voicemail Greeting
         </h3>
         <p className="text-xs text-slate-500 mb-4">
-          Upload a custom audio file (OGG format) that will play to customers if their call goes unanswered. Meta will then allow them to leave a voice message.
+          Upload a custom audio file that will play to customers if their call goes unanswered. Meta will then allow them to leave a voice message.<br/>
+          <strong className="text-amber-600 mt-1 inline-block">Important:</strong> Meta strictly requires the audio to be encoded in the <b>OPUS codec</b>. If you have an MP3, please convert it first (e.g., using an <a href="https://convertio.co/mp3-opus/" target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">online OPUS converter</a>).
         </p>
 
         <div className="flex flex-col sm:flex-row items-center gap-4">
           <div className="flex-1 w-full">
              <input 
                 type="file" 
-                accept="audio/ogg" 
+                accept="audio/ogg, audio/opus, .opus" 
                 onChange={(e) => setVoicemailFile(e.target.files[0])}
                 className="w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 transition"
              />

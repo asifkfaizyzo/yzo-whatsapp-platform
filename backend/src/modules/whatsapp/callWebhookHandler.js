@@ -342,6 +342,37 @@ export const handleCallEvents = async (value, tenant) => {
       });
     }
   }
+
+  // Bump conversations for all processed calls so they jump to the top of the inbox
+  const allWacids = new Set();
+  for (const c of calls) if (c.id || c.call_id) allWacids.add(c.id || c.call_id);
+  for (const s of statuses) if (s.id || s.call_id) allWacids.add(s.id || s.call_id);
+  
+  if (allWacids.size > 0) {
+    try {
+      const callsInDb = await prisma.waCall.findMany({
+        where: { wacid: { in: Array.from(allWacids) } },
+        select: { conversationId: true }
+      });
+      const convIds = [...new Set(callsInDb.map(c => c.conversationId).filter(Boolean))];
+      if (convIds.length > 0) {
+        await prisma.conversation.updateMany({
+          where: { id: { in: convIds } },
+          data: {
+            updatedAt: new Date(),
+            lastMessageAt: new Date()
+          }
+        });
+        
+        // Emit conversation update socket event if tenant is known
+        if (tenant) {
+          emitToTenant(tenant.id, 'conversations_updated', { count: convIds.length });
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to bump conversation for calls:', err.message);
+    }
+  }
 };
 
 export const handleCallPermissionReply = async (msg, tenant, phoneId) => {

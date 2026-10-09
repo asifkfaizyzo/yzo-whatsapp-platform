@@ -110,7 +110,7 @@ export default function ContactCallsDrawer({
     if (filter === "recordings") return hasRecording;
     if (filter === "missed") return isMissed;
     return true;
-  });
+  }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
   // Calculate quick stats
   const totalCalls = calls.length;
