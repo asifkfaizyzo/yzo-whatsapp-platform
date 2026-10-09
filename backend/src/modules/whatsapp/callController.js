@@ -378,11 +378,24 @@ export const getCallSettings = async (req, res) => {
     const { phoneId } = req.params;
     const token = await getTenantToken(req.tenant?.id || req.user?.tenantId);
 
-    const response = await axios.get(
-      `${GRAPH_BASE_URL}/${phoneId}/whatsapp_phone_number_call_settings`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    res.json({ success: true, data: response.data });
+    let callingSettings = { status: 'ENABLED', call_icon_visibility: 'DEFAULT' };
+    try {
+      const response = await axios.get(
+        `${GRAPH_BASE_URL}/${phoneId}/settings`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (response.data?.calling) callingSettings = response.data.calling;
+    } catch (metaErr) {
+      console.warn('Meta GET settings warning:', metaErr.response?.data || metaErr.message);
+    }
+    
+    res.json({ 
+      success: true, 
+      data: {
+        status: callingSettings.status || 'ENABLED',
+        callIconVisibility: callingSettings.call_icon_visibility || 'DEFAULT'
+      }
+    });
   } catch (error) {
     console.error('getCallSettings error:', error.response?.data || error.message);
     res.status(500).json({ error: 'Failed to get call settings' });
@@ -396,9 +409,16 @@ export const updateCallSettings = async (req, res) => {
     const updateData = req.body;
     const token = await getTenantToken(req.tenant?.id || req.user?.tenantId);
 
+    const payload = {
+      calling: {
+        status: updateData.status || "ENABLED",
+        call_icon_visibility: updateData.callIconVisibility || "DEFAULT"
+      }
+    };
+    
     const response = await axios.post(
-      `${GRAPH_BASE_URL}/${phoneId}/whatsapp_phone_number_call_settings`,
-      updateData,
+      `${GRAPH_BASE_URL}/${phoneId}/settings`,
+      payload,
       { headers: { Authorization: `Bearer ${token}` } }
     );
     res.json({ success: true, data: response.data });
@@ -430,10 +450,19 @@ export const uploadVoicemailGreeting = async (req, res) => {
 
     const mediaId = response.data?.id;
     if (mediaId) {
-      // Automatically apply the uploaded media ID as the voicemail announcement
+      const payload = {
+        voicemail: {
+          status: "ENABLED",
+          audio: {
+            default: {
+              announcement_media_id: mediaId
+            }
+          }
+        }
+      };
       await axios.post(
-        `${GRAPH_BASE_URL}/${phoneId}/whatsapp_phone_number_call_settings`,
-        { voicemail_announcement: mediaId },
+        `${GRAPH_BASE_URL}/${phoneId}/settings`,
+        payload,
         { headers: { Authorization: `Bearer ${token}` } }
       );
     }
