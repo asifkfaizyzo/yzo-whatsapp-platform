@@ -179,6 +179,12 @@ export const handleCallEvents = async (value, tenant) => {
       console.log(`📞 [Call Event] Status transition for ${wacid}: ${status} (reason: ${call.reason})`);
 
       let updateData = { status };
+
+      const existingCall = await prisma.waCall.findFirst({ where: { wacid } });
+      if (existingCall && ['MISSED', 'REJECTED', 'FAILED'].includes(existingCall.status) && status === 'COMPLETED') {
+        status = existingCall.status;
+        updateData.status = status;
+      }
       if (['COMPLETED', 'FAILED', 'REJECTED'].includes(status)) {
          if (call.start_timestamp) updateData.startTime = BigInt(call.start_timestamp);
          if (call.end_timestamp) updateData.endTime = BigInt(call.end_timestamp);
@@ -220,6 +226,12 @@ export const handleCallEvents = async (value, tenant) => {
     }
 
     let updateData = { status };
+
+    const existingCall = await prisma.waCall.findFirst({ where: { wacid } });
+    if (existingCall && ['MISSED', 'REJECTED', 'FAILED'].includes(existingCall.status) && status === 'COMPLETED') {
+      status = existingCall.status;
+      updateData.status = status;
+    }
     if (['COMPLETED', 'FAILED', 'REJECTED'].includes(status)) {
        if (stat.start_timestamp) updateData.startTime = BigInt(stat.start_timestamp);
        if (stat.end_timestamp) updateData.endTime = BigInt(stat.end_timestamp);
