@@ -101,7 +101,10 @@ export const rejectCall = async (req, res) => {
           {
             messaging_product: 'whatsapp',
             action: 'reject',
-            call_id: wacid
+            call_id: wacid,
+            voicemail: {
+              status: "ENABLED"
+            }
           },
           { headers: { Authorization: `Bearer ${token}` } }
         );
@@ -422,6 +425,16 @@ export const uploadVoicemailGreeting = async (req, res) => {
       formData,
       { headers: { ...formData.getHeaders(), Authorization: `Bearer ${token}` } }
     );
+
+    const mediaId = response.data?.id;
+    if (mediaId) {
+      // Automatically apply the uploaded media ID as the voicemail announcement
+      await axios.post(
+        `${GRAPH_BASE_URL}/${phoneId}/whatsapp_phone_number_call_settings`,
+        { voicemail_announcement: mediaId },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+    }
 
     // cleanup temp file
     fs.unlinkSync(file.path);

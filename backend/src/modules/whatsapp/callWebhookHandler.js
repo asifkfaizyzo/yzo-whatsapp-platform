@@ -65,14 +65,11 @@ export const handleCallEvents = async (value, tenant) => {
                 ]
               },
               include: {
-                conversations: {
-                  take: 1,
-                  orderBy: { updatedAt: 'desc' }
-                }
+                conversations: true
               }
             });
-            if (contact?.conversations?.[0]) {
-              resolvedConvId = contact.conversations[0].id;
+            if (contact?.conversations) {
+              resolvedConvId = contact.conversations.id || contact.conversations[0]?.id;
             }
           } catch (lookupErr) {
             console.warn('Error looking up contact for inbound call:', lookupErr.message);
