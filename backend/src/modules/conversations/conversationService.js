@@ -141,16 +141,6 @@ export const getAssignedConversations = async ({
             createdAt: true,
           },
         },
-        waCalls: {
-          orderBy: { createdAt: "desc" },
-          take: 1,
-          select: {
-            id: true,
-            status: true,
-            direction: true,
-            createdAt: true,
-          }
-        },
       },
       orderBy: [
         { isPinned: "desc" },
@@ -160,6 +150,17 @@ export const getAssignedConversations = async ({
       skip,
       take: limit,
     });
+
+    const convIds = conversations.map(c => c.id);
+    if (convIds.length > 0) {
+      const allCalls = await prisma.waCall.findMany({
+        where: { conversationId: { in: convIds } },
+        orderBy: { createdAt: "desc" }
+      });
+      conversations.forEach(conv => {
+        conv.waCalls = allCalls.filter(c => c.conversationId === conv.id).slice(0, 1);
+      });
+    }
 
     // ✅ Get counts for status tabs
     const allCount = await prisma.conversation.count({
@@ -615,21 +616,22 @@ export const getArchivedConversations = async ({
           isDeleted: true,
         },
       },
-      waCalls: {
-        orderBy: { createdAt: "desc" },
-        take: 1,
-        select: {
-          id: true,
-          status: true,
-          direction: true,
-          createdAt: true,
-        }
-      },
     },
     orderBy: { archivedAt: "desc" },
     skip,
     take: limit,
   });
+
+  const convIds = conversations.map(c => c.id);
+  if (convIds.length > 0) {
+    const allCalls = await prisma.waCall.findMany({
+      where: { conversationId: { in: convIds } },
+      orderBy: { createdAt: "desc" }
+    });
+    conversations.forEach(conv => {
+      conv.waCalls = allCalls.filter(c => c.conversationId === conv.id).slice(0, 1);
+    });
+  }
 
   const total = await prisma.conversation.count({
     where: whereClause,
