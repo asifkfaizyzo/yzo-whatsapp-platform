@@ -181,9 +181,14 @@ export const handleCallEvents = async (value, tenant) => {
       let updateData = { status };
 
       const existingCall = await prisma.waCall.findFirst({ where: { wacid } });
-      if (existingCall && ['MISSED', 'REJECTED', 'FAILED'].includes(existingCall.status) && status === 'COMPLETED') {
-        status = existingCall.status;
-        updateData.status = status;
+      if (existingCall) {
+        if (['MISSED', 'REJECTED', 'FAILED'].includes(existingCall.status) && status === 'COMPLETED') {
+          status = existingCall.status;
+          updateData.status = status;
+        } else if (existingCall.status === 'RINGING' && status === 'COMPLETED') {
+          status = 'MISSED';
+          updateData.status = status;
+        }
       }
       if (['COMPLETED', 'FAILED', 'REJECTED'].includes(status)) {
          if (call.start_timestamp) updateData.startTime = BigInt(call.start_timestamp);
@@ -228,9 +233,14 @@ export const handleCallEvents = async (value, tenant) => {
     let updateData = { status };
 
     const existingCall = await prisma.waCall.findFirst({ where: { wacid } });
-    if (existingCall && ['MISSED', 'REJECTED', 'FAILED'].includes(existingCall.status) && status === 'COMPLETED') {
-      status = existingCall.status;
-      updateData.status = status;
+    if (existingCall) {
+      if (['MISSED', 'REJECTED', 'FAILED'].includes(existingCall.status) && status === 'COMPLETED') {
+        status = existingCall.status;
+        updateData.status = status;
+      } else if (existingCall.status === 'RINGING' && status === 'COMPLETED') {
+        status = 'MISSED';
+        updateData.status = status;
+      }
     }
     if (['COMPLETED', 'FAILED', 'REJECTED'].includes(status)) {
        if (stat.start_timestamp) updateData.startTime = BigInt(stat.start_timestamp);
