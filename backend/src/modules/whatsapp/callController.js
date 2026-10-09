@@ -451,11 +451,13 @@ export const uploadVoicemailGreeting = async (req, res) => {
     const mediaId = response.data?.id;
     if (mediaId) {
       const payload = {
-        voicemail: {
-          status: "ENABLED",
-          audio: {
-            default: {
-              announcement_media_id: mediaId
+        calling: {
+          voicemail: {
+            status: "ENABLED",
+            audio: {
+              default: {
+                announcement_media_id: mediaId
+              }
             }
           }
         }
