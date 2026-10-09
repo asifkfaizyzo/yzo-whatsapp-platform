@@ -384,6 +384,7 @@ export const getCallSettings = async (req, res) => {
     );
     res.json({ success: true, data: response.data });
   } catch (error) {
+    console.error('getCallSettings error:', error.response?.data || error.message);
     res.status(500).json({ error: 'Failed to get call settings' });
   }
 };
@@ -402,6 +403,7 @@ export const updateCallSettings = async (req, res) => {
     );
     res.json({ success: true, data: response.data });
   } catch (error) {
+    console.error('updateCallSettings error:', error.response?.data || error.message);
     res.status(500).json({ error: 'Failed to update call settings' });
   }
 };
@@ -437,11 +439,12 @@ export const uploadVoicemailGreeting = async (req, res) => {
     }
 
     // cleanup temp file
-    fs.unlinkSync(file.path);
+    if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
 
     res.json({ success: true, data: response.data });
   } catch (error) {
-    if (req.file) fs.unlinkSync(req.file.path);
+    console.error('uploadVoicemailGreeting error:', error.response?.data || error.message);
+    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
     res.status(500).json({ error: 'Failed to upload voicemail greeting' });
   }
 };
