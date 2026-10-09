@@ -137,8 +137,19 @@ export const getAssignedConversations = async ({
           select: {
             id: true,
             text: true,
+            type: true,
             createdAt: true,
           },
+        },
+        waCalls: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: {
+            id: true,
+            status: true,
+            direction: true,
+            createdAt: true,
+          }
         },
       },
       orderBy: [
@@ -599,9 +610,20 @@ export const getArchivedConversations = async ({
         select: {
           id: true,
           text: true,
+          type: true,
           createdAt: true,
           isDeleted: true,
         },
+      },
+      waCalls: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: {
+          id: true,
+          status: true,
+          direction: true,
+          createdAt: true,
+        }
       },
     },
     orderBy: { archivedAt: "desc" },

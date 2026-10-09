@@ -361,10 +361,21 @@ export default function ChatSidebar({
           tabFilteredChats.map((chat, chatIdx) => {
             const contactName = chat.contact?.name || "Unknown Contact";
             const lastMsg = chat.messages?.[0];
+            const lastCall = chat.waCalls?.[0];
+            let latestActivity = lastMsg;
+            if (lastCall && (!lastMsg || new Date(lastCall.createdAt) > new Date(lastMsg.createdAt))) {
+                latestActivity = {
+                    type: 'CALL',
+                    status: lastCall.status,
+                    direction: lastCall.direction,
+                    createdAt: lastCall.createdAt,
+                };
+            }
+
             const isActive = String(chat.id) === String(activeChatId);
             const avatarBg = getAvatarStyle(contactName);
             const unreadCount = getUnreadCount(chat.id);
-            const timeStr = lastMsg ? formatTime(lastMsg.createdAt) : "";
+            const timeStr = latestActivity ? formatTime(latestActivity.createdAt) : "";
 
             return (
               <div
@@ -472,7 +483,7 @@ export default function ChatSidebar({
                             : "text-[#667781]"
                         }`}
                       >
-                        {formatLastMessagePreview(lastMsg)}
+                        {formatLastMessagePreview(latestActivity)}
                       </p>
 
                       {unreadCount > 0 && (

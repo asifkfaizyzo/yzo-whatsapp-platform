@@ -613,6 +613,13 @@ export default function Inbox() {
     if (!msg) return "No messages yet";
     const type = msg.type?.toUpperCase();
 
+    if (type === "CALL") {
+      if (msg.status === "MISSED") return "📞 Missed Call";
+      if (msg.status === "REJECTED") return "📞 Declined Call";
+      if (msg.status === "FAILED") return "📞 Failed Call";
+      return msg.direction === "BUSINESS_INITIATED" ? "📞 Outgoing Call" : "📞 Incoming Call";
+    }
+
     if (type === "AUDIO") return "🎵 Voice message";
     if (type === "IMAGE") return msg.caption ? `📷 ${msg.caption}` : "📷 Photo";
     if (type === "VIDEO") return msg.caption ? `🎥 ${msg.caption}` : "🎥 Video";
