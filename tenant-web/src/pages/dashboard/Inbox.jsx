@@ -147,8 +147,11 @@ export default function Inbox() {
       }
     } catch (err) {
       webrtcService.endCall();
-      if (err.response?.data?.error === 'NO_CALL_PERMISSION') {
-        toast.error("User has not granted call permission.");
+      if (err.name === 'NotAllowedError' || err.message?.toLowerCase().includes('permission denied')) {
+        toast.error("Microphone access was denied. Please allow microphone permissions in your browser to make calls.");
+      } else if (err.response?.data?.error === 'NO_CALL_PERMISSION') {
+        setPendingCallContact(contact);
+        setShowCallPermissionModal(true);
       } else {
         toast.error(err.response?.data?.message || err.message || "Failed to initiate call.");
       }
@@ -167,6 +170,31 @@ export default function Inbox() {
   const [chats, setChats] = useState([]);
   const [activeChatId, setActiveChatId] = useState(urlConversationId || null);
   const [loadingMessages, setLoadingMessages] = useState(false);
+
+  const [showCallPermissionModal, setShowCallPermissionModal] = useState(false);
+  const [showInitiateCallConfirmModal, setShowInitiateCallConfirmModal] = useState(false);
+  const [pendingCallContact, setPendingCallContact] = useState(null);
+
+  const handleSmartCallClick = async (contact) => {
+    if (globalActiveCall) return toast.error("A call is already in progress.");
+    if (!contact?.id) return;
+    try {
+      const res = await api.get(`/whatsapp/calls/permissions/check/${contact.id}`);
+      if (res.data?.hasPermission) {
+        // Contact is approved: show confirmation modal before dialing
+        setPendingCallContact(contact);
+        setShowInitiateCallConfirmModal(true);
+      } else {
+        // Contact not approved: show permission modal
+        setPendingCallContact(contact);
+        setShowCallPermissionModal(true);
+      }
+    } catch (error) {
+      console.error(error);
+      setPendingCallContact(contact);
+      setShowInitiateCallConfirmModal(true);
+    }
+  };
 
     // Handle Toggle Pin / Unpin Chat (Max 3 pinned chats)
   const handleTogglePin = async (e, convId) => {
@@ -2392,7 +2420,7 @@ export default function Inbox() {
               activeViewers={activeViewers}
               user={user}
               handleRequestCallPermission={handleRequestCallPermission}
-              handleInitiateCall={handleInitiateCall}
+              handleInitiateCall={handleSmartCallClick}
               handleUpdateStatus={handleUpdateStatus}
               showConvMenu={showConvMenu}
               setShowConvMenu={setShowConvMenu}
@@ -2416,7 +2444,7 @@ export default function Inbox() {
               timelineItems={timelineItems}
               formatDate={formatDate}
               activeChat={activeChat}
-              handleInitiateCall={handleInitiateCall}
+              handleInitiateCall={handleSmartCallClick}
               formatTime={formatTime}
               hoveredMessageId={hoveredMessageId}
               setHoveredMessageId={setHoveredMessageId}
@@ -2567,7 +2595,7 @@ export default function Inbox() {
         setPreviewImageModal={setPreviewImageModal}
         activeChatId={activeChatId}
         loadConversationCalls={loadConversationCalls}
-        handleInitiateCall={handleInitiateCall}
+        handleInitiateCall={handleSmartCallClick}
       />
       {/* ══ End Right Panel ══ */}
 
@@ -2876,6 +2904,79 @@ export default function Inbox() {
         previewImageModal={previewImageModal}
         setPreviewImageModal={setPreviewImageModal}
       />
+
+      {/* Call Permission Modal */}
+      {showCallPermissionModal && pendingCallContact && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-10 h-10 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center mb-3">
+              <Phone size={20} />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 mb-1">Permission Needed</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              Calling permission is required before you can call <span className="font-semibold text-gray-800">{pendingCallContact.name || pendingCallContact.phone}</span>. Would you like to request permission now?
+            </p>
+            <div className="flex items-center gap-3 w-full">
+              <button
+                onClick={() => {
+                  setShowCallPermissionModal(false);
+                  setPendingCallContact(null);
+                }}
+                className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold rounded-xl transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  handleRequestCallPermission(pendingCallContact);
+                  setShowCallPermissionModal(false);
+                  setPendingCallContact(null);
+                }}
+                className="flex-1 px-4 py-2.5 bg-[#25D366] hover:bg-[#22C55E] text-white text-sm font-semibold rounded-xl transition shadow-sm"
+              >
+                Request Permission
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Call Confirmation Modal for Approved Contact */}
+      {showInitiateCallConfirmModal && pendingCallContact && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-10 h-10 rounded-full bg-blue-50 text-[#125EF2] flex items-center justify-center mb-3">
+              <Phone size={20} />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 mb-1">Start WhatsApp Call</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              Are you sure you want to call <span className="font-semibold text-gray-800">{pendingCallContact.name || pendingCallContact.phone}</span>?
+            </p>
+            <div className="flex items-center gap-3 w-full">
+              <button
+                onClick={() => {
+                  setShowInitiateCallConfirmModal(false);
+                  setPendingCallContact(null);
+                }}
+                className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold rounded-xl transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  const contactToCall = pendingCallContact;
+                  setShowInitiateCallConfirmModal(false);
+                  setPendingCallContact(null);
+                  handleInitiateCall(contactToCall);
+                }}
+                className="flex-1 px-4 py-2.5 flex items-center justify-center gap-2 bg-[#125EF2] hover:bg-blue-600 text-white text-sm font-semibold rounded-xl transition shadow-sm"
+              >
+                <Phone size={14} /> Call Now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

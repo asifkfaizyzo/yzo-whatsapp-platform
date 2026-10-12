@@ -112,24 +112,14 @@ export default function ChatHeader({
         <div className="flex items-center gap-2">
 
           {activeChat.channel === "WHATSAPP" && (
-              <>
-                <button
-                  onClick={() => handleRequestCallPermission(activeChat.contact)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-500/20 hover:bg-yellow-500/40 backdrop-blur-sm border border-yellow-500/30 rounded-xl text-white text-xs font-semibold transition duration-150 mr-2"
-                  title="Request Call Permission"
-                >
-                  <span>Ask Permission</span>
-                </button>
-                <button
-                  onClick={() => handleInitiateCall(activeChat.contact)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#125EF2]/20 hover:bg-[#125EF2]/40 backdrop-blur-sm border border-[#125EF2]/30 rounded-xl text-white text-xs font-semibold transition duration-150 mr-2"
-                  title="Initiate WhatsApp Call"
-                >
-                  <Phone size={13} className="text-blue-100" />
-                  <span>Call</span>
-                </button>
-              </>
-            )}
+            <button
+              onClick={() => handleInitiateCall(activeChat.contact)}
+              className="flex items-center justify-center w-8 h-8 bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/10 rounded-xl text-white transition duration-150 mr-1"
+              title="Initiate WhatsApp Call"
+            >
+              <Phone size={14} className="text-white" />
+            </button>
+          )}
             {activeChat.status === "OPEN" ? (
             <button
               onClick={() => handleUpdateStatus("RESOLVED")}
@@ -191,6 +181,17 @@ export default function ChatHeader({
                   <span>Archive Chat</span>
                 </button>
 
+                <div className="h-px bg-[#F0F2F5]" />
+                <button
+                  onClick={() => setShowContactPanel((prev) => !prev)}
+                  className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-semibold text-[#111B21] hover:bg-[#F0F2F5] transition"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <Eye size={14} /> Contact Details
+                  </span>
+                  {showContactPanel ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+                </button>
+
                 {userRole === "admin" && (
                   <>
                     <div className="h-px bg-[#F0F2F5]" />
@@ -209,22 +210,6 @@ export default function ChatHeader({
               </div>
             )}
           </div>
-       
-                       {/* ⭐ NEW: Details Toggle Button ⭐ */}
-          <button
-            onClick={() => setShowContactPanel((prev) => !prev)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-white/15 hover:bg-white/25 backdrop-blur-sm border border-white/10 rounded-xl text-white text-xs font-semibold transition duration-150"
-            title={showContactPanel ? "Hide contact details" : "Show contact details"}
-          >
-            <span>Details</span>
-            {showContactPanel ? (
-              <ChevronRight size={13} />
-            ) : (
-              <ChevronLeft size={13} />
-            )}
-          </button>
-
-
         </div>
 
 

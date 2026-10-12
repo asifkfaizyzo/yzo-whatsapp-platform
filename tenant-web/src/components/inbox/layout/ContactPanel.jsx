@@ -60,7 +60,7 @@ export default function ContactPanel({
 
   return (
     <div
-      className={`border-l border-emerald-100 flex flex-col overflow-y-auto shrink-0 bg-white transition-all duration-300 ease-in-out ${
+      className={`border-l border-emerald-100 flex flex-col overflow-hidden shrink-0 bg-white transition-all duration-300 ease-in-out ${
         showContactPanel ? "w-72 opacity-100" : "w-0 opacity-0 border-l-0"
       }`}
     >
@@ -68,7 +68,7 @@ export default function ContactPanel({
           SUB-VIEW 1: CONTACT INFO
       ────────────────────────────────────────── */}
       {rightPanelSubView === "info" && (
-        <>
+        <div className="flex flex-col h-full overflow-hidden">
           {/* Profile Header */}
           <div className="bg-gradient-to-b from-[#075E54] to-[#128C7E] px-6 pt-6 pb-8 flex flex-col items-center text-center relative">
             <button
@@ -116,7 +116,7 @@ export default function ContactPanel({
           </div>
 
           {/* Info Sections */}
-          <div className="p-4 space-y-3">
+          <div className="p-4 space-y-3 flex-1 overflow-y-auto">
             {/* ── WhatsApp-Style "Media, links and docs" Section Card ── */}
             <div className="bg-[#F0F2F5] rounded-2xl p-3.5 space-y-2">
               <button
@@ -395,7 +395,7 @@ export default function ContactPanel({
               </div>
             </div>
           </div>
-        </>
+        </div>
       )}
 
       {/* ──────────────────────────────────────────

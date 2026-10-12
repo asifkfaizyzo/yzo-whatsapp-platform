@@ -734,3 +734,43 @@ export const getContactCalls = async (req, res) => {
     res.status(500).json({ success: false, message: error.message || 'Failed to fetch contact calls' });
   }
 };
+
+// GET /api/whatsapp/calls/permissions/check/:contactId
+export const checkCallPermission = async (req, res) => {
+  try {
+    const tenantId = req.tenant?.id || req.user?.tenantId;
+    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
+    if (!tenant) throw new Error('Tenant not found');
+
+    const contactId = req.params.contactId;
+    const contact = await prisma.contact.findUnique({ where: { id: contactId } });
+    if (!contact || !contact.phone) {
+      return res.json({ hasPermission: false });
+    }
+
+    const rawPhone = contact.phone;
+    const cleanPhone = contact.phone.replace(/\D/g, '');
+    const phoneCandidates = Array.from(new Set([rawPhone, cleanPhone, `+${cleanPhone}`]));
+
+    const permission = await prisma.waCallPermission.findFirst({
+      where: {
+        businessPhoneId: tenant.whatsappPhoneId,
+        userWaId: { in: phoneCandidates },
+        permissionStatus: { in: ['permanent', 'temporary'] }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    if (permission) {
+      if (permission.expirationTimestamp && Number(permission.expirationTimestamp) < Date.now() / 1000) {
+        return res.json({ hasPermission: false });
+      }
+      return res.json({ hasPermission: true });
+    }
+    
+    return res.json({ hasPermission: false });
+  } catch (error) {
+    console.error('checkCallPermission error:', error.message);
+    res.status(500).json({ error: 'Failed to check call permission' });
+  }
+};
