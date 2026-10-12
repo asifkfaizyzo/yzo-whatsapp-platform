@@ -6,7 +6,7 @@ import {
   acceptCall, rejectCall, terminateCall, initiateCall, 
   getCallPermissions, requestCallPermission,
   getCallSettings, updateCallSettings, uploadVoicemailGreeting,
-  getCallHistory, getConversationCalls, getContactCalls
+  getCallHistory, getConversationCalls, getContactCalls, checkCallPermission
 } from './callController.js';
 import multer from 'multer';
 
@@ -33,6 +33,7 @@ router.get('/calls/history', verifyTenantOrUser, getCallHistory);
 router.get('/calls/conversation/:conversationId', verifyTenantOrUser, getConversationCalls);
 router.get('/calls/contact/:contactId', verifyTenantOrUser, getContactCalls);
 router.get('/calls/permissions/:contactId', verifyTenantOrUser, getCallPermissions);
+router.get('/calls/permissions/check/:contactId', verifyTenantOrUser, checkCallPermission);
 router.post('/calls/permissions/request', verifyTenantOrUser, checkSubscriptionAccess, requestCallPermission);
 
 // All other routes require a verified, approved tenant admin
