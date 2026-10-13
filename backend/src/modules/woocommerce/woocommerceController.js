@@ -43,31 +43,34 @@ export const getWooCommerceAuthWebhookConfig = async (req, res) => {
 
 export const getWooCommerceStatus = async (req, res) => {
   try {
-    const tenantId = req.tenantId || req.tenant?.id;
-
+    const tenantId = req.tenantId || req.user?.tenantId;
     const connection = await prisma.wooCommerceConnection.findUnique({
-      where: { tenantId }
+      where: { tenantId },
     });
 
-    if (!connection || connection.status !== 'CONNECTED') {
-      return res.json({
-        success: true,
-        data: { isConnected: false }
-      });
+    if (!connection) {
+      return res.json({ success: true, data: { isConnected: false } });
     }
 
     return res.json({
       success: true,
       data: {
-        isConnected: true,
-        storeUrl: connection.storeUrl,
+        isConnected: connection.status === 'active',
+        storeUrl: connection.storeUrl, // ✅ Corrected from connection.wpUrl to connection.storeUrl
+        connectedAt: connection.createdAt,
+        status: connection.status,
         trackingUrlTemplates: connection.trackingUrlTemplates || {},
-        createdAt: connection.createdAt
-      }
+        alertPhone: connection.alertPhone || '',
+        newOrderAlert: connection.newOrderAlert ?? true,
+        lowStockAlert: connection.lowStockAlert ?? false,
+        lowStockThreshold: connection.lowStockThreshold ?? 5,
+        dailySummaryAlert: connection.dailySummaryAlert ?? false,
+        dailySummaryHour: connection.dailySummaryHour ?? 20,
+      },
     });
   } catch (error) {
     console.error('Error fetching WooCommerce status:', error);
-    return res.status(500).json({ success: false, message: 'Internal server error' });
+    return res.status(500).json({ success: false, error: error.message });
   }
 };
 
@@ -194,5 +197,50 @@ export const disconnectWooCommerce = async (req, res) => {
   } catch (error) {
     console.error('Error disconnecting WooCommerce:', error);
     return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+
+// ── Save Admin & Operational Alert Settings ───────────────────────────
+export const updateWooCommerceAlertSettings = async (req, res) => {
+  try {
+    const tenantId = req.tenantId || req.user?.tenantId;
+    const {
+      alertPhone,
+      newOrderAlert,
+      lowStockAlert,
+      lowStockThreshold,
+      dailySummaryAlert,
+      dailySummaryHour,
+    } = req.body;
+
+    const connection = await prisma.wooCommerceConnection.findUnique({
+      where: { tenantId },
+    });
+
+    if (!connection) {
+      return res.status(404).json({ success: false, error: 'WooCommerce store not connected.' });
+    }
+
+    const updated = await prisma.wooCommerceConnection.update({
+      where: { tenantId },
+      data: {
+        ...(alertPhone !== undefined && { alertPhone: alertPhone ? alertPhone.trim() : null }),
+        ...(newOrderAlert !== undefined && { newOrderAlert: Boolean(newOrderAlert) }),
+        ...(lowStockAlert !== undefined && { lowStockAlert: Boolean(lowStockAlert) }),
+        ...(lowStockThreshold !== undefined && { lowStockThreshold: parseInt(lowStockThreshold, 10) || 5 }),
+        ...(dailySummaryAlert !== undefined && { dailySummaryAlert: Boolean(dailySummaryAlert) }),
+        ...(dailySummaryHour !== undefined && { dailySummaryHour: parseInt(dailySummaryHour, 10) || 20 }),
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: 'Alert settings updated successfully.',
+      data: updated,
+    });
+  } catch (error) {
+    console.error('Error updating WooCommerce alert settings:', error);
+    return res.status(500).json({ success: false, error: error.message });
   }
 };

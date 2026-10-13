@@ -32,6 +32,8 @@ import { startZohoSyncWorker } from './workers/zohoSyncWorker.js';
 import { startZohoStaleTaskJob } from './jobs/zohoStaleTaskJob.js';
 import { startZohoWatchRenewalJob } from './jobs/zohoWatchRenewalJob.js';
 import { initializeMediasoup } from './lib/mediasoup/mediasoupService.js';
+import { processAbandonedCartReminders } from './modules/woocommerce/woocommerceCartRecoveryService.js';
+import { processLowStockAlerts, processDailyBusinessSummary } from './modules/woocommerce/woocommerceAlertService.js';
 
 import { redisConnection } from './config/redis.js';
 
@@ -65,7 +67,35 @@ initializeMediasoup().catch(err => {
 
 server.listen(port, () => {
     console.log(`🚀 Server is running on http://localhost:${port} [Updated Enum Fix: ${new Date().toISOString()}]`);
+
+       // ── Abandoned Cart Recovery (every 10 mins) ──────────────────────────
+    setInterval(() => {
+      processAbandonedCartReminders().catch((err) =>
+        console.error('[Cart Recovery Scheduler] Error:', err.message)
+      );
+    }, 10 * 60 * 1000);
+    console.log('⏰ [Cron] Abandoned Cart Recovery worker scheduled (runs every 10 mins)');
+
+    // ── Low Stock Alerts (every 1 hour) ──────────────────────────────────
+    setInterval(() => {
+      console.log('[Scheduler] Running Low Stock Check...');
+      processLowStockAlerts().catch((err) =>
+        console.error('[Low Stock Scheduler] Error:', err.message)
+      );
+    }, 60 * 60 * 1000);
+    console.log('⏰ [Cron] Low Stock Alerts scheduled (runs every 1 hour)');
+
+    // ── Daily Business Summary (every 1 hour; service checks the hour) ──
+    setInterval(() => {
+      console.log('[Scheduler] Checking for Daily Summaries...');
+      processDailyBusinessSummary().catch((err) =>
+        console.error('[Daily Summary Scheduler] Error:', err.message)
+      );
+    }, 60 * 60 * 1000);
+    console.log('⏰ [Cron] Daily Business Summary scheduled (runs every 1 hour)');
 });
+
+
 
 // ───────────── Graceful Shutdown for PM2 / Docker / Systemd ─────────────
 const gracefulShutdown = async (signal) => {

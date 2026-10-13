@@ -1,4 +1,5 @@
 import axios from 'axios';
+import prisma from '../../config/prisma.js';
 
 /**
  * Programmatically creates order.created, order.updated, and customer.created webhooks in WooCommerce
@@ -57,5 +58,50 @@ export const autoProvisionWebhooks = async (tenantId, storeUrl, consumerKey, con
 
   if (failedTopics.length) {
     throw new Error(`WooCommerce webhook provisioning failed for: ${failedTopics.join(', ')}`);
+  }
+};
+
+/**
+ * Updates an order status in WooCommerce and optionally adds a note.
+ */
+export const updateWooCommerceOrderStatus = async (tenantId, orderId, newStatus, note = '') => {
+  try {
+    // 1. Get store credentials
+    const connection = await prisma.wooCommerceConnection.findUnique({
+      where: { tenantId }
+    });
+
+    if (!connection || connection.status !== 'CONNECTED') {
+      throw new Error('WooCommerce store is not connected');
+    }
+
+    const { storeUrl, consumerKey, consumerSecret } = connection;
+    const cleanStoreUrl = storeUrl.replace(/\/+$/, '');
+    const authHeader = 'Basic ' + Buffer.from(`${consumerKey}:${consumerSecret}`).toString('base64');
+    
+    // 2. Update the Order Status
+    const orderEndpoint = `${cleanStoreUrl}/wp-json/wc/v3/orders/${orderId}`;
+    await axios.put(
+      orderEndpoint,
+      { status: newStatus },
+      { headers: { Authorization: authHeader, 'Content-Type': 'application/json' } }
+    );
+
+    // 3. Add an Order Note (Optional but highly recommended for the store admin)
+    if (note) {
+      const noteEndpoint = `${cleanStoreUrl}/wp-json/wc/v3/orders/${orderId}/notes`;
+      await axios.post(
+        noteEndpoint,
+        { note: note, customer_note: false },
+        { headers: { Authorization: authHeader, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log(`✅ [WooCommerceService] Order #${orderId} updated to '${newStatus}' for tenant ${tenantId}`);
+    return true;
+
+  } catch (error) {
+    console.error(`❌ [WooCommerceService] Failed to update order #${orderId}:`, error.response?.data || error.message);
+    return false;
   }
 };
