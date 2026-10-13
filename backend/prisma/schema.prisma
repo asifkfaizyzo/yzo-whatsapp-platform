@@ -760,6 +760,7 @@ enum TemplateStatus {
 enum BroadcastTarget {
   ALL
   TAGS
+  WOO_SEGMENT
 }
 
 enum BroadcastStatus {
@@ -857,6 +858,12 @@ model Broadcast {
   // Targeting
   targetType      BroadcastTarget  // ALL or TAGS
   tags            BroadcastTag[]   // Only used if targetType = TAGS
+
+  // WooCommerce Smart Segmentation
+  segmentMinSpend      Float?
+  segmentMinOrders     Int?
+  segmentInactiveDays  Int?
+  segmentIncludeAllWoo Boolean          @default(false)
   
   // Default parameters (can be overridden per recipient)
   defaultParams   Json?
@@ -1759,6 +1766,19 @@ model WooCommerceConnection {
   connectedAt    DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
+  // Admin & Operational Alerts
+  alertPhone           String?
+  newOrderAlert        Boolean   @default(false)
+  lowStockAlert        Boolean   @default(false)
+  lowStockThreshold    Int       @default(5)
+  dailySummaryAlert    Boolean   @default(false)
+  dailySummaryHour     Int       @default(21) // 21 = 9:00 PM
+  lastDailySummaryAt   DateTime?
+  lowStockAlertCache   Json?     @default("{}") // Anti-spam tracking for SKUs
+
+  cartReminder1Text   String?  @db.Text
+  cartReminder24Text  String?  @db.Text
+
   @@map("woocommerce_connections")
 }
 
@@ -1954,6 +1974,9 @@ model EcommerceOrder {
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+
+  cartReminder1SentAt  DateTime?
+  cartReminder24SentAt DateTime?
 
   @@unique([tenantId, source, externalOrderId])
   @@index([tenantId, customerPhone])

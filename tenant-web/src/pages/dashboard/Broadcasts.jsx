@@ -47,12 +47,16 @@ export default function Broadcasts() {
 
   const [showModal, setShowModal] = useState(false);
   const [newCampaign, setNewCampaign] = useState({
-    name: "",
+   name: "",
     templateId: "",
-    targetType: "ALL",
+    targetType: "ALL", // ALL | TAGS | WOO_SEGMENT
     tagIds: [],
     schedule: "now",
     scheduledTime: "",
+    segmentIncludeAllWoo: false,
+    segmentMinSpend: "",
+    segmentMinOrders: "",
+    segmentInactiveDays: "",
   });
 
   // Dynamic variable parameters mappings state
@@ -191,16 +195,50 @@ export default function Broadcasts() {
     e.preventDefault();
     if (!newCampaign.name.trim() || !newCampaign.templateId) return;
 
+    // Safety check for WooCommerce Segmentation inputs
+    if (
+      newCampaign.targetType === "WOO_SEGMENT" &&
+      !newCampaign.segmentIncludeAllWoo &&
+      newCampaign.segmentMinSpend === "" &&
+      newCampaign.segmentMinOrders === "" &&
+      newCampaign.segmentInactiveDays === ""
+    ) {
+      toast.error("Select 'All WooCommerce Buyers' or set at least one segment filter (spend, orders, or inactive days).");
+      return;
+    }
+
     // Build standard defaultParams object
     const bodyParams = Object.keys(paramsMapping)
       .sort((a, b) => Number(a) - Number(b))
       .map(key => paramsMapping[key].value);
 
-    const payload = {
+          const payload = {
       name: newCampaign.name,
       templateId: newCampaign.templateId,
       targetType: newCampaign.targetType,
       tagIds: newCampaign.targetType === "TAGS" ? newCampaign.tagIds : [],
+      segmentIncludeAllWoo:
+        newCampaign.targetType === "WOO_SEGMENT"
+          ? Boolean(newCampaign.segmentIncludeAllWoo)
+          : undefined,
+      segmentMinSpend:
+        newCampaign.targetType === "WOO_SEGMENT" &&
+        !newCampaign.segmentIncludeAllWoo &&
+        newCampaign.segmentMinSpend !== ""
+          ? Number(newCampaign.segmentMinSpend)
+          : undefined,
+      segmentMinOrders:
+        newCampaign.targetType === "WOO_SEGMENT" &&
+        !newCampaign.segmentIncludeAllWoo &&
+        newCampaign.segmentMinOrders !== ""
+          ? Number(newCampaign.segmentMinOrders)
+          : undefined,
+      segmentInactiveDays:
+        newCampaign.targetType === "WOO_SEGMENT" &&
+        !newCampaign.segmentIncludeAllWoo &&
+        newCampaign.segmentInactiveDays !== ""
+          ? Number(newCampaign.segmentInactiveDays)
+          : undefined,
       defaultParams: {
         body: bodyParams
       },
@@ -221,8 +259,13 @@ export default function Broadcasts() {
         tagIds: [],
         schedule: "now",
         scheduledTime: "",
+        segmentIncludeAllWoo: false,
+        segmentMinSpend: "",
+        segmentMinOrders: "",
+        segmentInactiveDays: "",
       });
       setParamsMapping({});
+
       toast.success(isScheduled ? "Campaign scheduled successfully!" : "Campaign launched and processing!");
       loadData();
     } else {
@@ -579,31 +622,42 @@ export default function Broadcasts() {
                 </div>
               )}
 
-              {/* Audience Targeting */}
+                           {/* Audience Targeting */}
               <div>
                 <label className="label text-xs font-semibold text-slate-700">Target Audience</label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => setNewCampaign({ ...newCampaign, targetType: "ALL" })}
-                    className={`py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1 transition ${
+                    className={`py-2 px-2 rounded-xl border text-[11px] font-semibold flex items-center justify-center gap-1 transition ${
                       newCampaign.targetType === "ALL"
                         ? "bg-emerald-50 border-emerald-500 text-emerald-700"
                         : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
                     }`}
                   >
-                    <span>All Active Contacts</span>
+                    <span>All Contacts</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setNewCampaign({ ...newCampaign, targetType: "TAGS" })}
-                    className={`py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1 transition ${
+                    className={`py-2 px-2 rounded-xl border text-[11px] font-semibold flex items-center justify-center gap-1 transition ${
                       newCampaign.targetType === "TAGS"
                         ? "bg-emerald-50 border-emerald-500 text-emerald-700"
                         : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
                     }`}
                   >
-                    <span>Filter by Priority Tags</span>
+                    <span>Priority Tags</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewCampaign({ ...newCampaign, targetType: "WOO_SEGMENT" })}
+                    className={`py-2 px-2 rounded-xl border text-[11px] font-semibold flex items-center justify-center gap-1 transition ${
+                      newCampaign.targetType === "WOO_SEGMENT"
+                        ? "bg-emerald-50 border-emerald-500 text-emerald-700"
+                        : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    <span>🛍️ Woo Segment</span>
                   </button>
                 </div>
               </div>
@@ -634,6 +688,93 @@ export default function Broadcasts() {
                       );
                     })}
                   </div>
+                </div>
+              )}
+
+              {newCampaign.targetType === "WOO_SEGMENT" && (
+                <div className="p-4 bg-emerald-50/50 border border-emerald-200 rounded-2xl space-y-3">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={newCampaign.segmentIncludeAllWoo}
+                      onChange={(e) =>
+                        setNewCampaign({
+                          ...newCampaign,
+                          segmentIncludeAllWoo: e.target.checked,
+                        })
+                      }
+                      className="rounded text-emerald-600 focus:ring-emerald-500 h-4 w-4"
+                    />
+                    <span className="text-xs font-semibold text-emerald-900">
+                      Target ALL WooCommerce Buyers (Store-wide Blast)
+                    </span>
+                  </label>
+
+                  {!newCampaign.segmentIncludeAllWoo && (
+                    <div className="grid grid-cols-3 gap-2 pt-2 border-t border-emerald-200/60">
+                      <div>
+                        <label className="block text-[10px] font-bold text-emerald-800 mb-1">
+                          Min Spend (₹)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          placeholder="e.g. 1000"
+                          value={newCampaign.segmentMinSpend}
+                          onChange={(e) =>
+                            setNewCampaign({
+                              ...newCampaign,
+                              segmentMinSpend: e.target.value,
+                            })
+                          }
+                          className="input py-1.5 text-xs bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-emerald-800 mb-1">
+                          Min Orders
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          placeholder="e.g. 2"
+                          value={newCampaign.segmentMinOrders}
+                          onChange={(e) =>
+                            setNewCampaign({
+                              ...newCampaign,
+                              segmentMinOrders: e.target.value,
+                            })
+                          }
+                          className="input py-1.5 text-xs bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-emerald-800 mb-1">
+                          Inactive (Days)
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          placeholder="e.g. 60"
+                          value={newCampaign.segmentInactiveDays}
+                          onChange={(e) =>
+                            setNewCampaign({
+                              ...newCampaign,
+                              segmentInactiveDays: e.target.value,
+                            })
+                          }
+                          className="input py-1.5 text-xs bg-white"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <p className="text-[10px] text-emerald-700/80 font-medium flex items-start gap-1">
+                    <Info size={11} className="mt-0.5 shrink-0" />
+                    <span>
+                      Audience is calculated from WooCommerce order history (spend, orders, last purchase).
+                    </span>
+                  </p>
                 </div>
               )}
 

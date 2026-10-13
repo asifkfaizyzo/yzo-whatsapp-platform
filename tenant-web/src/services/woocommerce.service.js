@@ -20,6 +20,11 @@ export const saveWooCommerceTrackingUrlTemplates = async (templates) => {
   return response.data;
 };
 
+export const updateWooCommerceAlertSettings = async (settings) => {
+  const response = await api.put("/woocommerce/alert-settings", settings);
+  return response.data;
+};
+
 // 👇 1-Click OAuth
 export const getWooCommerceOAuthUrl = async (storeUrl) => {
   const res = await api.get(
@@ -37,6 +42,7 @@ export const wooCommerceService = {
   connectWooCommerce,
   disconnectWooCommerce,
   saveWooCommerceTrackingUrlTemplates,
+  updateWooCommerceAlertSettings,
   saveWooCommerceConfig,
   getStatus: getWooCommerceStatus,
   connect: connectWooCommerce,

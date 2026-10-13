@@ -17,6 +17,9 @@ import {
   EyeOff,
   ChevronDown,
   ChevronUp,
+  Bell,
+  Phone,
+  Clock,
 } from "lucide-react";
 import WooCommerceLogo from "./WooCommerceLogo";
 import { useToast } from "../../context/ToastContext";
@@ -26,6 +29,7 @@ import {
   disconnectWooCommerce,
   getWooCommerceOAuthUrl,
   saveWooCommerceTrackingUrlTemplates,
+  updateWooCommerceAlertSettings,
 } from "../../services/woocommerce.service";
 
 export default function WooCommerceSettings({ onBack } = {}) {
@@ -41,7 +45,7 @@ export default function WooCommerceSettings({ onBack } = {}) {
   const [showConsumerSecret, setShowConsumerSecret] = useState(false);
   const [showWebhookSecret, setShowWebhookSecret] = useState(false);
 
-  const [connection, setConnection] = useState({
+    const [connection, setConnection] = useState({
     isConnected: false,
     storeUrl: null,
     connectedAt: null,
@@ -49,6 +53,17 @@ export default function WooCommerceSettings({ onBack } = {}) {
     status: null,
   });
   const [trackingUrlTemplates, setTrackingUrlTemplates] = useState([]);
+
+  // Alert Settings state
+  const [savingAlerts, setSavingAlerts] = useState(false);
+  const [alertForm, setAlertForm] = useState({
+    alertPhone: "",
+    newOrderAlert: true,
+    lowStockAlert: false,
+    lowStockThreshold: 5,
+    dailySummaryAlert: false,
+    dailySummaryHour: 20,
+  });
 
   // 1-Click form (only store URL)
   const [storeUrl, setStoreUrl] = useState("");
@@ -68,7 +83,7 @@ export default function WooCommerceSettings({ onBack } = {}) {
       if (res.success && res.data) {
         const isConnected =
           res.data.isConnected || res.data.status === "active";
-        setConnection({
+                setConnection({
           isConnected,
           storeUrl: res.data.storeUrl || null,
           connectedAt: res.data.connectedAt || null,
@@ -81,6 +96,14 @@ export default function WooCommerceSettings({ onBack } = {}) {
             urlTemplate,
           })),
         );
+        setAlertForm({
+          alertPhone: res.data.alertPhone || "",
+          newOrderAlert: res.data.newOrderAlert ?? true,
+          lowStockAlert: res.data.lowStockAlert ?? false,
+          lowStockThreshold: res.data.lowStockThreshold ?? 5,
+          dailySummaryAlert: res.data.dailySummaryAlert ?? false,
+          dailySummaryHour: res.data.dailySummaryHour ?? 20,
+        });
       } else {
         setConnection({
           isConnected: false,
@@ -237,6 +260,23 @@ export default function WooCommerceSettings({ onBack } = {}) {
       );
     } finally {
       setSavingTrackingTemplates(false);
+    }
+  };
+
+    const handleSaveAlertSettings = async (e) => {
+    e.preventDefault();
+    setSavingAlerts(true);
+    try {
+      const res = await updateWooCommerceAlertSettings(alertForm);
+      if (res.success) {
+        toast.success("🔔 Admin alert settings saved successfully!");
+      } else {
+        toast.error(res.error || "Failed to save alert settings.");
+      }
+    } catch (err) {
+      toast.error(err?.response?.data?.error || "Failed to save alert settings.");
+    } finally {
+      setSavingAlerts(false);
     }
   };
 
@@ -450,6 +490,159 @@ export default function WooCommerceSettings({ onBack } = {}) {
                   </button>
                 </div>
               </form> */}
+
+
+                            {/* ── ADMIN & OPERATIONAL ALERTS CARD ── */}
+              <form
+                onSubmit={handleSaveAlertSettings}
+                className="p-5 rounded-2xl border border-slate-200 bg-white space-y-5 shadow-2xs"
+              >
+                <div className="flex items-start justify-between border-b border-slate-100 pb-3.5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-purple-50 text-[#96588A] flex items-center justify-center shrink-0 border border-purple-100">
+                      <Bell size={18} />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900">
+                        Admin & Operational Alerts (WhatsApp)
+                      </h4>
+                      <p className="text-xs text-slate-500">
+                        Configure instant order alerts, low stock warnings, and daily business summaries.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Alert Recipient Phone */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    WhatsApp Alert Number
+                  </label>
+                  <div className="relative max-w-md">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                      <Phone size={14} />
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="e.g. 919876543210 (leave empty for account phone)"
+                      value={alertForm.alertPhone}
+                      onChange={(e) => setAlertForm({ ...alertForm, alertPhone: e.target.value })}
+                      className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#96588A]"
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Include country code without + or spaces. Defaults to tenant account phone if empty.
+                  </p>
+                </div>
+
+                <div className="space-y-4 pt-1">
+                  {/* 1. Instant New Order Alert */}
+                  <div className="flex items-start justify-between p-3.5 rounded-xl border border-slate-100 bg-slate-50/60">
+                    <div className="space-y-0.5 pr-4">
+                      <p className="text-xs font-bold text-slate-800">Instant New Order Alert</p>
+                      <p className="text-[11px] text-slate-500">
+                        Receive a WhatsApp alert + silent dashboard pop-up as soon as a customer places an order.
+                      </p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
+                      <input
+                        type="checkbox"
+                        checked={alertForm.newOrderAlert}
+                        onChange={(e) => setAlertForm({ ...alertForm, newOrderAlert: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#96588A]"></div>
+                    </label>
+                  </div>
+
+                  {/* 2. Low Inventory Warning */}
+                  <div className="p-3.5 rounded-xl border border-slate-100 bg-slate-50/60 space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-0.5 pr-4">
+                        <p className="text-xs font-bold text-slate-800">Low Inventory Warning</p>
+                        <p className="text-[11px] text-slate-500">
+                          Scans product inventory hourly and alerts you when stock drops below threshold.
+                        </p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
+                        <input
+                          type="checkbox"
+                          checked={alertForm.lowStockAlert}
+                          onChange={(e) => setAlertForm({ ...alertForm, lowStockAlert: e.target.checked })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#96588A]"></div>
+                      </label>
+                    </div>
+
+                    {alertForm.lowStockAlert && (
+                      <div className="flex items-center gap-2 pt-2 border-t border-slate-200/60 animate-in fade-in duration-150">
+                        <span className="text-xs text-slate-600 font-medium">Alert when product stock is &le;</span>
+                        <input
+                          type="number"
+                          min="1"
+                          max="999"
+                          value={alertForm.lowStockThreshold}
+                          onChange={(e) => setAlertForm({ ...alertForm, lowStockThreshold: parseInt(e.target.value, 10) || 5 })}
+                          className="w-20 px-2.5 py-1 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#96588A] bg-white text-center font-bold"
+                        />
+                        <span className="text-xs text-slate-600 font-medium">items</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 3. Daily Business Summary */}
+                  <div className="p-3.5 rounded-xl border border-slate-100 bg-slate-50/60 space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-0.5 pr-4">
+                        <p className="text-xs font-bold text-slate-800">Daily Business Summary</p>
+                        <p className="text-[11px] text-slate-500">
+                          Sends an end-of-day report to WhatsApp with today's order count & revenue summary.
+                        </p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
+                        <input
+                          type="checkbox"
+                          checked={alertForm.dailySummaryAlert}
+                          onChange={(e) => setAlertForm({ ...alertForm, dailySummaryAlert: e.target.checked })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#96588A]"></div>
+                      </label>
+                    </div>
+
+                    {alertForm.dailySummaryAlert && (
+                      <div className="flex items-center gap-2 pt-2 border-t border-slate-200/60 animate-in fade-in duration-150">
+                        <Clock size={14} className="text-slate-500" />
+                        <span className="text-xs text-slate-600 font-medium">Send summary daily at</span>
+                        <select
+                          value={alertForm.dailySummaryHour}
+                          onChange={(e) => setAlertForm({ ...alertForm, dailySummaryHour: parseInt(e.target.value, 10) })}
+                          className="px-2.5 py-1 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#96588A] bg-white font-medium"
+                        >
+                          {Array.from({ length: 24 }).map((_, h) => (
+                            <option key={h} value={h}>
+                              {h === 0 ? '12:00 AM Midnight' : h < 12 ? `${h}:00 AM` : h === 12 ? '12:00 PM Noon' : `${h - 12}:00 PM`}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="submit"
+                    disabled={savingAlerts}
+                    className="px-5 py-2.5 text-xs font-bold text-white bg-[#96588A] rounded-xl hover:opacity-90 transition disabled:opacity-60 flex items-center gap-1.5 shadow-xs"
+                  >
+                    {savingAlerts && <RefreshCw size={13} className="animate-spin" />}
+                    <span>{savingAlerts ? "Saving Settings..." : "Save Alert Settings"}</span>
+                  </button>
+                </div>
+              </form>
+              
 
               <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-3">
                 <div className="flex items-center justify-between">

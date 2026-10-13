@@ -8,6 +8,8 @@ import { emitToTenant } from '../../lib/socket.js';
 import { createNotification } from '../notifications/notificationService.js';
 import flowEngine from '../automation/flowEngineService.js';
 import { logLeadStatusToSheet } from '../google-sheets/googleSheetsService.js';
+import { generateTrackingUrl } from '../../utils/trackingHelper.js';
+import { sendNewOrderAdminAlert } from '../woocommerce/woocommerceAlertService.js'; // 👈 ADDED ADMIN ALERT IMPORT
 import {
   buildWooCustomerWelcomeTemplateParameters,
   buildWooShipmentTemplateParameters,
@@ -486,11 +488,56 @@ export const processOrderWebhookJob = async (job) => {
       price: item.price,
       total: item.total
     }));
-    const wooConnection = await prisma.wooCommerceConnection.findUnique({
+
+
+        const wooConnection = await prisma.wooCommerceConnection.findUnique({
       where: { tenantId },
       select: { trackingUrlTemplates: true }
     });
-    const trackingInfo = extractWooTrackingInfo(payload, wooConnection?.trackingUrlTemplates || {});
+
+    // 1. Extract Tracking Info using helper (declared with 'let' to allow fallback assignment)
+    let trackingInfo = extractWooTrackingInfo(payload, wooConnection?.trackingUrlTemplates || []) || [];
+
+    // 2. Ensure trackingInfo is an array
+    if (!Array.isArray(trackingInfo)) {
+      trackingInfo = trackingInfo ? [trackingInfo] : [];
+    }
+
+    // 3. Fallback: Parse WooCommerce Meta Data directly if plugin metadata wasn't caught
+    if (trackingInfo.length === 0 && payload?.meta_data) {
+      const metaData = payload.meta_data;
+
+      // Check standard meta keys or array meta keys (_wc_shipment_tracking_items / _ast_tracking_items)
+      const trackingItemsMeta = metaData.find(m => m.key === '_wc_shipment_tracking_items' || m.key === '_ast_tracking_items')?.value;
+
+      if (Array.isArray(trackingItemsMeta) && trackingItemsMeta.length > 0) {
+        trackingInfo = trackingItemsMeta.map(item => ({
+          provider: item.tracking_provider || item.formatted_tracking_provider || item.custom_tracking_provider || item.shipping_provider || '',
+          number: item.tracking_number || item.number || '',
+          url: item.custom_tracking_link || item.formatted_tracking_link || item.url || ''
+        }));
+      } else {
+        const fallbackProvider = metaData.find(m => ['_tracking_provider', 'shipping_provider', 'Shipping Provider', 'tracking_provider'].includes(m.key))?.value || payload.shipping_provider || '';
+        const fallbackNumber = metaData.find(m => ['_tracking_number', 'tracking_number', 'Tracking number', '_tracking_id'].includes(m.key))?.value || payload.tracking_number || '';
+
+        if (fallbackNumber) {
+          trackingInfo = [{ provider: fallbackProvider, number: fallbackNumber, url: '' }];
+        }
+      }
+    }
+
+    // 4. Generate Live Tracking URL for any items missing a URL
+    trackingInfo.forEach(item => {
+      if (!item.url || item.url.trim() === '') {
+        item.url = generateTrackingUrl(item.provider || '', item.number || '');
+      }
+    });
+
+
+      // 🔍 TEMPORARY DEBUG LOG
+    console.log("🔍 [Woo Meta Keys Received]:", payload?.meta_data?.map(m => m.key));
+    console.log(`🔗 [Tracking Engine Result] Order #${orderNumber}:`, trackingInfo);
+    // -------------------------------------------------------------
 
     const orderKey = {
       tenantId_source_externalOrderId: {
@@ -571,7 +618,36 @@ export const processOrderWebhookJob = async (job) => {
         });
       }
 
-      const itemsList = lineItems.map(i => `${i.name} (x${i.quantity})`).join(', ');
+           const itemsList = lineItems.map(i => `${i.name} (x${i.quantity})`).join(', ');
+
+      // Auto-detect store domain from webhook payload (_links, permalink, or tenant config)
+      let storeUrl = payload.store_url || payload.storeUrl || tenant?.woocommerceStoreUrl || '';
+      if (!storeUrl && payload._links?.self?.[0]?.href) {
+        try {
+          const parsed = new URL(payload._links.self[0].href);
+          storeUrl = `${parsed.protocol}//${parsed.host}`;
+        } catch (_) {}
+      }
+      if (!storeUrl && payload.permalink) {
+        try {
+          const parsed = new URL(payload.permalink);
+          storeUrl = `${parsed.protocol}//${parsed.host}`;
+        } catch (_) {}
+      }
+
+      const orderId = payload.id || payload.number;
+      const metaMap = Object.fromEntries(
+        (payload.meta_data || []).map(m => [m.key, m.value])
+      );
+      const orderKey = payload.order_key || metaMap.order_key || metaMap._order_key || '';
+
+      // Generate direct WooCommerce checkout payment URL
+      const checkoutPaymentUrl = payload.checkout_payment_url || (
+        storeUrl && orderId
+          ? `${storeUrl.replace(/\/+$/, '')}/checkout/order-pay/${orderId}/?pay_for_order=true${orderKey ? `&key=${orderKey}` : ''}`
+          : null
+      );
+
       const messageText = buildWooOrderLifecycleMessage({
         isNewOrder: isNewOrder && topic === 'order.created',
         previousStatus,
@@ -586,6 +662,7 @@ export const processOrderWebhookJob = async (job) => {
         lineItems: itemsList,
         hasTrackingChanged,
         trackingInfo: trackingInfo || previousOrder?.trackingInfo || [],
+        checkoutPaymentUrl,
       });
 
       let messageRecord = null;
@@ -649,6 +726,23 @@ export const processOrderWebhookJob = async (job) => {
         "Notes": (payload.customer_note || '').trim() || `WooCommerce Order #${orderNumber}`,
         "Timestamp": new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })
       });
+
+
+        // 🔔 3b. Admin: New Order Alert (Manager WhatsApp + Silent in-app badge)
+      if (isNewOrder) {
+        try {
+          const alertItems = Array.isArray(payload?.line_items) ? payload.line_items : [];
+          await sendNewOrderAdminAlert(
+            tenantId,
+            orderNumber,
+            total,
+            customerName,
+            alertItems
+          );
+        } catch (alertErr) {
+          console.error('⚠️ [Woo Alert] New order admin alert failed:', alertErr.message);
+        }
+      }
 
       // 4. WhatsApp Template Notification
       if (messageText && process.env.NODE_ENV !== 'production') {
