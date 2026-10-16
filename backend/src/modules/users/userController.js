@@ -6,6 +6,7 @@ import {
          loginUserService, logoutUserService, refreshUserAccessTokenService,
          getAssignedContacts,forgotPasswordUserService, resetPasswordUserService, 
          getUserProfileService, updateUserPasswordService,
+         updateAvailabilityService, getDashboardStatsService, getUnreadBadgeCountService,
        } from './userService.js';
 
 import { extractRequestMeta } from '../../lib/utils/requestMeta.js';
@@ -32,9 +33,10 @@ export const loginUser = async (req, res) => {
         message:
           'User logged in successfully',
         data: {
-          user,
-          accessToken,
-        },
+  user,
+  accessToken,
+  refreshToken,  
+},
       });
 
     } catch (error) {
@@ -239,6 +241,100 @@ export const updateUserPassword = async (req, res) => {
     return res.status(400).json({
       success: false,
       message: error.message,
+    });
+  }
+};
+
+// ============================================================
+// 🆕 UPDATE AGENT AVAILABILITY STATUS
+// ============================================================
+export const updateAvailability = async (req, res) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized: User not authenticated',
+      });
+    }
+
+    const { status } = req.body;
+    const validStatuses = ['AVAILABLE', 'AWAY', 'OFFLINE'];
+
+    if (!status || !validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`,
+      });
+    }
+
+    const result = await updateAvailabilityService(req.user.id, status);
+
+    return res.status(200).json({
+      success: true,
+      message: `Availability updated to ${status}`,
+      data: result,
+    });
+  } catch (error) {
+    console.error('❌ Error in updateAvailability:', error);
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
+// ============================================================
+// 🆕 AGENT DASHBOARD STATS
+// ============================================================
+export const getDashboardStats = async (req, res) => {
+  try {
+    if (!req.user || !req.user.id || !req.tenantId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized: User not authenticated',
+      });
+    }
+
+    const result = await getDashboardStatsService(req.user.id, req.tenantId);
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    console.error('❌ Error in getDashboardStats:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch dashboard stats',
+    });
+  }
+};
+
+
+// ============================================================
+// 🆕 GLOBAL UNREAD BADGE COUNT
+// ============================================================
+export const getUnreadBadgeCount = async (req, res) => {
+  try {
+    if (!req.user || !req.user.id || !req.tenantId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized: User not authenticated',
+      });
+    }
+
+    const result = await getUnreadBadgeCountService(req.user.id, req.tenantId);
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    console.error('❌ Error in getUnreadBadgeCount:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch unread count',
     });
   }
 };

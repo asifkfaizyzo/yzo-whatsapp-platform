@@ -66,6 +66,14 @@ enum ChannelType {
 }
 
 
+//─────────────────enum AvailabilityStatus────────────────────
+enum AvailabilityStatus {
+  AVAILABLE
+  AWAY
+  OFFLINE
+}
+
+
 
 
 //──────────────────Model Tenant──────────────────
@@ -225,6 +233,7 @@ model User {
   assignedContacts Contact[] @relation("UserAssignedContacts")
   
   isActive     Boolean  @default(true)
+  availabilityStatus AvailabilityStatus @default(AVAILABLE)
 
   tenant     Tenant   @relation(fields: [tenantId], references: [id])
 

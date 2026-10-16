@@ -30,6 +30,6 @@ router.patch( "/bulk-reassign", verifyTenantOrUser, conversationController.bulkR
 // ── Media, Links & Docs ────────────────────────────────────
 router.get( "/media/:conversationId", verifyTenantOrUser, conversationController.getConversationMediaController);
 
-router.patch("/pin/:id", conversationController.togglePinController);
+router.patch("/pin/:id", verifyTenantOrUser, conversationController.togglePinController);
 
 export default router;

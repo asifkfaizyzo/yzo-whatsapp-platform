@@ -24,7 +24,8 @@ import {
     removeTagFromContactController,
     getContactsByUser,
     getImportGuidelinesController,
-    downloadSampleCSVController
+    downloadSampleCSVController,
+    importPhoneContactsController
 } from './contactController.js';
 
 // ✅ Validation schemas
@@ -87,5 +88,7 @@ router.post('/:contactId/tags', verifyTenantOrUser, checkSubscriptionAccess, add
 // router.delete('/:contactId/tags/:tagId', verifyTenantOrUser, removeTagFromContact);
 // ✅ TEST - Remove middleware temporarily
 router.delete('/:contactId/tags/:tagId', verifyTenantOrUser, checkSubscriptionAccess, removeTagFromContactController);
+// ===================== PHONE CONTACT IMPORT =====================
+router.post('/import-phone', verifyTenantOrUser, checkSubscriptionAccess, importPhoneContactsController);
 
 export default router;
