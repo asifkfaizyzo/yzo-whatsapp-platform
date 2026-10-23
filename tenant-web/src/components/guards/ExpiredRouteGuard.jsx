@@ -69,8 +69,13 @@ export default function ExpiredRouteGuard({ children }) {
 
   const currentPath = location.pathname;
 
-  if (subStatus === 'paused') {
-    return <Navigate to="/support" replace />;
+  // Paused tenants are allowed to browse their dashboard in read-only/paused state without hard redirect
+
+  if (subStatus === 'payment_failed') {
+    const isAllowed = ALLOWED_ROUTES.some(route => currentPath.startsWith(route));
+    if (!isAllowed) {
+      return <Navigate to="/dashboard/billing?reason=payment_failed" replace />;
+    }
   }
 
   if (subStatus === 'expired') {
@@ -80,17 +85,5 @@ export default function ExpiredRouteGuard({ children }) {
     }
   }
 
-  return (
-    <div className="flex flex-col min-h-screen">
-      {subStatus === 'expired' && planEnd && (
-        <ExpiredSubscriptionBanner expiredDate={planEnd} dataDeletionDate={deletionDate} />
-      )}
-      <div className="flex-1">
-        {subStatus === 'cancel_at_period_end' && currentPath === '/dashboard' && (
-          <CancelAtPeriodEndBanner periodEndDate={planEnd} onReactivate={handleReactivateInGuard} />
-        )}
-        {children}
-      </div>
-    </div>
-  );
-}
+  return children;
+}

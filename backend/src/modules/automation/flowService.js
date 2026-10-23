@@ -35,6 +35,7 @@ const flowService = {
       data: {
         tenantId,
         name: data.name || 'New Flow',
+        triggerType: data.triggerType || 'KEYWORD',
         isActive: false
       }
     })
@@ -42,12 +43,15 @@ const flowService = {
 
   // ── Save flow with nodes and keywords ──
   saveFlow: async (flowId, tenantId, data) => {
-    const { name, keywords, nodes, edges } = data
+    const { name, triggerType, keywords, nodes, edges } = data
 
-    // 1. Update flow name
+    // 1. Update flow name & triggerType
     await prisma.flow.update({
       where: { id: flowId },
-      data: { name }
+      data: { 
+        name,
+        triggerType: triggerType || undefined
+      }
     })
 
     // 2. Update keywords
@@ -244,6 +248,20 @@ findFlowByKeyword: async (tenantId, userMessage) => {
       where: {
         tenantId,
         isDefault: true,
+        isActive: true
+      },
+      include: {
+        nodes: { orderBy: { order: 'asc' } }
+      }
+    })
+  },
+
+  // ── Find order flow (event-based trigger for WhatsApp cart orders) ──
+  findOrderFlow: async (tenantId) => {
+    return await prisma.flow.findFirst({
+      where: {
+        tenantId,
+        triggerType: 'ORDER_RECEIVED',
         isActive: true
       },
       include: {

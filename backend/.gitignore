@@ -5,3 +5,5 @@ node_modules/
 uploads/
 
 /src/generated/prisma
+
+yzo-whatsapgoogleSheet.json

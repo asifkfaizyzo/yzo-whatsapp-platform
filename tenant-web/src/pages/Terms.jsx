@@ -104,9 +104,9 @@ export default function Terms() {
               </h2>
               <p>
                 Questions about these terms? Contact us at{" "}
-                <a href="mailto:legal@sudoreply" 
+                <a href="mailto:info@sudoreply.com" 
                    className="text-[#125EF2] hover:underline">
-                  legal@sudoreply
+                  info@sudoreply.com
                 </a>
               </p>
             </div>

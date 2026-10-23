@@ -6,6 +6,7 @@ import { ExpressAdapter } from '@bull-board/express';
 import { broadcastQueue } from '../queues/broadcastQueue.js';
 import { webhookQueue } from '../queues/webhookQueue.js';
 import { dlqQueue } from '../queues/dlqQueue.js';
+import { orderWebhookQueue } from '../queues/orderWebhookQueue.js';
 
 // 1. Initialize Express adapter for Bull Board
 const serverAdapter = new ExpressAdapter();
@@ -16,9 +17,10 @@ createBullBoard({
   queues: [
     new BullMQAdapter(broadcastQueue),
     new BullMQAdapter(webhookQueue),
+    new BullMQAdapter(orderWebhookQueue),
     new BullMQAdapter(dlqQueue),
   ],
   serverAdapter,
 });
 
-export { serverAdapter };
+export { serverAdapter };

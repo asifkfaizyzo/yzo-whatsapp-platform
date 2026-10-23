@@ -1,7 +1,9 @@
+// src/server.js
+
 import dotenv from 'dotenv';
 dotenv.config();
 
-// ✅ Add environment variable check right after dotenv.config()
+// ✅ Environment variables check
 const requiredEnvVars = [
   'DATABASE_URL',
   'ACCESS_SECRET',
@@ -17,11 +19,20 @@ import http from 'http';
 import app from './app.js';
 import { initSocket } from './lib/socket.js';
 import { startWebhookWorker } from './workers/webhookWorker.js';
+import { startOrderWebhookWorker } from './workers/orderWebhookWorker.js';
 import { startBroadcastWorker } from './workers/broadcastWorker.js';
+import { startCallMediaWorker } from './workers/callMediaWorker.js';
 import { startCleanupWorker } from './workers/cleanupWorker.js';
 import './jobs/checkExpiredSubscriptions.js';
 import './jobs/expiryRemindersJob.js';
 import { startAuditCleanupJob } from './jobs/auditCleanupJob.js';
+import { startWebhookEventsCleanupJob } from './jobs/cleanupWebhookEventsJob.js';
+import { initQuickReplyIndexes } from './scripts/initQuickReplyIndexes.js';
+import { startZohoSyncWorker } from './workers/zohoSyncWorker.js';
+import { startZohoStaleTaskJob } from './jobs/zohoStaleTaskJob.js';
+import { startZohoWatchRenewalJob } from './jobs/zohoWatchRenewalJob.js';
+import { initializeMediasoup } from './lib/mediasoup/mediasoupService.js';
+import { processLowStockAlerts, processDailyBusinessSummary } from './modules/woocommerce/woocommerceAlertService.js';
 
 import { redisConnection } from './config/redis.js';
 
@@ -35,14 +46,47 @@ initSocket(server);
 
 // Start BullMQ Background Workers & Cleanup Workers
 const webhookWorker = startWebhookWorker();
+const orderWebhookWorker = startOrderWebhookWorker();
 const broadcastWorker = startBroadcastWorker();
+const callMediaWorker = startCallMediaWorker();
+const zohoSyncWorker = startZohoSyncWorker();
 startCleanupWorker();
 startAuditCleanupJob(); 
+startWebhookEventsCleanupJob();
+startZohoStaleTaskJob();
+startZohoWatchRenewalJob(); // ✅ Handled and running alongside workers
+initQuickReplyIndexes();
 console.log('👷 Background workers and cleanup tasks started successfully!');
 
-server.listen(port, () => {
-    console.log(`🚀 Server is running on http://localhost:${port}`);
+// Initialize Mediasoup for WebRTC Calling
+initializeMediasoup().catch(err => {
+  console.error('❌ Failed to initialize Mediasoup:', err);
+  process.exit(1);
 });
+
+server.listen(port, () => {
+    console.log(`🚀 Server is running on http://localhost:${port} [Updated Enum Fix: ${new Date().toISOString()}]`);
+
+    // ── Low Stock Alerts (every 1 hour) ──────────────────────────────────
+    setInterval(() => {
+      console.log('[Scheduler] Running Low Stock Check...');
+      processLowStockAlerts().catch((err) =>
+        console.error('[Low Stock Scheduler] Error:', err.message)
+      );
+    }, 60 * 60 * 1000);
+    console.log('⏰ [Cron] Low Stock Alerts scheduled (runs every 1 hour)');
+
+    // ── Daily Business Summary (every 1 hour; service checks the hour) ──
+    setInterval(() => {
+      console.log('[Scheduler] Checking for Daily Summaries...');
+      processDailyBusinessSummary().catch((err) =>
+        console.error('[Daily Summary Scheduler] Error:', err.message)
+      );
+    }, 60 * 60 * 1000);
+    console.log('⏰ [Cron] Daily Business Summary scheduled (runs every 1 hour)');
+});
+
+
 
 // ───────────── Graceful Shutdown for PM2 / Docker / Systemd ─────────────
 const gracefulShutdown = async (signal) => {
@@ -54,7 +98,10 @@ const gracefulShutdown = async (signal) => {
     try {
       // Allow active BullMQ worker jobs to finish safely
       if (webhookWorker) await webhookWorker.close();
+      if (orderWebhookWorker) await orderWebhookWorker.close();
       if (broadcastWorker) await broadcastWorker.close();
+      if (callMediaWorker) await callMediaWorker.close();
+      if (zohoSyncWorker) await zohoSyncWorker.close();
       console.log('👷 BullMQ workers closed successfully.');
 
       // Safely close Redis connection
@@ -71,5 +118,3 @@ const gracefulShutdown = async (signal) => {
 
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-
-

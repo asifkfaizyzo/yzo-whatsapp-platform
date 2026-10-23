@@ -1014,7 +1014,7 @@ export const getGSTSettingsService = async () => {
         companyGstNumber: "27AABCU9603R1ZM",
         pricingType:      "EXCLUSIVE",
         companyName:      "SudoReply Technologies Pvt Ltd",
-        companyEmail:     "support@sudoreply.com",
+        companyEmail:     "info@sudoreply.com",
         companyAddress:   "Mumbai, Maharashtra, India",
         sacCode:          "998314",
       },
@@ -1078,7 +1078,7 @@ export const updateGSTSettingsService = async (data, actor, meta = {}) => {
       companyGstNumber: companyGstNumber || "27AABCU9603R1ZM",
       pricingType:      pricingType      || "EXCLUSIVE",
       companyName:      companyName      || "SudoReply Technologies Pvt Ltd",
-      companyEmail:     companyEmail     || "support@sudoreply.com",
+      companyEmail:     companyEmail     || "info@sudoreply.com",
       companyAddress:   companyAddress   || "Mumbai, Maharashtra, India",
       sacCode:          sacCode          || "998314",
       updatedBy:        actor?.id        || null,
@@ -1119,24 +1119,24 @@ export const getGSTConfig = async () => {
 
     if (!settings) {
       return {
-        gstEnabled:       true,
-        gstPercent:       18,
+        gstEnabled:       false,
+        gstPercent:       0,
         gstType:          "CGST_SGST",
         pricingType:      "EXCLUSIVE",
-        companyGstNumber: "27AABCU9603R1ZM",
+        companyGstNumber: "",
         companyName:      "SudoReply Technologies Pvt Ltd",
-        companyEmail:     "support@sudoreply.com",
+        companyEmail:     "info@sudoreply.com",
         companyAddress:   "Mumbai, Maharashtra, India",
         sacCode:          "998314",
       };
     }
 
     return {
-      gstEnabled:       settings.gstEnabled,
-      gstPercent:       settings.gstPercent,
-      gstType:          settings.gstType,
-      pricingType:      settings.pricingType,
-      companyGstNumber: settings.companyGstNumber,
+      gstEnabled:       Boolean(settings.gstEnabled),
+      gstPercent:       settings.gstPercent || 0,
+      gstType:          settings.gstType || "CGST_SGST",
+      pricingType:      settings.pricingType || "EXCLUSIVE",
+      companyGstNumber: settings.companyGstNumber || "",
       companyName:      settings.companyName,
       companyEmail:     settings.companyEmail,
       companyAddress:   settings.companyAddress,
@@ -1144,8 +1144,8 @@ export const getGSTConfig = async () => {
     };
   } catch {
     return {
-      gstEnabled:  true,
-      gstPercent:  18,
+      gstEnabled:  false,
+      gstPercent:  0,
       gstType:     "CGST_SGST",
       pricingType: "EXCLUSIVE",
     };

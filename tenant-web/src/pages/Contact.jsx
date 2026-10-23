@@ -146,9 +146,9 @@ export default function Contact() {
                   </div>
                   <div>
                     <p className="text-xs text-gray-400">Email</p>
-                    <a href="mailto:info@sudoreply.com" className="text-sm font-medium text-gray-900 hover:text-[#125EF2]">
+                    <p className="text-sm font-medium text-gray-900">
                       info@sudoreply.com
-                    </a>
+                    </p>
                   </div>
                 </div>
 
@@ -159,9 +159,9 @@ export default function Contact() {
                   </div>
                   <div>
                     <p className="text-xs text-gray-400">WhatsApp</p>
-                    <a href="https://wa.me/919605305453" target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-gray-900 hover:text-[#125EF2]">
+                    <p className="text-sm font-medium text-gray-900">
                       +91 9605305453
-                    </a>
+                    </p>
                   </div>
                 </div>
 
@@ -172,9 +172,9 @@ export default function Contact() {
                   </div>
                   <div>
                     <p className="text-xs text-gray-400">Phone</p>
-                    <a href="tel:+919605305453" className="text-sm font-medium text-gray-900 hover:text-[#125EF2]">
+                    <p className="text-sm font-medium text-gray-900">
                       +91 9605305453
-                    </a>
+                    </p>
                   </div>
                 </div>
 
@@ -186,8 +186,8 @@ export default function Contact() {
                   <div>
                     <p className="text-xs text-gray-400">Office</p>
                     <p className="text-sm font-medium text-gray-900">
-                      1st Floor, Valentine Estate<br />
-                      Palachuvadu, Kakkanad – 682030
+                      1st Floor, Valentine Estate
+                      Palachuvadu, Kakkanad - 682030
                     </p>
                   </div>
                 </div>
@@ -277,7 +277,7 @@ export default function Contact() {
                         required
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        placeholder="John Doe"
+                        placeholder="Type Your Name"
                         className="w-full px-4 py-2.5 rounded-lg 
                                    border border-gray-200 text-sm 
                                    focus:outline-none focus:ring-2 
@@ -296,7 +296,7 @@ export default function Contact() {
                         required
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        placeholder="john@company.com"
+                        placeholder="Type Your Email Address"
                         className="w-full px-4 py-2.5 rounded-lg 
                                    border border-gray-200 text-sm 
                                    focus:outline-none focus:ring-2 

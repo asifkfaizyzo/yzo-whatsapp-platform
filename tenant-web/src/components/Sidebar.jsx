@@ -14,8 +14,8 @@ import {
   Megaphone,
   FileCode,
   Users,
-  UserCheck,
   BarChart3,
+  LayoutGrid,
   Settings,
   ChevronDown,
   ChevronUp,
@@ -216,24 +216,7 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
       icon: <Inbox size={20} />,
       adminOnly: false,
       restrictedForPending: true,
-      hasDropdown: true,
-      dropdownItems: isAdmin
-        ? [
-          {
-            label: "WhatsApp",
-            path: "/dashboard/inbox?filter=all",
-            filterValue: "all",
-            unreadCount: inboxUnreadCount,
-          },
-        ]
-        : [
-          {
-            label: "WhatsApp",
-            path: "/dashboard/inbox?filter=my",
-            filterValue: "my",
-            unreadCount: inboxUnreadCount,
-          },
-        ],
+      hasDropdown: false,
     },
     {
       label: "Broadcasts",
@@ -257,17 +240,10 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
       restrictedForPending: true
     },
     {
-  label: "Contacts",
-  path: "/dashboard/contacts",
-  icon: <Users size={20} />,
-  adminOnly: false,
-  restrictedForPending: true,
-  },
-  {
-      label: "Team",
-      path: "/dashboard/team",
-      icon: <UserCheck size={20} />,
-      adminOnly: true,
+      label: "Contacts",
+      path: "/dashboard/contacts",
+      icon: <Users size={20} />,
+      adminOnly: false,
       restrictedForPending: true,
     },
     {
@@ -276,6 +252,13 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
       icon: <BarChart3 size={20} />,
       adminOnly: true,
       restrictedForPending: true,
+    },
+    {
+      label: "Integrations",
+      path: "/dashboard/integrations",
+      icon: <LayoutGrid size={20} />,
+      adminOnly: true,
+      restrictedForPending: false,
     },
     {
       label: "Billing",
@@ -299,7 +282,7 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
     return true;
   });
 
-  const mainMenuLabels = ["Dashboard", "Inbox", "Broadcasts", "Templates", "Automation", "Contacts", "Team", "Reports"];
+  const mainMenuLabels = ["Dashboard", "Inbox", "Broadcasts", "Templates", "Automation", "Quick Replies", "Contacts", "Team", "Reports", "Integrations"];
   const mainMenu = menuItems.filter(item => mainMenuLabels.includes(item.label));
   const otherMenu = menuItems.filter(item => !mainMenuLabels.includes(item.label));
 
@@ -443,24 +426,60 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
       );
     }
 
+    const isInbox = item.label === "Inbox";
+
     return (
       <NavLink
         key={item.path}
         to={item.path}
         end={item.end}
-        className={({ isActive }) =>
-          `group relative flex items-center gap-3 rounded-[10px] px-4 py-3 text-sm font-medium transition-all duration-200
-          ${isActive
+        className={({ isActive: navActive }) => {
+          const active = isInbox
+            ? location.pathname.startsWith("/dashboard/inbox")
+            : navActive;
+          return `group relative flex items-center gap-3 rounded-[10px] px-4 py-3 text-sm font-medium transition-all duration-200
+          ${active
             ? "bg-[#125EF2] text-white font-semibold shadow-md shadow-blue-500/20"
             : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-          } ${collapsed ? "justify-center px-3" : ""}`
-        }
+          } ${collapsed ? "justify-center px-3" : ""}`;
+        }}
       >
-        <span className="flex items-center justify-center w-5 min-w-[20px] h-5">{item.icon}</span>
-        <span className={`transition-all duration-200 ${collapsed ? "opacity-0 w-0 overflow-hidden absolute" : "opacity-100"}`}>{item.label}</span>
+        <span className="flex items-center justify-center w-5 min-w-[20px] h-5 relative">
+          {item.icon}
+          {isInbox && isAdmin && unassignedCount > 0 && (
+            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-white animate-pulse" />
+          )}
+        </span>
+        <span
+          className={`transition-all duration-200 ${
+            collapsed ? "opacity-0 w-0 overflow-hidden absolute" : "opacity-100"
+          }`}
+        >
+          {item.label}
+        </span>
+
+        {/* Unread badge on Inbox */}
+        {isInbox && inboxUnreadCount > 0 && !collapsed && (
+          <span
+            className={`ml-auto inline-flex items-center justify-center min-w-[20px] h-[20px] px-1.5 rounded-full text-[11px] font-bold ${
+              location.pathname.startsWith("/dashboard/inbox")
+                ? "bg-white/20 text-white"
+                : "bg-emerald-100 text-emerald-700"
+            }`}
+          >
+            {inboxUnreadCount > 99 ? "99+" : inboxUnreadCount}
+          </span>
+        )}
+
         {collapsed && (
           <div className="sidebar-tooltip pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-md bg-slate-800 text-white text-xs font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-50 shadow-lg">
             {item.label}
+            {isInbox && inboxUnreadCount > 0 && (
+              <span className="ml-1 text-emerald-300">({inboxUnreadCount})</span>
+            )}
+            {isInbox && isAdmin && unassignedCount > 0 && (
+              <span className="ml-1 text-red-300">({unassignedCount} waiting)</span>
+            )}
             <div className="absolute right-full top-1/2 -translate-y-1/2 border-[5px] border-transparent border-r-slate-800" />
           </div>
         )}
@@ -488,11 +507,21 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
       </button>
 
       <aside
-        className={`fixed top-0 left-0 h-screen bg-white border-r border-slate-200 flex flex-col z-40 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] overflow-hidden
+        className={`fixed top-0 left-0 h-screen bg-white border-r border-slate-200 flex flex-col z-40 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]
           ${collapsed ? "w-[72px]" : "w-[260px]"}
           max-md:-translate-x-full max-md:w-[280px] max-md:z-50
           ${mobileOpen ? "max-md:translate-x-0" : ""}`}
       >
+        {/* Border Collapse / Expand Toggle Button (Desktop) */}
+        <button
+          className="hidden md:flex items-center justify-center absolute top-5 -right-3.5 z-50 w-7 h-7 rounded-full bg-white border border-slate-200 text-slate-500 shadow-sm hover:shadow-md hover:bg-slate-50 hover:text-[#125EF2] hover:border-blue-200 transition-all duration-200 cursor-pointer"
+          onClick={toggleCollapse}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+        </button>
+
         <div className={`flex items-center justify-between px-4 py-5 min-h-[64px] ${collapsed ? "justify-center px-2" : ""}`}>
           <div className="flex items-center gap-2.5 overflow-hidden whitespace-nowrap">
             <img
@@ -505,13 +534,6 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
             </span>
           </div>
           <button
-            className={`hidden md:flex items-center justify-center w-7 h-7 min-w-[28px] rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-all duration-200 ${collapsed ? "!hidden" : ""}`}
-            onClick={toggleCollapse}
-            aria-label="Collapse sidebar"
-          >
-            <ChevronLeft size={16} />
-          </button>
-          <button
             className="md:hidden flex items-center justify-center w-7 h-7 min-w-[28px] rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-all duration-200"
             onClick={() => setMobileOpen(false)}
             aria-label="Close menu"
@@ -520,57 +542,8 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
           </button>
         </div>
 
-        {collapsed && (
-          <div className="hidden md:flex justify-center pb-2">
-            <button
-              className="flex items-center justify-center w-9 h-7 rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-all duration-200"
-              onClick={toggleCollapse}
-              aria-label="Expand sidebar"
-            >
-              <ChevronRight size={16} />
-            </button>
-          </div>
-        )}
-
         <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 sidebar-scroll-area">
-          {!collapsed ? (
-            <div className="mb-3 p-3 bg-slate-50 rounded-xl border border-slate-200/80">
-              <p className="text-[11px] text-slate-400 font-medium">Active Role</p>
-              <div className="flex items-center justify-between mt-1">
-                <span className="text-[13px] font-semibold text-slate-800 capitalize">
-                  {userRole || "User"}
-                </span>
-                <span
-                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border
-                    ${isPending
-                      ? "bg-amber-50 text-amber-700 border-amber-200"
-                      : isAdmin
-                        ? "bg-blue-50 text-[#125EF2] border-blue-200"
-                        : "bg-slate-100 text-slate-600 border-slate-200"
-                    }`}
-                >
-                  {isPending ? "Pending Review" : isAdmin ? "Full Access" : "Agent View"}
-                </span>
-              </div>
-            </div>
-          ) : (
-            <div className="hidden md:flex justify-center mb-3">
-              <div className="group relative w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 text-xs font-bold uppercase">
-                {(userRole || "U").charAt(0)}
-                <div className="sidebar-tooltip pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-md bg-slate-800 text-white text-xs font-medium whitespace-nowrap opacity-0 transition-opacity duration-150 z-50 shadow-lg">
-                  {isPending ? "Pending Review" : isAdmin ? "Admin — Full Access" : "Agent View"}
-                  <div className="absolute right-full top-1/2 -translate-y-1/2 border-[5px] border-transparent border-r-slate-800" />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {!collapsed ? (
-            <p className="text-[11px] font-semibold uppercase text-slate-400 tracking-[0.5px] px-4 pt-3 pb-2">Menu</p>
-          ) : (
-            <div className="hidden md:block mx-auto my-2 w-5 h-px bg-slate-200" />
-          )}
-          <nav className="flex flex-col gap-1">
+          <nav className="flex flex-col gap-1 pt-1">
             {mainMenu.map(renderMenuItem)}
           </nav>
 

@@ -11,12 +11,13 @@ import Inbox from "../pages/dashboard/Inbox";
 import Broadcasts from "../pages/dashboard/Broadcasts";
 import Templates from "../pages/dashboard/Templates";
 import Contacts from "../pages/dashboard/Contacts";
-import Team from "../pages/dashboard/Team";
 import Reports from "../pages/dashboard/Reports";
 import Settings from "../pages/dashboard/Settings";
+import Integrations from "../pages/dashboard/Integrations";
 import ResetPassword from "../pages/auth/ResetPassword";
 import ProtectedRoute from "./ProtectedRoute";
 import Billing from "../pages/dashboard/Billing";
+import RazorpayOAuthCallback from "../pages/dashboard/RazorpayOAuthCallback";
 
 // Landing Pages ✅
 import Home from '../pages/Home'
@@ -29,6 +30,8 @@ import Contact from '../pages/Contact'
 import HelpCenter from "../pages/HelpCenter";
 import PrivacyPolicy from "../pages/PrivacyPolicy";
 import Terms from "../pages/Terms";
+import RefundPolicy from "../pages/RefundPolicy";
+import ShippingPolicy from "../pages/ShippingPolicy";
 // import Status from "../pages/Status";
 
 import SelectPlan from "../pages/SelectPlan";
@@ -75,10 +78,13 @@ function App() {
         <Route path="/contact" element={<Contact />} />
 
 
-        {/* Support */}
+        {/* Support & Legal */}
         <Route path="/help" element={<HelpCenter />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/terms" element={<Terms />} />
+        <Route path="/refund-policy" element={<RefundPolicy />} />
+        <Route path="/cancellation-refunds" element={<RefundPolicy />} />
+        <Route path="/shipping-policy" element={<ShippingPolicy />} />
         {/* <Route path="/status"        element={<Status />}       /> */}
 
         {/* ✅ Plan & Payment Routes */}
@@ -131,8 +137,9 @@ function App() {
           <Route path="broadcasts" element={<Broadcasts />} />
           <Route path="templates" element={<Templates />} />
           <Route path="contacts" element={<Contacts />} />
-          <Route path="team" element={<Team />} />
+          <Route path="team" element={<Navigate to="/dashboard/settings?tab=team" replace />} />
           <Route path="reports" element={<Reports />} />
+          <Route path="integrations" element={<Integrations />} />
           <Route path="settings" element={<Settings />} />
           <Route path="billing" element={<Billing />} />
           <Route path="tickets" element={<Tickets />} />
@@ -140,6 +147,8 @@ function App() {
           <Route path="automation" element={<Automation />} />
           <Route path="automation/builder/:flowId" element={<FlowBuilder />} />
           <Route path="notifications" element={<Notifications />} /> 
+          <Route path="quick-replies" element={<Navigate to="/dashboard/settings?tab=quick-replies" replace />} /> 
+          <Route path="calls" element={<Navigate to="/dashboard/settings?tab=calls" replace />} /> 
           
         </Route>
 
@@ -151,6 +160,11 @@ function App() {
             </ProtectedRoute>
           }
         />
+        {/* Razorpay Partner OAuth Callback Handlers (Intercepts redirect when landing on port 5174) */}
+        <Route path="/api/auth/razorpay/callback" element={<RazorpayOAuthCallback />} />
+        <Route path="/api2/auth/razorpay/callback" element={<RazorpayOAuthCallback />} />
+        <Route path="/auth/razorpay/callback" element={<RazorpayOAuthCallback />} />
+
         {/* Fallback */}
         <Route path="*" element={<NotFound />} />
       </Routes>

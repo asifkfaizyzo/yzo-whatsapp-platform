@@ -1,10 +1,9 @@
-// src/workers/webhookWorker.js
-
+//src/workers/webhookWorker.js
 import { Worker } from 'bullmq';
 import { QUEUE_NAME_WEBHOOK } from '../queues/webhookQueue.js';
 import { redisConnection } from '../config/redis.js';
 import prisma from '../config/prisma.js';
-import { handleIncomingMessage } from '../modules/messages/messageService.js';
+import { handleIncomingMessage, sendMessageService  } from '../modules/messages/messageService.js';
 import { createNotification } from '../modules/notifications/notificationService.js';
 import { emitToTenant, emitToUser } from '../lib/socket.js';
 import { isNewWebhookEvent } from '../lib/idempotency.js';
@@ -12,12 +11,491 @@ import { dlqQueue } from '../queues/dlqQueue.js';
 import { generateSignedUrl } from '../lib/utils/signedUrl.js';
 import { decrypt } from '../lib/crypto.js';
 import { sendTemplateStatusEmail } from '../modules/auth/emailService.js';
+import flowEngine from '../modules/automation/flowEngineService.js';
 import fs from 'fs';
 import path from 'path';
 import https from 'https';
 import http from 'http';
+import { GRAPH_BASE_URL } from '../config/meta.js';
+import { handleCallEvents, handleCallPermissionReply, handleAccountSettingsUpdate } from '../modules/whatsapp/callWebhookHandler.js';
+import { updateWooCommerceOrderStatus } from '../modules/woocommerce/woocommerceService.js';
+import { parseWooReviewRating } from '../modules/woocommerce/woocommerceOrderLifecycle.js';
+
+// ─────────────────────────────────────────────────────────────
+// META MEDIA & AVATAR PERSISTENCE HELPER
+// Downloads ephemeral CDN links (fbcdn.net) to local storage
+// ─────────────────────────────────────────────────────────────
+export const downloadMetaMediaFromUrl = async ({ url, type, tenantId, contactId }) => {
+  try {
+    const saveDir = path.join(process.cwd(), 'uploads', 'tenants', tenantId, 'contacts', String(contactId), 'inbound');
+    if (!fs.existsSync(saveDir)) {
+      fs.mkdirSync(saveDir, { recursive: true });
+    }
+
+    const extMap = {
+      image: '.jpg',
+      avatar: '.jpg',
+      video: '.mp4',
+      audio: '.mp3',
+      file: '.bin',
+      ig_reel: '.mp4',
+      reel: '.mp4',
+      story_mention: '.jpg',
+    };
+    const ext = extMap[type] || '.bin';
+    const filename = `${Date.now()}_meta_${type}${ext}`;
+    const localPath = path.join(saveDir, filename);
+
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const buffer = Buffer.from(await response.arrayBuffer());
+    fs.writeFileSync(localPath, buffer);
+
+    const relativePath = path
+      .join('uploads', 'tenants', tenantId, 'contacts', String(contactId), 'inbound', filename)
+      .replace(/\\/g, '/');
+
+    const publicUrl = process.env.BASE_URL && process.env.BASE_URL.startsWith('http') && !process.env.BASE_URL.includes('localhost')
+      ? `${process.env.BASE_URL.replace(/\/+$/, '')}/${relativePath}`
+      : `/${relativePath}`;
+
+    return {
+      publicUrl,
+      fileName: filename,
+      fileSize: buffer.length,
+      localPath,
+    };
+  } catch (err) {
+    console.warn(`⚠️ Meta media download failed for ${url}, falling back to original URL:`, err.message);
+    return { publicUrl: url, fileName: `${type}_attachment`, fileSize: null, localPath: null };
+  }
+};
+
+// ─────────────────────────────────────────────────────────────
+// UNIFIED ZOHO AUTO-SYNC TRIGGER (Preference-scoped)
+// Routes newly created contacts to EITHER Contacts OR Leads
+// based on tenant's syncDestination preference — never both.
+// ─────────────────────────────────────────────────────────────
+const triggerZohoAutoSyncForNewContact = async (tenantId, contact) => {
+  try {
+    const { getTenantZohoPreferences, autoSyncContactToZoho } = await import('../modules/zoho/zohoContactService.js');
+    const prefs = await getTenantZohoPreferences(tenantId);
+
+    if (!prefs?.autoSyncNewContacts) return;
+
+    if (prefs.syncDestination === 'LEADS') {
+      const { createZohoLead } = await import('../modules/zoho/zohoLeadService.js');
+      createZohoLead(tenantId, contact).catch((err) => {
+        console.error('⚠️ [WebhookWorker] createZohoLead failed:', err.message);
+      });
+    } else {
+      autoSyncContactToZoho(tenantId, contact.id).catch((err) => {
+        console.error('⚠️ [WebhookWorker] autoSyncContactToZoho failed:', err.message);
+      });
+    }
+  } catch (err) {
+    console.error('⚠️ [WebhookWorker] Zoho trigger error:', err.message);
+  }
+};
+
+// ─────────────────────────────────────────────────────────────
+// FACEBOOK MESSENGER & INSTAGRAM PROCESSOR
+// ─────────────────────────────────────────────────────────────
+export const processMetaPageOrInstagramJob = async (job, body) => {
+  const isInstagram = body.object === 'instagram';
+  const channel = isInstagram ? 'INSTAGRAM' : 'MESSENGER';
+
+  const entries = body.entry || [];
+  for (const entry of entries) {
+    const entryId = String(entry.id); // Page ID or IGBA ID
+
+    // Find tenant by facebookPageId or instagramAccountId
+    let tenant = await prisma.tenant.findFirst({
+      where: isInstagram
+        ? { OR: [{ instagramAccountId: entryId }, { facebookPageId: entryId }] }
+        : { facebookPageId: entryId },
+    });
+
+    if (!tenant) {
+      console.warn(`⚠️ [Meta Webhook] No tenant found for ${channel} entry ID: ${entryId}`);
+      continue;
+    }
+
+    const subStatus = tenant.subscriptionStatus;
+    const isActive =
+      subStatus === 'active' ||
+      subStatus === 'trialing' ||
+      subStatus === 'cancel_at_period_end';
+
+    if (!isActive) {
+      console.log(`🚫 [Meta Webhook] Ignored for tenant ${tenant.id} - inactive subscription: ${subStatus}`);
+      continue;
+    }
+
+    // Process messaging events (could be in messaging array or standby array)
+    const messagingEvents = entry.messaging || entry.standby || [];
+    for (const messagingEvent of messagingEvents) {
+      // 1. Echo Event Filtering (Ignore messages sent by Page/Agent)
+      if (messagingEvent.message?.is_echo) {
+        console.log(`ℹ️ [Meta Webhook] Skipping echo event for message ${messagingEvent.message?.mid}`);
+        continue;
+      }
+
+      // 2. Instagram Message Deletion (is_deleted: true)
+      if (messagingEvent.message?.is_deleted) {
+        const mid = messagingEvent.message.mid;
+        console.log(`🗑️ [Meta Webhook] Handling Instagram deleted message: ${mid}`);
+        await prisma.message.updateMany({
+          where: { wamid: mid },
+          data: {
+            isDeleted: true,
+            deletedAt: new Date(),
+            text: '[Message deleted]',
+          },
+        });
+        emitToTenant(tenant.id, 'message_status_update', {
+          wamid: mid,
+          isDeleted: true,
+          text: '[Message deleted]',
+        });
+        continue;
+      }
+
+      // 3. Delivery Receipts (Messenger Only)
+      if (messagingEvent.delivery && channel === 'MESSENGER') {
+        const mids = messagingEvent.delivery.mids || [];
+        if (mids.length > 0) {
+          console.log(`📬 [Meta Webhook] Messenger delivery receipt for mids:`, mids);
+          await prisma.message.updateMany({
+            where: { wamid: { in: mids } },
+            data: { status: 'delivered', deliveredAt: new Date() },
+          });
+
+          for (const mid of mids) {
+            emitToTenant(tenant.id, 'message_status_update', {
+              wamid: mid,
+              status: 'delivered',
+              deliveredAt: new Date(),
+            });
+          }
+        }
+        continue;
+      }
+
+      // 4. Read Receipts: Instagram (specific mid) vs Messenger (watermark timestamp)
+      if (messagingEvent.read) {
+        if (channel === 'INSTAGRAM' && messagingEvent.read.mid) {
+          const mid = messagingEvent.read.mid;
+          console.log(`👁️ [Meta Webhook] Instagram read receipt for mid: ${mid}`);
+          await prisma.message.updateMany({
+            where: { wamid: mid, direction: 'OUTBOUND' },
+            data: { status: 'read', readAt: new Date(), isRead: true },
+          });
+          emitToTenant(tenant.id, 'message_status_update', {
+            wamid: mid,
+            status: 'read',
+            readAt: new Date(),
+          });
+        } else if (channel === 'MESSENGER' && messagingEvent.read.watermark) {
+          const watermark = new Date(messagingEvent.read.watermark);
+          const senderId = String(messagingEvent.sender?.id || '');
+          console.log(`👁️ [Meta Webhook] Messenger read receipt watermark: ${watermark.toISOString()} for sender: ${senderId}`);
+
+          const contact = await prisma.contact.findFirst({
+            where: { tenantId: tenant.id, channel: 'MESSENGER', channelId: senderId },
+          });
+
+          if (contact) {
+            const conversation = await prisma.conversation.findFirst({
+              where: { contactId: contact.id, tenantId: tenant.id },
+            });
+
+            if (conversation) {
+              await prisma.message.updateMany({
+                where: {
+                  conversationId: conversation.id,
+                  direction: 'OUTBOUND',
+                  createdAt: { lte: watermark },
+                  status: { not: 'read' },
+                },
+                data: { status: 'read', readAt: new Date(), isRead: true },
+              });
+
+              emitToTenant(tenant.id, 'conversation_read_update', {
+                conversationId: conversation.id,
+                channel: 'MESSENGER',
+                watermark,
+              });
+            }
+          }
+        }
+        continue;
+      }
+
+      // 5. Inbound Message or Postback Handling
+      if (messagingEvent.message || messagingEvent.postback) {
+        const messageId = messagingEvent.message?.mid || messagingEvent.postback?.mid || `meta_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+
+        const isNew = await isNewWebhookEvent(`msg:${messageId}`);
+        if (!isNew) {
+          console.log(`⚠️ [Dedup] Skipping duplicate ${channel} message: ${messageId}`);
+          continue;
+        }
+
+        const senderId = String(messagingEvent.sender.id);
+        let text = messagingEvent.message?.text || null;
+        let type = 'TEXT';
+        let mediaUrl = null;
+        let mediaName = null;
+        let mediaSize = null;
+        let caption = null;
+
+        // Handle Postbacks (Buttons / Quick replies)
+        if (messagingEvent.postback) {
+          text = messagingEvent.postback.title || messagingEvent.postback.payload || 'Action clicked';
+          type = 'TEXT';
+        }
+
+        // Handle Instagram Unsupported message flag
+        if (messagingEvent.message?.is_unsupported) {
+          text = '[Unsupported message type]';
+          type = 'TEXT';
+        }
+
+        // Handle Attachments (Images, Videos, Reels, Audio, Ephemeral)
+        const attachment = messagingEvent.message?.attachments?.[0];
+        if (attachment) {
+          if (attachment.type === 'ephemeral' || !attachment.payload?.url) {
+            mediaUrl = null;
+            text = '[Disappearing media — cannot be retrieved]';
+            type = 'TEXT';
+          } else {
+            const downloaded = await downloadMetaMediaFromUrl({
+              url: attachment.payload.url,
+              type: attachment.type,
+              tenantId: tenant.id,
+              contactId: senderId,
+            });
+            mediaUrl = downloaded.publicUrl;
+            mediaName = downloaded.fileName;
+            mediaSize = downloaded.fileSize;
+
+            type = (attachment.type === 'image' || attachment.type === 'story_mention') ? 'IMAGE' :
+                   (attachment.type === 'video' || attachment.type === 'ig_reel' || attachment.type === 'reel') ? 'VIDEO' :
+                   attachment.type === 'audio' ? 'AUDIO' : 'FILE';
+
+            if (!text && attachment.payload?.title) {
+              caption = attachment.payload.title;
+            }
+          }
+        }
+
+        if (!text && !mediaUrl) {
+          text = '[Attachment]';
+        }
+
+        // 6. Contact Lookup or Profile Fetching
+        let contact = await prisma.contact.findUnique({
+          where: {
+            tenantId_channel_channelId: {
+              tenantId: tenant.id,
+              channel,
+              channelId: senderId,
+            },
+          },
+        });
+
+        let profileName = channel === 'INSTAGRAM' ? 'Instagram User' : 'Facebook User';
+        let profileAvatar = null;
+        let contactUsername = null;
+
+        if (!contact || contact.name === 'Instagram User' || contact.name === 'Facebook User') {
+          if (tenant.facebookPageAccessToken) {
+            try {
+              const token = decrypt(tenant.facebookPageAccessToken);
+              const fields = channel === 'INSTAGRAM'
+                ? 'name,username,profile_pic'
+                : 'name,first_name,last_name,profile_pic';
+
+              const res = await fetch(`${GRAPH_BASE_URL}/${senderId}?fields=${fields}&access_token=${token}`);
+              if (res.ok) {
+                const data = await res.json();
+                profileName = data.name || `${data.first_name || ''} ${data.last_name || ''}`.trim() || profileName;
+                contactUsername = data.username || null;
+
+                if (data.profile_pic) {
+                  const avatarData = await downloadMetaMediaFromUrl({
+                    url: data.profile_pic,
+                    type: 'avatar',
+                    tenantId: tenant.id,
+                    contactId: senderId,
+                  });
+                  profileAvatar = avatarData.publicUrl;
+                }
+              }
+            } catch (err) {
+              console.warn(`⚠️ Profile fetch failed for ${senderId}:`, err.message);
+            }
+          }
+        }
+
+        // Upsert Contact with composite unique key
+        const isNewContact = !contact;
+        contact = await prisma.contact.upsert({
+          where: {
+            tenantId_channel_channelId: {
+              tenantId: tenant.id,
+              channel,
+              channelId: senderId,
+            },
+          },
+          update: {
+            ...(profileName !== 'Instagram User' && profileName !== 'Facebook User' ? { name: profileName } : {}),
+            ...(contactUsername ? { username: contactUsername } : {}),
+            ...(profileAvatar ? { avatarUrl: profileAvatar } : {}),
+          },
+          create: {
+            tenantId: tenant.id,
+            channel,
+            channelId: senderId,
+            username: contactUsername,
+            name: profileName,
+            avatarUrl: profileAvatar,
+            phone: null,
+          },
+        });
+
+        // ── Preference-scoped Zoho auto-sync for new social contacts ──
+        if (isNewContact) {
+          await triggerZohoAutoSyncForNewContact(tenant.id, contact);
+        }
+
+        // 7. Save message via handleIncomingMessage
+        const result = await handleIncomingMessage({
+          contactId: contact.id,
+          tenantId: tenant.id,
+          text,
+          type,
+          mediaUrl,
+          mediaName,
+          mediaSize,
+          caption,
+          isNewContact,
+          wamid: messageId,
+          channel,
+        });
+
+        // 8. Emit new_message to Socket.IO tenant room
+        emitToTenant(tenant.id, 'new_message', {
+          conversationId: result.conversation.id,
+          channel,
+          isNewConversation: isNewContact,
+          message: {
+            id: result.message.id,
+            type: result.message.type,
+            text: result.message.text,
+            senderId: result.message.senderId,
+            senderType: 'CONTACT',
+            direction: 'INBOUND',
+            isFromCustomer: true,
+            mediaUrl: result.message.mediaUrl,
+            mediaName: result.message.mediaName,
+            mediaSize: result.message.mediaSize,
+            mediaMimeType: result.message.mediaMimeType,
+            caption: result.message.caption,
+            createdAt: result.message.createdAt,
+            channel,
+          },
+          contact: {
+            id: contact.id,
+            name: contact.name,
+            username: contact.username,
+            avatarUrl: contact.avatarUrl,
+            channel: contact.channel,
+          },
+        });
+      }
+    }
+  }
+};
 
 
+// ─────────────────────────────────────────────────────────────
+// WOOCOMMERCE COD VERIFICATION BUTTON HANDLER
+// Button IDs: CONFIRM_COD_{orderNumber}_{wooOrderId}
+//             CANCEL_COD_{orderNumber}_{wooOrderId}
+// ─────────────────────────────────────────────────────────────
+const processWooCodButtonReply = async ({ tenantId, contact, buttonId }) => {
+  const isConfirm = buttonId.startsWith('CONFIRM_COD_');
+  const isCancel = buttonId.startsWith('CANCEL_COD_');
+  if (!isConfirm && !isCancel) return;
+
+  const prefix = isConfirm ? 'CONFIRM_COD_' : 'CANCEL_COD_';
+  const remainder = buttonId.slice(prefix.length);
+  const lastUnderscore = remainder.lastIndexOf('_');
+
+  if (lastUnderscore === -1) {
+    console.warn(`⚠️ [Woo COD] Unparseable button id: ${buttonId}`);
+    return;
+  }
+
+  const orderNumber = remainder.slice(0, lastUnderscore);
+  const wooOrderId = remainder.slice(lastUnderscore + 1);
+
+  if (!orderNumber || !wooOrderId) {
+    console.warn(`⚠️ [Woo COD] Missing orderNumber/wooOrderId in: ${buttonId}`);
+    return;
+  }
+
+  const newStatus = isConfirm ? 'processing' : 'cancelled';
+  const note = isConfirm
+    ? `Customer confirmed COD order #${orderNumber} via WhatsApp`
+    : `Customer cancelled COD order #${orderNumber} via WhatsApp`;
+
+  console.log(
+    `🧾 [Woo COD] ${isConfirm ? 'CONFIRM' : 'CANCEL'} order #${orderNumber} (WC #${wooOrderId}) → ${newStatus}`
+  );
+
+  // 1) Update live WooCommerce order (central backend — no PHP on tenant stores)
+  await updateWooCommerceOrderStatus(tenantId, wooOrderId, newStatus, note);
+
+  // 2) Mirror status on local ecommerceOrder row (best-effort)
+  try {
+    await prisma.ecommerceOrder.updateMany({
+      where: {
+        tenantId,
+        source: 'WOOCOMMERCE',
+        OR: [
+          { orderNumber: String(orderNumber) },
+          { externalId: String(wooOrderId) },
+          { externalOrderId: String(wooOrderId) },
+        ],
+      },
+      data: {
+        status: newStatus,
+        updatedAt: new Date(),
+      },
+    });
+  } catch (dbErr) {
+    // Schema field names may differ slightly across envs — don't block the flow
+    console.warn(`⚠️ [Woo COD] Local ecommerceOrder mirror skipped: ${dbErr.message}`);
+  }
+
+  // 3) WhatsApp confirmation reply (dual-mode via sendMessageService)
+  const replyText = isConfirm
+    ? `✅ Thank you! Your COD order *#${orderNumber}* has been confirmed and will be processed shortly.`
+    : `❌ Your COD order *#${orderNumber}* has been cancelled as requested. If this was a mistake, please reply here and we’ll help.`;
+
+  await sendMessageService({
+    contactId: contact.id,
+    tenantId,
+    senderId: null,
+    senderType: 'SYSTEM',
+    text: replyText,
+  });
+
+  console.log(`✅ [Woo COD] Order #${orderNumber} handled → ${newStatus}`);
+};
 
 // ─────────────────────────────────────────────────────────────
 // MAIN JOB PROCESSOR
@@ -25,7 +503,14 @@ import http from 'http';
 export const processWebhookJob = async (job) => {
 
   const body = job.data;
-  if (!body || body.object !== 'whatsapp_business_account') return;
+  if (!body) return;
+
+  // Handle Facebook Messenger and Instagram Direct Webhooks
+  if (body.object === 'page' || body.object === 'instagram') {
+    return await processMetaPageOrInstagramJob(job, body);
+  }
+
+  if (body.object !== 'whatsapp_business_account') return;
 
   const entry = body.entry?.[0];
   const change = entry?.changes?.[0];
@@ -38,6 +523,50 @@ export const processWebhookJob = async (job) => {
     throw new Error('Simulated failure for DLQ test');
   }
 
+  const phoneId = value?.metadata?.phone_number_id || value?.phone_number_id;
+  const wabaId = entry?.id;
+  let tenant = null;
+  if (phoneId) {
+    tenant = await prisma.tenant.findFirst({ where: { whatsappPhoneId: String(phoneId) } });
+  }
+  if (!tenant && wabaId) {
+    tenant = await prisma.tenant.findFirst({ where: { whatsappWabaId: String(wabaId) } });
+  }
+  if (!tenant) {
+    // Fallback to configured tenant with WhatsApp phone ID
+    tenant = await prisma.tenant.findFirst({ where: { whatsappPhoneId: { not: null } } });
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // Handle WhatsApp Calls Webhooks (Phase 2)
+  // ═══════════════════════════════════════════════════════════
+  const isCallEvent = 
+    change?.field === 'calls' || 
+    change?.field === 'call_recordings' ||
+    change?.field === 'call_recording' || 
+    Boolean(value?.calls) || 
+    Boolean(value?.call) ||
+    Boolean(value?.call_id) ||
+    Boolean(value?.call_recordings) || 
+    Boolean(value?.call_recording) ||
+    Boolean(value?.recordings) ||
+    Boolean(value?.recording) ||
+    Boolean(value?.call_transcriptions) ||
+    Boolean(value?.call_transcription) || 
+    Boolean(value?.statuses && value.statuses.some(s => s.id?.startsWith('wacid.') || s.type === 'call')) ||
+    (value?.event && ['connect', 'terminate'].includes(value.event));
+
+  if (isCallEvent) {
+    console.log(`📞 [WebhookWorker] Processing Call Event (Field: ${change?.field}) for Tenant: ${tenant?.id || 'none'}`);
+    await handleCallEvents(value, tenant);
+    if (!value?.messages) return; // if it only contains call data, return.
+  }
+  
+  if (change?.field === 'account_settings_update') {
+    await handleAccountSettingsUpdate(value);
+    return;
+  }
+  
   // ═══════════════════════════════════════════════════════════
   // A0. Handle Template Status Updates (Meta approval/rejection)
   // ═══════════════════════════════════════════════════════════
@@ -218,7 +747,7 @@ export const processWebhookJob = async (job) => {
       });
 
       // Also keep corresponding conversation Message status in sync if wamid matches
-            try {
+      try {
         await prisma.message.updateMany({
           where: { wamid },
           data: {
@@ -253,7 +782,7 @@ export const processWebhookJob = async (job) => {
         failed: broadcast.failed,
         status: broadcast.status
       });
-        } else {
+    } else {
       // ── Handle 1-on-1 Message Status Receipt ──
       const messageToUpdate = await prisma.message.findUnique({
         where: { wamid },
@@ -292,16 +821,16 @@ export const processWebhookJob = async (job) => {
       }
     }
 
-    return; // ✅ status handled, stop here // ✅ status handled, stop here
+    return; // ✅ status handled, stop here
   }
 
 
   // ═══════════════════════════════════════════════════════════
   // B. Handle Incoming Messages (TEXT + MEDIA)
   // ═══════════════════════════════════════════════════════════
-       if (message) {
+  if (message) {
     const messageId = message.id;
-    console.log('📥 [META WEBHOOK INBOUND WAMID]:', messageId); // ← ADD DEBUG LOG
+    console.log('📥 [META WEBHOOK INBOUND WAMID]:', messageId);
 
     // ── Idempotency check ──────────────────────────────────
     const isNew = await isNewWebhookEvent(`msg:${messageId}`);
@@ -311,19 +840,14 @@ export const processWebhookJob = async (job) => {
     }
     console.log(`✅ [Dedup] Processing NEW message: ${messageId}`);
 
-    const phoneId = value.metadata?.phone_number_id;
-    const customerPhone = message.from;
-    const messageType = message.type; // "text"|"image"|"video"|"audio"|"document"|"sticker"
-
-    // ── Find tenant ────────────────────────────────────────
-    const tenant = await prisma.tenant.findFirst({
-      where: { whatsappPhoneId: phoneId }
-    });
-
+    // Reuse outer context tenant setup to bypass duplicate db hits
     if (!tenant) {
       console.log(`⚠️ No tenant found for phoneId: ${phoneId}`);
       return;
     }
+
+    const customerPhone = message.from;
+    const messageType = message.type; // "text"|"image"|"video"|"audio"|"document"|"sticker"
 
     // ── Check subscription ─────────────────────────────────
     const subStatus = tenant.subscriptionStatus;
@@ -370,10 +894,22 @@ export const processWebhookJob = async (job) => {
     let mediaMimeType = null;
     let caption = null;
 
-    let locLatitude   = null;
-    let locLongitude  = null;
-    let locName       = null;
-    let locAddress    = null;
+    let locLatitude = null;
+    let locLongitude = null;
+    let locName = null;
+    let locAddress = null;
+
+    // ── Handle Call Permission Reply ──────────────────────
+    if (messageType === 'interactive' && message.interactive?.type === 'call_permission_reply') {
+      await handleCallPermissionReply(message, tenant, phoneId);
+      return;
+    }
+
+    // ── Handle Voicemail (audio with wacid prefix) ───────
+    if (messageType === 'audio' && messageId.startsWith('wacid.')) {
+      console.log(`🎙️ [Webhook] Voicemail received for wacid: ${messageId}`);
+      return;
+    }
 
     // ── TEXT ───────────────────────────────────────────────
     if (messageType === 'text') {
@@ -391,7 +927,7 @@ export const processWebhookJob = async (job) => {
         const downloaded = await downloadWhatsAppMedia({
           mediaId: media.id,
           mimeType: media.mime_type,
-          fileName: null,           // images have no filename
+          fileName: null,
           tenantId: tenant.id,
           contactId: contact.id,
           accessToken: decrypt(tenant.whatsappAccessToken),
@@ -403,7 +939,6 @@ export const processWebhookJob = async (job) => {
 
       } catch (err) {
         console.error(`❌ Image download failed:`, err.message);
-        // Still save message but without media
         text = '[Image - download failed]';
         type = 'TEXT';
       }
@@ -472,7 +1007,7 @@ export const processWebhookJob = async (job) => {
         const downloaded = await downloadWhatsAppMedia({
           mediaId: media.id,
           mimeType: media.mime_type,
-          fileName: media.filename || null,  // documents have filename
+          fileName: media.filename || null,
           tenantId: tenant.id,
           contactId: contact.id,
           accessToken: decrypt(tenant.whatsappAccessToken),
@@ -517,15 +1052,15 @@ export const processWebhookJob = async (job) => {
       // ── LOCATION ───────────────────────────────────────────
     } else if (messageType === 'location') {
       const loc = message.location;
-      type         = 'LOCATION';
-      text         = null;  
+      type = 'LOCATION';
 
-      locLatitude  = loc.latitude  || null;
+      locLatitude = loc.latitude || null;
       locLongitude = loc.longitude || null;
-      locName      = loc.name      || null;
-      locAddress   = loc.address   || null;
+      locName = loc.name || null;
+      locAddress = loc.address || null;
+      text = (locLatitude && locLongitude) ? `https://maps.google.com/?q=${locLatitude},${locLongitude}` : (locAddress || locName || 'Location Shared');
 
-      console.log(`📍 Location received: lat=${loc.latitude}, lng=${loc.longitude}`);
+      console.log(`📍 Location received: lat=${loc.latitude}, lng=${loc.longitude}, text="${text}"`);
 
       // ── CONTACTS ───────────────────────────────────────────
     } else if (messageType === 'contacts') {
@@ -533,40 +1068,56 @@ export const processWebhookJob = async (job) => {
       text = `👤 Contact shared: ${c?.name?.formatted_name || 'Unknown'}`;
       type = 'TEXT';
 
-      } else if (messageType === 'interactive') {
+      // ── INTERACTIVE (Button / List replies) ─────────────────
+    } else if (messageType === 'interactive') {
+      const interactiveType = message.interactive?.type;
 
-  const interactiveType = message.interactive?.type
+      if (interactiveType === 'button_reply') {
+        text = message.interactive.button_reply.title;
+        type = 'TEXT';
+        console.log(`🖱️ Button clicked: "${text}" (id: ${message.interactive.button_reply.id})`);
 
-  if (interactiveType === 'button_reply') {
-    text = message.interactive.button_reply.title
-    type = 'TEXT'
-    console.log(`🖱️ Button clicked: "${text}"`)
+      } else if (interactiveType === 'list_reply') {
+        text = message.interactive.list_reply.title;
+        type = 'TEXT';
+        console.log(`📋 List selected: "${text}" (id: ${message.interactive.list_reply.id})`);
 
-  } else if (interactiveType === 'list_reply') {
-    text = message.interactive.list_reply.title
-    type = 'TEXT'
-    console.log(`📋 List selected: "${text}"`)
+      } else {
+        console.log(`ℹ️ Unknown interactive type: ${interactiveType}`);
+        return;
+      }
 
-  } else {
-    console.log(`ℹ️ Unknown interactive type: ${interactiveType}`)
-    return
-  }
-        
+      // ── ORDER (WhatsApp Cart / Commerce) ───────────────────
+    } else if (messageType === 'order') {
+      const orderPayload = message.order;
+      const catalogId = orderPayload?.catalog_id || tenant.whatsappCatalogId || null;
+      const items = orderPayload?.product_items || [];
+      const customerNote = orderPayload?.text || null;
 
-    // ── UNSUPPORTED ────────────────────────────────────────
+      const currency = items[0]?.currency || 'INR';
+      const totalAmount = items.reduce((sum, it) => sum + (Number(it.item_price || 0) * Number(it.quantity || 1)), 0);
+
+      const orderNumber = `ORD-${tenant.id.slice(-4).toUpperCase()}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+
+      const formattedItems = items.map(it => `• *${it.product_retailer_id}* (x${it.quantity}) — ${it.currency || currency} ${it.item_price}`).join('\n');
+      text = `🛍️ *Order Placed #${orderNumber}*\n\n📦 *Items:*\n${formattedItems}\n\n💰 *Total:* ${currency} ${totalAmount.toFixed(2)}${customerNote ? `\n\n📝 *Note:* ${customerNote}` : ''}`;
+      type = 'ORDER';
+
+      console.log(`🛍️ [ORDER WEBHOOK] Received order ${orderNumber} with ${items.length} items. Total: ${currency} ${totalAmount}`);
+
     } else {
       console.log(`ℹ️ Unsupported message type: ${messageType} - skipping`);
       return;
     }
 
     // ── Skip if nothing to save ────────────────────────────
-    if (!text && !mediaUrl) {
+    if (!text && !mediaUrl && !locLatitude) {
       console.log(`⚠️ No content extracted from message type: ${messageType}`);
       return;
     }
 
     // ── Save message via service ───────────────────────────
-        const result = await handleIncomingMessage({
+    const result = await handleIncomingMessage({
       contactId: contact.id,
       tenantId: tenant.id,
       text,
@@ -584,66 +1135,134 @@ export const processWebhookJob = async (job) => {
       wamid: messageId,
     });
 
+    // ── Phase 4: Log message as Zoho Note ──
+    try {
+      const { logMessageAsZohoNote } = await import('../modules/zoho/zohoNoteService.js');
+      logMessageAsZohoNote(tenant.id, contact.id, {
+        direction: 'INBOUND',
+        senderType: 'CONTACT',
+        type,
+        text,
+        mediaName,
+        caption,
+        channel: 'WhatsApp',
+        locLatitude,
+        locLongitude,
+        locName,
+        locAddress,
+        createdAt: new Date(),
+      }).catch(() => {});
+    } catch (_) {}
+
+    // ── Preference-scoped Zoho auto-sync for new WhatsApp contacts ──
+    if (isNewContact) {
+      await triggerZohoAutoSyncForNewContact(tenant.id, contact);
+    }
+
+       // ── WooCommerce Review Rating Detection ──
+    const reviewRating = parseWooReviewRating(text);
+    if (reviewRating !== null) {
+      const customerDigits = String(contact.phone || '').replace(/\D/g, '');
+      const recentReviewRequests = await prisma.ecommerceOrder.findMany({
+        where: {
+          tenantId: tenant.id,
+          source: 'WOOCOMMERCE',
+          status: { in: ['completed', 'delivered', 'wc-completed', 'wc-delivered'] },
+          reviewRequestedAt: { gte: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000) },
+          reviewRating: null,
+        },
+        orderBy: { reviewRequestedAt: 'desc' },
+        take: 20,
+      });
+      const reviewOrder = recentReviewRequests.find((candidate) => {
+        const orderDigits = String(candidate.customerPhone || '').replace(/\D/g, '');
+        return orderDigits && customerDigits && (
+          orderDigits === customerDigits ||
+          orderDigits.endsWith(customerDigits.slice(-8)) ||
+          customerDigits.endsWith(orderDigits.slice(-8))
+        );
+      });
+
+      if (reviewOrder) {
+        await prisma.ecommerceOrder.updateMany({
+          where: { id: reviewOrder.id, tenantId: tenant.id, reviewRating: null },
+          data: { reviewRating, reviewReceivedAt: new Date() },
+        });
+        console.log(`⭐ [WooCommerce] Saved ${reviewRating}/5 review for order #${reviewOrder.orderNumber}`);
+      }
+    }
+
+    // ── WooCommerce COD Verification (CONFIRM_COD_ / CANCEL_COD_) ──
+    if (messageType === 'interactive' && message.interactive?.type === 'button_reply') {
+      const codButtonId = String(message.interactive.button_reply?.id || '');
+      if (codButtonId.startsWith('CONFIRM_COD_') || codButtonId.startsWith('CANCEL_COD_')) {
+        try {
+          await processWooCodButtonReply({
+            tenantId: tenant.id,
+            contact,
+            buttonId: codButtonId,
+          });
+        } catch (codErr) {
+          console.error(`❌ [Woo COD] Button handler failed for ${codButtonId}:`, codErr.message);
+        }
+      }
+    }
+
     // ── Socket: emit to tenant room ────────────────────────
     emitToTenant(tenant.id, 'new_message', {
       conversationId: result.conversation.id,
       message: {
         id: result.message.id,
-        type: result.message.type,        // ✅ correct type now
+        type: result.message.type,
         text: result.message.text,
         senderId: result.message.senderId,
         senderType: 'CONTACT',
         direction: 'INBOUND',
         isFromCustomer: true,
-        mediaUrl: result.message.mediaUrl, 
-        mediaName:      result.message.mediaName,
-        mediaSize:      result.message.mediaSize,
-        mediaMimeType:  result.message.mediaMimeType,
-        caption:        result.message.caption,
-        locLatitude:    result.message.locLatitude,
-        locLongitude:   result.message.locLongitude,
-        locName:        result.message.locName,
-        locAddress:     result.message.locAddress,
-        createdAt:      result.message.createdAt,
+        mediaUrl: result.message.mediaUrl,
+        mediaName: result.message.mediaName,
+        mediaSize: result.message.mediaSize,
+        mediaMimeType: result.message.mediaMimeType,
+        caption: result.message.caption,
+        locLatitude: result.message.locLatitude,
+        locLongitude: result.message.locLongitude,
+        locName: result.message.locName,
+        locAddress: result.message.locAddress,
+        createdAt: result.message.createdAt,
       }
     });
 
-
-
-    // ── Socket: emit notification to tenant ────────────────
-  
     // ── Save + Emit notification ───────────────────────────
     const notifMessage = text
       ? text.substring(0, 100)
       : `Sent a ${type.toLowerCase()}`;
 
-    const notifTitle   = `New message from ${contact.name}`;
-    const notifMeta    = {
-      contactId:      contact.id,
+    const notifTitle = `New message from ${contact.name}`;
+    const notifMeta = {
+      contactId: contact.id,
       conversationId: result.conversation.id,
-      messageId:      result.message.id,
+      messageId: result.message.id,
     };
 
-    // ✅ Save tenant notification to DB then emit
     try {
       const tenantNotif = await createNotification({
         tenantId: tenant.id,
-        userId:   null,           // tenant-wide
-        type:     'new_message',
-        title:    notifTitle,
-        message:  notifMessage,
+        userId: null,
+        type: 'new_message',
+        title: notifTitle,
+        message: notifMessage,
         metadata: notifMeta,
       });
 
       emitToTenant(tenant.id, 'new_notification', {
         notification: {
-          id:        tenantNotif.id,
-          type:      tenantNotif.type,
-          title:     tenantNotif.title,
-          message:   tenantNotif.message,
-          isRead:    tenantNotif.isRead,
+          id: tenantNotif.id,
+          type: tenantNotif.type,
+          title: tenantNotif.title,
+          message: tenantNotif.message,
+          isRead: tenantNotif.isRead,
           createdAt: tenantNotif.createdAt,
-          metadata:  tenantNotif.metadata,
+          metadata: tenantNotif.metadata,
         },
       });
       console.log(`📤 Tenant notif saved+emitted: ${tenantNotif.id}`);
@@ -654,7 +1273,6 @@ export const processWebhookJob = async (job) => {
     // ── Socket: emit to assigned user ──────────────────────
     if (contact.assignedTo) {
       emitToUser(contact.assignedTo, 'new_message', {
-
         conversationId: result.conversation.id,
         message: {
           id: result.message.id,
@@ -664,48 +1282,158 @@ export const processWebhookJob = async (job) => {
           senderType: 'CONTACT',
           direction: 'INBOUND',
           isFromCustomer: true,
-          mediaUrl:       result.message.mediaUrl,
-          mediaName:      result.message.mediaName,
-          mediaSize:      result.message.mediaSize,
-          mediaMimeType:  result.message.mediaMimeType,
-          caption:        result.message.caption,
-          locLatitude:    result.message.locLatitude,
-          locLongitude:   result.message.locLongitude,
-          locName:        result.message.locName,
-          locAddress:     result.message.locAddress,
-          createdAt:      result.message.createdAt,
+          mediaUrl: result.message.mediaUrl,
+          mediaName: result.message.mediaName,
+          mediaSize: result.message.mediaSize,
+          mediaMimeType: result.message.mediaMimeType,
+          caption: result.message.caption,
+          locLatitude: result.message.locLatitude,
+          locLongitude: result.message.locLongitude,
+          locName: result.message.locName,
+          locAddress: result.message.locAddress,
+          createdAt: result.message.createdAt,
         }
       });
 
-          // ✅ Save user notification to DB then emit
       try {
         const userNotif = await createNotification({
           tenantId: tenant.id,
-          userId:   contact.assignedTo,   // user-specific
-          type:     'new_message',
-          title:    notifTitle,
-          message:  notifMessage,
+          userId: contact.assignedTo,
+          type: 'new_message',
+          title: notifTitle,
+          message: notifMessage,
           metadata: notifMeta,
         });
 
         emitToUser(contact.assignedTo, 'new_notification', {
           notification: {
-            id:        userNotif.id,
-            type:      userNotif.type,
-            title:     userNotif.title,
-            message:   userNotif.message,
-            isRead:    userNotif.isRead,
+            id: userNotif.id,
+            type: userNotif.type,
+            title: userNotif.title,
+            message: userNotif.message,
+            isRead: userNotif.isRead,
             createdAt: userNotif.createdAt,
-            metadata:  userNotif.metadata,
+            metadata: userNotif.metadata,
           },
         });
         console.log(`📤 User notif saved+emitted to: ${contact.assignedTo}`);
       } catch (err) {
         console.error('❌ User notification failed:', err.message);
       }
-
     } else {
       console.log(`ℹ️ Contact unassigned - tenant room notified only`);
+    }
+
+    // ── Save Order in DB & Trigger Order Flow (if messageType === 'order') ──
+    if (messageType === 'order') {
+      try {
+        const orderPayload = message.order;
+        const catalogId = orderPayload?.catalog_id || tenant.whatsappCatalogId || null;
+        const items = orderPayload?.product_items || [];
+        const customerNote = orderPayload?.text || null;
+        const currency = items[0]?.currency || 'INR';
+        const totalAmount = items.reduce((sum, it) => sum + (Number(it.item_price || 0) * Number(it.quantity || 1)), 0);
+
+        const existingPendingOrder = await prisma.order.findFirst({
+          where: {
+            conversationId: result.conversation.id,
+            status: 'PENDING'
+          },
+          orderBy: { createdAt: 'desc' }
+        });
+
+        const existingFlowData = result.conversation.flowData || {};
+        const deliveryAddress = existingFlowData.deliveryAddress || existingPendingOrder?.deliveryAddress || null;
+
+        let createdOrder;
+
+        if (existingPendingOrder) {
+          await prisma.orderItem.deleteMany({
+            where: { orderId: existingPendingOrder.id }
+          }).catch(() => null);
+
+          createdOrder = await prisma.order.update({
+            where: { id: existingPendingOrder.id },
+            data: {
+              catalogId,
+              totalAmount,
+              currency,
+              customerNote,
+              deliveryAddress: deliveryAddress || existingPendingOrder.deliveryAddress,
+              wamid: messageId,
+              items: {
+                create: items.map(it => ({
+                  tenantId: tenant.id,
+                  productRetailerId: it.product_retailer_id,
+                  productName: it.product_retailer_id,
+                  quantity: Number(it.quantity || 1),
+                  itemPrice: Number(it.item_price || 0),
+                  currency: it.currency || currency,
+                }))
+              }
+            },
+            include: {
+              items: true
+            }
+          });
+          console.log(`✅ [ORDER UPDATED] Existing Order #${createdOrder.orderNumber} updated with items (ID: ${createdOrder.id})`);
+        } else {
+          const orderMatch = text ? text.match(/#([A-Z0-9_-]+)/) : null;
+          const orderNumber = orderMatch ? orderMatch[1] : `ORD-${tenant.id.slice(-4).toUpperCase()}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+
+          createdOrder = await prisma.order.create({
+            data: {
+              orderNumber,
+              tenantId: tenant.id,
+              conversationId: result.conversation.id,
+              contactId: contact.id,
+              catalogId,
+              totalAmount,
+              currency,
+              customerNote,
+              deliveryType: existingFlowData.deliveryType || null,
+              deliveryAddress: deliveryAddress,
+              deliveryName: existingFlowData.deliveryName || null,
+              deliveryLat: existingFlowData.deliveryLat || null,
+              deliveryLng: existingFlowData.deliveryLng || null,
+              status: 'PENDING',
+              wamid: messageId,
+              items: {
+                create: items.map(it => ({
+                  tenantId: tenant.id,
+                  productRetailerId: it.product_retailer_id,
+                  productName: it.product_retailer_id,
+                  quantity: Number(it.quantity || 1),
+                  itemPrice: Number(it.item_price || 0),
+                  currency: it.currency || currency,
+                }))
+              }
+            },
+            include: {
+              items: true
+            }
+          });
+          console.log(`✅ [ORDER CREATED] New Order #${createdOrder.orderNumber} saved (ID: ${createdOrder.id})`);
+        }
+
+        // ── Phase 4: Create Zoho Deal from order ──
+        try {
+          const { createZohoDealFromOrder } = await import('../modules/zoho/zohoDealService.js');
+          createZohoDealFromOrder(tenant.id, createdOrder, contact).catch(() => {});
+        } catch (_) {}
+
+        emitToTenant(tenant.id, 'new_order', {
+          order: createdOrder,
+          conversationId: result.conversation.id,
+          contactName: contact.name,
+          contactPhone: contact.phone
+        });
+
+        await flowEngine.triggerOrderFlow(result.conversation, contact, createdOrder);
+
+      } catch (orderErr) {
+        console.error('❌ Failed to create order or trigger order flow:', orderErr);
+      }
     }
 
     console.log(`✅ Message processed: type=${type}, contact=${contact.name}`);
@@ -743,7 +1471,7 @@ const downloadWhatsAppMedia = async ({
   }
 
   const metaData = await metaRes.json();
-  const downloadUrl = metaData.url;  // temporary, expires soon
+  const downloadUrl = metaData.url;
 
   if (!downloadUrl) {
     throw new Error('No download URL returned from Meta API');
@@ -784,7 +1512,7 @@ const downloadWhatsAppMedia = async ({
       path: urlObj.pathname + urlObj.search,
       method: 'GET',
       headers: {
-        Authorization: `Bearer ${accessToken}`,  // ✅ Required for WhatsApp CDN
+        Authorization: `Bearer ${accessToken}`,
       },
     };
 
@@ -818,7 +1546,6 @@ const downloadWhatsAppMedia = async ({
       reject(err);
     });
 
-    // 30 second timeout
     request.setTimeout(30000, () => {
       request.destroy();
       if (fs.existsSync(localPath)) fs.unlinkSync(localPath);
@@ -876,12 +1603,11 @@ const MIME_TO_EXT = {
   'application/vnd.ms-excel': '.xls',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
   'text/plain': '.txt',
-  'image/webp; codecs=vp8': '.webp',  // sticker format
+  'image/webp; codecs=vp8': '.webp',
 };
 
 const getExtFromMime = (mimeType) => {
   if (!mimeType) return '.bin';
-  // Handle mime types with params like "audio/ogg; codecs=opus"
   const baseMime = mimeType.split(';')[0].trim().toLowerCase();
   return MIME_TO_EXT[mimeType] || MIME_TO_EXT[baseMime] || '.bin';
 };

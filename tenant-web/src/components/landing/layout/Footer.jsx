@@ -162,9 +162,9 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Column 4 — Support */}
+          {/* Column 4 — Support & Legal */}
           <div>
-            <h4 className="mb-4 text-sm font-semibold text-white">Support</h4>
+            <h4 className="mb-4 text-sm font-semibold text-white">Support & Legal</h4>
             <ul className="space-y-3">
               <li>
                 <Link to="/help" className="text-sm transition hover:text-white">
@@ -182,8 +182,18 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <Link to="/status" className="text-sm transition hover:text-white">
-                  Status
+                <Link to="/refund-policy" className="text-sm transition hover:text-white">
+                  Cancellation & Refunds
+                </Link>
+              </li>
+              <li>
+                <Link to="/shipping-policy" className="text-sm transition hover:text-white">
+                  Shipping & Delivery
+                </Link>
+              </li>
+              <li>
+                <Link to="/contact" className="text-sm transition hover:text-white">
+                  Contact Us
                 </Link>
               </li>
             </ul>
@@ -196,15 +206,21 @@ export default function Footer() {
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-6 py-5 md:flex-row">
           <p className="text-xs">© 2026 sudoreply All rights reserved.</p>
 
-          <div className="flex gap-6">
+          <div className="flex flex-wrap gap-4 md:gap-6">
             <Link to="/privacy" className="text-xs transition hover:text-white">
-              Privacy
+              Privacy Policy
             </Link>
             <Link to="/terms" className="text-xs transition hover:text-white">
               Terms
             </Link>
-            <Link to="/privacy" className="text-xs transition hover:text-white">
-              Cookies
+            <Link to="/refund-policy" className="text-xs transition hover:text-white">
+              Refunds
+            </Link>
+            <Link to="/shipping-policy" className="text-xs transition hover:text-white">
+              Shipping
+            </Link>
+            <Link to="/contact" className="text-xs transition hover:text-white">
+              Contact
             </Link>
           </div>
         </div>

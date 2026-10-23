@@ -41,8 +41,8 @@ const notifySuperAdminWhatsAppStatus = async ({
       actorType:   'TENANT',
       actorName:   tenantName,
       actorEmail:  tenantEmail,
-      action:      isConnected ? 'WHATSAPP_CONNECTED' : 'WHATSAPP_DISCONNECTED',
-      module:      'WHATSAPP',
+      action:      'TENANT_UPDATED',
+      module:      'INTEGRATIONS',
       description: `Tenant "${tenantName}" ${isConnected ? 'connected' : 'disconnected'} WhatsApp${phoneNumberId ? ` — Phone ID: ${phoneNumberId}` : ''}`,
       targetId:    phoneNumberId || null,
       targetType:  'WHATSAPP',
@@ -51,6 +51,7 @@ const notifySuperAdminWhatsAppStatus = async ({
       metadata: {
         phoneNumberId: phoneNumberId || null,
         wabaId:        wabaId        || null,
+        event:         isConnected ? 'WHATSAPP_CONNECTED' : 'WHATSAPP_DISCONNECTED',
         action,
       },
     });
@@ -387,13 +388,13 @@ await notifySuperAdminWhatsAppStatus({
 // POST /api2/whatsapp/setup
 // ─────────────────────────────────────────────────────────────────────────────
 export const setupWhatsApp = async (req, res) => {
-  const { phoneNumberId, wabaId } = req.body;
+  const { phoneNumberId, wabaId, accessToken: customToken } = req.body;
   const tenantId = req.tenantId;
 
-  if (!phoneNumberId || !wabaId) {
+  if (!phoneNumberId) {
     return res.status(400).json({
       success: false,
-      message: "phoneNumberId and wabaId are required.",
+      message: "phoneNumberId is required.",
     });
   }
 
@@ -418,19 +419,19 @@ export const setupWhatsApp = async (req, res) => {
       });
     }
 
-    const accessToken = process.env.META_SYSTEM_USER_TOKEN;
+    const accessToken = customToken?.trim() || process.env.META_SYSTEM_USER_TOKEN;
 
     if (!accessToken) {
-      console.error("❌ META_SYSTEM_USER_TOKEN not set");
-      return res.status(500).json({
+      console.error("❌ No access token provided and META_SYSTEM_USER_TOKEN not set");
+      return res.status(400).json({
         success: false,
-        message: "System configuration error",
+        message: "Permanent Access Token is required. Please provide it in the connection form or configure META_SYSTEM_USER_TOKEN on the server.",
       });
     }
 
-    console.log("[WhatsApp] Verifying with system user token...");
+    console.log("[WhatsApp] Verifying with access token...");
     const verifyRes = await fetch(
-      `https://graph.facebook.com/v25.0/${phoneNumberId}?access_token=${accessToken}`
+      `https://graph.facebook.com/v22.0/${phoneNumberId}?access_token=${accessToken}`
     );
     const verifyData = await verifyRes.json();
 
@@ -442,14 +443,77 @@ export const setupWhatsApp = async (req, res) => {
       });
     }
 
-    console.log("[WhatsApp] ✅ Verified:", verifyData.display_phone_number);
+    const resolvedWabaId = wabaId?.trim();
+    if (!resolvedWabaId) {
+      return res.status(400).json({
+        success: false,
+        message: "WhatsApp Business Account (WABA) ID is required. Please provide your WABA ID.",
+      });
+    }
+
+    // Verify WABA ID exists and is accessible with this token
+    console.log(`[WhatsApp] Verifying WABA ID ${resolvedWabaId}...`);
+    const wabaVerifyRes = await fetch(
+      `https://graph.facebook.com/v22.0/${resolvedWabaId}?access_token=${accessToken}`
+    );
+    const wabaVerifyData = await wabaVerifyRes.json();
+    if (wabaVerifyData.error) {
+      console.error("[WhatsApp] WABA verification failed:", wabaVerifyData.error);
+      return res.status(400).json({
+        success: false,
+        message: `WABA ID verification failed: ${wabaVerifyData.error.message}. Please make sure you entered the WhatsApp Business Account ID (WABA ID), NOT your Meta Business Portfolio / Manager ID.`,
+      });
+    }
+
+    console.log("[WhatsApp] ✅ Verified phone:", verifyData.display_phone_number, "WABA:", resolvedWabaId);
+
+    // ── Register Phone Number with Meta Cloud API ────────────────────
+    const regPin = req.body.pin || crypto.randomInt(100000, 999999).toString();
+    try {
+      console.log(`[WhatsApp] Auto-registering phone number ${phoneNumberId} with Meta...`);
+      const regRes = await fetch(
+        `https://graph.facebook.com/v22.0/${phoneNumberId}/register`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            messaging_product: "whatsapp",
+            pin: regPin,
+          }),
+        }
+      );
+      const regData = await regRes.json();
+      console.log("[WhatsApp] Phone registration response:", regData);
+    } catch (e) {
+      console.warn("[WhatsApp] Phone auto-registration error (non-fatal):", e.message);
+    }
+
+    // ── Subscribe WABA to app webhooks ────────────────────────────────
+    try {
+      console.log(`[WhatsApp] Subscribing WABA ${resolvedWabaId} to app webhooks...`);
+      const subRes = await fetch(
+        `https://graph.facebook.com/v22.0/${resolvedWabaId}/subscribed_apps`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${accessToken}` },
+        }
+      );
+      const subData = await subRes.json();
+      console.log("[WhatsApp] Webhook subscription response:", subData);
+    } catch (e) {
+      console.warn("[WhatsApp] Webhook subscription failed (non-fatal):", e.message);
+    }
 
     await prisma.tenant.update({
       where: { id: tenantId },
       data: {
         whatsappPhoneId: phoneNumberId,
-        whatsappWabaId: wabaId,
+        whatsappWabaId: resolvedWabaId,
         whatsappAccessToken: encrypt(accessToken),
+        whatsappPin: encrypt(regPin),
       },
     });
 

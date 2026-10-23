@@ -7,6 +7,10 @@ import {
   UserCheck,
   StopCircle,
   MousePointerClick,
+  ShoppingBag,
+  Navigation,
+  MapPin,
+  CreditCard,
 } from 'lucide-react'
 
 const nodeTypes = [
@@ -18,6 +22,15 @@ const nodeTypes = [
     bg: 'bg-[#EAF2FE]',
     border: 'border-[#CFE0FD]',
   },
+  {
+    type: 'PAYMENT',
+    label: 'Razorpay Pay',
+    description: 'WhatsApp Pay button',
+    icon: <CreditCard size={16} className="text-emerald-600" />,
+    bg: 'bg-emerald-50',
+    border: 'border-emerald-200',
+  },
+
   {
     type: 'ASK_QUESTION',
     label: 'Ask Question',
@@ -34,13 +47,37 @@ const nodeTypes = [
     bg: 'bg-purple-50',
     border: 'border-purple-200',
   },
-   {
+  {
     type: 'INTERACTIVE_BUTTONS',
     label: 'Buttons',
     description: 'Show reply buttons',
     icon: <MousePointerClick size={16} className="text-green-600" />,
     bg: 'bg-green-50',
     border: 'border-green-200',
+  },
+  {
+    type: 'SEND_CATALOG',
+    label: 'Send Catalog',
+    description: 'Open product catalog',
+    icon: <ShoppingBag size={16} className="text-indigo-600" />,
+    bg: 'bg-indigo-50',
+    border: 'border-indigo-200',
+  },
+  {
+    type: 'ASK_LOCATION',
+    label: 'Request Location',
+    description: 'Home delivery GPS',
+    icon: <Navigation size={16} className="text-teal-600" />,
+    bg: 'bg-teal-50',
+    border: 'border-teal-200',
+  },
+  {
+    type: 'SEND_LOCATION',
+    label: 'Store Location Pin',
+    description: 'Store pickup map pin',
+    icon: <MapPin size={16} className="text-orange-600" />,
+    bg: 'bg-orange-50',
+    border: 'border-orange-200',
   },
   {
     type: 'ASSIGN_AGENT',

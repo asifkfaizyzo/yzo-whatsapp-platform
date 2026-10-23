@@ -12,6 +12,7 @@ import {
     refreshTokenSchema,
     logoutSchema,
     googleLoginSchema,
+    facebookLoginSchema,
     changePasswordSchema
 } from '../../validations/auth.validation.js';
 import validate from '../../middlewares/validate.middleware.js';
@@ -51,6 +52,7 @@ router.post('/forgot-ten-password', validate(forgotPasswordSchema), tenantContro
 router.post('/reset-ten-password', validate(resetPasswordSchema), tenantController.resetPasswordTenant);
 
 router.post('/google-login', validate(googleLoginSchema), tenantController.googleLoginTenant);
+router.post('/facebook-login', validate(facebookLoginSchema), tenantController.facebookLoginTenant);
 
 // ===================== TENANT PROFILE =====================
 router.get('/me', verifyTenant, tenantController.getLoggedInTenant);
@@ -86,4 +88,21 @@ router.put('/auto-reopen-config', verifyTenant, validate(updateAutoReopenSchema)
 router.get('/whatsapp-credentials', verifyTenant, tenantController.getWhatsappCredentials);
 router.put('/whatsapp-credentials', verifyTenant, tenantController.updateWhatsappCredentials);
 
-export default router;
+// ===================== META (FB & IG) CHANNELS =====================
+router.get('/meta-channels/status', verifyTenant, tenantController.getMetaChannelsStatus);
+router.post('/meta-channels/connect', verifyTenant, tenantController.connectMetaChannels);
+router.delete('/meta-channels/disconnect', verifyTenant, tenantController.disconnectMetaChannels);
+
+import * as razorpayOAuthController from './razorpayOAuthController.js';
+
+// ===================== PAYMENT GATEWAY (RAZORPAY) =====================
+router.get('/payment-gateway', verifyTenant, tenantController.getPaymentGatewayConfig);
+router.put('/payment-gateway', verifyTenant, tenantController.updatePaymentGatewayConfig);
+router.post('/payment-gateway/test', verifyTenant, tenantController.testPaymentGatewayConnection);
+
+// ===================== PAYMENT GATEWAY (RAZORPAY OAUTH) =====================
+router.get('/payment-gateway/oauth/url', verifyTenant, razorpayOAuthController.getOAuthAuthorizeUrl);
+router.get('/payment-gateway/oauth/status', verifyTenant, razorpayOAuthController.getOAuthStatus);
+router.post('/payment-gateway/oauth/disconnect', verifyTenant, razorpayOAuthController.disconnectRazorpayOAuth);
+
+export default router;

@@ -117,7 +117,7 @@ useEffect(() => {
     try {
       const audio = new Audio("/notification.mp3");
       audio.volume = 0.3;
-      audio.play();
+      audio.play().catch(() => {});
     } catch (err) {
       // silent fail
     }

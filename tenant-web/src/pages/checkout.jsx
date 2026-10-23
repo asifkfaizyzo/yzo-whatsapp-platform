@@ -5,10 +5,13 @@ import { useAuthStore } from "../store/useAuthStore";
 import { useToast } from "../context/ToastContext";
 import {
   getPublicPlans,
+  createPaidSubscription,
+  verifyPaidSubscription,
   createPaymentOrder,
   verifyPayment,
-  getPublicTaxSettings,   // ← ADD
+  getPublicTaxSettings,
 } from "../services/plan.service";
+import { Sparkles, ShieldCheck, ChevronLeft } from "lucide-react";
 import { PaymentVerifyingLoader, PaymentSuccessScreen } from "../components/CustomLoader";
 
 
@@ -202,7 +205,7 @@ export default function Checkout() {
     return Object.keys(newErrors).length === 0;
   };
 
-  // ── Handle Payment ──
+  // ── Handle Payment (Recurring Autopay Subscription with Upfront Debit) ──
   const handlePayment = async () => {
     if (!validate()) return;
     setProcessing(true);
@@ -210,30 +213,29 @@ export default function Checkout() {
     try {
       await loadRazorpayScript();
 
-      const orderRes = await createPaymentOrder(planId, billingType);
+      // Create Razorpay Subscription with upfront debit
+      const subRes = await createPaidSubscription(planId, billingType);
 
-      if (!orderRes.success) {
-        toast.error("Failed to create order: " + orderRes.message);
+      if (!subRes.success) {
+        toast.error("Failed to initiate subscription: " + subRes.message);
         setProcessing(false);
         return;
       }
 
-      const { orderId, amount, currency } = orderRes.data;
+      const { subscriptionId, keyId } = subRes.data;
 
       const options = {
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
-        amount,
-        currency,
+        key: keyId || import.meta.env.VITE_RAZORPAY_KEY_ID,
+        subscription_id: subscriptionId,
         name: "SudoReply",
-        description: `${plan.name} Plan - ${billingType}`,
-        image: window.location.protocol === "https:" ? `${window.location.origin}/sudo2.png` : undefined,
-        order_id: orderId,
+        description: `${plan.name} Plan (${billingType === "annual" ? "Annual" : "Monthly"}) - Autopay Mandate`,
+        image: "/sudo_bg.png",
         handler: async function (response) {
           setProcessing(false);
           setVerifying(true);
-          const verifyRes = await verifyPayment({
-            razorpay_order_id: response.razorpay_order_id,
+          const verifyRes = await verifyPaidSubscription({
             razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_subscription_id: response.razorpay_subscription_id,
             razorpay_signature: response.razorpay_signature,
             planId,
             billingType,
@@ -248,7 +250,10 @@ export default function Checkout() {
               ...user,
               planId,
               planStatus: "active",
+              subscriptionStatus: "active",
+              currentPlan: plan.name,
               billingType,
+              autopayEnabled: true,
               address: billingDetails.address,
               phone: billingDetails.phone,
             };
@@ -258,7 +263,7 @@ export default function Checkout() {
             }, 2500);
           } else {
             setVerifying(false);
-            toast.error("Payment verification failed: " + verifyRes.message);
+            toast.error("Subscription verification failed: " + verifyRes.message);
             setProcessing(false);
           }
         },
@@ -271,6 +276,7 @@ export default function Checkout() {
         modal: {
           ondismiss: function () {
             setProcessing(false);
+            setVerifying(false);
           },
         },
       };
@@ -278,14 +284,16 @@ export default function Checkout() {
       const razorpayInstance = new window.Razorpay(options);
       razorpayInstance.on("payment.failed", function (response) {
         console.error("Razorpay payment failed:", response.error);
-        toast.error(response.error?.description || "Payment failed at bank. Please try again.");
+        toast.error(response.error?.description || "Payment authorization failed. Please try again.");
         setProcessing(false);
+        setVerifying(false);
       });
       razorpayInstance.open();
     } catch (err) {
       console.error("Payment error:", err);
       toast.error("Something went wrong. Please try again.");
       setProcessing(false);
+      setVerifying(false);
     }
   };
 
@@ -311,15 +319,24 @@ export default function Checkout() {
 
       {/* Header */}
       <div className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
-        <Link to="/" className="inline-flex items-center">
-          <img src="/sudo_bg.png" alt="SudoReply Logo" className="w-12 h-12 object-contain" />
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link to="/" className="inline-flex items-center">
+            <img src="/sudo_bg.png" alt="SudoReply Logo" className="w-12 h-12 object-contain" />
+          </Link>
+          <Link
+            to={`/select-plan?upgrade=true&planId=${planId}&billing=${billingType}`}
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-200 hover:border-slate-300 bg-slate-50 hover:bg-slate-100 text-xs font-bold text-slate-700 transition"
+          >
+            <ChevronLeft size={14} />
+            <span>Back to Plans</span>
+          </Link>
+        </div>
         <div className="flex items-center gap-3">
           <div className="hidden sm:flex items-center gap-2 text-xs font-semibold">
-            <span className="flex items-center gap-1.5 text-emerald-600">
+            <Link to={`/select-plan?upgrade=true&planId=${planId}&billing=${billingType}`} className="flex items-center gap-1.5 text-emerald-600 hover:underline">
               <span className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center text-[10px] font-bold">✓</span>
               Select Plan
-            </span>
+            </Link>
             <span className="text-gray-300">→</span>
             <span className="flex items-center gap-1.5 text-[#125EF2]">
               <span className="w-5 h-5 rounded-full bg-[#125EF2] flex items-center justify-center text-[10px] font-bold text-white">2</span>
@@ -634,6 +651,17 @@ export default function Checkout() {
                 </ul>
               </div>
 
+              {/* Subscription & Billing Guarantee Notice */}
+              <div className="rounded-2xl p-4 bg-blue-50/80 border border-blue-100 text-xs space-y-1.5">
+                <div className="flex items-center gap-2 font-bold text-blue-900">
+                  <Sparkles size={14} className="text-[#125EF2]" />
+                  <span>Subscription & Billing Notice</span>
+                </div>
+                <p className="text-blue-800/80 leading-relaxed">
+                  Billed upfront today ({billingType === "annual" ? "Annual License" : "Monthly"}). Instant GST invoice generated. Manage or cancel subscription anytime under Workspace Billing.
+                </p>
+              </div>
+
               <button
                 onClick={handlePayment}
                 disabled={processing}
@@ -657,7 +685,7 @@ export default function Checkout() {
               </button>
 
               <button
-                onClick={() => navigate(`/select-plan?planId=${planId}&billing=${billingType}`)}
+                onClick={() => navigate(`/select-plan?upgrade=true&planId=${planId}&billing=${billingType}`)}
                 className="w-full py-2.5 text-gray-400 text-sm font-medium hover:text-gray-600 transition text-center"
               >
                 ← Back to Plans

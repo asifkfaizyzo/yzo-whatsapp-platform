@@ -102,7 +102,7 @@ export const submitEnterpriseLead = async (req, res) => {
     // 3️⃣ Send Nodemailer emails (non-blocking)
     sendEnterpriseLeadConfirmationEmail(email, contactName).catch(console.error);
     
-    const adminEmail = process.env.EMAIL_USER || 'admin@sudoreply.com';
+    const adminEmail = process.env.EMAIL_USER || 'info@sudoreply.com';
     sendEnterpriseLeadNotificationEmail(adminEmail, {
       companyName,
       contactName,

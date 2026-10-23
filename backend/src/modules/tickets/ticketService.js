@@ -29,7 +29,6 @@ export const createTenantTicketService = async (tenantId, data) => {
     select: { email: true },
   });
 
-  // ✅ Log what we found — helps debug missing emails
   console.log("📧 Tenant ticket — SuperAdmin email:", superAdmin?.email);
 
   const ticket = await prisma.ticket.create({
@@ -46,7 +45,17 @@ export const createTenantTicketService = async (tenantId, data) => {
     },
   });
 
-   // ✅ ADD audit log
+  // ── Zoho Integration Hook: Sync Ticket to Zoho CRM Cases ──
+  try {
+    const { syncTicketToZohoCase } = await import('../zoho/zohoCaseService.js');
+    syncTicketToZohoCase(tenantId, ticket.id).catch((err) => {
+      console.error(`⚠️ [ZohoCase] Background sync skipped/failed for Ticket ${ticket.ticketNumber}:`, err.message);
+    });
+  } catch (_) {
+    // Zoho module not connected or active
+  }
+
+   // ✅ LOG audit log
   await createAuditLog({
     actorId:     tenantId,
     actorType:   'TENANT',
@@ -222,7 +231,6 @@ export const createUserTicketService = async (userId, tenantId, data) => {
     select: { tenantName: true, email: true },
   });
 
-  // ✅ Critical log — if tenant.email is null, email will silently skip
   console.log("📧 User ticket — Tenant email:", tenant?.email);
   console.log("👤 User found:", user);
 
@@ -241,7 +249,17 @@ export const createUserTicketService = async (userId, tenantId, data) => {
     },
   });
 
-    // ✅ ADD audit log
+  // ── Zoho Integration Hook: Sync Ticket to Zoho CRM Cases ──
+  try {
+    const { syncTicketToZohoCase } = await import('../zoho/zohoCaseService.js');
+    syncTicketToZohoCase(tenantId, ticket.id).catch((err) => {
+      console.error(`⚠️ [ZohoCase] Background sync skipped/failed for Ticket ${ticket.ticketNumber}:`, err.message);
+    });
+  } catch (_) {
+    // Zoho module not connected or active
+  }
+
+    // ✅ LOG audit log
   await createAuditLog({
     actorId:     userId,
     actorType:   'USER',
@@ -514,7 +532,7 @@ export const escalateTicketService = async (ticketId, tenantId) => {
     data:  { isEscalated: true, updatedAt: new Date() },
   });
 
-   // ✅ ADD audit log
+   // ✅ LOG audit log
   await createAuditLog({
     actorId:     tenantId,
     actorType:   'TENANT',

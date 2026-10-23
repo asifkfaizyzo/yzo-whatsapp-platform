@@ -24,8 +24,8 @@ if [ -f ./tenant-web/.env ]; then
 fi
 
 # 2. Pull latest code from Git
-echo "📥 Pulling latest code from Git repository..."
-git pull origin prod || git pull origin main || echo "⚠️ Git pull failed or not a git repo branch, proceeding with local code..."
+echo "📥 Pulling latest code from Git repository (prod branch)..."
+git pull origin prod
 
 # 3. Build and recreate Docker containers with limits
 echo "🔨 Building Docker images & starting containers with resource limits..."

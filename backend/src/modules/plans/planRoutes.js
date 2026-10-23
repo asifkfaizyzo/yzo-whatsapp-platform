@@ -12,6 +12,10 @@ import {
   deleteFeature,
   createPaymentOrder,
   verifyPaymentAndActivate,
+  createSubscriptionTrial,
+  verifySubscriptionTrial,
+  createPaidSubscription,
+  verifyPaidSubscription,
   getBillingDetails,
   downloadInvoice
 } from "./planController.js";
@@ -42,6 +46,10 @@ router.get("/features", getFeatures);
 // ── Razorpay routes (TENANT ONLY — not regular users/agents) ──
 router.post("/create-order", verifyTenant, orderLimiter, createPaymentOrder);
 router.post("/verify-payment", verifyTenant, verifyPaymentAndActivate);
+router.post("/create-subscription-trial", verifyTenant, orderLimiter, createSubscriptionTrial);
+router.post("/verify-subscription-trial", verifyTenant, verifySubscriptionTrial);
+router.post("/create-paid-subscription", verifyTenant, orderLimiter, createPaidSubscription);
+router.post("/verify-paid-subscription", verifyTenant, verifyPaidSubscription);
 
 
 // ── Billing details (TENANT ONLY — not users) ──

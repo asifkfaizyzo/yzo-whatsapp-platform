@@ -7,14 +7,18 @@ const CONTACTS_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api4`;
 /**
  * Fetch all contacts for the logged-in tenant
  */
-export const getContacts = async (page = 1, limit = 10, search = "", filter = "all") => {
+export const getContacts = async (page = 1, limit = 10, search = "", filter = "all", channel = "ALL") => {
   try {
+    const params = { page, limit, search, filter };
+    if (channel && channel !== "ALL") {
+      params.channel = channel;
+    }
     const response = await api.get(`${CONTACTS_BASE_URL}/get-all-contacts`, {
-      params: { page, limit, search, filter }
+      params
     });
     return {
       success: true,
-      data: response.data.data, // Contains count, totalPages, currentPage, limit, and contacts
+      data: response.data.data, // Contains count, totalPages, currentPage, limit, channelCounts, and contacts
     };
   } catch (error) {
     return {

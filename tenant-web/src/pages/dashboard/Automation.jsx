@@ -468,23 +468,32 @@ export default function Automation() {
     setKeywordFlow(flow);
   };
 
- // Delete node from config panel
-const handleDeleteNode = async () => {
-  const ok = await confirm({
-    type: 'danger',
-    title: 'Delete Node',
-    message: 'Are you sure you want to delete this node?',
-    detail: 'Any connections to this node will also be removed.',
-    confirmLabel: 'Delete',
-    cancelLabel: 'Cancel',
-  });
+  const handleDelete = async (flow) => {
+    if (!isWhatsAppConnected) {
+      setShowConnectModal(true);
+      return;
+    }
+    const ok = await confirm({
+      type: "danger",
+      title: "Delete Flow",
+      message: `Are you sure you want to delete "${flow.name}"?`,
+      detail:
+        "This action cannot be undone. All nodes and keywords associated with this flow will be deleted.",
+      confirmLabel: "Delete Flow",
+      cancelLabel: "Cancel",
+    });
 
-  if (!ok) return;
+    if (!ok) return;
 
-  deleteElements({ nodes: [{ id: node.id }] });
-  toast.success("Node deleted successfully");
-  onClose();
-};
+    try {
+      await flowService.deleteFlow(flow.id);
+      toast.success("Flow deleted successfully");
+      loadData();
+    } catch (err) {
+      console.error(err);
+      toast.error(err?.response?.data?.message || "Failed to delete flow");
+    }
+  };
 
   const handleToggle = async (flowId, isActive) => {
     if (!isWhatsAppConnected) {

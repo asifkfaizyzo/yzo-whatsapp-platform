@@ -30,6 +30,42 @@ enum TenantStatus {
   BLOCKED
 }
 
+//─────────────────Razorpay Partner OAuth Enums─────────────────
+enum RazorpayAuthType {
+  DIRECT_KEYS
+  OAUTH
+}
+
+enum RazorpayAccountStatus {
+  CONNECTED
+  KYC_PENDING
+  VERIFIED
+  SUSPENDED
+  DISCONNECTED
+}
+
+enum RazorpayKycStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  NOT_APPLICABLE
+}
+
+//─────────────────Zoho Connection Status─────────────────
+enum ZohoConnectionStatus {
+  DISCONNECTED
+  CONNECTED
+  REFRESH_FAILED
+}
+
+//─────────────────enum ChannelType────────────────────
+enum ChannelType {
+  WHATSAPP
+  MESSENGER
+  INSTAGRAM
+}
+
+
 
 
 //──────────────────Model Tenant──────────────────
@@ -48,6 +84,18 @@ model Tenant {
   country     String?
   useCase     String?
 
+  // ── Zoho CRM Integration ──
+  zohoAccessToken        String?               // AES-256-GCM encrypted
+  zohoRefreshToken       String?               // AES-256-GCM encrypted
+  zohoTokenExpiresAt     DateTime?
+  zohoAccountId          String?               // Zoho user ID (zuid)
+  zohoDataCenter         String?               // "us" | "eu" | "in" | "au" | "jp" | "ca" | "sa" | "uk"
+  zohoApiDomain          String?               // e.g. "https://www.zohoapis.com"
+  zohoAccountEmail       String?               // Connected Zoho user email (display only)
+  zohoConnectionStatus   ZohoConnectionStatus  @default(DISCONNECTED)
+  zohoConnectedAt        DateTime?
+  zohoScopes             String?               // Comma-separated granted scopes
+
   logo      String?
   timezone  String?  @default("Asia/Kolkata")
 
@@ -56,13 +104,22 @@ model Tenant {
   otpExpiresAt             DateTime?
 
   googleId     String?  @unique
-  authProvider String   @default("LOCAL") // "LOCAL" | "GOOGLE"
+  facebookId   String?  @unique
+  authProvider String   @default("LOCAL") // "LOCAL" | "GOOGLE" | "FACEBOOK"
   
    whatsappPhoneId     String?  
    whatsappWabaId      String?  
    whatsappAccessToken String?  
    whatsappVerifyToken String?  @default("yzo_default_verification_token")
    whatsappPin         String?
+   whatsappCatalogId   String?  
+
+   // ─── Facebook & Instagram Integration ───
+   facebookPageId          String?
+   facebookPageName        String?
+   facebookPageAccessToken String?
+   instagramAccountId      String?
+   instagramUsername       String?
   
    status      TenantStatus @default(PENDING)
    isActive    Boolean   @default(true) 
@@ -85,6 +142,7 @@ model Tenant {
 
   users       User[]
   contacts      Contact[]
+  orders        Order[]
 
   templates   Template[]
   broadcasts  Broadcast[]
@@ -93,6 +151,7 @@ model Tenant {
   flows           Flow[]
   keywordTriggers  KeywordTrigger[]
   enterpriseLeads EnterpriseLead[]
+  quickReplies QuickReply[]
 
   subscriptionStatus   SubscriptionStatus  @default(trialing)
   currentPlan          String?
@@ -102,14 +161,52 @@ model Tenant {
   cancellationReason   String?
   reactivatedAt        DateTime?
   dataDeletionDate     DateTime?
+
+  hasUsedTrial         Boolean   @default(false)
+  trialPlanId          String?
+  trialExtendedCount   Int       @default(0)
+  trialExtendedByAdmin String?
+
+  razorpayCustomerId     String?
+  razorpaySubscriptionId String?   @unique
+  autopayEnabled         Boolean   @default(false)
+  autopayMethod          String?
+
+  // ── Merchant Order Commerce Payment Gateway ──
+  razorpayKeyId          String?
+  razorpayKeySecret      String?       // Encrypted with AES-256-GCM
+  razorpayWebhookSecret  String?       // Encrypted with AES-256-GCM
+  enableOnlinePayment    Boolean       @default(false)
+  enableCod              Boolean       @default(true)
+  defaultCurrency        String        @default("INR")
+  paymentLinkExpiryMins  Int           @default(30)
+  autoConfirmOnPayment   Boolean       @default(true)
+
+  // ── 1-Click Razorpay Partner OAuth Fields ──
+  razorpayAuthType       RazorpayAuthType      @default(DIRECT_KEYS)
+  razorpayAccountId      String?               // "acc_xxxxxxxx"
+  razorpayAccessToken    String?               // AES-256-GCM encrypted
+  razorpayRefreshToken   String?               // AES-256-GCM encrypted
+  razorpayTokenExpiresAt DateTime?
+  razorpayWebhookId      String?               // "hook_xxxxxxxx"
+  razorpayAccountStatus  RazorpayAccountStatus @default(DISCONNECTED)
+  razorpayKycStatus      RazorpayKycStatus     @default(PENDING)
+
   subscriptionReminders SubscriptionReminder[]
   invoices             Invoice[]
   cancellationSurvey   CancellationSurvey?
   dataDeletions        TenantDataDeletion[]
 
   @@index([whatsappPhoneId])
-    @@index([status])
+  @@index([status])
+  @@index([razorpayAccountId])
   auditLogs   AuditLog[] @relation("TenantAuditLogs")
+
+  googleSheetConnection GoogleSheetConnection?
+  sheetFields           SheetField[]
+  shopifyConnection     ShopifyConnection?
+  woocommerceConnection WooCommerceConnection?
+  ecommerceOrders EcommerceOrder[]
 }
 
 
@@ -134,6 +231,7 @@ model User {
   refreshTokens RefreshToken[]   // ← one user can have many refresh tokens
     userTags   UserTagMapping[]
     tickets Ticket[]
+  quickReplies QuickReply[]
 
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -186,9 +284,17 @@ model Contact {
 
   // ─── Basic Info ───
   name        String
-  phone       String
+  phone       String?
   email       String?
   company     String?
+
+  // ─── Multi-Channel Identity ───
+  channel     ChannelType @default(WHATSAPP)
+  channelId   String?     // PSID for Messenger, IGSID for Instagram, phone for WhatsApp
+  username    String?     // Instagram @username
+  avatarUrl   String?
+
+  providerMappings ContactProviderMapping[]
 
   // Link to Tag model
   contactTags ContactTagMapping[]
@@ -213,14 +319,17 @@ model Contact {
   assignedUser User? @relation("UserAssignedContacts",fields: [assignedTo],references: [id])
 
   conversations Conversation?  
+  orders        Order[]
 
   // ─── Timestamps ───
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@unique([phone, tenantId])
+  @@unique([tenantId, channel, channelId])
   @@index([assignedTo])      
   @@index([tenantId, createdAt])
+  @@index([tenantId, channel])
 }
 
 
@@ -314,11 +423,14 @@ model Conversation {
 
    // ── Archive ── 
   isArchived    Boolean   @default(false)
+  isPinned       Boolean   @default(false)
+  pinnedAt       DateTime?
   archivedAt    DateTime?
   archivedBy    String?   // userId or tenantId who archived
   archivedByRole String?  // "TENANT" | "USER"
 
   mode          ConversationMode  @default(BOT)
+  channel       ChannelType       @default(WHATSAPP)
   currentFlowId String?
   currentFlow   Flow?    @relation("ConversationFlow", fields: [currentFlowId], references: [id])
   currentNodeId String?
@@ -331,6 +443,7 @@ model Conversation {
 
   messages  Message[]
   activities    ConversationActivity[]
+  orders        Order[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -338,6 +451,7 @@ model Conversation {
   @@index([contactId])
   @@index([tenantId, status])
   @@index([tenantId, isArchived])
+  @@index([tenantId, channel])
   @@index([tenantId, mode])
   @@index([currentFlowId])
 }
@@ -353,6 +467,8 @@ enum MessageType {
   AUDIO
   INTERACTIVE_BUTTONS
   LOCATION 
+  ORDER
+  CATALOG
 }
 
 enum SenderType {
@@ -404,6 +520,7 @@ model Message {
   status         String       @default("sent") 
 
   // ── Analytics & Webhook Receipts ──
+  /// Stores platform message ID: WhatsApp wamid, Messenger mid, or Instagram mid
   wamid          String?          @unique
   deliveredAt    DateTime?
   readAt         DateTime?
@@ -487,6 +604,12 @@ model SubscriptionPlan {
   status       PlanStatus @default(ACTIVE)
   isPopular    Boolean    @default(false)
 
+  // ─── Free Trial & Razorpay Settings ───
+  hasTrial              Boolean    @default(true)
+  trialDays             Int?       @default(14)
+  razorpayMonthlyPlanId String?
+  razorpayAnnualPlanId  String?
+
   // ─── Usage Limits (null = unlimited) ───
   maxAgents      Int
   maxBroadcasts  Int?
@@ -564,9 +687,13 @@ model Payment {
   tenantId    String
 
   // Razorpay Details
-  razorpayOrderId    String   @unique
+  razorpayOrderId    String?
   razorpayPaymentId  String?  @unique
   razorpaySignature  String?
+
+  // Payment Type & Offline Ref
+  paymentType        String   @default("ONLINE")
+  offlineReference   String?
 
   // Plan snapshot at time of payment
   planId       String
@@ -592,6 +719,7 @@ model Payment {
 
   @@index([tenantId])
   @@index([status])
+  @@index([offlineReference])
 
   tenant  Tenant  @relation(fields: [tenantId], references: [id])
 }
@@ -632,6 +760,7 @@ enum TemplateStatus {
 enum BroadcastTarget {
   ALL
   TAGS
+  WOO_SEGMENT
 }
 
 enum BroadcastStatus {
@@ -729,6 +858,12 @@ model Broadcast {
   // Targeting
   targetType      BroadcastTarget  // ALL or TAGS
   tags            BroadcastTag[]   // Only used if targetType = TAGS
+
+  // WooCommerce Smart Segmentation
+  segmentMinSpend      Float?
+  segmentMinOrders     Int?
+  segmentInactiveDays  Int?
+  segmentIncludeAllWoo Boolean          @default(false)
   
   // Default parameters (can be overridden per recipient)
   defaultParams   Json?
@@ -943,6 +1078,16 @@ enum FlowNodeType {
   ASSIGN_AGENT
   END_FLOW
   INTERACTIVE_BUTTONS
+  SEND_CATALOG
+  ASK_LOCATION
+  SEND_LOCATION
+  PAYMENT
+}
+
+enum FlowTriggerType {
+  KEYWORD
+  ORDER_RECEIVED
+  DEFAULT
 }
 
 enum ConversationMode {
@@ -951,19 +1096,50 @@ enum ConversationMode {
   QUEUED    // waiting for agent
 }
 
+enum DeliveryType {
+  HOME_DELIVERY
+  STORE_PICKUP
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  REVIEW_REQUIRED
+}
+
+enum OrderPaymentStatus {
+  UNPAID
+  PROCESSING
+  PAID
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+  REFUND_FAILED
+  EXPIRED
+  CANCELLED
+  AMOUNT_MISMATCH
+}
+
+enum OrderPaymentMethod {
+  RAZORPAY
+  COD
+}
+
 // ──────────────────────────────────────────
 // ADD Flow MODEL
 // ──────────────────────────────────────────
 
 model Flow {
-  id             String     @id @default(cuid())
+  id             String          @id @default(cuid())
   tenantId       String
-  tenant         Tenant     @relation(fields: [tenantId], references: [id])
+  tenant         Tenant          @relation(fields: [tenantId], references: [id])
 
   name           String
-  keywords    KeywordTrigger[]
-  isActive       Boolean    @default(false)
-  isDefault      Boolean    @default(false)
+  triggerType    FlowTriggerType @default(KEYWORD)
+  keywords       KeywordTrigger[]
+  isActive       Boolean         @default(false)
+  isDefault      Boolean         @default(false)
   // isDefault = true means
   // this flow runs when no keyword matches
 
@@ -976,6 +1152,102 @@ model Flow {
 
   @@index([tenantId])
   @@index([tenantId, isActive])
+  @@index([tenantId, triggerType])
+}
+
+// ──────────────────────────────────────────
+// ORDER & COMMERCE MODELS
+// ──────────────────────────────────────────
+
+model Order {
+  id                     String              @id @default(cuid())
+  orderNumber            String              @unique
+  tenantId               String
+  tenant                 Tenant              @relation(fields: [tenantId], references: [id])
+  conversationId         String?
+  conversation           Conversation?       @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  contactId              String
+  contact                Contact             @relation(fields: [contactId], references: [id])
+
+  catalogId              String?
+  totalAmount            Decimal             @db.Decimal(10, 2)
+  currency               String              @default("INR")
+  customerNote           String?
+  status                 OrderStatus         @default(PENDING)
+
+  // Payment Tracking Fields
+  paymentStatus          OrderPaymentStatus  @default(UNPAID)
+  paymentMethod          OrderPaymentMethod?
+  paymentLinkUrl         String?
+  paymentLinkExpiresAt   DateTime?
+  paymentAmount          Decimal?            @db.Decimal(10, 2)
+  paymentCurrency        String              @default("INR")
+  razorpayOrderId        String?
+  razorpayPaymentId      String?
+  razorpayPaymentLinkId  String?
+  paidAt                 DateTime?
+  refundId               String?
+  refundedAt             DateTime?
+  adminNotes             String?
+
+  deliveryType           DeliveryType?
+  deliveryLat            Float?
+  deliveryLng            Float?
+  deliveryName           String?
+  deliveryAddress        String?
+
+  wamid                  String?        @unique
+
+  items                  OrderItem[]
+
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+
+  @@index([tenantId, status])
+  @@index([conversationId])
+  @@index([contactId])
+  @@index([razorpayPaymentLinkId])
+  @@index([razorpayPaymentId])
+  @@index([paymentStatus])
+}
+
+// ──────────────────────────────────────────
+// WEBHOOK IDEMPOTENCY MODEL
+// ──────────────────────────────────────────
+
+model WebhookEvent {
+  id          String   @id @default(cuid())
+  provider    String   @default("RAZORPAY")
+  eventId     String   // from x-razorpay-event-id header
+  eventType   String
+  tenantId    String?
+  payload     Json?
+  processed   Boolean  @default(false)
+  processedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@unique([provider, eventId])
+  @@index([tenantId, processedAt])
+  @@index([processedAt])
+  @@index([createdAt])
+}
+
+
+model OrderItem {
+  id                 String   @id @default(cuid())
+  orderId            String
+  order              Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  tenantId           String
+  productRetailerId  String
+  productName        String?
+  quantity           Int      @default(1)
+  itemPrice          Decimal  @db.Decimal(10, 2)
+  currency           String   @default("INR")
+
+  createdAt          DateTime @default(now())
+
+  @@index([orderId])
+  @@index([tenantId])
 }
 
 // ──────────────────────────────────────────
@@ -1146,6 +1418,7 @@ enum SubscriptionStatus {
   trialing
   active
   cancel_at_period_end
+  payment_failed
   expired
   paused
 }
@@ -1192,12 +1465,13 @@ model Invoice {
   gstAmount            Decimal?      @db.Decimal(10, 2)
   gstType              String?       @default("CGST_SGST")
 
-  currency             String        @default("USD")
+  currency             String        @default("INR")
   status               InvoiceStatus @default(paid)
   billingPeriodStart   DateTime
   billingPeriodEnd     DateTime
   paymentMethodLast4   String?
   paymentMethodBrand   String?
+  offlineReference     String?
   pdfUrl               String?
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
@@ -1284,6 +1558,14 @@ enum AuditAction {
 
   // ── SETTINGS ──        
   GST_SETTINGS_UPDATED 
+
+  // ── ZOHO INTEGRATION ──
+  ZOHO_CONNECTED
+  ZOHO_DISCONNECTED
+  ZOHO_TOKEN_REFRESH_FAILED
+  ZOHO_SYNC_STARTED
+  ZOHO_SYNC_COMPLETED
+  ZOHO_SYNC_FAILED
 }
 
 enum AuditModule {
@@ -1295,6 +1577,7 @@ enum AuditModule {
   SYSTEM
   CONVERSATIONS 
   SETTINGS
+  INTEGRATIONS
 }
 
 model AuditLog {
@@ -1360,9 +1643,369 @@ model PlatformSettings {
   companyEmail     String   @default("support@sudoreply.com")
   companyAddress   String   @default("Mumbai, Maharashtra, India")
   sacCode          String   @default("998314")
+  defaultTrialDays Int      @default(14)
 
   updatedAt        DateTime @updatedAt
   updatedBy        String?
 
   @@map("platform_settings")
+}
+
+// ──────────────────────────────────────────
+// QUICK REPLIES / CANNED RESPONSES MODEL
+// ──────────────────────────────────────────
+
+enum QuickReplyScope {
+  GLOBAL
+  PERSONAL
+}
+
+enum QuickReplyMediaType {
+  IMAGE
+  DOCUMENT
+  VIDEO
+  AUDIO
+}
+
+model QuickReply {
+  id             String               @id @default(cuid())
+  tenantId       String
+  tenant         Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  shortcut       String               // e.g. "pricing", "bank" (normalized lowercase alphanumeric + hyphens)
+  title          String               // e.g. "Standard Pricing Guide"
+  content        String               @db.Text // Message body with raw {{variable}} placeholders
+  category       String               @default("General") // e.g. "Sales", "Support", "Billing"
+
+  scope          QuickReplyScope      @default(GLOBAL)
+  userId         String?              // Set if created by agent or personal
+  user           User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdByType  String               @default("TENANT") // "TENANT" | "USER"
+  createdByName  String?
+
+  // Optional Attachment
+  mediaUrl       String?              // "uploads/tenants/:tenantId/quick-replies/:uuid.ext"
+  mediaName      String?              // Original filename for display
+  mediaSize      Int?
+  mediaMimeType  String?
+  mediaType      QuickReplyMediaType?
+
+  // Lifecycle & Analytics
+  isActive       Boolean              @default(true)
+  usageCount     Int                  @default(0)
+  lastUsedAt     DateTime?
+
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  @@index([tenantId, shortcut])
+  @@index([tenantId, category])
+  @@index([tenantId, scope, isActive])
+  @@index([userId])
+}
+
+
+// ──────────────────────────────────────────
+// GOOGLE SHEET INTEGRATION MODELS
+// ──────────────────────────────────────────
+
+model GoogleSheetConnection {
+  id           String   @id @default(cuid())
+  tenantId     String   @unique              // ONE connection per tenant
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  accessToken  String   @db.Text
+  refreshToken String   @db.Text
+  tokenExpiry  DateTime?
+
+  connectedBy  String?                       // userId who connected it
+  status       String   @default("active")    // active | revoked | expired
+  connectedAt  DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("google_sheet_connections")
+}
+
+
+// ──────────────────────────────────────────
+// SHOPIFY INTEGRATION MODEL
+// ──────────────────────────────────────────
+model ShopifyConnection {
+  id            String   @id @default(cuid())
+  tenantId      String   @unique
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  shopName      String
+  accessToken   String   @db.Text
+  webhookSecret String?  @db.Text
+
+  connectedBy   String?
+  status        String   @default("active")
+  connectedAt   DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // ── Cart Recovery Settings ──
+  cartRecoveryEnabled    Boolean  @default(true)
+  cartReminder1Enabled   Boolean  @default(true)
+  cartReminder24Enabled  Boolean  @default(true)
+  cartReminder48Enabled  Boolean  @default(true)
+  cartReminder1Text      String?  @db.Text
+  cartReminder24Text     String?  @db.Text
+  cartReminder48Text     String?  @db.Text
+  cartDiscountCode       String?
+  cartDiscountLabel      String?
+  cartIncludeImage       Boolean  @default(true)
+
+  @@map("shopify_connections")
+}
+
+// ──────────────────────────────────────────
+// WOOCOMMERCE INTEGRATION MODEL
+// ──────────────────────────────────────────
+model WooCommerceConnection {
+  id             String   @id @default(cuid())
+  tenantId       String   @unique
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  storeUrl       String
+  consumerKey    String   @db.Text
+  consumerSecret String   @db.Text
+  webhookSecret  String?  @db.Text
+  trackingUrlTemplates Json @default("{}")
+
+  connectedBy    String?
+  status         String   @default("active")
+  connectedAt    DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Admin & Operational Alerts
+  alertPhone           String?
+  newOrderAlert        Boolean   @default(false)
+  lowStockAlert        Boolean   @default(false)
+  lowStockThreshold    Int       @default(5)
+  dailySummaryAlert    Boolean   @default(false)
+  dailySummaryHour     Int       @default(21) // 21 = 9:00 PM
+  lastDailySummaryAt   DateTime?
+  lowStockAlertCache   Json?     @default("{}") // Anti-spam tracking for SKUs
+
+  cartReminder1Text   String?  @db.Text
+  cartReminder24Text  String?  @db.Text
+
+  // ── Cart Recovery Settings ──
+  cartRecoveryEnabled    Boolean  @default(true)
+  cartReminder1Enabled   Boolean  @default(true)
+  cartReminder24Enabled  Boolean  @default(true)
+  cartReminder48Enabled  Boolean  @default(true)
+  cartReminder48Text     String?  @db.Text
+  cartDiscountCode       String?
+  cartDiscountLabel      String?
+  cartIncludeImage       Boolean  @default(true)
+
+  @@map("woocommerce_connections")
+}
+
+
+
+// 🆕 Stores each field (column) configuration per tenant
+model SheetField {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  fieldName    String                    // Display name: "Payment Status", "Delivery City"
+  fieldKey     String                    // Internal key: "payment_status", "delivery_city"
+  fieldType    String   @default("text") // text | number | date | dropdown | email | phone | url | yesno
+  fieldCategory String  @default("custom") // system | default | custom
+
+  isActive     Boolean  @default(true)   // Toggle ON/OFF (for default fields)
+  isRequired   Boolean  @default(false)
+  columnOrder  Int                       // Position in sheet (1, 2, 3...)
+
+  options      Json?                     // For dropdowns: ["Paid", "Pending", "Failed"]
+  defaultValue String?                   // Optional default value
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([tenantId, fieldKey])         // Prevent duplicate field keys per tenant
+  @@index([tenantId])
+  @@map("sheet_fields")
+}
+
+//──────────────────Contact Provider Mapping──────────────────
+// Maps Sudo Reply contacts to external CRM/provider contact IDs
+model ContactProviderMapping {
+  id                String   @id @default(cuid())
+  contactId         String
+  contact           Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  tenantId          String
+  provider          String   // "ZOHO" — future: "HUBSPOT", "SALESFORCE"
+  providerContactId String   // External provider's record ID
+  lastSyncedAt      DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([contactId, provider])
+  @@unique([tenantId, provider, providerContactId])
+}
+
+// ============================================
+// WHATSAPP BUSINESS CALLING API
+// ============================================
+
+// 1. Business Phone Call Settings
+model WaPhoneCallSetting {
+  businessPhoneId          String   @id // Primary Key: whatsappPhoneId
+  status                   String   @default("ENABLED") // 'ENABLED', 'DISABLED'
+  callIconVisibility       String   @default("DEFAULT") // 'DEFAULT', 'DISABLE_ALL'
+  callIconCountries        Json?    // restrict_to_user_countries
+  callbackPermissionStatus String   @default("ENABLED")
+  callHours                Json?    // Full call_hours object (timezone, weekly, holidays)
+  voicemailConfig          Json?    // triggers, timeout_seconds, status
+  voicemailMediaId         String?  // Meta Media ID for uploaded greeting
+  
+  recordingDefaultEnabled  Boolean  @default(true)
+  recordingDefaultPurpose  String   @default("quality assurance and training") @db.VarChar(250)
+  transcriptionDefaultEnabled Boolean @default(true)
+  transcriptionDefaultPurpose String @default("quality assurance and training") @db.VarChar(250)
+  announcementLanguage     String   @default("en_US")
+  audioCodecs              Json?    // additional_codecs: ["PCMA", "PCMU"]
+  srtpKeyExchange          String   @default("DTLS") // 'DTLS' | 'SDES'
+
+  updatedAt                DateTime @default(now()) @updatedAt
+  
+  @@map("wa_phone_call_settings")
+}
+
+// 2. Call Permissions Tracking
+model WaCallPermission {
+  id                      String   @id @default(cuid())
+  businessPhoneId         String
+  userWaId                String
+  userBsuid               String?
+  permissionStatus        String   @default("no_permission") // 'no_permission', 'temporary', 'permanent'
+  expirationTimestamp     BigInt?  // Epoch seconds; NULL if permanent
+  responseSource          String?  // 'user_action', 'automatic'
+  isPermanent             Boolean  @default(false)
+  unansweredConsecutive   Int      @default(0)
+  
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@unique([businessPhoneId, userWaId])
+  @@map("wa_call_permissions")
+}
+
+// 3. Call Logs & State
+model WaCall {
+  id                      String   @id @default(cuid())
+  wacid                   String   @unique // WhatsApp Call ID (wacid.xxx)
+  businessPhoneId         String
+  direction               String   // 'BUSINESS_INITIATED', 'USER_INITIATED'
+  fromNumber              String?
+  toNumber                String?
+  fromBsuid               String?
+  toBsuid                 String?
+  
+  status                  String   // 'INITIATED', 'RINGING', 'ACCEPTED', 'REJECTED', 'COMPLETED', 'FAILED'
+  startTime               BigInt?  // Epoch seconds
+  endTime                 BigInt?
+  duration                Int?     // Seconds
+  
+  bizOpaqueData           String?  @db.VarChar(512)
+  ctaPayload              String?  @db.VarChar(512)
+  deeplinkPayload         String?  @db.VarChar(512)
+  sdpAnswer               String?  @db.Text // Cached SDP Answer
+
+  assignedAgentId         String?
+  conversationId          String?
+  
+  errorCode               Int?
+  errorMessage            String?  @db.Text
+  
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  
+  recordings              WaCallRecording[]
+  transcripts             WaCallTranscript[]
+
+  @@map("wa_calls")
+}
+
+// 4. Call Recordings
+model WaCallRecording {
+  id                      String   @id @default(cuid())
+  callId                  String
+  call                    WaCall   @relation(fields: [callId], references: [id], onDelete: Cascade)
+  wacid                   String
+  metaMediaId             String
+  mediaUrl                String?  @db.Text // Local path like uploads/calls/audio.ogg
+  mimeType                String   @default("audio/ogg; codecs=opus") @db.VarChar(64)
+  sha256                  String?  @db.VarChar(128)
+  downloadStatus          String   @default("PENDING") // 'PENDING', 'DOWNLOADED', 'EXPIRED', 'FAILED'
+  createdAt               DateTime @default(now())
+
+  @@map("wa_call_recordings")
+}
+
+// 5. Call Transcripts
+model WaCallTranscript {
+  id                      String   @id @default(cuid())
+  callId                  String
+  call                    WaCall   @relation(fields: [callId], references: [id], onDelete: Cascade)
+  wacid                   String
+  metaDocumentId          String
+  mediaUrl                String?  @db.Text // Local path like uploads/calls/transcript.json
+  detectedLanguage        String?  @db.VarChar(16)
+  confidence              Decimal? @db.Decimal(4,3)
+  duration                Decimal? @db.Decimal(8,2)
+  fullText                String?  @db.Text
+  segments                Json?    // Word and speaker detail
+  downloadStatus          String   @default("PENDING") // 'PENDING', 'DOWNLOADED', 'EXPIRED', 'FAILED'
+  createdAt               DateTime @default(now())
+
+  @@map("wa_call_transcripts")
+}
+
+
+model EcommerceOrder {
+  id              String   @id @default(cuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  source          String   @default("WOOCOMMERCE") // WOOCOMMERCE | SHOPIFY later
+  externalOrderId String
+  orderNumber     String
+  status          String
+
+  paymentMethod   String?
+  paymentStatus   String?
+  currency        String   @default("INR")
+  total           Float    @default(0.0)
+
+  customerName    String?
+  customerPhone   String
+  customerEmail   String?
+
+  shippingAddress Json?
+  lineItems       Json
+  trackingInfo    Json?
+  reviewRequestedAt DateTime?
+  reviewRating     Int?
+  reviewReceivedAt DateTime?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+    cartReminder1SentAt  DateTime?
+  cartReminder24SentAt DateTime?
+  cartReminder48SentAt DateTime?
+  cartStatus           String?    // 'abandoned' | 'recovered' | 'converted'
+  cartRecoveryId       String?
+
+  @@unique([tenantId, source, externalOrderId])
+  @@index([tenantId, cartRecoveryId])
+  @@index([tenantId, customerPhone])
+  @@index([tenantId, createdAt])
+  @@map("ecommerce_orders")
 }

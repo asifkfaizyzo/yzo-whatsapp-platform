@@ -246,7 +246,7 @@ async function main() {
       companyGstNumber: "27AABCU9603R1ZM",
       pricingType:      "EXCLUSIVE",
       companyName:      "SudoReply Technologies Pvt Ltd",
-      companyEmail:     "support@sudoreply.com",
+      companyEmail:     "info@sudoreply.com",
       companyAddress:   "Mumbai, Maharashtra, India",
       sacCode:          "998314",
     },

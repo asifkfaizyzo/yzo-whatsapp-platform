@@ -29,6 +29,14 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
   const [assignType, setAssignType] = useState("auto");
   const [buttons, setButtons] = useState([]);
 
+  // Catalog & Location state
+  const [footerText, setFooterText] = useState("");
+  const [thumbnailSku, setThumbnailSku] = useState("");
+  const [storeName, setStoreName] = useState("");
+  const [storeAddress, setStoreAddress] = useState("");
+  const [storeLat, setStoreLat] = useState("");
+  const [storeLng, setStoreLng] = useState("");
+
   const [mediaType, setMediaType] = useState("text"); // "text" | "image" | "video"
   const [mediaData, setMediaData] = useState(null); // { mediaUrl, mediaName, mediaSize, mediaMimeType }
   const [uploading, setUploading] = useState(false);
@@ -45,6 +53,22 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
     if (node.type === "INTERACTIVE_BUTTONS") {
       const rawButtons = node.data?.options;
       setButtons(Array.isArray(rawButtons) ? rawButtons : []);
+    }
+
+    if (node.type === "SEND_CATALOG") {
+      setFooterText(node.data?.options?.footerText || "");
+      setThumbnailSku(node.data?.options?.thumbnailSku || "");
+    }
+
+    if (node.type === "PAYMENT") {
+      setContent(node.data?.content || "Please complete your payment using the button below:");
+    }
+
+    if (node.type === "SEND_LOCATION") {
+      setStoreName(node.data?.options?.storeName || "");
+      setStoreAddress(node.data?.options?.address || node.data?.content || "");
+      setStoreLat(node.data?.options?.latitude || "");
+      setStoreLng(node.data?.options?.longitude || "");
     }
 
     // ✅ NEW: Load existing media for SEND_MESSAGE nodes
@@ -276,6 +300,34 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
       newData.content = content;
       newData.options = buttons;
       newData.media = mediaPayload;
+    }
+
+    if (node.type === "SEND_CATALOG") {
+      newData.content = content || "Browse our catalog below:";
+      newData.options = {
+        footerText: footerText.trim() || null,
+        thumbnailSku: thumbnailSku.trim() || null,
+      };
+    }
+
+    if (node.type === "ASK_LOCATION") {
+      newData.content = content || "Please share your delivery location so we can deliver your order accurately 🚚";
+      newData.options = {};
+    }
+
+    if (node.type === "SEND_LOCATION") {
+      newData.content = storeAddress.trim() || "Store Address";
+      newData.options = {
+        storeName: storeName.trim() || "Store Location",
+        address: storeAddress.trim() || "Store Address",
+        latitude: storeLat ? Number(storeLat) : 19.1136,
+        longitude: storeLng ? Number(storeLng) : 72.8697,
+      };
+    }
+
+    if (node.type === "PAYMENT") {
+      newData.content = content || "Please complete your payment using the button below:";
+      newData.options = {};
     }
 
     if (node.type === "CONDITION") {
@@ -901,15 +953,14 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
                   Buttons
                 </label>
                 <span className="text-[10px] text-slate-400">
-                  {buttons.length}/3 max
+                  {buttons.length}/10 max
                 </span>
               </div>
 
               {/* Info box */}
               <div className="bg-green-50 border border-green-100 rounded-lg p-2 mb-2">
-                <p className="text-[10px] text-green-700">
-                  💡 Max 3 buttons (WhatsApp limit). Drag from the green handle
-                  on each button to connect to the next node.
+                <p className="text-[10px] text-green-700 leading-relaxed">
+                  💡 Max 10 buttons. 1–3 buttons are sent as Quick Reply buttons; 4–10 are automatically sent as an Interactive List menu. Drag from each handle to connect the next node.
                 </p>
               </div>
 
@@ -943,8 +994,8 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
                         updated[i] = { ...updated[i], title: e.target.value };
                         setButtons(updated);
                       }}
-                      placeholder="Button label (max 20 chars)"
-                      maxLength={20}
+                      placeholder="Button label (max 24 chars)"
+                      maxLength={24}
                       className="w-full text-xs border border-green-200
                         rounded-md p-1.5 focus:outline-none
                         focus:border-green-400 bg-white transition"
@@ -956,7 +1007,7 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
                         ID: {btn.id}
                       </span>
                       <span className="text-[10px] text-slate-400">
-                        {(btn.title || "").length}/20
+                        {(btn.title || "").length}/24
                       </span>
                     </div>
                   </div>
@@ -964,7 +1015,7 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
               </div>
 
               {/* Add button */}
-              {buttons.length < 3 && (
+              {buttons.length < 10 && (
                 <button
                   onClick={() => {
                     setButtons([
@@ -985,11 +1036,183 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
               )}
 
               {/* Max reached warning */}
-              {buttons.length === 3 && (
+              {buttons.length >= 10 && (
                 <p className="text-[10px] text-slate-400 mt-1">
-                  ⚠️ Maximum 3 buttons reached
+                  ⚠️ Maximum 10 buttons reached
                 </p>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* SEND_CATALOG */}
+        {node.type === "SEND_CATALOG" && (
+          <div className="space-y-3">
+            <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3">
+              <p className="text-xs font-bold text-indigo-800">🛍️ WhatsApp Catalog</p>
+              <p className="text-[11px] text-indigo-600 mt-0.5">
+                Displays your Meta Commerce Catalog with a "View Catalog" button directly in chat.
+              </p>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-slate-600 block mb-1.5">
+                Body Text
+              </label>
+              <textarea
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder="e.g. Browse our latest products and place an order directly on WhatsApp!"
+                rows={3}
+                className="w-full text-xs border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-[#125EF2] transition resize-none"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-slate-600 block mb-1.5">
+                Footer Text (Optional)
+              </label>
+              <input
+                value={footerText}
+                onChange={(e) => setFooterText(e.target.value)}
+                placeholder="e.g. Tap View Catalog to explore"
+                className="w-full text-xs border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-[#125EF2] transition"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-slate-600 block mb-1.5">
+                Header Product SKU (Optional)
+              </label>
+              <input
+                value={thumbnailSku}
+                onChange={(e) => setThumbnailSku(e.target.value)}
+                placeholder="e.g. SKU_PROD_101"
+                className="w-full text-xs border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-[#125EF2] transition"
+              />
+              <p className="text-[10px] text-slate-400 mt-1">
+                Optional item thumbnail featured in the message header
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* ASK_LOCATION */}
+        {node.type === "ASK_LOCATION" && (
+          <div className="space-y-3">
+            <div className="bg-teal-50 border border-teal-100 rounded-xl p-3">
+              <p className="text-xs font-bold text-teal-800">📍 Home Delivery GPS Request</p>
+              <p className="text-[11px] text-teal-600 mt-0.5">
+                Sends a native WhatsApp "Send location" button. Automatically extracts GPS coordinates or text address and updates the active order.
+              </p>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-slate-600 block mb-1.5">
+                Request Prompt Message
+              </label>
+              <textarea
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder="e.g. Please share your delivery location so our delivery partner can reach you 🚚"
+                rows={3}
+                className="w-full text-xs border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-[#125EF2] transition resize-none"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* SEND_LOCATION */}
+        {node.type === "SEND_LOCATION" && (
+          <div className="space-y-3">
+            <div className="bg-orange-50 border border-orange-100 rounded-xl p-3">
+              <p className="text-xs font-bold text-orange-800">🏬 Store Pickup Google Maps Pin</p>
+              <p className="text-[11px] text-orange-600 mt-0.5">
+                Sends your store's exact GPS location and address pin on WhatsApp for pickup orders.
+              </p>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-slate-600 block mb-1.5">
+                Store / Branch Name
+              </label>
+              <input
+                value={storeName}
+                onChange={(e) => setStoreName(e.target.value)}
+                placeholder="e.g. Main Street Outlet"
+                className="w-full text-xs border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-[#125EF2] transition"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-slate-600 block mb-1.5">
+                Complete Address
+              </label>
+              <textarea
+                value={storeAddress}
+                onChange={(e) => setStoreAddress(e.target.value)}
+                placeholder="e.g. 123 Commerce Avenue, Suite 400, Mumbai 400001"
+                rows={2}
+                className="w-full text-xs border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-[#125EF2] transition resize-none"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[11px] font-semibold text-slate-600 block mb-1">
+                  Latitude
+                </label>
+                <input
+                  value={storeLat}
+                  onChange={(e) => setStoreLat(e.target.value)}
+                  placeholder="e.g. 19.1136"
+                  className="w-full text-xs border border-slate-200 rounded-xl p-2 focus:outline-none focus:border-[#125EF2] transition"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-semibold text-slate-600 block mb-1">
+                  Longitude
+                </label>
+                <input
+                  value={storeLng}
+                  onChange={(e) => setStoreLng(e.target.value)}
+                  placeholder="e.g. 72.8697"
+                  className="w-full text-xs border border-slate-200 rounded-xl p-2 focus:outline-none focus:border-[#125EF2] transition"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* PAYMENT */}
+        {node.type === "PAYMENT" && (
+          <div className="space-y-3">
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+              <p className="text-xs font-bold text-emerald-800">💳 Razorpay Online Payment</p>
+              <p className="text-[11px] text-emerald-700 mt-1 leading-relaxed">
+                Generates a secure Razorpay Payment Link and delivers an interactive "Pay Now" button on WhatsApp. Pauses the flow until the customer completes payment.
+              </p>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-slate-600 block mb-1.5">
+                Message Body
+              </label>
+              <textarea
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder="e.g. Please complete your payment using the button below:"
+                rows={3}
+                className="w-full text-xs border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-emerald-500 transition resize-none"
+              />
+              <p className="text-[10px] text-slate-400 mt-1">
+                Amount and currency will be automatically populated from the order.
+              </p>
+            </div>
+
+            <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-[11px] text-slate-600">
+              <p className="font-semibold text-slate-700 mb-0.5">ℹ️ Flow Automation</p>
+              When payment succeeds, the flow automatically resumes along the connected output handle.
             </div>
           </div>
         )}

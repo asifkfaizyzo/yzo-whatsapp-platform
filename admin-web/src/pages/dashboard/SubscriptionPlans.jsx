@@ -79,6 +79,8 @@ const defaultForm = {
   annualPrice: "",
   status: "ACTIVE",
   isPopular: false,
+  hasTrial: true,
+  trialDays: 14,
   maxAgents: "",
   maxBroadcasts: "",
   maxAutomations: "",
@@ -496,6 +498,8 @@ export default function SubscriptionPlans() {
       annualPrice: plan.annualPrice || "",
       status: plan.status,
       isPopular: Boolean(plan.isPopular),
+      hasTrial: plan.hasTrial !== false,
+      trialDays: plan.trialDays ?? 14,
       maxAgents: plan.maxAgents,
       maxBroadcasts: plan.maxBroadcasts || "",
       maxAutomations: plan.maxAutomations || "",
@@ -549,6 +553,8 @@ export default function SubscriptionPlans() {
     const payload = {
       ...form,
       isPopular: Boolean(form.isPopular),
+      hasTrial: Boolean(form.hasTrial !== false),
+      trialDays: form.trialDays ? parseInt(form.trialDays) : 14,
       monthlyPrice: parseFloat(form.monthlyPrice),
       annualPrice: form.annualPrice ? parseFloat(form.annualPrice) : null,
       maxAgents: parseInt(form.maxAgents),
@@ -893,6 +899,37 @@ export default function SubscriptionPlans() {
                           className="border border-slate-200 rounded-xl p-3 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-bold text-slate-800"
                         />
                       </div>
+                      
+                      {/* Free Trial Settings */}
+                      <div className="grid sm:grid-cols-2 gap-3 pt-2">
+                        <label className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-slate-200 cursor-pointer bg-slate-50/50 hover:bg-slate-100/50 transition text-xs font-semibold text-slate-700">
+                          <input
+                            type="checkbox"
+                            name="hasTrial"
+                            checked={form.hasTrial !== false}
+                            onChange={(e) => setForm((prev) => ({ ...prev, hasTrial: e.target.checked }))}
+                            className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
+                          />
+                          <Sparkles size={14} className="text-blue-500" />
+                          <span>Offer Free Trial (Autopay)</span>
+                        </label>
+
+                        {form.hasTrial !== false && (
+                          <div className="flex items-center gap-2 border border-slate-200 rounded-xl px-3 py-2 bg-slate-50/50">
+                            <span className="text-[11px] font-bold text-slate-500 shrink-0">Trial Days:</span>
+                            <input
+                              name="trialDays"
+                              value={form.trialDays ?? 14}
+                              onChange={handleChange}
+                              type="number"
+                              min="1"
+                              max="365"
+                              className="w-full text-xs font-bold text-slate-800 focus:outline-none bg-transparent"
+                            />
+                          </div>
+                        )}
+                      </div>
+
                       {previewSavings !== null && (
                         <div className="flex items-center gap-2 bg-indigo-50 text-indigo-700 text-xs font-semibold px-3.5 py-2.5 rounded-xl border border-indigo-100">
                           <Sparkles size={14} />

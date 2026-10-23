@@ -22,7 +22,9 @@ import {
   Download,
   CheckCircle2,
   Info,
+  Layers,
 } from "lucide-react";
+import { FaWhatsapp, FaInstagram, FaFacebookMessenger } from "react-icons/fa6";
 import {
   getContacts,
   createContact,
@@ -79,6 +81,14 @@ export default function Contacts() {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const filter = searchParams.get("filter") || "all";
+  const selectedChannel = (searchParams.get("channel") || "WHATSAPP").toUpperCase();
+
+  const [channelCounts, setChannelCounts] = useState({
+    ALL: 0,
+    WHATSAPP: 0,
+    INSTAGRAM: 0,
+    MESSENGER: 0,
+  });
 
   // Filter tabs config (Wati.io style)
   const filterTabs = [
@@ -89,7 +99,16 @@ export default function Contacts() {
   ];
 
   const handleFilterChange = (key) => {
-    setSearchParams({ filter: key });
+    const next = new URLSearchParams(searchParams);
+    next.set("filter", key);
+    setSearchParams(next);
+    setPage(1);
+  };
+
+  const handleChannelChange = (ch) => {
+    const next = new URLSearchParams(searchParams);
+    next.set("channel", ch);
+    setSearchParams(next);
     setPage(1);
   };
   
@@ -174,15 +193,18 @@ export default function Contacts() {
     // ✅ Reset cross-page selection when filters change
     setSelectAllAcrossPages(false);
     setSelectedContactIds([]);
-  }, [page, limit, debouncedSearch, filter]);
+  }, [page, limit, debouncedSearch, filter, selectedChannel]);
 
   const fetchContacts = async () => {
     setLoading(true);
-    const res = await getContacts(page, limit, debouncedSearch, filter);
+    const res = await getContacts(page, limit, debouncedSearch, filter, selectedChannel);
     if (res.success) {
       setContacts(res.data.contacts || []);
       setTotalPages(res.data.totalPages || 1);
       setTotalContacts(res.data.count || 0);
+      if (res.data.channelCounts) {
+        setChannelCounts(res.data.channelCounts);
+      }
       setSelectedContactIds([]);
     } else {
       console.error(res.message);
@@ -351,7 +373,8 @@ const handleConfirmImport = async () => {
     (c) =>
       (c.name || "").toLowerCase().includes(search.toLowerCase()) ||
       (c.phone || "").includes(search) ||
-      (c.email || "").toLowerCase().includes(search.toLowerCase()),
+      (c.email || "").toLowerCase().includes(search.toLowerCase()) ||
+      (c.username || "").toLowerCase().includes(search.toLowerCase()),
   );
 
   const getTagColor = (tag) => {
@@ -395,13 +418,18 @@ const handleConfirmImport = async () => {
   };
 
   const handleStartChat = async (contact) => {
-    if (!isWhatsAppConnected) {
+    if ((!contact.channel || contact.channel === "WHATSAPP") && !isWhatsAppConnected) {
       setShowConnectModal(true);
       return;
     }
     const res = await createConversation(contact.id);
     if (res.success) {
-      navigate(`/dashboard/inbox?conversationId=${res.data.id}`);
+      const convId = res.data?.id || res.data?.conversation?.id;
+      if (convId) {
+        navigate(`/dashboard/inbox?conversationId=${convId}`);
+      } else {
+        navigate(`/dashboard/inbox`);
+      }
     } else {
       toast.error(res.message);
     }
@@ -512,61 +540,155 @@ const handleConfirmImport = async () => {
         <div>
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
             <Users className="text-[#125EF2]" size={24} />
-            <span>Contacts</span>
+            <span>Contacts & Audience</span>
           </h1>
           <p className="text-xs text-[color:var(--muted)] font-medium mt-1">
-            Build your WhatsApp subscriber database and segment them using tags.
+            {selectedChannel === "WHATSAPP"
+              ? "Build your WhatsApp subscriber database and segment them using tags."
+              : selectedChannel === "INSTAGRAM"
+              ? "Instagram users who have engaged with your connected professional account via DMs."
+              : selectedChannel === "MESSENGER"
+              ? "Facebook users who have messaged your connected Facebook Page."
+              : "Manage your omnichannel customer database across WhatsApp, Instagram, and Messenger."}
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {selectedChannel === "INSTAGRAM" ? (
+            <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-pink-50 border border-pink-200/80 text-xs font-semibold text-pink-700 shadow-sm">
+              <FaInstagram className="text-[#E1306C]" size={15} />
+              <span>Inbound Synced via Instagram DMs</span>
+            </div>
+          ) : selectedChannel === "MESSENGER" ? (
+            <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-blue-50 border border-blue-200/80 text-xs font-semibold text-blue-700 shadow-sm">
+              <FaFacebookMessenger className="text-[#0084FF]" size={15} />
+              <span>Inbound Synced via Messenger</span>
+            </div>
+          ) : (
+            <>
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!isWhatsAppConnected) {
+                      setShowConnectModal(true);
+                      return;
+                    }
+                    setShowImportModal(true);
+                    setSelectedImportFile(null);
+                    setLoadingGuidelines(true);
+                    const res = await getImportGuidelines();
+                    setLoadingGuidelines(false);
+                    if (res.success) {
+                      setImportGuidelines(res.data);
+                    } else {
+                      setImportGuidelines(null);
+                      toast.error(res.message || "Could not load guidelines");
+                    }
+                  }}
+                  className="btn-secondary flex items-center justify-center gap-2 text-sm shadow-sm"
+                  disabled={importing}
+                >
+                  <Upload size={16} className={importing ? "animate-spin" : ""} />
+                  <span>{importing ? "Importing..." : "Import CSV"}</span>
+                </button>
+              )}
 
-                  {isAdmin && (
-          <button
-            type="button"
-            onClick={async () => {
-              if (!isWhatsAppConnected) {
-                setShowConnectModal(true);
-                return;
-              }
-              setShowImportModal(true);
-              setSelectedImportFile(null);
-              setLoadingGuidelines(true);
-              const res = await getImportGuidelines();
-              setLoadingGuidelines(false);
-              if (res.success) {
-                setImportGuidelines(res.data);
-              } else {
-                setImportGuidelines(null);
-                toast.error(res.message || "Could not load guidelines");
-              }
-            }}
-            className="btn-secondary flex items-center justify-center gap-2 text-sm shadow-sm"
-            disabled={importing}
-          >
-            <Upload size={16} className={importing ? "animate-spin" : ""} />
-            <span>{importing ? "Importing..." : "Import CSV"}</span>
-          </button>
-        )}
-
-          <button
-            onClick={() => {
-              if (!isWhatsAppConnected) {
-                setShowConnectModal(true);
-                return;
-              }
-              setShowModal(true);
-            }}
-            className="btn-primary flex items-center justify-center gap-2 text-sm shadow-sm"
-            disabled={importing}
-          >
-            <UserPlus size={16} />
-            <span>Add Contact</span>
-          </button>
+              <button
+                onClick={() => {
+                  if (!isWhatsAppConnected) {
+                    setShowConnectModal(true);
+                    return;
+                  }
+                  setShowModal(true);
+                }}
+                className="btn-primary flex items-center justify-center gap-2 text-sm shadow-sm"
+                disabled={importing}
+              >
+                <UserPlus size={16} />
+                <span>Add Contact</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
 
+      {/* Channel Filter Tabs (WATI / Omnichannel CRM Style) */}
+      <div className="flex items-center gap-2 p-1.5 bg-slate-100/90 rounded-2xl w-fit border border-slate-200/70 shadow-sm overflow-x-auto">
+        <button
+          type="button"
+          onClick={() => handleChannelChange("WHATSAPP")}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+            selectedChannel === "WHATSAPP"
+              ? "bg-white text-slate-900 shadow-sm border border-slate-200/60"
+              : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
+          }`}
+        >
+          <FaWhatsapp size={14} className="text-[#25D366]" />
+          <span>WhatsApp</span>
+          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+            selectedChannel === "WHATSAPP" ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"
+          }`}>
+            {channelCounts.WHATSAPP || 0}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleChannelChange("INSTAGRAM")}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+            selectedChannel === "INSTAGRAM"
+              ? "bg-white text-slate-900 shadow-sm border border-slate-200/60"
+              : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
+          }`}
+        >
+          <FaInstagram size={14} className="text-[#E1306C]" />
+          <span>Instagram</span>
+          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+            selectedChannel === "INSTAGRAM" ? "bg-pink-100 text-pink-700" : "bg-slate-200 text-slate-600"
+          }`}>
+            {channelCounts.INSTAGRAM || 0}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleChannelChange("MESSENGER")}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+            selectedChannel === "MESSENGER"
+              ? "bg-white text-slate-900 shadow-sm border border-slate-200/60"
+              : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
+          }`}
+        >
+          <FaFacebookMessenger size={14} className="text-[#0084FF]" />
+          <span>Messenger</span>
+          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+            selectedChannel === "MESSENGER" ? "bg-blue-100 text-[#0084FF]" : "bg-slate-200 text-slate-600"
+          }`}>
+            {channelCounts.MESSENGER || 0}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleChannelChange("ALL")}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+            selectedChannel === "ALL"
+              ? "bg-white text-slate-900 shadow-sm border border-slate-200/60"
+              : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
+          }`}
+        >
+          <Layers size={14} className={selectedChannel === "ALL" ? "text-[#125EF2]" : "text-slate-400"} />
+          <span>All Channels</span>
+          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+            selectedChannel === "ALL" ? "bg-blue-100 text-[#125EF2]" : "bg-slate-200 text-slate-600"
+          }`}>
+            {channelCounts.ALL || 0}
+          </span>
+        </button>
+      </div>
+
       {/* WhatsApp Disconnected Warning Banner */}
-      {!isWhatsAppConnected && (
+      {!isWhatsAppConnected && (selectedChannel === "WHATSAPP" || selectedChannel === "ALL") && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50/90 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
           <div className="flex items-start gap-3.5">
             <div className="p-2.5 rounded-xl bg-amber-100 text-amber-700 shrink-0">
@@ -628,7 +750,15 @@ const handleConfirmImport = async () => {
             <Search className="absolute left-3 top-2.5 text-slate-400" size={15} />
             <input
               type="text"
-              placeholder="Search by name or number..."
+              placeholder={
+                selectedChannel === "WHATSAPP"
+                  ? "Search by name or number..."
+                  : selectedChannel === "INSTAGRAM"
+                  ? "Search by name or @handle..."
+                  : selectedChannel === "MESSENGER"
+                  ? "Search by name or profile..."
+                  : "Search by name, handle, or number..."
+              }
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="input pl-9 py-1.5 text-xs bg-white"
@@ -739,7 +869,15 @@ const handleConfirmImport = async () => {
                   </th>
                 )}
                 <th className="p-4 font-semibold">Name</th>
-                <th className="p-4 font-semibold">WhatsApp Number</th>
+                <th className="p-4 font-semibold">
+                  {selectedChannel === "WHATSAPP"
+                    ? "Phone Number"
+                    : selectedChannel === "INSTAGRAM"
+                    ? "Instagram Handle"
+                    : selectedChannel === "MESSENGER"
+                    ? "Messenger Profile"
+                    : "Channel / Identifier"}
+                </th>
                 <th className="p-4 font-semibold">Email</th>
                 <th className="p-4 font-semibold">Subscribed Date</th>
                 <th className="p-4 font-semibold">Segment Tag</th>
@@ -794,13 +932,24 @@ const handleConfirmImport = async () => {
                     className="text-center py-12 text-slate-400"
                   >
                     <div className="flex flex-col items-center justify-center gap-2">
-                      <Users
-                        size={32}
-                        className="text-slate-300 stroke-[1.5]"
-                      />
-                      <p className="text-sm font-medium">No contacts found</p>
-                      <p className="text-xs text-slate-400">
-                        Try adjusting your search terms or add a new contact.
+                      {selectedChannel === "INSTAGRAM" ? (
+                        <FaInstagram size={36} className="text-[#E1306C]/40" />
+                      ) : selectedChannel === "MESSENGER" ? (
+                        <FaFacebookMessenger size={36} className="text-[#0084FF]/40" />
+                      ) : selectedChannel === "WHATSAPP" ? (
+                        <FaWhatsapp size={36} className="text-[#25D366]/40" />
+                      ) : (
+                        <Users size={36} className="text-slate-300 stroke-[1.5]" />
+                      )}
+                      <p className="text-sm font-semibold text-slate-700">
+                        No {selectedChannel === "ALL" ? "" : selectedChannel.toLowerCase()} contacts found
+                      </p>
+                      <p className="text-xs text-slate-400 max-w-sm">
+                        {selectedChannel === "INSTAGRAM"
+                          ? "When customers send Direct Messages to your Instagram account, they will automatically appear here."
+                          : selectedChannel === "MESSENGER"
+                          ? "When customers message your connected Facebook Page, they will automatically appear here."
+                          : "Try adjusting your search terms or add a new contact."}
                       </p>
                     </div>
                   </td>
@@ -808,9 +957,15 @@ const handleConfirmImport = async () => {
               ) : (
                 contacts.map((c) => {
                   const contactTagsList = c.contactTags ? c.contactTags.map(ct => ct.tag) : [];
-                  const displayPhone = c.phone.startsWith("+")
-                    ? c.phone
-                    : `${c.countryCode || ""} ${c.phone}`;
+                  const displayPhone = c.phone
+                    ? (c.phone.startsWith("+")
+                        ? c.phone
+                        : `${c.countryCode || ""} ${c.phone}`.trim())
+                    : (c.channel === "INSTAGRAM"
+                        ? (c.username ? `@${c.username}` : "Instagram User")
+                        : (c.channel === "MESSENGER"
+                            ? "Facebook User"
+                            : "N/A"));
                   const displayDate = new Date(c.createdAt).toLocaleDateString(
                     "en-US",
                     {
@@ -848,6 +1003,16 @@ const handleConfirmImport = async () => {
                           <p className="font-bold text-slate-800 text-sm">
                             {c.name}
                           </p>
+                          {c.channel === "INSTAGRAM" && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-pink-50 px-2 py-0.5 text-[10px] font-bold text-pink-700 border border-pink-200">
+                              <FaInstagram size={10} className="text-[#E1306C]" /> IG
+                            </span>
+                          )}
+                          {c.channel === "MESSENGER" && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-200">
+                              <FaFacebookMessenger size={10} className="text-[#0084FF]" /> Messenger
+                            </span>
+                          )}
                           {c.isBlocked && (
                             <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-[10px] font-bold text-red-700 border border-red-200">
                               Blocked
@@ -856,7 +1021,13 @@ const handleConfirmImport = async () => {
                         </div>
                       </td>
                       <td className="p-4 font-mono text-slate-600 flex items-center gap-1.5">
-                        <Phone size={12} className="text-slate-400" />
+                        {c.channel === "INSTAGRAM" ? (
+                          <FaInstagram size={13} className="text-[#E1306C] shrink-0" />
+                        ) : c.channel === "MESSENGER" ? (
+                          <FaFacebookMessenger size={13} className="text-[#0084FF] shrink-0" />
+                        ) : (
+                          <Phone size={12} className="text-slate-400 shrink-0" />
+                        )}
                         <span>{displayPhone}</span>
                       </td>
                       <td className="p-4 text-slate-500">{c.email || "N/A"}</td>
