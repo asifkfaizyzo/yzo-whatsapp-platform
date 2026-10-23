@@ -1340,8 +1340,8 @@ export const loginOrRegisterWithGoogleService = async (credential) => {
         lastName,
         authProvider: 'GOOGLE',
         status: 'APPROVED', // Auto-approve Google-verified signups
-        onboardingStep: 4,  // Immediately advance to Step 4 (Company info)
-        onboardingCompleted: false,
+        onboardingStep: 5,  // Immediately advance to Step 5 (Company info)
+        onboardingCompleted: true, // Google signups are considered complete
       },
     });
   } else {
@@ -1354,6 +1354,8 @@ export const loginOrRegisterWithGoogleService = async (credential) => {
           authProvider: 'GOOGLE',
           // Update email if it was missing (e.g. partial onboarding record)
           ...(tenant.email ? {} : { email }),
+          onboardingStep: 5,
+          onboardingCompleted: true,
         },
       });
     }
@@ -1459,8 +1461,8 @@ export const loginOrRegisterWithFacebookService = async (accessToken) => {
         lastName,
         authProvider: 'FACEBOOK',
         status: 'APPROVED', // Auto-approve Facebook-verified signups
-        onboardingStep: 4,  // Immediately advance to Step 4 (Company info)
-        onboardingCompleted: false,
+        onboardingStep: 5,  // Immediately advance to Step 5 (Company info)
+        onboardingCompleted: true,
       },
     });
   } else {
@@ -1472,6 +1474,8 @@ export const loginOrRegisterWithFacebookService = async (accessToken) => {
           facebookId,
           authProvider: 'FACEBOOK',
           ...(tenant.email ? {} : { email }),
+          onboardingStep: 5,
+          onboardingCompleted: true,
         },
       });
     }

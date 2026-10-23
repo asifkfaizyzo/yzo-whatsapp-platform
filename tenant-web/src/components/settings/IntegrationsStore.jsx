@@ -1,5 +1,5 @@
 // src/components/settings/IntegrationsStore.jsx
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ArrowRight, RefreshCw } from "lucide-react";
 
@@ -74,11 +74,15 @@ export default function IntegrationsStore() {
       }
 
       if (shopifyRes.status === "fulfilled" && shopifyRes.value?.data) {
-        setIsShopifyConnected(Boolean(shopifyRes.value.data.connected));
+        setIsShopifyConnected(
+          Boolean(shopifyRes.value.data.isConnected || shopifyRes.value.data.status === "active")
+        );
       }
 
       if (wooRes.status === "fulfilled" && wooRes.value?.data) {
-        setIsWooCommerceConnected(Boolean(wooRes.value.data.connected));
+        setIsWooCommerceConnected(
+          Boolean(wooRes.value.data.isConnected || wooRes.value.data.status === "active")
+        );
       }
     } catch (err) {
       console.warn("Failed to check integration statuses:", err);

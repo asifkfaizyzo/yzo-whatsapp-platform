@@ -53,7 +53,7 @@ export default function FacebookLoginButton({ onSuccess, onError, disabled, text
           onError("Facebook login was cancelled or failed.");
         }
       },
-      { config_id: import.meta.env.VITE_META_SSO_CONFIG_ID }
+      { scope: "public_profile,email" }
     );
   };
 
@@ -62,14 +62,16 @@ export default function FacebookLoginButton({ onSuccess, onError, disabled, text
       type="button"
       onClick={handleLogin}
       disabled={disabled || isLoading}
-      className="flex items-center justify-center w-[340px] h-[40px] rounded-full border border-[#dadce0] bg-white hover:bg-[#f8f9fa] transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+      className="flex items-center justify-center w-full max-w-[360px] h-[48px] rounded-full border border-[#1877f2] bg-[#1877f2] hover:bg-[#166fe5] transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
     >
       {isLoading ? (
-        <Loader2 className="h-5 w-5 animate-spin text-[#3c4043]" />
+        <Loader2 className="h-5 w-5 animate-spin text-white" />
       ) : (
         <>
-          <img src="https://upload.wikimedia.org/wikipedia/commons/5/51/Facebook_f_logo_%282019%29.svg" alt="Facebook" className="w-[18px] h-[18px] mr-3" />
-          <span className="text-[#3c4043] font-medium text-[14px] font-roboto tracking-[0.25px]">{text}</span>
+          <span className="mr-3 flex h-6 w-6 items-center justify-center rounded-full bg-white">
+            <span aria-hidden="true" className="translate-y-[5px] text-[23px] font-bold leading-[24px] text-[#1877f2]">f</span>
+          </span>
+          <span className="text-white font-semibold text-[14px] tracking-[0.25px]">{text}</span>
         </>
       )}
     </button>

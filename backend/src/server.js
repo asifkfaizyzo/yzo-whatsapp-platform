@@ -32,7 +32,6 @@ import { startZohoSyncWorker } from './workers/zohoSyncWorker.js';
 import { startZohoStaleTaskJob } from './jobs/zohoStaleTaskJob.js';
 import { startZohoWatchRenewalJob } from './jobs/zohoWatchRenewalJob.js';
 import { initializeMediasoup } from './lib/mediasoup/mediasoupService.js';
-import { processAbandonedCartReminders } from './modules/woocommerce/woocommerceCartRecoveryService.js';
 import { processLowStockAlerts, processDailyBusinessSummary } from './modules/woocommerce/woocommerceAlertService.js';
 
 import { redisConnection } from './config/redis.js';
@@ -67,14 +66,6 @@ initializeMediasoup().catch(err => {
 
 server.listen(port, () => {
     console.log(`🚀 Server is running on http://localhost:${port} [Updated Enum Fix: ${new Date().toISOString()}]`);
-
-       // ── Abandoned Cart Recovery (every 10 mins) ──────────────────────────
-    setInterval(() => {
-      processAbandonedCartReminders().catch((err) =>
-        console.error('[Cart Recovery Scheduler] Error:', err.message)
-      );
-    }, 10 * 60 * 1000);
-    console.log('⏰ [Cron] Abandoned Cart Recovery worker scheduled (runs every 10 mins)');
 
     // ── Low Stock Alerts (every 1 hour) ──────────────────────────────────
     setInterval(() => {

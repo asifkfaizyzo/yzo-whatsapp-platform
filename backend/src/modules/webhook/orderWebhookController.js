@@ -1,6 +1,6 @@
 // backend/src/modules/webhook/orderWebhookController.js
 import crypto from 'crypto';
-import axios from 'axios'; // 👈 ADD THIS LINE
+import axios from 'axios';
 import prisma from '../../config/prisma.js';
 import { decrypt } from '../../lib/crypto.js';
 import { orderWebhookQueue } from '../../queues/orderWebhookQueue.js';
@@ -9,7 +9,7 @@ import { createNotification } from '../notifications/notificationService.js';
 import flowEngine from '../automation/flowEngineService.js';
 import { logLeadStatusToSheet } from '../google-sheets/googleSheetsService.js';
 import { generateTrackingUrl } from '../../utils/trackingHelper.js';
-import { sendNewOrderAdminAlert } from '../woocommerce/woocommerceAlertService.js'; // 👈 ADDED ADMIN ALERT IMPORT
+import { sendNewOrderAdminAlert } from '../woocommerce/woocommerceAlertService.js';
 import {
   buildWooCustomerWelcomeTemplateParameters,
   buildWooShipmentTemplateParameters,
@@ -20,10 +20,14 @@ import {
   findWooShipmentTemplate,
   getWooPaymentStatus,
 } from '../woocommerce/woocommerceOrderLifecycle.js';
+import {
+  processShopifyOrderLifecycle,
+  processShopifyPaymentReminderJob,
+} from '../shopify/shopifyOrderLifecycle.js';
+import { processCartReminder } from '../shopify/shopifyCartRecoveryService.js';
 
 /**
  * Phase 1: Ingest Razorpay Webhook (< 200ms)
- * Validates tenant, checks secret, validates HMAC-SHA256, enqueues to BullMQ, and acknowledges.
  */
 export const handleTenantOrderWebhook = async (req, res) => {
   const { tenantId } = req.params;
@@ -33,7 +37,6 @@ export const handleTenantOrderWebhook = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Tenant ID required' });
     }
 
-    // 1. Check tenant existence
     const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
       select: {
@@ -46,7 +49,6 @@ export const handleTenantOrderWebhook = async (req, res) => {
 
     if (!tenant) {
       console.warn(`⚠️ [OrderWebhook] Received webhook for non-existent tenant: ${tenantId}`);
-      // Respond 200 so Razorpay stops retrying permanently for invalid tenant IDs
       return res.status(200).json({ status: 'ignored', reason: 'tenant_not_found' });
     }
 
@@ -55,7 +57,6 @@ export const handleTenantOrderWebhook = async (req, res) => {
       return res.status(200).json({ status: 'ignored', reason: 'webhook_secret_not_configured' });
     }
 
-    // 2. Validate HMAC-SHA256 signature
     const signature = req.headers['x-razorpay-signature'];
     if (!signature) {
       console.warn(`⚠️ [OrderWebhook] Missing x-razorpay-signature header from tenant ${tenantId}`);
@@ -70,7 +71,6 @@ export const handleTenantOrderWebhook = async (req, res) => {
       return res.status(500).json({ success: false, error: 'Internal security error' });
     }
 
-    // Verify HMAC over req.rawBody (or stringified req.body if raw body buffer is missing)
     const rawPayload = req.rawBody || Buffer.from(JSON.stringify(req.body));
     const expectedSignature = crypto
       .createHmac('sha256', webhookSecret)
@@ -85,8 +85,6 @@ export const handleTenantOrderWebhook = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Invalid signature' });
     }
 
-
-    // 3. Extract event ID and metadata
     const event = req.body?.event;
     const payload = req.body?.payload;
     const eventEntity = payload?.payment_link?.entity ||
@@ -97,7 +95,6 @@ export const handleTenantOrderWebhook = async (req, res) => {
                     req.headers['x-razorpay-event-id'] ||
                     `${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
-    // 4. Enqueue into BullMQ Order Webhook Queue
     await orderWebhookQueue.add(
       'order-webhook-events',
       {
@@ -125,8 +122,6 @@ export const handleTenantOrderWebhook = async (req, res) => {
 
 /**
  * Phase 1 Partner Webhook Handler: POST /api/webhook/razorpay/partner
- * Handles programmatic webhooks from sub-merchant accounts and partner lifecycle events.
- * Strict deterministic signature routing (zero fallback vulnerability).
  */
 export const handlePartnerWebhook = async (req, res) => {
   try {
@@ -148,14 +143,12 @@ export const handlePartnerWebhook = async (req, res) => {
     let tenant = null;
 
     if (isPartnerLifecycleEvent) {
-      // 1. Partner lifecycle events: verified using master RAZORPAY_PARTNER_WEBHOOK_SECRET
       verificationSecret = process.env.RAZORPAY_PARTNER_WEBHOOK_SECRET || process.env.RAZORPAY_WEBHOOK_SECRET;
       if (!verificationSecret) {
         console.warn('⚠️ [PartnerWebhook] RAZORPAY_PARTNER_WEBHOOK_SECRET not configured on server');
         return res.status(500).json({ success: false, error: 'Partner webhook secret not configured' });
       }
     } else {
-      // 2. Merchant commerce events: MUST have sub-merchant accountId and use tenant's decrypted secret
       if (!accountId) {
         console.warn('⚠️ [PartnerWebhook] Commerce webhook missing account_id in payload');
         return res.status(400).json({ success: false, error: 'Missing account_id for sub-merchant event' });
@@ -190,7 +183,6 @@ export const handlePartnerWebhook = async (req, res) => {
       }
     }
 
-    // 3. Timing-Safe HMAC-SHA256 Verification
     const rawPayload = req.rawBody || Buffer.from(JSON.stringify(req.body));
     const expectedSignature = crypto
       .createHmac('sha256', verificationSecret)
@@ -205,7 +197,6 @@ export const handlePartnerWebhook = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Invalid signature' });
     }
 
-    // 4. Handle Partner Lifecycle Events
     if (isPartnerLifecycleEvent) {
       console.log(`📋 [PartnerWebhook] Partner Lifecycle Event: ${event} for account: ${accountId}`);
 
@@ -260,7 +251,6 @@ export const handlePartnerWebhook = async (req, res) => {
       return res.status(200).json({ status: 'ok', handled: 'partner_lifecycle' });
     }
 
-    // 5. Commerce Events: Extract Event ID & Enqueue
     const payload = req.body?.payload;
     const eventEntity =
       payload?.payment_link?.entity ||
@@ -298,7 +288,6 @@ export const handlePartnerWebhook = async (req, res) => {
 
 /**
  * Phase 2: Async BullMQ Job Processor
- * Performs atomic idempotency check via DB WebhookEvent table and handles all 7 payment events.
  */
 const processWooCustomerCreated = async ({ tenantId, payload }) => {
   const billing = payload.billing || {};
@@ -439,10 +428,24 @@ const processWooCustomerCreated = async ({ tenantId, payload }) => {
 };
 
 export const processOrderWebhookJob = async (job) => {
-
-
   const { name, data } = job;
 
+  // ─── 0. SHOPIFY: CART RECOVERY REMINDER DELAYED JOBS ─────────────────
+  if (name === 'shopify-cart-1h' || name === 'shopify-cart-24h' || name === 'shopify-cart-48h') {
+    return processCartReminder(data);
+  }
+
+  // ─── 0. SHOPIFY: PAYMENT REMINDER DELAYED JOB ─────────────────────────
+  if (name === 'shopify-payment-reminder') {
+    return processShopifyPaymentReminderJob(data);
+  }
+
+  // ─── 1. SHOPIFY WEBHOOK HANDLING ──────────────────────────────────────
+  if (name === 'shopify-order' || data?.type === 'SHOPIFY' || data?.provider === 'SHOPIFY') {
+    return processShopifyOrderLifecycle(data);
+  }
+
+  // ─── 2. WOOCOMMERCE WEBHOOK HANDLING ──────────────────────────────────
   if (name === 'woocommerce-order' || data?.type === 'WOOCOMMERCE') {
     if (data?.topic === 'customer.created') {
       console.log(
@@ -489,25 +492,19 @@ export const processOrderWebhookJob = async (job) => {
       total: item.total
     }));
 
-
-        const wooConnection = await prisma.wooCommerceConnection.findUnique({
+    const wooConnection = await prisma.wooCommerceConnection.findUnique({
       where: { tenantId },
       select: { trackingUrlTemplates: true }
     });
 
-    // 1. Extract Tracking Info using helper (declared with 'let' to allow fallback assignment)
     let trackingInfo = extractWooTrackingInfo(payload, wooConnection?.trackingUrlTemplates || []) || [];
 
-    // 2. Ensure trackingInfo is an array
     if (!Array.isArray(trackingInfo)) {
       trackingInfo = trackingInfo ? [trackingInfo] : [];
     }
 
-    // 3. Fallback: Parse WooCommerce Meta Data directly if plugin metadata wasn't caught
     if (trackingInfo.length === 0 && payload?.meta_data) {
       const metaData = payload.meta_data;
-
-      // Check standard meta keys or array meta keys (_wc_shipment_tracking_items / _ast_tracking_items)
       const trackingItemsMeta = metaData.find(m => m.key === '_wc_shipment_tracking_items' || m.key === '_ast_tracking_items')?.value;
 
       if (Array.isArray(trackingItemsMeta) && trackingItemsMeta.length > 0) {
@@ -526,18 +523,14 @@ export const processOrderWebhookJob = async (job) => {
       }
     }
 
-    // 4. Generate Live Tracking URL for any items missing a URL
     trackingInfo.forEach(item => {
       if (!item.url || item.url.trim() === '') {
         item.url = generateTrackingUrl(item.provider || '', item.number || '');
       }
     });
 
-
-      // 🔍 TEMPORARY DEBUG LOG
     console.log("🔍 [Woo Meta Keys Received]:", payload?.meta_data?.map(m => m.key));
     console.log(`🔗 [Tracking Engine Result] Order #${orderNumber}:`, trackingInfo);
-    // -------------------------------------------------------------
 
     const orderKey = {
       tenantId_source_externalOrderId: {
@@ -571,13 +564,16 @@ export const processOrderWebhookJob = async (job) => {
     const reviewRequestedAt = isDelivered && (!previousOrder || !wasDelivered)
       ? new Date()
       : undefined;
+    const recoveryCartId = payload.meta_data?.find(
+      (item) => ['_sudoreply_cart_recovery_id', 'sudoreply_cart_recovery_id'].includes(item.key),
+    )?.value;
 
-    // 1. Upsert Order in DB
     const order = await prisma.ecommerceOrder.upsert({
       where: orderKey,
       update: {
         status, paymentMethod, paymentStatus, total, customerName,
         customerPhone, customerEmail, shippingAddress: shipping, lineItems,
+        ...(recoveryCartId ? { cartRecoveryId: String(recoveryCartId) } : {}),
         ...(trackingInfo ? { trackingInfo } : {}),
         ...(reviewRequestedAt ? { reviewRequestedAt } : {})
       },
@@ -585,13 +581,18 @@ export const processOrderWebhookJob = async (job) => {
         tenantId, source: 'WOOCOMMERCE', externalOrderId, orderNumber,
         status, paymentMethod, paymentStatus, total, currency, customerName,
         customerPhone, customerEmail, shippingAddress: shipping, lineItems,
+        cartRecoveryId: recoveryCartId ? String(recoveryCartId) : null,
         trackingInfo: trackingInfo || undefined,
         reviewRequestedAt
       }
     });
-     console.log('3️⃣ DB Upsert succeeded! Order ID in DB:', order.id);
+    console.log('3️⃣ DB Upsert succeeded! Order ID in DB:', order.id);
 
-    // 2. Upsert Contact & Conversation for Live Chat
+    if (recoveryCartId) {
+      const { cancelWooCartReminders } = await import('../woocommerce/woocommerceCartRecoveryService.js');
+      await cancelWooCartReminders(tenantId, String(recoveryCartId));
+    }
+
     if (customerPhone) {
       let contact = await prisma.contact.findFirst({
         where: { tenantId, phone: customerPhone }
@@ -618,9 +619,8 @@ export const processOrderWebhookJob = async (job) => {
         });
       }
 
-           const itemsList = lineItems.map(i => `${i.name} (x${i.quantity})`).join(', ');
+      const itemsList = lineItems.map(i => `${i.name} (x${i.quantity})`).join(', ');
 
-      // Auto-detect store domain from webhook payload (_links, permalink, or tenant config)
       let storeUrl = payload.store_url || payload.storeUrl || tenant?.woocommerceStoreUrl || '';
       if (!storeUrl && payload._links?.self?.[0]?.href) {
         try {
@@ -641,7 +641,6 @@ export const processOrderWebhookJob = async (job) => {
       );
       const orderKey = payload.order_key || metaMap.order_key || metaMap._order_key || '';
 
-      // Generate direct WooCommerce checkout payment URL
       const checkoutPaymentUrl = payload.checkout_payment_url || (
         storeUrl && orderId
           ? `${storeUrl.replace(/\/+$/, '')}/checkout/order-pay/${orderId}/?pay_for_order=true${orderKey ? `&key=${orderKey}` : ''}`
@@ -685,7 +684,6 @@ export const processOrderWebhookJob = async (job) => {
         });
       }
 
-      // Realtime Sockets
       try {
         const orderPayload = { order, contact };
         if (messageRecord) {
@@ -697,7 +695,6 @@ export const processOrderWebhookJob = async (job) => {
         console.error('Socket error:', sockErr.message);
       }
 
-      // 3. Log to Google Sheet
       const formattedStatus = status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Processing';
       const deliveryLocation = [
         shipping.address_1 || billing.address_1 || '',
@@ -727,8 +724,6 @@ export const processOrderWebhookJob = async (job) => {
         "Timestamp": new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })
       });
 
-
-        // 🔔 3b. Admin: New Order Alert (Manager WhatsApp + Silent in-app badge)
       if (isNewOrder) {
         try {
           const alertItems = Array.isArray(payload?.line_items) ? payload.line_items : [];
@@ -744,7 +739,6 @@ export const processOrderWebhookJob = async (job) => {
         }
       }
 
-      // 4. WhatsApp Template Notification
       if (messageText && process.env.NODE_ENV !== 'production') {
         console.log(`🧪 [Worker] Development mock: order notification recorded in platform for ${customerPhone}`);
       } else if (messageText && process.env.NODE_ENV === 'production' && isNewOrder) {
@@ -890,15 +884,13 @@ export const processOrderWebhookJob = async (job) => {
 
     return { success: true, type: 'WOOCOMMERCE', orderId: order.id };
   }
-  // 👆👆👆 END OF WOOCOMMERCE BLOCK 👆👆👆
 
-
+  // ─── 3. RAZORPAY WEBHOOK HANDLING ─────────────────────────────────────
   const { tenantId, eventId, event, payload } = job.data;
   const uniqueKey = `${event}_${eventId}`;
 
   console.log(`\n💳 [OrderWebhookWorker] Processing event "${event}" (${uniqueKey}) for tenant ${tenantId}`);
 
-  // 1. Atomic Idempotency Check using Prisma create-first
   try {
     await prisma.webhookEvent.create({
       data: {
@@ -916,8 +908,6 @@ export const processOrderWebhookJob = async (job) => {
     throw err;
   }
 
-
-  // 2. Resolve Target Order
   const paymentLinkEntity = payload?.payment_link?.entity;
   const paymentEntity = payload?.payment?.entity;
   const refundEntity = payload?.refund?.entity;
@@ -936,7 +926,6 @@ export const processOrderWebhookJob = async (job) => {
   }
 
   if (!order) {
-    // Secondary lookup by razorpayPaymentLinkId or razorpayPaymentId
     const searchId = paymentLinkEntity?.id || paymentEntity?.id || paymentEntity?.order_id;
     if (searchId) {
       order = await prisma.order.findFirst({
@@ -959,11 +948,9 @@ export const processOrderWebhookJob = async (job) => {
 
   console.log(`📦 [OrderWebhook] Matched Order #${order.orderNumber} (ID: ${order.id})`);
 
-  // 3. Dispatch Event to Specific Handlers
   try {
     switch (event) {
 
-      // ── 1. PAYMENT LINK PAID ─────────────────────────────────
       case 'payment_link.paid': {
         if (order.paymentStatus === 'PAID') {
           console.log(`ℹ️ [OrderWebhook] Order #${order.orderNumber} is already marked as PAID. Skipping duplicate webhook.`);
@@ -974,7 +961,6 @@ export const processOrderWebhookJob = async (job) => {
         const paidPaise = paymentLinkEntity?.amount_paid || paymentEntity?.amount || 0;
         const expectedPaise = Math.round(Number(order.totalAmount) * 100);
 
-        // Security check: Integer paise verification against order amount
         if (paidPaise !== expectedPaise) {
           console.error(`🚨 [OrderWebhook] Amount mismatch on Order #${order.orderNumber}! Expected ${expectedPaise} paise, got ${paidPaise} paise.`);
           
@@ -1005,7 +991,6 @@ export const processOrderWebhookJob = async (job) => {
           break;
         }
 
-        // Amount matches: Mark Order PAID & CONFIRMED
         const updatedOrder = await prisma.order.update({
           where: { id: order.id },
           data: {
@@ -1019,7 +1004,6 @@ export const processOrderWebhookJob = async (job) => {
 
         console.log(`✅ [OrderWebhook] Order #${order.orderNumber} marked as PAID & CONFIRMED`);
 
-        // ── Phase 4: Update Zoho Deal stage ──
         try {
           const { updateZohoDealStage } = await import('../zoho/zohoDealService.js');
           updateZohoDealStage(tenantId, order.id, 'PAID').catch(() => {});
@@ -1033,18 +1017,15 @@ export const processOrderWebhookJob = async (job) => {
           paidAt: updatedOrder.paidAt,
         });
 
-        // Resume WhatsApp Automation Flow
         await flowEngine.resumeFlowAfterPayment(updatedOrder, 'PAID');
         break;
       }
 
-      // ── 2. PAYMENT CAPTURED ──────────────────────────────────
       case 'payment.captured': {
         const paymentId = paymentEntity?.id;
         const paidPaise = paymentEntity?.amount || 0;
         const expectedPaise = Math.round(Number(order.totalAmount) * 100);
 
-        // Idempotent safety: only update if not already PAID
         if (order.paymentStatus !== 'PAID') {
           if (paidPaise !== expectedPaise) {
             console.error(`🚨 [OrderWebhook] Amount mismatch on payment.captured for Order #${order.orderNumber}!`);
@@ -1073,7 +1054,6 @@ export const processOrderWebhookJob = async (job) => {
 
           console.log(`✅ [OrderWebhook] payment.captured: Order #${order.orderNumber} confirmed`);
 
-          // ── Phase 4: Update Zoho Deal stage ──
           try {
             const { updateZohoDealStage } = await import('../zoho/zohoDealService.js');
             updateZohoDealStage(tenantId, order.id, 'PAID').catch(() => {});
@@ -1091,7 +1071,6 @@ export const processOrderWebhookJob = async (job) => {
         break;
       }
 
-      // ── 3. PAYMENT FAILED ────────────────────────────────────
       case 'payment.failed': {
         const failureReason = paymentEntity?.error_description || paymentEntity?.error_reason || 'Payment failed';
         console.warn(`❌ [OrderWebhook] Payment failed for Order #${order.orderNumber}: ${failureReason}`);
@@ -1113,12 +1092,10 @@ export const processOrderWebhookJob = async (job) => {
           failureReason,
         });
 
-        // Notify customer on WhatsApp with retry options
         await flowEngine.handlePaymentFailed(updatedOrder, failureReason);
         break;
       }
 
-      // ── 4. PAYMENT LINK EXPIRED ──────────────────────────────
       case 'payment_link.expired': {
         console.warn(`⏰ [OrderWebhook] Payment link expired for Order #${order.orderNumber}`);
 
@@ -1137,12 +1114,10 @@ export const processOrderWebhookJob = async (job) => {
           orderNumber: order.orderNumber,
         });
 
-        // Offer customer a new payment link or COD fallback
         await flowEngine.handlePaymentExpired(updatedOrder);
         break;
       }
 
-      // ── 5. PAYMENT LINK CANCELLED ────────────────────────────
       case 'payment_link.cancelled': {
         console.log(`🚫 [OrderWebhook] Payment link cancelled for Order #${order.orderNumber}`);
 
@@ -1162,7 +1137,6 @@ export const processOrderWebhookJob = async (job) => {
           orderNumber: order.orderNumber,
         });
 
-        // Sync to Google Sheets
         try {
           const fullOrder = await prisma.order.findUnique({ where: { id: order.id }, include: { items: true, contact: true } });
           const productSummary = (fullOrder?.items || []).map(i => `${i.productName || 'Item'} (x${i.quantity || 1})`).join(', ');
@@ -1185,7 +1159,6 @@ export const processOrderWebhookJob = async (job) => {
         break;
       }
 
-      // ── 6. REFUND PROCESSED ──────────────────────────────────
       case 'refund.processed': {
         const refundAmountPaise = refundEntity?.amount || 0;
         const totalPaise = Math.round(Number(order.totalAmount) * 100);
@@ -1213,7 +1186,6 @@ export const processOrderWebhookJob = async (job) => {
           orderNumber: order.orderNumber,
         });
 
-        // Notify customer on WhatsApp
         const refundMsg = `💰 *Refund Processed*\n\nA refund of ${order.currency} ${(refundAmountPaise / 100).toFixed(2)} for Order #${order.orderNumber} has been processed successfully. It should reflect in your account within 5-7 business days.`;
         if (order.conversation && order.contact) {
           await flowEngine.sendBotTextMessage(order.conversation, order.contact, refundMsg);
@@ -1222,7 +1194,6 @@ export const processOrderWebhookJob = async (job) => {
         break;
       }
 
-      // ── 7. REFUND FAILED ─────────────────────────────────────
       case 'refund.failed': {
         console.error(`❌ [OrderWebhook] Refund failed for Order #${order.orderNumber}`);
 
@@ -1259,5 +1230,40 @@ export const processOrderWebhookJob = async (job) => {
   } catch (processErr) {
     console.error(`❌ [OrderWebhook] Error executing event ${event}:`, processErr);
     throw processErr;
+  }
+};
+
+
+/**
+ * Ingest Shopify Webhook (< 200ms)
+ */
+export const handleShopifyWebhook = async (req, res) => {
+  try {
+    const topic = req.headers['x-shopify-topic'];
+    const shop = req.headers['x-shopify-shop-domain'];
+    const payload = req.body;
+
+    console.log(`📥 [ShopifyWebhook] Received topic: "${topic}" from domain: "${shop}"`);
+
+    await orderWebhookQueue.add(
+      'shopify-order',
+      {
+        provider: 'SHOPIFY',
+        topic,
+        shop,
+        payload,
+        receivedAt: new Date().toISOString(),
+      },
+      {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 5000 },
+        removeOnComplete: true,
+      }
+    );
+
+    return res.status(200).send('Webhook received and queued');
+  } catch (error) {
+    console.error('❌ [ShopifyWebhook] Ingestion error:', error);
+    return res.status(500).send('Webhook ingestion failed');
   }
 };

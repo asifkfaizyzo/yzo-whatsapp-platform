@@ -511,7 +511,52 @@ export default function Register() {
             )}
 
             <div className="space-y-4 sr-animate-fade-in-slide" key={step}>
-              <div>
+              {step === 1 && (
+                <>
+                  {googleError && (
+                    <div className="mb-4 rounded-xl bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-600">
+                      {googleError}
+                    </div>
+                  )}
+
+                  {fbError && (
+                    <div className="mb-4 rounded-xl bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-600">
+                      {fbError}
+                    </div>
+                  )}
+
+                  <div className="flex justify-center w-full">
+                    <FacebookLoginButton
+                      onSuccess={handleFacebookSuccess}
+                      onError={handleFacebookError}
+                      text="Sign up with Facebook"
+                    />
+                  </div>
+
+                  <div className="flex justify-center w-full mt-3">
+                    <GoogleLogin
+                      onSuccess={handleGoogleSuccess}
+                      onError={handleGoogleError}
+                      shape="pill"
+                      theme="outline"
+                      width="360px"
+                      text="signup_with"
+                      logo_alignment="center"
+                    />
+                  </div>
+
+                  <div className="relative my-6">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-slate-200"></div>
+                    </div>
+                    <div className="relative flex justify-center">
+                      <span className="bg-white px-3 text-xs font-medium text-slate-400 tracking-wide">Or continue with</span>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <div className={step === 1 ? "text-center" : ""}>
                 <h2 className="text-[1.6rem] font-bold text-slate-900 tracking-tight">{stepsMeta[step]?.title}</h2>
                 <p className="text-sm text-slate-500 mt-1.5">{stepsMeta[step]?.subtitle}</p>
               </div>
@@ -568,46 +613,6 @@ export default function Register() {
                     </button>
                   </form>
 
-                  <div className="relative my-6">
-                    <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-slate-200"></div>
-                    </div>
-                    <div className="relative flex justify-center">
-                      <span className="bg-white px-3 text-xs font-medium text-slate-400 tracking-wide">Or continue with</span>
-                    </div>
-                  </div>
-
-                  {googleError && (
-                    <div className="mb-4 rounded-xl bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-600">
-                      {googleError}
-                    </div>
-                  )}
-
-                  {fbError && (
-                    <div className="mb-4 rounded-xl bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-600">
-                      {fbError}
-                    </div>
-                  )}
-
-                  <div className="flex justify-center w-full">
-                    <GoogleLogin
-                      onSuccess={handleGoogleSuccess}
-                      onError={handleGoogleError}
-                      shape="pill"
-                      theme="outline"
-                      width="340px"
-                      text="signup_with"
-                      logo_alignment="center"
-                    />
-                  </div>
-                  
-                  <div className="flex justify-center w-full mt-3">
-                    <FacebookLoginButton
-                      onSuccess={handleFacebookSuccess}
-                      onError={handleFacebookError}
-                      text="Sign up with Facebook"
-                    />
-                  </div>
                 </>
               )}
 

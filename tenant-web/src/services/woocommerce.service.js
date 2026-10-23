@@ -25,6 +25,16 @@ export const updateWooCommerceAlertSettings = async (settings) => {
   return response.data;
 };
 
+export const getWooCommerceCartRecoveryWebhookConfig = async () => {
+  const response = await api.get("/woocommerce/cart-recovery-webhook-config");
+  return response.data;
+};
+
+export const updateWooCommerceCartRecoverySettings = async (settings) => {
+  const response = await api.put("/woocommerce/cart-recovery-settings", settings);
+  return response.data;
+};
+
 // 👇 1-Click OAuth
 export const getWooCommerceOAuthUrl = async (storeUrl) => {
   const res = await api.get(
@@ -43,6 +53,8 @@ export const wooCommerceService = {
   disconnectWooCommerce,
   saveWooCommerceTrackingUrlTemplates,
   updateWooCommerceAlertSettings,
+  getWooCommerceCartRecoveryWebhookConfig,
+  updateWooCommerceCartRecoverySettings,
   saveWooCommerceConfig,
   getStatus: getWooCommerceStatus,
   connect: connectWooCommerce,

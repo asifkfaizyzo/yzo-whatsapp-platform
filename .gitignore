@@ -3,7 +3,8 @@
 # ========================
 .env
 .env.*
-!.env.example   # allow example file
+!.env.example
+!backend/.env.example
 
 # ========================
 # 📦 Node Modules
@@ -65,3 +66,5 @@ Thumbs.db
 # 🗜️ Archives
 # ========================
 *.zip
+
+test-*.json
