@@ -1,0 +1,47 @@
+{
+  "name": "sudo-reply-mobile",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web"
+  },
+  "dependencies": {
+    "@expo/vector-icons": "14.0.4",
+    "@react-native-google-signin/google-signin": "^16.1.5",
+    "@react-navigation/bottom-tabs": "7.2.0",
+    "@react-navigation/native": "7.0.14",
+    "@react-navigation/native-stack": "7.2.0",
+    "@tanstack/react-query": "5.66.0",
+    "axios": "1.7.9",
+    "expo": "52.0.49",
+    "expo-application": "~6.0.2",
+    "expo-asset": "~11.0.5",
+    "expo-auth-session": "~6.0.3",
+    "expo-constants": "17.0.8",
+    "expo-crypto": "~14.0.2",
+    "expo-font": "13.0.4",
+    "expo-linking": "7.0.5",
+    "expo-secure-store": "14.0.1",
+    "expo-splash-screen": "0.29.22",
+    "expo-status-bar": "2.0.1",
+    "expo-web-browser": "~14.0.2",
+    "react": "18.3.1",
+    "react-native": "0.76.9",
+    "react-native-gesture-handler": "2.20.2",
+    "react-native-reanimated": "3.16.7",
+    "react-native-safe-area-context": "4.14.1",
+    "react-native-screens": "4.4.0",
+    "socket.io-client": "4.8.1",
+    "zustand": "5.0.3"
+  },
+  "devDependencies": {
+    "@babel/core": "7.26.0",
+    "@types/react": "18.3.12",
+    "babel-plugin-module-resolver": "5.0.2",
+    "typescript": "5.3.3"
+  },
+  "private": true
+}

@@ -7,6 +7,7 @@ import {
          getAssignedContacts,forgotPasswordUserService, resetPasswordUserService, 
          getUserProfileService, updateUserPasswordService,
          updateAvailabilityService, getDashboardStatsService, getUnreadBadgeCountService,
+         loginUserWithGoogleService,
        } from './userService.js';
 
 import { extractRequestMeta } from '../../lib/utils/requestMeta.js';
@@ -335,6 +336,36 @@ export const getUnreadBadgeCount = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to fetch unread count',
+    });
+  }
+};
+
+// ============================================================
+// 🆕 GOOGLE LOGIN FOR AGENT
+// ============================================================
+export const googleLoginUser = async (req, res) => {
+  try {
+    const { credential } = req.body;
+    const result = await loginUserWithGoogleService(credential);
+    const { accessToken, refreshToken, user } = result;
+
+    res.cookie('user_refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/',
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Google login successful',
+      data: { user, accessToken, refreshToken },
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message || 'Google Auth failed',
     });
   }
 };

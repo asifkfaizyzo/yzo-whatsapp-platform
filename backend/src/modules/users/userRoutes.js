@@ -8,6 +8,7 @@ import { verifyUser } from '../../middlewares/authUser.js';
 import {
   loginSchema, forgotPasswordSchema, resetPasswordSchema,
   refreshTokenSchema, logoutSchema, changePasswordSchema,
+  googleLoginSchema,
 } from '../../validations/auth.validation.js';
 import validate from '../../middlewares/validate.middleware.js';
 
@@ -21,6 +22,7 @@ router.post('/logout-user', validate(logoutSchema), userController.logoutUser);
 router.post('/refresh-user-access', validate(refreshTokenSchema), userController.refreshUserAccessToken);
 router.post('/forgot-usr-password', validate(forgotPasswordSchema), userController.forgotPasswordUser);
 router.post('/reset-usr-password', validate(resetPasswordSchema), userController.resetPasswordUser);
+router.post('/google-login', validate(googleLoginSchema), userController.googleLoginUser);
 
 // ═════════════════════════════════════════
 // USER PROFILE ROUTES

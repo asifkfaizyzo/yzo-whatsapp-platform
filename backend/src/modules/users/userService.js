@@ -592,3 +592,64 @@ export const getUnreadBadgeCountService = async (userId, tenantId) => {
     totalBadge: unreadConversations + unreadNotifications,
   };
 };
+
+// =========== Google Sign-In for Agent (User) ===========
+export const loginUserWithGoogleService = async (credential) => {
+  const { OAuth2Client } = await import('google-auth-library');
+  const googleClient = new OAuth2Client();
+
+const ticket = await googleClient.verifyIdToken({
+    idToken: credential,
+    audience: [
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_ID_MOBILE,
+    ].filter(Boolean),
+});
+  const payload = ticket.getPayload();
+  if (!payload) {
+    throw new Error('Invalid Google Token payload');
+  }
+
+  const { email } = payload;
+
+  const user = await prisma.user.findUnique({ where: { email } });
+
+  if (!user) {
+    throw new Error('No agent account found with this email. Please contact your admin to create an account first.');
+  }
+
+  if (!user.isActive) {
+    throw new Error('Your account has been deactivated. Contact your admin.');
+  }
+
+  const accessToken = generateAccessToken({
+    id: user.id,
+    email: user.email,
+    tenantId: user.tenantId,
+    type: 'USER',
+  });
+
+  const refreshToken = generateRefreshToken({
+    id: user.id,
+    tenantId: user.tenantId,
+    type: 'USER',
+  });
+
+  await saveRefreshToken({
+    token: refreshToken,
+    userId: user.id,
+  });
+
+  return {
+    user: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      tenantId: user.tenantId,
+      type: 'USER',
+      status: 'APPROVED',
+    },
+    accessToken,
+    refreshToken,
+  };
+};
