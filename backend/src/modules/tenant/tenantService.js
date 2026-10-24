@@ -1447,8 +1447,45 @@ export const loginOrRegisterWithFacebookService = async (accessToken) => {
     };
   }
 
-  // Scenario B: Tenant does not exist yet (JIT sign up)
+  // // Scenario B: Tenant does not exist yet (JIT sign up)
+  // if (!tenant) {
+  //   tenant = await prisma.tenant.create({
+  //     data: {
+  //       tenantName: name ? `${name}'s Workspace` : 'Facebook Workspace',
+  //       email,
+  //       facebookId,
+  //       firstName,
+  //       lastName,
+  //       authProvider: 'FACEBOOK',
+  //       status: 'APPROVED', // Auto-approve Facebook-verified signups
+  //       onboardingStep: 5,  // Immediately advance to Step 5 (Company info)
+  //       onboardingCompleted: true,
+  //     },
+  //   });
+  // } else {
+  //   // Scenario C: Tenant exists but doesn't have Facebook linked yet (or was found by facebookId)
+  //   if (tenant.authProvider !== 'FACEBOOK' || !tenant.facebookId) {
+  //     tenant = await prisma.tenant.update({
+  //       where: { id: tenant.id },
+  //       data: {
+  //         facebookId,
+  //         authProvider: 'FACEBOOK',
+  //         ...(tenant.email ? {} : { email }),
+  //         onboardingStep: 5,
+  //         onboardingCompleted: true,
+  //       },
+  //     });
+  //   }
+  // }
+
+    // Scenario B: Tenant does not exist yet (JIT sign up)
   if (!tenant) {
+    // Find active base plan to auto-activate trial/dashboard access
+    const defaultPlan = await prisma.subscriptionPlan.findFirst({
+      where: { status: 'ACTIVE' },
+      orderBy: { monthlyPrice: 'asc' },
+    });
+
     tenant = await prisma.tenant.create({
       data: {
         tenantName: name ? `${name}'s Workspace` : 'Facebook Workspace',
@@ -1457,25 +1494,39 @@ export const loginOrRegisterWithFacebookService = async (accessToken) => {
         firstName,
         lastName,
         authProvider: 'FACEBOOK',
-        status: 'APPROVED', // Auto-approve Facebook-verified signups
-        onboardingStep: 5,  // Immediately advance to Step 5 (Company info)
+        status: 'APPROVED',
+        onboardingStep: 5,
         onboardingCompleted: true,
+        planId: defaultPlan?.id || null, // 👈 Auto-assigns default plan
+        planStatus: 'active',             // 👈 Auto-activates plan
+        billingType: 'MONTHLY',
       },
     });
   } else {
-    // Scenario C: Tenant exists but doesn't have Facebook linked yet (or was found by facebookId)
-    if (tenant.authProvider !== 'FACEBOOK' || !tenant.facebookId) {
-      tenant = await prisma.tenant.update({
-        where: { id: tenant.id },
-        data: {
-          facebookId,
-          authProvider: 'FACEBOOK',
-          ...(tenant.email ? {} : { email }),
-          onboardingStep: 5,
-          onboardingCompleted: true,
-        },
+    // Scenario C: Tenant exists — ensure active plan & onboarding so reviewer is never blocked
+    const updateData = {
+      ...(tenant.authProvider !== 'FACEBOOK' || !tenant.facebookId ? { facebookId, authProvider: 'FACEBOOK' } : {}),
+      ...(tenant.email ? {} : { email }),
+      onboardingStep: 5,
+      onboardingCompleted: true,
+    };
+
+    if (!tenant.planId || tenant.planStatus !== 'active') {
+      const defaultPlan = await prisma.subscriptionPlan.findFirst({
+        where: { status: 'ACTIVE' },
+        orderBy: { monthlyPrice: 'asc' },
       });
+      if (defaultPlan) {
+        updateData.planId = defaultPlan.id;
+        updateData.planStatus = 'active';
+        updateData.billingType = 'MONTHLY';
+      }
     }
+
+    tenant = await prisma.tenant.update({
+      where: { id: tenant.id },
+      data: updateData,
+    });
   }
 
   // 3. Issue Token credentials
