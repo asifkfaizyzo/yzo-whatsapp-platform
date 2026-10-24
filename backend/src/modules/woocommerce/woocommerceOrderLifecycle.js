@@ -172,7 +172,7 @@ const formatStatus = (status) =>
     .join(' ');
 
 export const buildWooOrderLifecycleMessage = ({
-  isNewOrder,
+ isNewOrder,
   previousStatus,
   status,
   previousPaymentStatus,
@@ -185,6 +185,7 @@ export const buildWooOrderLifecycleMessage = ({
   lineItems,
   hasTrackingChanged,
   trackingInfo,
+  checkoutPaymentUrl,
 }) => {
   if (isNewOrder) {
     return `🎉 *Order Confirmation!*\n\nHi *${customerName}*,\nYour order *#${orderNumber}* has been received!\n\n📦 *Items:* ${lineItems || 'WooCommerce Items'}\n💰 *Total:* ${currency} ${total}\n💳 *Payment method:* ${paymentMethod}\n💳 *Payment status:* ${formatStatus(paymentStatus)}`;
@@ -217,7 +218,7 @@ export const buildWooOrderLifecycleMessage = ({
   }
   if (!changes.length) return null;
 
-  const statusCopy = {
+    const statusCopy = {
     processing: 'Your order is being packed.',
     shipped: trackingDetails
       ? 'Your order has shipped. Use the tracking details above to follow its progress.'
@@ -227,7 +228,9 @@ export const buildWooOrderLifecycleMessage = ({
     cancelled: 'Your order has been cancelled.',
     refunded: 'Your order has been refunded. Refund timing depends on your payment provider.',
     'on-hold': 'Your order is on hold.',
-    failed: 'Your payment failed. Please contact the store for help completing your order.',
+    failed: checkoutPaymentUrl
+      ? `Your payment failed. Complete your payment here:\n🔗 ${checkoutPaymentUrl}`
+      : 'Your payment failed. Please contact the store for help completing your order.',
   };
 
   return `📦 *Order Update*\n\nHi *${customerName}*, order *#${orderNumber}* was updated.\n${changes.join('\n')}\n\n${statusCopy[normalizedStatus] || 'We will keep you updated.'}`;

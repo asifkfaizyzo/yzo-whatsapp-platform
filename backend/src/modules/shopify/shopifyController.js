@@ -39,6 +39,34 @@ export const getStatus = async (req, res) => {
   }
 };
 
+export const updateCartRecoverySettings = async (req, res) => {
+  const cartRecoveryEnabled = req.body?.cartRecoveryEnabled;
+  if (typeof cartRecoveryEnabled !== 'boolean') {
+    return res.status(400).json({
+      success: false,
+      message: 'cartRecoveryEnabled must be a boolean',
+    });
+  }
+
+  try {
+    const tenantId = req.tenantId || req.tenant?.id;
+    const settings = await shopifyService.updateCartRecoverySettings(
+      tenantId,
+      cartRecoveryEnabled,
+    );
+    return res.json({ success: true, data: settings });
+  } catch (error) {
+    if (error.code === 'P2025') {
+      return res.status(404).json({ success: false, message: 'Shopify store is not connected' });
+    }
+    console.error('Error updating Shopify cart recovery settings:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update Shopify cart recovery settings',
+    });
+  }
+};
+
 export const disconnect = async (req, res) => {
   try {
     const tenantId = req.tenantId || req.tenant?.id;

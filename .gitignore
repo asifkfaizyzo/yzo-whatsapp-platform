@@ -3,7 +3,8 @@
 # ========================
 .env
 .env.*
-!.env.example   # allow example file
+!.env.example
+!backend/.env.example
 
 # ========================
 # 📦 Node Modules
@@ -65,3 +66,17 @@ Thumbs.db
 # 🗜️ Archives
 # ========================
 *.zip
+
+test-*.json
+
+# Generated Android and native build files
+**/.gradle/
+**/.cxx/
+**/build/
+**/local.properties
+
+# Expo generated files
+**/.expo/
+
+# Local tooling
+**/.claude/

@@ -3,6 +3,7 @@ import { processBroadcastCampaign } from './broadcastService.js';
 import { checkFeatureAccess, checkLimitAccess } from '../../lib/planLimits.js';
 import { parseMetaError } from '../../lib/metaErrorCodes.js';
 import { emitToTenant } from '../../lib/socket.js';
+import { resolveWooCommerceSegment } from './wooBroadcastSegmentService.js';
 
 // 1. GET: Fetch all broadcasts history for the logged-in tenant
 export const getBroadcasts = async (req, res) => {
@@ -492,6 +493,13 @@ export const launchBroadcast = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Template not found or deleted.' });
     }
 
+       const {
+      segmentMinSpend,
+      segmentMinOrders,
+      segmentInactiveDays,
+      segmentIncludeAllWoo,
+    } = req.body;
+
     // 1. Identify recipient contacts
     let contacts = [];
     if (targetType === 'ALL') {
@@ -512,6 +520,14 @@ export const launchBroadcast = async (req, res) => {
           }
         }
       });
+    } else if (targetType === 'WOO_SEGMENT') {
+      const segmentResult = await resolveWooCommerceSegment(tenantId, {
+        segmentMinSpend,
+        segmentMinOrders,
+        segmentInactiveDays,
+        segmentIncludeAllWoo: segmentIncludeAllWoo || false,
+      });
+      contacts = segmentResult.contacts;
     }
 
     if (contacts.length === 0) {
@@ -528,13 +544,17 @@ export const launchBroadcast = async (req, res) => {
       });
     }
 
-    // 2. Create the Broadcast record
+       // 2. Create the Broadcast record
     const campaign = await prisma.broadcast.create({
       data: {
         tenantId,
         name,
         templateId,
         targetType,
+        segmentMinSpend: segmentMinSpend ? parseFloat(segmentMinSpend) : null,
+        segmentMinOrders: segmentMinOrders ? parseInt(segmentMinOrders, 10) : null,
+        segmentInactiveDays: segmentInactiveDays ? parseInt(segmentInactiveDays, 10) : null,
+        segmentIncludeAllWoo: Boolean(segmentIncludeAllWoo),
         defaultParams: defaultParams || {},
         status: campaignStatus,
         scheduledAt: scheduledDate,

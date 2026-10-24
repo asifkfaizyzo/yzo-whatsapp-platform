@@ -769,6 +769,7 @@ enum TemplateStatus {
 enum BroadcastTarget {
   ALL
   TAGS
+  WOO_SEGMENT
 }
 
 enum BroadcastStatus {
@@ -866,6 +867,12 @@ model Broadcast {
   // Targeting
   targetType      BroadcastTarget  // ALL or TAGS
   tags            BroadcastTag[]   // Only used if targetType = TAGS
+
+  // WooCommerce Smart Segmentation
+  segmentMinSpend      Float?
+  segmentMinOrders     Int?
+  segmentInactiveDays  Int?
+  segmentIncludeAllWoo Boolean          @default(false)
   
   // Default parameters (can be overridden per recipient)
   defaultParams   Json?
@@ -1746,6 +1753,18 @@ model ShopifyConnection {
   connectedAt   DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  // ── Cart Recovery Settings ──
+  cartRecoveryEnabled    Boolean  @default(true)
+  cartReminder1Enabled   Boolean  @default(true)
+  cartReminder24Enabled  Boolean  @default(true)
+  cartReminder48Enabled  Boolean  @default(true)
+  cartReminder1Text      String?  @db.Text
+  cartReminder24Text     String?  @db.Text
+  cartReminder48Text     String?  @db.Text
+  cartDiscountCode       String?
+  cartDiscountLabel      String?
+  cartIncludeImage       Boolean  @default(true)
+
   @@map("shopify_connections")
 }
 
@@ -1767,6 +1786,29 @@ model WooCommerceConnection {
   status         String   @default("active")
   connectedAt    DateTime @default(now())
   updatedAt      DateTime @updatedAt
+
+  // Admin & Operational Alerts
+  alertPhone           String?
+  newOrderAlert        Boolean   @default(false)
+  lowStockAlert        Boolean   @default(false)
+  lowStockThreshold    Int       @default(5)
+  dailySummaryAlert    Boolean   @default(false)
+  dailySummaryHour     Int       @default(21) // 21 = 9:00 PM
+  lastDailySummaryAt   DateTime?
+  lowStockAlertCache   Json?     @default("{}") // Anti-spam tracking for SKUs
+
+  cartReminder1Text   String?  @db.Text
+  cartReminder24Text  String?  @db.Text
+
+  // ── Cart Recovery Settings ──
+  cartRecoveryEnabled    Boolean  @default(true)
+  cartReminder1Enabled   Boolean  @default(true)
+  cartReminder24Enabled  Boolean  @default(true)
+  cartReminder48Enabled  Boolean  @default(true)
+  cartReminder48Text     String?  @db.Text
+  cartDiscountCode       String?
+  cartDiscountLabel      String?
+  cartIncludeImage       Boolean  @default(true)
 
   @@map("woocommerce_connections")
 }
@@ -1964,7 +2006,14 @@ model EcommerceOrder {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+    cartReminder1SentAt  DateTime?
+  cartReminder24SentAt DateTime?
+  cartReminder48SentAt DateTime?
+  cartStatus           String?    // 'abandoned' | 'recovered' | 'converted'
+  cartRecoveryId       String?
+
   @@unique([tenantId, source, externalOrderId])
+  @@index([tenantId, cartRecoveryId])
   @@index([tenantId, customerPhone])
   @@index([tenantId, createdAt])
   @@map("ecommerce_orders")

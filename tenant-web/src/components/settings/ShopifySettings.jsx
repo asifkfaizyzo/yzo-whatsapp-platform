@@ -1,5 +1,5 @@
 // src/components/settings/ShopifySettings.jsx
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import {
   ArrowLeft,
@@ -17,14 +17,22 @@ import {
   Copy,
   Eye,
   EyeOff,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import ShopifyLogo from "./ShopifyLogo";
 import { useToast } from "../../context/ToastContext";
 import {
   getShopifyStatus,
+  getShopifyOAuthUrl,
   connectShopify,
   disconnectShopify,
+  updateShopifyCartRecoverySettings,
 } from "../../services/shopify.service";
+
+const shopifyWebhookUrl = import.meta.env.VITE_BACKEND_URL
+  ? `${import.meta.env.VITE_BACKEND_URL.replace(/\/+$/, "")}/api2/shopify/webhooks`
+  : null;
 
 
 export default function ShopifySettings({ onBack } = {}) {
@@ -34,9 +42,12 @@ export default function ShopifySettings({ onBack } = {}) {
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [savingCartRecovery, setSavingCartRecovery] = useState(false);
   const [showDisconnectModal, setShowDisconnectModal] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [showAccessToken, setShowAccessToken] = useState(false);
   const [showWebhookSecret, setShowWebhookSecret] = useState(false);
+  const [shopDomain, setShopDomain] = useState("");
 
   const [connection, setConnection] = useState({
     isConnected: false,
@@ -44,7 +55,9 @@ export default function ShopifySettings({ onBack } = {}) {
     connectedAt: null,
     connectedBy: null,
     status: null,
+    cartRecoveryEnabled: true,
   });
+  const [cartRecoveryEnabled, setCartRecoveryEnabled] = useState(true);
 
   // ── Form State ──
   const [form, setForm] = useState({
@@ -67,7 +80,9 @@ export default function ShopifySettings({ onBack } = {}) {
           connectedAt: res.data.connectedAt || null,
           connectedBy: res.data.connectedBy || null,
           status: res.data.status || null,
+          cartRecoveryEnabled: res.data.cartRecoveryEnabled ?? true,
         });
+        setCartRecoveryEnabled(res.data.cartRecoveryEnabled ?? true);
       } else {
         setConnection({
           isConnected: false,
@@ -75,7 +90,9 @@ export default function ShopifySettings({ onBack } = {}) {
           connectedAt: null,
           connectedBy: null,
           status: null,
+          cartRecoveryEnabled: true,
         });
+        setCartRecoveryEnabled(true);
       }
     } catch (err) {
       console.error("Fetch Shopify status error:", err);
@@ -85,10 +102,42 @@ export default function ShopifySettings({ onBack } = {}) {
   };
 
   useEffect(() => {
-    fetchStatus();
-  }, []);
+    const statusTimer = window.setTimeout(() => fetchStatus(), 0);
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("connected") === "true") {
+      toast.success("Shopify store connected successfully!");
+      window.history.replaceState({}, "", window.location.pathname);
+    } else if (params.get("error")) {
+      toast.error(params.get("error"));
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+    return () => window.clearTimeout(statusTimer);
+  }, [toast]);
 
   // ── Connect / Disconnect ──
+  const handleOneClickConnect = async (e) => {
+    e.preventDefault();
+    if (!shopDomain.trim()) {
+      toast.error("Enter your Shopify store domain");
+      return;
+    }
+
+    setConnecting(true);
+    try {
+      const shop = shopDomain.trim().replace(/^https?:\/\//i, "").replace(/\/+$/, "");
+      const response = await getShopifyOAuthUrl(shop);
+      if (!response.success || !response.authUrl) {
+        throw new Error(response.message || "Failed to start Shopify authorization");
+      }
+      window.location.href = response.authUrl;
+    } catch (err) {
+      console.error("Shopify one-click connect error:", err);
+      toast.error(err?.response?.data?.message || err.message || "Failed to start Shopify authorization");
+      setConnecting(false);
+    }
+  };
+
   const handleConnect = async (e) => {
     e.preventDefault();
     if (!form.shopName.trim() || !form.accessToken.trim()) {
@@ -131,19 +180,49 @@ export default function ShopifySettings({ onBack } = {}) {
       } else {
         toast.error(res.message || "Failed to disconnect Shopify");
       }
-    } catch (err) {
+    } catch {
       toast.error("Failed to disconnect Shopify");
     }
     setDisconnecting(false);
   };
 
-  const copyWebhookUrl = () => {
-    const url = `${"http://localhost:5000"}/api2/webhook/shopify`;
-    navigator.clipboard.writeText(url);
-    toast.success("Webhook URL copied!");
+  const handleSaveCartRecovery = async (event) => {
+    event.preventDefault();
+    setSavingCartRecovery(true);
+    try {
+      const response = await updateShopifyCartRecoverySettings({ cartRecoveryEnabled });
+      if (!response.success || typeof response.data?.cartRecoveryEnabled !== "boolean") {
+        throw new Error(response.message || "Failed to save cart recovery settings.");
+      }
+      setCartRecoveryEnabled(response.data.cartRecoveryEnabled);
+      toast.success("Shopify cart recovery setting saved.");
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.message || error.message || "Failed to save cart recovery settings.",
+      );
+    } finally {
+      setSavingCartRecovery(false);
+    }
+  };
+
+  const copyWebhookUrl = async () => {
+    if (!shopifyWebhookUrl) {
+      toast.error("Webhook URL unavailable. Configure VITE_BACKEND_URL for the tenant app.");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(shopifyWebhookUrl);
+      toast.success("Webhook URL copied!");
+    } catch (error) {
+      console.error("Copy Shopify webhook URL error:", error);
+      toast.error("Could not copy the webhook URL.");
+    }
   };
 
   const isConnected = connection.isConnected;
+  const shopHandle = (connection.shopName || "").replace(/\.myshopify\.com$/i, "");
+  const connectedShopDomain = shopHandle ? `${shopHandle}.myshopify.com` : "";
 
   if (loading) {
     return (
@@ -246,12 +325,12 @@ export default function ShopifySettings({ onBack } = {}) {
                       Connected Store
                     </h4>
                     <p className="text-[11px] text-slate-500 mt-0.5 font-mono">
-                      {connection.shopName}.myshopify.com
+                      {connectedShopDomain}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 w-full sm:w-auto">
                     <a
-                      href={`https://admin.shopify.com/store/${connection.shopName}`}
+                      href={`https://admin.shopify.com/store/${shopHandle}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 text-xs font-semibold rounded-xl shadow-xs transition-colors flex-1 sm:flex-none"
@@ -260,7 +339,7 @@ export default function ShopifySettings({ onBack } = {}) {
                       Open Admin
                     </a>
                     <a
-                      href={`https://${connection.shopName}.myshopify.com`}
+                      href={`https://${connectedShopDomain}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 text-xs font-semibold rounded-xl shadow-xs transition-colors flex-1 sm:flex-none"
@@ -278,6 +357,44 @@ export default function ShopifySettings({ onBack } = {}) {
                 </p>
               </div>
 
+              <form
+                onSubmit={handleSaveCartRecovery}
+                className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4"
+              >
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900">
+                      Abandoned cart recovery
+                    </h4>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Enable or pause Shopify WhatsApp cart-recovery reminders.
+                    </p>
+                  </div>
+                  <label className="inline-flex items-center gap-2.5 cursor-pointer shrink-0">
+                    <span className="text-xs font-semibold text-slate-600">
+                      {cartRecoveryEnabled ? "ON" : "OFF"}
+                    </span>
+                    <input
+                      type="checkbox"
+                      role="switch"
+                      aria-label="Enable Shopify abandoned cart recovery"
+                      checked={cartRecoveryEnabled}
+                      onChange={(event) => setCartRecoveryEnabled(event.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <span className="relative h-5 w-9 rounded-full bg-slate-200 transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-transform peer-checked:bg-[#95BF47] peer-checked:after:translate-x-4 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[#95BF47]" />
+                  </label>
+                </div>
+                <button
+                  type="submit"
+                  disabled={savingCartRecovery}
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#95BF47] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-60"
+                >
+                  {savingCartRecovery && <RefreshCw size={13} className="animate-spin" />}
+                  {savingCartRecovery ? "Saving..." : "Save cart recovery setting"}
+                </button>
+              </form>
+
               {/* Webhook Configuration Card */}
               <div className="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-2xs space-y-5">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
@@ -287,8 +404,8 @@ export default function ShopifySettings({ onBack } = {}) {
                       <span>Webhook Endpoint</span>
                     </h4>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      Register this endpoint in Shopify Admin → Settings →
-                      Notifications to receive events.
+                      This is the app endpoint registered with Shopify. Use this
+                      exact URL only when configuring a webhook manually.
                     </p>
                   </div>
                 </div>
@@ -299,11 +416,12 @@ export default function ShopifySettings({ onBack } = {}) {
                   </label>
                   <div className="flex items-center gap-2 p-3 rounded-xl border border-slate-200 bg-slate-50">
                     <code className="flex-1 text-xs font-mono text-slate-700 truncate">
-                      {`${window.location.origin.replace("5173", "3000")}/api2/webhook/shopify`}
+                      {shopifyWebhookUrl || "Webhook URL unavailable"}
                     </code>
                     <button
                       type="button"
                       onClick={copyWebhookUrl}
+                      disabled={!shopifyWebhookUrl}
                       className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 transition"
                       title="Copy webhook URL"
                     >
@@ -312,7 +430,7 @@ export default function ShopifySettings({ onBack } = {}) {
                   </div>
                 </div>
 
-                <div className="grid sm:grid-cols-3 gap-3">
+                <div className="grid sm:grid-cols-4 gap-3">
                   <div className="p-3 rounded-xl border border-slate-100 bg-slate-50/50">
                     <p className="text-[10px] font-bold text-slate-500 uppercase">
                       Event
@@ -334,7 +452,15 @@ export default function ShopifySettings({ onBack } = {}) {
                       Event
                     </p>
                     <p className="text-xs font-semibold text-slate-800 mt-1">
-                      customers/create
+                      checkouts/update
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-xl border border-slate-100 bg-slate-50/50">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase">
+                      Event
+                    </p>
+                    <p className="text-xs font-semibold text-slate-800 mt-1">
+                      orders/paid
                     </p>
                   </div>
                 </div>
@@ -365,12 +491,54 @@ export default function ShopifySettings({ onBack } = {}) {
                     Connect Your Shopify Store
                   </h3>
                   <p className="text-xs text-slate-500 leading-relaxed">
-                    Enter your Shopify Admin API credentials to enable
-                    real-time order syncing, customer tracking, and WhatsApp
-                    automation.
+                    Enter your store domain and approve access in Shopify.
                   </p>
                 </div>
 
+                <form onSubmit={handleOneClickConnect} className="max-w-lg mx-auto p-5 rounded-xl border border-[#d5e7bd] bg-white space-y-3">
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900">One-click connection</h4>
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      Authorize the app in Shopify without copying API credentials.
+                    </p>
+                  </div>
+                  <div className="flex items-center border border-slate-200 rounded-xl bg-white focus-within:ring-1 focus-within:ring-[#95BF47] focus-within:border-[#95BF47] transition">
+                    <input
+                      type="text"
+                      required
+                      placeholder="your-store.myshopify.com"
+                      value={shopDomain}
+                      onChange={(e) => setShopDomain(e.target.value)}
+                      className="flex-1 px-3 py-2.5 text-xs bg-transparent focus:outline-none rounded-l-xl"
+                    />
+                    <button
+                      type="submit"
+                      disabled={connecting}
+                      className="m-1 px-4 py-2.5 text-xs font-bold rounded-lg bg-[#95BF47] text-white hover:opacity-95 transition inline-flex items-center justify-center gap-2 disabled:opacity-60"
+                    >
+                      {connecting && <RefreshCw size={13} className="animate-spin" />}
+                      {connecting ? "Starting..." : "Continue to Shopify"}
+                    </button>
+                  </div>
+                </form>
+
+                <div className="max-w-lg mx-auto">
+                  <button
+                    type="button"
+                    onClick={() => setShowAdvanced((current) => !current)}
+                    aria-expanded={showAdvanced}
+                    className="w-full flex items-center justify-center gap-1.5 text-[11px] font-semibold text-slate-500 hover:text-slate-800 transition py-2"
+                  >
+                    {showAdvanced ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                    <span>
+                      {showAdvanced
+                        ? "Hide manual API key setup"
+                        : "Or connect manually with API keys (Advanced)"}
+                    </span>
+                  </button>
+                </div>
+
+                {showAdvanced && (
                 <form onSubmit={handleConnect} className="space-y-4 max-w-lg mx-auto">
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1.5">
@@ -428,11 +596,12 @@ export default function ShopifySettings({ onBack } = {}) {
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                      API Secret Key (Webhook Verification)
+                      API Secret Key (Webhook Verification) *
                     </label>
                     <div className="relative">
                       <input
                         type={showWebhookSecret ? "text" : "password"}
+                        required
                         placeholder="shpss_••••••••••••••••••••••••••"
                         value={form.webhookSecret}
                         onChange={(e) =>
@@ -453,7 +622,7 @@ export default function ShopifySettings({ onBack } = {}) {
                       </button>
                     </div>
                     <p className="text-[10px] text-slate-400 mt-1">
-                      Used to verify webhook payload signatures via HMAC-SHA256.
+                      Required to verify webhook payload signatures via HMAC-SHA256.
                     </p>
                   </div>
 
@@ -480,9 +649,10 @@ export default function ShopifySettings({ onBack } = {}) {
                     </p>
                   </div>
                 </form>
+                )}
 
                 {/* 3 Key Benefits */}
-                <div className="grid sm:grid-cols-3 gap-3 pt-4 border-t border-slate-100 text-left">
+                <div className="hidden pt-4 border-t border-slate-100 text-left">
                   <div className="p-4 rounded-xl bg-white border border-slate-100 shadow-2xs">
                     <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center mb-2.5">
                       <Zap size={18} />
@@ -523,7 +693,7 @@ export default function ShopifySettings({ onBack } = {}) {
               </div>
 
               {/* How It Works */}
-              <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-2xs">
+              <div className="hidden rounded-2xl border border-slate-200/80 bg-white p-6 shadow-2xs">
                 <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-4">
                   How it works
                 </h4>

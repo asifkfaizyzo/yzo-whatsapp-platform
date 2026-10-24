@@ -5,10 +5,30 @@ import { redisConnection } from '../config/redis.js';
 import { processOrderWebhookJob } from '../modules/webhook/orderWebhookController.js';
 import { dlqQueue } from '../queues/dlqQueue.js';
 
+// ── Cart Recovery Job Router ──
+const routeJob = async (job) => {
+  if (job.name === 'woocommerce-cart-event') {
+    const { handleWooCommerceCartEvent } = await import('../modules/woocommerce/woocommerceCartRecoveryService.js');
+    return handleWooCommerceCartEvent(job.data);
+  }
+  // Shopify cart recovery jobs
+  if (job.name?.startsWith('shopify-cart-')) {
+    const { processCartReminder } = await import('../modules/shopify/shopifyCartRecoveryService.js');
+    return processCartReminder(job.data);
+  }
+  // WooCommerce cart recovery jobs (future)
+  if (job.name?.startsWith('woo-cart-')) {
+    const { processCartReminder } = await import('../modules/woocommerce/woocommerceCartRecoveryService.js');
+    return processCartReminder(job.data);
+  }
+  // All other order webhook jobs (orders/create, orders/updated, etc.)
+  return processOrderWebhookJob(job);
+};
+
 export const startOrderWebhookWorker = () => {
   const worker = new Worker(
-    QUEUE_NAME_ORDER_WEBHOOK,
-    processOrderWebhookJob,
+     QUEUE_NAME_ORDER_WEBHOOK,
+    routeJob,
     {
       connection: redisConnection,
       concurrency: 5,

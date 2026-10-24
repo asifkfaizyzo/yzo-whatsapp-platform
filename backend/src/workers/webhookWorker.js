@@ -3,7 +3,7 @@ import { Worker } from 'bullmq';
 import { QUEUE_NAME_WEBHOOK } from '../queues/webhookQueue.js';
 import { redisConnection } from '../config/redis.js';
 import prisma from '../config/prisma.js';
-import { handleIncomingMessage } from '../modules/messages/messageService.js';
+import { handleIncomingMessage, sendMessageService  } from '../modules/messages/messageService.js';
 import { createNotification } from '../modules/notifications/notificationService.js';
 import { emitToTenant, emitToUser } from '../lib/socket.js';
 import { isNewWebhookEvent } from '../lib/idempotency.js';
@@ -18,6 +18,7 @@ import https from 'https';
 import http from 'http';
 import { GRAPH_BASE_URL } from '../config/meta.js';
 import { handleCallEvents, handleCallPermissionReply, handleAccountSettingsUpdate } from '../modules/whatsapp/callWebhookHandler.js';
+import { updateWooCommerceOrderStatus } from '../modules/woocommerce/woocommerceService.js';
 import { parseWooReviewRating } from '../modules/woocommerce/woocommerceOrderLifecycle.js';
 
 // ─────────────────────────────────────────────────────────────
@@ -416,6 +417,84 @@ export const processMetaPageOrInstagramJob = async (job, body) => {
       }
     }
   }
+};
+
+
+// ─────────────────────────────────────────────────────────────
+// WOOCOMMERCE COD VERIFICATION BUTTON HANDLER
+// Button IDs: CONFIRM_COD_{orderNumber}_{wooOrderId}
+//             CANCEL_COD_{orderNumber}_{wooOrderId}
+// ─────────────────────────────────────────────────────────────
+const processWooCodButtonReply = async ({ tenantId, contact, buttonId }) => {
+  const isConfirm = buttonId.startsWith('CONFIRM_COD_');
+  const isCancel = buttonId.startsWith('CANCEL_COD_');
+  if (!isConfirm && !isCancel) return;
+
+  const prefix = isConfirm ? 'CONFIRM_COD_' : 'CANCEL_COD_';
+  const remainder = buttonId.slice(prefix.length);
+  const lastUnderscore = remainder.lastIndexOf('_');
+
+  if (lastUnderscore === -1) {
+    console.warn(`⚠️ [Woo COD] Unparseable button id: ${buttonId}`);
+    return;
+  }
+
+  const orderNumber = remainder.slice(0, lastUnderscore);
+  const wooOrderId = remainder.slice(lastUnderscore + 1);
+
+  if (!orderNumber || !wooOrderId) {
+    console.warn(`⚠️ [Woo COD] Missing orderNumber/wooOrderId in: ${buttonId}`);
+    return;
+  }
+
+  const newStatus = isConfirm ? 'processing' : 'cancelled';
+  const note = isConfirm
+    ? `Customer confirmed COD order #${orderNumber} via WhatsApp`
+    : `Customer cancelled COD order #${orderNumber} via WhatsApp`;
+
+  console.log(
+    `🧾 [Woo COD] ${isConfirm ? 'CONFIRM' : 'CANCEL'} order #${orderNumber} (WC #${wooOrderId}) → ${newStatus}`
+  );
+
+  // 1) Update live WooCommerce order (central backend — no PHP on tenant stores)
+  await updateWooCommerceOrderStatus(tenantId, wooOrderId, newStatus, note);
+
+  // 2) Mirror status on local ecommerceOrder row (best-effort)
+  try {
+    await prisma.ecommerceOrder.updateMany({
+      where: {
+        tenantId,
+        source: 'WOOCOMMERCE',
+        OR: [
+          { orderNumber: String(orderNumber) },
+          { externalId: String(wooOrderId) },
+          { externalOrderId: String(wooOrderId) },
+        ],
+      },
+      data: {
+        status: newStatus,
+        updatedAt: new Date(),
+      },
+    });
+  } catch (dbErr) {
+    // Schema field names may differ slightly across envs — don't block the flow
+    console.warn(`⚠️ [Woo COD] Local ecommerceOrder mirror skipped: ${dbErr.message}`);
+  }
+
+  // 3) WhatsApp confirmation reply (dual-mode via sendMessageService)
+  const replyText = isConfirm
+    ? `✅ Thank you! Your COD order *#${orderNumber}* has been confirmed and will be processed shortly.`
+    : `❌ Your COD order *#${orderNumber}* has been cancelled as requested. If this was a mistake, please reply here and we’ll help.`;
+
+  await sendMessageService({
+    contactId: contact.id,
+    tenantId,
+    senderId: null,
+    senderType: 'SYSTEM',
+    text: replyText,
+  });
+
+  console.log(`✅ [Woo COD] Order #${orderNumber} handled → ${newStatus}`);
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -1080,7 +1159,7 @@ export const processWebhookJob = async (job) => {
       await triggerZohoAutoSyncForNewContact(tenant.id, contact);
     }
 
-    // ── WooCommerce Review Rating Detection ──
+       // ── WooCommerce Review Rating Detection ──
     const reviewRating = parseWooReviewRating(text);
     if (reviewRating !== null) {
       const customerDigits = String(contact.phone || '').replace(/\D/g, '');
@@ -1110,6 +1189,22 @@ export const processWebhookJob = async (job) => {
           data: { reviewRating, reviewReceivedAt: new Date() },
         });
         console.log(`⭐ [WooCommerce] Saved ${reviewRating}/5 review for order #${reviewOrder.orderNumber}`);
+      }
+    }
+
+    // ── WooCommerce COD Verification (CONFIRM_COD_ / CANCEL_COD_) ──
+    if (messageType === 'interactive' && message.interactive?.type === 'button_reply') {
+      const codButtonId = String(message.interactive.button_reply?.id || '');
+      if (codButtonId.startsWith('CONFIRM_COD_') || codButtonId.startsWith('CANCEL_COD_')) {
+        try {
+          await processWooCodButtonReply({
+            tenantId: tenant.id,
+            contact,
+            buttonId: codButtonId,
+          });
+        } catch (codErr) {
+          console.error(`❌ [Woo COD] Button handler failed for ${codButtonId}:`, codErr.message);
+        }
       }
     }
 
