@@ -1,0 +1,15 @@
+# Dependencies and generated files
+/node_modules/
+/.expo/
+/web-build/
+/coverage/
+/dist/
+/build/
+
+# Environment variables and secrets
+/.env
+/.env.*
+!/.env.example
+
+# Android development signing key
+/android/app/debug.keystore
