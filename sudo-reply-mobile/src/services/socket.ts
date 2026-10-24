@@ -1,14 +1,11 @@
 import { io, Socket } from 'socket.io-client';
 import { API_BASE_URL } from '../config/api';
-import { useAuthStore } from '../stores/authStore';
 
 class SocketService {
   private socket: Socket | null = null;
 
-  connect() {
+  connect(token: string, user: { id: string; tenantId?: string }) {
     if (this.socket?.connected) return;
-
-    const token = useAuthStore.getState().accessToken;
     if (!token) return;
 
     this.socket = io(API_BASE_URL, {
@@ -22,7 +19,7 @@ class SocketService {
 
     this.socket.on('connect', () => {
       console.log('[Socket] Connected:', this.socket?.id);
-      this.joinRooms();
+      this.joinRooms(user);
     });
 
     this.socket.on('disconnect', (reason) => {
@@ -34,10 +31,8 @@ class SocketService {
     });
   }
 
-  private joinRooms() {
-    const { user } = useAuthStore.getState();
-    if (!user || !this.socket) return;
-
+  private joinRooms(user: { id: string; tenantId?: string }) {
+    if (!this.socket) return;
     if (user.tenantId) {
       this.socket.emit('join_tenant', { tenantId: user.tenantId });
     }

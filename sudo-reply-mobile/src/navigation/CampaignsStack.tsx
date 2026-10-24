@@ -1,16 +1,11 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { CampaignsPlaceholder } from '../screens/campaigns/CampaignsPlaceholder';
+import { CampaignsListScreen } from '../screens/campaigns/CampaignsListScreen';
 
-export type CampaignsStackParamList = {
-  CampaignsList: undefined;
-  // Phase 3: CampaignDetail, CampaignCreate, etc.
-};
+const Stack = createNativeStackNavigator();
 
-const Stack = createNativeStackNavigator<CampaignsStackParamList>();
-
-export const CampaignsStack: React.FC = () => (
+export const CampaignsStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
-    <Stack.Screen name="CampaignsList" component={CampaignsPlaceholder} />
+    <Stack.Screen name="CampaignsList" component={CampaignsListScreen} />
   </Stack.Navigator>
 );

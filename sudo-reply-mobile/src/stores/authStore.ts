@@ -61,7 +61,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       isAuthenticated: true,
       isLoading: false,
     });
-    socketService.connect();
+    socketService.connect(accessToken, { id: user.id, tenantId: user.tenantId });
   },
 
   setTokens: (accessToken, refreshToken) => {
@@ -94,27 +94,57 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   hydrate: async () => {
-    try {
-      const [accessToken, refreshToken, userType] = await Promise.all([
-        AuthStorage.getAccessToken(),
-        AuthStorage.getRefreshToken(),
-        AuthStorage.getUserType(),
-      ]);
+  try {
+    const [accessToken, refreshToken, userType] = await Promise.all([
+      AuthStorage.getAccessToken(),
+      AuthStorage.getRefreshToken(),
+      AuthStorage.getUserType(),
+    ]);
 
-      if (accessToken && refreshToken && userType) {
-        set({
-          accessToken,
-          refreshToken,
-          userType,
-          isLoading: false,
+    console.log('🔐 Hydrate:', { hasAccess: !!accessToken, hasRefresh: !!refreshToken, userType });
+
+    if (accessToken && userType) {
+      set({
+        accessToken,
+        refreshToken,
+        userType,
+        isAuthenticated: true,
+        isLoading: false,
+      });
+
+      // Use raw axios — NO interceptor (prevents logout on 401 during hydration)
+      try {
+        const axios = (await import('axios')).default;
+        const { API_BASE_URL } = await import('../config/api');
+        const meEndpoint = userType === 'TENANT' ? '/api2/me' : '/api3/me';
+        const { data } = await axios.get(`${API_BASE_URL}${meEndpoint}`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          timeout: 10000,
         });
-        return true;
+        const userData = data.data || data.user || data;
+        console.log('👤 Hydrated user:', userData?.id, userData?.name);
+        if (userData?.id) {
+          set({ user: userData });
+          socketService.connect(accessToken, {
+            id: userData.id,
+            tenantId: userData.tenantId,
+          });
+        }
+      } catch (meError: any) {
+        console.warn('⚠️ Hydrate /me failed:', meError?.response?.status || meError.message);
+        // Don't logout — token might still be valid for other calls
       }
-      set({ isLoading: false });
-      return false;
-    } catch {
-      set({ isLoading: false });
-      return false;
+
+      return true;
     }
-  },
+
+    console.log('🔐 No tokens found — showing login');
+    set({ isLoading: false });
+    return false;
+  } catch (err) {
+    console.error('❌ Hydrate error:', err);
+    set({ isLoading: false });
+    return false;
+  }
+},
 }));

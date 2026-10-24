@@ -6,9 +6,10 @@ import { typography } from '../../theme/typography';
 import { spacing } from '../../theme/spacing';
 import { Button } from './Button';
 
-interface EmptyStateProps {
+export interface EmptyStateProps {
   icon?: keyof typeof Ionicons.glyphMap;
   title: string;
+  message?: string;
   subtitle?: string;
   actionLabel?: string;
   onAction?: () => void;
@@ -17,6 +18,7 @@ interface EmptyStateProps {
 export const EmptyState: React.FC<EmptyStateProps> = ({
   icon = 'folder-open-outline',
   title,
+  message,
   subtitle,
   actionLabel,
   onAction,
@@ -24,7 +26,8 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   <View style={styles.container}>
     <Ionicons name={icon} size={56} color={colors.secondaryGrey} />
     <Text style={styles.title}>{title}</Text>
-    {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+    {message ? <Text style={styles.message}>{message}</Text> : null}
+    {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
     {actionLabel && onAction && (
       <Button
         title={actionLabel}
@@ -49,6 +52,12 @@ const styles = StyleSheet.create({
     ...typography.h4,
     color: colors.darkGrey,
     marginTop: spacing.base,
+    textAlign: 'center',
+  },
+  message: {
+    ...typography.bodySmall,
+    color: colors.secondaryGrey,
+    marginTop: spacing.xs,
     textAlign: 'center',
   },
   subtitle: {

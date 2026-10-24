@@ -1,16 +1,13 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { InboxPlaceholder } from '../screens/inbox/InboxPlaceholder';
+import { InboxListScreen } from '../screens/inbox/InboxListScreen';
+import { ChatScreen } from '../screens/inbox/ChatScreen';
 
-export type InboxStackParamList = {
-  InboxList: undefined;
-  // Phase 2: ChatScreen, ConversationDetail, etc.
-};
+const Stack = createNativeStackNavigator();
 
-const Stack = createNativeStackNavigator<InboxStackParamList>();
-
-export const InboxStack: React.FC = () => (
+export const InboxStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
-    <Stack.Screen name="InboxList" component={InboxPlaceholder} />
+    <Stack.Screen name="InboxList" component={InboxListScreen} />
+    <Stack.Screen name="Chat" component={ChatScreen} />
   </Stack.Navigator>
 );

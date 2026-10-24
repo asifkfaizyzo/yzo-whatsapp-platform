@@ -58,7 +58,7 @@ export const Avatar: React.FC<AvatarProps> = ({
         style,
       ]}
     >
-      <Text style={[styles.text, { fontSize: size * 0.38 }]}>
+      <Text style={[styles.text, { fontSize: size * 0.38, lineHeight: size * 0.38 }]}>
         {initials}
       </Text>
     </View>
@@ -74,5 +74,7 @@ const styles = StyleSheet.create({
     ...typography.label,
     color: colors.white,
     fontWeight: '700',
+    includeFontPadding: false,    
+    textAlignVertical: 'center',  
   },
 });
