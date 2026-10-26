@@ -1196,3 +1196,192 @@ export const sendQuickReplyMessageService = async ({
 
   return { ...result, isMedia: false };
 };
+
+// ─────────────────────────────────────────────────────────────
+// SEND TEMPLATE MESSAGE  (Tenant / Agent → Contact via Meta)
+// ─────────────────────────────────────────────────────────────
+export const sendTemplateMessageService = async ({
+  contactId,
+  tenantId,
+  senderId,
+  senderType,
+  templateId,
+  params = [],
+}) => {
+  // ── 1. Validate contact & tenant boundary ──────────────────
+  const contact = await prisma.contact.findUnique({
+    where: { id: contactId },
+  });
+
+  if (!contact) throw new Error('Contact not found');
+  if (contact.tenantId !== tenantId) {
+    throw new Error('Unauthorized: Contact does not belong to this tenant');
+  }
+  if (contact.isBlocked) {
+    throw new Error('Cannot send message to a blocked contact');
+  }
+
+  // ── 2. Load approved template ──────────────────────────────
+  const template = await prisma.template.findFirst({
+    where: { id: templateId, tenantId, status: 'APPROVED' },
+  });
+
+  if (!template) {
+    throw new Error('Template not found or not approved');
+  }
+
+  // ── 3. Load tenant credentials ─────────────────────────────
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+  });
+
+  // ── 4. Get or create conversation ──────────────────────────
+  const conversation = await getOrCreateConversation(
+    contactId,
+    tenantId,
+    contact.channel || 'WHATSAPP'
+  );
+
+  let waMessageId = null;
+  let msgStatus = 'sent';
+  let failureReason = null;
+
+  // ── 5. Send via Meta Cloud API ─────────────────────────────
+  if (process.env.MOCK_WHATSAPP === 'true') {
+    waMessageId = `mock_wamid_template_${Date.now()}`;
+  } else if (tenant?.whatsappPhoneId && tenant?.whatsappAccessToken) {
+    try {
+      const cleanPhone = (contact.phone || '').replace('+', '');
+      const url = `${GRAPH_BASE_URL}/${tenant.whatsappPhoneId}/messages`;
+
+      const bodyParameters = params.map((val) => ({
+        type: 'text',
+        text: String(val),
+      }));
+
+      const payload = {
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: cleanPhone,
+        type: 'template',
+        template: {
+          name: template.name,
+          language: { code: template.language || 'en_US' },
+          components:
+            bodyParameters.length > 0
+              ? [{ type: 'body', parameters: bodyParameters }]
+              : [],
+        },
+      };
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${decrypt(tenant.whatsappAccessToken)}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        console.error('⚠️ WhatsApp Template API Error:', responseData);
+        msgStatus = 'failed';
+        failureReason =
+          responseData?.error?.message || 'Meta template send failed';
+      } else {
+        waMessageId = responseData?.messages?.[0]?.id || null;
+        if (!waMessageId) {
+          msgStatus = 'failed';
+          failureReason = 'Meta accepted but returned no WAMID';
+        } else {
+          console.log('✅ WhatsApp template sent, wamid:', waMessageId);
+        }
+      }
+    } catch (err) {
+      console.error('⚠️ WhatsApp template send failed:', err.message);
+      msgStatus = 'failed';
+      failureReason = err.message;
+    }
+  } else {
+    msgStatus = 'failed';
+    failureReason = 'WhatsApp credentials not configured for tenant';
+  }
+
+  // ── 6. Build preview text from template body ───────────────
+  let previewText = `[Template: ${template.name}]`;
+  try {
+    const components =
+      typeof template.components === 'string'
+        ? JSON.parse(template.components)
+        : template.components;
+
+    if (Array.isArray(components)) {
+      const bodyComp = components.find((c) => c.type === 'BODY');
+      if (bodyComp?.text) {
+        let formatted = bodyComp.text;
+        params.forEach((val, idx) => {
+          formatted = formatted.replace(
+            new RegExp(`\\{\\{${idx + 1}\\}\\}`, 'g'),
+            String(val)
+          );
+        });
+        previewText = formatted;
+      }
+    }
+  } catch (_) {
+    // fallback to [Template: name]
+  }
+
+  // ── 7. Reopen conversation if closed ───────────────────────
+  const isClosed = CLOSED_STATUSES.includes(conversation.status);
+
+  if (isClosed) {
+    await prisma.conversation.update({
+      where: { id: conversation.id },
+      data: {
+        status: 'OPEN',
+        reopenCount: { increment: 1 },
+        reopenedAt: new Date(),
+        resolvedAt: null,
+        closedAt: null,
+        lastMessageAt: new Date(),
+      },
+    });
+
+    await logActivity({
+      conversationId: conversation.id,
+      action: 'opened',
+      performedBy: senderId || null,
+      performedByType: senderType === 'TENANT' ? 'tenant' : 'agent',
+    });
+  } else {
+    await prisma.conversation.update({
+      where: { id: conversation.id },
+      data: { lastMessageAt: new Date() },
+    });
+  }
+
+  // ── 8. Create message in DB ────────────────────────────────
+  const message = await prisma.message.create({
+    data: {
+      conversationId: conversation.id,
+      senderId,
+      senderType,
+      direction: 'OUTBOUND',
+      type: 'TEXT',
+      text: previewText,
+      status: msgStatus,
+      isRead: false,
+      wamid: waMessageId,
+      failureReason,
+    },
+  });
+
+  return {
+    ...message,
+    conversationId: conversation.id,
+    templateName: template.name,
+  };
+};

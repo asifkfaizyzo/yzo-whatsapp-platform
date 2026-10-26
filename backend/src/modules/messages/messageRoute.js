@@ -18,4 +18,7 @@ router.post("/contacts/:contactId/messages/media", verifyTenantOrUser, checkSubs
 //Delete message by messageId
 router.delete("/:messageId", verifyTenantOrUser, checkSubscriptionAccess, messageController.deleteMessageController);
 
+// Send Template Message (Tenant / Agent → Contact)
+router.post("/contacts/:contactId/messages/template",verifyTenantOrUser,checkSubscriptionAccess,messageController.sendTemplateMessage);
+
 export default router;

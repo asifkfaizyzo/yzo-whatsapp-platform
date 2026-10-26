@@ -72,12 +72,14 @@ export const ContactDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
-      <View style={styles.header}>
+     <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color={colors.darkGrey} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Contact</Text>
-        <View style={{ width: 24 }} />
+        <TouchableOpacity onPress={() => navigation.navigate('ContactForm', { id })}>
+          <Ionicons name="create-outline" size={22} color={colors.primary} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>

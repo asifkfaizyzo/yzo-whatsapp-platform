@@ -1,19 +1,8 @@
-/**
- * Base URL for the Sudo Reply backend.
- * - Physical device: use your machine's LAN IP (e.g. http://192.168.29.69:5000)
- * - Android emulator: http://10.0.2.2:5000
- * - iOS simulator:    http://localhost:5000
- */
 const FALLBACK_URL = 'http://192.168.29.69:5000';
 
 export const API_BASE_URL = 'http://192.168.29.69:5000';
 
-/**
- * All API endpoint paths used by the mobile app.
- * Grouped by module. Paths are relative to API_BASE_URL.
- */
 export const ENDPOINTS = {
-  // ── Auth (Agent/User) ──
   auth: {
     login:            '/api3/login',
     logout:           '/api3/logout',
@@ -25,10 +14,9 @@ export const ENDPOINTS = {
     availability:     '/api3/availability',
     dashboardStats:   '/api3/dashboard-stats',
     unreadCount:      '/api3/unread-count',
-    googleLogin:      '/api3/google-login', 
+    googleLogin:      '/api3/google-login',
   },
 
-  // ── Auth (Tenant) ──
   tenantAuth: {
     login:            '/api2/login',
     logout:           '/api2/logout',
@@ -37,10 +25,9 @@ export const ENDPOINTS = {
     resetPassword:    '/api2/reset-ten-password',
     me:               '/api2/me',
     changePassword:   '/api2/change-password',
-    googleLogin:      '/api2/google-login', 
+    googleLogin:      '/api2/google-login',
   },
 
-  // ── Contacts ──
   contacts: {
     create:           '/api4/create-contact',
     getAll:           '/api4/get-all-contacts',
@@ -55,7 +42,6 @@ export const ENDPOINTS = {
     byUser:           (userId: string) => `/api4/by-user/${userId}`,
   },
 
-  // ── Conversations ──
   conversations: {
     create:           '/api5/create-conversation',
     getByContact:     (contactId: string) => `/api5/conversation/${contactId}`,
@@ -72,20 +58,31 @@ export const ENDPOINTS = {
     pin:              (id: string) => `/api5/pin/${id}`,
   },
 
-  // ── Tags ──
+  // ── Messages (send) ──
+  messages: {
+    sendText:         (contactId: string) => `/api6/contacts/${contactId}/messages`,
+    sendMedia:        (contactId: string) => `/api6/contacts/${contactId}/messages/media`,
+    delete:           (messageId: string) => `/api6/${messageId}`,
+    refreshMedia:     (messageId: string) => `/api6/refresh/${messageId}`,
+    sendTemplate: (contactId: string) => `/api6/contacts/${contactId}/messages/template`,
+  },
+
   tags: {
     getAll:           '/api7/get-all-tag',
   },
 
-  // ── Templates ──
   templates: {
-    getAll:           '/api8/',
-  },
+  getAll: '/api8/',
+},
 
-  // ── Broadcasts (Campaigns) ──
   broadcasts: {
     getAll:           '/api9/',
     getById:          (id: string) => `/api9/${id}`,
     create:           '/api9/',
   },
-} as const; 
+   quickReplies: {
+    getAll:           '/api2/quick-replies/',
+    getByShortcut:    (shortcut: string) => `/api2/quick-replies/by-shortcut/${shortcut}`,
+    categories:       '/api2/quick-replies/categories',
+  },
+} as const;
