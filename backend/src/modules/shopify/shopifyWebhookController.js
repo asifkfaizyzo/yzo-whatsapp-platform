@@ -2,6 +2,8 @@ import crypto from 'node:crypto';
 import prisma from '../../config/prisma.js';
 import { decrypt } from '../../lib/crypto.js';
 import { orderWebhookQueue } from '../../queues/orderWebhookQueue.js';
+import { handleProductUpdateForBackInStock } from './shopifyBackInStockService.js';
+import { upsertProduct, markProductDeleted } from './shopifyProductSyncService.js';
 
 /**
  * Safely resolves target customer phone.
@@ -13,7 +15,8 @@ function resolveCustomerPhone(order) {
     order.customer?.phone || 
     order.billing_address?.phone || 
     order.shipping_address?.phone || 
-    order.phone;
+    order.phone  ||
+    (order.first_name ? order.phone : null);  // 🆕 customers/create has phone at root
 
   let cleanPhone = rawPhone ? rawPhone.replace(/[^\d+]/g, '') : null;
   if (cleanPhone && !cleanPhone.startsWith('+')) {
@@ -149,7 +152,42 @@ export const handleIncomingWebhook = async (req, res) => {
       }
     );
 
-    console.log(`⚡ [ShopifyWebhook] Queued '${topic}' job for Order #${payload.name || payload.id} in BullMQ`);
+        console.log(`⚡ [ShopifyWebhook] Queued '${topic}' job for Order #${payload.name || payload.id} in BullMQ`);
+
+        // 🆕 Handle products/update for Back-in-Stock alerts (async, non-blocking)
+    if (topic === 'products/update') {
+      handleProductUpdateForBackInStock(tenantId, payload, cleanDomain)
+        .then(result => {
+          if (result.triggered) {
+            console.log(`🔔 [BackInStock] Auto-broadcast triggered for: ${result.productTitle}`);
+          }
+        })
+        .catch(err => {
+          console.error('💥 [BackInStock] Async handler error:', err.message);
+        });
+    }
+
+    // 🆕 Handle product catalog sync (async, non-blocking)
+    if (topic === 'products/create' || topic === 'products/update') {
+      upsertProduct(tenantId, payload, cleanDomain, payload.currency || 'INR')
+        .then(() => {
+          console.log(`📦 [Product Sync] Upserted product: ${payload.title} (${payload.id})`);
+        })
+        .catch(err => {
+          console.error(`💥 [Product Sync] Upsert error for product ${payload.id}:`, err.message);
+        });
+    }
+
+    if (topic === 'products/delete') {
+      markProductDeleted(tenantId, payload.id)
+        .then(() => {
+          console.log(`🗑️ [Product Sync] Deleted product: ${payload.id}`);
+        })
+        .catch(err => {
+          console.error(`💥 [Product Sync] Delete error for product ${payload.id}:`, err.message);
+        });
+    }
+
     return res.status(200).json({ success: true, message: 'Event accepted and queued' });
 
   } catch (error) {
@@ -157,6 +195,7 @@ export const handleIncomingWebhook = async (req, res) => {
     return res.status(500).json({ success: false, error: 'Database/Queue Dispatch Failure' });
   }
 };
+
 
 
 // Exports for backward compatibility

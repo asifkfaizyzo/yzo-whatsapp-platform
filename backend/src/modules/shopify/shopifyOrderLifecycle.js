@@ -9,6 +9,14 @@ import {
   handleCheckoutUpdate,
   cancelCartReminders,
 } from './shopifyCartRecoveryService.js';
+import { syncShopifyCustomer } from './shopifyCustomerSyncService.js';
+import {
+  scheduleReviewRequest,
+  scheduleCrossSell,
+  scheduleUpsell,
+} from './shopifyPostPurchaseService.js';
+
+
 
 // ─────────────────────────────────────────────────────────────
 // Environment Auto-Detection (Dev vs Production Meta WA)
@@ -582,6 +590,20 @@ export const processShopifyOrderLifecycle = async ({
         );
         console.log(`⏱️ [Shopify] Enqueued payment reminder for ${orderNumber} in 5 minutes.`);
       }
+
+      // ── POST-PURCHASE: Schedule upsell after order confirmation ──
+      if (orderRecord && financialStatus === 'paid') {
+        try {
+          const shopifyConfig = await prisma.shopifyConnection.findUnique({
+            where: { tenantId }
+          });
+          if (shopifyConfig?.postPurchaseUpsellEnabled !== false) {
+            await scheduleUpsell({ tenantId, order: orderRecord });
+          }
+        } catch (upsellErr) {
+          console.warn(`⚠️ [PostPurchase] Upsell scheduling failed for ${orderNumber}:`, upsellErr.message);
+        }
+      }
       break;
     }
 
@@ -834,19 +856,168 @@ export const processShopifyOrderLifecycle = async ({
 
       await recordShopifyEvent(tenantId, externalOrderId, eventSubType);
 
-      await logShopifyOrderToSheet({
+     await logShopifyOrderToSheet({
         tenantId, customerName, customerPhone, orderNumber,
         orderStatus: eventSubType === 'out_for_delivery' ? 'Out for Delivery' : 'Delivered',
         paymentStatus: paymentStatus === 'PAID' ? 'Paid' : paymentStatus,
         paymentMethod, currency, total, itemsList, shipping, billing,
         notes: eventSubType === 'out_for_delivery' ? `Shopify order ${orderNumber} out for delivery` : `Shopify order ${orderNumber} delivered`
       });
+
+      // ── POST-PURCHASE: Schedule review + cross-sell on delivery ──
+      if (eventSubType === 'delivered' && orderRecord) {
+        try {
+          await prisma.ecommerceOrder.update({
+            where: { id: orderRecord.id },
+            data: { deliveredAt: new Date() }
+          });
+
+          const shopifyConfig = await prisma.shopifyConnection.findUnique({
+            where: { tenantId }
+          });
+
+          if (shopifyConfig?.postPurchaseReviewEnabled !== false) {
+            await scheduleReviewRequest({
+              tenantId,
+              order: orderRecord,
+              delayDays: shopifyConfig?.postPurchaseReviewDelayDays || 3
+            });
+          }
+
+          if (shopifyConfig?.postPurchaseCrossSellEnabled !== false) {
+            await scheduleCrossSell({
+              tenantId,
+              order: orderRecord
+            });
+          }
+        } catch (ppErr) {
+          console.warn(`⚠️ [PostPurchase] Scheduling failed for ${orderNumber}:`, ppErr.message);
+        }
+      }
       break;
     }
+        // ── 5.x CUSTOMER DATA SYNC + NEW CUSTOMER GREETING ─────
+    case 'customers/create':
+    case 'customers/update': {
+      // Always sync name, phone, email, tags, orders_count, total_spent, address, created_at
+      try {
+        await syncShopifyCustomer(tenantId, payload);
+        console.log(`✅ [Shopify] Customer data synced for topic '${topic}'`);
+      } catch (syncErr) {
+        console.error(`❌ [Shopify] Customer sync failed for '${topic}':`, syncErr.message);
+      }
 
-    default:
-      console.log(`ℹ️ [Shopify] Unhandled topic: ${topic} for order #${orderNumber}`);
+      // Greeting only on customers/create (preserve existing behavior)
+      if (topic !== 'customers/create') break;
+
+      const cust = payload;
+      const custPhone = cust.phone
+        ? String(cust.phone).replace(/[^\d+]/g, '')
+        : '';
+      const custName =
+        `${cust.first_name || ''} ${cust.last_name || ''}`.trim() ||
+        'Customer';
+      const custEmail = cust.email || '';
+      const custId = String(cust.id || '');
+
+      if (!custPhone || custPhone === '+') {
+        console.log(`⏭️ [Shopify] customers/create greeting skipped — no phone for ${custName} (${custEmail})`);
+        break;
+      }
+
+      const normalizedPhone = custPhone.startsWith('+') ? custPhone : `+${custPhone}`;
+
+      if (await isShopifyEventDuplicate(tenantId, custId, 'customers/create')) {
+        console.log(`⏭️ [Shopify] Duplicate customers/create skipped for ${custName}`);
+        break;
+      }
+
+      const { contact, conversation } = await getOrCreateShopifyContact({
+        tenantId,
+        customerPhone: normalizedPhone,
+        customerName: custName,
+        customerEmail: custEmail,
+      });
+
+      if (contact && conversation) {
+        const greetingText = `🎉 *Welcome to ${storeName}!* Hi ${custName}, thank you for joining us! We're excited to have you here. Feel free to message us anytime for help, orders, or just to say hi! 😊`;
+
+        await saveShopifyInboxMessage({
+          tenantId,
+          conversation,
+          contact,
+          messageText: greetingText,
+          orderRecord: null,
+        });
+
+        if (!isProductionEnvironment()) {
+          try {
+            const tenantConfig = await prisma.tenant.findUnique({
+              where: { id: tenantId },
+              select: { whatsappPhoneId: true, whatsappAccessToken: true },
+            });
+            if (tenantConfig?.whatsappPhoneId && tenantConfig?.whatsappAccessToken) {
+              const token = decrypt(tenantConfig.whatsappAccessToken);
+              const cleanPhone = normalizedPhone.replace('+', '');
+              await axios.post(
+                `https://graph.facebook.com/v21.0/${tenantConfig.whatsappPhoneId}/messages`,
+                {
+                  messaging_product: 'whatsapp',
+                  to: cleanPhone,
+                  type: 'text',
+                  text: { body: greetingText },
+                },
+                {
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                  },
+                }
+              );
+              console.log(`📤 [Shopify Dev] Welcome message sent to ${normalizedPhone}`);
+            }
+          } catch (devErr) {
+            console.warn(`⚠️ [Shopify Dev] Failed to send welcome message:`, devErr.message);
+          }
+        }
+
+        await sendShopifyWhatsAppTemplate({
+          tenantId,
+          customerPhone: normalizedPhone,
+          templateNamePatterns: ['welcome', 'greeting', 'new_customer'],
+          templateParams: [custName, storeName],
+        });
+      }
+      await recordShopifyEvent(tenantId, custId, 'customers/create');
+      console.log(`✅ [Shopify] New customer greeting processed for ${custName} (${normalizedPhone})`);
+      break;
+    }
+    default:  
+    console.log(`ℹ️ [Shopify] Unhandled topic: ${topic} for order #${orderNumber}`);
   }
-
   return { success: true, type: 'SHOPIFY', orderNumber, topic };
+};
+
+/**
+ * POST /sync-customers
+ * Bulk sync all historical Shopify customers into SudoReply contacts/tags
+ */
+export const triggerCustomerSync = async (req, res, next) => {
+  try {
+    const tenantId = req.user?.tenantId || req.tenantId;
+    if (!tenantId) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
+    const result = await syncAllShopifyCustomers(tenantId);
+
+    return res.status(200).json({
+      success: true,
+      message: `Successfully synced ${result.totalSynced} Shopify customers.`,
+      data: result,
+    });
+  } catch (err) {
+    console.error('❌ [Shopify] Customer bulk sync failed:', err.message);
+    next(err);
+  }
 };

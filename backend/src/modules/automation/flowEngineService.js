@@ -7,6 +7,7 @@ import { decrypt } from '../../lib/crypto.js'
 import { sendWhatsAppMedia } from '../../lib/utils/whatsappMediaSender.js'
 import * as googleSheetsService from '../google-sheets/googleSheetsService.js'
 import { logLeadStatusToSheet } from '../google-sheets/googleSheetsService.js';
+import { handleReviewReply } from '../shopify/shopifyPostPurchaseService.js';
 
 const flowEngine = {
 
@@ -119,6 +120,25 @@ const flowEngine = {
             where: { id: conversation.id },
             data: { flowData: conversation.flowData }
           }).catch(() => null);
+        }
+      }
+
+         // ── CASE 0.5: Check for post-purchase review rating reply ──
+      if (textStr && /^[1-5](\s*(\/\s*5|stars?))?$/i.test(textStr)) {
+        try {
+          const reviewResult = await handleReviewReply({
+            tenantId: conversation.tenantId,
+            contactPhone: contact.phone,
+            userMessage: textStr
+          });
+          if (reviewResult) {
+            const thankYouMsg = `⭐ *Thank you for your ${reviewResult.rating}/5 rating!* \n\nYour feedback for order *${reviewResult.orderNumber}* means a lot to us. We're glad you had a great experience! 😊`;
+            await flowEngine.sendBotTextMessage(conversation, contact, thankYouMsg);
+            await flowEngine.saveBotMessage(conversation.id, thankYouMsg);
+            return; // Stop further flow processing
+          }
+        } catch (reviewErr) {
+          console.warn('⚠️ [ReviewReply] Error:', reviewErr.message);
         }
       }
 

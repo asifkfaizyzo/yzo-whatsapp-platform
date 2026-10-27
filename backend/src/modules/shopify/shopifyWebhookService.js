@@ -11,6 +11,12 @@ const REQUIRED_WEBHOOK_TOPICS = [
   'carts/update',               // Online-store cart updated
   'checkouts/create',           // Abandoned checkout created
   'checkouts/update',           // Abandoned checkout updated
+  'customers/create',           // 🆕 New customer greeting
+  'customers/update',           // 🆕 Customer information updated
+  'products/create',            // 🆕 Product catalog sync — new product
+  'products/update',            // 🆕 Product catalog sync + Back-in-Stock detection
+  'products/delete',            // 🆕 Product catalog sync — product removed
+  'inventory_levels/update',    // 🆕 Inventory quantity changes
 ];
 
 /**

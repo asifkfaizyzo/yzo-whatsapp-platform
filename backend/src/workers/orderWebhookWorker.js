@@ -16,6 +16,28 @@ const routeJob = async (job) => {
     const { processCartReminder } = await import('../modules/shopify/shopifyCartRecoveryService.js');
     return processCartReminder(job.data);
   }
+
+  // ── Shopify Post-Purchase Engagement Jobs ──
+  if (job.name === 'shopify-review-request') {
+    const { processReviewRequestJob } = await import('../modules/shopify/shopifyPostPurchaseService.js');
+    return processReviewRequestJob(job.data);
+  }
+  if (job.name === 'shopify-cross-sell') {
+    const { processCrossSellJob } = await import('../modules/shopify/shopifyPostPurchaseService.js');
+    return processCrossSellJob(job.data);
+  }
+   if (job.name === 'shopify-upsell') {
+    const { processUpsellJob } = await import('../modules/shopify/shopifyPostPurchaseService.js');
+    return processUpsellJob(job.data);
+  }
+  if (job.name === 'shopify-reorder-reminder') {
+    const { processReorderReminderJob } = await import('../modules/shopify/shopifyPostPurchaseService.js');
+    return processReorderReminderJob(job.data);
+  }
+  if (job.name === 'shopify-win-back') {
+    const { processWinBackJob } = await import('../modules/shopify/shopifyPostPurchaseService.js');
+    return processWinBackJob(job.data);
+  }
   // WooCommerce cart recovery jobs (future)
   if (job.name?.startsWith('woo-cart-')) {
     const { processCartReminder } = await import('../modules/woocommerce/woocommerceCartRecoveryService.js');

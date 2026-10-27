@@ -14,6 +14,7 @@ import {
   cancelBroadcast
 } from './broadcastController.js';
 import { resolveWooCommerceSegment } from './wooBroadcastSegmentService.js';
+import { resolveShopifySegment } from './shopifyBroadcastSegmentService.js';
 
 const router = express.Router();
 

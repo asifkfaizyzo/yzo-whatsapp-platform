@@ -33,6 +33,8 @@ import { startZohoStaleTaskJob } from './jobs/zohoStaleTaskJob.js';
 import { startZohoWatchRenewalJob } from './jobs/zohoWatchRenewalJob.js';
 import { initializeMediasoup } from './lib/mediasoup/mediasoupService.js';
 import { processLowStockAlerts, processDailyBusinessSummary } from './modules/woocommerce/woocommerceAlertService.js';
+import { runShopifyReorderReminders } from './jobs/shopifyReorderReminderJob.js';
+import { runShopifyWinBackCampaign } from './jobs/shopifyWinBackJob.js';
 
 import { redisConnection } from './config/redis.js';
 
@@ -76,7 +78,7 @@ server.listen(port, () => {
     }, 60 * 60 * 1000);
     console.log('⏰ [Cron] Low Stock Alerts scheduled (runs every 1 hour)');
 
-    // ── Daily Business Summary (every 1 hour; service checks the hour) ──
+        // ── Daily Business Summary (every 1 hour; service checks the hour) ──
     setInterval(() => {
       console.log('[Scheduler] Checking for Daily Summaries...');
       processDailyBusinessSummary().catch((err) =>
@@ -84,6 +86,22 @@ server.listen(port, () => {
       );
     }, 60 * 60 * 1000);
     console.log('⏰ [Cron] Daily Business Summary scheduled (runs every 1 hour)');
+
+       // ── Shopify Reorder Reminders (runs daily) ──
+    setInterval(() => {
+      runShopifyReorderReminders().catch((err) =>
+        console.error('[Shopify Reorder Scheduler] Error:', err.message)
+      );
+    }, 60 * 60 * 1000);
+    console.log('⏰ [Cron] Shopify Reorder Reminders scheduled (runs every 1 hour)');
+
+    // ── Shopify Win-Back Campaigns (runs daily) ──
+    setInterval(() => {
+      runShopifyWinBackCampaign().catch((err) =>
+        console.error('[Shopify Win-Back Scheduler] Error:', err.message)
+      );
+    }, 60 * 60 * 1000);
+    console.log('⏰ [Cron] Shopify Win-Back Campaigns scheduled (runs every 1 hour)');
 });
 
 
