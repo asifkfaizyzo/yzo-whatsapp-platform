@@ -62,7 +62,7 @@ export const registerTenant = async (req, res) => {
         return res.status(201).json({
             success: true,
             message: 'Tenant registered and logged in successfully',
-            data: { user, accessToken },
+            data: { user, accessToken, refreshToken },
         });
     } catch (error) {
         return res.status(400).json({
@@ -119,7 +119,7 @@ export const loginTenant = async (req, res) => {
         return res.status(200).json({
             success: true,
             message: 'Login successful',
-            data: { user, accessToken }
+            data: { user, accessToken, refreshToken }
         });
     } catch (error) {
         return res.status(400).json({
@@ -1008,7 +1008,7 @@ export const googleLoginTenant = async (req, res) => {
         return res.status(200).json({
             success: true,
             message: 'Google login successful',
-            data: { user, accessToken },
+            data: { user, accessToken, refreshToken },
         });
     } catch (error) {
         return res.status(400).json({
@@ -1036,7 +1036,7 @@ export const facebookLoginTenant = async (req, res) => {
         return res.status(200).json({
             success: true,
             message: 'Facebook login successful',
-            data: { user, accessToken },
+            data: { user, accessToken, refreshToken },
         });
     } catch (error) {
         return res.status(400).json({
@@ -1326,42 +1326,39 @@ export const onboardingStep5 = async (req, res) => {
         });
 
         // ===================== TASK 2 — WELCOME EMAIL =====================
-await sendTenantWelcomeEmail({
-    email:      updated.email,
-    firstName:  updated.firstName,
-    lastName:   updated.lastName,
-    tenantName: updated.tenantName,
-});
-// ==================================================================
-
-// ===================== TASK 1 — SUPERADMIN NOTIFICATION ===========
-try {
-    // 1. Save notification to DB
-    const notification = await createSuperAdminNotification({
-        type:    'tenant_registered',
-        title:   '🆕 New Tenant Registered',
-        message: `${updated.tenantName || `${updated.firstName} ${updated.lastName}`} just completed onboarding and joined the platform.`,
-        metadata: {
-            tenantId:   updated.id,
-            tenantName: updated.tenantName,
+        await sendTenantWelcomeEmail({
             email:      updated.email,
             firstName:  updated.firstName,
             lastName:   updated.lastName,
-            registeredAt: new Date().toISOString(),
-        },
-    });
+            tenantName: updated.tenantName,
+        });
+        // ==================================================================
 
-    // 2. Emit real-time to superadmin dashboard
-    emitToSuperAdmin('superadmin_notification', { notification });
+        // ===================== TASK 1 — SUPERADMIN NOTIFICATION ===========
+        try {
+            const notification = await createSuperAdminNotification({
+                type:    'tenant_registered',
+                title:   '🆕 New Tenant Registered',
+                message: `${updated.tenantName || `${updated.firstName} ${updated.lastName}`} just completed onboarding and joined the platform.`,
+                metadata: {
+                    tenantId:   updated.id,
+                    tenantName: updated.tenantName,
+                    email:      updated.email,
+                    firstName:  updated.firstName,
+                    lastName:   updated.lastName,
+                    registeredAt: new Date().toISOString(),
+                },
+            });
 
-    console.log(`✅ SuperAdmin notified — new tenant: ${updated.email}`);
-} catch (err) {
-    // Non-blocking — onboarding still completes
-    console.error('❌ SuperAdmin notification failed:', err.message);
-}
-// ==================================================================
+            emitToSuperAdmin('superadmin_notification', { notification });
 
-         const accessToken = generateAccessToken({
+            console.log(`✅ SuperAdmin notified — new tenant: ${updated.email}`);
+        } catch (err) {
+            console.error('❌ SuperAdmin notification failed:', err.message);
+        }
+        // ==================================================================
+
+        const accessToken = generateAccessToken({
             id: updated.id,
             email: updated.email,
             type: 'TENANT',
@@ -1398,6 +1395,7 @@ try {
             message: 'Onboarding completed and logged in successfully',
             data: {
                 accessToken,
+                refreshToken,
                 user: {
                     id: updated.id,
                     name: updated.tenantName,
@@ -1424,7 +1422,6 @@ try {
         });
     }
 };
-
 // Get current onboarding status using cookie token
 export const getOnboardingStatus = async (req, res) => {
     try {
@@ -1657,4 +1654,4 @@ export const testPaymentGatewayConnection = async (req, res) => {
         : `Connection failed: ${error.message}`
     });
   }
-};
+};

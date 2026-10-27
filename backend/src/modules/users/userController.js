@@ -20,6 +20,14 @@ export const loginUser = async (req, res) => {
     const result = await loginUserService(req.body, meta);
     const { accessToken, refreshToken, user } = result;
 
+    // 🔍 DIAGNOSTIC — remove after confirming
+console.log('🔑 Login tokens:', {
+  hasAccess: !!accessToken,
+  accessLen: accessToken?.length,
+  hasRefresh: !!refreshToken,
+  refreshLen: refreshToken?.length,
+});
+
       // Set HTTP-Only Cookie for the refresh token
       res.cookie('user_refreshToken', refreshToken, {
         httpOnly: true,
@@ -348,6 +356,17 @@ export const googleLoginUser = async (req, res) => {
     const { credential } = req.body;
     const result = await loginUserWithGoogleService(credential);
     const { accessToken, refreshToken, user } = result;
+
+    // 🔍 ADD THIS ONE LINE
+    console.log('🔑 GOOGLE LOGIN RESULT:', { hasAccess: !!accessToken, hasRefresh: !!refreshToken, refreshLen: refreshToken?.length });
+
+    // 🔍 DIAGNOSTIC — remove after confirming
+console.log('🔑 Login tokens:', {
+  hasAccess: !!accessToken,
+  accessLen: accessToken?.length,
+  hasRefresh: !!refreshToken,
+  refreshLen: refreshToken?.length,
+});
 
     res.cookie('user_refreshToken', refreshToken, {
       httpOnly: true,
