@@ -388,3 +388,75 @@ console.log('🔑 Login tokens:', {
     });
   }
 };
+
+// ═════════════════════════════════════════
+// 🆕 PUSH TOKEN REGISTRATION
+// ═════════════════════════════════════════
+export const registerPushToken = async (req, res) => {
+  try {
+    const { pushToken } = req.body;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
+    if (!pushToken || typeof pushToken !== 'string') {
+      return res.status(400).json({ success: false, message: 'pushToken is required' });
+    }
+
+    if (!pushToken.startsWith('ExponentPushToken[')) {
+      return res.status(400).json({ success: false, message: 'Invalid push token format' });
+    }
+
+    const prisma = (await import('../../config/prisma.js')).default;
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        pushToken,
+        pushTokenUpdatedAt: new Date(),
+      },
+    });
+
+    console.log(`🔔 Push token saved for agent ${userId}: ${pushToken.substring(0, 30)}...`);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Push token registered',
+    });
+  } catch (error) {
+    console.error('❌ registerPushToken error:', error.message);
+    return res.status(500).json({ success: false, message: 'Failed to register push token' });
+  }
+};
+
+export const clearPushToken = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
+    const prisma = (await import('../../config/prisma.js')).default;
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        pushToken: null,
+        pushTokenUpdatedAt: new Date(),
+      },
+    });
+
+    console.log(`🔔 Push token cleared for agent ${userId}`);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Push token cleared',
+    });
+  } catch (error) {
+    console.error('❌ clearPushToken error:', error.message);
+    return res.status(500).json({ success: false, message: 'Failed to clear push token' });
+  }
+};

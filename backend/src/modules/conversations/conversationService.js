@@ -7,6 +7,7 @@ import { emitToTenant } from "../../lib/socket.js";
 import { createNotification } from "../notifications/notificationService.js";
 import { generateSignedUrl } from "../../lib/utils/signedUrl.js";
 import { createAuditLog } from "../audit/auditLogService.js";
+import pushService from '../../services/pushService.js';
 
 //AUTO / MANUAL: Get or create conversation
 export const getOrCreateConversation = async (contactId, tenantId, channel = 'WHATSAPP') => {
@@ -783,10 +784,10 @@ export const bulkReassignConversations = async ({
   // userId = newUserId → user sees it in their
   // notification list (not tenant-wide)
   // ──────────────────────────────────────────
-  if (newUserId) {
+    if (newUserId) {
     await createNotification({
       tenantId: tenantId,
-      userId: newUserId, // ← user-specific
+      userId: newUserId,
       type: "bulk_reassignment",
       title: "New Conversations Assigned",
       message: `${conversations.length} conversation(s) have been assigned to you`,
@@ -799,6 +800,26 @@ export const bulkReassignConversations = async ({
     }).catch((err) => {
       console.error("[BulkReassign] Notification failed:", err.message);
     });
+
+    // ── Push notification to reassigned agent (fire-and-forget) ──
+    prisma.user.findUnique({
+      where: { id: newUserId },
+      select: { pushToken: true },
+    }).then((agent) => {
+      if (!agent?.pushToken) return;
+      pushService.sendToDevice({
+        token: agent.pushToken,
+        title: 'New Conversations Assigned',
+        body: `${conversations.length} conversation(s) assigned to you by ${performedByName || 'Admin'}`,
+        data: {
+          type: 'reassigned',
+          count: conversations.length,
+          channelId: 'default',
+        },
+      }).catch((err) => {
+        console.error('[BulkReassign] Push failed:', err.message);
+      });
+    }).catch(() => {});
   }
 
   // ──────────────────────────────────────────

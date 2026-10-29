@@ -4,17 +4,18 @@ export const API_BASE_URL = 'http://192.168.29.69:5000';
 
 export const ENDPOINTS = {
   auth: {
-    login:            '/api3/login',
-    logout:           '/api3/logout',
-    refreshToken:     '/api3/refresh-token',
-    forgotPassword:   '/api3/forgot-password',
-    resetPassword:    '/api3/reset-password',
-    me:               '/api3/me',
-    changePassword:   '/api3/change-password',
-    availability:     '/api3/availability',
-    dashboardStats:   '/api3/dashboard-stats',
-    unreadCount:      '/api3/unread-count',
-    googleLogin:      '/api3/google-login',
+    login: '/api3/login-user',
+    logout: '/api3/logout-user',
+    refreshToken: '/api3/refresh-user-access',
+    forgotPassword: '/api3/forgot-usr-password',
+    resetPassword: '/api3/reset-usr-password',
+    me: '/api3/me',
+    changePassword: '/api3/change-password',
+    availability: '/api3/availability',
+    dashboardStats: '/api3/dashboard-stats',
+    unreadCount: '/api3/unread-count',
+    googleLogin: '/api3/google-login',
+    pushToken: '/api3/push-token',
   },
 
   tenantAuth: {

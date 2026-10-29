@@ -27,13 +27,23 @@
         "backgroundColor": "#125EF2"
       },
       "package": "com.sudoreply.mobile",
+      "googleServicesFile": "./google-services.json",
       "permissions": [
-        "android.permission.READ_CONTACTS"
+        "android.permission.READ_CONTACTS",
+        "android.permission.POST_NOTIFICATIONS"
       ]
     },
     "plugins": [
       "expo-secure-store",
       "expo-font",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#125EF2",
+          "sounds": []
+        }
+      ],
       [
         "@react-native-google-signin/google-signin",
         {

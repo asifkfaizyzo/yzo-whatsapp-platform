@@ -48,11 +48,11 @@ export const useAssignedConversations = () => {
   });
 };
 
-export const useConversationMessages = (conversationId: string) => {
+export const useConversationMessages = (conversationId: string | null) => {
   return useQuery({
     queryKey: ['messages', conversationId],
     queryFn: async () => {
-      const { data } = await api.get(ENDPOINTS.conversations.getMessages(conversationId));
+      const { data } = await api.get(ENDPOINTS.conversations.getMessages(conversationId!));
       return data.data?.messages || data.data || data.messages || [];
     },
     enabled: !!conversationId,
@@ -113,14 +113,14 @@ export const useSendMediaMessage = () => {
       fileUri,
       fileName,
       mimeType,
-      conversationId,
+            conversationId,
       caption,
     }: {
       contactId: string;
       fileUri: string;
       fileName: string;
       mimeType: string;
-      conversationId: string;
+      conversationId?: string | null;
       caption?: string;
     }) => {
       const formData = new FormData();
@@ -129,7 +129,9 @@ export const useSendMediaMessage = () => {
         name: fileName,
         type: mimeType,
       } as any);
-      formData.append('conversationId', conversationId);
+      if (conversationId) {
+        formData.append('conversationId', conversationId);
+      }
       if (caption) {
         formData.append('caption', caption);
       }

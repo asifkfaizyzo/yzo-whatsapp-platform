@@ -62,11 +62,14 @@ const isMediaMessage = (type: string) =>
 // ── Component ────────────────────────────────────────────────
 export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
   const insets = useSafeAreaInsets();
-  const { conversationId, contactName, contactId } = route.params as {
-    conversationId: string;
-    contactName: string;
-    contactId: string;
-  };
+  const { conversationId: initialConversationId, contactName, contactId } = route.params as {
+  conversationId: string | null;
+  contactName: string;
+  contactId: string;
+};
+
+// Track the real conversationId (gets set after first message)
+const [conversationId, setConversationId] = useState<string | null>(initialConversationId);
 
   const [message, setMessage] = useState('');
   const [showAttachMenu, setShowAttachMenu] = useState(false);
@@ -85,7 +88,9 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
   const [templateParams, setTemplateParams] = useState<string[]>([]);
 
   const flatListRef = useRef<FlatList>(null);
+  // Only query when we have a real conversationId
   const { data: messages = [], isLoading } = useConversationMessages(conversationId);
+
   const sendMessage = useSendMessage();
   const sendMedia = useSendMediaMessage();
   const sendQuickReply = useSendQuickReply();
@@ -125,26 +130,47 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
 
   // ── Send Logic ───────────────────────────────────────────
   const handleSendText = useCallback(() => {
-    const text = message.trim();
-    if (!text || sendMessage.isPending) return;
-    setMessage('');
-    sendMessage.mutate({ contactId, text });
-  }, [message, contactId, sendMessage]);
+  const text = message.trim();
+  if (!text || sendMessage.isPending) return;
+  setMessage('');
+  sendMessage.mutate(
+    { contactId, text },
+    {
+      onSuccess: (data: any) => {
+        // Backend returns the conversation on first send
+        const newConvId = data?.data?.conversationId || data?.conversationId;
+        if (newConvId && !conversationId) {
+          setConversationId(newConvId);
+        }
+      },
+    }
+  );
+}, [message, contactId, sendMessage, conversationId]);
 
   const handleSendMedia = useCallback(() => {
-    if (!pendingMedia || sendMedia.isPending) return;
-    const caption = message.trim() || undefined;
-    setPendingMedia(null);
-    setMessage('');
-    sendMedia.mutate({
-      contactId,
-      conversationId,
-      fileUri: pendingMedia.uri,
-      fileName: pendingMedia.name,
-      mimeType: pendingMedia.mimeType,
-      caption,
-    });
-  }, [pendingMedia, message, contactId, conversationId, sendMedia]);
+  if (!pendingMedia || sendMedia.isPending) return;
+
+  // Media send requires an existing conversation
+  if (!conversationId) {
+    Alert.alert(
+      'Send a message first',
+      'Please send a text message before sending media to start the conversation.'
+    );
+    return;
+  }
+
+  const caption = message.trim() || undefined;
+  setPendingMedia(null);
+  setMessage('');
+  sendMedia.mutate({
+    contactId,
+    conversationId,
+    fileUri: pendingMedia.uri,
+    fileName: pendingMedia.name,
+    mimeType: pendingMedia.mimeType,
+    caption,
+  });
+}, [pendingMedia, message, contactId, conversationId, sendMedia]);
 
   const handleSendQuickReply = useCallback(() => {
     if (!selectedQR || sendQuickReply.isPending) return;
@@ -471,9 +497,18 @@ export const ChatScreen: React.FC<Props> = ({ route, navigation }) => {
           renderItem={renderMessage}
           contentContainerStyle={styles.messagesList}
           showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
+                   ListEmptyComponent={
             <View style={styles.center}>
-              <Text style={typography.body}>No messages yet</Text>
+              <Ionicons
+                name="chatbubble-outline"
+                size={48}
+                color={colors.secondaryGrey}
+              />
+              <Text style={[typography.body, { marginTop: 12, color: colors.secondaryGrey }]}>
+                {conversationId
+                  ? 'No messages yet'
+                  : 'No conversation yet. Send a message to start chatting!'}
+              </Text>
             </View>
           }
         />

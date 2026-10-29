@@ -10,8 +10,41 @@ import { emitToTenant, emitToUser } from '../../lib/socket.js';
 import fs from 'fs';
 import path from 'path';
 import { trackUsage } from '../quick-replies/quickReplyService.js';
+import pushService from '../../services/pushService.js';
 
 const CLOSED_STATUSES = ['RESOLVED', 'CLOSED'];
+
+// ─────────────────────────────────────────────────────────────
+// PUSH NOTIFICATION TO ASSIGNED AGENT
+// ─────────────────────────────────────────────────────────────
+const sendPushToAssignedAgent = async (assignedUserId, contact, messageText, conversationId, messageType) => {
+  try {
+    const agent = await prisma.user.findUnique({
+      where: { id: assignedUserId },
+      select: { pushToken: true },
+    });
+
+    if (!agent?.pushToken) return;
+
+    const previewText = messageText?.substring(0, 200)
+      || (messageType && messageType !== 'TEXT' ? `📷 ${messageType.toLowerCase()} message` : 'New message');
+
+    await pushService.sendToDevice({
+      token: agent.pushToken,
+      title: contact.name || contact.phone || 'New Message',
+      body: previewText,
+      data: {
+  type: 'new_message',
+  contactId: contact.id,
+  conversationId,
+  contactName: contact.name || contact.phone || 'Unknown',
+  channelId: 'messages',
+},
+    });
+  } catch (err) {
+    console.error('❌ Push to agent failed:', err.message);
+  }
+};
 
 // ─────────────────────────────────────────────────────────────
 // HANDLE INCOMING MESSAGE  (Contact → Platform)
@@ -183,7 +216,7 @@ export const handleIncomingMessage = async ({
       contactName: contact.name || contact.phone,
     });
 
-    emitToUser(assignedUserId, 'new_message', {
+        emitToUser(assignedUserId, 'new_message', {
       conversationId: updatedConversation.id,
       message: {
         id: message.id,
@@ -203,6 +236,17 @@ export const handleIncomingMessage = async ({
         locAddress: message.locAddress,
         createdAt: message.createdAt,
       },
+    });
+
+    // ── Push notification to assigned agent (fire-and-forget) ──
+    sendPushToAssignedAgent(
+      assignedUserId,
+      contact,
+      text || caption,
+      updatedConversation.id,
+      type
+    ).catch((err) => {
+      console.error('❌ Push notification error:', err.message);
     });
   }
 
