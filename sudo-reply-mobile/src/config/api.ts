@@ -76,10 +76,10 @@ export const ENDPOINTS = {
   getAll: '/api8/',
 },
 
-  broadcasts: {
+   broadcasts: {
     getAll:           '/api9/',
     getById:          (id: string) => `/api9/${id}`,
-    create:           '/api9/',
+    create:           '/api9/launch',
   },
    quickReplies: {
     getAll:           '/api2/quick-replies/',

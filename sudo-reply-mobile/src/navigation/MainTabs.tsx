@@ -158,7 +158,16 @@ const getActiveRouteName = (state: any): string => {
 };
 
 // ── Screens where the tab bar should be hidden ──
-const HIDE_TAB_BAR_SCREENS = ['Chat', 'ContactDetail', 'ContactForm', 'ImportPhoneContacts'];
+const HIDE_TAB_BAR_SCREENS = [
+  'Chat',
+  'ContactDetail',
+  'ContactForm',
+  'ImportPhoneContacts',
+  'CampaignWizardStep1',
+  'CampaignWizardStep2',
+  'CampaignWizardStep3',
+  'CampaignWizardStep4',
+];
 
 // ── Main Tabs ────────────────────────────────────────────────
 export const MainTabs: React.FC = () => {
