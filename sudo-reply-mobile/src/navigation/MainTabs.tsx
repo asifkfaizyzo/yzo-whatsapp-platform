@@ -149,6 +149,26 @@ const TabButton: React.FC<TabButtonProps> = ({
   );
 };
 
+// ── Helper: find the deepest active route name ──
+const getActiveRouteName = (state: any): string => {
+  if (!state || !state.routes) return '';
+  const route = state.routes[state.index];
+  if (route.state) return getActiveRouteName(route.state);
+  return route.name;
+};
+
+// ── Screens where the tab bar should be hidden ──
+const HIDE_TAB_BAR_SCREENS = [
+  'Chat',
+  'ContactDetail',
+  'ContactForm',
+  'ImportPhoneContacts',
+  'CampaignWizardStep1',
+  'CampaignWizardStep2',
+  'CampaignWizardStep3',
+  'CampaignWizardStep4',
+];
+
 // ── Main Tabs ────────────────────────────────────────────────
 export const MainTabs: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -158,51 +178,59 @@ export const MainTabs: React.FC = () => {
   return (
     <Tab.Navigator
       screenOptions={{ headerShown: false }}
-      tabBar={({ state, descriptors, navigation }) => (
-        <View
-          style={[
-            styles.tabBarOuter,
-            { paddingBottom: Math.max(insets.bottom - 4, 8) },
-          ]}
-          pointerEvents="box-none"
-        >
-          <View style={styles.tabBarInner}>
-            {state.routes.map((route, index) => {
-              const isFocused = state.index === index;
+      tabBar={({ state, descriptors, navigation }) => {
+        // ── Hide tab bar on inner screens ──
+        const activeRoute = getActiveRouteName(state);
+        if (HIDE_TAB_BAR_SCREENS.includes(activeRoute)) {
+          return null;
+        }
 
-              const onPress = () => {
-                const event = navigation.emit({
-                  type: 'tabPress',
-                  target: route.key,
-                  canPreventDefault: true,
-                });
-                if (!isFocused && !event.defaultPrevented) {
-                  navigation.navigate(route.name, route.params);
-                }
-              };
+        return (
+          <View
+            style={[
+              styles.tabBarOuter,
+              { paddingBottom: Math.max(insets.bottom - 4, 8) },
+            ]}
+            pointerEvents="box-none"
+          >
+            <View style={styles.tabBarInner}>
+              {state.routes.map((route, index) => {
+                const isFocused = state.index === index;
 
-              const onLongPress = () => {
-                navigation.emit({ type: 'tabLongPress', target: route.key });
-              };
+                const onPress = () => {
+                  const event = navigation.emit({
+                    type: 'tabPress',
+                    target: route.key,
+                    canPreventDefault: true,
+                  });
+                  if (!isFocused && !event.defaultPrevented) {
+                    navigation.navigate(route.name, route.params);
+                  }
+                };
 
-              return (
-                <TabButton
-                  key={route.key}
-                  routeName={route.name}
-                  focused={isFocused}
-                  badge={route.name === 'Inbox' ? inboxBadge : 0}
-                  onPress={onPress}
-                  onLongPress={onLongPress}
-                />
-              );
-            })}
+                const onLongPress = () => {
+                  navigation.emit({ type: 'tabLongPress', target: route.key });
+                };
+
+                return (
+                  <TabButton
+                    key={route.key}
+                    routeName={route.name}
+                    focused={isFocused}
+                    badge={route.name === 'Inbox' ? inboxBadge : 0}
+                    onPress={onPress}
+                    onLongPress={onLongPress}
+                  />
+                );
+              })}
+            </View>
           </View>
-        </View>
-      )}
+        );
+      }}
     >
-      <Tab.Screen name="Contacts" component={ContactsStack} />
       <Tab.Screen name="Inbox" component={InboxStack} />
       <Tab.Screen name="Campaigns" component={CampaignsStack} />
+      <Tab.Screen name="Contacts" component={ContactsStack} />
       <Tab.Screen name="Profile" component={ProfileStack} />
     </Tab.Navigator>
   );
