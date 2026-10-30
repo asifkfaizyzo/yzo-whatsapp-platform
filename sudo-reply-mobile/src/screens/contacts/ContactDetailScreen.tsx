@@ -69,6 +69,22 @@ export const ContactDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     ]);
   };
 
+  const handleMessage = () => {
+    if (contact.isBlocked) {
+      Alert.alert('Blocked Contact', 'Unblock this contact before messaging.');
+      return;
+    }
+    // Navigate to Chat with no conversationId (ChatScreen handles the "new conversation" case)
+    navigation.navigate('Inbox', {
+      screen: 'Chat',
+      params: {
+        conversationId: null,
+        contactId: contact.id,
+        contactName: contact.name || contact.phone || 'Unknown',
+      },
+    });
+  };
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
@@ -77,7 +93,9 @@ export const ContactDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           <Ionicons name="arrow-back" size={24} color={colors.darkGrey} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Contact</Text>
-        <View style={{ width: 24 }} />
+        <TouchableOpacity onPress={() => navigation.navigate('ContactForm', { id })}>
+          <Ionicons name="create-outline" size={22} color={colors.primary} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -86,6 +104,19 @@ export const ContactDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           <Avatar name={contact.name} size={80} />
           <Text style={styles.name}>{contact.name || 'Unknown'}</Text>
           <Text style={styles.phone}>{contact.phone}</Text>
+
+          {/* Primary Message CTA */}
+          <TouchableOpacity
+            style={[
+              styles.messageCta,
+              contact.isBlocked && styles.messageCtaDisabled,
+            ]}
+            onPress={handleMessage}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="chatbubble" size={18} color={colors.white} />
+            <Text style={styles.messageCtaText}>Message</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Info Card */}
@@ -166,6 +197,36 @@ const styles = StyleSheet.create({
   profileSection: { alignItems: 'center', paddingVertical: spacing.xxl },
   name: { ...typography.h1, color: colors.darkGrey, marginTop: spacing.md },
   phone: { ...typography.body, color: colors.secondaryGrey, marginTop: spacing.xs },
+
+  // ── Primary Message CTA ──
+  messageCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 24,
+    marginTop: spacing.lg,
+    minWidth: 140,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  messageCtaDisabled: {
+    backgroundColor: '#A6A6A6',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  messageCtaText: {
+    color: colors.white,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+
   card: { marginBottom: spacing.xl },
   infoRow: {
     flexDirection: 'row',

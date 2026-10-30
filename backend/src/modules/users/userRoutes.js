@@ -50,4 +50,13 @@ router.get('/dashboard-stats', verifyUser, userController.getDashboardStats);
 // ═════════════════════════════════════════
 router.get('/unread-count', verifyUser, userController.getUnreadBadgeCount);
 
+// ═════════════════════════════════════════
+// 🆕 PUSH TOKEN
+// ═════════════════════════════════════════
+router.post('/push-token', verifyUser, userController.registerPushToken);
+router.delete('/push-token', verifyUser, userController.clearPushToken);
+
+router.get('/notification-preferences', verifyTenantOrUser, userController.getNotificationPreferences);
+router.patch('/notification-preferences', verifyTenantOrUser, userController.updateNotificationPreferences);
+
 export default router;

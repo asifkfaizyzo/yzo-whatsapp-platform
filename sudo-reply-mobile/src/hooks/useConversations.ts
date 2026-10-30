@@ -5,10 +5,16 @@ import { ENDPOINTS } from '../config/api';
 export interface Message {
   id: string;
   conversationId: string;
-  sender: 'USER' | 'CONTACT' | 'BOT';
-  content: string;
-  messageType: string;
+  senderType: 'TENANT' | 'USER' | 'CONTACT';
+  direction: 'INBOUND' | 'OUTBOUND';
+  text: string | null;
+  type: 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'FILE';
   status: string;
+  mediaUrl?: string | null;
+  mediaName?: string | null;
+  mediaSize?: number | null;
+  mediaMimeType?: string | null;
+  caption?: string | null;
   createdAt: string;
 }
 
@@ -42,11 +48,11 @@ export const useAssignedConversations = () => {
   });
 };
 
-export const useConversationMessages = (conversationId: string) => {
+export const useConversationMessages = (conversationId: string | null) => {
   return useQuery({
     queryKey: ['messages', conversationId],
     queryFn: async () => {
-      const { data } = await api.get(ENDPOINTS.conversations.getMessages(conversationId));
+      const { data } = await api.get(ENDPOINTS.conversations.getMessages(conversationId!));
       return data.data?.messages || data.data || data.messages || [];
     },
     enabled: !!conversationId,
@@ -79,5 +85,128 @@ export const useArchiveConversation = () => {
       return data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['conversations'] }),
+  });
+};
+
+// ── Send Text Message ──────────────────────────────────────
+export const useSendMessage = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ contactId, text }: { contactId: string; text: string }) => {
+      const { data } = await api.post(ENDPOINTS.messages.sendText(contactId), { text });
+      return data;
+    },
+    onSuccess: (_data, variables) => {
+      // Refetch messages for the conversation
+      qc.invalidateQueries({ queryKey: ['messages'] });
+      qc.invalidateQueries({ queryKey: ['conversations'] });
+    },
+  });
+};
+
+// ── Send Media Message ─────────────────────────────────────
+export const useSendMediaMessage = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      contactId,
+      fileUri,
+      fileName,
+      mimeType,
+            conversationId,
+      caption,
+    }: {
+      contactId: string;
+      fileUri: string;
+      fileName: string;
+      mimeType: string;
+      conversationId?: string | null;
+      caption?: string;
+    }) => {
+      const formData = new FormData();
+      formData.append('file', {
+        uri: fileUri,
+        name: fileName,
+        type: mimeType,
+      } as any);
+      if (conversationId) {
+        formData.append('conversationId', conversationId);
+      }
+      if (caption) {
+        formData.append('caption', caption);
+      }
+
+      const { data } = await api.post(
+        ENDPOINTS.messages.sendMedia(contactId),
+        formData,
+        {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          timeout: 120_000, // 2 min for large files
+        }
+      );
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['messages'] });
+      qc.invalidateQueries({ queryKey: ['conversations'] });
+    },
+  });
+};
+
+// ── Quick Reply Types ──────────────────────────────────────
+export interface QuickReply {
+  id: string;
+  shortcut: string;
+  title: string;
+  content: string;
+  category: string;
+  scope: 'GLOBAL' | 'PERSONAL';
+  mediaUrl?: string | null;
+  mediaName?: string | null;
+  mediaType?: string | null;
+  isActive: boolean;
+  usageCount: number;
+  createdAt: string;
+}
+
+// ── Fetch Quick Replies ────────────────────────────────────
+export const useQuickReplies = (search?: string) => {
+  return useQuery({
+    queryKey: ['quick-replies', search || ''],
+    queryFn: async () => {
+      const params: Record<string, string> = { limit: '50' };
+      if (search) params.search = search;
+      const { data } = await api.get(ENDPOINTS.quickReplies.getAll, { params });
+      return data.data || [];
+    },
+    staleTime: 30_000,
+  });
+};
+
+// ── Send Quick Reply Message ───────────────────────────────
+export const useSendQuickReply = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      contactId,
+      quickReplyId,
+      text,
+      detachMedia,
+    }: {
+      contactId: string;
+      quickReplyId: string;
+      text?: string;
+      detachMedia?: boolean;
+    }) => {
+      const body: Record<string, any> = { quickReplyId };
+      if (text) body.text = text;
+      if (detachMedia) body.detachMedia = true;
+      const { data } = await api.post(ENDPOINTS.messages.sendText(contactId), body);
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['messages'] });
+      qc.invalidateQueries({ queryKey: ['conversations'] });
+    },
   });
 };

@@ -237,11 +237,15 @@ model User {
   isActive     Boolean  @default(true)
   availabilityStatus AvailabilityStatus @default(AVAILABLE)
 
+  pushToken          String?
+  pushTokenUpdatedAt DateTime?
+  notificationPreferences  Json?
+
   tenant     Tenant   @relation(fields: [tenantId], references: [id])
 
-  refreshTokens RefreshToken[]   // ← one user can have many refresh tokens
-    userTags   UserTagMapping[]
-    tickets Ticket[]
+  refreshTokens RefreshToken[]
+  userTags   UserTagMapping[]
+  tickets Ticket[]
   quickReplies QuickReply[]
 
   createdAt  DateTime @default(now())
