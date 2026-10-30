@@ -9,6 +9,15 @@ import {
   handleCheckoutUpdate,
   cancelCartReminders,
 } from './shopifyCartRecoveryService.js';
+import { syncShopifyCustomer } from './shopifyCustomerSyncService.js';
+import {
+  scheduleReviewRequest,
+  scheduleCrossSell,
+  scheduleUpsell,
+} from './shopifyPostPurchaseService.js';
+import { generateTrackingUrl } from '../../utils/trackingHelper.js';
+
+
 
 // ─────────────────────────────────────────────────────────────
 // Environment Auto-Detection (Dev vs Production Meta WA)
@@ -18,6 +27,58 @@ export const isProductionEnvironment = () => {
   if (!url) return false;
   const devPatterns = ['localhost', '127.0.0.1', 'trycloudflare.com', 'ngrok', 'localtunnel', 'serveo.net'];
   return !devPatterns.some(pattern => url.includes(pattern));
+};
+
+const extractShopifyTrackingInfo = (source) => {
+  const fulfillments = Array.isArray(source?.fulfillments)
+    ? source.fulfillments
+    : source?.fulfillment
+      ? [source.fulfillment]
+      : [source];
+
+  return fulfillments.flatMap((fulfillment) => {
+    if (!fulfillment || typeof fulfillment !== 'object') return [];
+
+    const trackingInfo = fulfillment.tracking_info
+      ? (Array.isArray(fulfillment.tracking_info) ? fulfillment.tracking_info : [fulfillment.tracking_info])
+      : [];
+    const numbers = fulfillment.tracking_numbers || [];
+    const urls = fulfillment.tracking_urls || [];
+    const entries = trackingInfo.length > 0
+      ? trackingInfo
+      : [null];
+    const count = Math.max(
+      entries.length,
+      Array.isArray(numbers) ? numbers.length : 0,
+      Array.isArray(urls) ? urls.length : 0,
+      fulfillment.tracking_number ? 1 : 0,
+      fulfillment.tracking_url ? 1 : 0,
+    );
+
+    return Array.from({ length: count }, (_, index) => {
+      const info = entries[index] || {};
+      const number = info.number ||
+        (Array.isArray(numbers) ? numbers[index] : '') ||
+        fulfillment.tracking_number ||
+        '';
+      const url = info.url ||
+        (Array.isArray(urls) ? urls[index] : '') ||
+        fulfillment.tracking_url ||
+        '';
+      const provider = info.company ||
+        info.provider ||
+        fulfillment.tracking_company ||
+        fulfillment.company ||
+        source?.shipping_lines?.[0]?.title ||
+        '';
+
+      return {
+        provider,
+        number: String(number || ''),
+        url: url || generateTrackingUrl(provider, number),
+      };
+    }).filter((item) => item.provider || item.number || item.url);
+  });
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -340,6 +401,36 @@ export const processShopifyOrderLifecycle = async ({
     ''
   );
 
+  if (['fulfillments/create', 'fulfillments/update'].includes(topic)) {
+    const trackingInfo = extractShopifyTrackingInfo(payload);
+
+    if (!externalOrderId || trackingInfo.length === 0) {
+      console.warn(`⚠️ [Shopify] Fulfillment ${topic} had no order ID or tracking details`);
+      return { success: true, ignored: true, reason: 'missing_order_or_tracking_data' };
+    }
+
+    const orderRecord = await prisma.ecommerceOrder.findFirst({
+      where: {
+        tenantId,
+        source: 'SHOPIFY',
+        externalOrderId,
+      },
+      select: { id: true },
+    });
+
+    if (!orderRecord) {
+      console.warn(`⚠️ [Shopify] Cannot save tracking for unsynced order ${externalOrderId}`);
+      return { success: true, ignored: true, reason: 'order_not_synced' };
+    }
+
+    await prisma.ecommerceOrder.update({
+      where: { id: orderRecord.id },
+      data: { trackingInfo },
+    });
+    console.log(`✅ [Shopify] Saved ${trackingInfo.length} tracking record(s) for order ${externalOrderId}`);
+    return { success: true, type: 'SHOPIFY_FULFILLMENT_TRACKING', externalOrderId };
+  }
+
   const rawOrderName =
     payload.name ||
     payload.order_number ||
@@ -432,6 +523,7 @@ export const processShopifyOrderLifecycle = async ({
   let itemsList = Object.entries(itemGroupMap)
     .map(([name, qty]) => `${name} (x${qty})`)
     .join(', ') || 'Order updated';
+  const trackingInfo = extractShopifyTrackingInfo(rootOrder);
 
   // 3. Enrich sparse orders/edited payloads from DB
   if (topic === 'orders/edited' && externalOrderId) {
@@ -492,6 +584,7 @@ export const processShopifyOrderLifecycle = async ({
     };
 
     const baseUpdate = { status, paymentMethod, paymentStatus };
+    if (trackingInfo.length > 0) baseUpdate.trackingInfo = trackingInfo;
     if (topic !== 'orders/edited') {
       Object.assign(baseUpdate, { total, customerName, customerPhone, customerEmail, shippingAddress: shipping, lineItems, orderNumber });
     } else {
@@ -510,7 +603,8 @@ export const processShopifyOrderLifecycle = async ({
       create: {
         tenantId, source: 'SHOPIFY', externalOrderId, orderNumber,
         status, paymentMethod, paymentStatus, total: total || 0, currency, customerName,
-        customerPhone, customerEmail, shippingAddress: shipping, lineItems
+        customerPhone, customerEmail, shippingAddress: shipping, lineItems,
+        ...(trackingInfo.length > 0 ? { trackingInfo } : {}),
       }
     });
     console.log(`✅ [ShopifyWorker] EcommerceOrder stored in DB (ID: ${orderRecord.id})`);
@@ -581,6 +675,20 @@ export const processShopifyOrderLifecycle = async ({
           { delay: 300000 } // 5 minutes delay for testing (use 3600000 for 1 hr in prod)
         );
         console.log(`⏱️ [Shopify] Enqueued payment reminder for ${orderNumber} in 5 minutes.`);
+      }
+
+      // ── POST-PURCHASE: Schedule upsell after order confirmation ──
+      if (orderRecord && financialStatus === 'paid') {
+        try {
+          const shopifyConfig = await prisma.shopifyConnection.findUnique({
+            where: { tenantId }
+          });
+          if (shopifyConfig?.postPurchaseUpsellEnabled !== false) {
+            await scheduleUpsell({ tenantId, order: orderRecord });
+          }
+        } catch (upsellErr) {
+          console.warn(`⚠️ [PostPurchase] Upsell scheduling failed for ${orderNumber}:`, upsellErr.message);
+        }
       }
       break;
     }
@@ -834,19 +942,168 @@ export const processShopifyOrderLifecycle = async ({
 
       await recordShopifyEvent(tenantId, externalOrderId, eventSubType);
 
-      await logShopifyOrderToSheet({
+     await logShopifyOrderToSheet({
         tenantId, customerName, customerPhone, orderNumber,
         orderStatus: eventSubType === 'out_for_delivery' ? 'Out for Delivery' : 'Delivered',
         paymentStatus: paymentStatus === 'PAID' ? 'Paid' : paymentStatus,
         paymentMethod, currency, total, itemsList, shipping, billing,
         notes: eventSubType === 'out_for_delivery' ? `Shopify order ${orderNumber} out for delivery` : `Shopify order ${orderNumber} delivered`
       });
+
+      // ── POST-PURCHASE: Schedule review + cross-sell on delivery ──
+      if (eventSubType === 'delivered' && orderRecord) {
+        try {
+          await prisma.ecommerceOrder.update({
+            where: { id: orderRecord.id },
+            data: { deliveredAt: new Date() }
+          });
+
+          const shopifyConfig = await prisma.shopifyConnection.findUnique({
+            where: { tenantId }
+          });
+
+          if (shopifyConfig?.postPurchaseReviewEnabled !== false) {
+            await scheduleReviewRequest({
+              tenantId,
+              order: orderRecord,
+              delayDays: shopifyConfig?.postPurchaseReviewDelayDays || 3
+            });
+          }
+
+          if (shopifyConfig?.postPurchaseCrossSellEnabled !== false) {
+            await scheduleCrossSell({
+              tenantId,
+              order: orderRecord
+            });
+          }
+        } catch (ppErr) {
+          console.warn(`⚠️ [PostPurchase] Scheduling failed for ${orderNumber}:`, ppErr.message);
+        }
+      }
       break;
     }
+        // ── 5.x CUSTOMER DATA SYNC + NEW CUSTOMER GREETING ─────
+    case 'customers/create':
+    case 'customers/update': {
+      // Always sync name, phone, email, tags, orders_count, total_spent, address, created_at
+      try {
+        await syncShopifyCustomer(tenantId, payload);
+        console.log(`✅ [Shopify] Customer data synced for topic '${topic}'`);
+      } catch (syncErr) {
+        console.error(`❌ [Shopify] Customer sync failed for '${topic}':`, syncErr.message);
+      }
 
-    default:
-      console.log(`ℹ️ [Shopify] Unhandled topic: ${topic} for order #${orderNumber}`);
+      // Greeting only on customers/create (preserve existing behavior)
+      if (topic !== 'customers/create') break;
+
+      const cust = payload;
+      const custPhone = cust.phone
+        ? String(cust.phone).replace(/[^\d+]/g, '')
+        : '';
+      const custName =
+        `${cust.first_name || ''} ${cust.last_name || ''}`.trim() ||
+        'Customer';
+      const custEmail = cust.email || '';
+      const custId = String(cust.id || '');
+
+      if (!custPhone || custPhone === '+') {
+        console.log(`⏭️ [Shopify] customers/create greeting skipped — no phone for ${custName} (${custEmail})`);
+        break;
+      }
+
+      const normalizedPhone = custPhone.startsWith('+') ? custPhone : `+${custPhone}`;
+
+      if (await isShopifyEventDuplicate(tenantId, custId, 'customers/create')) {
+        console.log(`⏭️ [Shopify] Duplicate customers/create skipped for ${custName}`);
+        break;
+      }
+
+      const { contact, conversation } = await getOrCreateShopifyContact({
+        tenantId,
+        customerPhone: normalizedPhone,
+        customerName: custName,
+        customerEmail: custEmail,
+      });
+
+      if (contact && conversation) {
+        const greetingText = `🎉 *Welcome to ${storeName}!* Hi ${custName}, thank you for joining us! We're excited to have you here. Feel free to message us anytime for help, orders, or just to say hi! 😊`;
+
+        await saveShopifyInboxMessage({
+          tenantId,
+          conversation,
+          contact,
+          messageText: greetingText,
+          orderRecord: null,
+        });
+
+        if (!isProductionEnvironment()) {
+          try {
+            const tenantConfig = await prisma.tenant.findUnique({
+              where: { id: tenantId },
+              select: { whatsappPhoneId: true, whatsappAccessToken: true },
+            });
+            if (tenantConfig?.whatsappPhoneId && tenantConfig?.whatsappAccessToken) {
+              const token = decrypt(tenantConfig.whatsappAccessToken);
+              const cleanPhone = normalizedPhone.replace('+', '');
+              await axios.post(
+                `https://graph.facebook.com/v21.0/${tenantConfig.whatsappPhoneId}/messages`,
+                {
+                  messaging_product: 'whatsapp',
+                  to: cleanPhone,
+                  type: 'text',
+                  text: { body: greetingText },
+                },
+                {
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                  },
+                }
+              );
+              console.log(`📤 [Shopify Dev] Welcome message sent to ${normalizedPhone}`);
+            }
+          } catch (devErr) {
+            console.warn(`⚠️ [Shopify Dev] Failed to send welcome message:`, devErr.message);
+          }
+        }
+
+        await sendShopifyWhatsAppTemplate({
+          tenantId,
+          customerPhone: normalizedPhone,
+          templateNamePatterns: ['welcome', 'greeting', 'new_customer'],
+          templateParams: [custName, storeName],
+        });
+      }
+      await recordShopifyEvent(tenantId, custId, 'customers/create');
+      console.log(`✅ [Shopify] New customer greeting processed for ${custName} (${normalizedPhone})`);
+      break;
+    }
+    default:  
+    console.log(`ℹ️ [Shopify] Unhandled topic: ${topic} for order #${orderNumber}`);
   }
-
   return { success: true, type: 'SHOPIFY', orderNumber, topic };
+};
+
+/**
+ * POST /sync-customers
+ * Bulk sync all historical Shopify customers into SudoReply contacts/tags
+ */
+export const triggerCustomerSync = async (req, res, next) => {
+  try {
+    const tenantId = req.user?.tenantId || req.tenantId;
+    if (!tenantId) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
+    const result = await syncAllShopifyCustomers(tenantId);
+
+    return res.status(200).json({
+      success: true,
+      message: `Successfully synced ${result.totalSynced} Shopify customers.`,
+      data: result,
+    });
+  } catch (err) {
+    console.error('❌ [Shopify] Customer bulk sync failed:', err.message);
+    next(err);
+  }
 };

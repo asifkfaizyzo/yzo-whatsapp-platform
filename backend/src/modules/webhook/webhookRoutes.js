@@ -3,7 +3,7 @@ import rateLimit from 'express-rate-limit';
 import { verifyMetaWebhook, receiveMetaWebhookEvent, verifyMetaSignature } from './webhookController.js';
 import { handleRazorpayWebhook } from './razorpayWebhookController.js';
 import { handleTenantOrderWebhook, handlePartnerWebhook } from './orderWebhookController.js';
-import { handleShopifyWebhook } from './shopifyWebhookController.js';        
+import { handleShopifyWebhook } from '../shopify/shopifyWebhookController.js';        
 import { handleWooCommerceWebhook } from './woocommerceWebhookController.js';
 
 const router = express.Router();

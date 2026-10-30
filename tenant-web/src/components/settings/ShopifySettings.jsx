@@ -23,11 +23,11 @@ import {
 import ShopifyLogo from "./ShopifyLogo";
 import { useToast } from "../../context/ToastContext";
 import {
-  getShopifyStatus,
-  getShopifyOAuthUrl,
-  connectShopify,
-  disconnectShopify,
+  getShopifyStatus,getShopifyOAuthUrl,
+  connectShopify,disconnectShopify,
   updateShopifyCartRecoverySettings,
+  getShopifyPostPurchaseSettings,
+  updateShopifyPostPurchaseSettings,
 } from "../../services/shopify.service";
 
 const shopifyWebhookUrl = import.meta.env.VITE_BACKEND_URL
@@ -58,6 +58,18 @@ export default function ShopifySettings({ onBack } = {}) {
     cartRecoveryEnabled: true,
   });
   const [cartRecoveryEnabled, setCartRecoveryEnabled] = useState(true);
+  const [cartReminder1Enabled, setCartReminder1Enabled] = useState(true);
+  const [cartReminder24Enabled, setCartReminder24Enabled] = useState(true);
+  const [cartReminder48Enabled, setCartReminder48Enabled] = useState(true);
+  const [savingPostPurchase, setSavingPostPurchase] = useState(false);
+  const [postPurchaseReviewEnabled, setPostPurchaseReviewEnabled] = useState(true);
+  const [postPurchaseReviewDelayDays, setPostPurchaseReviewDelayDays] = useState(3);
+  const [postPurchaseCrossSellEnabled, setPostPurchaseCrossSellEnabled] = useState(true);
+  const [postPurchaseUpsellEnabled, setPostPurchaseUpsellEnabled] = useState(true);
+  const [postPurchaseReorderEnabled, setPostPurchaseReorderEnabled] = useState(false);
+  const [postPurchaseReorderDays, setPostPurchaseReorderDays] = useState(30);
+  const [postPurchaseWinBackEnabled, setPostPurchaseWinBackEnabled] = useState(false);
+  const [postPurchaseWinBackDays, setPostPurchaseWinBackDays] = useState(90);
 
   // ── Form State ──
   const [form, setForm] = useState({
@@ -74,7 +86,7 @@ export default function ShopifySettings({ onBack } = {}) {
       if (res.success && res.data) {
         const isConnected =
           res.data.isConnected || res.data.status === "active";
-        setConnection({
+                setConnection({
           isConnected,
           shopName: res.data.shopName || null,
           connectedAt: res.data.connectedAt || null,
@@ -83,6 +95,24 @@ export default function ShopifySettings({ onBack } = {}) {
           cartRecoveryEnabled: res.data.cartRecoveryEnabled ?? true,
         });
         setCartRecoveryEnabled(res.data.cartRecoveryEnabled ?? true);
+        setCartReminder1Enabled(res.data.cartReminder1Enabled ?? true);
+        setCartReminder24Enabled(res.data.cartReminder24Enabled ?? true);
+        setCartReminder48Enabled(res.data.cartReminder48Enabled ?? true);
+
+        try {
+          const pp = await getShopifyPostPurchaseSettings();
+          if (pp?.success && pp.data) {
+            setPostPurchaseReviewEnabled(pp.data.postPurchaseReviewEnabled ?? true);
+            setPostPurchaseReviewDelayDays(pp.data.postPurchaseReviewDelayDays ?? 3);
+            setPostPurchaseCrossSellEnabled(pp.data.postPurchaseCrossSellEnabled ?? true);
+            setPostPurchaseUpsellEnabled(pp.data.postPurchaseUpsellEnabled ?? true);
+            setPostPurchaseReorderEnabled(pp.data.postPurchaseReorderEnabled ?? false);
+            setPostPurchaseReorderDays(pp.data.postPurchaseReorderDays ?? 30);
+            setPostPurchaseWinBackEnabled(pp.data.postPurchaseWinBackEnabled ?? false);
+            setPostPurchaseWinBackDays(pp.data.postPurchaseWinBackDays ?? 90);
+          }
+        } catch (_) { /* ignore if endpoint not ready */ }
+
       } else {
         setConnection({
           isConnected: false,
@@ -186,16 +216,47 @@ export default function ShopifySettings({ onBack } = {}) {
     setDisconnecting(false);
   };
 
-  const handleSaveCartRecovery = async (event) => {
+        const handleSavePostPurchase = async (event) => {
+    event.preventDefault();
+    setSavingPostPurchase(true);
+    try {
+      const response = await updateShopifyPostPurchaseSettings({
+        postPurchaseReviewEnabled,
+        postPurchaseReviewDelayDays: Number(postPurchaseReviewDelayDays),
+        postPurchaseCrossSellEnabled,
+        postPurchaseUpsellEnabled,
+        postPurchaseReorderEnabled,
+        postPurchaseReorderDays: Number(postPurchaseReorderDays),
+        postPurchaseWinBackEnabled,
+        postPurchaseWinBackDays: Number(postPurchaseWinBackDays),
+      });
+      if (!response.success) throw new Error(response.message || "Save failed");
+      toast.success("Post-purchase settings saved.");
+    } catch (error) {
+      toast.error(error?.response?.data?.message || error.message || "Failed to save settings.");
+    } finally {
+      setSavingPostPurchase(false);
+    }
+  };
+
+      const handleSaveCartRecovery = async (event) => {
     event.preventDefault();
     setSavingCartRecovery(true);
     try {
-      const response = await updateShopifyCartRecoverySettings({ cartRecoveryEnabled });
+      const response = await updateShopifyCartRecoverySettings({
+        cartRecoveryEnabled,
+        cartReminder1Enabled,
+        cartReminder24Enabled,
+        cartReminder48Enabled,
+      });
       if (!response.success || typeof response.data?.cartRecoveryEnabled !== "boolean") {
         throw new Error(response.message || "Failed to save cart recovery settings.");
       }
-      setCartRecoveryEnabled(response.data.cartRecoveryEnabled);
-      toast.success("Shopify cart recovery setting saved.");
+      setCartRecoveryEnabled(response.data.cartRecoveryEnabled ?? true);
+      setCartReminder1Enabled(response.data.cartReminder1Enabled ?? true);
+      setCartReminder24Enabled(response.data.cartReminder24Enabled ?? true);
+      setCartReminder48Enabled(response.data.cartReminder48Enabled ?? true);
+      toast.success("Shopify cart recovery settings saved.");
     } catch (error) {
       toast.error(
         error?.response?.data?.message || error.message || "Failed to save cart recovery settings.",
@@ -357,17 +418,18 @@ export default function ShopifySettings({ onBack } = {}) {
                 </p>
               </div>
 
-              <form
+                           <form
                 onSubmit={handleSaveCartRecovery}
                 className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4"
               >
-                <div className="flex items-center justify-between gap-4">
+                {/* Master Switch */}
+                <div className="flex items-center justify-between gap-4 pb-1">
                   <div>
                     <h4 className="text-sm font-bold text-slate-900">
-                      Abandoned cart recovery
+                      Abandoned Cart Recovery
                     </h4>
-                    <p className="mt-1 text-xs text-slate-500">
-                      Enable or pause Shopify WhatsApp cart-recovery reminders.
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      Automatically send WhatsApp reminders for abandoned checkouts.
                     </p>
                   </div>
                   <label className="inline-flex items-center gap-2.5 cursor-pointer shrink-0">
@@ -385,18 +447,217 @@ export default function ShopifySettings({ onBack } = {}) {
                     <span className="relative h-5 w-9 rounded-full bg-slate-200 transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-transform peer-checked:bg-[#95BF47] peer-checked:after:translate-x-4 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[#95BF47]" />
                   </label>
                 </div>
+
+                {/* Compact Sub-Tier Options (Visible when Master is ON) */}
+                {cartRecoveryEnabled && (
+                  <div className="pt-2 border-t border-slate-100 pl-3 border-l-2 border-[#95BF47]/40 ml-0.5 space-y-2">
+                     {/* Tier 1: 1 Hour */}
+                    <div className="flex items-center justify-between py-1 px-2 rounded-lg hover:bg-slate-50 transition">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs">⏱️</span>
+                        <div>
+                          <p className="text-xs font-semibold text-slate-800">1-Hour Gentle Reminder</p>
+                          <p className="text-[10px] text-slate-400">Sends gentle cart reminder</p>
+                        </div>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={cartReminder1Enabled}
+                        onChange={(e) => setCartReminder1Enabled(e.target.checked)}
+                        className="w-4 h-4 rounded border-slate-300 accent-[#95BF47] text-[#95BF47] focus:ring-[#95BF47] cursor-pointer"
+                      />
+                    </div>
+
+                    {/* Tier 2: 24 Hours */}
+                    <div className="flex items-center justify-between py-1 px-2 rounded-lg hover:bg-slate-50 transition">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs">⏰</span>
+                        <div>
+                          <p className="text-xs font-semibold text-slate-800">24-Hour Urgency Alert</p>
+                          <p className="text-[10px] text-slate-400">Notifies that items are almost sold out</p>
+                        </div>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={cartReminder24Enabled}
+                        onChange={(e) => setCartReminder24Enabled(e.target.checked)}
+                        className="w-4 h-4 rounded border-slate-300 accent-[#95BF47] text-[#95BF47] focus:ring-[#95BF47] cursor-pointer"
+                      />
+                    </div>
+
+                    {/* Tier 3: 48 Hours */}
+                    <div className="flex items-center justify-between py-1 px-2 rounded-lg hover:bg-slate-50 transition">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs">🎁</span>
+                        <div>
+                          <p className="text-xs font-semibold text-slate-800">48-Hour Discount Offer</p>
+                          <p className="text-[10px] text-slate-400">Offers 10% off code (CART10)</p>
+                        </div>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={cartReminder48Enabled}
+                        onChange={(e) => setCartReminder48Enabled(e.target.checked)}
+                        className="w-4 h-4 rounded border-slate-300 accent-[#95BF47] text-[#95BF47] focus:ring-[#95BF47] cursor-pointer"
+                      />
+                    </div>
+
+                  </div>
+                )}
+
+                <div className="pt-1">
+                  <button
+                    type="submit"
+                    disabled={savingCartRecovery}
+                    className="inline-flex items-center gap-2 rounded-xl bg-[#95BF47] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-60"
+                  >
+                    {savingCartRecovery && <RefreshCw size={13} className="animate-spin" />}
+                    {savingCartRecovery ? "Saving..." : "Save Cart Recovery Settings"}
+                  </button>
+                </div>
+
+                              </form>
+
+              <form
+                onSubmit={handleSavePostPurchase}
+                className="rounded-2xl border border-slate-200 bg-white p-5 space-y-3"
+              >
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900">Post-Purchase Engagement</h4>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    Reviews, upsell, cross-sell, reorder, and win-back messages.
+                  </p>
+                </div>
+
+                <div className="border-t border-slate-100 pt-2 space-y-2">
+                  {/* Review */}
+                  <div className="flex items-center justify-between py-1 px-2 rounded-lg hover:bg-slate-50">
+                    <div>
+                      <p className="text-xs font-semibold text-slate-800">Review request</p>
+                      <p className="text-[10px] text-slate-400">After delivery</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {postPurchaseReviewEnabled && (
+                        <>
+                          <input
+                            type="number"
+                            min="0"
+                            max="30"
+                            value={postPurchaseReviewDelayDays}
+                            onChange={(e) => setPostPurchaseReviewDelayDays(e.target.value)}
+                            className="w-14 px-1.5 py-0.5 text-xs border border-slate-200 rounded-md"
+                          />
+                          <span className="text-[10px] text-slate-400">days</span>
+                        </>
+                      )}
+                      <input
+                        type="checkbox"
+                        checked={postPurchaseReviewEnabled}
+                        onChange={(e) => setPostPurchaseReviewEnabled(e.target.checked)}
+                        className="w-4 h-4 rounded border-slate-300 accent-[#95BF47] cursor-pointer"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Upsell */}
+                  <div className="flex items-center justify-between py-1 px-2 rounded-lg hover:bg-slate-50">
+                    <div>
+                      <p className="text-xs font-semibold text-slate-800">Upsell</p>
+                      <p className="text-[10px] text-slate-400">After order confirmed</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={postPurchaseUpsellEnabled}
+                      onChange={(e) => setPostPurchaseUpsellEnabled(e.target.checked)}
+                      className="w-4 h-4 rounded border-slate-300 accent-[#95BF47] cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Cross-sell */}
+                  <div className="flex items-center justify-between py-1 px-2 rounded-lg hover:bg-slate-50">
+                    <div>
+                      <p className="text-xs font-semibold text-slate-800">Cross-sell</p>
+                      <p className="text-[10px] text-slate-400">After delivery</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={postPurchaseCrossSellEnabled}
+                      onChange={(e) => setPostPurchaseCrossSellEnabled(e.target.checked)}
+                      className="w-4 h-4 rounded border-slate-300 accent-[#95BF47] cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Reorder */}
+                  <div className="flex items-center justify-between py-1 px-2 rounded-lg hover:bg-slate-50">
+                    <div>
+                      <p className="text-xs font-semibold text-slate-800">Reorder reminder</p>
+                      <p className="text-[10px] text-slate-400">Days after delivery</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {postPurchaseReorderEnabled && (
+                        <>
+                          <input
+                            type="number"
+                            min="1"
+                            max="365"
+                            value={postPurchaseReorderDays}
+                            onChange={(e) => setPostPurchaseReorderDays(e.target.value)}
+                            className="w-14 px-1.5 py-0.5 text-xs border border-slate-200 rounded-md"
+                          />
+                          <span className="text-[10px] text-slate-400">days</span>
+                        </>
+                      )}
+                      <input
+                        type="checkbox"
+                        checked={postPurchaseReorderEnabled}
+                        onChange={(e) => setPostPurchaseReorderEnabled(e.target.checked)}
+                        className="w-4 h-4 rounded border-slate-300 accent-[#95BF47] cursor-pointer"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Win-back */}
+                  <div className="flex items-center justify-between py-1 px-2 rounded-lg hover:bg-slate-50">
+                    <div>
+                      <p className="text-xs font-semibold text-slate-800">Win-back campaign</p>
+                      <p className="text-[10px] text-slate-400">Days inactive</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {postPurchaseWinBackEnabled && (
+                        <>
+                          <input
+                            type="number"
+                            min="1"
+                            max="365"
+                            value={postPurchaseWinBackDays}
+                            onChange={(e) => setPostPurchaseWinBackDays(e.target.value)}
+                            className="w-14 px-1.5 py-0.5 text-xs border border-slate-200 rounded-md"
+                          />
+                          <span className="text-[10px] text-slate-400">days</span>
+                        </>
+                      )}
+                      <input
+                        type="checkbox"
+                        checked={postPurchaseWinBackEnabled}
+                        onChange={(e) => setPostPurchaseWinBackEnabled(e.target.checked)}
+                        className="w-4 h-4 rounded border-slate-300 accent-[#95BF47] cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 <button
                   type="submit"
-                  disabled={savingCartRecovery}
+                  disabled={savingPostPurchase}
                   className="inline-flex items-center gap-2 rounded-xl bg-[#95BF47] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-60"
                 >
-                  {savingCartRecovery && <RefreshCw size={13} className="animate-spin" />}
-                  {savingCartRecovery ? "Saving..." : "Save cart recovery setting"}
+                  {savingPostPurchase && <RefreshCw size={13} className="animate-spin" />}
+                  {savingPostPurchase ? "Saving..." : "Save Post-Purchase Settings"}
                 </button>
               </form>
 
               {/* Webhook Configuration Card */}
-              <div className="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-2xs space-y-5">
+            <div className="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-2xs space-y-5">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
                   <div>
                     <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">

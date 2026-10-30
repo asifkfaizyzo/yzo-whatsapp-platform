@@ -68,3 +68,15 @@ export const bulkDeleteContactsSchema = z.object({
       }
     }),
 });
+
+export const phoneImportSchema = z.object({
+  body: z.object({
+    contacts: z.array(
+      z.object({
+        name: z.string().min(1, 'Name is required').max(100),
+        phone: z.string().min(8, 'Phone must be at least 8 digits').max(20),
+        email: z.string().email('Invalid email').optional().or(z.literal('')),
+      })
+    ).min(1, 'At least one contact is required').max(500, 'Maximum 500 contacts per import'),
+  }),
+});

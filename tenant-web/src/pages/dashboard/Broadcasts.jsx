@@ -46,11 +46,12 @@ export default function Broadcasts() {
   const [showDrawer, setShowDrawer] = useState(false);
 
   const [showModal, setShowModal] = useState(false);
-  const [newCampaign, setNewCampaign] = useState({
-   name: "",
+    const [newCampaign, setNewCampaign] = useState({
+    name: "",
     templateId: "",
-    targetType: "ALL", // ALL | TAGS | WOO_SEGMENT
+    targetType: "ALL", // ALL | TAGS | WOO_SEGMENT | SHOPIFY_SEGMENT
     tagIds: [],
+    shopifyCustomerTags: "",
     schedule: "now",
     scheduledTime: "",
     segmentIncludeAllWoo: false,
@@ -195,7 +196,7 @@ export default function Broadcasts() {
     e.preventDefault();
     if (!newCampaign.name.trim() || !newCampaign.templateId) return;
 
-    // Safety check for WooCommerce Segmentation inputs
+        // Safety check for WooCommerce Segmentation inputs
     if (
       newCampaign.targetType === "WOO_SEGMENT" &&
       !newCampaign.segmentIncludeAllWoo &&
@@ -207,36 +208,49 @@ export default function Broadcasts() {
       return;
     }
 
+    // Safety check for Shopify Segmentation inputs
+    if (
+      newCampaign.targetType === "SHOPIFY_SEGMENT" &&
+      !newCampaign.shopifyCustomerTags.trim() &&
+      newCampaign.segmentMinSpend === "" &&
+      newCampaign.segmentMinOrders === "" &&
+      newCampaign.segmentInactiveDays === ""
+    ) {
+      toast.error("Provide at least one Shopify Customer Tag (e.g. vip) or metric filter (spend, orders, or inactive days).");
+      return;
+    }
+
     // Build standard defaultParams object
     const bodyParams = Object.keys(paramsMapping)
       .sort((a, b) => Number(a) - Number(b))
       .map(key => paramsMapping[key].value);
 
-          const payload = {
+    const payload = {
       name: newCampaign.name,
       templateId: newCampaign.templateId,
       targetType: newCampaign.targetType,
       tagIds: newCampaign.targetType === "TAGS" ? newCampaign.tagIds : [],
+      shopifyCustomerTags:
+        newCampaign.targetType === "SHOPIFY_SEGMENT" && newCampaign.shopifyCustomerTags.trim()
+          ? newCampaign.shopifyCustomerTags.split(",").map(t => t.trim()).filter(Boolean)
+          : undefined,
       segmentIncludeAllWoo:
         newCampaign.targetType === "WOO_SEGMENT"
           ? Boolean(newCampaign.segmentIncludeAllWoo)
           : undefined,
       segmentMinSpend:
-        newCampaign.targetType === "WOO_SEGMENT" &&
-        !newCampaign.segmentIncludeAllWoo &&
-        newCampaign.segmentMinSpend !== ""
+        (newCampaign.targetType === "WOO_SEGMENT" && !newCampaign.segmentIncludeAllWoo && newCampaign.segmentMinSpend !== "") ||
+        (newCampaign.targetType === "SHOPIFY_SEGMENT" && newCampaign.segmentMinSpend !== "")
           ? Number(newCampaign.segmentMinSpend)
           : undefined,
       segmentMinOrders:
-        newCampaign.targetType === "WOO_SEGMENT" &&
-        !newCampaign.segmentIncludeAllWoo &&
-        newCampaign.segmentMinOrders !== ""
+        (newCampaign.targetType === "WOO_SEGMENT" && !newCampaign.segmentIncludeAllWoo && newCampaign.segmentMinOrders !== "") ||
+        (newCampaign.targetType === "SHOPIFY_SEGMENT" && newCampaign.segmentMinOrders !== "")
           ? Number(newCampaign.segmentMinOrders)
           : undefined,
       segmentInactiveDays:
-        newCampaign.targetType === "WOO_SEGMENT" &&
-        !newCampaign.segmentIncludeAllWoo &&
-        newCampaign.segmentInactiveDays !== ""
+        (newCampaign.targetType === "WOO_SEGMENT" && !newCampaign.segmentIncludeAllWoo && newCampaign.segmentInactiveDays !== "") ||
+        (newCampaign.targetType === "SHOPIFY_SEGMENT" && newCampaign.segmentInactiveDays !== "")
           ? Number(newCampaign.segmentInactiveDays)
           : undefined,
       defaultParams: {
@@ -252,11 +266,12 @@ export default function Broadcasts() {
     if (res.success) {
       setShowModal(false);
       const isScheduled = newCampaign.schedule === "later";
-      setNewCampaign({
+        setNewCampaign({
         name: "",
         templateId: "",
         targetType: "ALL",
         tagIds: [],
+        shopifyCustomerTags: "",
         schedule: "now",
         scheduledTime: "",
         segmentIncludeAllWoo: false,
@@ -622,10 +637,10 @@ export default function Broadcasts() {
                 </div>
               )}
 
-                           {/* Audience Targeting */}
+                            {/* Audience Targeting */}
               <div>
                 <label className="label text-xs font-semibold text-slate-700">Target Audience</label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <button
                     type="button"
                     onClick={() => setNewCampaign({ ...newCampaign, targetType: "ALL" })}
@@ -658,6 +673,17 @@ export default function Broadcasts() {
                     }`}
                   >
                     <span>🛍️ Woo Segment</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewCampaign({ ...newCampaign, targetType: "SHOPIFY_SEGMENT" })}
+                    className={`py-2 px-2 rounded-xl border text-[11px] font-semibold flex items-center justify-center gap-1 transition ${
+                      newCampaign.targetType === "SHOPIFY_SEGMENT"
+                        ? "bg-emerald-50 border-emerald-500 text-emerald-700"
+                        : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    <span>🟢 Shopify Segment</span>
                   </button>
                 </div>
               </div>
@@ -773,6 +799,95 @@ export default function Broadcasts() {
                     <Info size={11} className="mt-0.5 shrink-0" />
                     <span>
                       Audience is calculated from WooCommerce order history (spend, orders, last purchase).
+                    </span>
+                  </p>
+                </div>
+              )}
+
+                            {newCampaign.targetType === "SHOPIFY_SEGMENT" && (
+                <div className="p-4 bg-emerald-50/50 border border-emerald-200 rounded-2xl space-y-3">
+                  <div>
+                    <label className="block text-xs font-bold text-emerald-900 mb-1">
+                      Shopify Customer Tags
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. vip, wholesale, repeat-buyer"
+                      value={newCampaign.shopifyCustomerTags}
+                      onChange={(e) =>
+                        setNewCampaign({
+                          ...newCampaign,
+                          shopifyCustomerTags: e.target.value,
+                        })
+                      }
+                      className="input py-1.5 text-xs bg-white"
+                    />
+                    <p className="text-[10px] text-emerald-700/80 font-medium mt-1">
+                      Filter by customer tags defined in your Shopify store admin (comma-separated).
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 pt-2 border-t border-emerald-200/60">
+                    <div>
+                      <label className="block text-[10px] font-bold text-emerald-800 mb-1">
+                        Min Spend (₹)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="e.g. 1000"
+                        value={newCampaign.segmentMinSpend}
+                        onChange={(e) =>
+                          setNewCampaign({
+                            ...newCampaign,
+                            segmentMinSpend: e.target.value,
+                          })
+                        }
+                        className="input py-1.5 text-xs bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-emerald-800 mb-1">
+                        Min Orders
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        placeholder="e.g. 2"
+                        value={newCampaign.segmentMinOrders}
+                        onChange={(e) =>
+                          setNewCampaign({
+                            ...newCampaign,
+                            segmentMinOrders: e.target.value,
+                          })
+                        }
+                        className="input py-1.5 text-xs bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-emerald-800 mb-1">
+                        Inactive (Days)
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        placeholder="e.g. 60"
+                        value={newCampaign.segmentInactiveDays}
+                        onChange={(e) =>
+                          setNewCampaign({
+                            ...newCampaign,
+                            segmentInactiveDays: e.target.value,
+                          })
+                        }
+                        className="input py-1.5 text-xs bg-white"
+                      />
+                    </div>
+                  </div>
+
+                  <p className="text-[10px] text-emerald-700/80 font-medium flex items-start gap-1">
+                    <Info size={11} className="mt-0.5 shrink-0" />
+                    <span>
+                      Audience will be fetched directly from Shopify Admin API matching these tags or customer order history.
                     </span>
                   </p>
                 </div>

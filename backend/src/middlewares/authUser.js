@@ -3,7 +3,6 @@ import prisma from '../config/prisma.js';
 
 export const verifyUser = async (req, res, next) => {
   try {
-    // 1️⃣ Get auth header
     const authHeader = req.headers.authorization;
 
     if (!authHeader) {
@@ -13,35 +12,28 @@ export const verifyUser = async (req, res, next) => {
       });
     }
 
-    // 2️⃣ Extract token
     const token = authHeader.split(" ")[1];
-
-    // 3️⃣ Verify token
     const decoded = jwt.verify(token, process.env.ACCESS_SECRET);
 
-
-    // 4️⃣ Check user type
     if (decoded.type !== "USER") {
       return res.status(403).json({
         success: false,
         message: "Access denied. Users only.",
       });
     }
-   
 
-    // 5️⃣ Fetch user from DB (optional but recommended)
-    // 5️⃣ Fetch user from DB (IMPORTANT FIX)
-const user = await prisma.user.findUnique({
-  where: { id: decoded.id },
-  select: {
-    id: true,
-    tenantId: true, // ✅ REQUIRED for your controller
-    email: true,
-    name: true,
-    isActive: true,
-    tenant: { select: { status: true, isActive: true } } // Fetch parent tenant
-  },
-});
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id },
+      select: {
+        id: true,
+        tenantId: true,
+        email: true,
+        name: true,
+        isActive: true,
+        availabilityStatus: true,   // ← NEW: needed for dashboard
+        tenant: { select: { status: true, isActive: true } }
+      },
+    });
 
     if (!user) {
       return res.status(401).json({
@@ -57,14 +49,13 @@ const user = await prisma.user.findUnique({
       });
     }
 
-    // Ensure parent Tenant is active and approved
     if (!user.tenant || user.tenant.status === 'BLOCKED' || !user.tenant.isActive) {
       return res.status(403).json({ success: false, message: "Tenant account is blocked or inactive" });
     }
 
-    // 6️⃣ Attach user to request
     req.user = user;
-
+    req.tenantId = user.tenantId;   // ← FIX: was missing, now consistent with verifyTenantOrUser
+    req.userId = decoded.id;        // ← FIX: also add userId for consistency
     req.userType = "USER";
 
     next();

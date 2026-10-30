@@ -1271,15 +1271,18 @@ export const updateAutoReopenConfigService = async (tenantId, data) => {
 
 
 // Initialize Google OAuth2Client using client ID from env
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const googleClient = new OAuth2Client();
 
 // =========== Google Sign-In & On-the-Fly Registration Service ===========
 export const loginOrRegisterWithGoogleService = async (credential) => {
   // 1. Verify ID Token with Google
   const ticket = await googleClient.verifyIdToken({
     idToken: credential,
-    audience: process.env.GOOGLE_CLIENT_ID,
-  });
+    audience: [
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_ID_MOBILE,
+    ].filter(Boolean),
+});
 
   const payload = ticket.getPayload();
   if (!payload) {

@@ -4,6 +4,7 @@ import { checkFeatureAccess, checkLimitAccess } from '../../lib/planLimits.js';
 import { parseMetaError } from '../../lib/metaErrorCodes.js';
 import { emitToTenant } from '../../lib/socket.js';
 import { resolveWooCommerceSegment } from './wooBroadcastSegmentService.js';
+import { resolveShopifySegment } from './shopifyBroadcastSegmentService.js';
 
 // 1. GET: Fetch all broadcasts history for the logged-in tenant
 export const getBroadcasts = async (req, res) => {
@@ -520,12 +521,21 @@ export const launchBroadcast = async (req, res) => {
           }
         }
       });
-    } else if (targetType === 'WOO_SEGMENT') {
+          } else if (targetType === 'WOO_SEGMENT') {
       const segmentResult = await resolveWooCommerceSegment(tenantId, {
         segmentMinSpend,
         segmentMinOrders,
         segmentInactiveDays,
         segmentIncludeAllWoo: segmentIncludeAllWoo || false,
+      });
+      contacts = segmentResult.contacts;
+    } else if (targetType === 'SHOPIFY_SEGMENT') {
+      const { shopifyCustomerTags } = req.body;
+      const segmentResult = await resolveShopifySegment(tenantId, {
+        shopifyCustomerTags: shopifyCustomerTags || null,
+        segmentMinSpend,
+        segmentMinOrders,
+        segmentInactiveDays,
       });
       contacts = segmentResult.contacts;
     }
@@ -555,6 +565,8 @@ export const launchBroadcast = async (req, res) => {
         segmentMinOrders: segmentMinOrders ? parseInt(segmentMinOrders, 10) : null,
         segmentInactiveDays: segmentInactiveDays ? parseInt(segmentInactiveDays, 10) : null,
         segmentIncludeAllWoo: Boolean(segmentIncludeAllWoo),
+        shopifyCustomerTags: req.body.shopifyCustomerTags || null,
+        campaignType: req.body.campaignType || null,
         defaultParams: defaultParams || {},
         status: campaignStatus,
         scheduledAt: scheduledDate,

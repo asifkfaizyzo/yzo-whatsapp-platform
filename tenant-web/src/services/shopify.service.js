@@ -25,6 +25,16 @@ export const updateShopifyCartRecoverySettings = async (settings) => {
   return response.data;
 };
 
+export const getShopifyPostPurchaseSettings = async () => {
+  const response = await api.get("/shopify/post-purchase-settings");
+  return response.data;
+};
+
+export const updateShopifyPostPurchaseSettings = async (settings) => {
+  const response = await api.put("/shopify/post-purchase-settings", settings);
+  return response.data;
+};
+
 export const saveShopifyConfig = connectShopify;
 
 export const shopifyService = {
@@ -33,6 +43,8 @@ export const shopifyService = {
   connectShopify,
   disconnectShopify,
   updateShopifyCartRecoverySettings,
+  getShopifyPostPurchaseSettings,
+  updateShopifyPostPurchaseSettings,
   saveShopifyConfig,
   getStatus: getShopifyStatus,
   connect: connectShopify,

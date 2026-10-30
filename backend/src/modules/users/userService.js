@@ -450,3 +450,206 @@ export const updateUserPasswordService = async (userId, { currentPassword, newPa
     message: 'Password updated successfully. Please log in again on other devices.' 
   };
 };
+
+// ============================================================
+// 🆕 UPDATE AGENT AVAILABILITY
+// ============================================================
+export const updateAvailabilityService = async (userId, status) => {
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: { availabilityStatus: status },
+    select: {
+      id: true,
+      name: true,
+      availabilityStatus: true,
+    },
+  });
+
+  return user;
+};
+
+
+// ============================================================
+// 🆕 DASHBOARD STATS FOR AGENT
+// ============================================================
+export const getDashboardStatsService = async (userId, tenantId) => {
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+  const [
+    assignedContacts,
+    openConversations,
+    unresolvedTickets,
+    messagesToday,
+    recentConversations,
+  ] = await Promise.all([
+    // 1. Total active contacts assigned to this agent
+    prisma.contact.count({
+      where: {
+        assignedTo: userId,
+        tenantId,
+        isActive: true,
+        isBlocked: false,
+      },
+    }),
+
+    // 2. Open conversations for this agent
+    prisma.conversation.count({
+      where: {
+        tenantId,
+        contact: { assignedTo: userId },
+        status: 'OPEN',
+        isArchived: false,
+      },
+    }),
+
+    // 3. Unresolved tickets for this agent
+    prisma.ticket.count({
+      where: {
+        tenantId,
+        userId,
+        status: { in: ['OPEN', 'IN_PROGRESS'] },
+      },
+    }),
+
+    // 4. Outbound messages sent today
+    prisma.message.count({
+      where: {
+        senderId: userId,
+        senderType: 'USER',
+        direction: 'OUTBOUND',
+        createdAt: { gte: todayStart },
+      },
+    }),
+
+    // 5. Recent conversations for avg response time calculation
+    prisma.conversation.findMany({
+      where: {
+        tenantId,
+        contact: { assignedTo: userId },
+        firstResponseAt: { not: null },
+        incomingAt: { not: null },
+        updatedAt: { gte: sevenDaysAgo },
+      },
+      select: {
+        firstResponseAt: true,
+        incomingAt: true,
+      },
+      take: 100,
+    }),
+  ]);
+
+  // Calculate average first-response time in minutes
+  let avgResponseTimeMins = 0;
+  if (recentConversations.length > 0) {
+    const totalMs = recentConversations.reduce((sum, c) => {
+      const diff = new Date(c.firstResponseAt).getTime() - new Date(c.incomingAt).getTime();
+      return sum + (diff > 0 ? diff : 0);
+    }, 0);
+    avgResponseTimeMins = Math.round((totalMs / recentConversations.length / 60000) * 10) / 10;
+  }
+
+  return {
+    assignedContacts,
+    openConversations,
+    unresolvedTickets,
+    messagesToday,
+    avgResponseTimeMins,
+  };
+};
+
+
+// ============================================================
+// 🆕 GLOBAL UNREAD BADGE COUNT
+// ============================================================
+export const getUnreadBadgeCountService = async (userId, tenantId) => {
+  const [unreadConversations, unreadNotifications] = await Promise.all([
+    // Conversations with unread messages assigned to this agent
+    prisma.conversation.count({
+      where: {
+        tenantId,
+        contact: { assignedTo: userId },
+        isArchived: false,
+        unreadCount: { gt: 0 },
+      },
+    }),
+
+    // Unread notifications for this user
+    prisma.notification.count({
+      where: {
+        tenantId,
+        userId,
+        isRead: false,
+      },
+    }),
+  ]);
+
+  return {
+    unreadConversations,
+    unreadNotifications,
+    totalBadge: unreadConversations + unreadNotifications,
+  };
+};
+
+// =========== Google Sign-In for Agent (User) ===========
+export const loginUserWithGoogleService = async (credential) => {
+  const { OAuth2Client } = await import('google-auth-library');
+  const googleClient = new OAuth2Client();
+
+const ticket = await googleClient.verifyIdToken({
+    idToken: credential,
+    audience: [
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_ID_MOBILE,
+    ].filter(Boolean),
+});
+  const payload = ticket.getPayload();
+  if (!payload) {
+    throw new Error('Invalid Google Token payload');
+  }
+
+  const { email } = payload;
+
+  const user = await prisma.user.findUnique({ where: { email } });
+
+  if (!user) {
+    throw new Error('No agent account found with this email. Please contact your admin to create an account first.');
+  }
+
+  if (!user.isActive) {
+    throw new Error('Your account has been deactivated. Contact your admin.');
+  }
+
+  const accessToken = generateAccessToken({
+    id: user.id,
+    email: user.email,
+    tenantId: user.tenantId,
+    type: 'USER',
+  });
+
+  const refreshToken = generateRefreshToken({
+    id: user.id,
+    tenantId: user.tenantId,
+    type: 'USER',
+  });
+
+  await saveRefreshToken({
+    token: refreshToken,
+    userId: user.id,
+  });
+
+  return {
+    user: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      tenantId: user.tenantId,
+      type: 'USER',
+      status: 'APPROVED',
+    },
+    accessToken,
+    refreshToken,
+  };
+};

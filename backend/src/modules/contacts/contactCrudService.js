@@ -1,3 +1,4 @@
+//backend\src\modules\contacts\contactCrudService.js
 import prisma from '../../config/prisma.js';
 import fs from 'fs';
 import csv from 'csv-parser';
@@ -690,9 +691,22 @@ export const assignContactByPriority = async (contactId, tenantId) => {
 
     // 2. Cascading: Try each tag
     for (const { tag } of contact.contactTags) {
-        const userMappings = await prisma.userTagMapping.findMany({
-            where: { tagId: tag.id, tenantId }
-        });
+        // ── BEFORE ──
+// const userMappings = await prisma.userTagMapping.findMany({
+//     where: { tagId: tag.id, tenantId }
+// });
+
+// ── AFTER ──
+const userMappings = await prisma.userTagMapping.findMany({
+    where: {
+      tagId: tag.id,
+      tenantId,
+      user: {
+        isActive: true,
+        availabilityStatus: 'AVAILABLE',   // ← NEW
+      },
+    },
+});
 
         if (userMappings.length === 0) continue; // Try next tag
 
@@ -917,3 +931,95 @@ async function triggerZohoAutoSync(tenantId, contactId) {
     // Zoho module not available — silently ignore
   }
 }
+
+// ===================== IMPORT FROM PHONE CONTACTS =====================
+export const importPhoneContacts = async (contactsArray, tenantId, userId) => {
+  const summary = {
+    total: contactsArray.length,
+    created: 0,
+    duplicates: 0,
+    errors: 0,
+    createdContacts: [],
+    duplicateContacts: [],
+    errorDetails: [],
+  };
+
+  for (const item of contactsArray) {
+    try {
+      const name = item.name?.trim();
+      const rawPhone = item.phone?.trim() || '';
+      const email = item.email?.trim() || undefined;
+
+      if (!name || !rawPhone) {
+        summary.errors++;
+        summary.errorDetails.push({ name: name || 'Unknown', phone: rawPhone, reason: 'Missing name or phone' });
+        continue;
+      }
+
+      // Reject scientific notation
+      if (/e\+/i.test(rawPhone)) {
+        summary.errors++;
+        summary.errorDetails.push({ name, phone: rawPhone, reason: 'Scientific notation (E+)' });
+        continue;
+      }
+
+      // Reject letters
+      if (/[a-zA-Z]/.test(rawPhone)) {
+        summary.errors++;
+        summary.errorDetails.push({ name, phone: rawPhone, reason: 'Phone contains letters' });
+        continue;
+      }
+
+      const cleanDigits = rawPhone.replace(/\D/g, '');
+      if (cleanDigits.length < 8 || cleanDigits.length > 15) {
+        summary.errors++;
+        summary.errorDetails.push({ name, phone: rawPhone, reason: 'Invalid phone length' });
+        continue;
+      }
+
+      const formattedPhone = `+${cleanDigits}`;
+
+      // Check duplicate
+      const existing = await prisma.contact.findUnique({
+        where: { phone_tenantId: { phone: formattedPhone, tenantId } },
+      });
+
+      if (existing) {
+        summary.duplicates++;
+        summary.duplicateContacts.push({ name, phone: formattedPhone });
+        continue;
+      }
+
+      // Create contact
+      const newContact = await prisma.contact.create({
+        data: {
+          name,
+          phone: formattedPhone,
+          email,
+          countryCode: cleanDigits.length === 10 ? '+91' : `+${cleanDigits.slice(0, cleanDigits.length - 10)}`,
+          whatsappId: cleanDigits.slice(-10),
+          tenantId,
+          assignedTo: userId || null,
+          assignedAt: userId ? new Date() : null,
+        },
+      });
+
+      summary.created++;
+      summary.createdContacts.push(newContact);
+
+      // Auto-assign by priority if not manually assigned
+      if (!userId) {
+        await assignContactByPriority(newContact.id, tenantId).catch(console.error);
+      }
+
+      // Trigger Zoho sync in background
+      triggerZohoAutoSync(tenantId, newContact.id);
+
+    } catch (err) {
+      summary.errors++;
+      summary.errorDetails.push({ name: item.name || 'Unknown', phone: item.phone || 'Unknown', reason: err.message });
+    }
+  }
+
+  return summary;
+};

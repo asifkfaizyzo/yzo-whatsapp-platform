@@ -195,14 +195,25 @@ const findLeastBusyOnlineAgentByTags = async (tenantId, contactTagIds) => {
     include: { user: true }
   });
 
-  // Filter: active + online + unique
-  const eligibleAgents = matchingAgents
-    .filter(m => m.user.isActive && isUserOnline(tenantId, m.user.id))
+  // ── BEFORE ──
+// const eligibleAgents = matchingAgents
+//     .filter(m => m.user.isActive && isUserOnline(tenantId, m.user.id))
+//     .map(m => m.user)
+//     .filter((user, index, self) =>
+//       index === self.findIndex(u => u.id === user.id)
+//     );
+
+// ── AFTER ──
+const eligibleAgents = matchingAgents
+    .filter(m =>
+      m.user.isActive &&
+      m.user.availabilityStatus === 'AVAILABLE' &&   // ← NEW
+      isUserOnline(tenantId, m.user.id)
+    )
     .map(m => m.user)
     .filter((user, index, self) =>
       index === self.findIndex(u => u.id === user.id)
     );
-
   if (eligibleAgents.length === 0) return null;
 
   return await pickLeastBusyAgent(tenantId, eligibleAgents);
@@ -215,10 +226,20 @@ const findLeastBusyOnlineAgentByTags = async (tenantId, contactTagIds) => {
  * ═══════════════════════════════════════════════════════════
  */
 const findLeastBusyOnlineAgent = async (tenantId) => {
-  const allAgents = await prisma.user.findMany({
+  // ── BEFORE ──
+// const allAgents = await prisma.user.findMany({
+//     where: {
+//       tenantId,
+//       isActive: true
+//     }
+//   });
+
+// ── AFTER ──
+const allAgents = await prisma.user.findMany({
     where: {
       tenantId,
-      isActive: true
+      isActive: true,
+      availabilityStatus: 'AVAILABLE',   // ← NEW
     }
   });
 

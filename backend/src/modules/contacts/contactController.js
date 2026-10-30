@@ -6,9 +6,10 @@ import { logLeadStatusToSheet } from '../google-sheets/googleSheetsService.js';
 import { assignByPriority } from './userContactService.js';
 import {
     createContact, getAllContacts, getContactById, updateContact,
-    deleteContact,  bulkDeleteContacts, blockContact, unblockContact, addTagToContact,
+    deleteContact, bulkDeleteContacts, blockContact, unblockContact, addTagToContact,
     checkContactTagMapping, getContactTags, getTagById, getContactsByUserId,
     importContactsFromCSV, removeTagFromContact,
+    importPhoneContacts, 
 } from './contactCrudService.js';
 
 import { emitToTenant } from '../../lib/socket.js';
@@ -395,4 +396,31 @@ export const downloadSampleCSVController = async (req, res) => {
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename="sudoreply_contacts_template.csv"');
     return res.status(200).send(csvContent);
+};
+
+// ===================== IMPORT FROM PHONE CONTACTS =====================
+export const importPhoneContactsController = async (req, res) => {
+  try {
+    const tenantId = req.tenantId;
+    const userId = req.userType === 'USER' ? req.user.id : null;
+    const { contacts } = req.body;
+
+    if (!contacts || !Array.isArray(contacts) || contacts.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'contacts array is required and must not be empty',
+      });
+    }
+
+    const result = await importPhoneContacts(contacts, tenantId, userId);
+
+    return res.status(200).json({
+      success: true,
+      message: `Import complete: ${result.created} created, ${result.duplicates} duplicates, ${result.errors} errors`,
+      data: result,
+    });
+  } catch (error) {
+    console.error('❌ Phone import error:', error);
+    return res.status(400).json({ success: false, message: error.message });
+  }
 };

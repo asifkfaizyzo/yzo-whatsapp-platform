@@ -1,0 +1,51 @@
+{
+  "expo": {
+    "owner": "your-zeros-and-ones",
+    "name": "Sudo Reply",
+    "slug": "sudo-reply-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "sudoreply",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#125EF2"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.sudoreply.mobile",
+      "infoPlist": {
+        "NSContactsUsageDescription": "Sudo Reply needs access to your contacts to import them into your CRM."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#125EF2"
+      },
+      "package": "com.sudoreply.mobile",
+      "permissions": [
+        "android.permission.READ_CONTACTS"
+      ]
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-font",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.73639182000-vh6bmq0unbpecadgshv4f1ts883eqnv8"
+        }
+      ]
+    ],
+    "extra": {
+      "apiUrl": "http://192.168.29.69:5000",
+      "eas": {
+        "projectId": "6292ddf3-0f58-4832-9e8d-6e12f98b62f3"
+      }
+    }
+  }
+}

@@ -128,6 +128,71 @@ async function fetchShopifyProductImage(tenantId, productId, variantId) {
   return null;
 }
 
+async function fetchAbandonedCheckoutCustomer(tenantId, checkoutId) {
+  const numericCheckoutId = String(checkoutId).match(/(?:^|\/)(\d+)$/)?.[1];
+  if (!numericCheckoutId) return null;
+
+  const shopifyConn = await prisma.shopifyConnection.findFirst({
+    where: { tenantId },
+    select: { shopName: true, accessToken: true },
+  });
+  if (!shopifyConn?.accessToken) return null;
+
+  const cleanShop = shopifyConn.shopName
+    .replace(/^https?:\/\//i, '')
+    .replace(/\/.*$/, '')
+    .trim()
+    .toLowerCase();
+  const accessToken = decrypt(shopifyConn.accessToken);
+  const apiVersion = process.env.SHOPIFY_API_VERSION || '2026-10';
+
+  const response = await axios.post(
+    `https://${cleanShop}/admin/api/${apiVersion}/graphql.json`,
+    {
+      query: `query AbandonedCheckoutCustomer($query: String!) {
+        abandonedCheckouts(first: 1, query: $query) {
+          nodes {
+            customer { firstName lastName email }
+            billingAddress { firstName lastName }
+            shippingAddress { firstName lastName }
+          }
+        }
+      }`,
+      variables: { query: `id:${numericCheckoutId}` },
+    },
+    {
+      headers: {
+        'X-Shopify-Access-Token': accessToken,
+        'Content-Type': 'application/json',
+      },
+      timeout: 5000,
+    }
+  );
+
+  if (response.data?.errors?.length) {
+    throw new Error(response.data.errors.map((error) => error.message).join('; '));
+  }
+
+  const checkout = response.data?.data?.abandonedCheckouts?.nodes?.[0];
+  if (!checkout) return null;
+
+  const fullName = (person) => [
+    person?.name,
+    [person?.firstName || person?.first_name, person?.lastName || person?.last_name]
+      .filter(Boolean)
+      .join(' '),
+  ].map((name) => String(name || '').trim()).find(Boolean) || '';
+  const email = checkout.customer?.email || '';
+  const customerName = [
+    fullName(checkout.shippingAddress),
+    fullName(checkout.billingAddress),
+    fullName(checkout.customer),
+    email ? email.split('@')[0].replace(/[._]/g, ' ') : '',
+  ].find(Boolean) || '';
+
+  return { customerName, customerEmail: email };
+}
+
 // ─────────────────────────────────────────────────────────────
 // HELPER: Extract checkout data from Shopify payload
 // ─────────────────────────────────────────────────────────────
@@ -142,13 +207,20 @@ async function fetchShopifyProductImage(tenantId, productId, variantId) {
   let customerPhone = rawPhone ? String(rawPhone).replace(/[^\d+]/g, '') : '';
   if (customerPhone && !customerPhone.startsWith('+')) customerPhone = `+${customerPhone}`;
 
-  // Extract name from shipping_address first, then billing_address, then customer object
-  const shippingName = `${payload.shipping_address?.first_name || ''} ${payload.shipping_address?.last_name || ''}`.trim();
-  const billingName = `${payload.billing_address?.first_name || ''} ${payload.billing_address?.last_name || ''}`.trim();
-  const customerObjName = `${payload.customer?.first_name || ''} ${payload.customer?.last_name || ''}`.trim();
-  const emailName = payload.email ? payload.email.split('@')[0].replace(/[._]/g, ' ') : '';
-
-  const customerName = shippingName || billingName || customerObjName || emailName || 'Customer';
+  const fullName = (person) => [
+    person?.name,
+    [person?.first_name, person?.last_name].filter(Boolean).join(' '),
+    [person?.firstName, person?.lastName].filter(Boolean).join(' '),
+  ].map((name) => String(name || '').trim()).find(Boolean) || '';
+  const email = payload.email || payload.contact_email || payload.customer?.email || '';
+  const customerName = [
+    fullName(payload.shipping_address),
+    fullName(payload.billing_address),
+    fullName(payload.customer),
+    fullName(payload.customer?.default_address),
+    fullName(payload.contact),
+    email ? email.split('@')[0].replace(/[._]/g, ' ') : '',
+  ].find(Boolean) || 'Customer';
 
   const lineItems = (payload.line_items || []).map((item) => ({
     name: item.title || item.name || 'Product',
@@ -172,7 +244,7 @@ async function fetchShopifyProductImage(tenantId, productId, variantId) {
     checkoutToken: payload.token || '',
     customerPhone,
     customerName,
-    customerEmail: payload.email || payload.customer?.email || '',
+    customerEmail: email,
     total: parseFloat(payload.total_price || payload.total || '0.0'),
     currency: payload.currency || 'USD',
     lineItems,
@@ -288,6 +360,20 @@ export async function handleCheckoutUpdate(tenantId, payload) {
     return { skipped: true, reason: 'no_checkout_id' };
   }
 
+  if (checkout.customerName === 'Customer' || !checkout.customerEmail) {
+    try {
+      const customerDetails = await fetchAbandonedCheckoutCustomer(tenantId, checkout.checkoutId);
+      if (customerDetails) {
+        if (checkout.customerName === 'Customer' && customerDetails.customerName) {
+          checkout.customerName = customerDetails.customerName;
+        }
+        checkout.customerEmail ||= customerDetails.customerEmail;
+      }
+    } catch (error) {
+      console.warn(`⚠️ [Cart Recovery] Could not fetch checkout customer details: ${error.message}`);
+    }
+  }
+
   // 2. Skip if already completed/converted
   if (checkout.completedAt || checkout.orderId) {
     console.log(`⏭️ [Cart Recovery] Checkout ${checkout.checkoutId} already completed, skipping`);
@@ -326,12 +412,22 @@ export async function handleCheckoutUpdate(tenantId, payload) {
     },
   };
 
-    const cartOrder = await prisma.ecommerceOrder.upsert({
+  const existingCart = await prisma.ecommerceOrder.findUnique({
+    where: orderKey,
+    select: { customerName: true, customerEmail: true },
+  });
+  const customerName =
+    checkout.customerName !== 'Customer'
+      ? checkout.customerName
+      : existingCart?.customerName || checkout.customerName;
+  const customerEmail = checkout.customerEmail || existingCart?.customerEmail || '';
+
+  const cartOrder = await prisma.ecommerceOrder.upsert({
     where: orderKey,
     update: {
-      customerName: checkout.customerName,
+      customerName,
       customerPhone: checkout.customerPhone,
-      customerEmail: checkout.customerEmail,
+      customerEmail,
       total: checkout.total,
       currency: checkout.currency,
       lineItems: checkout.lineItems,
@@ -350,9 +446,9 @@ export async function handleCheckoutUpdate(tenantId, payload) {
       paymentStatus: 'PENDING',
       total: checkout.total,
       currency: checkout.currency,
-      customerName: checkout.customerName,
+      customerName,
       customerPhone: checkout.customerPhone,
-      customerEmail: checkout.customerEmail,
+      customerEmail,
       shippingAddress: payload.shipping_address || {},
       lineItems: checkout.lineItems,
       cartStatus: 'abandoned',
@@ -370,8 +466,8 @@ export async function handleCheckoutUpdate(tenantId, payload) {
     checkoutId: checkout.checkoutId,
     cartOrderId: cartOrder.id,
     customerPhone: checkout.customerPhone,
-    customerName: checkout.customerName,
-    customerEmail: checkout.customerEmail,
+    customerName: cartOrder.customerName || customerName,
+    customerEmail: cartOrder.customerEmail || customerEmail,
     total: checkout.total,
     currency: checkout.currency,
     lineItems: checkout.lineItems,
@@ -547,13 +643,13 @@ export async function processCartReminder(data) {
     return { skipped: true, reason: 'unknown_tier' };
   }
 
-  const existingCart = await prisma.ecommerceOrder.findFirst({
+    const existingCart = await prisma.ecommerceOrder.findFirst({
     where: {
       tenantId,
       source: 'SHOPIFY',
       externalOrderId: checkoutId,
     },
-    select: { [sentField]: true, cartStatus: true },
+    select: { [sentField]: true, cartStatus: true, customerName: true },
   });
 
   if (existingCart?.[sentField]) {
@@ -610,8 +706,12 @@ export async function processCartReminder(data) {
   };
 
   // 4. Build message
+    const resolvedName = (existingCart?.customerName && existingCart.customerName !== 'Customer')
+    ? existingCart.customerName
+    : customerName || 'Customer';
+
   const cartData = {
-    customerName: customerName || 'Customer',
+    customerName: resolvedName,
     total: total || 0,
     currency: currency || 'USD',
     lineItems: lineItems || [],
@@ -639,10 +739,10 @@ export async function processCartReminder(data) {
 
   const cleanPhone = `+${cleanDigits}`;
 
-  const { contact, conversation } = await getOrCreateShopifyContact({
+    const { contact, conversation } = await getOrCreateShopifyContact({
     tenantId,
     customerPhone: cleanPhone,
-    customerName: customerName || 'Customer',
+    customerName: resolvedName,
     customerEmail: customerEmail || '',
   });
 

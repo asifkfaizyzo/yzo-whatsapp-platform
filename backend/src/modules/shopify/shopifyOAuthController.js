@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import axios from 'axios';
 import * as shopifyService from './shopifyService.js';
 import { registerShopifyWebhooks } from './shopifyWebhookService.js';
+import { syncAllProducts } from './shopifyProductSyncService.js';
 
 const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
 const SHOP_DOMAIN_PATTERN = /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/i;
@@ -153,12 +154,21 @@ export const handleOAuthCallback = async (req, res) => {
       webhookSecret: apiSecret,
     });
 
-      // Automatically register webhooks for OAuth connection
+          // Automatically register webhooks for OAuth connection
     try {
       await registerShopifyWebhooks(shop, accessToken);
     } catch (err) {
       console.error('⚠️ OAuth Webhook Registration Error:', err.message);
     }
+
+    // 🆕 Auto-trigger initial product catalog sync (non-blocking)
+    syncAllProducts(state.tenantId)
+      .then((result) => {
+        console.log(`🚀 [OAuth] Initial product sync completed: ${result.totalSynced} products`);
+      })
+      .catch((err) => {
+        console.error('⚠️ [OAuth] Initial product sync failed:', err.message);
+      });
 
     return redirectToIntegrations(res, { connected: 'true' });
   } catch (error) {
