@@ -16,6 +16,7 @@ export const ENDPOINTS = {
     unreadCount: '/api3/unread-count',
     googleLogin: '/api3/google-login',
     pushToken: '/api3/push-token',
+    notificationPrefs: '/api3/notification-preferences',
   },
 
   tenantAuth: {
@@ -85,5 +86,13 @@ export const ENDPOINTS = {
     getAll:           '/api2/quick-replies/',
     getByShortcut:    (shortcut: string) => `/api2/quick-replies/by-shortcut/${shortcut}`,
     categories:       '/api2/quick-replies/categories',
+  },
+   notifications: {
+    getAll:           '/api2/notifications/',
+    paginated:        '/api2/notifications/paginated',
+    markRead:         (id: string) => `/api2/notifications/${id}/read`,
+    markAllRead:      '/api2/notifications/read-all',
+    clearAll:         '/api2/notifications/clear-all',
+    delete:           (id: string) => `/api2/notifications/${id}`,
   },
 } as const;

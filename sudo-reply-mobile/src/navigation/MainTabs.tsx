@@ -228,9 +228,9 @@ export const MainTabs: React.FC = () => {
         );
       }}
     >
-      <Tab.Screen name="Contacts" component={ContactsStack} />
       <Tab.Screen name="Inbox" component={InboxStack} />
       <Tab.Screen name="Campaigns" component={CampaignsStack} />
+      <Tab.Screen name="Contacts" component={ContactsStack} />
       <Tab.Screen name="Profile" component={ProfileStack} />
     </Tab.Navigator>
   );

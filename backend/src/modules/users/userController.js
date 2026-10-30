@@ -460,3 +460,65 @@ export const clearPushToken = async (req, res) => {
     return res.status(500).json({ success: false, message: 'Failed to clear push token' });
   }
 };
+
+// ── Get Notification Preferences ──
+export const getNotificationPreferences = async (req, res) => {
+  try {
+    const userId = req.userId || req.user?.id;
+    if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { notificationPreferences: true },
+    });
+
+    const defaults = {
+      pushEnabled: true,
+      types: {
+        new_message: true,
+        conversation_reassigned: true,
+        broadcast_completed: true,
+        template_approved: true,
+        template_rejected: true,
+      },
+    };
+
+    return res.status(200).json({
+      success: true,
+      data: user?.notificationPreferences || defaults,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ── Update Notification Preferences ──
+export const updateNotificationPreferences = async (req, res) => {
+  try {
+    const userId = req.userId || req.user?.id;
+    if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+    const { pushEnabled, types } = req.body;
+
+    const preferences = {
+      pushEnabled: pushEnabled !== undefined ? pushEnabled : true,
+      types: {
+        new_message: true,
+        conversation_reassigned: true,
+        broadcast_completed: true,
+        template_approved: true,
+        template_rejected: true,
+        ...(types || {}),
+      },
+    };
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { notificationPreferences: preferences },
+    });
+
+    return res.status(200).json({ success: true, data: preferences });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};

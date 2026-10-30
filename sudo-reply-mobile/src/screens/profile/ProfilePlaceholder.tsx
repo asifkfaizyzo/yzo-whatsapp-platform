@@ -9,6 +9,7 @@ import {
   Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Application from 'expo-application';
 import { colors } from '../../theme/colors';
@@ -107,6 +108,7 @@ const AVAILABILITY_OPTIONS: {
 // ── Main Component ─────────────────────────────────────────────
 export const ProfilePlaceholder: React.FC = () => {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
   const user = useAuthStore((s) => s.user);
   const userType = useAuthStore((s) => s.userType);
   const logout = useLogout();
@@ -244,13 +246,13 @@ export const ProfilePlaceholder: React.FC = () => {
             />
             <Divider />
             <MenuItem
-              icon="notifications"
-              iconBg="#FEE2E2"
-              iconColor="#DC2626"
-              label="Notifications"
-              subtitle="Push alerts and sounds"
-              onPress={() => Alert.alert('Coming Soon', 'Notification preferences will be available after FCM setup.')}
-            />
+  icon="notifications"
+  iconBg="#FEE2E2"
+  iconColor="#DC2626"
+  label="Notifications"
+  subtitle="View all alerts and updates"
+  onPress={() => navigation.navigate('NotificationSettings')}
+/>
           </View>
         </View>
 

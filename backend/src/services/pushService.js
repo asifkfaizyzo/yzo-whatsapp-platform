@@ -156,5 +156,30 @@ class PushService {
     }
   }
 }
+// ─────────────────────────────────────────────────────────────
+// CHECK IF USER WANTS THIS NOTIFICATION TYPE
+// ─────────────────────────────────────────────────────────────
+export const shouldSendPush = async (userId, notificationType) => {
+  if (!userId) return false;
+  try {
+    const { default: prisma } = await import('../config/prisma.js');
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { pushToken: true, notificationPreferences: true },
+    });
+
+    if (!user?.pushToken) return false;
+
+    const prefs = user.notificationPreferences;
+    if (!prefs) return true; // no prefs = send everything
+
+    if (prefs.pushEnabled === false) return false;
+    if (prefs.types && prefs.types[notificationType] === false) return false;
+
+    return true;
+  } catch {
+    return true; // fail open — better to send than miss
+  }
+};
 
 export default new PushService();

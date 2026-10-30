@@ -237,6 +237,7 @@ model User {
 
   pushToken          String?
   pushTokenUpdatedAt DateTime?
+  notificationPreferences  Json?
 
   tenant     Tenant   @relation(fields: [tenantId], references: [id])
 

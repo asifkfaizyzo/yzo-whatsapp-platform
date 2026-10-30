@@ -10,7 +10,7 @@ import { emitToTenant, emitToUser } from '../../lib/socket.js';
 import fs from 'fs';
 import path from 'path';
 import { trackUsage } from '../quick-replies/quickReplyService.js';
-import pushService from '../../services/pushService.js';
+import pushService, { shouldSendPush } from '../../services/pushService.js';
 
 const CLOSED_STATUSES = ['RESOLVED', 'CLOSED'];
 
@@ -19,28 +19,40 @@ const CLOSED_STATUSES = ['RESOLVED', 'CLOSED'];
 // ─────────────────────────────────────────────────────────────
 const sendPushToAssignedAgent = async (assignedUserId, contact, messageText, conversationId, messageType) => {
   try {
+    console.log(`🔔 sendPushToAssignedAgent: checking user ${assignedUserId}`);
+    const allowed = await shouldSendPush(assignedUserId, 'new_message');
+    if (!allowed) {
+      console.log(`🔔 sendPushToAssignedAgent: skipped (prefs/token) for ${assignedUserId}`);
+      return;
+    }
+
     const agent = await prisma.user.findUnique({
       where: { id: assignedUserId },
       select: { pushToken: true },
     });
 
-    if (!agent?.pushToken) return;
+    if (!agent?.pushToken) {
+      console.log(`🔔 sendPushToAssignedAgent: no pushToken for ${assignedUserId}`);
+      return;
+    }
 
     const previewText = messageText?.substring(0, 200)
       || (messageType && messageType !== 'TEXT' ? `📷 ${messageType.toLowerCase()} message` : 'New message');
 
-    await pushService.sendToDevice({
+    console.log(`🔔 sendPushToAssignedAgent: sending to ${agent.pushToken.substring(0, 30)}...`);
+    const result = await pushService.sendToDevice({
       token: agent.pushToken,
       title: contact.name || contact.phone || 'New Message',
       body: previewText,
       data: {
-  type: 'new_message',
-  contactId: contact.id,
-  conversationId,
-  contactName: contact.name || contact.phone || 'Unknown',
-  channelId: 'messages',
-},
+        type: 'new_message',
+        contactId: contact.id,
+        conversationId,
+        contactName: contact.name || contact.phone || 'Unknown',
+        channelId: 'messages',
+      },
     });
+    console.log(`🔔 sendPushToAssignedAgent: result =`, result.success ? '✅ sent' : `❌ ${result.message}`);
   } catch (err) {
     console.error('❌ Push to agent failed:', err.message);
   }
@@ -288,6 +300,26 @@ export const handleIncomingMessage = async ({
         },
       });
     }
+
+    // ── Push to ALL tenant agents for unassigned messages ──
+    prisma.user
+      .findMany({
+        where: { tenantId, userType: 'USER' },
+        select: { id: true },
+      })
+      .then((agents) => {
+        console.log(`🔔 Unassigned message — pushing to ${agents.length} agent(s)`);
+        agents.forEach((agent) => {
+          sendPushToAssignedAgent(
+            agent.id,
+            contact,
+            text || caption,
+            updatedConversation.id,
+            type
+          ).catch((err) => console.error('❌ Push to unassigned agent failed:', err.message));
+        });
+      })
+      .catch((err) => console.error('❌ Failed to fetch agents for push:', err.message));
   }
 
   // ── Trigger flow engine (text or location) ───────────────────

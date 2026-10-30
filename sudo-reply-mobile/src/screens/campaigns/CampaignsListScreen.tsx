@@ -18,6 +18,7 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { useCampaigns } from '../../hooks/useCampaigns';
 import { useAuthStore } from '../../stores/authStore';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { NotificationBell } from '../../components/ui/NotificationBell';
 
 type Props = NativeStackScreenProps<any, 'CampaignsList'>;
 
@@ -67,8 +68,9 @@ export const CampaignsListScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Campaigns</Text>
-      </View>
+  <Text style={styles.headerTitle}>Campaigns</Text>
+  <NotificationBell onPress={() => navigation.navigate('Profile', { screen: 'NotificationCenter' })} />
+</View>
 
       {isLoading ? (
         <View style={styles.center}>
@@ -120,7 +122,13 @@ const Stat = ({ label, value }: { label: string; value: number }) => (
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.white },
-  header: { paddingHorizontal: spacing.xl, paddingVertical: spacing.md },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+},
   headerTitle: { ...typography.h1, color: colors.darkGrey },
   list: { paddingHorizontal: spacing.xl, paddingBottom: spacing.huge },
   campaignCard: { marginBottom: spacing.md },
