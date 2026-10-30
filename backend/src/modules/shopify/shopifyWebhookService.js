@@ -4,6 +4,8 @@ const REQUIRED_WEBHOOK_TOPICS = [
   'orders/create',              // 1.1 Order Confirmation ✅
   'orders/updated',             // 1.2 Payment Received (check financial_status)
   'orders/fulfilled',           // 1.3 Order Shipped
+  'fulfillments/create',        // Tracking details added to a fulfillment
+  'fulfillments/update',        // Tracking details updated on a fulfillment
   'orders/cancelled',           // 1.6 Order Cancelled
   'orders/edited',              // 1.7 Order Edited
   'fulfillment_events/create',  // 1.4 & 1.5 Out for Delivery / Delivered

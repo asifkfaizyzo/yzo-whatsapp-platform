@@ -15,6 +15,7 @@ import {
   scheduleCrossSell,
   scheduleUpsell,
 } from './shopifyPostPurchaseService.js';
+import { generateTrackingUrl } from '../../utils/trackingHelper.js';
 
 
 
@@ -26,6 +27,58 @@ export const isProductionEnvironment = () => {
   if (!url) return false;
   const devPatterns = ['localhost', '127.0.0.1', 'trycloudflare.com', 'ngrok', 'localtunnel', 'serveo.net'];
   return !devPatterns.some(pattern => url.includes(pattern));
+};
+
+const extractShopifyTrackingInfo = (source) => {
+  const fulfillments = Array.isArray(source?.fulfillments)
+    ? source.fulfillments
+    : source?.fulfillment
+      ? [source.fulfillment]
+      : [source];
+
+  return fulfillments.flatMap((fulfillment) => {
+    if (!fulfillment || typeof fulfillment !== 'object') return [];
+
+    const trackingInfo = fulfillment.tracking_info
+      ? (Array.isArray(fulfillment.tracking_info) ? fulfillment.tracking_info : [fulfillment.tracking_info])
+      : [];
+    const numbers = fulfillment.tracking_numbers || [];
+    const urls = fulfillment.tracking_urls || [];
+    const entries = trackingInfo.length > 0
+      ? trackingInfo
+      : [null];
+    const count = Math.max(
+      entries.length,
+      Array.isArray(numbers) ? numbers.length : 0,
+      Array.isArray(urls) ? urls.length : 0,
+      fulfillment.tracking_number ? 1 : 0,
+      fulfillment.tracking_url ? 1 : 0,
+    );
+
+    return Array.from({ length: count }, (_, index) => {
+      const info = entries[index] || {};
+      const number = info.number ||
+        (Array.isArray(numbers) ? numbers[index] : '') ||
+        fulfillment.tracking_number ||
+        '';
+      const url = info.url ||
+        (Array.isArray(urls) ? urls[index] : '') ||
+        fulfillment.tracking_url ||
+        '';
+      const provider = info.company ||
+        info.provider ||
+        fulfillment.tracking_company ||
+        fulfillment.company ||
+        source?.shipping_lines?.[0]?.title ||
+        '';
+
+      return {
+        provider,
+        number: String(number || ''),
+        url: url || generateTrackingUrl(provider, number),
+      };
+    }).filter((item) => item.provider || item.number || item.url);
+  });
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -348,6 +401,36 @@ export const processShopifyOrderLifecycle = async ({
     ''
   );
 
+  if (['fulfillments/create', 'fulfillments/update'].includes(topic)) {
+    const trackingInfo = extractShopifyTrackingInfo(payload);
+
+    if (!externalOrderId || trackingInfo.length === 0) {
+      console.warn(`⚠️ [Shopify] Fulfillment ${topic} had no order ID or tracking details`);
+      return { success: true, ignored: true, reason: 'missing_order_or_tracking_data' };
+    }
+
+    const orderRecord = await prisma.ecommerceOrder.findFirst({
+      where: {
+        tenantId,
+        source: 'SHOPIFY',
+        externalOrderId,
+      },
+      select: { id: true },
+    });
+
+    if (!orderRecord) {
+      console.warn(`⚠️ [Shopify] Cannot save tracking for unsynced order ${externalOrderId}`);
+      return { success: true, ignored: true, reason: 'order_not_synced' };
+    }
+
+    await prisma.ecommerceOrder.update({
+      where: { id: orderRecord.id },
+      data: { trackingInfo },
+    });
+    console.log(`✅ [Shopify] Saved ${trackingInfo.length} tracking record(s) for order ${externalOrderId}`);
+    return { success: true, type: 'SHOPIFY_FULFILLMENT_TRACKING', externalOrderId };
+  }
+
   const rawOrderName =
     payload.name ||
     payload.order_number ||
@@ -440,6 +523,7 @@ export const processShopifyOrderLifecycle = async ({
   let itemsList = Object.entries(itemGroupMap)
     .map(([name, qty]) => `${name} (x${qty})`)
     .join(', ') || 'Order updated';
+  const trackingInfo = extractShopifyTrackingInfo(rootOrder);
 
   // 3. Enrich sparse orders/edited payloads from DB
   if (topic === 'orders/edited' && externalOrderId) {
@@ -500,6 +584,7 @@ export const processShopifyOrderLifecycle = async ({
     };
 
     const baseUpdate = { status, paymentMethod, paymentStatus };
+    if (trackingInfo.length > 0) baseUpdate.trackingInfo = trackingInfo;
     if (topic !== 'orders/edited') {
       Object.assign(baseUpdate, { total, customerName, customerPhone, customerEmail, shippingAddress: shipping, lineItems, orderNumber });
     } else {
@@ -518,7 +603,8 @@ export const processShopifyOrderLifecycle = async ({
       create: {
         tenantId, source: 'SHOPIFY', externalOrderId, orderNumber,
         status, paymentMethod, paymentStatus, total: total || 0, currency, customerName,
-        customerPhone, customerEmail, shippingAddress: shipping, lineItems
+        customerPhone, customerEmail, shippingAddress: shipping, lineItems,
+        ...(trackingInfo.length > 0 ? { trackingInfo } : {}),
       }
     });
     console.log(`✅ [ShopifyWorker] EcommerceOrder stored in DB (ID: ${orderRecord.id})`);

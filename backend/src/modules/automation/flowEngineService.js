@@ -8,6 +8,8 @@ import { sendWhatsAppMedia } from '../../lib/utils/whatsappMediaSender.js'
 import * as googleSheetsService from '../google-sheets/googleSheetsService.js'
 import { logLeadStatusToSheet } from '../google-sheets/googleSheetsService.js';
 import { handleReviewReply } from '../shopify/shopifyPostPurchaseService.js';
+import shopifyOrderLookupService from '../shopify/ShopifyOrderLookupService.js';
+import faqService from './faqService.js'
 
 const flowEngine = {
 
@@ -123,24 +125,44 @@ const flowEngine = {
         }
       }
 
-         // ── CASE 0.5: Check for post-purchase review rating reply ──
-      if (textStr && /^[1-5](\s*(\/\s*5|stars?))?$/i.test(textStr)) {
+            // ── CASE 0.5: Check for post-purchase review rating reply (Shopify & WooCommerce) ──
+      if (textStr) {
         try {
-          const reviewResult = await handleReviewReply({
+          // 1. Try Shopify Review Reply Interception
+          const { handleReviewReply: handleShopifyReviewReply } = await import('../shopify/shopifyPostPurchaseService.js');
+          const shopifyResult = await handleShopifyReviewReply({
             tenantId: conversation.tenantId,
             contactPhone: contact.phone,
             userMessage: textStr
           });
-          if (reviewResult) {
-            const thankYouMsg = `⭐ *Thank you for your ${reviewResult.rating}/5 rating!* \n\nYour feedback for order *${reviewResult.orderNumber}* means a lot to us. We're glad you had a great experience! 😊`;
-            await flowEngine.sendBotTextMessage(conversation, contact, thankYouMsg);
-            await flowEngine.saveBotMessage(conversation.id, thankYouMsg);
+          if (shopifyResult?.handled) {
+            console.log(`⭐ [ReviewReply] Captured Shopify rating ${shopifyResult.rating} for order ${shopifyResult.orderId}`);
+            if (shopifyResult.responseSent) {
+              await flowEngine.sendBotTextMessage(conversation, contact, shopifyResult.responseSent);
+              await flowEngine.saveBotMessage(conversation.id, shopifyResult.responseSent);
+            }
+            return; // Stop further flow processing
+          }
+
+          // 2. Try WooCommerce Review Reply Interception
+          const { handleWooCommerceReviewReply } = await import('./woocommerceOrderLifecycle.js');
+          const wooResult = await handleWooCommerceReviewReply({
+            tenantId: conversation.tenantId,
+            contactPhone: contact.phone,
+            userMessage: textStr
+          });
+          if (wooResult?.handled) {
+            console.log(`⭐ [ReviewReply] Captured WooCommerce rating ${wooResult.rating} for order ${wooResult.orderId}`);
+            if (wooResult.responseSent) {
+              await flowEngine.sendBotTextMessage(conversation, contact, wooResult.responseSent);
+              await flowEngine.saveBotMessage(conversation.id, wooResult.responseSent);
+            }
             return; // Stop further flow processing
           }
         } catch (reviewErr) {
-          console.warn('⚠️ [ReviewReply] Error:', reviewErr.message);
+          console.warn('⚠️ [ReviewReply] Error checking review reply:', reviewErr.message);
         }
-      }
+      }  
 
       // ── CASE 1: Agent is handling → notify agent only ──
       if (conversation.mode === 'AGENT' || conversation.botPaused) {
@@ -977,13 +999,14 @@ if (conversation.mode === 'QUEUED') {
 
     // Get first node
     const firstNode = flow.nodes[0]
+    const initialNodeId = firstNode.type === 'ASK_QUESTION' ? null : firstNode.id
 
     // Update conversation state
     await prisma.conversation.update({
       where: { id: conversation.id },
       data: {
         currentFlowId: flow.id,
-        currentNodeId: firstNode.id,
+        currentNodeId: initialNodeId,
         mode: 'BOT',
         botPaused: false,
         status: 'OPEN',
@@ -995,7 +1018,7 @@ if (conversation.mode === 'QUEUED') {
     const updatedConversation = {
       ...conversation,
       currentFlowId: flow.id,
-      currentNodeId: firstNode.id,
+      currentNodeId: initialNodeId,
       mode: 'BOT',
       botPaused: false,
       status: 'OPEN',
@@ -1097,6 +1120,18 @@ if (conversation.mode === 'QUEUED') {
         )
         break
 
+            case 'SHOPIFY_ORDER_LOOKUP':
+        await flowEngine.handleShopifyOrderLookup(
+          node, conversation, contact, userMessage, isNewContact
+        )
+        break
+
+      case 'FAQ_LOOKUP':
+        await flowEngine.handleFaqLookup(
+          node, conversation, contact, userMessage, isNewContact
+        )
+        break
+
       case 'END_FLOW':
         await flowEngine.endFlow(conversation)
         break
@@ -1107,16 +1142,37 @@ if (conversation.mode === 'QUEUED') {
     }
   },
 
+    // ─────────────────────────────────────────
+  // Template Variable Interpolation Helper
+  // Replaces {{key}} with values from flowData
+  // ─────────────────────────────────────────
+  replaceTemplateVariables: (text, flowData = {}) => {
+    if (!text || typeof text !== 'string') return text
+    return text.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+      const value = flowData[key]
+      if (value !== undefined && value !== null) {
+        return String(value)
+      }
+      return match
+    })
+  },
+
   // ─────────────────────────────────────────
   // SEND_MESSAGE Node
   // ─────────────────────────────────────────
 // ─────────────────────────────────────────
-// SEND_MESSAGE Node (with media support)
+// SEND_MESSAGE Node (with media support + template variables)
 // ─────────────────────────────────────────
 handleSendMessage: async (node, conversation, contact, userMessage, isNewContact = false) => {
 
   const options  = node.options || {}
   const hasMedia = options.mediaUrl && options.mediaType
+
+  // ✅ Interpolate template variables in node content
+  const resolvedContent = flowEngine.replaceTemplateVariables(
+    node.content || '',
+    conversation.flowData || {}
+  )
 
   if (hasMedia) {
     // ── Send MEDIA message (image/video) ──
@@ -1131,7 +1187,7 @@ handleSendMessage: async (node, conversation, contact, userMessage, isNewContact
         mediaName:     options.mediaName,
         mediaMimeType: options.mediaMimeType,
         mediaSize:     options.mediaSize,
-        caption:       node.content || null,
+        caption:       resolvedContent || null,
       },
       conversation,
       contact
@@ -1145,21 +1201,21 @@ handleSendMessage: async (node, conversation, contact, userMessage, isNewContact
         mediaName:     options.mediaName,
         mediaMimeType: options.mediaMimeType,
         mediaSize:     options.mediaSize,
-        caption:       node.content || null,
+        caption:       resolvedContent || null,
       }
     )
 
   } else {
-    // ── Send TEXT message (existing behavior) ──
-    console.log(`📨 Sending message: "${node.content}"`)
+    // ── Send TEXT message (with interpolated variables) ──
+    console.log(`📨 Sending message: "${resolvedContent}"`)
 
     await flowEngine.sendBotTextMessage(
       conversation,
       contact,
-      node.content
+      resolvedContent
     )
 
-    await flowEngine.saveBotMessage(conversation.id, node.content)
+    await flowEngine.saveBotMessage(conversation.id, resolvedContent)
   }
 
   // ── Move to next node (same as before) ──
@@ -1261,8 +1317,54 @@ handleSendMessage: async (node, conversation, contact, userMessage, isNewContact
       const options = node.options || {}
 
       if (options.saveAs) {
-        const currentFlowData = conversation.flowData || {}
-        currentFlowData[options.saveAs] = userMessage
+        const variableName = options.saveAs.trim()
+        const userAnswer = userMessage.trim()
+        const normalizedKey = variableName.toLowerCase().replace(/_/g, '')
+        let currentFlowData = {
+          ...(conversation.flowData || {}),
+          [variableName]: userAnswer,
+        }
+
+        if (normalizedKey === 'ordernumber') {
+          currentFlowData.orderNumber = userAnswer
+          currentFlowData.order_number = userAnswer
+          delete currentFlowData.lookupFound
+
+          try {
+            console.log(`🔍 Auto-fetching Shopify order details for order: ${userAnswer}`)
+            const order = await shopifyOrderLookupService.findOrder(
+              conversation.tenantId,
+              contact.phone,
+              userAnswer
+            )
+
+            const orderData = shopifyOrderLookupService.buildFlowData(order)
+            const cleanedUserAnswer = userAnswer.replace(/^#+\s*/, '')
+
+            if (order) {
+              console.log(`✅ Order found: #${order.orderNumber}`)
+            } else {
+              console.log(`⚠️ Order #${userAnswer} not found`)
+            }
+            currentFlowData = {
+              ...currentFlowData,
+              ...orderData,
+              order_number: order ? orderData.order_number : cleanedUserAnswer,
+              orderNumber: order ? orderData.orderNumber : cleanedUserAnswer,
+              lookupFound: Boolean(order),
+            }
+          } catch (err) {
+            console.error('❌ Error during automatic Shopify order lookup:', err)
+            const cleanedUserAnswer = userAnswer.replace(/^#+\s*/, '')
+            currentFlowData = {
+              ...currentFlowData,
+              ...shopifyOrderLookupService.buildFlowData(null),
+              order_number: cleanedUserAnswer,
+              orderNumber: cleanedUserAnswer,
+              lookupFound: false,
+            }
+          }
+        }
 
         await prisma.conversation.update({
           where: { id: conversation.id },
@@ -1270,7 +1372,7 @@ handleSendMessage: async (node, conversation, contact, userMessage, isNewContact
         })
 
         conversation.flowData = currentFlowData
-        console.log(`💾 Saved "${options.saveAs}": "${userMessage}"`)
+        console.log(`💾 Saved "${variableName}": "${userAnswer}"`)
       }
 
       if (node.nextNodeId) {
@@ -1365,6 +1467,14 @@ handleSendMessage: async (node, conversation, contact, userMessage, isNewContact
         })
         isMatch = !!tagExists
         console.log(`   🏷️  Tag "${tagName}": ${isMatch}`)
+
+      } else if (['order_found', 'lookup_found'].includes(rule)) {
+        isMatch = conversation.flowData?.lookupFound === true
+        console.log(`   📦 Shopify order found: ${isMatch}`)
+
+      } else if (['order_not_found', 'lookup_not_found', 'not_found'].includes(rule)) {
+        isMatch = conversation.flowData?.lookupFound === false
+        console.log(`   📦 Shopify order not found: ${isMatch}`)
 
       // ─── TEXT-BASED RULES ───
       } else if (rule === answer) {
@@ -1818,6 +1928,210 @@ handleSendMessage: async (node, conversation, contact, userMessage, isNewContact
       await flowEngine.saveBotMessage(conversation.id, pickupMsg)
       await flowEngine.endFlow(conversation)
     }
+  },
+
+    // ─────────────────────────────────────────
+  // SHOPIFY_ORDER_LOOKUP Node
+  // Queries EcommerceOrder → populates flowData
+  // ─────────────────────────────────────────
+  handleShopifyOrderLookup: async (node, conversation, contact, userMessage, isNewContact = false) => {
+    console.log(`🔍 Executing SHOPIFY_ORDER_LOOKUP node: ${node.id}`)
+
+    const options = node.options || {}
+    const tenantId = conversation.tenantId
+    const phone = contact.phone
+
+    // Check if order number was captured in a previous ASK_QUESTION
+    const orderNumber =
+      conversation.flowData?.orderNumber ||
+      conversation.flowData?.order_number ||
+      conversation.flowData?.order_Number ||
+      null
+
+    console.log(`   Phone: ${phone} | Order#: ${orderNumber || '(latest)'}`)
+
+    // Query the order
+    const order = await shopifyOrderLookupService.findOrder(tenantId, phone, orderNumber)
+
+    if (order) {
+      console.log(`✅ Order found: ${order.orderNumber} (${order.status})`)
+
+      // Build all template variables
+      const orderData = shopifyOrderLookupService.buildFlowData(order)
+
+      // Merge into existing flowData (preserve orderNumber, deliveryAddress, etc.)
+      const updatedFlowData = {
+        ...(conversation.flowData || {}),
+        ...orderData,
+        lookupFound: true,
+      }
+
+      await prisma.conversation.update({
+        where: { id: conversation.id },
+        data: { flowData: updatedFlowData }
+      })
+
+      conversation.flowData = updatedFlowData
+
+      // Route to "found" branch or default next
+      const nextNodeId = options.foundNextNodeId || node.nextNodeId
+
+      if (nextNodeId) {
+        const nextNode = await flowService.getNodeById(nextNodeId)
+        if (nextNode) {
+          await prisma.conversation.update({
+            where: { id: conversation.id },
+            data: { currentNodeId: nextNode.id }
+          })
+          const updatedConversation = { ...conversation, currentNodeId: nextNode.id }
+          await flowEngine.executeNode(nextNode, updatedConversation, contact, userMessage, isNewContact)
+          return
+        }
+      }
+    } else {
+      console.log(`⚠️ No order found for phone ${phone}`)
+
+      // Merge "not found" flag into flowData
+      const cleanOrderNumber = String(orderNumber || 'N/A').replace(/^#+\s*/, '').trim() || 'N/A'
+      const updatedFlowData = {
+        ...(conversation.flowData || {}),
+        ...shopifyOrderLookupService.buildFlowData(null),
+        order_number: cleanOrderNumber,
+        orderNumber: cleanOrderNumber,
+        lookupFound: false,
+      }
+
+      await prisma.conversation.update({
+        where: { id: conversation.id },
+        data: { flowData: updatedFlowData }
+      })
+
+      conversation.flowData = updatedFlowData
+
+      // Route to "not found" branch
+      const nextNodeId = options.notFoundNextNodeId || node.nextNodeId
+
+      if (nextNodeId) {
+        const nextNode = await flowService.getNodeById(nextNodeId)
+        if (nextNode) {
+          await prisma.conversation.update({
+            where: { id: conversation.id },
+            data: { currentNodeId: nextNode.id }
+          })
+          const updatedConversation = { ...conversation, currentNodeId: nextNode.id }
+          await flowEngine.executeNode(nextNode, updatedConversation, contact, userMessage, isNewContact)
+          return
+        }
+      }
+    }
+
+    await flowEngine.endFlow(conversation)
+  },
+
+  // ─────────────────────────────────────────
+  // FAQ_LOOKUP Node
+  // Searches BotFaq → auto-replies or populates flowData
+  // ─────────────────────────────────────────
+  handleFaqLookup: async (node, conversation, contact, userMessage, isNewContact = false) => {
+    console.log(`❓ Executing FAQ_LOOKUP node: ${node.id}`)
+
+    const options = node.options || {}
+    const tenantId = conversation.tenantId
+
+    // Use the user's message as the search query
+    const query = (userMessage || '').trim()
+    console.log(`   Query: "${query}"`)
+
+    if (!query) {
+      console.log('⚠️ Empty query. Skipping FAQ lookup.')
+      if (node.nextNodeId) {
+        const nextNode = await flowService.getNodeById(node.nextNodeId)
+        if (nextNode) {
+          await flowEngine.executeNode(nextNode, conversation, contact, userMessage, isNewContact)
+          return
+        }
+      }
+      await flowEngine.endFlow(conversation)
+      return
+    }
+
+    // Search for matching FAQ
+    const faq = await faqService.searchFaq(tenantId, query)
+
+    if (faq) {
+      console.log(`✅ FAQ matched: "${faq.question}" (score above threshold)`)
+
+      // Store in flowData
+      const updatedFlowData = {
+        ...(conversation.flowData || {}),
+        faq_question: faq.question,
+        faq_answer: faq.answer,
+        faq_category: faq.category || 'general',
+        faqFound: true,
+      }
+
+      await prisma.conversation.update({
+        where: { id: conversation.id },
+        data: { flowData: updatedFlowData }
+      })
+
+      conversation.flowData = updatedFlowData
+
+      // Auto-reply mode: send answer directly and end
+      if (options.autoReply === true) {
+        console.log(`📤 Auto-replying with FAQ answer`)
+        await flowEngine.sendBotTextMessage(conversation, contact, faq.answer)
+        await flowEngine.saveBotMessage(conversation.id, faq.answer)
+        await flowEngine.endFlow(conversation)
+        return
+      }
+
+      // Otherwise, continue to next node (which can use {{faq_answer}})
+      const nextNodeId = options.foundNextNodeId || node.nextNodeId
+      if (nextNodeId) {
+        const nextNode = await flowService.getNodeById(nextNodeId)
+        if (nextNode) {
+          await prisma.conversation.update({
+            where: { id: conversation.id },
+            data: { currentNodeId: nextNode.id }
+          })
+          const updatedConversation = { ...conversation, currentNodeId: nextNode.id }
+          await flowEngine.executeNode(nextNode, updatedConversation, contact, userMessage, isNewContact)
+          return
+        }
+      }
+    } else {
+      console.log(`⚠️ No FAQ matched for query: "${query}"`)
+
+      const updatedFlowData = {
+        ...(conversation.flowData || {}),
+        faqFound: false,
+      }
+
+      await prisma.conversation.update({
+        where: { id: conversation.id },
+        data: { flowData: updatedFlowData }
+      })
+
+      conversation.flowData = updatedFlowData
+
+      // Route to "not found" branch
+      const nextNodeId = options.notFoundNextNodeId || node.nextNodeId
+      if (nextNodeId) {
+        const nextNode = await flowService.getNodeById(nextNodeId)
+        if (nextNode) {
+          await prisma.conversation.update({
+            where: { id: conversation.id },
+            data: { currentNodeId: nextNode.id }
+          })
+          const updatedConversation = { ...conversation, currentNodeId: nextNode.id }
+          await flowEngine.executeNode(nextNode, updatedConversation, contact, userMessage, isNewContact)
+          return
+        }
+      }
+    }
+
+    await flowEngine.endFlow(conversation)
   },
 
   // ─────────────────────────────────────────

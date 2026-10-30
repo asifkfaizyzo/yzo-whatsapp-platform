@@ -216,6 +216,7 @@ model Tenant {
   shopifyProducts       ShopifyProduct[]
   woocommerceConnection WooCommerceConnection?
   ecommerceOrders EcommerceOrder[]
+  botFaqs       BotFaq[]
 }
 
 
@@ -1100,6 +1101,8 @@ enum FlowNodeType {
   ASK_LOCATION
   SEND_LOCATION
   PAYMENT
+  SHOPIFY_ORDER_LOOKUP
+  FAQ_LOOKUP
 }
 
 enum FlowTriggerType {
@@ -2171,4 +2174,25 @@ model ShopifyProductImage {
   @@unique([productId, shopifyImageId])
   @@index([productId, position])
   @@map("shopify_product_images")
+}
+
+//Shopify
+model BotFaq {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  question  String   @db.Text
+  answer    String   @db.Text
+  keywords  String[] // e.g. ["shipping", "delivery", "how long"]
+  category  String?  // e.g. "shipping" | "returns" | "payments" | "general"
+  isActive  Boolean  @default(true)
+  priority  Int      @default(0) // higher = matched first
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, isActive])
+  @@index([tenantId, category])
+  @@map("bot_faqs")
 }
