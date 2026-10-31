@@ -28,7 +28,7 @@ import Contact from '../pages/Contact'
 
 // Support Pages ✅ ADD THESE
 import HelpCenter from "../pages/HelpCenter";
-import PrivacyPolicy from "../pages/PrivacyPolicy";
+import PrivacyPolicy from "../pages/DataPolicy";
 import Terms from "../pages/Terms";
 import RefundPolicy from "../pages/RefundPolicy";
 import ShippingPolicy from "../pages/ShippingPolicy";
