@@ -1,8 +1,9 @@
 # SudoReply — Deployment Guide
 # ================================
 # VPS: 72.61.241.109 (hostname: srv1203465, Ubuntu 24.04)
-# SSH: ssh root@72.61.241.109
-# Then: su - sudoreply
+# SSH: ssh root@72.61.241.109 → su - sudoreply
+#   OR: ssh -t sudoreply@72.61.241.109 "cd /var/www/SudoReply && exec bash"
+#   OR: ssh sr  (if ~/.ssh/config alias is set up)
 # Repo: /var/www/SudoReply
 # Stack: Docker Compose v2 (backend + frontends + postgres + redis)
 #
@@ -16,6 +17,10 @@
 # OTHER PROJECTS ON THIS VPS (do NOT touch during SudoReply deploy):
 #   YourZerosAndOnes → /var/www/yourzerosandones.com (PM2, user: yzoasif)
 #   PostgreSQL 18 host → port 5433 (YZO only; SudoReply uses Docker PG on 5432)
+#
+# NOTE: There is a leftover PM2 process "sudoreply-backend" that is NOT
+#   used. SudoReply runs entirely on Docker. If you see PM2 crash logs,
+#   ignore them or delete the process: pm2 delete sudoreply-backend
 # ================================
 
 
@@ -38,6 +43,7 @@
 # Start backend:
 #   cd backend
 #   npm install
+#   npx prisma generate
 #   npx prisma migrate dev
 #   npx prisma db seed
 #   npm run dev            → http://localhost:5000
@@ -76,21 +82,21 @@ git push origin prod
 
 
 # ============================================================
-# STEP 2 — SSH into VPS and switch to sudoreply user
+# STEP 2 — SSH into VPS
 # ============================================================
+# Option A — direct to sudoreply user + project folder (RECOMMENDED):
+ssh -t sudoreply@72.61.241.109 "cd /var/www/SudoReply && exec bash"
 
+# Option B — via root:
 ssh root@72.61.241.109
-# enter root password when prompted
-
 su - sudoreply
-# now you are sudoreply@srv1203465:~$
+cd /var/www/SudoReply
 
 
 # ============================================================
 # STEP 3 — Pull latest prod on VPS
 # ============================================================
 
-cd /var/www/SudoReply
 git pull origin prod
 
 
@@ -191,10 +197,10 @@ docker compose ps
 
 # ============================================================
 # QUICK COPY-PASTE BLOCK
-# (after you've already SSH'd in as root and switched to sudoreply)
+# (after you've already SSH'd in and are in /var/www/SudoReply)
 # ============================================================
 
-cd /var/www/SudoReply && git pull origin prod && \
+git pull origin prod && \
 docker compose up -d --build backend admin-web tenant-web && \
 docker compose exec backend npx prisma migrate deploy && \
 docker compose ps && \
@@ -217,6 +223,72 @@ git checkout <previous-commit-hash>
 git checkout prod
 git revert HEAD
 git push origin prod
+
+
+# ============================================================
+# DOCKER COMMANDS CHEAT SHEET
+# ============================================================
+# SudoReply runs on Docker, not PM2. These replace all the
+# pm2 commands you're used to from Cureli.
+#
+# All commands run from: /var/www/SudoReply
+# ----------------------------------------------------------
+#
+# STATUS & INFO
+#   docker compose ps                          # all containers (like pm2 list)
+#   docker stats                               # CPU/RAM per container (like pm2 monit)
+#   docker compose inspect backend             # full details (IP, env, mounts)
+#
+# LOGS
+#   docker compose logs -f                     # all containers (like pm2 logs)
+#   docker compose logs -f backend             # backend only
+#   docker compose logs -f admin-web           # admin frontend
+#   docker compose logs -f tenant-web          # tenant frontend
+#   docker compose logs -f postgres            # database
+#   docker compose logs -f redis               # cache
+#   docker compose logs --tail 100 backend     # last 100 lines, no tailing
+#   docker compose logs --since 1h backend     # last 1 hour
+#   docker compose logs backend 2>&1 | grep -i error   # search for errors
+#
+# START / STOP / RESTART
+#   docker compose up -d                       # start everything
+#   docker compose down                        # stop everything (keeps data)
+#   docker compose down -v                     # STOP + DELETE DATABASE (danger!)
+#   docker compose restart backend             # restart one service
+#   docker compose restart                     # restart everything
+#   docker compose stop backend                # stop one service
+#
+# REBUILD & DEPLOY
+#   docker compose up -d --build backend       # rebuild + restart backend
+#   docker compose up -d --build               # rebuild + restart all
+#   docker compose build --no-cache backend    # rebuild without cache
+#
+# RUN COMMANDS INSIDE CONTAINERS
+#   docker compose exec backend sh             # shell into backend
+#   docker compose exec backend npx prisma migrate deploy   # run migrations
+#   docker compose exec backend npx prisma generate         # regen client
+#   docker compose exec backend node scripts/something.js   # run a script
+#   docker compose exec postgres psql -U yzoadmin -d fullweb  # DB shell
+#
+# DATABASE
+#   docker compose exec postgres psql -U yzoadmin -d fullweb -c "SELECT count(*) FROM users;"
+#   docker compose exec postgres pg_dump -U yzoadmin fullweb > backup.sql    # backup
+#   cat backup.sql | docker compose exec -T postgres psql -U yzoadmin fullweb  # restore
+#
+# CLEANUP
+#   docker system df                           # disk usage
+#   docker system prune                        # clean old images/containers
+#
+# PM2 → DOCKER TRANSLATION
+#   pm2 list              →  docker compose ps
+#   pm2 logs              →  docker compose logs -f
+#   pm2 logs --lines 50   →  docker compose logs --tail 50 backend
+#   pm2 restart app       →  docker compose restart backend
+#   pm2 stop app          →  docker compose stop backend
+#   pm2 start app         →  docker compose up -d backend
+#   pm2 delete app        →  docker compose down
+#   pm2 monit             →  docker stats
+# ============================================================
 
 
 # ============================================================
@@ -269,41 +341,55 @@ git push origin prod
 #
 # Redis:
 #   Also inside Docker. Hostname: redis, Port: 6379
-#
-# Logs:
-#   docker compose logs -f backend
-#   docker compose logs -f admin-web
-#   docker compose logs -f tenant-web
-#   docker compose logs -f --tail 50    (all services)
-#
-# Start/Stop everything:
-#   cd /var/www/SudoReply && docker compose up -d
-#   cd /var/www/SudoReply && docker compose down
 
 
 # ============================================================
 # RECOVERY — Accidentally coded on prod instead of dev
 # ============================================================
 #
-# Same as Cureli — git stash workflow:
+# Scenario:
+# You've been working for hours on the "prod" branch with tons
+# of uncommitted changes. Move ALL of it safely to "dev".
 #
 # 1. Check current branch:
 git branch --show-current
 
-# 2. Stash changes:
-git stash -u    # -u includes untracked/new files
+# 2. Stash EVERYTHING (the -u flag is critical — it includes
+#    new/untracked files like new components, routes, etc.):
+git stash push -u -m "WIP: moving work from prod to dev"
 
-# 3. Switch to dev:
+# 3. Verify prod is clean:
+git status
+# should say: nothing to commit, working tree clean
+
+# 4. Switch to dev:
 git switch dev
+git pull origin dev
 
-# 4. Restore changes:
+# 5. Restore your changes:
 git stash pop
 
-# 5. Verify:
+# 6. Verify:
 git status
 
-# 6. Commit and push:
+# 7. Commit and push:
 git add .
 git commit -m "Your commit message"
 git push origin dev
+#
+# Troubleshooting:
+#   "git stash pop" says CONFLICT:
+#     Open conflicted files, resolve <<<<<<< markers, then:
+#       git add . && git stash drop && git commit -m "resolved"
+#
+#   Stashed WITHOUT -u and lost new files:
+#     They're still on prod as untracked files. Go back:
+#       git switch prod
+#       git stash push -u -m "grabbing missed files"
+#       git switch dev
+#       git stash pop
+#
+#   See what's in a stash before popping:
+#     git stash list
+#     git stash show stash@{0} --stat
 # ============================================================
