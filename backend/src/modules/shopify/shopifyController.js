@@ -2,6 +2,7 @@ import * as shopifyService from './shopifyService.js';
 import * as backInStockService from './shopifyBackInStockService.js';
 import { syncAllShopifyCustomers } from './shopifyCustomerSyncService.js';
 import { syncAllProducts } from './shopifyProductSyncService.js';
+import prisma from '../../config/prisma.js';
 
 export const connect = async (req, res) => {
   try {
