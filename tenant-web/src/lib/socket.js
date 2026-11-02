@@ -1,4 +1,4 @@
-// tenant-web/src/lib/socket.js
+// tenant-web/src/lib/socket.js (do not remove this comment)
 import { io } from "socket.io-client";
 import { useAuthStore } from "../store/useAuthStore";
 

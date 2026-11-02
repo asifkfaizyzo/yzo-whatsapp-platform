@@ -1,3 +1,4 @@
+// backend/src/modules/messages/messageRoute.js (do not remove this comment)
 import express from 'express';
 import * as messageController from './messageController.js';
 import { verifyUser } from '../../middlewares/authUser.js';

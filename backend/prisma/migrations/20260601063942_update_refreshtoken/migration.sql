@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20260601063942_update_refreshtoken/migration.sql (do not remove this comment)
 /*
   Warnings:
 

@@ -1,3 +1,4 @@
+// admin-web/src/App.jsx (do not remove this comment)
 import React, { useEffect } from 'react';
 import { useAdminAuthStore } from './store/useAdminAuthStore';
 import AppRoutes from './routes/index';

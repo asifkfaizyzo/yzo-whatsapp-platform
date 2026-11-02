@@ -1,4 +1,4 @@
-// backend/src/modules/notifications/notificationController.js
+// backend/src/modules/notifications/notificationController.js (do not remove this comment)
 
 import * as notificationService from "./notificationService.js";
 

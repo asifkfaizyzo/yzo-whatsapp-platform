@@ -1,4 +1,4 @@
-// src/modules/messages/mediaRoute.js
+// backend/src/modules/messages/mediaRoute.js (do not remove this comment)
 
 import express                from 'express';
 import { verifyTenantOrUser } from '../../middlewares/authVerfyTenOrUser.js';

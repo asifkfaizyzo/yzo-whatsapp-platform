@@ -1,4 +1,4 @@
-// modules/tenant/tenantRoutes.js
+// backend/src/modules/tenant/tenantRoutes.js (do not remove this comment)
 
 import express from 'express';
 import * as tenantController from './tenantController.js';

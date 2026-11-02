@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20260914044205_add_google_sheet_connection/migration.sql (do not remove this comment)
 -- CreateTable
 CREATE TABLE "google_sheet_connections" (
     "id" TEXT NOT NULL,

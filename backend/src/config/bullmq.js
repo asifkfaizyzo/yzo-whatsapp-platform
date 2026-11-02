@@ -1,3 +1,4 @@
+// backend/src/config/bullmq.js (do not remove this comment)
 import { redisConnection } from './redis.js';
 
 export const defaultQueueOptions = {

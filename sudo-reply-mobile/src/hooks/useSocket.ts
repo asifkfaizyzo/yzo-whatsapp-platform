@@ -1,3 +1,4 @@
+// sudo-reply-mobile/src/hooks/useSocket.ts (do not remove this comment)
 import { useEffect, useRef } from 'react';
 import { socketService } from '../services/socket';
 import { useAuthStore } from '../stores/authStore';

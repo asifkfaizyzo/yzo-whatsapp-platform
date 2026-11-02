@@ -1,3 +1,4 @@
+// backend/src/modules/broadcasts/broadcastService.js (do not remove this comment)
 import prisma from '../../config/prisma.js';
 import { getOrCreateConversation } from '../conversations/conversationService.js';
 import { emitToTenant } from '../../lib/socket.js';

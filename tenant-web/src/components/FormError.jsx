@@ -1,4 +1,4 @@
-// tenant-web/src/components/ui/FormError.jsx
+// tenant-web/src/components/FormError.jsx (do not remove this comment)
 import React from 'react';
 
 export default function FormError({ message }) {

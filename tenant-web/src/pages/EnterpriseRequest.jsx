@@ -1,3 +1,4 @@
+// tenant-web/src/pages/EnterpriseRequest.jsx (do not remove this comment)
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/useAuthStore";

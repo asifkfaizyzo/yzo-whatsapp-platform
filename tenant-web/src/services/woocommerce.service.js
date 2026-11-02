@@ -1,3 +1,4 @@
+// tenant-web/src/services/woocommerce.service.js (do not remove this comment)
 import api from "./api";
 
 export const getWooCommerceStatus = async () => {

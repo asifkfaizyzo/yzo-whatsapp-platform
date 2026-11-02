@@ -1,3 +1,4 @@
+// tenant-web/src/components/inbox/layout/ChatFeed.jsx (do not remove this comment)
 import React from 'react';
 import { FaWhatsapp, FaFacebookMessenger, FaInstagram } from 'react-icons/fa';
 import { RefreshCw, Trash2, ArrowDownLeft, ChevronDown, Paperclip, Eye, ShoppingBag, MapPin, ExternalLink, Copy, CheckCheck, Check } from 'lucide-react';

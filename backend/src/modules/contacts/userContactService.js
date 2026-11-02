@@ -1,3 +1,4 @@
+// backend/src/modules/contacts/userContactService.js (do not remove this comment)
 import {
     createContact, getContactById, updateContact,
     deleteContact, blockContact, unblockContact, getUnassignedContacts,

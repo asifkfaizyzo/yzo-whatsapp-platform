@@ -1,3 +1,4 @@
+// tenant-web/src/components/inbox/layout/ChatInput.jsx (do not remove this comment)
 import React from 'react';
 import { Paperclip, Smile, Send, Mic, X, MapPin } from "lucide-react";
 import EmojiPicker from "emoji-picker-react";

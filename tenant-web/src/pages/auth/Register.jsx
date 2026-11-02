@@ -1,3 +1,4 @@
+// tenant-web/src/pages/auth/Register.jsx (do not remove this comment)
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";

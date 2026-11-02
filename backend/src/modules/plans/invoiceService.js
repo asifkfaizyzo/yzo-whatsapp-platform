@@ -1,4 +1,4 @@
-// modules/plans/invoiceService.js
+// backend/src/modules/plans/invoiceService.js (do not remove this comment)
 import PDFDocument from "pdfkit";
 import fs from "fs";
 import path from "path";

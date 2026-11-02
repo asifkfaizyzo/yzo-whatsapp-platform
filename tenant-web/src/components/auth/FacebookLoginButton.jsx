@@ -1,3 +1,4 @@
+// tenant-web/src/components/auth/FacebookLoginButton.jsx (do not remove this comment)
 import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 

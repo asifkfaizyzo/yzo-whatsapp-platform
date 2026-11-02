@@ -1,4 +1,4 @@
-// backend/scripts/simulate-autopay-renewal.js
+// backend/scripts/simulate-autopay-renewal.js (do not remove this comment)
 import crypto from "crypto";
 import http from "http";
 import dotenv from "dotenv";

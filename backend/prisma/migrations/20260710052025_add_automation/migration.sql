@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20260710052025_add_automation/migration.sql (do not remove this comment)
 -- CreateEnum
 CREATE TYPE "FlowNodeType" AS ENUM ('SEND_MESSAGE', 'ASK_QUESTION', 'CONDITION', 'ASSIGN_AGENT', 'END_FLOW');
 

@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20260718052111_add_subscription_reminder/migration.sql (do not remove this comment)
 -- CreateTable
 CREATE TABLE "SubscriptionReminder" (
     "id" TEXT NOT NULL,

@@ -1,3 +1,4 @@
+// backend/src/modules/quick-replies/quickReplyController.js (do not remove this comment)
 import * as quickReplyService from './quickReplyService.js';
 import {
   createQuickReplySchema,

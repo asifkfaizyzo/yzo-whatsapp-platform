@@ -1,4 +1,4 @@
-// backend/src/modules/notifications/notificationRoutes.js
+// backend/src/modules/notifications/notificationRoutes.js (do not remove this comment)
 
 import { Router } from "express";
 import {

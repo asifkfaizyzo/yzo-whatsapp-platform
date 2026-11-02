@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20260928050207_add_shopify_woocommerce_connections/migration.sql (do not remove this comment)
 -- CreateTable
 CREATE TABLE "shopify_connections" (
     "id" TEXT NOT NULL,

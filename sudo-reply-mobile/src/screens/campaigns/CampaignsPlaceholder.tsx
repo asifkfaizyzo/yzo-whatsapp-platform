@@ -1,3 +1,4 @@
+// sudo-reply-mobile/src/screens/campaigns/CampaignsPlaceholder.tsx (do not remove this comment)
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

@@ -1,3 +1,4 @@
+// sudo-reply-mobile/src/components/ui/SearchBar.tsx (do not remove this comment)
 import React from 'react';
 import { View, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';

@@ -1,3 +1,4 @@
+// backend/src/modules/broadcasts/broadcastRoutes.js (do not remove this comment)
 import express from 'express';
 import { verifyTenant } from '../../middlewares/authTenant.js';
 import { verifyTenantOrUser } from '../../middlewares/authVerfyTenOrUser.js';

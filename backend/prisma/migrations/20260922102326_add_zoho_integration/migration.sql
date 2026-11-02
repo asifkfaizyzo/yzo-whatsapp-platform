@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20260922102326_add_zoho_integration/migration.sql (do not remove this comment)
 -- CreateEnum
 CREATE TYPE "ZohoConnectionStatus" AS ENUM ('DISCONNECTED', 'CONNECTED', 'REFRESH_FAILED');
 

@@ -1,4 +1,4 @@
-// backend/src/modules/superAdminNotifications/superAdminNotificationService.js
+// backend/src/modules/SuperAdminNotifications/superAdminNotificationService.js (do not remove this comment)
 
 import prisma from "../../config/prisma.js";
 

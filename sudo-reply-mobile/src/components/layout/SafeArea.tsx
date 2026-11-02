@@ -1,3 +1,4 @@
+// sudo-reply-mobile/src/components/layout/SafeArea.tsx (do not remove this comment)
 import React from 'react';
 import { SafeAreaView, StyleSheet, ViewStyle } from 'react-native';
 import { colors } from '../../theme/colors';

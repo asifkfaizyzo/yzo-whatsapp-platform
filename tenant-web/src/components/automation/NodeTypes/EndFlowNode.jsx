@@ -1,4 +1,4 @@
-// src/components/automation/NodeTypes/EndFlowNode.jsx
+// tenant-web/src/components/automation/NodeTypes/EndFlowNode.jsx (do not remove this comment)
 
 import { Handle, Position } from 'reactflow'
 import { StopCircle, X } from 'lucide-react'

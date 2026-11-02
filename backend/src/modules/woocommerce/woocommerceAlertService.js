@@ -1,3 +1,4 @@
+// backend/src/modules/woocommerce/woocommerceAlertService.js (do not remove this comment)
 import prisma from '../../config/prisma.js';
 import axios from 'axios';
 import { sendMessageService } from '../messages/messageService.js';

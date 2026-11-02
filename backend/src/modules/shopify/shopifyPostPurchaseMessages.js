@@ -1,4 +1,4 @@
-// src/modules/shopify/shopifyPostPurchaseMessages.js
+// backend/src/modules/shopify/shopifyPostPurchaseMessages.js (do not remove this comment)
 
 /**
  * Format currency amount for display

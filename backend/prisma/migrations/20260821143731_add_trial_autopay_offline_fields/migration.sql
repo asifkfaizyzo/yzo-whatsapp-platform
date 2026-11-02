@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20260821143731_add_trial_autopay_offline_fields/migration.sql (do not remove this comment)
 -- AlterEnum
 ALTER TYPE "SubscriptionStatus" ADD VALUE 'payment_failed';
 

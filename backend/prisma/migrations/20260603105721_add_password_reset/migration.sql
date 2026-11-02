@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20260603105721_add_password_reset/migration.sql (do not remove this comment)
 /*
   Warnings:
 

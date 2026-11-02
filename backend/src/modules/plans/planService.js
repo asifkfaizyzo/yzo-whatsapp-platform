@@ -1,3 +1,4 @@
+// backend/src/modules/plans/planService.js (do not remove this comment)
 import prisma from "../../config/prisma.js";
 
 // ── Get all plans (superadmin) ──

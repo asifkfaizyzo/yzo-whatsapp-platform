@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20261005100000_add_ecommerce_order_reviews/migration.sql (do not remove this comment)
 ALTER TABLE "ecommerce_orders"
 ADD COLUMN "reviewRequestedAt" TIMESTAMP(3),
 ADD COLUMN "reviewRating" INTEGER,

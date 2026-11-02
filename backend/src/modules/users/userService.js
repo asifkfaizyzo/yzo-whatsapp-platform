@@ -1,3 +1,4 @@
+// backend/src/modules/users/userService.js (do not remove this comment)
 import bcrypt from 'bcrypt';
 import prisma from '../../config/prisma.js';
 import jwt from 'jsonwebtoken';

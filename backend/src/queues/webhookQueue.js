@@ -1,3 +1,4 @@
+// backend/src/queues/webhookQueue.js (do not remove this comment)
 import { Queue } from 'bullmq';
 import { defaultQueueOptions } from '../config/bullmq.js';
 

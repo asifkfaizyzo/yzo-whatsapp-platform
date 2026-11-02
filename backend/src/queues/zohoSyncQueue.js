@@ -1,4 +1,4 @@
-// src/queues/zohoSyncQueue.js
+// backend/src/queues/zohoSyncQueue.js (do not remove this comment)
 
 import { Queue } from 'bullmq';
 import { redisConnection } from '../config/redis.js';

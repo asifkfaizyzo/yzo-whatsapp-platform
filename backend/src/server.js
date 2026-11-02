@@ -1,4 +1,4 @@
-// src/server.js
+// backend/src/server.js (do not remove this comment)
 
 import dotenv from 'dotenv';
 dotenv.config();

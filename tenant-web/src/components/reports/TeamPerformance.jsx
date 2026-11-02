@@ -1,4 +1,4 @@
-// tenant-web/src/components/reports/TeamPerformance.jsx
+// tenant-web/src/components/reports/TeamPerformance.jsx (do not remove this comment)
 
 import React from "react";
 import { Users, Award, Star } from "lucide-react";

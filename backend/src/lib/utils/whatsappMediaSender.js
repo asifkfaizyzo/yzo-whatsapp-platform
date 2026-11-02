@@ -1,4 +1,4 @@
-// src/lib/utils/whatsappMediaSender.js
+// backend/src/lib/utils/whatsappMediaSender.js (do not remove this comment)
 
 import fs from 'fs';
 import { decrypt } from '../crypto.js';

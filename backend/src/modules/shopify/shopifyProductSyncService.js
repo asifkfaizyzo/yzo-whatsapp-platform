@@ -1,3 +1,4 @@
+// backend/src/modules/shopify/shopifyProductSyncService.js (do not remove this comment)
 import axios from 'axios';
 import prisma from '../../config/prisma.js';
 import { decrypt } from '../../lib/crypto.js';

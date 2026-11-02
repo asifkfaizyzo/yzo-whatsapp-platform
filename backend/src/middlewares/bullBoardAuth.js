@@ -1,3 +1,4 @@
+// backend/src/middlewares/bullBoardAuth.js (do not remove this comment)
 import crypto from 'crypto';
 
 /**

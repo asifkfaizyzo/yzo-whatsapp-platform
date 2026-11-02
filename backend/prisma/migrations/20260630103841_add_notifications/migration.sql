@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20260630103841_add_notifications/migration.sql (do not remove this comment)
 -- CreateTable
 CREATE TABLE "Notification" (
     "id" TEXT NOT NULL,

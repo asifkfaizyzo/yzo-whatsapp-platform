@@ -1,4 +1,4 @@
-// tenant-web/src/components/billing/PauseSubscriptionModal.jsx
+// tenant-web/src/components/billing/PauseSubscriptionModal.jsx (do not remove this comment)
 import React, { useState } from "react";
 import { createPortal } from "react-dom";
 import {

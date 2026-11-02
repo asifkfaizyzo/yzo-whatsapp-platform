@@ -1,3 +1,4 @@
+// sudo-reply-mobile/src/navigation/navigationRef.ts (do not remove this comment)
 import { createNavigationContainerRef } from '@react-navigation/native';
 
 export const navigationRef = createNavigationContainerRef<any>();

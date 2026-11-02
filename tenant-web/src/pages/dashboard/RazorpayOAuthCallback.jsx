@@ -1,3 +1,4 @@
+// tenant-web/src/pages/dashboard/RazorpayOAuthCallback.jsx (do not remove this comment)
 import React, { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Loader2, AlertCircle, ArrowLeft } from "lucide-react";

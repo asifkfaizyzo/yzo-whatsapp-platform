@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20260608092118_add/migration.sql (do not remove this comment)
 -- CreateTable
 CREATE TABLE "Conversation" (
     "id" TEXT NOT NULL,

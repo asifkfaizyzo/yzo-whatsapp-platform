@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20260703000000_add_payment_model/migration.sql (do not remove this comment)
 -- CreateEnum
 CREATE TYPE "PaymentStatus" AS ENUM ('PENDING', 'SUCCESS', 'FAILED');
 

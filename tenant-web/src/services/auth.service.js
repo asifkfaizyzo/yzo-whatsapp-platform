@@ -1,4 +1,4 @@
-// src/services/auth.service.js
+// tenant-web/src/services/auth.service.js (do not remove this comment)
 
 import api from "../lib/axios";
 import api2 from "../lib/axios"; // Targets VITE_API_URL (/api2)

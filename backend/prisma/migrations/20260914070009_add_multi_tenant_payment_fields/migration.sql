@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20260914070009_add_multi_tenant_payment_fields/migration.sql (do not remove this comment)
 -- CreateEnum
 CREATE TYPE "OrderPaymentStatus" AS ENUM ('UNPAID', 'PROCESSING', 'PAID', 'FAILED', 'REFUNDED', 'PARTIALLY_REFUNDED', 'REFUND_FAILED', 'EXPIRED', 'CANCELLED', 'AMOUNT_MISMATCH');
 

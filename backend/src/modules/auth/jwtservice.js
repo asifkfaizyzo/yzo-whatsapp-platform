@@ -1,3 +1,4 @@
+// backend/src/modules/auth/jwtservice.js (do not remove this comment)
 import jwt from 'jsonwebtoken';
 
 

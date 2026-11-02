@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20260730114340_add_bulk_reassign_audit_enums/migration.sql (do not remove this comment)
 -- AlterEnum
 -- This migration adds more than one value to an enum.
 -- With PostgreSQL versions 11 and earlier, this is not possible

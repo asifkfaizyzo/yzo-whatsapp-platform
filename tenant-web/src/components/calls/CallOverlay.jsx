@@ -1,3 +1,4 @@
+// tenant-web/src/components/calls/CallOverlay.jsx (do not remove this comment)
 import React, { useEffect, useState } from 'react';
 import { useCallStore } from '../../store/useCallStore';
 import { useWebRTC } from '../../hooks/useWebRTC';

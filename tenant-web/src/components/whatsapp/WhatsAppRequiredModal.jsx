@@ -1,3 +1,4 @@
+// tenant-web/src/components/whatsapp/WhatsAppRequiredModal.jsx (do not remove this comment)
 import React from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";

@@ -1,4 +1,4 @@
-// admin-web/src/components/Sidebar.jsx
+// admin-web/src/components/Sidebar.jsx (do not remove this comment)
 
 import React from "react";
 import { NavLink, useLocation } from "react-router-dom";

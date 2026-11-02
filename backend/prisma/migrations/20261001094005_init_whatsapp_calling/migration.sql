@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20261001094005_init_whatsapp_calling/migration.sql (do not remove this comment)
 -- CreateTable
 CREATE TABLE "wa_phone_call_settings" (
     "businessPhoneId" TEXT NOT NULL,

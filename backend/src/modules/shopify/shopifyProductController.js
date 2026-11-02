@@ -1,3 +1,4 @@
+// backend/src/modules/shopify/shopifyProductController.js (do not remove this comment)
 import {
   syncAllProducts,
   getProducts,

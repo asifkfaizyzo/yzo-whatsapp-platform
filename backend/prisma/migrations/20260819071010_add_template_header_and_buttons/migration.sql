@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20260819071010_add_template_header_and_buttons/migration.sql (do not remove this comment)
 -- CreateEnum
 CREATE TYPE "TemplateHeaderType" AS ENUM ('NONE', 'TEXT', 'IMAGE', 'VIDEO', 'DOCUMENT', 'LOCATION');
 

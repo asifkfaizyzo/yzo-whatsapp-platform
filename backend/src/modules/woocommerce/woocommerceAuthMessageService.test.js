@@ -1,3 +1,4 @@
+// backend/src/modules/woocommerce/woocommerceAuthMessageService.test.js (do not remove this comment)
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {

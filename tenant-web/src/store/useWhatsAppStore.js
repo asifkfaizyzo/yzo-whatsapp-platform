@@ -1,3 +1,4 @@
+// tenant-web/src/store/useWhatsAppStore.js (do not remove this comment)
 import { create } from "zustand";
 import { getWhatsappStatus } from "../services/tenant.service";
 import { getSocket } from "../lib/socket";

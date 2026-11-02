@@ -1,4 +1,4 @@
-// src/services/billing.service.js
+// tenant-web/src/services/billing.service.js (do not remove this comment)
 import api from "../lib/axios";
 
 // ── Get billing overview + payment history ──

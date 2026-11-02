@@ -1,3 +1,4 @@
+// backend/src/services/pushService.js (do not remove this comment)
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 const EXPO_RECEIPTS_URL = 'https://exp.host/--/api/v2/push/getReceipts';
 

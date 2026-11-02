@@ -1,3 +1,4 @@
+// backend/src/modules/public/publicRoutes.js (do not remove this comment)
 import express from 'express';
 import { getPublicGSTSettings } from '../superadmin/superadminController.js';
 

@@ -1,3 +1,4 @@
+// tenant-web/src/components/landing/home/CTABanner.jsx (do not remove this comment)
 import { Link } from "react-router-dom";
 
 export default function CTABanner() {

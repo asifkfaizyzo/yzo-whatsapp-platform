@@ -1,4 +1,4 @@
-// src/app.js
+// backend/src/app.js (do not remove this comment)
 
 import cookieParser from 'cookie-parser';
 import express from 'express';

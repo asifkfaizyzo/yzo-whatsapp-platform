@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20260526053646_init/migration.sql (do not remove this comment)
 -- CreateTable
 CREATE TABLE "Tenant" (
     "id" TEXT NOT NULL,

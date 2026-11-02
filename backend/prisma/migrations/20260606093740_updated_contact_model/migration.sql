@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20260606093740_updated_contact_model/migration.sql (do not remove this comment)
 -- AlterTable
 ALTER TABLE "Contact" ADD COLUMN     "assignedAt" TIMESTAMP(3),
 ADD COLUMN     "assignedTo" TEXT;

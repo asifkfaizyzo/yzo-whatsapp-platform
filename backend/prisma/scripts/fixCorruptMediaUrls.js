@@ -1,4 +1,4 @@
-// backend/prisma/migrations/scripts/fixCorruptMediaUrls.js
+// backend/prisma/scripts/fixCorruptMediaUrls.js (do not remove this comment)
 
 import prisma from '../../src/config/prisma.js';
 import fs from 'fs';

@@ -1,3 +1,4 @@
+// backend/src/modules/quick-replies/quickReplyRoute.js (do not remove this comment)
 import express from 'express';
 import * as quickReplyController from './quickReplyController.js';
 import { verifyTenantOrUser } from '../../middlewares/authVerfyTenOrUser.js';

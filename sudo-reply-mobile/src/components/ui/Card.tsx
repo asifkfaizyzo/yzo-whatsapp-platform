@@ -1,3 +1,4 @@
+// sudo-reply-mobile/src/components/ui/Card.tsx (do not remove this comment)
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity, ViewStyle, StyleProp } from 'react-native';
 import { colors } from '../../theme/colors';

@@ -1,3 +1,4 @@
+// tenant-web/src/components/inbox/QuickReplyPopover.jsx (do not remove this comment)
 import React, { useEffect, useRef } from 'react';
 import {
   Zap,

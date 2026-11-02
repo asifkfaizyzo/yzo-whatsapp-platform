@@ -1,4 +1,4 @@
-// backend/src/modules/contacts/queueService.js
+// backend/src/modules/contacts/queueService.js (do not remove this comment)
 import prisma from '../../config/prisma.js';
 import { isUserOnline, emitToUser, emitToTenant } from '../../lib/socket.js';
 

@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20260625085450_add_subscription_plans/migration.sql (do not remove this comment)
 -- CreateEnum
 CREATE TYPE "PlanStatus" AS ENUM ('ACTIVE', 'INACTIVE');
 

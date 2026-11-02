@@ -1,3 +1,4 @@
+// tenant-web/src/routes/ProtectedRoute.jsx (do not remove this comment)
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 

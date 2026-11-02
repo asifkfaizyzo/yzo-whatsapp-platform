@@ -1,4 +1,4 @@
-// src/lib/rateLimiter.js
+// backend/src/lib/rateLimiter.js (do not remove this comment)
 import { redisConnection } from '../config/redis.js';
 
 export const META_TIER_LIMITS = {

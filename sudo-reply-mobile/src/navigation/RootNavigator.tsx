@@ -1,3 +1,4 @@
+// sudo-reply-mobile/src/navigation/RootNavigator.tsx (do not remove this comment)
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { useAuthStore } from '../stores/authStore';

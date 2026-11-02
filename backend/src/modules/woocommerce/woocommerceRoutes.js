@@ -1,4 +1,4 @@
-// src/modules/woocommerce/woocommerceRoutes.js
+// backend/src/modules/woocommerce/woocommerceRoutes.js (do not remove this comment)
 import express from 'express';
 import { handleWooCommerceWebhook } from '../webhook/woocommerceWebhookController.js';
 import { handleWooCommerceCartEvent } from '../webhook/woocommerceCartWebhookController.js';

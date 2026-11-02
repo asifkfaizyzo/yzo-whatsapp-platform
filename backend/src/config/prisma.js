@@ -1,3 +1,4 @@
+// backend/src/config/prisma.js (do not remove this comment)
 import pkg from '@prisma/client';
 const { PrismaClient } = pkg;
 

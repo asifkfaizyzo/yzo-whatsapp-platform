@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20260710062908_add_keyword_trigger_table/migration.sql (do not remove this comment)
 /*
   Warnings:
 

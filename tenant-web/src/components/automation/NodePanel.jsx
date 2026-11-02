@@ -1,4 +1,4 @@
-// src/components/automation/NodePanel.jsx
+// tenant-web/src/components/automation/NodePanel.jsx (do not remove this comment)
 
 import {
   MessageSquare,

@@ -1,4 +1,4 @@
-// src/modules/shopify/shopifyOrderLookupService.js
+// backend/src/modules/shopify/ShopifyOrderLookupService.js (do not remove this comment)
 
 import axios from 'axios'
 import prisma from '../../config/prisma.js'

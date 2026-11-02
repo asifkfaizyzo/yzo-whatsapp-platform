@@ -1,3 +1,4 @@
+// tenant-web/src/components/settings/ZohoLogo.jsx (do not remove this comment)
 import React from "react";
 
 export default function ZohoOutlineLogo({ className = "w-64 h-auto" }) {

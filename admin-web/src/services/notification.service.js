@@ -1,4 +1,4 @@
-// admin-web/src/services/notification.service.js
+// admin-web/src/services/notification.service.js (do not remove this comment)
 import api from "../lib/axios";
 
 const BASE_URL = "/super-admin/notifications";

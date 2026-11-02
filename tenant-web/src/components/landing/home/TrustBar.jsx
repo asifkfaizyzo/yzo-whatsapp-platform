@@ -1,3 +1,4 @@
+// tenant-web/src/components/landing/home/TrustBar.jsx (do not remove this comment)
 export default function TrustBar() {
   return (
     <section className="py-8 border-b border-gray-100">

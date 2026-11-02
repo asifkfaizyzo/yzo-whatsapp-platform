@@ -1,4 +1,4 @@
-// tenant-web/src/pages/auth/ResetPassword.jsx
+// tenant-web/src/pages/auth/ResetPassword.jsx (do not remove this comment)
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { resetPasswordTenant } from "../../services/auth.service";

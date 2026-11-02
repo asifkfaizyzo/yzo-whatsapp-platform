@@ -1,3 +1,4 @@
+// backend/src/middlewares/validate.middleware.js (do not remove this comment)
 import { ZodError } from 'zod';
 
 // =========== Validate Middleware ===========

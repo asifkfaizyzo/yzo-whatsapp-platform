@@ -1,4 +1,4 @@
-// src/services/plan.service.js
+// tenant-web/src/services/plan.service.js (do not remove this comment)
 
 import api from "../lib/axios";
 

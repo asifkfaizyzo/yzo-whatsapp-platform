@@ -1,4 +1,4 @@
-// src/pages/dashboard/Integrations.jsx
+// tenant-web/src/pages/dashboard/Integrations.jsx (do not remove this comment)
 import React from "react";
 import { LayoutGrid } from "lucide-react";
 import IntegrationsStore from "../../components/settings/IntegrationsStore";

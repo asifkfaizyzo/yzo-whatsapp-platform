@@ -1,3 +1,4 @@
+// sudo-reply-mobile/src/components/layout/ScreenHeader.tsx (do not remove this comment)
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';

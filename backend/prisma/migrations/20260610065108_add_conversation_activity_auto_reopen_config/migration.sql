@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20260610065108_add_conversation_activity_auto_reopen_config/migration.sql (do not remove this comment)
 -- AlterTable
 ALTER TABLE "Conversation" ADD COLUMN     "assignedTo" TEXT,
 ADD COLUMN     "closedAt" TIMESTAMP(3),

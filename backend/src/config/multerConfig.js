@@ -1,3 +1,4 @@
+// backend/src/config/multerConfig.js (do not remove this comment)
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';

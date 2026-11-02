@@ -1,4 +1,4 @@
-// src/api/authApi.js
+// admin-web/src/lib/authApi.js (do not remove this comment)
 
 import api from './axios';
 import { useAdminAuthStore } from '../store/useAdminAuthStore';

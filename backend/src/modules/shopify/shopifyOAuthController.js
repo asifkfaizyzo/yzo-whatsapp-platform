@@ -1,3 +1,4 @@
+// backend/src/modules/shopify/shopifyOAuthController.js (do not remove this comment)
 import crypto from 'node:crypto';
 import axios from 'axios';
 import * as shopifyService from './shopifyService.js';

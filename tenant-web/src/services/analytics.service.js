@@ -1,4 +1,4 @@
-// tenant-web/src/services/analytics.service.js
+// tenant-web/src/services/analytics.service.js (do not remove this comment)
 
 import api from "../lib/axios";
 

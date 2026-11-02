@@ -1,4 +1,4 @@
-// backend/scripts/backfill-omnichannel-contacts.js
+// backend/scripts/backfill-omnichannel-contacts.js (do not remove this comment)
 
 import prisma from '../src/config/prisma.js';
 

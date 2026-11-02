@@ -1,4 +1,4 @@
-// src/modules/automation/faqService.js
+// backend/src/modules/automation/faqService.js (do not remove this comment)
 
 /**
  * Automation (Shopify) — Tenant FAQ search for the FAQ_LOOKUP flow node.

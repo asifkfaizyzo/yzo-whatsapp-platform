@@ -1,3 +1,4 @@
+// backend/src/modules/messages/messageService.js (do not remove this comment)
 import prisma from '../../config/prisma.js';
 import { decrypt } from '../../lib/crypto.js';
 import { getOrCreateConversation } from '../conversations/conversationService.js';

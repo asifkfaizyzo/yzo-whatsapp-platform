@@ -1,3 +1,4 @@
+// backend/src/modules/enquiries/enquiryController.js (do not remove this comment)
 import prisma from '../../config/prisma.js';
 import { 
   sendEnquiryConfirmationEmail, 

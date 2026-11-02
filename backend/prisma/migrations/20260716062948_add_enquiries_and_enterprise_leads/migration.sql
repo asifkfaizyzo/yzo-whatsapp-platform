@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20260716062948_add_enquiries_and_enterprise_leads/migration.sql (do not remove this comment)
 -- CreateEnum
 CREATE TYPE "EnquiryStatus" AS ENUM ('new', 'read', 'replied', 'closed');
 

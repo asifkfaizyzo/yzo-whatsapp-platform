@@ -1,3 +1,4 @@
+// admin-web/src/components/LandingPageNavbar.jsx (do not remove this comment)
 import { Link } from "react-router-dom";
 import { siteConfig } from "../config/site";
 

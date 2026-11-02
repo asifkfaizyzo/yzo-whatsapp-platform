@@ -1,3 +1,4 @@
+// tenant-web/src/components/settings/WooCommerceLogo.jsx (do not remove this comment)
 // import React from 'react';
 // import logoImg from '../../assets/wooCommerce.webp'; // 👈 Adjust relative path to assets
 

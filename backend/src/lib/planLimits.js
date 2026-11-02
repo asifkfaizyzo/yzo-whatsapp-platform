@@ -1,3 +1,4 @@
+// backend/src/lib/planLimits.js (do not remove this comment)
 import prisma from '../config/prisma.js';
 
 /**

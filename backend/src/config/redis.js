@@ -1,3 +1,4 @@
+// backend/src/config/redis.js (do not remove this comment)
 import Redis from 'ioredis';
 
 const redisUrl = process.env.REDIS_URL;

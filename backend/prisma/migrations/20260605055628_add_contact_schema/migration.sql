@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20260605055628_add_contact_schema/migration.sql (do not remove this comment)
 -- CreateTable
 CREATE TABLE "Contact" (
     "id" TEXT NOT NULL,

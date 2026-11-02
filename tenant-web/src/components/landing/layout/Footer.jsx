@@ -1,3 +1,4 @@
+// tenant-web/src/components/landing/layout/Footer.jsx (do not remove this comment)
 import { Link } from "react-router-dom";
 import { siteConfig } from "../../../config/site"; 
 

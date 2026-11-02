@@ -1,3 +1,4 @@
+// backend/src/scripts/initQuickReplyIndexes.js (do not remove this comment)
 import prisma from '../config/prisma.js';
 
 export const initQuickReplyIndexes = async () => {

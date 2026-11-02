@@ -1,4 +1,4 @@
-// src/components/automation/NodeTypes/AssignAgentNode.jsx
+// tenant-web/src/components/automation/NodeTypes/AssignAgentNode.jsx (do not remove this comment)
 
 import { Handle, Position } from 'reactflow'
 import { UserCheck, X } from 'lucide-react'

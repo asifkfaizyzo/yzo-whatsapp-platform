@@ -1,4 +1,4 @@
-// src/config/bullBoard.js
+// backend/src/config/bullBoard.js (do not remove this comment)
 import { createBullBoard } from '@bull-board/api';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
 import { ExpressAdapter } from '@bull-board/express';

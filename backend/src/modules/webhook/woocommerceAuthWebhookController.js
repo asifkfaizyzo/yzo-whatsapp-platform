@@ -1,3 +1,4 @@
+// backend/src/modules/webhook/woocommerceAuthWebhookController.js (do not remove this comment)
 import prisma from '../../config/prisma.js';
 import { deliverWooAuthWhatsAppMessage, normalizeWooPhone } from '../woocommerce/woocommerceAuthMessageService.js';
 import { isWooStoreUrl, normalizeWooStoreHost, verifyWooAuthEventSignature } from './woocommerceAuthWebhookSecurity.js';

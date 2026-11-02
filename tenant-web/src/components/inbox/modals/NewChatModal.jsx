@@ -1,3 +1,4 @@
+// tenant-web/src/components/inbox/modals/NewChatModal.jsx (do not remove this comment)
 import React from 'react';
 import { FaWhatsapp } from 'react-icons/fa';
 import { Search, RefreshCw, X } from 'lucide-react';

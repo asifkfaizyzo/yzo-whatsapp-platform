@@ -1,3 +1,4 @@
+// backend/src/modules/quick-replies/quickReplyService.js (do not remove this comment)
 import path from 'path';
 import fs from 'fs';
 import prisma from '../../config/prisma.js';

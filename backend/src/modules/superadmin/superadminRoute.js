@@ -1,3 +1,4 @@
+// backend/src/modules/superadmin/superadminRoute.js (do not remove this comment)
 import express from 'express';
 import * as superAdminController from './superadminController.js';
 import {

@@ -1,4 +1,4 @@
-// tenant-web/src/components/reports/CampaignReportTable.jsx
+// tenant-web/src/components/reports/CampaignReportTable.jsx (do not remove this comment)
 
 import React from "react";
 import { Send, ChevronLeft, ChevronRight } from "lucide-react";

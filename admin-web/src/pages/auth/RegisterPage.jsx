@@ -1,3 +1,4 @@
+// admin-web/src/pages/auth/RegisterPage.jsx (do not remove this comment)
 import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { siteConfig } from "../../config/site";

@@ -1,4 +1,4 @@
-// src/modules/messages/messageController.js
+// backend/src/modules/messages/messageController.js (do not remove this comment)
 
 import {
   handleIncomingMessage,

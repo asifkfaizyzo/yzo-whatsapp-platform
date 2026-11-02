@@ -1,3 +1,4 @@
+// backend/src/modules/shopify/shopifyBackInStockService.js (do not remove this comment)
 import prisma from '../../config/prisma.js';
 import { processBroadcastCampaign } from '../broadcasts/broadcastService.js';
 import { emitToTenant } from '../../lib/socket.js';

@@ -1,4 +1,4 @@
-// src/pages/dashboard/FlowBuilder.jsx
+// tenant-web/src/pages/dashboard/FlowBuilder.jsx (do not remove this comment)
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";

@@ -1,4 +1,4 @@
-// admin-web/src/pages/dashboard/Notifications.jsx
+// admin-web/src/pages/dashboard/Notifications.jsx (do not remove this comment)
 import React, { useEffect, useState } from "react";
 import {
   Bell,

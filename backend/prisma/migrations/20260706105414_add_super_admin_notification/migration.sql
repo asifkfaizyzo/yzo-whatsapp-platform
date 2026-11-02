@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20260706105414_add_super_admin_notification/migration.sql (do not remove this comment)
 -- CreateTable
 CREATE TABLE "SuperAdminNotification" (
     "id" TEXT NOT NULL,

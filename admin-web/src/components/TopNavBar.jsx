@@ -1,4 +1,4 @@
-// admin-web/src/components/TopNavBar.jsx
+// admin-web/src/components/TopNavBar.jsx (do not remove this comment)
 import React, { useState, useEffect, useRef } from "react";
 import {
   Bell,

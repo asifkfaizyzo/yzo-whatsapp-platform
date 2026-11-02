@@ -1,3 +1,4 @@
+// backend/src/modules/woocommerce/woocommerceAuthMessageService.js (do not remove this comment)
 import { decrypt } from '../../lib/crypto.js';
 
 const getTemplatePlaceholders = (text = '') => [...new Set(text.match(/\{\{\d+\}\}/g) || [])]

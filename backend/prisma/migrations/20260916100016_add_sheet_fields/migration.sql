@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20260916100016_add_sheet_fields/migration.sql (do not remove this comment)
 -- CreateTable
 CREATE TABLE "sheet_fields" (
     "id" TEXT NOT NULL,

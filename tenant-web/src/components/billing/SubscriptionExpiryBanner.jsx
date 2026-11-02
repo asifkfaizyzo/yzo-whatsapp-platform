@@ -1,4 +1,4 @@
-// tenant-web/src/components/billing/SubscriptionExpiryBanner.jsx
+// tenant-web/src/components/billing/SubscriptionExpiryBanner.jsx (do not remove this comment)
 import React from "react";
 import { Link } from "react-router-dom";
 import { AlertTriangle, ShieldAlert, RefreshCw, Zap } from "lucide-react";

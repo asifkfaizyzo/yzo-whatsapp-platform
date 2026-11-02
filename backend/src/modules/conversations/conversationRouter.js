@@ -1,3 +1,4 @@
+// backend/src/modules/conversations/conversationRouter.js (do not remove this comment)
 import express from 'express';
 import * as conversationController from './conversationController.js';
 // import { verifyUser } from '../../middlewares/authUser.js';

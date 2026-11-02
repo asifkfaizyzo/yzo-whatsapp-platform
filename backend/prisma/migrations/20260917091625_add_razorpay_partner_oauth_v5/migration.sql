@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20260917091625_add_razorpay_partner_oauth_v5/migration.sql (do not remove this comment)
 -- CreateEnum
 CREATE TYPE "RazorpayAuthType" AS ENUM ('DIRECT_KEYS', 'OAUTH');
 

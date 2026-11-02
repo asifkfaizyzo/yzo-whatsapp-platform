@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20261026063201_add_shopify_product_catalog_sync/migration.sql (do not remove this comment)
 -- CreateEnum
 CREATE TYPE "ShopifyProductStatus" AS ENUM ('ACTIVE', 'DRAFT', 'ARCHIVED');
 

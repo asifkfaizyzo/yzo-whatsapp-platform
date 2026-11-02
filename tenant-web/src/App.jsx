@@ -1,3 +1,4 @@
+// tenant-web/src/App.jsx (do not remove this comment)
 import { useEffect } from 'react';
 import AppRoutes from './routes/appRoutes';
 import { useAuthStore } from './store/useAuthStore';

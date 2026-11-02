@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20261013064305_add_woo_admin_alerts/migration.sql (do not remove this comment)
 -- AlterTable
 ALTER TABLE "woocommerce_connections" ADD COLUMN     "alertPhone" TEXT,
 ADD COLUMN     "dailySummaryAlert" BOOLEAN NOT NULL DEFAULT false,

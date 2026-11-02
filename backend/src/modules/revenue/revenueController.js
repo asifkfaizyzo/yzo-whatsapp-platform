@@ -1,4 +1,4 @@
-// backend/src/modules/revenue/revenueController.js
+// backend/src/modules/revenue/revenueController.js (do not remove this comment)
 
 import {
   getPlatformRevenueStatsService,

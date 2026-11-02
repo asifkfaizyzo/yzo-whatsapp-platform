@@ -1,3 +1,4 @@
+// sudo-reply-mobile/src/components/ui/EmptyState.tsx (do not remove this comment)
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';

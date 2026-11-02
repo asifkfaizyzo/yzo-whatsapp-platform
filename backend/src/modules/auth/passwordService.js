@@ -1,3 +1,4 @@
+// backend/src/modules/auth/passwordService.js (do not remove this comment)
 import bcrypt from 'bcrypt';
 import prisma from '../../config/prisma.js';
 import { generateResetToken,getResetTokenExpiry,sendPasswordResetEmail, } from './emailService.js';

@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20261024055323_back_in_stock/migration.sql (do not remove this comment)
 -- AlterTable
 ALTER TABLE "Broadcast" ADD COLUMN     "campaignType" TEXT,
 ADD COLUMN     "shopifyCustomerTags" JSONB,

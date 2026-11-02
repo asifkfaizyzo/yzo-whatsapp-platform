@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20260709070104_onboarding_multistep/migration.sql (do not remove this comment)
 /*
   Warnings:
 

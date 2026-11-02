@@ -1,3 +1,4 @@
+// tenant-web/src/pages/dashboard/Templates.jsx (do not remove this comment)
 import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import {

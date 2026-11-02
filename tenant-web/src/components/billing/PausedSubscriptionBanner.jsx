@@ -1,4 +1,4 @@
-// tenant-web/src/components/billing/PausedSubscriptionBanner.jsx
+// tenant-web/src/components/billing/PausedSubscriptionBanner.jsx (do not remove this comment)
 import React, { useState } from "react";
 import { createPortal } from "react-dom";
 import { PauseCircle, Play, CheckCircle2, X } from "lucide-react";

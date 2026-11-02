@@ -1,3 +1,4 @@
+// backend/src/modules/audit/auditLogRoutes.js (do not remove this comment)
 import express              from 'express';
 import { verifySuperAdmin }   from '../../middlewares/authSuperAdmin.js';
 import {

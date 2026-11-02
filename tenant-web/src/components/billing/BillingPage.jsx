@@ -1,3 +1,4 @@
+// tenant-web/src/components/billing/BillingPage.jsx (do not remove this comment)
 import React, { useEffect, useState } from "react";
 import { CreditCard, Calendar, AlertTriangle, ArrowRight, Download, Receipt } from "lucide-react";
 import { useNavigate } from "react-router-dom";

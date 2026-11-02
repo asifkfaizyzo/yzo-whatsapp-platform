@@ -1,3 +1,4 @@
+// backend/src/modules/users/userRoutes.js (do not remove this comment)
 //backend\src\modules\users\userRoutes.js
 import express from 'express';
 import * as userController from './userController.js';

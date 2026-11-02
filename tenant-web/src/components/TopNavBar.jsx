@@ -1,4 +1,4 @@
-// tenant-web/src/components/TopNavBar.jsx
+// tenant-web/src/components/TopNavBar.jsx (do not remove this comment)
 
 import React, { useState, useEffect, useRef } from "react";
 import {

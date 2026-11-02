@@ -1,3 +1,4 @@
+// tenant-web/src/pages/dashboard/QuickReplies.jsx (do not remove this comment)
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {

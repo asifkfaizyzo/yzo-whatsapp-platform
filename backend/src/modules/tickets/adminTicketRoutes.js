@@ -1,5 +1,5 @@
+// backend/src/modules/tickets/adminTicketRoutes.js (do not remove this comment)
 // adminTicketRoutes.js (SuperAdmin routes only)
-// backend/src/modules/tickets/adminTicketRoutes.js
 
 import express from "express";
 import {

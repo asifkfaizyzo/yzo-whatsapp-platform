@@ -1,3 +1,4 @@
+// tenant-web/src/services/api.js (do not remove this comment)
 import axios from "axios";
 import { useAuthStore } from "../store/useAuthStore.js"; // 👈 Adjust path to your authStore file
 

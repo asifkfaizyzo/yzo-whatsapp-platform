@@ -1,3 +1,4 @@
+// tenant-web/src/components/landing/home/QuickFeatures.jsx (do not remove this comment)
 export default function QuickFeatures() {
   const features = [
     {

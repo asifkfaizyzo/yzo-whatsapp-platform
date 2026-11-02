@@ -1,3 +1,4 @@
+// sudo-reply-mobile/src/components/ui/Avatar.tsx (do not remove this comment)
 import React from 'react';
 import { View, Text, Image, StyleSheet, ViewStyle, ImageStyle, StyleProp } from 'react-native';
 import { colors } from '../../theme/colors';

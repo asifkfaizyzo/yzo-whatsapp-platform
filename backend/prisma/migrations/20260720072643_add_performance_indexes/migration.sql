@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20260720072643_add_performance_indexes/migration.sql (do not remove this comment)
 -- DropIndex
 DROP INDEX "Contact_tenantId_idx";
 

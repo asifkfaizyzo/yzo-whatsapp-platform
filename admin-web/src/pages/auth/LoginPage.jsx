@@ -1,3 +1,4 @@
+// admin-web/src/pages/auth/LoginPage.jsx (do not remove this comment)
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useAdminAuthStore } from "../../store/useAdminAuthStore";

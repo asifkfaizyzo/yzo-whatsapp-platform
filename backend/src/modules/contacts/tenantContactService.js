@@ -1,3 +1,4 @@
+// backend/src/modules/contacts/tenantContactService.js (do not remove this comment)
 import {
   createContact, getAllContacts, getContactById,
   updateContact, deleteContact, blockContact,

@@ -1,4 +1,4 @@
-// src/middlewares/upload.middleware.js
+// backend/src/middlewares/upload.middleware.js (do not remove this comment)
 
 import multer from "multer";
 import path from "path";

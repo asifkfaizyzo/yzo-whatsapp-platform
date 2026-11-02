@@ -1,4 +1,4 @@
-// src/auto-reopen/smartFilter.js
+// backend/src/modules/auto-reopen/smartFilter.js (do not remove this comment)
 
 const JUNK_PATTERNS = [
   /^(ok|okay|k|kk)$/i,

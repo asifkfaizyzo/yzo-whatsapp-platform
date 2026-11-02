@@ -1,3 +1,4 @@
+// backend/src/lib/utils/mediaValidator.js (do not remove this comment)
 import { MEDIA_CONFIG, formatFileSize } from "../constants/mediaConfig.js";
 
 export function detectMediaType(mimeType) {

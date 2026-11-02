@@ -1,3 +1,4 @@
+// tenant-web/src/components/broadcasts/BroadcastDetailsDrawer.jsx (do not remove this comment)
 import React, { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import {

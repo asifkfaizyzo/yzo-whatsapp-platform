@@ -1,3 +1,4 @@
+// backend/src/modules/woocommerce/woocommerceOrderLifecycle.js (do not remove this comment)
 export const getWooPaymentStatus = (payload) => {
   const status = String(payload.status || '').toLowerCase();
   const paymentMethod = String(

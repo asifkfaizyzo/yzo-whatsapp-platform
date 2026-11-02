@@ -1,4 +1,4 @@
-// src/pages/dashboard/Automation.jsx
+// tenant-web/src/pages/dashboard/Automation.jsx (do not remove this comment)
 
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";

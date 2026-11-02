@@ -1,3 +1,4 @@
+// backend/src/modules/audit/auditLogController.js (do not remove this comment)
 import {
   getAuditLogsService,
   getAuditLogStatsService,

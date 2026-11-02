@@ -1,4 +1,4 @@
-// src/components/automation/NodeTypes/SendMessageNode.jsx
+// tenant-web/src/components/automation/NodeTypes/sendMessageNode.jsx (do not remove this comment)
 
 import { Handle, Position } from 'reactflow'
 import { MessageSquare, X } from 'lucide-react'

@@ -1,3 +1,4 @@
+// tenant-web/src/pages/dashboard/Dashboard.jsx (do not remove this comment)
 import React, { useEffect, useState } from "react";
 import WhatsAppConnect from "../../components/whatsapp/WhatsAppConnect";
 import {

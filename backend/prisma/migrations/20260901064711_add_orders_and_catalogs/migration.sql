@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20260901064711_add_orders_and_catalogs/migration.sql (do not remove this comment)
 -- CreateEnum
 CREATE TYPE "FlowTriggerType" AS ENUM ('KEYWORD', 'ORDER_RECEIVED', 'DEFAULT');
 

@@ -1,4 +1,4 @@
-// src/components/settings/RazorpayLogo.jsx
+// tenant-web/src/components/settings/RazorpayLogo.jsx (do not remove this comment)
 import React from "react";
 
 /**

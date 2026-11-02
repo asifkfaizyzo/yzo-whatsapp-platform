@@ -1,4 +1,4 @@
-// src/modules/automation/flowRoutes.js
+// backend/src/modules/automation/flowRoutes.js (do not remove this comment)
 
 import express from 'express'
 import flowController from './flowController.js'

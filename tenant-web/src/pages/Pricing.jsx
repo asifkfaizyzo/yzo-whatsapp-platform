@@ -1,3 +1,4 @@
+// tenant-web/src/pages/Pricing.jsx (do not remove this comment)
 import Navbar from "../components/landing/layout/Navbar";
 import Footer from "../components/landing/layout/Footer";
 import { Link } from "react-router-dom";

@@ -1,4 +1,4 @@
-// backend/prisma/scripts/migrateExistingTenants.js
+// backend/prisma/scripts/migrateExistingTenants.js (do not remove this comment)
 import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 

@@ -1,4 +1,4 @@
-// backend/src/workers/orderWebhookWorker.js
+// backend/src/workers/orderWebhookWorker.js (do not remove this comment)
 import { Worker } from 'bullmq';
 import { QUEUE_NAME_ORDER_WEBHOOK } from '../queues/orderWebhookQueue.js';
 import { redisConnection } from '../config/redis.js';

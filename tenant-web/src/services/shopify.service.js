@@ -1,3 +1,4 @@
+// tenant-web/src/services/shopify.service.js (do not remove this comment)
 import api from "./api";
 
 export const getShopifyStatus = async () => {

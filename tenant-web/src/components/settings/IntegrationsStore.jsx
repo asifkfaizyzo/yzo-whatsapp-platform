@@ -1,4 +1,4 @@
-// src/components/settings/IntegrationsStore.jsx
+// tenant-web/src/components/settings/IntegrationsStore.jsx (do not remove this comment)
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ArrowRight, RefreshCw } from "lucide-react";

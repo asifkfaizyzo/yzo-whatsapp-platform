@@ -1,4 +1,4 @@
-// backend/src/modules/tickets/ticketService.js
+// backend/src/modules/tickets/ticketService.js (do not remove this comment)
 
 import prisma from "../../config/prisma.js";
 import { sendTicketEmail } from "../auth/emailService.js";

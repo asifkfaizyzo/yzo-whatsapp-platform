@@ -1,3 +1,4 @@
+// backend/src/modules/woocommerce/woocommerceOAuthController.js (do not remove this comment)
 import prisma from '../../config/prisma.js';
 import { autoProvisionWebhooks } from './woocommerceService.js';
 

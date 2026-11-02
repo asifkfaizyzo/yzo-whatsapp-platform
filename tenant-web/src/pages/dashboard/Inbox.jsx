@@ -1,4 +1,4 @@
-// src/pages/dashboard/Inbox.jsx
+// tenant-web/src/pages/dashboard/Inbox.jsx (do not remove this comment)
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";

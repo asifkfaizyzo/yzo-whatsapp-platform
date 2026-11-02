@@ -1,4 +1,4 @@
-// src/components/automation/NodeTypes/AskLocationNode.jsx
+// tenant-web/src/components/automation/NodeTypes/AskLocationNode.jsx (do not remove this comment)
 
 import { Handle, Position } from 'reactflow'
 import { Navigation, X } from 'lucide-react'

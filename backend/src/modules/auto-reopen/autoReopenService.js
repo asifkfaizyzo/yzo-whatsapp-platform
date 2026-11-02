@@ -1,3 +1,4 @@
+// backend/src/modules/auto-reopen/autoReopenService.js (do not remove this comment)
 import { isJunkMessage } from "./smartFilter.js"
 import prisma from '../../config/prisma.js';
 

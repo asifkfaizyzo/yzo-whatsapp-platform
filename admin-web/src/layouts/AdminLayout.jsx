@@ -1,3 +1,4 @@
+// admin-web/src/layouts/AdminLayout.jsx (do not remove this comment)
 import React from "react";
 import { Outlet, Navigate } from "react-router-dom";
 import { useAdminAuthStore } from "../store/useAdminAuthStore";

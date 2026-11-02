@@ -1,4 +1,4 @@
-// tenant-web/src/services/notification.service.js
+// tenant-web/src/services/notification.service.js (do not remove this comment)
 
 import api from "../lib/axios";
 

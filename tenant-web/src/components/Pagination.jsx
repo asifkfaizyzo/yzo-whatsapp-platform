@@ -1,3 +1,4 @@
+// tenant-web/src/components/Pagination.jsx (do not remove this comment)
 import React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 

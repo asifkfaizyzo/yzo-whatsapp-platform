@@ -1,4 +1,4 @@
-// src/components/settings/ShopifySettings.jsx
+// tenant-web/src/components/settings/ShopifySettings.jsx (do not remove this comment)
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import {

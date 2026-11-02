@@ -1,5 +1,5 @@
+// admin-web/src/lib/socket.js (do not remove this comment)
 //Admin-Web Notification System
-// admin-web/src/lib/socket.js
 import { io } from "socket.io-client";
 import { useAdminAuthStore } from "../store/useAdminAuthStore";
 

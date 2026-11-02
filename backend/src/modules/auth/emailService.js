@@ -1,3 +1,4 @@
+// backend/src/modules/auth/emailService.js (do not remove this comment)
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import fs from 'fs';

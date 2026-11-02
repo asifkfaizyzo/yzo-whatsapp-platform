@@ -1,3 +1,4 @@
+// backend/src/modules/broadcasts/broadcastController.js (do not remove this comment)
 import prisma from '../../config/prisma.js';
 import { processBroadcastCampaign } from './broadcastService.js';
 import { checkFeatureAccess, checkLimitAccess } from '../../lib/planLimits.js';

@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20260718113248_make_creator_nullable/migration.sql (do not remove this comment)
 -- DropForeignKey
 ALTER TABLE "Broadcast" DROP CONSTRAINT "Broadcast_createdById_fkey";
 

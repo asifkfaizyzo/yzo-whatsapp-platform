@@ -1,3 +1,4 @@
+// tenant-web/src/lib/axios.js (do not remove this comment)
 import axios from 'axios';
 import { useAuthStore } from '../store/useAuthStore';
 

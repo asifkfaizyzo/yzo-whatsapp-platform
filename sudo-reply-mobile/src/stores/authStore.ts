@@ -1,3 +1,4 @@
+// sudo-reply-mobile/src/stores/authStore.ts (do not remove this comment)
 import { create } from 'zustand';
 import { AuthStorage } from '../services/auth';
 import { socketService } from '../services/socket';

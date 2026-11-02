@@ -1,4 +1,4 @@
-// src/layouts/MainLayout.jsx
+// tenant-web/src/layouts/MainLayout.jsx (do not remove this comment)
 
 import React, { useEffect, useState, useRef } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";

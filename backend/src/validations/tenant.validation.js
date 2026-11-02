@@ -1,3 +1,4 @@
+// backend/src/validations/tenant.validation.js (do not remove this comment)
 import { z } from 'zod';
 
 // Step 1: First name + Last name

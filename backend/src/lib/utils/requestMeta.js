@@ -1,3 +1,4 @@
+// backend/src/lib/utils/requestMeta.js (do not remove this comment)
 // Extracts IP address and browser info from request
 export const extractRequestMeta = (req) => ({
   ipAddress: 

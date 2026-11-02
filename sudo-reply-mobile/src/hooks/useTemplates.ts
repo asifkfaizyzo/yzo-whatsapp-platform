@@ -1,3 +1,4 @@
+// sudo-reply-mobile/src/hooks/useTemplates.ts (do not remove this comment)
 import { useQuery } from '@tanstack/react-query';
 import api from '../services/api';
 import { ENDPOINTS } from '../config/api';

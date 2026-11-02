@@ -1,4 +1,4 @@
-// src/queues/dlqQueue.js
+// backend/src/queues/dlqQueue.js (do not remove this comment)
 import { Queue } from 'bullmq';
 import { redisConnection } from '../config/redis.js';
 

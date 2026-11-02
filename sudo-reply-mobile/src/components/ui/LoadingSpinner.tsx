@@ -1,3 +1,4 @@
+// sudo-reply-mobile/src/components/ui/LoadingSpinner.tsx (do not remove this comment)
 import React from 'react';
 import { View, ActivityIndicator, Text, StyleSheet } from 'react-native';
 import { colors } from '../../theme/colors';

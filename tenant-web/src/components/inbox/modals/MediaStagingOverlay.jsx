@@ -1,3 +1,4 @@
+// tenant-web/src/components/inbox/modals/MediaStagingOverlay.jsx (do not remove this comment)
 import React from 'react';
 import { X, FileText, Smile, RefreshCw, Send } from 'lucide-react';
 import EmojiPicker from 'emoji-picker-react';

@@ -1,3 +1,4 @@
+// tenant-web/src/components/settings/ShopifyLogo.jsx (do not remove this comment)
 import React from 'react';
 
 export default function ShopifyLogo({ className = "w-10 h-10" }) {

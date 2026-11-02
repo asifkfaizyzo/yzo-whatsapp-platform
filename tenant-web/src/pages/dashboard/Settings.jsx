@@ -1,4 +1,4 @@
-// src/pages/dashboard/Settings.jsx
+// tenant-web/src/pages/dashboard/Settings.jsx (do not remove this comment)
 
 import React, { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";

@@ -1,4 +1,4 @@
-// src/components/settings/WooCommerceSettings.jsx
+// tenant-web/src/components/settings/WooCommerceSettings.jsx (do not remove this comment)
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import {

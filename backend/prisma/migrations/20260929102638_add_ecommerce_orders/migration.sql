@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20260929102638_add_ecommerce_orders/migration.sql (do not remove this comment)
 -- CreateTable
 CREATE TABLE "ecommerce_orders" (
     "id" TEXT NOT NULL,

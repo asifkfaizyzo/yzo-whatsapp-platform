@@ -1,3 +1,4 @@
+// backend/src/modules/shopify/shopifyController.js (do not remove this comment)
 import * as shopifyService from './shopifyService.js';
 import * as backInStockService from './shopifyBackInStockService.js';
 import { syncAllShopifyCustomers } from './shopifyCustomerSyncService.js';

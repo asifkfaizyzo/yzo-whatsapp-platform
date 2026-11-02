@@ -1,4 +1,4 @@
-// src/components/settings/GoogleSheetsLogo.jsx
+// tenant-web/src/components/settings/GoogleSheetsLogo.jsx (do not remove this comment)
 import React from "react";
 
 export default function GoogleSheetsLogo({ className = "w-8 h-8" }) {

@@ -1,3 +1,4 @@
+// backend/src/middlewares/authSuperAdmin.js (do not remove this comment)
 import jwt from 'jsonwebtoken';
 import prisma from '../config/prisma.js';
 

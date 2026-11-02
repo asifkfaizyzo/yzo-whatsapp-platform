@@ -1,3 +1,4 @@
+// sudo-reply-mobile/src/providers/AppProviders.tsx (do not remove this comment)
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';

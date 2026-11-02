@@ -1,3 +1,4 @@
+// backend/src/middlewares/checkSubscriptionAccess.js (do not remove this comment)
 import prisma from '../config/prisma.js';
 
 const ALLOWED_EXPIRED_ROUTES = [

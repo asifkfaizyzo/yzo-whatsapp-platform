@@ -1,4 +1,4 @@
-// src/modules/automation/flowController.js
+// backend/src/modules/automation/flowController.js (do not remove this comment)
 
 import flowService from "./flowService.js";
 import { checkLimitAccess } from "../../lib/planLimits.js";

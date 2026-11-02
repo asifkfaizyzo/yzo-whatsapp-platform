@@ -1,3 +1,4 @@
+// sudo-reply-mobile/src/navigation/MainTabs.tsx (do not remove this comment)
 import React, { useEffect, useRef } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';

@@ -1,4 +1,4 @@
-// backend/src/modules/analytics/analyticsService.js
+// backend/src/modules/analytics/analyticsService.js (do not remove this comment)
 
 import prisma from '../../config/prisma.js';
 

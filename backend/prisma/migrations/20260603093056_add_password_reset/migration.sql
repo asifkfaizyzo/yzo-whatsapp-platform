@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20260603093056_add_password_reset/migration.sql (do not remove this comment)
 -- CreateTable
 CREATE TABLE "PasswordReset" (
     "id" TEXT NOT NULL,

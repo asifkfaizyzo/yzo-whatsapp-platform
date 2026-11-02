@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20261012104257_add_broadcast_woo_segments/migration.sql (do not remove this comment)
 -- AlterEnum
 ALTER TYPE "BroadcastTarget" ADD VALUE 'WOO_SEGMENT';
 

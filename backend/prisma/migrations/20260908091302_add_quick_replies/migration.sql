@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20260908091302_add_quick_replies/migration.sql (do not remove this comment)
 -- CreateEnum
 CREATE TYPE "QuickReplyScope" AS ENUM ('GLOBAL', 'PERSONAL');
 

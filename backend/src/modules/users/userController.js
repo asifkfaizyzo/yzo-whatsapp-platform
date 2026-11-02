@@ -1,3 +1,4 @@
+// backend/src/modules/users/userController.js (do not remove this comment)
 import bcrypt from 'bcrypt';
 import pkg from '@prisma/client';
 

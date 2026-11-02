@@ -1,5 +1,5 @@
+// backend/src/lib/socket.js (do not remove this comment)
 
-// backend/src/lib/socket.js
 import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import { registerCallSocketHandlers } from '../modules/whatsapp/callSocketHandler.js';

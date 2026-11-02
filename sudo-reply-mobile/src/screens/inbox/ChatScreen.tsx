@@ -1,3 +1,4 @@
+// sudo-reply-mobile/src/screens/inbox/ChatScreen.tsx (do not remove this comment)
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,

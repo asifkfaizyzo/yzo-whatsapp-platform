@@ -1,3 +1,4 @@
+// backend/src/workers/broadcastWorker.js (do not remove this comment)
 import fs from 'fs';
 import path from 'path';
 import mime from 'mime-types';

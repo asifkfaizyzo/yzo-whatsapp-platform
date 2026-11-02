@@ -1,3 +1,4 @@
+// tenant-web/src/store/useAuthStore.js (do not remove this comment)
 import { create } from 'zustand';
 import axios from 'axios';
 

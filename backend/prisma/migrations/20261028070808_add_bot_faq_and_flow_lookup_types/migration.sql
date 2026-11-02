@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20261028070808_add_bot_faq_and_flow_lookup_types/migration.sql (do not remove this comment)
 -- AlterEnum
 -- This migration adds more than one value to an enum.
 -- With PostgreSQL versions 11 and earlier, this is not possible

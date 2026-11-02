@@ -1,4 +1,4 @@
-// src/services/user.service.js
+// tenant-web/src/services/user.service.js (do not remove this comment)
 import api from "../lib/axios";
 
 // Backend base URL for user routes = /api3

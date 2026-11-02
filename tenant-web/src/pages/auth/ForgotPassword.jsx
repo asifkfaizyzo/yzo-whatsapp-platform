@@ -1,4 +1,4 @@
-// tenant-web/src/pages/auth/ForgotPassword.jsx
+// tenant-web/src/pages/auth/ForgotPassword.jsx (do not remove this comment)
 import { Link } from "react-router-dom";
 import { useState } from "react";
 import { siteConfig } from "../../config/site";

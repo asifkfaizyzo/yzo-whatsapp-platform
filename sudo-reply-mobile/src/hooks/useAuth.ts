@@ -1,3 +1,4 @@
+// sudo-reply-mobile/src/hooks/useAuth.ts (do not remove this comment)
 import { useCallback } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import api from '../services/api';

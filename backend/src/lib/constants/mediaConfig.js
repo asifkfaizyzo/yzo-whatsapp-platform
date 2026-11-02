@@ -1,3 +1,4 @@
+// backend/src/lib/constants/mediaConfig.js (do not remove this comment)
 export const MEDIA_CONFIG = {
   IMAGE: {
     maxSize: 5 * 1024 * 1024,

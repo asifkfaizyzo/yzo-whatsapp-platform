@@ -1,4 +1,4 @@
-// src/components/automation/NodeTypes/PaymentNode.jsx
+// tenant-web/src/components/automation/NodeTypes/PaymentNode.jsx (do not remove this comment)
 import { Handle, Position } from 'reactflow';
 import { CreditCard, X } from 'lucide-react';
 import { useReactFlow } from 'reactflow';

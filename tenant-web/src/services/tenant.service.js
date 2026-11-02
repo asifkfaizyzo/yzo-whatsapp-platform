@@ -1,4 +1,4 @@
-// src/services/tenant.service.js
+// tenant-web/src/services/tenant.service.js (do not remove this comment)
 import api from "../lib/axios";
 
 const TENANT_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api2`;

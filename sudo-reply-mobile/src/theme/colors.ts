@@ -1,3 +1,4 @@
+// sudo-reply-mobile/src/theme/colors.ts (do not remove this comment)
 /**
  * Sudo Reply Brand Colors
  * Light theme tokens. Dark mode can be added later by swapping this object.

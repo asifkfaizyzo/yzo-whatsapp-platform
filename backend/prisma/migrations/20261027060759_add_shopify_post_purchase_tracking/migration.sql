@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20261027060759_add_shopify_post_purchase_tracking/migration.sql (do not remove this comment)
 -- AlterTable
 ALTER TABLE "ecommerce_orders" ADD COLUMN     "crossSellSentAt" TIMESTAMP(3),
 ADD COLUMN     "deliveredAt" TIMESTAMP(3),

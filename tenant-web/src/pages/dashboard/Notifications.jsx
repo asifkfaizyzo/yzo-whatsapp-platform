@@ -1,4 +1,4 @@
-// tenant-web/src/pages/dashboard/Notifications.jsx
+// tenant-web/src/pages/dashboard/Notifications.jsx (do not remove this comment)
 import React, { useEffect, useState } from "react";
 import {
   Bell,

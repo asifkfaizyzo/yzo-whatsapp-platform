@@ -1,4 +1,4 @@
-// modules/contacts/contactController.js
+// backend/src/modules/contacts/contactController.js (do not remove this comment)
 
 import { userCreateContact } from './userContactService.js';
 import prisma from '../../config/prisma.js';

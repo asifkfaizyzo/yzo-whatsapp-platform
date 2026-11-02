@@ -1,4 +1,4 @@
-// src/components/automation/NodeConfigPanel.jsx
+// tenant-web/src/components/automation/NodeConfigPanel.jsx (do not remove this comment)
 
 import { useState, useEffect, useRef } from "react";
 import {

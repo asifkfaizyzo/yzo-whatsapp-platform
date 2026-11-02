@@ -1,3 +1,4 @@
+// tenant-web/src/services/conversation.service.js (do not remove this comment)
 import api from "../lib/axios";
 
 const CONV_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api5`;

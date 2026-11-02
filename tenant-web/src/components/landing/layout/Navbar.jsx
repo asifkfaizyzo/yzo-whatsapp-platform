@@ -1,4 +1,4 @@
-// src/components/landing/layout/Navbar.jsx
+// tenant-web/src/components/landing/layout/Navbar.jsx (do not remove this comment)
 
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";

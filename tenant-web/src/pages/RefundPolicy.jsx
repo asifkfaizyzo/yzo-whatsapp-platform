@@ -1,3 +1,4 @@
+// tenant-web/src/pages/RefundPolicy.jsx (do not remove this comment)
 import Navbar from "../components/landing/layout/Navbar";
 import Footer from "../components/landing/layout/Footer";
 import { siteConfig } from "../config/site";

@@ -1,3 +1,4 @@
+// backend/src/modules/admin-subscriptions/adminSubscriptionsRoute.js (do not remove this comment)
 import { Router } from 'express';
 import { verifySuperAdmin } from '../../middlewares/authSuperAdmin.js';
 import * as adminSubscriptionsController from './adminSubscriptionsController.js';

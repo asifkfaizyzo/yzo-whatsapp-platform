@@ -1,3 +1,4 @@
+// tenant-web/src/components/billing/CancelAtPeriodEndBanner.jsx (do not remove this comment)
 import React from "react";
 import { AlertCircle, CreditCard } from "lucide-react";
 import { Link } from "react-router-dom";

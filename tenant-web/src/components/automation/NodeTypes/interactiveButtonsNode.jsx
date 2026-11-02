@@ -1,4 +1,4 @@
-// src/components/automation/NodeTypes/InteractiveButtonsNode.jsx
+// tenant-web/src/components/automation/NodeTypes/interactiveButtonsNode.jsx (do not remove this comment)
 
 import { Handle, Position } from 'reactflow'
 import { MousePointerClick, X } from 'lucide-react'

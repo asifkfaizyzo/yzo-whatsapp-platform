@@ -1,3 +1,4 @@
+// backend/src/modules/templates/templateService.js (do not remove this comment)
 import { decrypt } from '../../lib/crypto.js';
 import fs from 'fs';
 

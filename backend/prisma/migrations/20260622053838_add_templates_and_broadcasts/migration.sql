@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20260622053838_add_templates_and_broadcasts/migration.sql (do not remove this comment)
 -- CreateEnum
 CREATE TYPE "TemplateCategory" AS ENUM ('UTILITY', 'MARKETING', 'AUTHENTICATION');
 

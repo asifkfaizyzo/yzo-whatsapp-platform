@@ -1,3 +1,4 @@
+// tenant-web/src/components/calls/CallLogsTable.jsx (do not remove this comment)
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   PhoneCall, PhoneIncoming, PhoneOutgoing, PhoneMissed, 

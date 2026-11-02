@@ -1,3 +1,4 @@
+// backend/src/modules/quick-replies/quickReplyValidation.js (do not remove this comment)
 import { z } from 'zod';
 
 export const RESERVED_SHORTCUTS = new Set([

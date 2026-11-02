@@ -1,3 +1,4 @@
+// tenant-web/src/components/billing/ExpiredSubscriptionBanner.jsx (do not remove this comment)
 import React from "react";
 import { AlertOctagon, ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";

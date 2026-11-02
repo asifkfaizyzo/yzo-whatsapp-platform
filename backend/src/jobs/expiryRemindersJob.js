@@ -1,3 +1,4 @@
+// backend/src/jobs/expiryRemindersJob.js (do not remove this comment)
 import cron from 'node-cron';
 import prisma from '../config/prisma.js';
 import { sendExpiryReminderEmail } from '../modules/auth/emailService.js';

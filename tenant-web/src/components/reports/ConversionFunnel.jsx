@@ -1,4 +1,4 @@
-// tenant-web/src/components/reports/ConversionFunnel.jsx
+// tenant-web/src/components/reports/ConversionFunnel.jsx (do not remove this comment)
 
 import React from "react";
 import { TrendingUp } from "lucide-react";

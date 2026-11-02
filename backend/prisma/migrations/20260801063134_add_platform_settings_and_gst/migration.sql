@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20260801063134_add_platform_settings_and_gst/migration.sql (do not remove this comment)
 -- AlterEnum
 ALTER TYPE "AuditAction" ADD VALUE 'GST_SETTINGS_UPDATED';
 

@@ -1,3 +1,4 @@
+// tenant-web/src/components/inbox/layout/ChatHeader.jsx (do not remove this comment)
 import React from 'react';
 import {
   Phone,

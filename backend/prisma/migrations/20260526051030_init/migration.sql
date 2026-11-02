@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20260526051030_init/migration.sql (do not remove this comment)
 -- CreateTable
 CREATE TABLE "SuperAdmin" (
     "id" TEXT NOT NULL,

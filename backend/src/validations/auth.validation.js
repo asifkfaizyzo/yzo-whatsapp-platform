@@ -1,3 +1,4 @@
+// backend/src/validations/auth.validation.js (do not remove this comment)
 import { z } from 'zod';
 
 // At the top of src/validations/auth.validation.js (or export them):

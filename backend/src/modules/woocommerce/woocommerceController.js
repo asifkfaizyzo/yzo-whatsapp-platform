@@ -1,3 +1,4 @@
+// backend/src/modules/woocommerce/woocommerceController.js (do not remove this comment)
 import crypto from 'node:crypto';
 import prisma from '../../config/prisma.js';
 import { autoProvisionWebhooks } from './woocommerceService.js';

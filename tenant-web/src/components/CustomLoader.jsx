@@ -1,3 +1,4 @@
+// tenant-web/src/components/CustomLoader.jsx (do not remove this comment)
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 

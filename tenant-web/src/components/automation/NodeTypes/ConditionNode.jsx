@@ -1,4 +1,4 @@
-// src/components/automation/NodeTypes/ConditionNode.jsx
+// tenant-web/src/components/automation/NodeTypes/ConditionNode.jsx (do not remove this comment)
 
 import { Handle, Position } from 'reactflow'
 import { GitBranch, X } from 'lucide-react'

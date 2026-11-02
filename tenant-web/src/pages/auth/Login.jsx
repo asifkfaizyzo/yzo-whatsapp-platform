@@ -1,3 +1,4 @@
+// tenant-web/src/pages/auth/Login.jsx (do not remove this comment)
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useAuthStore } from "../../store/useAuthStore";

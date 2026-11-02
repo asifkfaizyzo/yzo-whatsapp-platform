@@ -1,4 +1,4 @@
-// src/components/automation/NodeTypes/AskQuestionNode.jsx
+// tenant-web/src/components/automation/NodeTypes/AskQuestionNode.jsx (do not remove this comment)
 
 import { Handle, Position } from 'reactflow'
 import { HelpCircle, X } from 'lucide-react'

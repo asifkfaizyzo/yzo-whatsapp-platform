@@ -1,3 +1,4 @@
+// tenant-web/src/routes/appRoutes.jsx (do not remove this comment)
 import { Navigate, Route, Routes } from "react-router-dom";
 import Login from "../pages/auth/Login";
 import RegisterPage from "../pages/auth/Register";

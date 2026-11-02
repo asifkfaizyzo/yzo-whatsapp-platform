@@ -1,3 +1,4 @@
+// tenant-web/src/components/inbox/QuickReplyModal.jsx (do not remove this comment)
 import React, { useState, useMemo } from 'react';
 import {
   Zap,

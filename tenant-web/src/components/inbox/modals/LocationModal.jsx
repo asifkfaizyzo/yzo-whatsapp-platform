@@ -1,3 +1,4 @@
+// tenant-web/src/components/inbox/modals/LocationModal.jsx (do not remove this comment)
 import React from 'react';
 import { MapPin, X, RefreshCw } from 'lucide-react';
 export default function LocationModal({ showLocationModal, setShowLocationModal, locationForm, setLocationForm, locationError, setLocationError, sendingLocation, handleSendLocation }) {

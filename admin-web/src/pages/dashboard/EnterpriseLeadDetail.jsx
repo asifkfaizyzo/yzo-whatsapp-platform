@@ -1,3 +1,4 @@
+// admin-web/src/pages/dashboard/EnterpriseLeadDetail.jsx (do not remove this comment)
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { ArrowLeft, User, Building, Mail, Phone, Calendar, Users, ListFilter, Trash2, CheckCircle2, AlertTriangle } from "lucide-react";

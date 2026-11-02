@@ -1,3 +1,4 @@
+// tenant-web/src/hooks/useWebRTC.js (do not remove this comment)
 import { useRef, useEffect } from 'react';
 import * as webrtcService from '../lib/webrtcService';
 

@@ -1,4 +1,4 @@
-// tenant-web/src/components/reports/MetricCard.jsx
+// tenant-web/src/components/reports/MetricCard.jsx (do not remove this comment)
 
 import React from "react";
 import { TrendingUp, TrendingDown } from "lucide-react";

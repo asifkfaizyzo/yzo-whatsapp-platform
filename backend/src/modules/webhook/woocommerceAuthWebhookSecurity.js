@@ -1,3 +1,4 @@
+// backend/src/modules/webhook/woocommerceAuthWebhookSecurity.js (do not remove this comment)
 import crypto from 'node:crypto';
 
 export const normalizeWooStoreHost = (value) => {

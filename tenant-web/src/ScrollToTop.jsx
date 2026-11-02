@@ -1,3 +1,4 @@
+// tenant-web/src/ScrollToTop.jsx (do not remove this comment)
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 

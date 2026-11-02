@@ -1,4 +1,4 @@
-// modules/tenant/tenantController.js
+// backend/src/modules/tenant/tenantController.js (do not remove this comment)
 
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';

@@ -1,4 +1,4 @@
-// src/components/automation/NodeTypes/SendLocationNode.jsx
+// tenant-web/src/components/automation/NodeTypes/SendLocationNode.jsx (do not remove this comment)
 
 import { Handle, Position } from 'reactflow'
 import { MapPin, X } from 'lucide-react'

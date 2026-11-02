@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20260904111500_add_omnichannel_support/migration.sql (do not remove this comment)
 -- CreateEnum
 CREATE TYPE "ChannelType" AS ENUM ('WHATSAPP', 'MESSENGER', 'INSTAGRAM');
 

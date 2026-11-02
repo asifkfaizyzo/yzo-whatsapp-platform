@@ -1,4 +1,4 @@
-// src/workers/cleanupWorker.js
+// backend/src/workers/cleanupWorker.js (do not remove this comment)
 
 import prisma from '../config/prisma.js';
 

@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20260707050809_make_password_optional_add_google_id/migration.sql (do not remove this comment)
 /*
   Warnings:
 

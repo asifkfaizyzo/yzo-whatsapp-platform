@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20260608094713_updated_conversation_model/migration.sql (do not remove this comment)
 /*
   Warnings:
 

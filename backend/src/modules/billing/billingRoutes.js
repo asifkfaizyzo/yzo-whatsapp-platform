@@ -1,3 +1,4 @@
+// backend/src/modules/billing/billingRoutes.js (do not remove this comment)
 import { Router } from 'express';
 import { verifyTenant } from '../../middlewares/authTenant.js';
 import { checkSubscriptionAccess } from '../../middlewares/checkSubscriptionAccess.js';

@@ -1,3 +1,4 @@
+// backend/src/lib/crypto.js (do not remove this comment)
 import crypto from 'crypto';
 
 const ALGORITHM = 'aes-256-gcm';

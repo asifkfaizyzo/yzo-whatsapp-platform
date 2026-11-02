@@ -1,3 +1,4 @@
+// sudo-reply-mobile/src/services/socket.ts (do not remove this comment)
 import { io, Socket } from 'socket.io-client';
 import { API_BASE_URL } from '../config/api';
 

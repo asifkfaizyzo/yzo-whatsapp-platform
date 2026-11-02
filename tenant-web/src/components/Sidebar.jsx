@@ -1,4 +1,4 @@
-// src/components/Sidebar.jsx
+// tenant-web/src/components/Sidebar.jsx (do not remove this comment)
 
 import React from "react";
 import { NavLink, Link, useLocation } from "react-router-dom";

@@ -1,3 +1,4 @@
+// tenant-web/src/components/inbox/CallMessageBubble.jsx (do not remove this comment)
 import React, { useState, useRef, useEffect } from "react";
 import {
   PhoneCall,

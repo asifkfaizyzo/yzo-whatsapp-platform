@@ -1,3 +1,4 @@
+// sudo-reply-mobile/src/theme/index.ts (do not remove this comment)
 export { colors } from './colors';
 export type { ColorToken } from './colors';
 export { typography } from './typography';

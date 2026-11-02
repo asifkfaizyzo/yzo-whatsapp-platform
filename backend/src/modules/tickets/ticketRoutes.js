@@ -1,5 +1,5 @@
+// backend/src/modules/tickets/ticketRoutes.js (do not remove this comment)
 //ticketRoutes.js (Tenant + User routes only)
-// backend/src/modules/tickets/ticketRoutes.js
 
 import express from "express";
 import {

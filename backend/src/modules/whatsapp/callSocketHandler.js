@@ -1,3 +1,4 @@
+// backend/src/modules/whatsapp/callSocketHandler.js (do not remove this comment)
 import { createWebRtcTransport, getRouter } from '../../lib/mediasoup/mediasoupService.js';
 import prisma from '../../config/prisma.js';
 import { mediasoupConfig } from '../../lib/mediasoup/mediasoupConfig.js';

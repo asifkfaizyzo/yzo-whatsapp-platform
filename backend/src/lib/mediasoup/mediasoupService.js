@@ -1,3 +1,4 @@
+// backend/src/lib/mediasoup/mediasoupService.js (do not remove this comment)
 import * as mediasoup from 'mediasoup';
 import { mediasoupConfig, getAnnouncedIp, setAnnouncedIp } from './mediasoupConfig.js';
 import * as sdpTransform from 'sdp-transform';

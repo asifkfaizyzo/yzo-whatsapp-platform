@@ -1,3 +1,4 @@
+// sudo-reply-mobile/src/navigation/InboxStack.tsx (do not remove this comment)
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { InboxListScreen } from '../screens/inbox/InboxListScreen';

@@ -1,4 +1,4 @@
-// src/components/automation/NodeTypes/CatalogNode.jsx
+// tenant-web/src/components/automation/NodeTypes/CatalogNode.jsx (do not remove this comment)
 
 import { Handle, Position } from 'reactflow'
 import { ShoppingBag, X } from 'lucide-react'

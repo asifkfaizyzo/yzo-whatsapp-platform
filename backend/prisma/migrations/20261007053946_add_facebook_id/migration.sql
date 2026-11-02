@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20261007053946_add_facebook_id/migration.sql (do not remove this comment)
 /*
   Warnings:
 

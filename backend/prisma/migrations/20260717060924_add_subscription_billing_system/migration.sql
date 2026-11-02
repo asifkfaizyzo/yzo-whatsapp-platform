@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20260717060924_add_subscription_billing_system/migration.sql (do not remove this comment)
 -- CreateEnum
 CREATE TYPE "SubscriptionStatus" AS ENUM ('trialing', 'active', 'cancel_at_period_end', 'expired', 'paused');
 

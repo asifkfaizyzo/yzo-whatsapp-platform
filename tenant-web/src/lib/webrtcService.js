@@ -1,3 +1,4 @@
+// tenant-web/src/lib/webrtcService.js (do not remove this comment)
 // WebRTC Service: Direct Peer-to-Peer Full-ICE connection between Browser and Meta WhatsApp Voice Gateway
 
 const ICE_SERVERS = [

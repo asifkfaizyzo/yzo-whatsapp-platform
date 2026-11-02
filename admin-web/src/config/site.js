@@ -1,3 +1,4 @@
+// admin-web/src/config/site.js (do not remove this comment)
 export const siteConfig = {
   brand: "sudoreply",
   hero: {

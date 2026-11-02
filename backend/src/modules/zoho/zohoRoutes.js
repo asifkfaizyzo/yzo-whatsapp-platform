@@ -1,4 +1,4 @@
-// src/modules/zoho/zohoRoutes.js
+// backend/src/modules/zoho/zohoRoutes.js (do not remove this comment)
 
 import express from 'express';
 import { verifyTenant, requireApprovedTenant } from '../../middlewares/authTenant.js';

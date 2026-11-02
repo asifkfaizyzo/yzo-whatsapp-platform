@@ -1,3 +1,4 @@
+// tenant-web/src/components/inbox/layout/ChatSidebar.jsx (do not remove this comment)
 import React from 'react';
 import {
   MessageSquarePlus,

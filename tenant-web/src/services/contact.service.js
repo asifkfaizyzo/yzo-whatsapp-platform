@@ -1,4 +1,4 @@
-// src/services/contact.service.js
+// tenant-web/src/services/contact.service.js (do not remove this comment)
 import api from "../lib/axios";
 
 // Dynamically target the contact routes (e.g., http://localhost:3000/api4)

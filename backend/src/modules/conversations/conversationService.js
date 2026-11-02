@@ -1,4 +1,4 @@
-// src/modules/conversations/conversationService.js
+// backend/src/modules/conversations/conversationService.js (do not remove this comment)
 import bcrypt from "bcrypt";
 import pkg from "@prisma/client";
 import prisma from "../../config/prisma.js";

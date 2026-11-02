@@ -1,3 +1,4 @@
+// backend/src/lib/mediasoup/mediasoupConfig.js (do not remove this comment)
 let detectedPublicIp = null;
 
 export const setAnnouncedIp = (ip) => {

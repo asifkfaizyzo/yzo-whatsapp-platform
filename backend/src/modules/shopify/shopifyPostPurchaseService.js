@@ -1,4 +1,4 @@
-// src/modules/shopify/shopifyPostPurchaseService.js
+// backend/src/modules/shopify/shopifyPostPurchaseService.js (do not remove this comment)
 
 import prisma from '../../config/prisma.js';
 import { orderWebhookQueue } from '../../queues/orderWebhookQueue.js';

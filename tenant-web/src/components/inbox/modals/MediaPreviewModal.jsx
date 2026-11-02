@@ -1,3 +1,4 @@
+// tenant-web/src/components/inbox/modals/MediaPreviewModal.jsx (do not remove this comment)
 import React from 'react';
 import { X, Paperclip } from 'lucide-react';
 export default function MediaPreviewModal({ previewImageModal, setPreviewImageModal }) {

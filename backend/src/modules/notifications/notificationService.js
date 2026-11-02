@@ -1,4 +1,4 @@
-// backend/src/modules/notifications/notificationService.js
+// backend/src/modules/notifications/notificationService.js (do not remove this comment)
 
 import prisma from '../../config/prisma.js';
 

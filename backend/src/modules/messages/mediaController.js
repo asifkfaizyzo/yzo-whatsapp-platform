@@ -1,4 +1,4 @@
-// src/modules/messages/mediaController.js
+// backend/src/modules/messages/mediaController.js (do not remove this comment)
 
 import fs    from 'fs';
 import path  from 'path';

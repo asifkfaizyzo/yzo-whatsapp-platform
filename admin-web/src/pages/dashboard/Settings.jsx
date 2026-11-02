@@ -1,4 +1,4 @@
-// admin-web/src/pages/dashboard/Settings.jsx
+// admin-web/src/pages/dashboard/Settings.jsx (do not remove this comment)
 import React, { useState, useEffect } from "react";
 import {
   Settings,

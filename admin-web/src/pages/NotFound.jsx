@@ -1,3 +1,4 @@
+// admin-web/src/pages/NotFound.jsx (do not remove this comment)
 import { Link, useNavigate } from "react-router-dom";
 import { AlertCircle, ArrowLeft, Home } from "lucide-react";
 import { siteConfig } from "../config/site";

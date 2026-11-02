@@ -1,3 +1,4 @@
+// tenant-web/src/pages/Contact.jsx (do not remove this comment)
 import { useState } from "react";
 import Navbar from "../components/landing/layout/Navbar";
 import Footer from "../components/landing/layout/Footer";

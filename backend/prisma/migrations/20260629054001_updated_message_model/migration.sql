@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20260629054001_updated_message_model/migration.sql (do not remove this comment)
 -- CreateEnum
 CREATE TYPE "MessageType" AS ENUM ('TEXT', 'IMAGE', 'FILE', 'VIDEO', 'AUDIO');
 

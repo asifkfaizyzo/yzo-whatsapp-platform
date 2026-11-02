@@ -1,3 +1,4 @@
+-- backend/prisma/migrations/20260707073216_add_ticket_system/migration.sql (do not remove this comment)
 -- CreateEnum
 CREATE TYPE "TicketStatus" AS ENUM ('OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED');
 
