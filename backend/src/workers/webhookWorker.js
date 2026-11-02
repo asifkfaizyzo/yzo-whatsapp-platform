@@ -805,10 +805,10 @@ export const processWebhookJob = async (job) => {
           data: msgUpdateData,
         });
 
-        // Emit real-time tick update to frontend
+               // Emit real-time tick update to frontend
         const tenantId = messageToUpdate.conversation?.tenantId;
         if (tenantId) {
-          emitToTenant(tenantId, 'message_status_update', {
+          const statusPayload = {
             messageId: messageToUpdate.id,
             conversationId: messageToUpdate.conversationId,
             wamid,
@@ -816,7 +816,19 @@ export const processWebhookJob = async (job) => {
             deliveredAt: msgUpdateData.deliveredAt || null,
             readAt: msgUpdateData.readAt || null,
             failureReason: msgUpdateData.failureReason || null,
+          };
+
+          emitToTenant(tenantId, 'message_status_update', statusPayload);
+
+          // Also emit to assigned agent's user room (for mobile app)
+          const conversation = await prisma.conversation.findUnique({
+            where: { id: messageToUpdate.conversationId },
+            select: { assignedTo: true, contact: { select: { assignedTo: true } } },
           });
+          const assignedUserId = conversation?.assignedTo || conversation?.contact?.assignedTo;
+          if (assignedUserId) {
+            emitToUser(assignedUserId, 'message_status_update', statusPayload);
+          }
         }
       }
     }

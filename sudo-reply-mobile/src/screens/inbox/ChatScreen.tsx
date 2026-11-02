@@ -22,7 +22,7 @@ import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, borderRadius } from '../../theme/spacing';
 import { API_BASE_URL } from '../../config/api';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   useConversationMessages,
   useSendMessage,
@@ -35,6 +35,7 @@ import { useApprovedTemplates, getTemplateBodyInfo, type Template } from '../../
 import { useSendTemplateMessage } from '../../hooks/useMessages';
 import { useAuthStore } from '../../stores/authStore';
 import api from '../../services/api';
+import { socketService } from '../../services/socket';
 import { ENDPOINTS } from '../../config/api';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
@@ -122,11 +123,45 @@ const [conversationId, setConversationId] = useState<string | null>(initialConve
 
   const agentName = useAuthStore((s) => s.user?.name || 'Agent');
 
+    const queryClient = useQueryClient();
+
   useEffect(() => {
     if (messages.length > 0) {
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 300);
     }
   }, [messages.length]);
+
+  // ── Listen for message status updates (delivered / read / failed) ──
+  useEffect(() => {
+    if (!conversationId) return;
+
+    const handler = (data: any) => {
+      if (data.conversationId === conversationId) {
+        queryClient.setQueryData(
+          ['messages', conversationId],
+          (old: any) => {
+            if (!old) return old;
+            return {
+              ...old,
+              pages: old.pages.map((page: any) => ({
+                ...page,
+                messages: page.messages.map((msg: any) =>
+                  msg.id === data.messageId
+                    ? { ...msg, status: data.status, deliveredAt: data.deliveredAt, readAt: data.readAt }
+                    : msg
+                ),
+              })),
+            };
+          }
+        );
+      }
+    };
+
+    socketService.on('message_status_update', handler);
+    return () => {
+      socketService.off('message_status_update', handler);
+    };
+  }, [conversationId, queryClient]);
 
   // ── Send Logic ───────────────────────────────────────────
   const handleSendText = useCallback(() => {
@@ -455,12 +490,25 @@ const [conversationId, setConversationId] = useState<string | null>(initialConve
               {displayText}
             </Text>
           ) : null}
-          <Text style={[styles.messageTime, isMe && styles.myMessageTime]}>
-            {new Date(item.createdAt).toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
-          </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: 2 }}>
+            <Text style={[styles.messageTime, isMe && styles.myMessageTime, { marginRight: 4 }]}>
+              {new Date(item.createdAt).toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            </Text>
+            {item.direction === 'OUTBOUND' && (
+              item.status === 'failed' ? (
+                <Ionicons name="alert-circle" size={14} color="#FF4444" />
+              ) : item.status === 'read' ? (
+                <Ionicons name="checkmark-done" size={14} color="#53BDEB" />
+              ) : item.status === 'delivered' ? (
+                <Ionicons name="checkmark-done" size={14} color={isMe ? 'rgba(255,255,255,0.7)' : '#8696A0'} />
+              ) : (
+                <Ionicons name="checkmark" size={14} color={isMe ? 'rgba(255,255,255,0.7)' : '#8696A0'} />
+              )
+            )}
+          </View>
         </View>
       </>
     );

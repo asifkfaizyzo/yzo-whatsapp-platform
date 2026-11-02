@@ -132,7 +132,7 @@ export const getAssignedConversations = async ({
             },
           },
         },
-        messages: {
+       messages: {
           orderBy: { createdAt: "desc" },
           take: 1,
           select: {
@@ -140,6 +140,8 @@ export const getAssignedConversations = async ({
             text: true,
             type: true,
             createdAt: true,
+            direction: true,
+            status: true,
           },
         },
       },
@@ -603,20 +605,22 @@ export const getArchivedConversations = async ({
           },
         },
       },
-      messages: {
-        where: {
-          isDeleted: false,
+             messages: {
+          where: {
+            isDeleted: false,
+          },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: {
+            id: true,
+            text: true,
+            type: true,
+            createdAt: true,
+            isDeleted: true,
+            direction: true,
+            status: true,
+          },
         },
-        orderBy: { createdAt: "desc" },
-        take: 1,
-        select: {
-          id: true,
-          text: true,
-          type: true,
-          createdAt: true,
-          isDeleted: true,
-        },
-      },
     },
     orderBy: { archivedAt: "desc" },
     skip,

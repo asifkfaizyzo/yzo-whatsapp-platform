@@ -27,9 +27,10 @@ export const InboxListScreen: React.FC<Props> = ({ navigation }) => {
   const { data: conversations = [], isLoading, refetch, isRefetching } = useAssignedConversations();
   const markRead = useMarkRead();
 
-  const renderItem = ({ item }: { item: any }) => {
+   const renderItem = ({ item }: { item: any }) => {
     const contactName = item.contact?.name || 'Unknown';
-    const lastMsg = item.lastMessage?.text || item.messages?.[0]?.text || 'No messages';
+    const lastMsgObj = item.messages?.[0];
+    const lastMsg = lastMsgObj?.text || 'No messages';
     const time = item.updatedAt
       ? new Date(item.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       : '';
@@ -55,7 +56,21 @@ export const InboxListScreen: React.FC<Props> = ({ navigation }) => {
             </Text>
             <Text style={styles.chatTime}>{time}</Text>
           </View>
-          <View style={styles.chatBottom}>
+         <View style={styles.chatBottom}>
+            {/* Tick icon for outbound last messages */}
+            {lastMsgObj?.direction === 'OUTBOUND' && (
+              <View style={{ marginRight: 3 }}>
+                {lastMsgObj.status === 'failed' ? (
+                  <Ionicons name="alert-circle" size={14} color="#FF4444" />
+                ) : lastMsgObj.status === 'read' ? (
+                  <Ionicons name="checkmark-done" size={14} color="#53BDEB" />
+                ) : lastMsgObj.status === 'delivered' ? (
+                  <Ionicons name="checkmark-done" size={14} color="#8696A0" />
+                ) : (
+                  <Ionicons name="checkmark" size={14} color="#8696A0" />
+                )}
+              </View>
+            )}
             <Text style={styles.chatPreview} numberOfLines={1}>
               {lastMsg}
             </Text>
