@@ -4,11 +4,13 @@ import { useAuthStore } from '../stores/authStore';
 
 export function useSocket() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const accessToken = useAuthStore((s) => s.accessToken);
+  const user = useAuthStore((s) => s.user);
   const connectedRef = useRef(false);
 
   useEffect(() => {
-    if (isAuthenticated && !connectedRef.current) {
-      socketService.connect();
+    if (isAuthenticated && accessToken && user && !connectedRef.current) {
+      socketService.connect(accessToken, { id: user.id, tenantId: user.tenantId });
       connectedRef.current = true;
     }
 
@@ -18,7 +20,7 @@ export function useSocket() {
         connectedRef.current = false;
       }
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, accessToken, user]);
 
   return socketService;
 }
