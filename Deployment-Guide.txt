@@ -1,0 +1,395 @@
+# SudoReply — Deployment Guide
+# ================================
+# VPS: 72.61.241.109 (hostname: srv1203465, Ubuntu 24.04)
+# SSH: ssh root@72.61.241.109 → su - sudoreply
+#   OR: ssh -t sudoreply@72.61.241.109 "cd /var/www/SudoReply && exec bash"
+#   OR: ssh sr  (if ~/.ssh/config alias is set up)
+# Repo: /var/www/SudoReply
+# Stack: Docker Compose v2 (backend + frontends + postgres + redis)
+#
+# Nginx reverse proxy (host-level, /etc/nginx/sites-enabled/sudoreply.conf):
+#   api.sudoreply.com   → localhost:5000  (backend)
+#   admin.sudoreply.com → localhost:3001  (admin-web)
+#   sudoreply.com       → localhost:3002  (tenant-web)
+#
+# SSL: Certbot (auto-renewal)
+#
+# OTHER PROJECTS ON THIS VPS (do NOT touch during SudoReply deploy):
+#   YourZerosAndOnes → /var/www/yourzerosandones.com (PM2, user: yzoasif)
+#   PostgreSQL 18 host → port 5433 (YZO only; SudoReply uses Docker PG on 5432)
+#
+# NOTE: There is a leftover PM2 process "sudoreply-backend" that is NOT
+#   used. SudoReply runs entirely on Docker. If you see PM2 crash logs,
+#   ignore them or delete the process: pm2 delete sudoreply-backend
+# ================================
+
+
+# ============================================================
+# LOCAL DEV ENVIRONMENT (Windows — NO Docker)
+# ============================================================
+#
+# Prerequisites (installed natively):
+#   - Node.js 20+
+#   - PostgreSQL 18  → localhost:5432
+#   - Redis 7        → localhost:6379
+#
+# Backend .env (backend/.env):
+#   DATABASE_URL=postgresql://postgres:password123@localhost:5432/whatsapp_platform
+#   REDIS_HOST=localhost
+#   REDIS_PORT=6379
+#   MOCK_WHATSAPP=true
+#   FRONTEND_URLS=http://localhost:5173,http://localhost:5174,http://localhost:5175,http://127.0.0.1:5173,http://127.0.0.1:5174
+#
+# Start backend:
+#   cd backend
+#   npm install
+#   npx prisma generate
+#   npx prisma migrate dev
+#   npx prisma db seed
+#   npm run dev            → http://localhost:5000
+#
+# Start admin-web:
+#   cd admin-web
+#   npm install
+#   npm run dev            → http://localhost:5173
+#
+# Start tenant-web:
+#   cd tenant-web
+#   npm install
+#   npm run dev            → http://localhost:5174
+#
+# Default SuperAdmin login:
+#   Email:    ananthukrishna1963@gmail.com
+#   Password: Admin@123
+#
+# KNOWN ISSUE — Tenant-web blank page:
+#   Ad blockers (uBlock, AdGuard, Brave Shields) block any file
+#   named "PrivacyPolicy.jsx" → crashes the entire app because
+#   appRoutes.jsx uses direct imports (not lazy).
+#   FIX: File renamed to DataPolicy.jsx. If it reappears,
+#   disable ad blocker on localhost:5174.
+# ============================================================
+
+
+# ============================================================
+# STEP 1 — LOCAL: merge dev into prod and push
+# ============================================================
+# Run in PowerShell from your local SudoReply clone
+
+git checkout prod
+git merge dev
+git push origin prod
+
+
+# ============================================================
+# STEP 2 — SSH into VPS
+# ============================================================
+# Option A — direct to sudoreply user + project folder (RECOMMENDED):
+ssh -t sudoreply@72.61.241.109 "cd /var/www/SudoReply && exec bash"
+
+# Option B — via root:
+ssh root@72.61.241.109
+su - sudoreply
+cd /var/www/SudoReply
+
+
+# ============================================================
+# STEP 3 — Pull latest prod on VPS
+# ============================================================
+
+git pull origin prod
+
+
+# ============================================================
+# STEP 4 — Verify root .env exists
+# ============================================================
+# This file is NOT in git. It must exist on the VPS.
+# It controls the API URL baked into frontend Docker images.
+
+cat /var/www/SudoReply/.env
+
+# Expected contents:
+#   VITE_API_URL=https://api.sudoreply.com
+#   VITE_BACKEND_URL=https://api.sudoreply.com
+#   VITE_APP_URL=https://sudoreply.com
+#   VITE_META_APP_ID=1510944094144775
+#   VITE_RAZORPAY_KEY_ID=rzp_live_TYH43nLt5GQE3L
+#   VITE_GOOGLE_CLIENT_ID=73639182000-vh6bmq0unbpecadgshv4f1ts883eqnv8.apps.googleusercontent.com
+#   POSTGRES_USER=yzoadmin
+#   POSTGRES_PASSWORD=Sibilissy@5453
+#   POSTGRES_DB=fullweb
+#
+# If missing, switch to root and create it:
+#   exit            (back to root)
+#   nano /var/www/SudoReply/.env
+#   (paste the above, save with Ctrl+O, exit with Ctrl+X)
+#   chown sudoreply:sudoreply /var/www/SudoReply/.env
+#   su - sudoreply  (back to sudoreply)
+
+
+# ============================================================
+# STEP 5 — Backend: rebuild and restart
+# ============================================================
+# Only needed if backend code or migrations changed.
+
+cd /var/www/SudoReply
+
+docker compose up -d --build backend
+
+# Run pending migrations (safe — does NOT reset data):
+docker compose exec backend npx prisma migrate deploy
+
+# Regenerate Prisma client inside container:
+docker compose exec backend npx prisma generate
+
+# Verify:
+docker compose logs backend --tail 30
+
+
+# ============================================================
+# STEP 6 — Frontends: rebuild and restart
+# ============================================================
+# Needed if ANY frontend code changed OR if VITE_* env vars changed.
+# The VITE_* vars from root .env are baked in at BUILD time.
+
+cd /var/www/SudoReply
+
+docker compose up -d --build admin-web tenant-web
+
+# Verify containers are running:
+docker compose ps
+
+# Verify in browser:
+#   https://admin.sudoreply.com
+#   https://sudoreply.com
+
+
+# ============================================================
+# STEP 7 — Reload nginx (only if nginx config changed)
+# ============================================================
+# This needs root. Either switch back or use sudo.
+
+exit   # back to root
+nginx -t
+# must say: configuration file test is successful
+systemctl reload nginx
+su - sudoreply   # back to sudoreply
+
+
+# ============================================================
+# STEP 8 — Smoke test
+# ============================================================
+
+# API health check:
+curl https://api.sudoreply.com/api/health
+
+# Frontend URLs to open in browser:
+#   https://sudoreply.com
+#   https://admin.sudoreply.com
+
+# Container status:
+docker compose ps
+
+# Check for CORS errors in browser DevTools → Network tab.
+# If you see "Not allowed by CORS", the VITE_API_URL in root
+# .env is wrong or the images weren't rebuilt.
+
+
+# ============================================================
+# QUICK COPY-PASTE BLOCK
+# (after you've already SSH'd in and are in /var/www/SudoReply)
+# ============================================================
+
+git pull origin prod && \
+docker compose up -d --build backend admin-web tenant-web && \
+docker compose exec backend npx prisma migrate deploy && \
+docker compose ps && \
+curl https://api.sudoreply.com/api/health
+
+
+# ============================================================
+# ROLLBACK (if something breaks after deploy)
+# ============================================================
+
+# On VPS — revert to previous commit:
+cd /var/www/SudoReply
+git log --oneline -5
+# copy the commit hash you want to roll back to, then:
+git checkout <previous-commit-hash>
+
+# Then redo Steps 5 and 6 (rebuild containers).
+
+# On local — revert the prod branch:
+git checkout prod
+git revert HEAD
+git push origin prod
+
+
+# ============================================================
+# DOCKER COMMANDS CHEAT SHEET
+# ============================================================
+# SudoReply runs on Docker, not PM2. These replace all the
+# pm2 commands you're used to from Cureli.
+#
+# All commands run from: /var/www/SudoReply
+# ----------------------------------------------------------
+#
+# STATUS & INFO
+#   docker compose ps                          # all containers (like pm2 list)
+#   docker stats                               # CPU/RAM per container (like pm2 monit)
+#   docker compose inspect backend             # full details (IP, env, mounts)
+#
+# LOGS
+#   docker compose logs -f                     # all containers (like pm2 logs)
+#   docker compose logs -f backend             # backend only
+#   docker compose logs -f admin-web           # admin frontend
+#   docker compose logs -f tenant-web          # tenant frontend
+#   docker compose logs -f postgres            # database
+#   docker compose logs -f redis               # cache
+#   docker compose logs --tail 100 backend     # last 100 lines, no tailing
+#   docker compose logs --since 1h backend     # last 1 hour
+#   docker compose logs backend 2>&1 | grep -i error   # search for errors
+#
+# START / STOP / RESTART
+#   docker compose up -d                       # start everything
+#   docker compose down                        # stop everything (keeps data)
+#   docker compose down -v                     # STOP + DELETE DATABASE (danger!)
+#   docker compose restart backend             # restart one service
+#   docker compose restart                     # restart everything
+#   docker compose stop backend                # stop one service
+#
+# REBUILD & DEPLOY
+#   docker compose up -d --build backend       # rebuild + restart backend
+#   docker compose up -d --build               # rebuild + restart all
+#   docker compose build --no-cache backend    # rebuild without cache
+#
+# RUN COMMANDS INSIDE CONTAINERS
+#   docker compose exec backend sh             # shell into backend
+#   docker compose exec backend npx prisma migrate deploy   # run migrations
+#   docker compose exec backend npx prisma generate         # regen client
+#   docker compose exec backend node scripts/something.js   # run a script
+#   docker compose exec postgres psql -U yzoadmin -d fullweb  # DB shell
+#
+# DATABASE
+#   docker compose exec postgres psql -U yzoadmin -d fullweb -c "SELECT count(*) FROM users;"
+#   docker compose exec postgres pg_dump -U yzoadmin fullweb > backup.sql    # backup
+#   cat backup.sql | docker compose exec -T postgres psql -U yzoadmin fullweb  # restore
+#
+# CLEANUP
+#   docker system df                           # disk usage
+#   docker system prune                        # clean old images/containers
+#
+# PM2 → DOCKER TRANSLATION
+#   pm2 list              →  docker compose ps
+#   pm2 logs              →  docker compose logs -f
+#   pm2 logs --lines 50   →  docker compose logs --tail 50 backend
+#   pm2 restart app       →  docker compose restart backend
+#   pm2 stop app          →  docker compose stop backend
+#   pm2 start app         →  docker compose up -d backend
+#   pm2 delete app        →  docker compose down
+#   pm2 monit             →  docker stats
+# ============================================================
+
+
+# ============================================================
+# NOTES
+# ============================================================
+
+# .env files are NOT in git — they live only on the VPS.
+# Never overwrite them during deploy.
+# Locations:
+#   /var/www/SudoReply/.env          (root — VITE_* vars for frontends)
+#   /var/www/SudoReply/backend/.env  (backend — DB, Redis, secrets)
+#
+# If you add new VITE_* env vars locally, you must:
+#   1. Add them to /var/www/SudoReply/.env on the VPS
+#   2. Rebuild the frontend Docker images (Step 6)
+#   VITE_* vars are baked at BUILD time, not runtime.
+#
+# If you add new backend env vars, you must:
+#   1. Add them to /var/www/SudoReply/backend/.env on the VPS
+#   2. Restart the backend container (Step 5)
+#
+# Prisma:
+#   "npx prisma migrate deploy" runs pending migrations only.
+#   It does NOT reset data. Safe to run on every deploy.
+#   Run it INSIDE the container: docker compose exec backend ...
+#
+# Docker Compose vs PM2:
+#   Unlike Cureli (which uses PM2 + static files), SudoReply
+#   runs everything in Docker containers on the VPS.
+#   Frontends are served by nginx INSIDE their containers,
+#   not from /var/www/ static directories.
+#   The host-level nginx at /etc/nginx/sites-enabled/sudoreply.conf
+#   just reverse-proxies to the container ports.
+#
+# IMPORTANT — "docker compose" vs "docker-compose":
+#   Use "docker compose" (SPACE, v2 plugin) — this is what's
+#   installed on the VPS and it works correctly.
+#   Do NOT use "docker-compose" (HYPHEN, v1 standalone) — it's
+#   an old version (1.29.2) with a known ContainerConfig bug
+#   that will break container recreation.
+#
+# Database:
+#   PostgreSQL 16 runs INSIDE Docker (port 5432 internally).
+#   Connection string uses internal Docker hostname:
+#     DATABASE_URL=postgresql://yzoadmin:Sibilissy@5453@postgres:5432/fullweb
+#   To access DB directly:
+#     docker compose exec postgres psql -U yzoadmin -d fullweb
+#   NOTE: Port 5432 on the host is SudoReply's Docker PG.
+#         Port 5433 on the host is YZO's native PG. Don't mix them.
+#
+# Redis:
+#   Also inside Docker. Hostname: redis, Port: 6379
+
+
+# ============================================================
+# RECOVERY — Accidentally coded on prod instead of dev
+# ============================================================
+#
+# Scenario:
+# You've been working for hours on the "prod" branch with tons
+# of uncommitted changes. Move ALL of it safely to "dev".
+#
+# 1. Check current branch:
+git branch --show-current
+
+# 2. Stash EVERYTHING (the -u flag is critical — it includes
+#    new/untracked files like new components, routes, etc.):
+git stash push -u -m "WIP: moving work from prod to dev"
+
+# 3. Verify prod is clean:
+git status
+# should say: nothing to commit, working tree clean
+
+# 4. Switch to dev:
+git switch dev
+git pull origin dev
+
+# 5. Restore your changes:
+git stash pop
+
+# 6. Verify:
+git status
+
+# 7. Commit and push:
+git add .
+git commit -m "Your commit message"
+git push origin dev
+#
+# Troubleshooting:
+#   "git stash pop" says CONFLICT:
+#     Open conflicted files, resolve <<<<<<< markers, then:
+#       git add . && git stash drop && git commit -m "resolved"
+#
+#   Stashed WITHOUT -u and lost new files:
+#     They're still on prod as untracked files. Go back:
+#       git switch prod
+#       git stash push -u -m "grabbing missed files"
+#       git switch dev
+#       git stash pop
+#
+#   See what's in a stash before popping:
+#     git stash list
+#     git stash show stash@{0} --stat
+# ============================================================
