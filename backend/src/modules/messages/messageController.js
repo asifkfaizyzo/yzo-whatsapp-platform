@@ -5,6 +5,7 @@ import {
   sendMessageService,
   sendMediaMessageService,
   sendQuickReplyMessageService,
+  sendTemplateMessageService,
   deleteMessageService,
 } from "./messageService.js";
 import upload from "../../middlewares/upload.middleware.js";
@@ -531,6 +532,96 @@ export const deleteMessageController = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Internal server error",
+    });
+  }
+};
+
+
+// ─────────────────────────────────────────────────────────────
+// SEND TEMPLATE MESSAGE  (Tenant / Agent → Contact)
+// ─────────────────────────────────────────────────────────────
+export const sendTemplateMessage = async (req, res) => {
+  try {
+    const { contactId } = req.params;
+    const { templateId, params } = req.body;
+    const tenantId = req.tenantId;
+    const senderType = req.userType;
+
+    const senderId =
+      senderType === "TENANT" ? req.tenant?.id : req.user?.id;
+
+    if (!senderId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unable to identify sender",
+      });
+    }
+
+    if (!templateId) {
+      return res.status(400).json({
+        success: false,
+        message: "templateId is required",
+      });
+    }
+
+    const message = await sendTemplateMessageService({
+      contactId,
+      tenantId,
+      senderId,
+      senderType,
+      templateId,
+      params: Array.isArray(params) ? params : [],
+    });
+
+    // ── Socket emit ─────────────────────────────────────────
+    emitToTenant(tenantId, "new_message", {
+      conversationId: message.conversationId,
+      message: {
+        id: message.id,
+        type: "TEXT",
+        text: message.text,
+        senderId: message.senderId,
+        senderType: message.senderType,
+        direction: "OUTBOUND",
+        isFromCustomer: false,
+        status: message.status,
+        createdAt: message.createdAt,
+      },
+    });
+
+    if (message.status === "failed") {
+      return res.status(400).json({
+        success: false,
+        message: message.failureReason || "Failed to deliver template message",
+        data: message,
+      });
+    }
+
+    return res.status(201).json({
+      success: true,
+      data: message,
+    });
+  } catch (error) {
+    if (
+      error.message.includes("not found") ||
+      error.message.includes("not approved")
+    ) {
+      return res.status(404).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    if (error.message.includes("blocked")) {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: error.message,
     });
   }
 };

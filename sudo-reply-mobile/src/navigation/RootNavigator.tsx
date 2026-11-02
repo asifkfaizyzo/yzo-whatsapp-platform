@@ -6,6 +6,7 @@ import { AuthStack } from './AuthStack';
 import { MainTabs } from './MainTabs';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { useSocket } from '../hooks/useSocket';
+import { navigationRef } from './navigationRef';
 
 export const RootNavigator: React.FC = () => {
   const { isAuthenticated, isLoading, hydrate } = useAuthStore();
@@ -34,7 +35,7 @@ export const RootNavigator: React.FC = () => {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       {isAuthenticated ? <MainTabs /> : <AuthStack />}
     </NavigationContainer>
   );

@@ -7,13 +7,22 @@ const KEYS = {
 } as const;
 
 export const AuthStorage = {
-  async saveTokens(accessToken: string, refreshToken: string) {
-    await Promise.all([
-      SecureStore.setItemAsync(KEYS.ACCESS_TOKEN, accessToken),
-      SecureStore.setItemAsync(KEYS.REFRESH_TOKEN, refreshToken),
-    ]);
-  },
+  async saveTokens(accessToken: string, refreshToken?: string | null) {
+  const tasks: Promise<void>[] = [];
 
+  if (accessToken) {
+    tasks.push(SecureStore.setItemAsync(KEYS.ACCESS_TOKEN, accessToken));
+  }
+
+  if (refreshToken) {
+    tasks.push(SecureStore.setItemAsync(KEYS.REFRESH_TOKEN, refreshToken));
+  } else {
+    // Clear stale refresh token if new login didn't provide one
+    tasks.push(SecureStore.deleteItemAsync(KEYS.REFRESH_TOKEN));
+  }
+
+  await Promise.all(tasks);
+},
   async getAccessToken(): Promise<string | null> {
     return SecureStore.getItemAsync(KEYS.ACCESS_TOKEN);
   },

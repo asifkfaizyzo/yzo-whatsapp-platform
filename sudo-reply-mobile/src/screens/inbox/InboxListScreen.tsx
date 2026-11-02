@@ -18,6 +18,7 @@ import { Badge } from '../../components/ui/Badge';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { useAssignedConversations, useMarkRead } from '../../hooks/useConversations';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { NotificationBell } from '../../components/ui/NotificationBell';
 
 type Props = NativeStackScreenProps<any, 'InboxList'>;
 
@@ -71,8 +72,9 @@ export const InboxListScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Inbox</Text>
-      </View>
+  <Text style={styles.headerTitle}>Inbox</Text>
+  <NotificationBell onPress={() => navigation.navigate('Profile', { screen: 'NotificationCenter' })} />
+</View>
 
       {isLoading ? (
         <View style={styles.center}>
@@ -103,9 +105,12 @@ export const InboxListScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.white },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.md,
-  },
+},
   headerTitle: { ...typography.h1, color: colors.darkGrey },
   list: { paddingHorizontal: spacing.xl, paddingBottom: spacing.huge },
   chatCard: {

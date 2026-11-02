@@ -7,6 +7,8 @@ export interface Contact {
   name: string;
   phone: string;
   email?: string;
+  company?: string;
+  countryCode?: string;
   tenantId: string;
   assignedTo?: string;
   isActive: boolean;
@@ -14,6 +16,14 @@ export interface Contact {
   tags?: { tag: { id: string; name: string; color?: string } }[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ContactFormData {
+  name: string;
+  phone: string;
+  email?: string;
+  company?: string;
+  countryCode?: string;
 }
 
 export const useContacts = (search?: string) => {
@@ -33,7 +43,8 @@ export const useContact = (id: string) => {
     queryKey: ['contact', id],
     queryFn: async () => {
       const { data } = await api.get(ENDPOINTS.contacts.getById(id));
-      return data.data?.contact || data.data || data;
+      const contact = data.data?.contact || data.data || data;
+      return contact;
     },
     enabled: !!id,
   });
@@ -42,11 +53,25 @@ export const useContact = (id: string) => {
 export const useCreateContact = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (payload: { name: string; phone: string; email?: string }) => {
+    mutationFn: async (payload: ContactFormData) => {
       const { data } = await api.post(ENDPOINTS.contacts.create, payload);
       return data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['contacts'] }),
+  });
+};
+
+export const useUpdateContact = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...payload }: ContactFormData & { id: string }) => {
+      const { data } = await api.put(ENDPOINTS.contacts.update(id), payload);
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['contacts'] });
+      qc.invalidateQueries({ queryKey: ['contact'] });
+    },
   });
 };
 
@@ -67,6 +92,20 @@ export const useBlockContact = () => {
     mutationFn: async ({ id, block }: { id: string; block: boolean }) => {
       const endpoint = block ? ENDPOINTS.contacts.block(id) : ENDPOINTS.contacts.unblock(id);
       const { data } = await api.patch(endpoint);
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['contacts'] });
+      qc.invalidateQueries({ queryKey: ['contact'] });
+    },
+  });
+};
+
+export const useImportPhoneContacts = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (contacts: { name: string; phone: string; email?: string }[]) => {
+      const { data } = await api.post(ENDPOINTS.contacts.importPhone, { contacts });
       return data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['contacts'] }),

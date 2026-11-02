@@ -51,6 +51,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isLoading: true,
 
   setAuth: (user, accessToken, refreshToken, userType) => {
+    // 🔍 DIAGNOSTIC
+    console.log('💾 setAuth called:', {
+      hasAccess: !!accessToken,
+      hasRefresh: !!refreshToken,
+      refreshType: typeof refreshToken,
+    });
+
     AuthStorage.saveTokens(accessToken, refreshToken);
     AuthStorage.saveUserType(userType);
     set({

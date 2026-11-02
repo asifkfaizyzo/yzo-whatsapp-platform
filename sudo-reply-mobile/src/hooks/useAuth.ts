@@ -38,10 +38,30 @@ export function useLogin() {
         email,
         password,
       });
+
+      // 🔍 DIAGNOSTIC — remove after confirming
+      console.log('📦 RAW LOGIN RESPONSE:', JSON.stringify({
+        hasData: !!data,
+        hasNestedData: !!data?.data,
+        hasAccess: !!data?.data?.accessToken,
+        hasRefresh: !!data?.data?.refreshToken,
+        keys: data?.data ? Object.keys(data.data) : [],
+      }));
+
       return { ...data, userType };
     },
     onSuccess: (response) => {
       const { user, accessToken, refreshToken } = response.data;
+    
+      // 🔍 DIAGNOSTIC
+      console.log('🔑 LOGIN RESPONSE:', {
+        hasUser: !!user,
+        hasAccess: !!accessToken,
+        accessLen: accessToken?.length,
+        hasRefresh: !!refreshToken,
+        refreshLen: refreshToken?.length,
+        userType: response.userType,
+      });
       setAuth(user, accessToken, refreshToken, response.userType);
     },
   });
@@ -113,8 +133,18 @@ export const useGoogleLogin = () => {
       userType: 'USER' | 'TENANT';
     }) => loginWithGoogleBackend(credential, userType),
     onSuccess: (data, variables) => {
+      // 🔍 DIAGNOSTIC — remove after fixing
+      console.log('📦 GOOGLE LOGIN RAW RESPONSE:', JSON.stringify({
+        topLevelKeys: Object.keys(data),
+        hasData: !!data?.data,
+        dataKeys: data?.data ? Object.keys(data.data) : [],
+        hasAccess: !!data?.data?.accessToken,
+        hasRefresh: !!data?.data?.refreshToken,
+        refreshType: typeof data?.data?.refreshToken,
+      }));
+
       const { user, accessToken, refreshToken } = data.data;
-      setAuth(user, accessToken, refreshToken, variables.userType);  // ← 4th arg
+      setAuth(user, accessToken, refreshToken, variables.userType);
     },
   });
 };

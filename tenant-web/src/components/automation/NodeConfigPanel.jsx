@@ -711,10 +711,23 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
               <input
                 value={saveAs}
                 onChange={(e) => setSaveAs(e.target.value)}
-                placeholder="e.g. customer_name"
+                placeholder="e.g. orderNumber"
                 className="w-full text-sm border border-slate-200 rounded-xl 
                   p-2.5 focus:outline-none focus:border-amber-400 transition"
               />
+              <p className="text-[10px] text-slate-400 mt-1.5">
+                Use an order-number key (for example, <code>orderNumber</code>, <code>order_number</code>, or{" "}
+                <code>order_Number</code>) to look up an order automatically. Letter case and underscores are ignored.
+                Use these placeholders in later messages: <code>{"{{order_number}}"}</code>,{" "}
+                <code>{"{{order_status}}"}</code>, <code>{"{{order_status_raw}}"}</code>,{" "}
+                <code>{"{{payment_status}}"}</code>, <code>{"{{payment_status_raw}}"}</code>,{" "}
+                <code>{"{{tracking_url}}"}</code>, <code>{"{{tracking_number}}"}</code>,{" "}
+                <code>{"{{tracking_provider}}"}</code>, <code>{"{{has_tracking}}"}</code>,{" "}
+                <code>{"{{order_date}}"}</code>,{" "}
+                <code>{"{{items_summary}}"}</code>, <code>{"{{total_amount}}"}</code>,{" "}
+                <code>{"{{currency}}"}</code>, <code>{"{{item_count}}"}</code>,{" "}
+                <code>{"{{customer_name}}"}</code>.
+              </p>
             </div>
           </div>
         )}

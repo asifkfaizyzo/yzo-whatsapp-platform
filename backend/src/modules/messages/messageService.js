@@ -10,8 +10,53 @@ import { emitToTenant, emitToUser } from '../../lib/socket.js';
 import fs from 'fs';
 import path from 'path';
 import { trackUsage } from '../quick-replies/quickReplyService.js';
+import pushService, { shouldSendPush } from '../../services/pushService.js';
 
 const CLOSED_STATUSES = ['RESOLVED', 'CLOSED'];
+
+// ─────────────────────────────────────────────────────────────
+// PUSH NOTIFICATION TO ASSIGNED AGENT
+// ─────────────────────────────────────────────────────────────
+const sendPushToAssignedAgent = async (assignedUserId, contact, messageText, conversationId, messageType) => {
+  try {
+    console.log(`🔔 sendPushToAssignedAgent: checking user ${assignedUserId}`);
+    const allowed = await shouldSendPush(assignedUserId, 'new_message');
+    if (!allowed) {
+      console.log(`🔔 sendPushToAssignedAgent: skipped (prefs/token) for ${assignedUserId}`);
+      return;
+    }
+
+    const agent = await prisma.user.findUnique({
+      where: { id: assignedUserId },
+      select: { pushToken: true },
+    });
+
+    if (!agent?.pushToken) {
+      console.log(`🔔 sendPushToAssignedAgent: no pushToken for ${assignedUserId}`);
+      return;
+    }
+
+    const previewText = messageText?.substring(0, 200)
+      || (messageType && messageType !== 'TEXT' ? `📷 ${messageType.toLowerCase()} message` : 'New message');
+
+    console.log(`🔔 sendPushToAssignedAgent: sending to ${agent.pushToken.substring(0, 30)}...`);
+    const result = await pushService.sendToDevice({
+      token: agent.pushToken,
+      title: contact.name || contact.phone || 'New Message',
+      body: previewText,
+      data: {
+        type: 'new_message',
+        contactId: contact.id,
+        conversationId,
+        contactName: contact.name || contact.phone || 'Unknown',
+        channelId: 'messages',
+      },
+    });
+    console.log(`🔔 sendPushToAssignedAgent: result =`, result.success ? '✅ sent' : `❌ ${result.message}`);
+  } catch (err) {
+    console.error('❌ Push to agent failed:', err.message);
+  }
+};
 
 // ─────────────────────────────────────────────────────────────
 // HANDLE INCOMING MESSAGE  (Contact → Platform)
@@ -183,7 +228,7 @@ export const handleIncomingMessage = async ({
       contactName: contact.name || contact.phone,
     });
 
-    emitToUser(assignedUserId, 'new_message', {
+        emitToUser(assignedUserId, 'new_message', {
       conversationId: updatedConversation.id,
       message: {
         id: message.id,
@@ -203,6 +248,17 @@ export const handleIncomingMessage = async ({
         locAddress: message.locAddress,
         createdAt: message.createdAt,
       },
+    });
+
+    // ── Push notification to assigned agent (fire-and-forget) ──
+    sendPushToAssignedAgent(
+      assignedUserId,
+      contact,
+      text || caption,
+      updatedConversation.id,
+      type
+    ).catch((err) => {
+      console.error('❌ Push notification error:', err.message);
     });
   }
 
@@ -244,6 +300,26 @@ export const handleIncomingMessage = async ({
         },
       });
     }
+
+    // ── Push to ALL tenant agents for unassigned messages ──
+    prisma.user
+      .findMany({
+        where: { tenantId, userType: 'USER' },
+        select: { id: true },
+      })
+      .then((agents) => {
+        console.log(`🔔 Unassigned message — pushing to ${agents.length} agent(s)`);
+        agents.forEach((agent) => {
+          sendPushToAssignedAgent(
+            agent.id,
+            contact,
+            text || caption,
+            updatedConversation.id,
+            type
+          ).catch((err) => console.error('❌ Push to unassigned agent failed:', err.message));
+        });
+      })
+      .catch((err) => console.error('❌ Failed to fetch agents for push:', err.message));
   }
 
   // ── Trigger flow engine (text or location) ───────────────────
@@ -1195,4 +1271,193 @@ export const sendQuickReplyMessageService = async ({
   trackUsage(quickReply.id, tenantId).catch(() => {});
 
   return { ...result, isMedia: false };
+};
+
+// ─────────────────────────────────────────────────────────────
+// SEND TEMPLATE MESSAGE  (Tenant / Agent → Contact via Meta)
+// ─────────────────────────────────────────────────────────────
+export const sendTemplateMessageService = async ({
+  contactId,
+  tenantId,
+  senderId,
+  senderType,
+  templateId,
+  params = [],
+}) => {
+  // ── 1. Validate contact & tenant boundary ──────────────────
+  const contact = await prisma.contact.findUnique({
+    where: { id: contactId },
+  });
+
+  if (!contact) throw new Error('Contact not found');
+  if (contact.tenantId !== tenantId) {
+    throw new Error('Unauthorized: Contact does not belong to this tenant');
+  }
+  if (contact.isBlocked) {
+    throw new Error('Cannot send message to a blocked contact');
+  }
+
+  // ── 2. Load approved template ──────────────────────────────
+  const template = await prisma.template.findFirst({
+    where: { id: templateId, tenantId, status: 'APPROVED' },
+  });
+
+  if (!template) {
+    throw new Error('Template not found or not approved');
+  }
+
+  // ── 3. Load tenant credentials ─────────────────────────────
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+  });
+
+  // ── 4. Get or create conversation ──────────────────────────
+  const conversation = await getOrCreateConversation(
+    contactId,
+    tenantId,
+    contact.channel || 'WHATSAPP'
+  );
+
+  let waMessageId = null;
+  let msgStatus = 'sent';
+  let failureReason = null;
+
+  // ── 5. Send via Meta Cloud API ─────────────────────────────
+  if (process.env.MOCK_WHATSAPP === 'true') {
+    waMessageId = `mock_wamid_template_${Date.now()}`;
+  } else if (tenant?.whatsappPhoneId && tenant?.whatsappAccessToken) {
+    try {
+      const cleanPhone = (contact.phone || '').replace('+', '');
+      const url = `${GRAPH_BASE_URL}/${tenant.whatsappPhoneId}/messages`;
+
+      const bodyParameters = params.map((val) => ({
+        type: 'text',
+        text: String(val),
+      }));
+
+      const payload = {
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: cleanPhone,
+        type: 'template',
+        template: {
+          name: template.name,
+          language: { code: template.language || 'en_US' },
+          components:
+            bodyParameters.length > 0
+              ? [{ type: 'body', parameters: bodyParameters }]
+              : [],
+        },
+      };
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${decrypt(tenant.whatsappAccessToken)}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        console.error('⚠️ WhatsApp Template API Error:', responseData);
+        msgStatus = 'failed';
+        failureReason =
+          responseData?.error?.message || 'Meta template send failed';
+      } else {
+        waMessageId = responseData?.messages?.[0]?.id || null;
+        if (!waMessageId) {
+          msgStatus = 'failed';
+          failureReason = 'Meta accepted but returned no WAMID';
+        } else {
+          console.log('✅ WhatsApp template sent, wamid:', waMessageId);
+        }
+      }
+    } catch (err) {
+      console.error('⚠️ WhatsApp template send failed:', err.message);
+      msgStatus = 'failed';
+      failureReason = err.message;
+    }
+  } else {
+    msgStatus = 'failed';
+    failureReason = 'WhatsApp credentials not configured for tenant';
+  }
+
+  // ── 6. Build preview text from template body ───────────────
+  let previewText = `[Template: ${template.name}]`;
+  try {
+    const components =
+      typeof template.components === 'string'
+        ? JSON.parse(template.components)
+        : template.components;
+
+    if (Array.isArray(components)) {
+      const bodyComp = components.find((c) => c.type === 'BODY');
+      if (bodyComp?.text) {
+        let formatted = bodyComp.text;
+        params.forEach((val, idx) => {
+          formatted = formatted.replace(
+            new RegExp(`\\{\\{${idx + 1}\\}\\}`, 'g'),
+            String(val)
+          );
+        });
+        previewText = formatted;
+      }
+    }
+  } catch (_) {
+    // fallback to [Template: name]
+  }
+
+  // ── 7. Reopen conversation if closed ───────────────────────
+  const isClosed = CLOSED_STATUSES.includes(conversation.status);
+
+  if (isClosed) {
+    await prisma.conversation.update({
+      where: { id: conversation.id },
+      data: {
+        status: 'OPEN',
+        reopenCount: { increment: 1 },
+        reopenedAt: new Date(),
+        resolvedAt: null,
+        closedAt: null,
+        lastMessageAt: new Date(),
+      },
+    });
+
+    await logActivity({
+      conversationId: conversation.id,
+      action: 'opened',
+      performedBy: senderId || null,
+      performedByType: senderType === 'TENANT' ? 'tenant' : 'agent',
+    });
+  } else {
+    await prisma.conversation.update({
+      where: { id: conversation.id },
+      data: { lastMessageAt: new Date() },
+    });
+  }
+
+  // ── 8. Create message in DB ────────────────────────────────
+  const message = await prisma.message.create({
+    data: {
+      conversationId: conversation.id,
+      senderId,
+      senderType,
+      direction: 'OUTBOUND',
+      type: 'TEXT',
+      text: previewText,
+      status: msgStatus,
+      isRead: false,
+      wamid: waMessageId,
+      failureReason,
+    },
+  });
+
+  return {
+    ...message,
+    conversationId: conversation.id,
+    templateName: template.name,
+  };
 };

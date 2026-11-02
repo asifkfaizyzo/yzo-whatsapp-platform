@@ -237,6 +237,115 @@ export const buildWooOrderLifecycleMessage = ({
 };
 
 export const parseWooReviewRating = (text) => {
-  const match = String(text || '').trim().match(/^([1-5])(?:\s*(?:\/\s*5|stars?))?$/i);
-  return match ? Number(match[1]) : null;
+  if (!text) return null;
+  const str = String(text).trim().toLowerCase();
+
+  // 1. Direct single number 1-5
+  const singleNumMatch = str.match(/\b([1-5])\b/);
+  if (singleNumMatch) return parseInt(singleNumMatch[1], 10);
+
+  // 2. Fraction e.g. "5/5" or "4 / 5"
+  const fractionMatch = str.match(/([1-5])\s*\/\s*5/);
+  if (fractionMatch) return parseInt(fractionMatch[1], 10);
+
+  // 3. Count star emojis ⭐ or 🌟
+  const starCount = (text.match(/⭐|🌟/g) || []).length;
+  if (starCount >= 1 && starCount <= 5) return starCount;
+
+  // 4. Word representations
+  if (str.includes('five') || str.includes('excellent')) return 5;
+  if (str.includes('four') || str.includes('good')) return 4;
+  if (str.includes('three') || str.includes('average')) return 3;
+  if (str.includes('two') || str.includes('poor')) return 2;
+  if (str.includes('one') || str.includes('bad') || str.includes('terrible')) return 1;
+
+  return null;
 };
+
+/**
+ * Intercepts incoming customer WhatsApp reply and checks if it belongs to a pending WooCommerce review request
+ */
+export async function handleWooCommerceReviewReply({ tenantId, contactPhone, userMessage }) {
+  if (!contactPhone || !userMessage) return { handled: false };
+
+  const { default: prisma } = await import('../config/prisma.js');
+  const cleanPhone = contactPhone.replace(/\D/g, '');
+  const rating = parseWooReviewRating(userMessage);
+
+  // 1. Find the latest pending review request for WooCommerce order
+  const order = await prisma.ecommerceOrder.findFirst({
+    where: {
+      tenantId,
+      source: 'WOOCOMMERCE',
+      reviewRequestedAt: { not: null },
+      reviewReceivedAt: null,
+      OR: [
+        { customerPhone: { contains: cleanPhone } },
+        { customerPhone: cleanPhone }
+      ]
+    },
+    orderBy: { reviewRequestedAt: 'desc' }
+  });
+
+  if (!order) return { handled: false };
+
+  // 2. Record review rating & timestamp in database
+  await prisma.ecommerceOrder.update({
+    where: { id: order.id },
+    data: {
+      reviewRating: rating,
+      reviewReceivedAt: new Date()
+    }
+  });
+
+  // 3. Draft response message
+  let replyText = '';
+  if (rating && rating >= 4) {
+    replyText = `Thank you so much for your ${rating}-star rating! 🌟 We're thrilled you enjoyed your order #${order.orderNumber || order.externalOrderId}. If you have a moment, please share your experience with friends!`;
+  } else if (rating && rating <= 3) {
+    replyText = `Thank you for your feedback on order #${order.orderNumber || order.externalOrderId}. We're sorry to hear it wasn't a 5-star experience. A team member will reach out shortly to assist you.`;
+  } else {
+    replyText = `Thank you for your feedback on order #${order.orderNumber || order.externalOrderId}! We appreciate your response.`;
+  }
+
+  // 4. Save response to SudoReply WhatsApp Inbox
+  try {
+    let contact = await prisma.contact.findFirst({
+      where: { tenantId, phone: { contains: cleanPhone } }
+    });
+
+    if (!contact) {
+      contact = await prisma.contact.create({
+        data: {
+          tenantId,
+          name: order.customerName || 'WooCommerce Customer',
+          phone: cleanPhone
+        }
+      });
+    }
+
+    await prisma.chatMessage.create({
+      data: {
+        tenantId,
+        contactId: contact.id,
+        direction: 'OUTBOUND',
+        senderType: 'SYSTEM',
+        message: replyText,
+        metadata: {
+          source: 'WOOCOMMERCE_REVIEW_REPLY',
+          orderId: order.id,
+          rating
+        }
+      }
+    });
+  } catch (err) {
+    console.error('[WooCommerce Post-Purchase] Error saving reply message to inbox:', err.message);
+  }
+
+  return {
+    handled: true,
+    orderId: order.id,
+    rating,
+    responseSent: replyText
+  };
+}

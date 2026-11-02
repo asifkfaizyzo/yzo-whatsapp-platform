@@ -20,6 +20,14 @@ export const loginUser = async (req, res) => {
     const result = await loginUserService(req.body, meta);
     const { accessToken, refreshToken, user } = result;
 
+    // 🔍 DIAGNOSTIC — remove after confirming
+console.log('🔑 Login tokens:', {
+  hasAccess: !!accessToken,
+  accessLen: accessToken?.length,
+  hasRefresh: !!refreshToken,
+  refreshLen: refreshToken?.length,
+});
+
       // Set HTTP-Only Cookie for the refresh token
       res.cookie('user_refreshToken', refreshToken, {
         httpOnly: true,
@@ -349,6 +357,17 @@ export const googleLoginUser = async (req, res) => {
     const result = await loginUserWithGoogleService(credential);
     const { accessToken, refreshToken, user } = result;
 
+    // 🔍 ADD THIS ONE LINE
+    console.log('🔑 GOOGLE LOGIN RESULT:', { hasAccess: !!accessToken, hasRefresh: !!refreshToken, refreshLen: refreshToken?.length });
+
+    // 🔍 DIAGNOSTIC — remove after confirming
+console.log('🔑 Login tokens:', {
+  hasAccess: !!accessToken,
+  accessLen: accessToken?.length,
+  hasRefresh: !!refreshToken,
+  refreshLen: refreshToken?.length,
+});
+
     res.cookie('user_refreshToken', refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -367,5 +386,139 @@ export const googleLoginUser = async (req, res) => {
       success: false,
       message: error.message || 'Google Auth failed',
     });
+  }
+};
+
+// ═════════════════════════════════════════
+// 🆕 PUSH TOKEN REGISTRATION
+// ═════════════════════════════════════════
+export const registerPushToken = async (req, res) => {
+  try {
+    const { pushToken } = req.body;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
+    if (!pushToken || typeof pushToken !== 'string') {
+      return res.status(400).json({ success: false, message: 'pushToken is required' });
+    }
+
+    if (!pushToken.startsWith('ExponentPushToken[')) {
+      return res.status(400).json({ success: false, message: 'Invalid push token format' });
+    }
+
+    const prisma = (await import('../../config/prisma.js')).default;
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        pushToken,
+        pushTokenUpdatedAt: new Date(),
+      },
+    });
+
+    console.log(`🔔 Push token saved for agent ${userId}: ${pushToken.substring(0, 30)}...`);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Push token registered',
+    });
+  } catch (error) {
+    console.error('❌ registerPushToken error:', error.message);
+    return res.status(500).json({ success: false, message: 'Failed to register push token' });
+  }
+};
+
+export const clearPushToken = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
+    const prisma = (await import('../../config/prisma.js')).default;
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        pushToken: null,
+        pushTokenUpdatedAt: new Date(),
+      },
+    });
+
+    console.log(`🔔 Push token cleared for agent ${userId}`);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Push token cleared',
+    });
+  } catch (error) {
+    console.error('❌ clearPushToken error:', error.message);
+    return res.status(500).json({ success: false, message: 'Failed to clear push token' });
+  }
+};
+
+// ── Get Notification Preferences ──
+export const getNotificationPreferences = async (req, res) => {
+  try {
+    const userId = req.userId || req.user?.id;
+    if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { notificationPreferences: true },
+    });
+
+    const defaults = {
+      pushEnabled: true,
+      types: {
+        new_message: true,
+        conversation_reassigned: true,
+        broadcast_completed: true,
+        template_approved: true,
+        template_rejected: true,
+      },
+    };
+
+    return res.status(200).json({
+      success: true,
+      data: user?.notificationPreferences || defaults,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ── Update Notification Preferences ──
+export const updateNotificationPreferences = async (req, res) => {
+  try {
+    const userId = req.userId || req.user?.id;
+    if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+    const { pushEnabled, types } = req.body;
+
+    const preferences = {
+      pushEnabled: pushEnabled !== undefined ? pushEnabled : true,
+      types: {
+        new_message: true,
+        conversation_reassigned: true,
+        broadcast_completed: true,
+        template_approved: true,
+        template_rejected: true,
+        ...(types || {}),
+      },
+    };
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { notificationPreferences: preferences },
+    });
+
+    return res.status(200).json({ success: true, data: preferences });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
   }
 };

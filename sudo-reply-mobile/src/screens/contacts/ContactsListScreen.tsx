@@ -71,12 +71,20 @@ export const ContactsListScreen: React.FC<Props> = ({ navigation }) => {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Contacts</Text>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => navigation.navigate('AddContact')}
-        >
-          <Ionicons name="add" size={24} color={colors.white} />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <TouchableOpacity
+            style={styles.importButton}
+            onPress={() => navigation.navigate('ImportPhoneContacts')}
+          >
+            <Ionicons name="phone-portrait-outline" size={20} color={colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => navigation.navigate('ContactForm')}
+          >
+            <Ionicons name="add" size={24} color={colors.white} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Search */}
@@ -129,6 +137,14 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
   headerTitle: { ...typography.h1, color: colors.darkGrey },
+  importButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#DBEAFE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   addButton: {
     width: 40,
     height: 40,
