@@ -12,10 +12,10 @@ import {
 import multer from 'multer';
 
 const upload = multer({ dest: 'uploads/temp/' });
-import { setupWhatsAppSchema } from '../tenant/tenant.schema.js';
+
 import validate from '../../middlewares/validate.middleware.js';
 import { checkSubscriptionAccess } from '../../middlewares/subscription.access.js';
-import { sendLocationSchema } from './whatsapp.schema.js';
+import { sendLocationSchema, setupWhatsAppSchema } from './whatsapp.schema.js';
 
 const router = express.Router();
 

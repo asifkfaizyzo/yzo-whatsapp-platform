@@ -56,3 +56,15 @@ export const sendLocationSchema = z.object({
   query:   z.object({}).optional(),
   cookies: z.object({}).optional(),
 });
+// -------------------------------------------------------------
+// Setup WhatsApp Schema
+// Used by: POST /api2/whatsapp/setup
+// -------------------------------------------------------------
+export const setupWhatsAppSchema = z.object({
+  body: z.object({
+    phoneNumberId: z.string({ required_error: "phoneNumberId is required" }).min(1),
+    wabaId: z.string().optional().or(z.literal("")).nullable(),
+    accessToken: z.string().optional().or(z.literal("")).nullable(),
+    pin: z.string().optional().or(z.literal("")).nullable(),
+  }),
+});
