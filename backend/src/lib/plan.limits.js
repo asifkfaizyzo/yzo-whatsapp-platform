@@ -1,72 +1,86 @@
 // backend/src/lib/plan.limits.js (do not remove this comment)
-import prisma from '../config/prisma.js';
+import prisma from "../config/prisma.js";
 
 /**
  * Checks if a feature is enabled for a tenant based on their active subscription plan.
  * Returns { allowed: boolean, code?: string, status?: number, message?: string }
  */
 export const checkFeatureAccess = async (tenantId, featureName) => {
-  const tenant = await prisma.tenant.findUnique({
+  const tenantRow = await prisma.tenant.findUnique({
     where: { id: tenantId },
     include: {
-      plan: {
+      subscription: {
         include: {
-          features: {
+          plan: {
             include: {
-              feature: true
-            }
-          }
-        }
-      }
-    }
+              features: {
+                include: {
+                  feature: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   });
 
-  if (!tenant) {
+  if (!tenantRow) {
     return {
       allowed: false,
-      code: 'TENANT_NOT_FOUND',
+      code: "TENANT_NOT_FOUND",
       status: 404,
-      message: 'Tenant not found.'
+      message: "Tenant not found.",
     };
   }
 
+  const tenant = {
+    ...tenantRow,
+    ...tenantRow.subscription,
+    plan: tenantRow.subscription?.plan,
+  };
+
   // Verify active subscription status
   const status = tenant.subscriptionStatus;
-  const isActive = status === 'active' || status === 'trialing' || status === 'cancel_at_period_end';
+  const isActive =
+    status === "active" ||
+    status === "trialing" ||
+    status === "cancel_at_period_end";
   if (!isActive) {
     return {
       allowed: false,
-      code: 'SUBSCRIPTION_INACTIVE',
+      code: "SUBSCRIPTION_INACTIVE",
       status: 403,
-      message: 'Your subscription is not active. Please subscribe to a plan to access this feature.'
+      message:
+        "Your subscription is not active. Please subscribe to a plan to access this feature.",
     };
   }
 
   // Enterprise plan has all features
-  if (tenant.planStatus === 'enterprise_active') {
+  if (tenant.planStatus === "enterprise_active") {
     return { allowed: true };
   }
 
   if (!tenant.plan) {
     return {
       allowed: false,
-      code: 'PLAN_REQUIRED',
+      code: "PLAN_REQUIRED",
       status: 403,
-      message: 'A subscription plan is required to access this feature.'
+      message: "A subscription plan is required to access this feature.",
     };
   }
 
   // Check feature existence in features list
   const hasFeature = tenant.plan.features.some(
-    pf => pf.feature.name.toLowerCase() === featureName.toLowerCase()
+    (pf) => pf.feature.name.toLowerCase() === featureName.toLowerCase(),
   );
 
   if (!hasFeature) {
     return {
       allowed: false,
-      code: 'FEATURE_NOT_AVAILABLE',
+      code: "FEATURE_NOT_AVAILABLE",
       status: 403,
-      message: `Feature "${featureName}" is not available in your current plan. Please upgrade your plan.`
+      message: `Feature "${featureName}" is not available in your current plan. Please upgrade your plan.`,
     };
   }
 
@@ -77,46 +91,60 @@ export const checkFeatureAccess = async (tenantId, featureName) => {
  * Checks if a limit is exceeded for a tenant based on their active subscription plan.
  * Returns { allowed: boolean, code?: string, status?: number, message?: string }
  */
-export const checkLimitAccess = async (tenantId, limitName, requiredCount = 1) => {
-  const tenant = await prisma.tenant.findUnique({
+export const checkLimitAccess = async (
+  tenantId,
+  limitName,
+  requiredCount = 1,
+) => {
+  const tenantRow = await prisma.tenant.findUnique({
     where: { id: tenantId },
     include: {
-      plan: true
-    }
+      subscription: { include: { plan: true } },
+    },
   });
 
-  if (!tenant) {
+  if (!tenantRow) {
     return {
       allowed: false,
-      code: 'TENANT_NOT_FOUND',
+      code: "TENANT_NOT_FOUND",
       status: 404,
-      message: 'Tenant not found.'
+      message: "Tenant not found.",
     };
   }
 
+  const tenant = {
+    ...tenantRow,
+    ...tenantRow.subscription,
+    plan: tenantRow.subscription?.plan,
+  };
+
   // Verify active subscription status
   const status = tenant.subscriptionStatus;
-  const isActive = status === 'active' || status === 'trialing' || status === 'cancel_at_period_end';
+  const isActive =
+    status === "active" ||
+    status === "trialing" ||
+    status === "cancel_at_period_end";
   if (!isActive) {
     return {
       allowed: false,
-      code: 'SUBSCRIPTION_INACTIVE',
+      code: "SUBSCRIPTION_INACTIVE",
       status: 403,
-      message: 'Your subscription is not active. Please subscribe to a plan to access this resource.'
+      message:
+        "Your subscription is not active. Please subscribe to a plan to access this resource.",
     };
   }
 
   // Enterprise plan is unlimited
-  if (tenant.planStatus === 'enterprise_active') {
+  if (tenant.planStatus === "enterprise_active") {
     return { allowed: true };
   }
 
   if (!tenant.plan) {
     return {
       allowed: false,
-      code: 'PLAN_REQUIRED',
+      code: "PLAN_REQUIRED",
       status: 403,
-      message: 'A subscription plan is required to access this resource.'
+      message: "A subscription plan is required to access this resource.",
     };
   }
 
@@ -124,9 +152,9 @@ export const checkLimitAccess = async (tenantId, limitName, requiredCount = 1) =
   if (limitValue === undefined) {
     return {
       allowed: false,
-      code: 'LIMIT_NOT_FOUND',
+      code: "LIMIT_NOT_FOUND",
       status: 400,
-      message: `Invalid limit: ${limitName}`
+      message: `Invalid limit: ${limitName}`,
     };
   }
 
@@ -136,28 +164,28 @@ export const checkLimitAccess = async (tenantId, limitName, requiredCount = 1) =
   }
 
   let currentCount = 0;
-  let limitDisplayName = '';
+  let limitDisplayName = "";
 
-  if (limitName === 'maxAgents') {
-    limitDisplayName = 'team members';
+  if (limitName === "maxAgents") {
+    limitDisplayName = "team members";
     currentCount = await prisma.user.count({
-      where: { tenantId, isActive: true }
+      where: { tenantId, isActive: true },
     });
-  } else if (limitName === 'maxAutomations') {
-    limitDisplayName = 'automations';
+  } else if (limitName === "maxAutomations") {
+    limitDisplayName = "automations";
     currentCount = await prisma.flow.count({
-      where: { tenantId }
+      where: { tenantId },
     });
-  } else if (limitName === 'maxCampaigns') {
-    limitDisplayName = 'broadcast campaigns';
+  } else if (limitName === "maxCampaigns") {
+    limitDisplayName = "broadcast campaigns";
     currentCount = await prisma.broadcast.count({
-      where: { tenantId }
+      where: { tenantId },
     });
-  } else if (limitName === 'maxBroadcasts') {
-    limitDisplayName = 'broadcast recipients';
+  } else if (limitName === "maxBroadcasts") {
+    limitDisplayName = "broadcast recipients";
     const agg = await prisma.broadcast.aggregate({
       where: { tenantId },
-      _sum: { totalRecipients: true }
+      _sum: { totalRecipients: true },
     });
     currentCount = agg._sum.totalRecipients || 0;
   } else {
@@ -167,9 +195,9 @@ export const checkLimitAccess = async (tenantId, limitName, requiredCount = 1) =
   if (currentCount + requiredCount > limitValue) {
     return {
       allowed: false,
-      code: 'PLAN_LIMIT_REACHED',
+      code: "PLAN_LIMIT_REACHED",
       status: 403,
-      message: `The plan limit for ${limitDisplayName} (${limitValue}) has been reached. Please upgrade your plan.`
+      message: `The plan limit for ${limitDisplayName} (${limitValue}) has been reached. Please upgrade your plan.`,
     };
   }
 

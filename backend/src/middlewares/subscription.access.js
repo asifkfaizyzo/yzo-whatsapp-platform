@@ -27,26 +27,33 @@ export const checkSubscriptionAccess = async (req, res, next) => {
   }
 
   try {
-    const tenant = await prisma.tenant.findUnique({
+    const tenantRow = await prisma.tenant.findUnique({
       where: { id: req.tenantId },
       select: {
         id: true,
         email: true,
         tenantName: true,
-        subscriptionStatus: true,
-        planPeriodEnd: true,
-        razorpaySubscriptionId: true,
         createdAt: true,
+        subscription: {
+          select: {
+            subscriptionStatus: true,
+            planPeriodEnd: true,
+            razorpaySubscriptionId: true,
+            planStatus: true,
+            dataDeletionDate: true,
+          }
+        }
       }
     });
 
-    if (!tenant) {
+    if (!tenantRow) {
       return res.status(404).json({
         success: false,
         message: "Tenant not found"
       });
     }
 
+    const tenant = { ...tenantRow, ...tenantRow.subscription };
     let status = tenant.subscriptionStatus;
     const now = new Date();
 
@@ -64,9 +71,9 @@ export const checkSubscriptionAccess = async (req, res, next) => {
         }
 
         // Grace window expired or no autopay -> self-heal expire atomically
-        await prisma.tenant.updateMany({
+        await prisma.tenantSubscription.updateMany({
           where: {
-            id: tenant.id,
+            tenantId: tenant.id,
             subscriptionStatus: 'trialing',
             planPeriodEnd: { lt: now },
           },
@@ -82,9 +89,9 @@ export const checkSubscriptionAccess = async (req, res, next) => {
 
     // 2. Cancel at Period End Expiration Check
     if (status === 'cancel_at_period_end' && tenant.planPeriodEnd && new Date(tenant.planPeriodEnd) < now) {
-      await prisma.tenant.updateMany({
+      await prisma.tenantSubscription.updateMany({
         where: {
-          id: tenant.id,
+          tenantId: tenant.id,
           subscriptionStatus: 'cancel_at_period_end',
           planPeriodEnd: { lt: now },
         },

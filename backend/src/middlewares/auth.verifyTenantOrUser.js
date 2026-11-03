@@ -19,25 +19,26 @@ export const verifyTenantOrUser = async (req, res, next) => {
 
     // ===================== TENANT =====================
     if (decoded.type === 'TENANT') {
-      const tenant = await prisma.tenant.findUnique({
+      const tenantRow = await prisma.tenant.findUnique({
         where: { id: decoded.id },
+        include: { auth: true, whatsapp: true, social: true, zoho: true, subscription: true },
       });
 
-      if (!tenant) {
+      if (!tenantRow) {
         return res.status(401).json({
           success: false,
           message: 'Tenant not found',
         });
       }
 
-      if (!tenant.isActive) {
+      if (!tenantRow.isActive) {
         return res.status(403).json({
           success: false,
           message: 'Tenant account is deactivated',
         });
       }
 
-      if (tenant.status === 'PENDING') {
+      if (tenantRow.status === 'PENDING') {
         const isPaymentRoute =
           req.originalUrl.includes('/plans/create-order') ||
           req.originalUrl.includes('/plans/verify-payment') ||
@@ -51,12 +52,21 @@ export const verifyTenantOrUser = async (req, res, next) => {
         }
       }
 
-      if (tenant.status === 'BLOCKED') {
+      if (tenantRow.status === 'BLOCKED') {
         return res.status(403).json({
           success: false,
           message: 'Your account is blocked',
         });
       }
+
+      const tenant = {
+        ...tenantRow,
+        ...tenantRow.auth,
+        ...tenantRow.whatsapp,
+        ...tenantRow.social,
+        ...tenantRow.zoho,
+        ...tenantRow.subscription,
+      };
 
       req.tenant = tenant;
       req.tenantId = tenant.id;
@@ -86,32 +96,33 @@ export const verifyTenantOrUser = async (req, res, next) => {
         });
       }
 
-      const tenant = await prisma.tenant.findUnique({
+      const tenantRow = await prisma.tenant.findUnique({
         where: { id: user.tenantId },
+        include: { auth: true, whatsapp: true, social: true, zoho: true, subscription: true },
       });
 
-      if (!tenant) {
+      if (!tenantRow) {
         return res.status(401).json({
           success: false,
           message: 'Tenant not found',
         });
       }
 
-      if (!tenant.isActive) {
+      if (!tenantRow.isActive) {
         return res.status(403).json({
           success: false,
           message: 'Tenant account is deactivated',
         });
       }
 
-      if (tenant.status === 'PENDING') {
+      if (tenantRow.status === 'PENDING') {
         return res.status(403).json({
           success: false,
           message: 'Tenant account is pending approval',
         });
       }
 
-      if (tenant.status === 'BLOCKED') {
+      if (tenantRow.status === 'BLOCKED') {
         return res.status(403).json({
           success: false,
           message: 'Tenant account is blocked',

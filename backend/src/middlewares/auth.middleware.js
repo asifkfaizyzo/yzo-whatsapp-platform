@@ -1,28 +1,27 @@
 // backend/src/middlewares/auth.middleware.js (do not remove this comment)
-import jwt from 'jsonwebtoken';
-import prisma from '../config/prisma.js';
-
+import jwt from "jsonwebtoken";
+import prisma from "../config/prisma.js";
 
 // ===================== SUPERADMIN =====================
 export const verifySuperAdmin = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({
         success: false,
-        message: 'Access token required',
+        message: "Access token required",
       });
     }
 
-    const token = authHeader.split(' ')[1];
+    const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, process.env.ACCESS_SECRET);
 
     //Check token type
-    if (decoded.type !== 'SUPERADMIN') {
+    if (decoded.type !== "SUPERADMIN") {
       return res.status(403).json({
         success: false,
-        message: 'Access denied. SuperAdmins only.',
+        message: "Access denied. SuperAdmins only.",
       });
     }
 
@@ -33,7 +32,7 @@ export const verifySuperAdmin = async (req, res, next) => {
     if (!superAdmin) {
       return res.status(401).json({
         success: false,
-        message: 'SuperAdmin not found',
+        message: "SuperAdmin not found",
       });
     }
 
@@ -42,82 +41,93 @@ export const verifySuperAdmin = async (req, res, next) => {
   } catch (error) {
     return res.status(401).json({
       success: false,
-      message: 'Invalid or expired token',
+      message: "Invalid or expired token",
     });
   }
 };
-
-
 
 // ===================== TENANT =====================
 export const verifyTenant = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({
         success: false,
-        message: 'Access token required',
+        message: "Access token required",
       });
     }
 
-    const token = authHeader.split(' ')[1];
+    const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, process.env.ACCESS_SECRET);
 
     //check token type
-    if (decoded.type !== 'TENANT') {
+    if (decoded.type !== "TENANT") {
       return res.status(403).json({
         success: false,
-        message: 'Access denied. Tenants only.',
+        message: "Access denied. Tenants only.",
       });
     }
 
-
-    const tenant = await prisma.tenant.findUnique({
+    const tenantRow = await prisma.tenant.findUnique({
       where: { id: decoded.id },
+      include: {
+        auth: true,
+        whatsapp: true,
+        social: true,
+        zoho: true,
+        subscription: true,
+      },
     });
 
-    if (!tenant) {
+    if (!tenantRow) {
       return res.status(401).json({
         success: false,
-        message: 'Tenant not found',
+        message: "Tenant not found",
       });
     }
+
+    const tenant = {
+      ...tenantRow,
+      ...tenantRow.auth,
+      ...tenantRow.whatsapp,
+      ...tenantRow.social,
+      ...tenantRow.zoho,
+      ...tenantRow.subscription,
+    };
 
     req.tenant = tenant;
     req.tenantId = tenant.id;
-    req.userType = 'TENANT';
+    req.userType = "TENANT";
     next();
   } catch (error) {
     return res.status(401).json({
       success: false,
-      message: 'Invalid or expired token',
+      message: "Invalid or expired token",
     });
   }
 };
-
-
 
 // ===================== USER (Agent/Admin) =====================
 export const verifyUser = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({
         success: false,
-        message: 'Access token required',
+        message: "Access token required",
       });
     }
 
-    const token = authHeader.split(' ')[1];
+    const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, process.env.ACCESS_SECRET);
 
     //check token type
-    if (decoded.type !== 'USER') {
+    if (decoded.type !== "USER") {
       return res.status(403).json({
         success: false,
-        message: 'Access denied. Users only.',
+        message: "Access denied. Users only.",
       });
     }
 
@@ -128,24 +138,24 @@ export const verifyUser = async (req, res, next) => {
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: 'User not found',
+        message: "User not found",
       });
     }
 
     if (!user.isActive) {
       return res.status(403).json({
         success: false,
-        message: 'Your account has been deactivated',
+        message: "Your account has been deactivated",
       });
     }
 
     req.user = user;
-    req.tenantId = user.tenantId;     // Very important for multi-tenant isolation
+    req.tenantId = user.tenantId; // Very important for multi-tenant isolation
     next();
   } catch (error) {
     return res.status(401).json({
       success: false,
-      message: 'Invalid or expired token',
+      message: "Invalid or expired token",
     });
   }
 };
@@ -153,6 +163,8 @@ export const verifyUser = async (req, res, next) => {
 // Optional: Check if user is Admin
 // ✅ NEW
 export const isTenantAdmin = (req, res, next) => {
-  if (req.tenant && req.userType === 'TENANT') return next();
-  return res.status(403).json({ success: false, message: 'Access denied. Tenant admin only.' });
+  if (req.tenant && req.userType === "TENANT") return next();
+  return res
+    .status(403)
+    .json({ success: false, message: "Access denied. Tenant admin only." });
 };
