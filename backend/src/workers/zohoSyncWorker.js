@@ -4,7 +4,7 @@ import { Worker } from 'bullmq';
 import { QUEUE_NAME_ZOHO_SYNC } from '../queues/zohoSyncQueue.js';
 import { redisConnection } from '../config/redis.js';
 import { dlqQueue } from '../queues/dlqQueue.js';
-import { syncTenantContactsToZoho } from '../modules/zoho/zohoContactService.js';
+import { syncTenantContactsToZoho } from '../modules/zoho/zoho.contact.service.js';
 
 export const processZohoSyncJob = async (job) => {
   const { tenantId, syncType } = job.data;

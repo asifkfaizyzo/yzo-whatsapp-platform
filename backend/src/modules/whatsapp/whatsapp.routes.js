@@ -1,0 +1,57 @@
+// backend/src/modules/whatsapp/whatsapp.routes.js (do not remove this comment)
+import express from 'express';
+import { verifyTenant, requireApprovedTenant } from '../../middlewares/auth.tenant.js';
+import { verifyTenantOrUser } from '../../middlewares/auth.verifyTenantOrUser.js';
+import { setupWhatsApp, getWhatsAppStatus, getMyWabas, disconnectWhatsApp, sendLocation, registerPhoneNumber } from './whatsapp.controller.js';
+import { 
+  acceptCall, rejectCall, terminateCall, initiateCall, 
+  getCallPermissions, requestCallPermission,
+  getCallSettings, updateCallSettings, uploadVoicemailGreeting,
+  getCallHistory, getConversationCalls, getContactCalls, checkCallPermission
+} from './call.controller.js';
+import multer from 'multer';
+
+const upload = multer({ dest: 'uploads/temp/' });
+import { setupWhatsAppSchema } from '../tenant/tenant.schema.js';
+import validate from '../../middlewares/validate.middleware.js';
+import { checkSubscriptionAccess } from '../../middlewares/subscription.access.js';
+import { sendLocationSchema } from './whatsapp.schema.js';
+
+const router = express.Router();
+
+// GET /api2/whatsapp/status - Allowed for both Tenants and Users (Agents)
+router.get('/status', verifyTenantOrUser, getWhatsAppStatus);
+
+// send-location
+router.post('/send-location',verifyTenantOrUser, checkSubscriptionAccess, validate(sendLocationSchema),sendLocation);
+
+// Call Management Routes (Allowed for both Tenants and Users)
+router.post('/calls/accept', verifyTenantOrUser, acceptCall);
+router.post('/calls/reject', verifyTenantOrUser, rejectCall);
+router.post('/calls/terminate', verifyTenantOrUser, terminateCall);
+router.post('/calls/initiate', verifyTenantOrUser, checkSubscriptionAccess, initiateCall);
+router.get('/calls/history', verifyTenantOrUser, getCallHistory);
+router.get('/calls/conversation/:conversationId', verifyTenantOrUser, getConversationCalls);
+router.get('/calls/contact/:contactId', verifyTenantOrUser, getContactCalls);
+router.get('/calls/permissions/:contactId', verifyTenantOrUser, getCallPermissions);
+router.get('/calls/permissions/check/:contactId', verifyTenantOrUser, checkCallPermission);
+router.post('/calls/permissions/request', verifyTenantOrUser, checkSubscriptionAccess, requestCallPermission);
+
+// All other routes require a verified, approved tenant admin
+router.use(verifyTenant, requireApprovedTenant);
+
+// POST /api2/whatsapp/setup
+router.post('/setup', validate(setupWhatsAppSchema), setupWhatsApp);
+
+router.get('/my-wabas', getMyWabas);
+
+router.post('/disconnect', disconnectWhatsApp);
+router.post('/register-phone', registerPhoneNumber);
+
+// Call Settings Routes (Tenant Admin only)
+router.get('/calls/settings/:phoneId', getCallSettings);
+router.put('/calls/settings/:phoneId', updateCallSettings);
+router.post('/calls/settings/:phoneId/voicemail-greeting', upload.single('audio'), uploadVoicemailGreeting);
+
+
+export default router;

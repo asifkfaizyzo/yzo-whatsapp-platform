@@ -3,23 +3,23 @@ import { Worker } from 'bullmq';
 import { QUEUE_NAME_WEBHOOK } from '../queues/webhookQueue.js';
 import { redisConnection } from '../config/redis.js';
 import prisma from '../config/prisma.js';
-import { handleIncomingMessage, sendMessageService  } from '../modules/messages/messageService.js';
-import { createNotification } from '../modules/notifications/notificationService.js';
+import { handleIncomingMessage, sendMessageService  } from '../modules/messages/message.service.js';
+import { createNotification } from '../modules/notifications/notification.service.js';
 import { emitToTenant, emitToUser } from '../lib/socket.js';
 import { isNewWebhookEvent } from '../lib/idempotency.js';
 import { dlqQueue } from '../queues/dlqQueue.js';
-import { generateSignedUrl } from '../lib/utils/signedUrl.js';
+import { generateSignedUrl } from '../lib/utils/signed.url.js';
 import { decrypt } from '../lib/crypto.js';
-import { sendTemplateStatusEmail } from '../modules/auth/emailService.js';
-import flowEngine from '../modules/automation/flowEngineService.js';
+import { sendTemplateStatusEmail } from '../modules/auth/email.service.js';
+import flowEngine from '../modules/automation/flowEngine.service.js';
 import fs from 'fs';
 import path from 'path';
 import https from 'https';
 import http from 'http';
 import { GRAPH_BASE_URL } from '../config/meta.js';
-import { handleCallEvents, handleCallPermissionReply, handleAccountSettingsUpdate } from '../modules/whatsapp/callWebhookHandler.js';
-import { updateWooCommerceOrderStatus } from '../modules/woocommerce/woocommerceService.js';
-import { parseWooReviewRating } from '../modules/woocommerce/woocommerceOrderLifecycle.js';
+import { handleCallEvents, handleCallPermissionReply, handleAccountSettingsUpdate } from '../modules/whatsapp/call.webhook.js';
+import { updateWooCommerceOrderStatus } from '../modules/woocommerce/woocommerce.service.js';
+import { parseWooReviewRating } from '../modules/woocommerce/woocommerce.orderLifecycle.js';
 
 // ─────────────────────────────────────────────────────────────
 // META MEDIA & AVATAR PERSISTENCE HELPER
@@ -78,13 +78,13 @@ export const downloadMetaMediaFromUrl = async ({ url, type, tenantId, contactId 
 // ─────────────────────────────────────────────────────────────
 const triggerZohoAutoSyncForNewContact = async (tenantId, contact) => {
   try {
-    const { getTenantZohoPreferences, autoSyncContactToZoho } = await import('../modules/zoho/zohoContactService.js');
+    const { getTenantZohoPreferences, autoSyncContactToZoho } = await import('../modules/zoho/zoho.contact.service.js');
     const prefs = await getTenantZohoPreferences(tenantId);
 
     if (!prefs?.autoSyncNewContacts) return;
 
     if (prefs.syncDestination === 'LEADS') {
-      const { createZohoLead } = await import('../modules/zoho/zohoLeadService.js');
+      const { createZohoLead } = await import('../modules/zoho/zoho.lead.service.js');
       createZohoLead(tenantId, contact).catch((err) => {
         console.error('⚠️ [WebhookWorker] createZohoLead failed:', err.message);
       });
@@ -1149,7 +1149,7 @@ export const processWebhookJob = async (job) => {
 
     // ── Phase 4: Log message as Zoho Note ──
     try {
-      const { logMessageAsZohoNote } = await import('../modules/zoho/zohoNoteService.js');
+      const { logMessageAsZohoNote } = await import('../modules/zoho/zoho.note.service.js');
       logMessageAsZohoNote(tenant.id, contact.id, {
         direction: 'INBOUND',
         senderType: 'CONTACT',
@@ -1430,7 +1430,7 @@ export const processWebhookJob = async (job) => {
 
         // ── Phase 4: Create Zoho Deal from order ──
         try {
-          const { createZohoDealFromOrder } = await import('../modules/zoho/zohoDealService.js');
+          const { createZohoDealFromOrder } = await import('../modules/zoho/zoho.deal.service.js');
           createZohoDealFromOrder(tenant.id, createdOrder, contact).catch(() => {});
         } catch (_) {}
 

@@ -2,7 +2,7 @@
 
 import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
-import { registerCallSocketHandlers } from '../modules/whatsapp/callSocketHandler.js';
+import { registerCallSocketHandlers } from '../modules/whatsapp/call.socket.js';
 
 let io = null;
 
@@ -87,7 +87,7 @@ export const initSocket = (server) => {
 
       setTimeout(async () => {
         try {
-          const { processQueuedConversations } = await import('../modules/contacts/queueService.js');
+          const { processQueuedConversations } = await import('../modules/contacts/contact.queue.service.js');
           await processQueuedConversations(socket.tenantId);
         } catch (err) {
           console.error('❌ Failed to process queue on user connect:', err);

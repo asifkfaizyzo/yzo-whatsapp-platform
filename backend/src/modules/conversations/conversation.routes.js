@@ -1,0 +1,36 @@
+// backend/src/modules/conversations/conversation.routes.js (do not remove this comment)
+import express from 'express';
+import * as conversationController from './conversation.controller.js';
+// import { verifyUser } from '../../middlewares/auth.user.js';
+import { verifyTenantOrUser} from '../../middlewares/auth.verifyTenantOrUser.js'
+
+const router = express.Router();
+
+router.post('/create-conversation', verifyTenantOrUser,conversationController.createConversation);
+
+router.get('/conversation/:contactId',verifyTenantOrUser,conversationController.getConversationController);
+//conversations assigned to the logged in user
+router.get("/assigned", verifyTenantOrUser,conversationController.getAssignedConversationsController);
+
+router.get('/getmessage/:conversationId', verifyTenantOrUser,conversationController.getMessagesController);
+
+// Update conversation status
+router.patch('/status/:conversationId', verifyTenantOrUser, conversationController.updateConversationStatusController);
+
+
+// ── New Routes ────────────────────────────────────────────
+router.patch('/archive/:conversationId',   verifyTenantOrUser, conversationController.archiveConversationController);
+router.patch('/unarchive/:conversationId', verifyTenantOrUser, conversationController.unarchiveConversationController);
+router.delete('/delete/:conversationId',   verifyTenantOrUser, conversationController.deleteConversationController);
+router.get('/archived',                    verifyTenantOrUser, conversationController.getArchivedConversationsController);
+// ── Mark as Read ──────────────────────────────────────────
+router.patch('/mark-read/:conversationId',verifyTenantOrUser,conversationController.markConversationAsReadController);
+
+// ── Bulk Reassign ──────────────────────────────────────────
+router.patch( "/bulk-reassign", verifyTenantOrUser, conversationController.bulkReassignConversationsController);
+// ── Media, Links & Docs ────────────────────────────────────
+router.get( "/media/:conversationId", verifyTenantOrUser, conversationController.getConversationMediaController);
+
+router.patch("/pin/:id", verifyTenantOrUser, conversationController.togglePinController);
+
+export default router;

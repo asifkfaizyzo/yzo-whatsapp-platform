@@ -31,8 +31,8 @@ import { initQuickReplyIndexes } from './scripts/initQuickReplyIndexes.js';
 import { startZohoSyncWorker } from './workers/zohoSyncWorker.js';
 import { startZohoStaleTaskJob } from './jobs/zohoStaleTaskJob.js';
 import { startZohoWatchRenewalJob } from './jobs/zohoWatchRenewalJob.js';
-import { initializeMediasoup } from './lib/mediasoup/mediasoupService.js';
-import { processLowStockAlerts, processDailyBusinessSummary } from './modules/woocommerce/woocommerceAlertService.js';
+import { initializeMediasoup } from './lib/mediasoup/mediasoup.service.js';
+import { processLowStockAlerts, processDailyBusinessSummary } from './modules/woocommerce/woocommerce.alert.service.js';
 import { runShopifyReorderReminders } from './jobs/shopifyReorderReminderJob.js';
 import { runShopifyWinBackCampaign } from './jobs/shopifyWinBackJob.js';
 

@@ -1,6 +1,6 @@
 // backend/src/jobs/auditCleanupJob.js (do not remove this comment)
 import cron from 'node-cron';
-import { cleanupOldAuditLogsService } from '../modules/audit/auditLogService.js';
+import { cleanupOldAuditLogsService } from '../modules/audit/audit.service.js';
 
 export const startAuditCleanupJob = () => {
 

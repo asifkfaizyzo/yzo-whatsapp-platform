@@ -8,54 +8,54 @@ import cors from 'cors';
 import path from "path";
 
 // Route Imports
-import superadminRoutes from './modules/superadmin/superadminRoute.js';
-import tenantRoutes from './modules/tenant/tenantRoutes.js';
-import userRoutes from './modules/users/userRoutes.js';
-import contactRoutes from './modules/contacts/contactRoutes.js';
-import conversationRoutes from './modules/conversations/conversationRouter.js';
-import messageRoutes from './modules/messages/messageRoute.js';
-import tagRoutes from './modules/tags/tagRoutes.js';
-import webhookRoutes from './modules/webhook/webhookRoutes.js';
-import planRoutes from "./modules/plans/planRoutes.js";
-import templateRoutes from './modules/templates/templateRoutes.js';
-import broadcastRoutes from './modules/broadcasts/broadcastRoutes.js';
-import whatsappRoutes from './modules/whatsapp/whatsappRoutes.js';
-import googleSheetsRoutes from './modules/google-sheets/googleSheetsRoutes.js';
-import shopifyRoutes from './modules/shopify/shopifyRoutes.js';
-import woocommerceRoutes from './modules/woocommerce/woocommerceRoutes.js';
-import { handleWooCommerceWebhook } from './modules/webhook/woocommerceWebhookController.js';
-import notificationRoutes from "./modules/notifications/notificationRoutes.js";
-import superAdminNotificationRoutes from "./modules/SuperAdminNotifications/superAdminNotificationRoutes.js";
-import revenueRoutes from "./modules/revenue/revenueRoutes.js";
-import ticketRoutes from "./modules/tickets/ticketRoutes.js";
-import adminTicketRoutes from "./modules/tickets/adminTicketRoutes.js";
-import flowRoutes from './modules/automation/flowRoutes.js';
-import mediaRoutes from './modules/messages/mediaRoute.js';
-import quickReplyRoutes from './modules/quick-replies/quickReplyRoute.js';
-import orderRoutes from './modules/orders/orderRoutes.js';
+import superadminRoutes from './modules/superadmin/superadmin.routes.js';
+import tenantRoutes from './modules/tenant/tenant.routes.js';
+import userRoutes from './modules/users/user.routes.js';
+import contactRoutes from './modules/contacts/contact.routes.js';
+import conversationRoutes from './modules/conversations/conversation.routes.js';
+import messageRoutes from './modules/messages/message.routes.js';
+import tagRoutes from './modules/tags/tag.routes.js';
+import webhookRoutes from './modules/webhook/webhook.routes.js';
+import planRoutes from "./modules/plans/plan.routes.js";
+import templateRoutes from './modules/templates/template.routes.js';
+import broadcastRoutes from './modules/broadcasts/broadcast.routes.js';
+import whatsappRoutes from './modules/whatsapp/whatsapp.routes.js';
+import googleSheetsRoutes from './modules/google-sheets/googleSheets.routes.js';
+import shopifyRoutes from './modules/shopify/shopify.routes.js';
+import woocommerceRoutes from './modules/woocommerce/woocommerce.routes.js';
+import { handleWooCommerceWebhook } from './modules/webhook/woocommerce.webhook.controller.js';
+import notificationRoutes from "./modules/notifications/notification.routes.js";
+import superAdminNotificationRoutes from "./modules/superadmin-notifications/superadminNotification.routes.js";
+import revenueRoutes from "./modules/revenue/revenue.routes.js";
+import ticketRoutes from "./modules/tickets/ticket.routes.js";
+import adminTicketRoutes from "./modules/tickets/ticket.admin.routes.js";
+import flowRoutes from './modules/automation/flow.routes.js';
+import mediaRoutes from './modules/messages/media.routes.js';
+import quickReplyRoutes from './modules/quick-replies/quickReply.routes.js';
+import orderRoutes from './modules/orders/order.routes.js';
 
 // Enquiries and Enterprise Leads
-import enquiryRoutes from './modules/enquiries/enquiryRoute.js';
-import enterpriseLeadRoutes from './modules/enterprise-leads/enterpriseLeadRoute.js';
-import enterpriseLeadAdminRoutes from './modules/enterprise-leads/enterpriseLeadAdminRoute.js';
-import billingRoutes from './modules/billing/billingRoutes.js';
-import adminSubscriptionsRoute from './modules/admin-subscriptions/adminSubscriptionsRoute.js';
-import auditLogRoutes from './modules/audit/auditLogRoutes.js';
-import dlqRoutes from './modules/webhook/dlqRoutes.js';
+import enquiryRoutes from './modules/enquiries/enquiry.routes.js';
+import enterpriseLeadRoutes from './modules/enterprise-leads/enterpriseLead.routes.js';
+import enterpriseLeadAdminRoutes from './modules/enterprise-leads/enterpriseLead.admin.routes.js';
+import billingRoutes from './modules/billing/billing.routes.js';
+import adminSubscriptionsRoute from './modules/admin-subscriptions/adminSubscription.routes.js';
+import auditLogRoutes from './modules/audit/audit.routes.js';
+import dlqRoutes from './modules/webhook/dlq.routes.js';
 
 // Zoho CRM Integration Imports
-import zohoRoutes from './modules/zoho/zohoRoutes.js';
-import { handleZohoWebhook } from './modules/zoho/zohoWebhookController.js';
-import { zohoCallbackHandler } from './modules/zoho/zohoController.js';
-import { triggerOutboundMessage } from './modules/zoho/zohoTriggerController.js';
+import zohoRoutes from './modules/zoho/zoho.routes.js';
+import { handleZohoWebhook } from './modules/zoho/zoho.webhook.controller.js';
+import { zohoCallbackHandler } from './modules/zoho/zoho.controller.js';
+import { triggerOutboundMessage } from './modules/zoho/zoho.trigger.controller.js';
 
 // Other Imports
-import { verifyTenantOrUser } from './middlewares/authVerfyTenOrUser.js';
-import analyticsRoutes from './modules/analytics/analyticsRoutes.js';
-import publicRoutes from './modules/public/publicRoutes.js';
-import { serverAdapter } from './config/bullBoard.js';
-import { bullBoardAuth } from './middlewares/bullBoardAuth.js';
-import { handleOAuthCallback } from './modules/tenant/razorpayOAuthController.js';
+import { verifyTenantOrUser } from './middlewares/auth.verifyTenantOrUser.js';
+import analyticsRoutes from './modules/analytics/analytics.routes.js';
+import publicRoutes from './modules/public/public.routes.js';
+import { serverAdapter } from './config/bull.board.js';
+import { bullBoardAuth } from './middlewares/auth.bullBoard.js';
+import { handleOAuthCallback } from './modules/tenant/razorpay.oauth.controller.js';
 
 const app = express();
 
