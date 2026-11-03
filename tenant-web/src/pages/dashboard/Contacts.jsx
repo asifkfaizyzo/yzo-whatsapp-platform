@@ -45,7 +45,7 @@ import FormError from "../../components/FormError";
 import { createConversation } from "../../api/conversation";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuthStore } from "../../store/useAuthStore";
-import { getTags } from "../../services/tag.service";
+import { getTags } from "../../api/tag";
 import {
   getTenantUsers,
   assignContact,

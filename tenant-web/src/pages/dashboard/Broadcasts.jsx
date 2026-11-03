@@ -18,9 +18,9 @@ import {
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
-import { getBroadcasts, launchBroadcast, cancelBroadcast } from "../../services/broadcast.service";
-import { getTemplates } from "../../services/template.service";
-import { getTags } from "../../services/tag.service";
+import { getBroadcasts, launchBroadcast, cancelBroadcast } from "../../api/broadcast";
+import { getTemplates } from "../../api/template";
+import { getTags } from "../../api/tag";
 import { getWhatsappStatus } from "../../api/tenant";
 import { io } from "socket.io-client";
 import { useAuthStore } from "../../store/useAuthStore";

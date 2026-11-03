@@ -25,7 +25,7 @@ import {
   markAsRead,
   markAllAsRead,
   clearAll,
-} from "../services/notification.service";
+} from "../api/notification";
 import api from "../api/axios";
 
 export default function TopNavBar() {

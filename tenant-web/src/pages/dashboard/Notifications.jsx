@@ -22,7 +22,7 @@ import {
   markAllAsRead,
   clearAll,
   deleteNotification,
-} from "../../services/notification.service";
+} from "../../api/notification";
 import { getSocket } from "../../lib/socket";
 
 // Notification types available for tenant/user

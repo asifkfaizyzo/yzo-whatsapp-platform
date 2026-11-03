@@ -15,7 +15,7 @@ import {
 import { useReactFlow } from "reactflow";
 import { useToast } from "../../context/ToastContext";
 import { useConfirm } from "../../context/ConfirmContext";
-import flowService from "../../services/flow.service";
+import flowService from "../../api/flow";
 
 export default function NodeConfigPanel({ node, onUpdate, onClose }) {
   const { deleteElements } = useReactFlow();

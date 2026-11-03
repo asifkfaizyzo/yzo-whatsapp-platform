@@ -18,7 +18,7 @@ import {
   ArrowRight,
   AlertCircle,
 } from "lucide-react";
-import flowService from "../../services/flow.service";
+import flowService from "../../api/flow";
 import { getWhatsappStatus } from "../../api/tenant";
 import { useToast } from "../../context/ToastContext";
 import { useConfirm } from "../../context/ConfirmContext";

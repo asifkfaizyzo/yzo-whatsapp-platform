@@ -22,8 +22,8 @@ import {
 import { Link, useOutletContext } from "react-router-dom";
 import { getTenantUsers } from "../../api/tenant";
 import { getContacts } from "../../api/contact";
-import { getTemplates } from "../../services/template.service";
-import { getBroadcasts } from "../../services/broadcast.service";
+import { getTemplates } from "../../api/template";
+import { getBroadcasts } from "../../api/broadcast";
 import { getAssignedConversations } from "../../api/conversation";
 import { useAuthStore } from "../../store/useAuthStore";
 import { getSocket } from "../../lib/socket";

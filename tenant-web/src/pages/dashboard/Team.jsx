@@ -24,7 +24,7 @@ import {
 import { useFormHandler } from "../../hooks/useFormHandler";
 import { createUserSchema, updateUserSchema } from "../../validations/user.validation";
 import FormError from "../../components/FormError";
-import { getTags, assignUserToTag, removeUserFromTag } from "../../services/tag.service";
+import { getTags, assignUserToTag, removeUserFromTag } from "../../api/tag";
 import { useConfirm } from "../../context/ConfirmContext";
 import { useToast } from "../../context/ToastContext";
 

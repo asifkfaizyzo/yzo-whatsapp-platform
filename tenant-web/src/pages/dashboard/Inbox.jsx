@@ -82,7 +82,7 @@ import {
 } from "../../api/contact";
 import { useAuthStore } from "../../store/useAuthStore";
 import { io } from "socket.io-client";
-import { getTags } from "../../services/tag.service";
+import { getTags } from "../../api/tag";
 import { getTenantUsers, assignContact } from "../../api/tenant";
 import { useConfirm } from "../../context/ConfirmContext";
 import { useToast } from "../../context/ToastContext";

@@ -41,7 +41,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { FaFacebookMessenger, FaInstagram, FaWhatsapp } from "react-icons/fa";
-import { getTags, createTag } from "../../services/tag.service";
+import { getTags, createTag } from "../../api/tag";
 import { useToast } from "../../context/ToastContext";
 import {
   getAutoReopenConfig,
