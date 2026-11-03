@@ -1,0 +1,93 @@
+// backend/prisma/schema/woocommerce.prisma (do not remove this comment)
+// WooCommerce integration — connection and ecommerce orders
+
+model WooCommerceConnection {
+  id             String   @id @default(cuid())
+  tenantId       String   @unique
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  storeUrl       String
+  consumerKey    String   @db.Text
+  consumerSecret String   @db.Text
+  webhookSecret  String?  @db.Text
+  trackingUrlTemplates Json @default("{}")
+
+  connectedBy    String?
+  status         String   @default("active")
+  connectedAt    DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Admin & Operational Alerts
+  alertPhone           String?
+  newOrderAlert        Boolean   @default(false)
+  lowStockAlert        Boolean   @default(false)
+  lowStockThreshold    Int       @default(5)
+  dailySummaryAlert    Boolean   @default(false)
+  dailySummaryHour     Int       @default(21)
+  lastDailySummaryAt   DateTime?
+  lowStockAlertCache   Json?     @default("{}")
+
+  cartReminder1Text   String?  @db.Text
+  cartReminder24Text  String?  @db.Text
+
+  // ── Cart Recovery Settings ──
+  cartRecoveryEnabled    Boolean  @default(true)
+  cartReminder1Enabled   Boolean  @default(true)
+  cartReminder24Enabled  Boolean  @default(true)
+  cartReminder48Enabled  Boolean  @default(true)
+  cartReminder48Text     String?  @db.Text
+  cartDiscountCode       String?
+  cartDiscountLabel      String?
+  cartIncludeImage       Boolean  @default(true)
+
+  @@map("woocommerce_connections")
+}
+
+model EcommerceOrder {
+  id              String   @id @default(cuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  source          String   @default("WOOCOMMERCE")
+  externalOrderId String
+  orderNumber     String
+  status          String
+
+  paymentMethod   String?
+  paymentStatus   String?
+  currency        String   @default("INR")
+  total           Float    @default(0.0)
+
+  customerName    String?
+  customerPhone   String
+  customerEmail   String?
+
+  shippingAddress Json?
+  lineItems       Json
+  trackingInfo    Json?
+  reviewRequestedAt    DateTime?
+  reviewRating         Int?
+  reviewReceivedAt     DateTime?
+
+  // ── Post-Purchase Engagement Tracking ──
+  deliveredAt          DateTime?
+  crossSellSentAt      DateTime?
+  upsellSentAt         DateTime?
+  reorderReminderSentAt DateTime?
+  winBackSentAt        DateTime?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  cartReminder1SentAt  DateTime?
+  cartReminder24SentAt DateTime?
+  cartReminder48SentAt DateTime?
+  cartStatus           String?
+  cartRecoveryId       String?
+
+  @@unique([tenantId, source, externalOrderId])
+  @@index([tenantId, cartRecoveryId])
+  @@index([tenantId, customerPhone])
+  @@index([tenantId, createdAt])
+  @@map("ecommerce_orders")
+}

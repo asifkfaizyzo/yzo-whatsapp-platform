@@ -1,0 +1,94 @@
+// backend/prisma/schema/automation.prisma (do not remove this comment)
+// Chat automation flows, nodes, keyword triggers, and bot FAQs
+
+model Flow {
+  id             String          @id @default(cuid())
+  tenantId       String
+  tenant         Tenant          @relation(fields: [tenantId], references: [id])
+
+  name           String
+  triggerType    FlowTriggerType @default(KEYWORD)
+  keywords       KeywordTrigger[]
+  isActive       Boolean         @default(false)
+  isDefault      Boolean         @default(false)
+
+  nodes          FlowNode[]
+
+  conversations  Conversation[] @relation("ConversationFlow")
+
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, isActive])
+  @@index([tenantId, triggerType])
+  @@map("flows")
+}
+
+model FlowNode {
+  id          String       @id @default(cuid())
+
+  flowId      String
+  flow        Flow         @relation(fields: [flowId], references: [id], onDelete: Cascade)
+
+  type        FlowNodeType
+
+  content     String?
+
+  options     Json?
+
+  nextNodeId  String?
+
+  position    Json?
+
+  order       Int          @default(0)
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([flowId])
+  @@index([flowId, order])
+  @@map("flow_nodes")
+}
+
+model KeywordTrigger {
+  id        String   @id @default(cuid())
+
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+
+  flowId    String
+  flow      Flow     @relation(fields: [flowId], references: [id], onDelete: Cascade)
+
+  keyword   String
+
+  category  String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([tenantId, keyword])
+  @@index([tenantId])
+  @@index([flowId])
+  @@index([tenantId, keyword])
+  @@map("keyword_triggers")
+}
+
+model BotFaq {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  question  String   @db.Text
+  answer    String   @db.Text
+  keywords  String[]
+  category  String?
+  isActive  Boolean  @default(true)
+  priority  Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, isActive])
+  @@index([tenantId, category])
+  @@map("bot_faqs")
+}

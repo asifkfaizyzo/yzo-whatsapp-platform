@@ -1,0 +1,396 @@
+// backend/prisma/schema/enums.prisma (do not remove this comment)
+// All enum definitions used across the Sudo Reply schema
+
+// ── Tenant & Auth ──
+
+enum TenantStatus {
+  PENDING
+  APPROVED
+  BLOCKED
+}
+
+enum AvailabilityStatus {
+  AVAILABLE
+  AWAY
+  OFFLINE
+}
+
+// ── Channels ──
+
+enum ChannelType {
+  WHATSAPP
+  MESSENGER
+  INSTAGRAM
+}
+
+// ── Messaging ──
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+  VIDEO
+  AUDIO
+  INTERACTIVE_BUTTONS
+  LOCATION
+  ORDER
+  CATALOG
+}
+
+enum SenderType {
+  SUPER_ADMIN
+  TENANT
+  USER
+  CONTACT
+  SYSTEM
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum MessageStatus {
+  PENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+// ── Conversations ──
+
+enum ConversationMode {
+  BOT
+  AGENT
+  QUEUED
+}
+
+// ── Templates ──
+
+enum TemplateHeaderType {
+  NONE
+  TEXT
+  IMAGE
+  VIDEO
+  DOCUMENT
+  LOCATION
+}
+
+enum TemplateCategory {
+  UTILITY
+  MARKETING
+  AUTHENTICATION
+}
+
+enum TemplateStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+  PAUSED
+  DISABLED
+  DELETED
+}
+
+// ── Broadcasts ──
+
+enum BroadcastTarget {
+  ALL
+  TAGS
+  WOO_SEGMENT
+  SHOPIFY_SEGMENT
+}
+
+enum BroadcastStatus {
+  DRAFT
+  SCHEDULED
+  PROCESSING
+  PAUSED
+  COMPLETED
+  CANCELLED
+  FAILED
+}
+
+// ── Plans & Billing ──
+
+enum PlanStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum SubscriptionStatus {
+  trialing
+  active
+  cancel_at_period_end
+  payment_failed
+  expired
+  paused
+}
+
+enum InvoiceStatus {
+  paid
+  failed
+  refunded
+}
+
+enum CancellationReason {
+  too_expensive
+  missing_features
+  switching_tool
+  not_using_enough
+  other
+}
+
+// ── Razorpay Partner OAuth ──
+
+enum RazorpayAuthType {
+  DIRECT_KEYS
+  OAUTH
+}
+
+enum RazorpayAccountStatus {
+  CONNECTED
+  KYC_PENDING
+  VERIFIED
+  SUSPENDED
+  DISCONNECTED
+}
+
+enum RazorpayKycStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  NOT_APPLICABLE
+}
+
+// ── Zoho ──
+
+enum ZohoConnectionStatus {
+  DISCONNECTED
+  CONNECTED
+  REFRESH_FAILED
+}
+
+// ── Tickets ──
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TicketCategory {
+  BILLING
+  TECHNICAL
+  FEATURE
+  GENERAL
+  ACCOUNT
+}
+
+enum TicketRaisedBy {
+  TENANT
+  USER
+}
+
+// ── Automation ──
+
+enum FlowNodeType {
+  SEND_MESSAGE
+  ASK_QUESTION
+  CONDITION
+  ASSIGN_AGENT
+  END_FLOW
+  INTERACTIVE_BUTTONS
+  SEND_CATALOG
+  ASK_LOCATION
+  SEND_LOCATION
+  PAYMENT
+  SHOPIFY_ORDER_LOOKUP
+  FAQ_LOOKUP
+}
+
+enum FlowTriggerType {
+  KEYWORD
+  ORDER_RECEIVED
+  DEFAULT
+}
+
+// ── Orders ──
+
+enum DeliveryType {
+  HOME_DELIVERY
+  STORE_PICKUP
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  REVIEW_REQUIRED
+}
+
+enum OrderPaymentStatus {
+  UNPAID
+  PROCESSING
+  PAID
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+  REFUND_FAILED
+  EXPIRED
+  CANCELLED
+  AMOUNT_MISMATCH
+}
+
+enum OrderPaymentMethod {
+  RAZORPAY
+  COD
+}
+
+// ── Enquiries & Enterprise Leads ──
+
+enum EnquiryStatus {
+  new
+  read
+  replied
+  closed
+}
+
+enum EnterpriseCompanySize {
+  size_1_10     @map("1-10")
+  size_11_50    @map("11-50")
+  size_51_200   @map("51-200")
+  size_200_plus @map("200+")
+}
+
+enum EnterpriseTimeline {
+  urgent
+  months_1_3 @map("1-3months")
+  exploring
+}
+
+enum EnterprisePreferredContact {
+  email
+  phone
+  video_call
+}
+
+enum EnterpriseLeadStatus {
+  pending
+  contacted
+  negotiating
+  converted
+  rejected
+}
+
+// ── Audit ──
+
+enum AuditAction {
+  // Auth
+  LOGIN
+  LOGOUT
+  LOGIN_FAILED
+  PASSWORD_RESET_REQUESTED
+  PASSWORD_RESET_COMPLETED
+  PASSWORD_CHANGED
+
+  // Tenant Management
+  TENANT_CREATED
+  TENANT_UPDATED
+  TENANT_DELETED
+  TENANT_APPROVED
+  TENANT_BLOCKED
+  TENANT_UNBLOCKED
+  TENANT_DEACTIVATED
+  TENANT_REACTIVATED
+
+  // User Management
+  USER_DEACTIVATED
+  USER_REACTIVATED
+
+  // Billing
+  PAYMENT_SUCCESS
+  PAYMENT_FAILED
+  PLAN_ACTIVATED
+  PLAN_CHANGED
+  PLAN_CANCELLED
+
+  // Ticket
+  TICKET_CREATED
+  TICKET_ESCALATED
+  TICKET_RESOLVED
+
+  // System
+  SYSTEM_CLEANUP
+
+  // Conversations
+  BULK_REASSIGN
+  CONVERSATION_ASSIGNED
+
+  // Settings
+  GST_SETTINGS_UPDATED
+
+  // Zoho Integration
+  ZOHO_CONNECTED
+  ZOHO_DISCONNECTED
+  ZOHO_TOKEN_REFRESH_FAILED
+  ZOHO_SYNC_STARTED
+  ZOHO_SYNC_COMPLETED
+  ZOHO_SYNC_FAILED
+}
+
+enum AuditModule {
+  AUTH
+  TENANT
+  USER
+  BILLING
+  TICKET
+  SYSTEM
+  CONVERSATIONS
+  SETTINGS
+  INTEGRATIONS
+}
+
+// ── Quick Replies ──
+
+enum QuickReplyScope {
+  GLOBAL
+  PERSONAL
+}
+
+enum QuickReplyMediaType {
+  IMAGE
+  DOCUMENT
+  VIDEO
+  AUDIO
+}
+
+// ── Shopify ──
+
+enum ShopifyProductStatus {
+  ACTIVE
+  DRAFT
+  ARCHIVED
+}
+
+enum ShopifySyncStatus {
+  SYNCED
+  ERROR
+  PENDING
+  DELETED
+}

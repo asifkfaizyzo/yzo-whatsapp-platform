@@ -1,0 +1,62 @@
+// backend/prisma/schema/integrations.prisma (do not remove this comment)
+// Google Sheets, webhook idempotency, and shared integration infra
+
+model GoogleSheetConnection {
+  id           String   @id @default(cuid())
+  tenantId     String   @unique
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  accessToken  String   @db.Text
+  refreshToken String   @db.Text
+  tokenExpiry  DateTime?
+
+  connectedBy  String?
+  status       String   @default("active")
+  connectedAt  DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("google_sheet_connections")
+}
+
+model SheetField {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  fieldName    String
+  fieldKey     String
+  fieldType    String   @default("text")
+  fieldCategory String  @default("custom")
+
+  isActive     Boolean  @default(true)
+  isRequired   Boolean  @default(false)
+  columnOrder  Int
+
+  options      Json?
+  defaultValue String?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([tenantId, fieldKey])
+  @@index([tenantId])
+  @@map("sheet_fields")
+}
+
+model WebhookEvent {
+  id          String   @id @default(cuid())
+  provider    String   @default("RAZORPAY")
+  eventId     String
+  eventType   String
+  tenantId    String?
+  payload     Json?
+  processed   Boolean  @default(false)
+  processedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@unique([provider, eventId])
+  @@index([tenantId, processedAt])
+  @@index([processedAt])
+  @@index([createdAt])
+  @@map("webhook_events")
+}

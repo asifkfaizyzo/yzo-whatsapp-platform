@@ -1,0 +1,80 @@
+// backend/prisma/schema/auth.prisma (do not remove this comment)
+// SuperAdmin, User (agent), RefreshToken, PasswordReset
+
+model SuperAdmin {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  refreshTokens RefreshToken[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  activatedEnterpriseLeads EnterpriseLead[]
+
+  @@map("super_admins")
+}
+
+model User {
+  id         String   @id @default(cuid())
+  tenantId   String
+  name       String
+  email      String   @unique
+  password   String
+
+  createdTemplates Template[]
+  createdBroadcasts Broadcast[]
+
+  assignedContacts Contact[] @relation("UserAssignedContacts")
+
+  isActive     Boolean  @default(true)
+  availabilityStatus AvailabilityStatus @default(AVAILABLE)
+
+  pushToken          String?
+  pushTokenUpdatedAt DateTime?
+  notificationPreferences  Json?
+
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+
+  refreshTokens RefreshToken[]
+  userTags   UserTagMapping[]
+  tickets Ticket[]
+  quickReplies QuickReply[]
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @db.Text
+
+  // Either tenantId OR userId OR superAdminId will be set, not all
+
+  tenantId  String?
+  tenant    Tenant?  @relation(fields: [tenantId], references: [id])
+
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+
+  superAdminId String?
+  superAdmin   SuperAdmin? @relation(fields: [superAdminId], references: [id])
+
+  expiresAt DateTime
+  isRevoked Boolean   @default(false)
+  createdAt DateTime  @default(now())
+
+  @@map("refresh_tokens")
+}
+
+model PasswordReset {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique @default("")
+  expiresAt DateTime
+  isUsed    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("password_resets")
+}

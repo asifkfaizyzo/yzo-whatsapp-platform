@@ -1,0 +1,66 @@
+// backend/prisma/schema/platform.prisma (do not remove this comment)
+// Platform settings, public enquiries, and enterprise leads
+
+model PlatformSettings {
+  id               String   @id @default(cuid())
+
+  // ── GST Settings ──
+  gstEnabled       Boolean  @default(true)
+  gstPercent       Float    @default(18.0)
+  gstType          String   @default("CGST_SGST")
+  companyGstNumber String   @default("27AABCU9603R1ZM")
+  pricingType      String   @default("EXCLUSIVE")
+
+  // ── Company Info ──
+  companyName      String   @default("SudoReply Technologies Pvt Ltd")
+  companyEmail     String   @default("support@sudoreply.com")
+  companyAddress   String   @default("Mumbai, Maharashtra, India")
+  sacCode          String   @default("998314")
+  defaultTrialDays Int      @default(14)
+
+  updatedAt        DateTime @updatedAt
+  updatedBy        String?
+
+  @@map("platform_settings")
+}
+
+model Enquiry {
+  id        String        @id @default(uuid())
+  name      String
+  email     String
+  subject   String?
+  message   String        @db.Text
+  status    EnquiryStatus @default(new)
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+
+  @@map("enquiries")
+}
+
+model EnterpriseLead {
+  id                  String                     @id @default(uuid())
+  tenantId            String                     @map("tenant_id")
+  tenant              Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyName         String                     @map("company_name")
+  contactName         String                     @map("contact_name")
+  email               String
+  phone               String?
+  role                String?
+  companySize         EnterpriseCompanySize      @map("company_size")
+  estimatedUsers      Int?                       @map("estimated_users")
+  requirements        String?                    @db.Text
+  timeline            EnterpriseTimeline
+  preferredContact    EnterprisePreferredContact @map("preferred_contact")
+  status              EnterpriseLeadStatus       @default(pending)
+  internalNotes       String?                    @db.Text @map("internal_notes")
+  history             Json?                      @default("[]")
+
+  activatedAt         DateTime?                  @map("activated_at")
+  activatedByAdminId  String?                    @map("activated_by_admin_id")
+  activatedByAdmin    SuperAdmin?                @relation(fields: [activatedByAdminId], references: [id])
+
+  createdAt           DateTime                   @default(now()) @map("created_at")
+  updatedAt           DateTime                   @updatedAt @map("updated_at")
+
+  @@map("enterprise_leads")
+}

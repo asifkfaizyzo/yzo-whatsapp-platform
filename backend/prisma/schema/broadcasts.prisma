@@ -1,0 +1,101 @@
+// backend/prisma/schema/broadcasts.prisma (do not remove this comment)
+// Broadcast campaigns, targeting, and recipient tracking
+
+model Broadcast {
+  id              String           @id @default(cuid())
+  tenantId        String
+  tenant          Tenant           @relation(fields: [tenantId], references: [id])
+  name            String
+
+  templateId      String
+  template        Template         @relation(fields: [templateId], references: [id])
+
+  targetType      BroadcastTarget
+  tags            BroadcastTag[]
+
+  // WooCommerce Smart Segmentation
+  segmentMinSpend      Float?
+  segmentMinOrders     Int?
+  segmentInactiveDays  Int?
+  segmentIncludeAllWoo Boolean          @default(false)
+
+  // Shopify Smart Segmentation & Campaign Metadata
+  shopifyCustomerTags  Json?
+  campaignType         String?
+  shopifyProductId     String?
+  shopifyProductTitle  String?
+  shopifyProductUrl    String?
+
+  defaultParams   Json?
+
+  status          BroadcastStatus  @default(DRAFT)
+
+  scheduledAt     DateTime?
+  startedAt       DateTime?
+  completedAt     DateTime?
+
+  totalRecipients Int              @default(0)
+  sent            Int              @default(0)
+  delivered       Int              @default(0)
+  read            Int              @default(0)
+  failed          Int              @default(0)
+
+  batchSize       Int              @default(50)
+  batchDelayMs    Int              @default(1000)
+
+  createdById     String?
+  createdBy       User?            @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  recipients      BroadcastRecipient[]
+
+  @@index([status])
+  @@index([scheduledAt])
+  @@index([createdById])
+  @@index([tenantId])
+  @@map("broadcasts")
+}
+
+model BroadcastTag {
+  broadcastId String
+  tagId       String
+  broadcast   Broadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+  tag         Tag       @relation(fields: [tagId], references: [id])
+
+  @@id([broadcastId, tagId])
+  @@map("broadcast_tags")
+}
+
+model BroadcastRecipient {
+  id            String          @id @default(cuid())
+
+  broadcastId   String
+  broadcast     Broadcast       @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+
+  contactId     String
+  contact       Contact         @relation(fields: [contactId], references: [id])
+
+  params        Json?
+
+  wamid         String?         @unique
+
+  status        MessageStatus   @default(PENDING)
+
+  sentAt        DateTime?
+  deliveredAt   DateTime?
+  readAt        DateTime?
+  failedAt      DateTime?
+  errorCode     String?
+  errorMessage  String?
+
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@unique([broadcastId, contactId])
+  @@index([broadcastId, status])
+  @@index([wamid])
+  @@index([status])
+  @@map("broadcast_recipients")
+}

@@ -1,0 +1,150 @@
+// backend/prisma/schema/conversations.prisma (do not remove this comment)
+// Conversation, Message, ConversationActivity, AutoReopenConfig
+
+model Conversation {
+  id        String    @id @default(cuid())
+  contactId String    @unique
+  tenantId  String
+
+  contact   Contact   @relation(fields: [contactId], references: [id])
+  status String @default("OPEN")
+
+  assignedTo    String?
+  reopenCount   Int       @default(0)
+  resolvedAt    DateTime?
+  closedAt      DateTime?
+  reopenedAt    DateTime?
+  lastMessageAt DateTime?
+
+  unreadCount   Int       @default(0)
+
+  // ── Archive ──
+  isArchived    Boolean   @default(false)
+  isPinned      Boolean   @default(false)
+  pinnedAt      DateTime?
+  archivedAt    DateTime?
+  archivedBy    String?
+  archivedByRole String?
+
+  mode          ConversationMode  @default(BOT)
+  channel       ChannelType       @default(WHATSAPP)
+  currentFlowId String?
+  currentFlow   Flow?    @relation("ConversationFlow", fields: [currentFlowId], references: [id])
+  currentNodeId String?
+  flowData      Json?    @default("{}")
+  botPaused     Boolean  @default(false)
+
+  // ── Analytics Timestamps ──
+  incomingAt       DateTime?
+  firstResponseAt  DateTime?
+
+  messages  Message[]
+  activities    ConversationActivity[]
+  orders        Order[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([contactId])
+  @@index([tenantId, status])
+  @@index([tenantId, isArchived])
+  @@index([tenantId, channel])
+  @@index([tenantId, mode])
+  @@index([currentFlowId])
+  @@map("conversations")
+}
+
+model Message {
+  id             String           @id @default(cuid())
+  conversationId String
+  conversation   Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  // ── Sender ──
+  senderId       String?
+  senderType     SenderType
+
+  // ── Direction ──
+  direction      MessageDirection @default(OUTBOUND)
+
+  // ── Content ──
+  text           String?
+  type           MessageType      @default(TEXT)
+
+  // ── Media ──
+  mediaUrl       String?
+  mediaName      String?
+  mediaSize      Int?
+  mediaMimeType  String?
+  caption        String?
+
+  // ── Interactive Buttons ──
+  buttons        Json?
+
+  // ── Location fields ──
+  locLatitude    Float?
+  locLongitude   Float?
+  locName        String?
+  locAddress     String?
+
+  // ── Status ──
+  isRead         Boolean          @default(false)
+  status         String       @default("sent")
+
+  // ── Analytics & Webhook Receipts ──
+  wamid          String?          @unique
+  deliveredAt    DateTime?
+  readAt         DateTime?
+  failedAt       DateTime?
+  failureCode    Int?
+  failureReason  String?
+
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([conversationId, createdAt])
+  @@index([senderType])
+  @@index([direction])
+
+  // ── Soft Delete ──
+  isDeleted      Boolean          @default(false)
+  deletedAt      DateTime?
+  deletedBy      String?
+  deletedByRole  String?
+
+  @@map("messages")
+}
+
+model ConversationActivity {
+  id              String       @id @default(cuid())
+  conversationId  String
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  action          String
+
+  performedBy     String?
+  performedByType String?
+
+  reason          String?
+
+  createdAt       DateTime     @default(now())
+
+  @@index([conversationId])
+  @@map("conversation_activities")
+}
+
+model AutoReopenConfig {
+  id                 String   @id @default(cuid())
+  tenantId           String   @unique
+
+  enabled            Boolean  @default(true)
+  reopenWindowHours  Int      @default(72)
+  maxReopenCount     Int      @default(5)
+  smartFilterEnabled Boolean  @default(true)
+
+  assignmentStrategy String   @default("original_agent")
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("auto_reopen_configs")
+}

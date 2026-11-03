@@ -1,0 +1,33 @@
+// backend/prisma/schema/notifications.prisma (do not remove this comment)
+// In-app notifications for tenants and super admins
+
+model Notification {
+  id             String   @id @default(cuid())
+  tenantId       String
+  userId         String?
+  type           String
+  title          String
+  message        String
+  isRead         Boolean  @default(false)
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([isRead])
+  @@map("notifications")
+}
+
+model SuperAdminNotification {
+  id        String   @id @default(cuid())
+  type      String
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("super_admin_notifications")
+}

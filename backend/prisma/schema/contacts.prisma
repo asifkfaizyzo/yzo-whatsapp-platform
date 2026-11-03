@@ -1,0 +1,129 @@
+// backend/prisma/schema/contacts.prisma (do not remove this comment)
+// Contact, Tag, and all mapping/junction tables
+
+model Contact {
+  id          String   @id @default(cuid())
+
+  // ─── Basic Info ───
+  name        String
+  phone       String?
+  email       String?
+  company     String?
+
+  // ─── Multi-Channel Identity ───
+  channel     ChannelType @default(WHATSAPP)
+  channelId   String?
+  username    String?
+  avatarUrl   String?
+
+  providerMappings ContactProviderMapping[]
+
+  contactTags ContactTagMapping[]
+
+  // ─── WhatsApp ───
+  countryCode String   @default("+91")
+  whatsappId  String?
+
+  // ─── Status ───
+  isActive    Boolean  @default(true)
+  isBlocked   Boolean  @default(false)
+
+  // ─── Belongs to Tenant ───
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+
+  broadcastRecipients BroadcastRecipient[]
+
+  assignedTo  String?
+  assignedAt  DateTime?
+
+  assignedUser User? @relation("UserAssignedContacts", fields: [assignedTo], references: [id])
+
+  conversations Conversation?
+  orders        Order[]
+
+  // ─── Timestamps ───
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([phone, tenantId])
+  @@unique([tenantId, channel, channelId])
+  @@index([assignedTo])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, channel])
+  @@map("contacts")
+}
+
+model Tag {
+  id          String   @id @default(cuid())
+  name        String
+  priority    Int
+  description String?
+
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+
+  contactTags ContactTagMapping[]
+  userTags    UserTagMapping[]
+
+  broadcastTags BroadcastTag[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([name, tenantId])
+  @@index([tenantId])
+  @@index([priority])
+  @@map("tags")
+}
+
+model ContactTagMapping {
+  id        String  @id @default(cuid())
+
+  contactId String
+  contact   Contact @relation(fields: [contactId], references: [id])
+
+  tagId     String
+  tag       Tag     @relation(fields: [tagId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([contactId, tagId])
+  @@map("contact_tag_mappings")
+}
+
+model UserTagMapping {
+  id     String @id @default(cuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  tagId  String
+  tag    Tag    @relation(fields: [tagId], references: [id])
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, tagId])
+  @@index([tagId])
+  @@index([userId])
+  @@map("user_tag_mappings")
+}
+
+model ContactProviderMapping {
+  id                String   @id @default(cuid())
+  contactId         String
+  contact           Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  tenantId          String
+  provider          String
+  providerContactId String
+  lastSyncedAt      DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([contactId, provider])
+  @@unique([tenantId, provider, providerContactId])
+  @@map("contact_provider_mappings")
+}

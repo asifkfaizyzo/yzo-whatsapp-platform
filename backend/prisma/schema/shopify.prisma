@@ -1,0 +1,149 @@
+// backend/prisma/schema/shopify.prisma (do not remove this comment)
+// Shopify integration — connection, product catalog sync, back-in-stock
+
+model ShopifyConnection {
+  id            String   @id @default(cuid())
+  tenantId      String   @unique
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  shopName      String
+  accessToken   String   @db.Text
+  webhookSecret String?  @db.Text
+
+  connectedBy   String?
+  status        String   @default("active")
+  connectedAt   DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // ── Cart Recovery Settings ──
+  cartRecoveryEnabled    Boolean  @default(true)
+  cartReminder1Enabled   Boolean  @default(true)
+  cartReminder24Enabled  Boolean  @default(true)
+  cartReminder48Enabled  Boolean  @default(true)
+  cartReminder1Text      String?  @db.Text
+  cartReminder24Text     String?  @db.Text
+  cartReminder48Text     String?  @db.Text
+  cartDiscountCode       String?
+  cartDiscountLabel      String?
+  cartIncludeImage       Boolean  @default(true)
+
+  // ── Post-Purchase Engagement Settings ──
+  postPurchaseReviewEnabled     Boolean  @default(true)
+  postPurchaseReviewDelayDays   Int      @default(3)
+  postPurchaseCrossSellEnabled  Boolean  @default(true)
+  postPurchaseUpsellEnabled     Boolean  @default(true)
+  postPurchaseReorderEnabled    Boolean  @default(false)
+  postPurchaseReorderDays       Int      @default(30)
+  postPurchaseWinBackEnabled    Boolean  @default(false)
+  postPurchaseWinBackDays       Int      @default(90)
+
+  @@map("shopify_connections")
+}
+
+model ShopifyProduct {
+  id                String   @id @default(cuid())
+  tenantId          String
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  shopifyProductId  String
+  title             String
+  bodyHtml          String?  @db.Text
+  handle            String
+  productUrl        String
+  vendor            String?
+  productType       String?
+  tags              String?
+  status            ShopifyProductStatus @default(ACTIVE)
+
+  syncStatus        ShopifySyncStatus @default(SYNCED)
+  syncError         String?  @db.Text
+  lastSyncedAt      DateTime @default(now())
+  shopifyUpdatedAt  DateTime?
+
+  variants          ShopifyProductVariant[]
+  images            ShopifyProductImage[]
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([tenantId, shopifyProductId])
+  @@index([tenantId, status])
+  @@index([tenantId, syncStatus])
+  @@index([tenantId, handle])
+  @@map("shopify_products")
+}
+
+model ShopifyProductVariant {
+  id                    String   @id @default(cuid())
+  productId             String
+  product               ShopifyProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  shopifyVariantId      String
+  title                 String?
+  sku                   String?
+  price                 Decimal  @db.Decimal(10, 2)
+  compareAtPrice        Decimal? @db.Decimal(10, 2)
+  currency              String   @default("INR")
+  inventoryQuantity     Int      @default(0)
+  inventoryPolicy       String?
+  availability          String   @default("in_stock")
+  weight                Float?
+  weightUnit            String?
+  requiresShipping      Boolean  @default(true)
+  taxable               Boolean  @default(true)
+  barcode               String?
+
+  option1               String?
+  option2               String?
+  option3               String?
+
+  shopifyUpdatedAt      DateTime?
+
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@unique([productId, shopifyVariantId])
+  @@index([productId])
+  @@index([sku])
+  @@map("shopify_product_variants")
+}
+
+model ShopifyProductImage {
+  id                String   @id @default(cuid())
+  productId         String
+  product           ShopifyProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  shopifyImageId    String
+  src               String   @db.Text
+  alt               String?
+  position          Int      @default(1)
+  width             Int?
+  height            Int?
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([productId, shopifyImageId])
+  @@index([productId, position])
+  @@map("shopify_product_images")
+}
+
+model BackInStockSubscription {
+  id               String   @id @default(cuid())
+  tenantId         String
+  contactPhone     String
+  shopifyProductId String
+  shopifyVariantId String?
+  productTitle     String
+  productHandle    String?
+  notified         Boolean  @default(false)
+  notifiedAt       DateTime?
+  broadcastId      String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([tenantId, contactPhone, shopifyProductId])
+  @@index([tenantId, shopifyProductId, notified])
+  @@index([tenantId, contactPhone])
+  @@map("back_in_stock_subscriptions")
+}

@@ -1,0 +1,73 @@
+// backend/prisma/schema/orders.prisma (do not remove this comment)
+// WhatsApp commerce orders and line items
+
+model Order {
+  id                     String              @id @default(cuid())
+  orderNumber            String              @unique
+  tenantId               String
+  tenant                 Tenant              @relation(fields: [tenantId], references: [id])
+  conversationId         String?
+  conversation           Conversation?       @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  contactId              String
+  contact                Contact             @relation(fields: [contactId], references: [id])
+
+  catalogId              String?
+  totalAmount            Decimal             @db.Decimal(10, 2)
+  currency               String              @default("INR")
+  customerNote           String?
+  status                 OrderStatus         @default(PENDING)
+
+  // Payment Tracking Fields
+  paymentStatus          OrderPaymentStatus  @default(UNPAID)
+  paymentMethod          OrderPaymentMethod?
+  paymentLinkUrl         String?
+  paymentLinkExpiresAt   DateTime?
+  paymentAmount          Decimal?            @db.Decimal(10, 2)
+  paymentCurrency        String              @default("INR")
+  razorpayOrderId        String?
+  razorpayPaymentId      String?
+  razorpayPaymentLinkId  String?
+  paidAt                 DateTime?
+  refundId               String?
+  refundedAt             DateTime?
+  adminNotes             String?
+
+  deliveryType           DeliveryType?
+  deliveryLat            Float?
+  deliveryLng            Float?
+  deliveryName           String?
+  deliveryAddress        String?
+
+  wamid                  String?        @unique
+
+  items                  OrderItem[]
+
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+
+  @@index([tenantId, status])
+  @@index([conversationId])
+  @@index([contactId])
+  @@index([razorpayPaymentLinkId])
+  @@index([razorpayPaymentId])
+  @@index([paymentStatus])
+  @@map("orders")
+}
+
+model OrderItem {
+  id                 String   @id @default(cuid())
+  orderId            String
+  order              Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  tenantId           String
+  productRetailerId  String
+  productName        String?
+  quantity           Int      @default(1)
+  itemPrice          Decimal  @db.Decimal(10, 2)
+  currency           String   @default("INR")
+
+  createdAt          DateTime @default(now())
+
+  @@index([orderId])
+  @@index([tenantId])
+  @@map("order_items")
+}

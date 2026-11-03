@@ -1,0 +1,56 @@
+// backend/prisma/schema/tickets.prisma (do not remove this comment)
+// Support ticket system (tenant → superadmin escalation)
+
+model Ticket {
+  id           String         @id @default(cuid())
+  ticketNumber String         @unique
+
+  title        String
+  description  String
+
+  category     TicketCategory @default(GENERAL)
+  priority     TicketPriority @default(LOW)
+  status       TicketStatus   @default(OPEN)
+
+  attachmentUrl  String?
+
+  raisedBy     TicketRaisedBy
+
+  tenantId     String
+  tenant       Tenant         @relation(fields: [tenantId], references: [id])
+
+  userId       String?
+  user         User?          @relation(fields: [userId], references: [id])
+
+  isEscalated  Boolean        @default(false)
+
+  messages     TicketMessage[]
+
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([isEscalated])
+  @@map("tickets")
+}
+
+model TicketMessage {
+  id         String     @id @default(cuid())
+  ticketId   String
+  ticket     Ticket     @relation(fields: [ticketId], references: [id])
+
+  message    String
+  isInternal Boolean    @default(false)
+
+  sentBy     SenderType
+
+  tenantId     String?
+  userId       String?
+  superAdminId String?
+
+  createdAt  DateTime   @default(now())
+
+  @@index([ticketId])
+  @@map("ticket_messages")
+}

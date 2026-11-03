@@ -1,0 +1,111 @@
+// backend/prisma/schema/calling.prisma (do not remove this comment)
+// WhatsApp Business Calling API — settings, permissions, calls, recordings, transcripts
+
+model WaPhoneCallSetting {
+  businessPhoneId          String   @id
+  status                   String   @default("ENABLED")
+  callIconVisibility       String   @default("DEFAULT")
+  callIconCountries        Json?
+  callbackPermissionStatus String   @default("ENABLED")
+  callHours                Json?
+  voicemailConfig          Json?
+  voicemailMediaId         String?
+
+  recordingDefaultEnabled  Boolean  @default(true)
+  recordingDefaultPurpose  String   @default("quality assurance and training") @db.VarChar(250)
+  transcriptionDefaultEnabled Boolean @default(true)
+  transcriptionDefaultPurpose String @default("quality assurance and training") @db.VarChar(250)
+  announcementLanguage     String   @default("en_US")
+  audioCodecs              Json?
+  srtpKeyExchange          String   @default("DTLS")
+
+  updatedAt                DateTime @default(now()) @updatedAt
+
+  @@map("wa_phone_call_settings")
+}
+
+model WaCallPermission {
+  id                      String   @id @default(cuid())
+  businessPhoneId         String
+  userWaId                String
+  userBsuid               String?
+  permissionStatus        String   @default("no_permission")
+  expirationTimestamp     BigInt?
+  responseSource          String?
+  isPermanent             Boolean  @default(false)
+  unansweredConsecutive   Int      @default(0)
+
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@unique([businessPhoneId, userWaId])
+  @@map("wa_call_permissions")
+}
+
+model WaCall {
+  id                      String   @id @default(cuid())
+  wacid                   String   @unique
+  businessPhoneId         String
+  direction               String
+  fromNumber              String?
+  toNumber                String?
+  fromBsuid               String?
+  toBsuid                 String?
+
+  status                  String
+  startTime               BigInt?
+  endTime                 BigInt?
+  duration                Int?
+
+  bizOpaqueData           String?  @db.VarChar(512)
+  ctaPayload              String?  @db.VarChar(512)
+  deeplinkPayload         String?  @db.VarChar(512)
+  sdpAnswer               String?  @db.Text
+
+  assignedAgentId         String?
+  conversationId          String?
+
+  errorCode               Int?
+  errorMessage            String?  @db.Text
+
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  recordings              WaCallRecording[]
+  transcripts             WaCallTranscript[]
+
+  @@map("wa_calls")
+}
+
+model WaCallRecording {
+  id                      String   @id @default(cuid())
+  callId                  String
+  call                    WaCall   @relation(fields: [callId], references: [id], onDelete: Cascade)
+  wacid                   String
+  metaMediaId             String
+  mediaUrl                String?  @db.Text
+  mimeType                String   @default("audio/ogg; codecs=opus") @db.VarChar(64)
+  sha256                  String?  @db.VarChar(128)
+  downloadStatus          String   @default("PENDING")
+  createdAt               DateTime @default(now())
+
+  @@map("wa_call_recordings")
+}
+
+model WaCallTranscript {
+  id                      String   @id @default(cuid())
+  callId                  String
+  call                    WaCall   @relation(fields: [callId], references: [id], onDelete: Cascade)
+  wacid                   String
+  metaDocumentId          String
+  mediaUrl                String?  @db.Text
+  detectedLanguage        String?  @db.VarChar(16)
+  confidence              Decimal? @db.Decimal(4,3)
+  duration                Decimal? @db.Decimal(8,2)
+  fullText                String?  @db.Text
+  segments                Json?
+  downloadStatus          String   @default("PENDING")
+  createdAt               DateTime @default(now())
+
+  @@map("wa_call_transcripts")
+}

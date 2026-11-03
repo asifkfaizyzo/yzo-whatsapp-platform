@@ -1,0 +1,179 @@
+// backend/prisma/schema/billing.prisma (do not remove this comment)
+// Subscription plans, features, payments, invoices, and billing lifecycle
+
+model SubscriptionPlan {
+  id           String     @id @default(cuid())
+  name         String     @unique
+  description  String?
+
+  monthlyPrice Float
+  annualPrice  Float?
+
+  status       PlanStatus @default(ACTIVE)
+  isPopular    Boolean    @default(false)
+
+  hasTrial              Boolean    @default(true)
+  trialDays             Int?       @default(14)
+  razorpayMonthlyPlanId String?
+  razorpayAnnualPlanId  String?
+
+  maxAgents      Int
+  maxBroadcasts  Int?
+  maxAutomations Int?
+  maxCampaigns   Int?
+  maxApiCalls    Int?
+  maxAiCredits   Int?
+
+  features     PlanFeature[]
+  integrations PlanIntegration[]
+  tenants      Tenant[]   @relation("TenantSubscription")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@map("subscription_plans")
+}
+
+model Feature {
+  id    String @id @default(cuid())
+  name  String @unique
+
+  plans PlanFeature[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("features")
+}
+
+model PlanFeature {
+  id        String           @id @default(cuid())
+
+  planId    String
+  plan      SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  featureId String
+  feature   Feature          @relation(fields: [featureId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([planId, featureId])
+  @@index([planId])
+  @@index([featureId])
+  @@map("plan_features")
+}
+
+model PlanIntegration {
+  id     String           @id @default(cuid())
+  name   String
+
+  planId String
+  plan   SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([planId, name])
+  @@index([planId])
+  @@map("plan_integrations")
+}
+
+model Payment {
+  id          String   @id @default(cuid())
+  tenantId    String
+
+  razorpayOrderId    String?
+  razorpayPaymentId  String?  @unique
+  razorpaySignature  String?
+
+  paymentType        String   @default("ONLINE")
+  offlineReference   String?
+
+  planId       String
+  planName     String
+  billingType  String
+
+  baseAmount   Float
+  gstPercent   Float    @default(18)
+  gstAmount    Float
+  totalAmount  Float
+  currency     String   @default("INR")
+
+  paymentMethod  String?
+  status         PaymentStatus @default(PENDING)
+  paidAt         DateTime?
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  invoiceUrl    String?
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([offlineReference])
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+
+  @@map("payments")
+}
+
+model Invoice {
+  id                   String        @id @default(uuid())
+  tenantId             String
+  invoiceNumber        String        @unique
+  planName             String
+  amount               Decimal       @db.Decimal(10, 2)
+
+  baseAmount           Decimal?      @db.Decimal(10, 2)
+  gstEnabled           Boolean       @default(true)
+  gstPercent           Float?        @default(18)
+  gstAmount            Decimal?      @db.Decimal(10, 2)
+  gstType              String?       @default("CGST_SGST")
+
+  currency             String        @default("INR")
+  status               InvoiceStatus @default(paid)
+  billingPeriodStart   DateTime
+  billingPeriodEnd     DateTime
+  paymentMethodLast4   String?
+  paymentMethodBrand   String?
+  offlineReference     String?
+  pdfUrl               String?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  tenant               Tenant        @relation(fields: [tenantId], references: [id])
+
+  @@map("invoices")
+}
+
+model SubscriptionReminder {
+  id           String   @id @default(uuid())
+  tenantId     String
+  reminderType String
+  sentAt       DateTime @default(now())
+
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@map("subscription_reminders")
+}
+
+model CancellationSurvey {
+  id                   String              @id @default(uuid())
+  tenantId             String              @unique
+  reason               CancellationReason
+  additionalComment    String?
+  createdAt            DateTime            @default(now())
+  tenant               Tenant              @relation(fields: [tenantId], references: [id])
+
+  @@map("cancellation_surveys")
+}
+
+model TenantDataDeletion {
+  id                   String    @id @default(uuid())
+  tenantId             String
+  deletedAt            DateTime  @default(now())
+  deletedBy            String    @default("system")
+  note                 String?
+  tenant               Tenant    @relation(fields: [tenantId], references: [id])
+
+  @@map("tenant_data_deletions")
+}

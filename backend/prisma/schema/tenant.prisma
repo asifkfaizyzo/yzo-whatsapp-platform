@@ -1,0 +1,146 @@
+// backend/prisma/schema/tenant.prisma (do not remove this comment)
+// Tenant — multi-tenant root model (core identity, credentials, billing, integrations)
+
+model Tenant {
+  id          String   @id @default(cuid())
+  tenantName  String?
+  email       String?  @unique
+  password    String?
+  phone       String?
+  address     String?
+  firstName   String?
+  lastName    String?
+  websiteUrl  String?
+  industry    String?
+  companySize String?
+  country     String?
+  useCase     String?
+
+  // ── Zoho CRM Integration ──
+  zohoAccessToken        String?
+  zohoRefreshToken       String?
+  zohoTokenExpiresAt     DateTime?
+  zohoAccountId          String?
+  zohoDataCenter         String?
+  zohoApiDomain          String?
+  zohoAccountEmail       String?
+  zohoConnectionStatus   ZohoConnectionStatus @default(DISCONNECTED)
+  zohoConnectedAt        DateTime?
+  zohoScopes             String?
+
+  logo      String?
+  timezone  String?  @default("Asia/Kolkata")
+
+  isEmailVerified          Boolean   @default(false)
+  otpHash                  String?
+  otpExpiresAt             DateTime?
+
+  googleId     String?  @unique
+  facebookId   String?  @unique
+  authProvider String   @default("LOCAL")
+
+  whatsappPhoneId     String?
+  whatsappWabaId      String?
+  whatsappAccessToken String?
+  whatsappVerifyToken String?  @default("yzo_default_verification_token")
+  whatsappPin         String?
+  whatsappCatalogId   String?
+
+  // ── Facebook & Instagram Integration ──
+  facebookPageId          String?
+  facebookPageName        String?
+  facebookPageAccessToken String?
+  instagramAccountId      String?
+  instagramUsername       String?
+
+  status      TenantStatus @default(PENDING)
+  isActive    Boolean   @default(true)
+  onboardingStep      Int          @default(1)
+  onboardingCompleted Boolean      @default(false)
+
+  planId      String?
+  plan        SubscriptionPlan? @relation("TenantSubscription", fields: [planId], references: [id])
+
+  planActivatedAt DateTime?
+  billingType     String?   @default("monthly")
+  planStatus      String?   @default("inactive")
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  refreshTokens RefreshToken[]
+  tags        Tag[]
+  userTagMappings UserTagMapping[]
+
+  users       User[]
+  contacts    Contact[]
+  orders      Order[]
+
+  templates   Template[]
+  broadcasts  Broadcast[]
+  payments    Payment[]
+  tickets     Ticket[]
+  flows       Flow[]
+  keywordTriggers  KeywordTrigger[]
+  enterpriseLeads EnterpriseLead[]
+  quickReplies QuickReply[]
+
+  subscriptionStatus   SubscriptionStatus  @default(trialing)
+  currentPlan          String?
+  planPeriodStart      DateTime?
+  planPeriodEnd        DateTime?
+  cancelRequestedAt    DateTime?
+  cancellationReason   String?
+  reactivatedAt        DateTime?
+  dataDeletionDate     DateTime?
+
+  hasUsedTrial         Boolean   @default(false)
+  trialPlanId          String?
+  trialExtendedCount   Int       @default(0)
+  trialExtendedByAdmin String?
+
+  razorpayCustomerId     String?
+  razorpaySubscriptionId String?   @unique
+  autopayEnabled         Boolean   @default(false)
+  autopayMethod          String?
+
+  // ── Merchant Order Commerce Payment Gateway ──
+  razorpayKeyId          String?
+  razorpayKeySecret      String?
+  razorpayWebhookSecret  String?
+  enableOnlinePayment    Boolean   @default(false)
+  enableCod              Boolean   @default(true)
+  defaultCurrency        String    @default("INR")
+  paymentLinkExpiryMins  Int       @default(30)
+  autoConfirmOnPayment   Boolean   @default(true)
+
+  // ── 1-Click Razorpay Partner OAuth Fields ──
+  razorpayAuthType       RazorpayAuthType      @default(DIRECT_KEYS)
+  razorpayAccountId      String?
+  razorpayAccessToken    String?
+  razorpayRefreshToken   String?
+  razorpayTokenExpiresAt DateTime?
+  razorpayWebhookId      String?
+  razorpayAccountStatus  RazorpayAccountStatus @default(DISCONNECTED)
+  razorpayKycStatus      RazorpayKycStatus     @default(PENDING)
+
+  subscriptionReminders SubscriptionReminder[]
+  invoices             Invoice[]
+  cancellationSurvey   CancellationSurvey?
+  dataDeletions        TenantDataDeletion[]
+
+  auditLogs   AuditLog[] @relation("TenantAuditLogs")
+
+  googleSheetConnection GoogleSheetConnection?
+  sheetFields           SheetField[]
+  shopifyConnection     ShopifyConnection?
+  shopifyProducts       ShopifyProduct[]
+  woocommerceConnection WooCommerceConnection?
+  ecommerceOrders       EcommerceOrder[]
+  botFaqs               BotFaq[]
+
+  @@index([whatsappPhoneId])
+  @@index([status])
+  @@index([razorpayAccountId])
+  @@map("tenants")
+}
