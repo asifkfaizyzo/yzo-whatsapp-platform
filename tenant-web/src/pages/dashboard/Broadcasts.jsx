@@ -21,7 +21,7 @@ import {
 import { getBroadcasts, launchBroadcast, cancelBroadcast } from "../../services/broadcast.service";
 import { getTemplates } from "../../services/template.service";
 import { getTags } from "../../services/tag.service";
-import { getWhatsappStatus } from "../../services/tenant.service";
+import { getWhatsappStatus } from "../../api/tenant";
 import { io } from "socket.io-client";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useConfirm } from "../../context/ConfirmContext";

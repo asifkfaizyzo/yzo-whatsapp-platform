@@ -37,12 +37,12 @@ import {
   importContacts,
   getImportGuidelines,
   downloadSampleCSV,
-} from "../../services/contact.service";
+} from "../../api/contact";
 import Pagination from "../../components/Pagination";
 import { useFormHandler } from "../../hooks/useFormHandler";
 import { contactFormSchema } from "../../validations/contact.validation";
 import FormError from "../../components/FormError";
-import { createConversation } from "../../services/conversation.service";
+import { createConversation } from "../../api/conversation";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuthStore } from "../../store/useAuthStore";
 import { getTags } from "../../services/tag.service";
@@ -52,10 +52,10 @@ import {
   reassignContact,
   unassignContact,
   assignMultipleContacts,
-} from "../../services/tenant.service";
+} from "../../api/tenant";
 import { useConfirm } from "../../context/ConfirmContext";
 import { useToast } from "../../context/ToastContext";
-import { getWhatsappStatus } from "../../services/tenant.service";
+import { getWhatsappStatus } from "../../api/tenant";
 import WhatsAppRequiredModal from "../../components/whatsapp/WhatsAppRequiredModal";
 import WhatsAppConnect from "../../components/whatsapp/WhatsAppConnect";
 

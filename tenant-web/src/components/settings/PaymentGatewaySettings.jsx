@@ -34,7 +34,7 @@ import {
   testPaymentGatewayConnection,
   getRazorpayOAuthUrl,
   disconnectRazorpayOAuth,
-} from "../../services/tenant.service";
+} from "../../api/tenant";
 
 export default function PaymentGatewaySettings({ onBack } = {}) {
   const toast = useToast();

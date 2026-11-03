@@ -19,7 +19,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import flowService from "../../services/flow.service";
-import { getWhatsappStatus } from "../../services/tenant.service";
+import { getWhatsappStatus } from "../../api/tenant";
 import { useToast } from "../../context/ToastContext";
 import { useConfirm } from "../../context/ConfirmContext";
 import WhatsAppRequiredModal from "../../components/whatsapp/WhatsAppRequiredModal";

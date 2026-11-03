@@ -28,7 +28,7 @@ import CatalogNode from "../../components/automation/NodeTypes/CatalogNode";
 import AskLocationNode from "../../components/automation/NodeTypes/AskLocationNode";
 import SendLocationNode from "../../components/automation/NodeTypes/SendLocationNode";
 import PaymentNode from "../../components/automation/NodeTypes/PaymentNode";
-import { getWhatsappStatus } from "../../services/tenant.service";
+import { getWhatsappStatus } from "../../api/tenant";
 import { useToast } from "../../context/ToastContext";
 
 // Register node types

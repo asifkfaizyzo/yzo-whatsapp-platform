@@ -19,7 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { getBillingDetails, downloadInvoice, resumeSubscription } from "../../services/billing.service";
+import { getBillingDetails, downloadInvoice, resumeSubscription } from "../../api/billing";
 import CancelSubscriptionModal from "../../components/billing/CancelSubscriptionModal";
 import PauseSubscriptionModal from "../../components/billing/PauseSubscriptionModal";
 import SubscriptionExpiryBanner from "../../components/billing/SubscriptionExpiryBanner";

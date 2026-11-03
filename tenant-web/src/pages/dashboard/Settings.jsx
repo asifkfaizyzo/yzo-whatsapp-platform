@@ -59,7 +59,7 @@ import {
   getMetaChannelsStatus,
   connectMetaChannels,
   disconnectMetaChannels,
-} from "../../services/tenant.service";
+} from "../../api/tenant";
 import {
   getUserProfile,
   updateUserPassword,

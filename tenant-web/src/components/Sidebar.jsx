@@ -7,7 +7,7 @@ import api from "../api/axios";
 // ✅ ADD 1: New imports
 import { getSocket } from "../lib/socket";
 import { useAuthStore } from "../store/useAuthStore";
-import { getAssignedConversations } from "../services/conversation.service";
+import { getAssignedConversations } from "../api/conversation";
 import {
   LayoutDashboard,
   Inbox,
