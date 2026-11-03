@@ -10,7 +10,7 @@ import {
   createPaymentOrder,
   verifyPayment,
   getPublicTaxSettings,
-} from "../services/plan.service";
+} from "../api/plan";
 import { Sparkles, ShieldCheck, ChevronLeft } from "lucide-react";
 import { PaymentVerifyingLoader, PaymentSuccessScreen } from "../components/CustomLoader";
 

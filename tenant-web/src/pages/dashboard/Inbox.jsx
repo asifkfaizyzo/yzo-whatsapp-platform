@@ -86,7 +86,7 @@ import { getTags } from "../../api/tag";
 import { getTenantUsers, assignContact } from "../../api/tenant";
 import { useConfirm } from "../../context/ConfirmContext";
 import { useToast } from "../../context/ToastContext";
-import { getQuickReplies } from "../../services/quickReply.service";
+import { getQuickReplies } from "../../api/quickReply";
 import QuickReplyPopover from "../../components/inbox/QuickReplyPopover";
 import { useCallStore } from "../../store/useCallStore";
 import * as webrtcService from "../../lib/webrtcService";

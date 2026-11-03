@@ -9,7 +9,7 @@ import {
   getAnalyticsAgents,
   getAnalyticsFilters,
   downloadAnalyticsCSV
-} from "../services/analytics.service";
+} from "../api/analytics";
 
 export function useAnalyticsData() {
   // Global Filter States

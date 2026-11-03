@@ -63,7 +63,7 @@ import {
 import {
   getUserProfile,
   updateUserPassword,
-} from "../../services/user.service";
+} from "../../api/user";
 import WhatsAppConnect from "../../components/whatsapp/WhatsAppConnect";
 import QuickReplies from "./QuickReplies";
 import Team from "./Team";

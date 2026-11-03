@@ -8,7 +8,7 @@ import {
   getPublicPlans,
   createPaymentOrder,
   verifyPayment,
-} from "../services/plan.service";
+} from "../api/plan";
 import { PaymentVerifyingLoader, PaymentSuccessScreen } from "../components/CustomLoader";
 
 // Dynamically load Razorpay checkout.js only when needed
