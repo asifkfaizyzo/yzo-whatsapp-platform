@@ -2,7 +2,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useAdminAuthStore } from "../../store/useAdminAuthStore";
-import { loginSuperAdmin } from "../../lib/authApi";
+import { loginSuperAdmin } from "../../api/auth";
 import { useFormHandler } from "../../hooks/useFormHandler";
 import { loginSchema } from "../../validations/auth.validation";
 import FormError from "../../components/FormError";

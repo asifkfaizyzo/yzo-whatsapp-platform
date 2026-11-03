@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { getAdminSocket, disconnectAdminSocket } from "../lib/socket";
-import { logoutSuperAdmin } from "../lib/authApi";
+import { logoutSuperAdmin } from "../api/auth";
 import { useAdminAuthStore } from "../store/useAdminAuthStore";
 import { useNotificationStore } from "../store/useNotificationStore";
 

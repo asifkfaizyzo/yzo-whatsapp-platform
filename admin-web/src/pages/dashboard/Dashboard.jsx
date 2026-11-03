@@ -17,7 +17,7 @@ import {
   RefreshCw,
   IndianRupee,
 } from "lucide-react";
-import api from "../../lib/axios";
+import api from "../../api/axios";
 import { useAdminAuthStore } from "../../store/useAdminAuthStore";
 
 export default function Dashboard() {

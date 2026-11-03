@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { ArrowLeft, User, Building, Mail, Phone, Calendar, Users, ListFilter, Trash2, CheckCircle2, AlertTriangle } from "lucide-react";
-import api from "../../lib/axios";
+import api from "../../api/axios";
 
 export default function EnterpriseLeadDetail() {
   const { id } = useParams();

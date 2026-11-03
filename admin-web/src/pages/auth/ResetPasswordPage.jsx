@@ -1,7 +1,7 @@
 // admin-web/src/pages/auth/ResetPasswordPage.jsx (do not remove this comment)
 import { useState } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
-import { resetPasswordSuperAdmin } from "../../lib/authApi";
+import { resetPasswordSuperAdmin } from "../../api/auth";
 import { siteConfig } from "../../config/site";
 import { ArrowLeft, CheckCircle2, Lock, RefreshCw } from "lucide-react";
 

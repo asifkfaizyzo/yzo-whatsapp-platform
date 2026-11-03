@@ -25,7 +25,7 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
-import api from "../../lib/axios";
+import api from "../../api/axios";
 
 // ── Helpers ──
 const formatINR = (amount) => {

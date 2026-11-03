@@ -5,7 +5,7 @@ import {
   markAdminNotifAsRead,
   markAllAdminNotifsAsRead,
   clearAllAdminNotifs,
-} from "../services/notification.service";
+} from "../api/notification";
 
 export const useNotificationStore = create((set, get) => ({
   notifications: [],

@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Sparkles, Search, Filter, Eye, ArrowLeft, ArrowRight } from "lucide-react";
-import api from "../../lib/axios";
+import api from "../../api/axios";
 
 export default function EnterpriseLeads() {
   const [leads, setLeads] = useState([]);

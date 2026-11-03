@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { ArrowLeft, Mail, Trash2, Calendar, User, Tag, FileText, Check } from "lucide-react";
-import api from "../../lib/axios";
+import api from "../../api/axios";
 
 export default function EnquiryDetail() {
   const { id } = useParams();

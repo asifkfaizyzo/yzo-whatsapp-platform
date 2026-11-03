@@ -20,7 +20,7 @@ import {
   BadgePercent,
   X
 } from "lucide-react";
-import api from "../../lib/axios";
+import api from "../../api/axios";
 import { useConfirm } from "../../context/ConfirmContext";
 import { useToast } from "../../context/ToastContext";
 import { createPortal } from "react-dom";

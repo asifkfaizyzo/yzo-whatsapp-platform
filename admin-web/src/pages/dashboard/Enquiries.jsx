@@ -27,7 +27,7 @@ import {
   ChevronRight,
   ArrowUpRight,
 } from "lucide-react";
-import api from "../../lib/axios";
+import api from "../../api/axios";
 
 export default function Enquiries() {
   const [searchParams, setSearchParams] = useSearchParams();

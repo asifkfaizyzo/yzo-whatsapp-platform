@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useState } from "react";
 import { siteConfig } from "../../config/site";
 import { ArrowLeft, CheckCircle2, Mail, RefreshCw } from "lucide-react";
-import { forgotPasswordSuperAdmin } from "../../lib/authApi";
+import { forgotPasswordSuperAdmin } from "../../api/auth";
 
 const benefits = [
   {

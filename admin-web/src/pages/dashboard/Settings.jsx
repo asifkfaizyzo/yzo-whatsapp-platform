@@ -12,7 +12,7 @@ import {
   AlertCircle,
   Loader2,
 } from "lucide-react";
-import { getTaxSettings, updateTaxSettings } from "../../lib/planService";
+import { getTaxSettings, updateTaxSettings } from "../../api/plan";
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("platform");
