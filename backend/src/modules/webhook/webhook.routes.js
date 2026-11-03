@@ -2,10 +2,10 @@
 import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { verifyMetaWebhook, receiveMetaWebhookEvent, verifyMetaSignature } from './webhook.controller.js';
-import { handleRazorpayWebhook } from './razorpay.webhook.controller.js';
+import { handleRazorpayWebhook } from './razorpay/razorpay.webhook.controller.js';
 import { handleTenantOrderWebhook, handlePartnerWebhook } from './order.webhook.controller.js';
-import { handleShopifyWebhook } from '../shopify/shopify.webhook.controller.js';        
-import { handleWooCommerceWebhook } from './woocommerce.webhook.controller.js';
+import { handleShopifyWebhook } from '../shopify/webhooks/shopify.webhook.controller.js';        
+import { handleWooCommerceWebhook } from './woocommerce/woocommerce.webhook.controller.js';
 
 const router = express.Router();
 

@@ -2,8 +2,8 @@
 import crypto from 'node:crypto';
 import axios from 'axios';
 import * as shopifyService from './shopify.service.js';
-import { registerShopifyWebhooks } from './shopify.webhook.service.js';
-import { syncAllProducts } from './shopify.productSync.service.js';
+import { registerShopifyWebhooks } from './webhooks/shopify.webhook.service.js';
+import { syncAllProducts } from './products/shopify.productSync.service.js';
 
 const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
 const SHOP_DOMAIN_PATTERN = /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/i;

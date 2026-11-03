@@ -3,8 +3,8 @@ import express from 'express';
 import { verifyTenantOrUser } from '../../middlewares/auth.verifyTenantOrUser.js';
 import * as shopifyController from './shopify.controller.js';
 import * as shopifyOAuthController from './shopify.oauth.controller.js';
-import * as shopifyWebhookController from './shopify.webhook.controller.js';
-import * as shopifyProductController from './shopify.product.controller.js';
+import * as shopifyWebhookController from './webhooks/shopify.webhook.controller.js';
+import * as shopifyProductController from './products/shopify.product.controller.js';
 
 const router = express.Router();
 

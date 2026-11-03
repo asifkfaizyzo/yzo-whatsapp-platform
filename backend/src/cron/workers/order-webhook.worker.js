@@ -13,29 +13,29 @@ const routeJob = async (job) => {
   }
   // Shopify cart recovery jobs
   if (job.name?.startsWith('shopify-cart-')) {
-    const { processCartReminder } = await import('../../modules/shopify/shopify.cartRecovery.service.js');
+    const { processCartReminder } = await import('../../modules/shopify/orders/shopify.cartRecovery.service.js');
     return processCartReminder(job.data);
   }
 
   // ── Shopify Post-Purchase Engagement Jobs ──
   if (job.name === 'shopify-review-request') {
-    const { processReviewRequestJob } = await import('../../modules/shopify/shopify.postPurchase.service.js');
+    const { processReviewRequestJob } = await import('../../modules/shopify/orders/shopify.postPurchase.service.js');
     return processReviewRequestJob(job.data);
   }
   if (job.name === 'shopify-cross-sell') {
-    const { processCrossSellJob } = await import('../../modules/shopify/shopify.postPurchase.service.js');
+    const { processCrossSellJob } = await import('../../modules/shopify/orders/shopify.postPurchase.service.js');
     return processCrossSellJob(job.data);
   }
    if (job.name === 'shopify-upsell') {
-    const { processUpsellJob } = await import('../../modules/shopify/shopify.postPurchase.service.js');
+    const { processUpsellJob } = await import('../../modules/shopify/orders/shopify.postPurchase.service.js');
     return processUpsellJob(job.data);
   }
   if (job.name === 'shopify-reorder-reminder') {
-    const { processReorderReminderJob } = await import('../../modules/shopify/shopify.postPurchase.service.js');
+    const { processReorderReminderJob } = await import('../../modules/shopify/orders/shopify.postPurchase.service.js');
     return processReorderReminderJob(job.data);
   }
   if (job.name === 'shopify-win-back') {
-    const { processWinBackJob } = await import('../../modules/shopify/shopify.postPurchase.service.js');
+    const { processWinBackJob } = await import('../../modules/shopify/orders/shopify.postPurchase.service.js');
     return processWinBackJob(job.data);
   }
   // WooCommerce cart recovery jobs (future)

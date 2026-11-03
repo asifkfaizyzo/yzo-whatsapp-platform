@@ -696,7 +696,7 @@ export const sendMessageService = async ({
 
   // ── Phase 4: Log outbound message as Zoho Note ──
   try {
-    const { logMessageAsZohoNote } = await import('../zoho/zoho.note.service.js');
+    const { logMessageAsZohoNote } = await import('../zoho/crm/zoho.note.service.js');
     logMessageAsZohoNote(tenantId, contactId, {
       direction: 'OUTBOUND',
       senderType,

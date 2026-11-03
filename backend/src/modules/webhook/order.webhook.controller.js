@@ -23,8 +23,8 @@ import {
 import {
   processShopifyOrderLifecycle,
   processShopifyPaymentReminderJob,
-} from '../shopify/shopify.orderLifecycle.js';
-import { processCartReminder } from '../shopify/shopify.cartRecovery.service.js';
+} from '../shopify/orders/shopify.orderLifecycle.js';
+import { processCartReminder } from '../shopify/orders/shopify.cartRecovery.service.js';
 
 /**
  * Phase 1: Ingest Razorpay Webhook (< 200ms)
@@ -1005,7 +1005,7 @@ export const processOrderWebhookJob = async (job) => {
         console.log(`✅ [OrderWebhook] Order #${order.orderNumber} marked as PAID & CONFIRMED`);
 
         try {
-          const { updateZohoDealStage } = await import('../zoho/zoho.deal.service.js');
+          const { updateZohoDealStage } = await import('../zoho/crm/zoho.deal.service.js');
           updateZohoDealStage(tenantId, order.id, 'PAID').catch(() => {});
         } catch (_) {}
 
@@ -1055,7 +1055,7 @@ export const processOrderWebhookJob = async (job) => {
           console.log(`✅ [OrderWebhook] payment.captured: Order #${order.orderNumber} confirmed`);
 
           try {
-            const { updateZohoDealStage } = await import('../zoho/zoho.deal.service.js');
+            const { updateZohoDealStage } = await import('../zoho/crm/zoho.deal.service.js');
             updateZohoDealStage(tenantId, order.id, 'PAID').catch(() => {});
           } catch (_) {}
 

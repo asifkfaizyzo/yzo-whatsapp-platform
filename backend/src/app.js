@@ -23,7 +23,7 @@ import whatsappRoutes from './modules/whatsapp/whatsapp.routes.js';
 import googleSheetsRoutes from './modules/google-sheets/googleSheets.routes.js';
 import shopifyRoutes from './modules/shopify/shopify.routes.js';
 import woocommerceRoutes from './modules/woocommerce/woocommerce.routes.js';
-import { handleWooCommerceWebhook } from './modules/webhook/woocommerce.webhook.controller.js';
+import { handleWooCommerceWebhook } from './modules/webhook/woocommerce/woocommerce.webhook.controller.js';
 import notificationRoutes from "./modules/notifications/notification.routes.js";
 import superAdminNotificationRoutes from "./modules/superadmin-notifications/superadminNotification.routes.js";
 import revenueRoutes from "./modules/revenue/revenue.routes.js";
@@ -45,9 +45,9 @@ import dlqRoutes from './modules/webhook/dlq.routes.js';
 
 // Zoho CRM Integration Imports
 import zohoRoutes from './modules/zoho/zoho.routes.js';
-import { handleZohoWebhook } from './modules/zoho/zoho.webhook.controller.js';
+import { handleZohoWebhook } from './modules/zoho/webhooks/zoho.webhook.controller.js';
 import { zohoCallbackHandler } from './modules/zoho/zoho.controller.js';
-import { triggerOutboundMessage } from './modules/zoho/zoho.trigger.controller.js';
+import { triggerOutboundMessage } from './modules/zoho/webhooks/zoho.trigger.controller.js';
 
 // Other Imports
 import { verifyTenantOrUser } from './middlewares/auth.verifyTenantOrUser.js';

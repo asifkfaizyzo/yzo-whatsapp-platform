@@ -1,8 +1,8 @@
 // backend/src/modules/woocommerce/woocommerce.routes.js (do not remove this comment)
 import express from 'express';
-import { handleWooCommerceWebhook } from '../webhook/woocommerce.webhook.controller.js';
-import { handleWooCommerceCartEvent } from '../webhook/woocommerce.cart.webhook.controller.js';
-import { handleWooCommerceAuthEvent } from '../webhook/woocommerce.auth.webhook.controller.js';
+import { handleWooCommerceWebhook } from '../webhook/woocommerce/woocommerce.webhook.controller.js';
+import { handleWooCommerceCartEvent } from '../webhook/woocommerce/woocommerce.cart.webhook.controller.js';
+import { handleWooCommerceAuthEvent } from '../webhook/woocommerce/woocommerce.auth.webhook.controller.js';
 import { handleWooCommerceOAuthCallback, getWooCommerceOAuthUrl } from './woocommerce.oauth.controller.js';
 import {
   getWooCommerceStatus,

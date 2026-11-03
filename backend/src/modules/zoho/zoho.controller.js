@@ -11,16 +11,16 @@ import {
 import {
   getTenantSyncStats,
   pullContactsFromZoho, 
-} from './zoho.contact.service.js';
+} from './crm/zoho.contact.service.js';
 import { zohoSyncQueue } from '../../cron/queues/zoho-sync.queue.js';
 import { detectZohoPlan } from './zoho.plan.service.js';
 import { redisConnection } from '../../config/redis.js';
 
 // New service imports for Cases, Products, Events, and Invoices
-import { getZohoProducts } from './zoho.product.service.js';
-import { createZohoCalendarEvent } from './zoho.event.service.js';
-import { syncTicketToZohoCase } from './zoho.case.service.js';
-import { sendZohoInvoiceToWhatsApp } from './zoho.invoice.service.js';
+import { getZohoProducts } from './crm/zoho.product.service.js';
+import { createZohoCalendarEvent } from './crm/zoho.event.service.js';
+import { syncTicketToZohoCase } from './crm/zoho.case.service.js';
+import { sendZohoInvoiceToWhatsApp } from './crm/zoho.invoice.service.js';
 
 const DEFAULT_PREFERENCES = {
   syncDestination: 'CONTACTS', // 'CONTACTS' | 'LEADS'

@@ -924,7 +924,7 @@ export const getTagById = async (tagId) => {
  */
 async function triggerZohoAutoSync(tenantId, contactId) {
   try {
-    const { autoSyncContactToZoho } = await import('../zoho/zoho.contact.service.js');
+    const { autoSyncContactToZoho } = await import('../zoho/crm/zoho.contact.service.js');
     autoSyncContactToZoho(tenantId, contactId).catch((err) => {
       console.error(`[ZohoAutoSync] Background error for contact ${contactId}:`, err.message);
     });

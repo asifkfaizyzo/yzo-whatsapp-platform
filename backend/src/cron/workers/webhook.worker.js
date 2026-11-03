@@ -78,13 +78,13 @@ export const downloadMetaMediaFromUrl = async ({ url, type, tenantId, contactId 
 // ─────────────────────────────────────────────────────────────
 const triggerZohoAutoSyncForNewContact = async (tenantId, contact) => {
   try {
-    const { getTenantZohoPreferences, autoSyncContactToZoho } = await import('../../modules/zoho/zoho.contact.service.js');
+    const { getTenantZohoPreferences, autoSyncContactToZoho } = await import('../../modules/zoho/crm/zoho.contact.service.js');
     const prefs = await getTenantZohoPreferences(tenantId);
 
     if (!prefs?.autoSyncNewContacts) return;
 
     if (prefs.syncDestination === 'LEADS') {
-      const { createZohoLead } = await import('../../modules/zoho/zoho.lead.service.js');
+      const { createZohoLead } = await import('../../modules/zoho/crm/zoho.lead.service.js');
       createZohoLead(tenantId, contact).catch((err) => {
         console.error('⚠️ [WebhookWorker] createZohoLead failed:', err.message);
       });
@@ -1149,7 +1149,7 @@ export const processWebhookJob = async (job) => {
 
     // ── Phase 4: Log message as Zoho Note ──
     try {
-      const { logMessageAsZohoNote } = await import('../../modules/zoho/zoho.note.service.js');
+      const { logMessageAsZohoNote } = await import('../../modules/zoho/crm/zoho.note.service.js');
       logMessageAsZohoNote(tenant.id, contact.id, {
         direction: 'INBOUND',
         senderType: 'CONTACT',
@@ -1430,7 +1430,7 @@ export const processWebhookJob = async (job) => {
 
         // ── Phase 4: Create Zoho Deal from order ──
         try {
-          const { createZohoDealFromOrder } = await import('../../modules/zoho/zoho.deal.service.js');
+          const { createZohoDealFromOrder } = await import('../../modules/zoho/crm/zoho.deal.service.js');
           createZohoDealFromOrder(tenant.id, createdOrder, contact).catch(() => {});
         } catch (_) {}
 

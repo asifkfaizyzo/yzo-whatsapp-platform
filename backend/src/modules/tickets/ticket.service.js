@@ -47,7 +47,7 @@ export const createTenantTicketService = async (tenantId, data) => {
 
   // ── Zoho Integration Hook: Sync Ticket to Zoho CRM Cases ──
   try {
-    const { syncTicketToZohoCase } = await import('../zoho/zoho.case.service.js');
+    const { syncTicketToZohoCase } = await import('../zoho/crm/zoho.case.service.js');
     syncTicketToZohoCase(tenantId, ticket.id).catch((err) => {
       console.error(`⚠️ [ZohoCase] Background sync skipped/failed for Ticket ${ticket.ticketNumber}:`, err.message);
     });
@@ -251,7 +251,7 @@ export const createUserTicketService = async (userId, tenantId, data) => {
 
   // ── Zoho Integration Hook: Sync Ticket to Zoho CRM Cases ──
   try {
-    const { syncTicketToZohoCase } = await import('../zoho/zoho.case.service.js');
+    const { syncTicketToZohoCase } = await import('../zoho/crm/zoho.case.service.js');
     syncTicketToZohoCase(tenantId, ticket.id).catch((err) => {
       console.error(`⚠️ [ZohoCase] Background sync skipped/failed for Ticket ${ticket.ticketNumber}:`, err.message);
     });

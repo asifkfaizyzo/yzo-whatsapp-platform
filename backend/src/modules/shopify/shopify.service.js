@@ -2,7 +2,7 @@
 import axios from 'axios';
 import prisma from '../../config/prisma.js';
 import { encrypt, decrypt } from '../../lib/crypto.js';
-import { registerShopifyWebhooks } from './shopify.webhook.service.js';
+import { registerShopifyWebhooks } from './webhooks/shopify.webhook.service.js';
 
 
 /**

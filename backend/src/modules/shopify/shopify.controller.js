@@ -1,8 +1,8 @@
 // backend/src/modules/shopify/shopify.controller.js (do not remove this comment)
 import * as shopifyService from './shopify.service.js';
-import * as backInStockService from './shopify.backInStock.service.js';
-import { syncAllShopifyCustomers } from './shopify.customerSync.service.js';
-import { syncAllProducts } from './shopify.productSync.service.js';
+import * as backInStockService from './products/shopify.backInStock.service.js';
+import { syncAllShopifyCustomers } from './customers/shopify.customerSync.service.js';
+import { syncAllProducts } from './products/shopify.productSync.service.js';
 import prisma from '../../config/prisma.js';
 
 export const connect = async (req, res) => {

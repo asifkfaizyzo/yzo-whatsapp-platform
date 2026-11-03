@@ -7,8 +7,8 @@ import { decrypt } from '../../lib/crypto.js'
 import { sendWhatsAppMedia } from '../../lib/utils/whatsapp.mediaSender.js'
 import * as googleSheetsService from '../google-sheets/googleSheets.service.js'
 import { logLeadStatusToSheet } from '../google-sheets/googleSheets.service.js';
-import { handleReviewReply } from '../shopify/shopify.postPurchase.service.js';
-import shopifyOrderLookupService from '../shopify/shopify.orderLookup.service.js';
+import { handleReviewReply } from '../shopify/orders/shopify.postPurchase.service.js';
+import shopifyOrderLookupService from '../shopify/orders/shopify.orderLookup.service.js';
 import faqService from './faq.service.js'
 
 const flowEngine = {
@@ -129,7 +129,7 @@ const flowEngine = {
       if (textStr) {
         try {
           // 1. Try Shopify Review Reply Interception
-          const { handleReviewReply: handleShopifyReviewReply } = await import('../shopify/shopify.postPurchase.service.js');
+          const { handleReviewReply: handleShopifyReviewReply } = await import('../shopify/orders/shopify.postPurchase.service.js');
           const shopifyResult = await handleShopifyReviewReply({
             tenantId: conversation.tenantId,
             contactPhone: contact.phone,
