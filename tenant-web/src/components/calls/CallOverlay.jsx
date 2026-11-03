@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useCallStore } from '../../store/useCallStore';
 import { useWebRTC } from '../../hooks/useWebRTC';
-import api from '../../lib/axios';
+import api from '../../api/axios';
 import { Phone, PhoneOff, Mic, MicOff, User, Lock } from 'lucide-react';
 import { useWhatsAppStore } from '../../store/useWhatsAppStore';
 import { startRingtone, stopRingtone } from '../../lib/ringtoneService';

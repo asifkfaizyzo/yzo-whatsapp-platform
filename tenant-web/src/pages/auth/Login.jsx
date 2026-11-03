@@ -2,7 +2,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useAuthStore } from "../../store/useAuthStore";
-import { login, loginWithGoogle, loginWithFacebook } from "../../services/auth.service";
+import { login, loginWithGoogle, loginWithFacebook } from "../../api/auth";
 import { useFormHandler } from "../../hooks/useFormHandler";
 import { loginSchema } from "../../validations/auth.validation";
 import FormError from "../../components/FormError";

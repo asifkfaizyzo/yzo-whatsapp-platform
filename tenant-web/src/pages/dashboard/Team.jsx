@@ -20,7 +20,7 @@ import {
   deleteTenantUser, 
   deactivateTenantUser, 
   reactivateTenantUser 
-} from "../../services/auth.service";
+} from "../../api/auth";
 import { useFormHandler } from "../../hooks/useFormHandler";
 import { createUserSchema, updateUserSchema } from "../../validations/user.validation";
 import FormError from "../../components/FormError";

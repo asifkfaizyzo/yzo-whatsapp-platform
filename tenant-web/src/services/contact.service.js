@@ -1,5 +1,5 @@
 // tenant-web/src/services/contact.service.js (do not remove this comment)
-import api from "../lib/axios";
+import api from "../api/axios";
 
 // Dynamically target the contact routes (e.g., http://localhost:3000/api4)
 const CONTACTS_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api4`;

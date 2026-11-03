@@ -1,5 +1,5 @@
 // tenant-web/src/services/tag.service.js (do not remove this comment)
-import api from "../lib/axios";
+import api from "../api/axios";
 
 const TAGS_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api7`;
 

@@ -1,7 +1,7 @@
 // tenant-web/src/components/guards/ExpiredRouteGuard.jsx (do not remove this comment)
 import React, { useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import api from "../../lib/axios";
+import api from "../../api/axios";
 import ExpiredSubscriptionBanner from "../billing/ExpiredSubscriptionBanner";
 import CancelAtPeriodEndBanner from "../billing/CancelAtPeriodEndBanner";
 import { useConfirm } from "../../context/ConfirmContext";

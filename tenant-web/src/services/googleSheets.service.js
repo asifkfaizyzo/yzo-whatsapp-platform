@@ -1,6 +1,6 @@
 // tenant-web/src/services/googleSheets.service.js (do not remove this comment)
 
-import api from "../lib/axios";
+import api from "../api/axios";
 
 // If your axios baseURL already includes '/api', use '/google-sheets'
 // Otherwise use '/api/google-sheets'

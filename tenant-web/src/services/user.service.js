@@ -1,5 +1,5 @@
 // tenant-web/src/services/user.service.js (do not remove this comment)
-import api from "../lib/axios";
+import api from "../api/axios";
 
 // Backend base URL for user routes = /api3
 const USER_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api3`;

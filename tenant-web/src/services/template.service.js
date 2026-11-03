@@ -1,5 +1,5 @@
 // tenant-web/src/services/template.service.js (do not remove this comment)
-import api from "../lib/axios";
+import api from "../api/axios";
 
 const TEMPLATE_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api8`;
 

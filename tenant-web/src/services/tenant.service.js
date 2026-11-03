@@ -1,5 +1,5 @@
 // tenant-web/src/services/tenant.service.js (do not remove this comment)
-import api from "../lib/axios";
+import api from "../api/axios";
 
 const TENANT_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api2`;
 
@@ -480,4 +480,4 @@ export const disconnectRazorpayOAuth = async () => {
       message: error.response?.data?.error || error.response?.data?.message || "Failed to disconnect Razorpay",
     };
   }
-};
+};

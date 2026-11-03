@@ -1,6 +1,6 @@
 // tenant-web/src/services/analytics.service.js (do not remove this comment)
 
-import api from "../lib/axios";
+import api from "../api/axios";
 
 const ANALYTICS_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api2/analytics`;
 

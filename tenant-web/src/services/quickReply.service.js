@@ -1,5 +1,5 @@
 // tenant-web/src/services/quickReply.service.js (do not remove this comment)
-import api from '../lib/axios';
+import api from '../api/axios';
 
 /**
  * Fetch list of quick replies with filtering and pagination

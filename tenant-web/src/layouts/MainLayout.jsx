@@ -5,7 +5,7 @@ import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import TopNavBar from "../components/TopNavBar";
 import ExpiredSubscriptionBanner from "../components/billing/ExpiredSubscriptionBanner";
-import api from "../lib/axios";
+import api from "../api/axios";
 import { useAuthStore } from "../store/useAuthStore";
 import { useWhatsAppStore } from "../store/useWhatsAppStore";
 import CallOverlay from "../components/calls/CallOverlay";

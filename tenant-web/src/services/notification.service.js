@@ -1,6 +1,6 @@
 // tenant-web/src/services/notification.service.js (do not remove this comment)
 
-import api from "../lib/axios";
+import api from "../api/axios";
 
 const BASE_URL = "/notifications";
 

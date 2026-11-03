@@ -17,7 +17,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { logout } from "../services/auth.service";
+import { logout } from "../api/auth";
 import { useAuthStore } from "../store/useAuthStore";
 import { getSocket, disconnectSocket } from "../lib/socket";
 import {
@@ -26,7 +26,7 @@ import {
   markAllAsRead,
   clearAll,
 } from "../services/notification.service";
-import api from "../lib/axios";
+import api from "../api/axios";
 
 export default function TopNavBar() {
   const navigate = useNavigate();

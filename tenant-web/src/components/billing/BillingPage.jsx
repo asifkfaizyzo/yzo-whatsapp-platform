@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { CreditCard, Calendar, AlertTriangle, ArrowRight, Download, Receipt } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import api from "../../lib/axios";
+import api from "../../api/axios";
 import CancelSubscriptionModal from "./CancelSubscriptionModal";
 
 export default function BillingPage() {

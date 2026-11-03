@@ -6,7 +6,7 @@ import {
   Play, Pause, Download, Volume2, FileText, ChevronLeft, ChevronRight,
   Filter, AlertCircle
 } from 'lucide-react';
-import api from '../../lib/axios';
+import api from '../../api/axios';
 
 export default function CallLogsTable() {
   const [calls, setCalls] = useState([]);

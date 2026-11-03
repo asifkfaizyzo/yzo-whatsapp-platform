@@ -1,0 +1,221 @@
+// tenant-web/src/api/conversation.js (do not remove this comment)
+import api from "./axios";
+
+const CONV_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api5`;
+
+/**
+ * Get or create a conversation for a contact
+ */
+export const createConversation = async (contactId) => {
+  try {
+    const response = await api.post(`${CONV_BASE_URL}/create-conversation`, { contactId });
+    return {
+      success: true,
+      data: response.data.conversation,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to create conversation",
+    };
+  }
+};
+
+/**
+ * Get all conversations assigned to the logged-in agent/user
+ */
+export const getAssignedConversations = async (page = 1, limit = 20, filter = "all", channel = undefined) => {
+  try {
+    const params = { page, limit, filter };
+    if (channel && channel !== "ALL") {
+      params.channel = channel;
+    }
+    const response = await api.get(`${CONV_BASE_URL}/assigned`, {
+      params,
+    });
+
+    return {
+      success: true,
+      data: response.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to fetch conversations",
+    };
+  }
+};
+
+/**
+ * Get messages for a specific conversation
+ */
+export const getConversationMessages = async (conversationId, limit = 30, before = null) => {
+  try {
+    const response = await api.get(`${CONV_BASE_URL}/getmessage/${conversationId}`, {
+      params: { limit, before },
+    });
+    return {
+      success: true,
+      data: response.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to fetch messages",
+    };
+  }
+};
+
+/**
+ * Update the status of a conversation (e.g., OPEN, RESOLVED, CLOSED)
+ */
+export const updateConversationStatus = async (conversationId, status) => {
+  try {
+    const response = await api.patch(`${CONV_BASE_URL}/status/${conversationId}`, { status });
+    return {
+      success: true,
+      data: response.data.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to update conversation status",
+    };
+  }
+};
+
+// Archive conversation
+export const archiveConversation = async (conversationId) => {
+  try {
+    const response = await api.patch(
+      `${CONV_BASE_URL}/archive/${conversationId}`
+    );
+    return { success: true, data: response.data };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to archive conversation",
+    };
+  }
+};
+
+// Unarchive conversation
+export const unarchiveConversation = async (conversationId) => {
+  try {
+    const response = await api.patch(
+      `${CONV_BASE_URL}/unarchive/${conversationId}`
+    );
+    return { success: true, data: response.data };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to unarchive conversation",
+    };
+  }
+};
+
+// Delete conversation (TENANT only)
+export const deleteConversation = async (conversationId) => {
+  try {
+    const response = await api.delete(
+      `${CONV_BASE_URL}/delete/${conversationId}`
+    );
+    return { success: true, data: response.data };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to delete conversation",
+    };
+  }
+};
+
+// Get archived conversations
+export const getArchivedConversations = async (page = 1, limit = 20) => {
+  try {
+    const response = await api.get(`${CONV_BASE_URL}/archived`, {
+      params: { page, limit },
+    });
+    return { success: true, data: response.data };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to fetch archived conversations",
+    };
+  }
+};
+
+// Bulk reassign conversations
+export const bulkReassignConversations = async (conversationIds, newUserId) => {
+  try {
+    const response = await api.patch(`${CONV_BASE_URL}/bulk-reassign`, {
+      conversationIds,
+      newUserId: newUserId || null,
+    });
+    return {
+      success: true,
+      data: response.data.data,
+      message: response.data.message,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message:
+        error.response?.data?.message ||
+        "Failed to bulk reassign conversations",
+    };
+  }
+};
+
+// Mark conversation as read
+export const markConversationAsRead = async (conversationId) => {
+  try {
+    const response = await api.patch(
+      `${CONV_BASE_URL}/mark-read/${conversationId}`
+    );
+    return { success: true, data: response.data };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to mark as read",
+    };
+  }
+};
+
+/**
+ * Get media, links, or docs for a specific conversation
+ */
+export const getConversationMedia = async (conversationId, type = "media", page = 1, limit = 50) => {
+  try {
+    const response = await api.get(`${CONV_BASE_URL}/media/${conversationId}`, {
+      params: { type, page, limit },
+    });
+    return {
+      success: true,
+      data: response.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to fetch media",
+    };
+  }
+};
+
+/**
+ * Toggle Pin / Unpin conversation
+ */
+export const togglePinConversation = async (conversationId) => {
+  try {
+    const response = await api.patch(`${CONV_BASE_URL}/pin/${conversationId}`);
+    return {
+      success: true,
+      message: response.data.message,
+      conversation: response.data.conversation,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.error || error.response?.data?.message || "Failed to toggle pin state",
+    };
+  }
+};

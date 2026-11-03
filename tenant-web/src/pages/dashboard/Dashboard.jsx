@@ -27,7 +27,7 @@ import { getBroadcasts } from "../../services/broadcast.service";
 import { getAssignedConversations } from "../../services/conversation.service";
 import { useAuthStore } from "../../store/useAuthStore";
 import { getSocket } from "../../lib/socket";
-import api from "../../lib/axios";
+import api from "../../api/axios";
 import { useWhatsAppStore } from "../../store/useWhatsAppStore";
 import CancelAtPeriodEndBanner from "../../components/billing/CancelAtPeriodEndBanner";
 import PausedSubscriptionBanner from "../../components/billing/PausedSubscriptionBanner";

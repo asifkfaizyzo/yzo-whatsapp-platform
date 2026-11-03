@@ -35,7 +35,7 @@ import {
   updateQuickReply,
   deleteQuickReply,
 } from '../../services/quickReply.service';
-import { getTenantUsers } from '../../services/auth.service';
+import { getTenantUsers } from '../../api/auth';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useToast } from '../../context/ToastContext';
 import { useConfirm } from '../../context/ConfirmContext';

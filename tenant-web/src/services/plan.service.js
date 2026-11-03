@@ -1,6 +1,6 @@
 // tenant-web/src/services/plan.service.js (do not remove this comment)
 
-import api from "../lib/axios";
+import api from "../api/axios";
 
 // ── Get all active plans (public — no auth needed) ──
 export const getPublicPlans = async () => {

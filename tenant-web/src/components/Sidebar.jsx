@@ -3,7 +3,7 @@
 import React from "react";
 import { NavLink, Link, useLocation } from "react-router-dom";
 import { FaWhatsapp } from "react-icons/fa";
-import api from "../lib/axios";
+import api from "../api/axios";
 // ✅ ADD 1: New imports
 import { getSocket } from "../lib/socket";
 import { useAuthStore } from "../store/useAuthStore";

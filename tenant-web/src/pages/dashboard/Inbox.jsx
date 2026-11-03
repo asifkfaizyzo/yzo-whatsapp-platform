@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { FaWhatsapp, FaFacebookMessenger, FaInstagram } from "react-icons/fa";
-import api from "../../lib/axios";
+import api from "../../api/axios";
 import EmojiPicker from "emoji-picker-react";
 import {
   Search,
