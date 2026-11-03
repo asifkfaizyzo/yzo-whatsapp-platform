@@ -37,7 +37,7 @@ import {
   getZohoPreferences,
   updateZohoPreferences,
   triggerZohoPullSync,
-} from "../../services/zoho.service";
+} from "../../api/zoho";
 
 export default function ZohoSettings({ onBack } = {}) {
   const toast = useToast();

@@ -17,7 +17,7 @@ import WooCommerceLogo from "./WooCommerceLogo";
 
 import { getPaymentGatewayConfig } from "../../api/tenant";
 import { getGoogleSheetsStatus } from "../../api/googleSheets";
-import { getZohoStatus } from "../../services/zoho.service";
+import { getZohoStatus } from "../../api/zoho";
 import { shopifyService } from "../../api/shopify";
 import { woocommerceService } from "../../api/woocommerce";
 
