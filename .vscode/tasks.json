@@ -1,0 +1,79 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "start-cureli",
+      "dependsOn": [
+        "Backend",
+        "cAdmin",
+        "ERP",
+        "Landing",
+        "Backend tree",
+        "Landing tree",
+        "ERP tree",
+        "cAdmin tree",
+        "Git"
+      ],
+      "dependsOrder": "parallel"
+    },
+    {
+      "label": "SudoReply-tree",
+      "dependsOn": [
+        "Root tree",
+        "Backend tree",
+        "tenant-web tree",
+        "Admin-web tree",
+      ],
+      "dependsOrder": "parallel"
+    },
+    {
+      "label": "Backend tree",
+      "type": "shell",
+      "command": "ls; cd src; tree /f; cd ..;cd prisma/schema; tree /f; cd ../migrations; ls",
+      "isBackground": true,
+      "options": {
+        "cwd": "${workspaceFolder}/backend"
+      },
+      "presentation": {
+        "panel": "new"
+      }
+    },
+    {
+      "label": "Root tree",
+      "type": "shell",
+      "command": "ls;",
+      "isBackground": true,
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "panel": "new"
+      }
+    },
+    {
+      "label": "tenant-web tree",
+      "type": "shell",
+      "command": "ls; cd src; tree /f",
+      "isBackground": true,
+      "options": {
+        "cwd": "${workspaceFolder}/tenant-web"
+      },
+      "presentation": {
+        "panel": "new"
+      }
+    },
+    {
+      "label": "Admin-web tree",
+      "type": "shell",
+      "command": "ls; cd src; tree /f",
+      "isBackground": true,
+      "options": {
+        "cwd": "${workspaceFolder}/admin-web"
+      },
+      "presentation": {
+        "panel": "new"
+      }
+    },
+
+  ]
+}

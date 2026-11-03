@@ -1,0 +1,171 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "start-cureli-mac",
+      "dependsOn": [
+        "Backend",
+        "cAdmin",
+        "ERP",
+        "Landing",
+        "Prisma",
+        "Backend tree",
+        "Landing tree",
+        "ERP tree",
+        "cAdmin tree",
+        "Git",
+        "Mobile Tree"
+      ],
+      "dependsOrder": "parallel"
+    },
+    {
+      "label": "Backend",
+      "type": "shell",
+      "command": "npm start",
+      "options": {
+        "cwd": "${workspaceFolder}/backend"
+      },
+      "isBackground": true,
+      "presentation": {
+        "panel": "new"
+      }
+    },
+    {
+      "label": "Backend tree",
+      "type": "shell",
+      "command": "ls && cd src && find . | sed 's|[^/]*/|  |g' && zsh",
+      "isBackground": true,
+      "options": {
+        "cwd": "${workspaceFolder}/backend"
+      },
+      "presentation": {
+        "panel": "new"
+      }
+    },
+    {
+      "label": "ERP tree",
+      "type": "shell",
+      "command": "ls && cd src && find . | sed 's|[^/]*/|  |g' && zsh",
+      "isBackground": true,
+      "options": {
+        "cwd": "${workspaceFolder}/pharmacy-web"
+      },
+      "presentation": {
+        "panel": "new"
+      }
+    },
+    {
+      "label": "cAdmin tree",
+      "type": "shell",
+      "command": "ls && cd src && find . | sed 's|[^/]*/|  |g' && zsh",
+      "isBackground": true,
+      "options": {
+        "cwd": "${workspaceFolder}/cadmin-web"
+      },
+      "presentation": {
+        "panel": "new"
+      }
+    },
+    {
+      "label": "Landing tree",
+      "type": "shell",
+      "command": "ls && cd src && find . | sed 's|[^/]*/|  |g' && zsh",
+      "isBackground": true,
+      "options": {
+        "cwd": "${workspaceFolder}/landing-web"
+      },
+      "presentation": {
+        "panel": "new"
+      }
+    },
+    {
+      "label": "cAdmin",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/cadmin-web"
+      },
+      "isBackground": true,
+      "presentation": {
+        "panel": "new"
+      }
+    },
+    {
+      "label": "ERP",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/pharmacy-web"
+      },
+      "isBackground": true,
+      "presentation": {
+        "panel": "new"
+      }
+    },
+    {
+      "label": "Landing",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/landing-web"
+      },
+      "isBackground": true,
+      "presentation": {
+        "panel": "new"
+      }
+    },
+    {
+      "label": "Prisma",
+      "type": "shell",
+      "command": "zsh",
+      "options": {
+        "cwd": "${workspaceFolder}/backend"
+      },
+      "isBackground": true,
+      "presentation": {
+        "panel": "new"
+      }
+    },
+    {
+      "label": "Git",
+      "type": "shell",
+      "command": "zsh",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "isBackground": true,
+      "presentation": {
+        "panel": "new"
+      }
+    },
+    {
+      "label": "start-cureli-mobile",
+      "dependsOn": ["Backend Mobile Tree", "Mobile Tree"],
+      "dependsOrder": "parallel"
+    },
+    {
+      "label": "Backend Mobile Tree",
+      "type": "shell",
+      "command": "ls && cd src && find . | sed 's|[^/]*/|  |g' && zsh",
+      "options": {
+        "cwd": "${workspaceFolder}/backend"
+      },
+      "isBackground": true,
+      "presentation": {
+        "panel": "new"
+      }
+    },
+    {
+      "label": "Mobile Tree",
+      "type": "shell",
+      "command": "ls && cd assets && find . | sed 's|[^/]*/|  |g' && cd .. && cd src && find . | sed 's|[^/]*/|  |g' && cd .. && cd app && find . | sed 's|[^/]*/|  |g' && zsh",
+      "options": {
+        "cwd": "${workspaceFolder}/cureli-mobile"
+      },
+      "isBackground": true,
+      "presentation": {
+        "panel": "new"
+      }
+    }
+  ]
+}
