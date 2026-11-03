@@ -1,9 +1,9 @@
-// backend/src/jobs/zohoWatchRenewalJob.js (do not remove this comment)
+// backend/src/cron/jobs/zohoWatchRenewalJob.js (do not remove this comment)
 
 import cron from 'node-cron';
-import prisma from '../config/prisma.js';
-import { subscribeToZohoNotifications } from '../modules/zoho/zoho.service.js';
-import { hasZohoFeature } from '../modules/zoho/zoho.plan.service.js';
+import prisma from '../../config/prisma.js';
+import { subscribeToZohoNotifications } from '../../modules/zoho/zoho.service.js';
+import { hasZohoFeature } from '../../modules/zoho/zoho.plan.service.js';
 
 export const startZohoWatchRenewalJob = () => {
   // Run every 12 hours (at 00:30 and 12:30)

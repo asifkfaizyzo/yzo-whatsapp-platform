@@ -12,7 +12,7 @@ import {
   getTenantSyncStats,
   pullContactsFromZoho, 
 } from './zoho.contact.service.js';
-import { zohoSyncQueue } from '../../queues/zohoSyncQueue.js';
+import { zohoSyncQueue } from '../../cron/queues/zoho-sync.queue.js';
 import { detectZohoPlan } from './zoho.plan.service.js';
 import { redisConnection } from '../../config/redis.js';
 

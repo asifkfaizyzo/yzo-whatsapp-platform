@@ -1,6 +1,6 @@
 // backend/src/modules/webhook/woocommerce.cart.webhook.controller.js (do not remove this comment)
 import prisma from '../../config/prisma.js';
-import { orderWebhookQueue } from '../../queues/orderWebhookQueue.js';
+import { orderWebhookQueue } from '../../cron/queues/order-webhook.queue.js';
 import { isWooStoreUrl, normalizeWooStoreHost, verifyWooAuthEventSignature } from './woocommerce.auth.webhook.security.js';
 import { normalizeWooPhone } from '../woocommerce/woocommerce.authMessage.service.js';
 

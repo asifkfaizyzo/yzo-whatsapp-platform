@@ -1,7 +1,7 @@
-// backend/src/queues/zohoSyncQueue.js (do not remove this comment)
+// backend/src/cron/queues/zoho-sync.queue.js (do not remove this comment)
 
 import { Queue } from 'bullmq';
-import { redisConnection } from '../config/redis.js';
+import { redisConnection } from '../../config/redis.js';
 
 export const QUEUE_NAME_ZOHO_SYNC = 'zoho-sync';
 

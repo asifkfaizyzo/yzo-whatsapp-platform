@@ -1,7 +1,7 @@
-// backend/src/jobs/shopifyReorderReminderJob.js (do not remove this comment)
+// backend/src/cron/jobs/shopifyReorderReminderJob.js (do not remove this comment)
 
-import prisma from '../config/prisma.js';
-import { orderWebhookQueue } from '../queues/orderWebhookQueue.js';
+import prisma from '../../config/prisma.js';
+import { orderWebhookQueue } from '../queues/order-webhook.queue.js';
 
 /**
  * Runs daily. Finds Shopify orders delivered N days ago and enqueues

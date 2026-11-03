@@ -3,7 +3,7 @@ import prisma from '../../config/prisma.js';
 import { getOrCreateConversation } from '../conversations/conversation.service.js';
 import { emitToTenant } from '../../lib/socket.js';
 import { decrypt } from '../../lib/crypto.js';
-import { broadcastQueue } from '../../queues/broadcastQueue.js';
+import { broadcastQueue } from '../../cron/queues/broadcast.queue.js';
 
 // Send individual Template request to Meta Cloud API
 const sendMetaTemplateMessage = async (tenant, phone, templateName, languageCode, params) => {

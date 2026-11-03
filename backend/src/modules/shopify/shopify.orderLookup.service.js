@@ -3,7 +3,7 @@
 import axios from 'axios'
 import prisma from '../../config/prisma.js'
 import { decrypt } from '../../lib/crypto.js'
-import { generateTrackingUrl } from '../../utils/trackingHelper.js'
+import { generateTrackingUrl } from '../../lib/utils/tracking.helper.js'
 
 const normalizeShopifyApiOrder = (shopifyOrder) => {
   const fulfillments = Array.isArray(shopifyOrder.fulfillments)

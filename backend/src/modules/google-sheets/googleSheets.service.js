@@ -1093,7 +1093,7 @@ export const createBroadcastFromSheet = async ({
     },
   }));
 
-  const { broadcastQueue } = await import("../../queues/broadcastQueue.js");
+  const { broadcastQueue } = await import("../../cron/queues/broadcast.queue.js");
   await broadcastQueue.addBulk(jobs);
 
   console.log(

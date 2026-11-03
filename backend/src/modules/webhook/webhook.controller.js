@@ -1,6 +1,6 @@
 // backend/src/modules/webhook/webhook.controller.js (do not remove this comment)
 import crypto from 'crypto';
-import { webhookQueue } from '../../queues/webhookQueue.js';
+import { webhookQueue } from '../../cron/queues/webhook.queue.js';
 
 export const verifyMetaSignature = (req, res, next) => {
   // Support single or multiple secrets across Meta products (WhatsApp, Messenger, Instagram)

@@ -7,7 +7,7 @@ import { emitToTenant } from "../../lib/socket.js";
 import { createNotification } from "../notifications/notification.service.js";
 import { generateSignedUrl } from "../../lib/utils/signed.url.js";
 import { createAuditLog } from "../audit/audit.service.js";
-import pushService from '../../services/pushService.js';
+import pushService from '../../modules/notifications/push.service.js';
 
 //AUTO / MANUAL: Get or create conversation
 export const getOrCreateConversation = async (contactId, tenantId, channel = 'WHATSAPP') => {

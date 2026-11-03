@@ -2,7 +2,7 @@
 
 import { createHash } from 'node:crypto';
 import prisma from '../../config/prisma.js';
-import { orderWebhookQueue, QUEUE_NAME_ORDER_WEBHOOK } from '../../queues/orderWebhookQueue.js';
+import { orderWebhookQueue, QUEUE_NAME_ORDER_WEBHOOK } from '../../cron/queues/order-webhook.queue.js';
 
 /**
  * Handle incoming WooCommerce Webhook events

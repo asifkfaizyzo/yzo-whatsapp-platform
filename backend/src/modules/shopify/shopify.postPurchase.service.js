@@ -1,7 +1,7 @@
 // backend/src/modules/shopify/shopify.postPurchase.service.js (do not remove this comment)
 
 import prisma from '../../config/prisma.js';
-import { orderWebhookQueue } from '../../queues/orderWebhookQueue.js';
+import { orderWebhookQueue } from '../../cron/queues/order-webhook.queue.js';
 import { getOrCreateShopifyContact, saveShopifyInboxMessage } from './shopify.orderLifecycle.js';
 import {
   buildReviewRequestMessage,
@@ -98,7 +98,7 @@ export const scheduleUpsell = async ({ tenantId, order }) => {
 
 // ─────────────────────────────────────────────
 // EXECUTE: Process post-purchase jobs when they fire
-// Called by orderWebhookWorker.js when delayed jobs trigger
+// Called by order-webhook.worker.js when delayed jobs trigger
 // ─────────────────────────────────────────────
 
 /**

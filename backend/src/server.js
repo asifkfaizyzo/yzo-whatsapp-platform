@@ -18,23 +18,23 @@ if (missingEnvs.length > 0) {
 import http from 'http';
 import app from './app.js';
 import { initSocket } from './lib/socket.js';
-import { startWebhookWorker } from './workers/webhookWorker.js';
-import { startOrderWebhookWorker } from './workers/orderWebhookWorker.js';
-import { startBroadcastWorker } from './workers/broadcastWorker.js';
-import { startCallMediaWorker } from './workers/callMediaWorker.js';
-import { startCleanupWorker } from './workers/cleanupWorker.js';
-import './jobs/checkExpiredSubscriptions.js';
-import './jobs/expiryRemindersJob.js';
-import { startAuditCleanupJob } from './jobs/auditCleanupJob.js';
-import { startWebhookEventsCleanupJob } from './jobs/cleanupWebhookEventsJob.js';
+import { startWebhookWorker } from './cron/workers/webhook.worker.js';
+import { startOrderWebhookWorker } from './cron/workers/order-webhook.worker.js';
+import { startBroadcastWorker } from './cron/workers/broadcast.worker.js';
+import { startCallMediaWorker } from './cron/workers/call-media.worker.js';
+import { startCleanupWorker } from './cron/jobs/abandoned-accounts.job.js';
+import './cron/jobs/expired-subscriptions.job.js';
+import './cron/jobs/expiry-reminders.job.js';
+import { startAuditCleanupJob } from './cron/jobs/audit-cleanup.job.js';
+import { startWebhookEventsCleanupJob } from './cron/jobs/webhook-cleanup.job.js';
 import { initQuickReplyIndexes } from './scripts/initQuickReplyIndexes.js';
-import { startZohoSyncWorker } from './workers/zohoSyncWorker.js';
-import { startZohoStaleTaskJob } from './jobs/zohoStaleTaskJob.js';
-import { startZohoWatchRenewalJob } from './jobs/zohoWatchRenewalJob.js';
+import { startZohoSyncWorker } from './cron/workers/zoho-sync.worker.js';
+import { startZohoStaleTaskJob } from './cron/jobs/zoho-stale-task.job.js';
+import { startZohoWatchRenewalJob } from './cron/jobs/zoho-watch-renewal.job.js';
 import { initializeMediasoup } from './lib/mediasoup/mediasoup.service.js';
 import { processLowStockAlerts, processDailyBusinessSummary } from './modules/woocommerce/woocommerce.alert.service.js';
-import { runShopifyReorderReminders } from './jobs/shopifyReorderReminderJob.js';
-import { runShopifyWinBackCampaign } from './jobs/shopifyWinBackJob.js';
+import { runShopifyReorderReminders } from './cron/jobs/shopify-reorder.job.js';
+import { runShopifyWinBackCampaign } from './cron/jobs/shopify-win-back.job.js';
 
 import { redisConnection } from './config/redis.js';
 

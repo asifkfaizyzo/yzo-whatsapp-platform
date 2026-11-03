@@ -1,6 +1,6 @@
-// backend/src/queues/webhookQueue.js (do not remove this comment)
+// backend/src/cron/queues/webhook.queue.js (do not remove this comment)
 import { Queue } from 'bullmq';
-import { defaultQueueOptions } from '../config/bullmq.js';
+import { defaultQueueOptions } from '../../config/bullmq.js';
 
 export const QUEUE_NAME_WEBHOOK = 'webhook-events';
 

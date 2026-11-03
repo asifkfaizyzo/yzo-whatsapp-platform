@@ -1,46 +1,46 @@
-// backend/src/workers/orderWebhookWorker.js (do not remove this comment)
+// backend/src/cron/workers/orderWebhookWorker.js (do not remove this comment)
 import { Worker } from 'bullmq';
-import { QUEUE_NAME_ORDER_WEBHOOK } from '../queues/orderWebhookQueue.js';
-import { redisConnection } from '../config/redis.js';
-import { processOrderWebhookJob } from '../modules/webhook/order.webhook.controller.js';
-import { dlqQueue } from '../queues/dlqQueue.js';
+import { QUEUE_NAME_ORDER_WEBHOOK } from '../queues/order-webhook.queue.js';
+import { redisConnection } from '../../config/redis.js';
+import { processOrderWebhookJob } from '../../modules/webhook/order.webhook.controller.js';
+import { dlqQueue } from '../queues/dlq.queue.js';
 
 // ── Cart Recovery Job Router ──
 const routeJob = async (job) => {
   if (job.name === 'woocommerce-cart-event') {
-    const { handleWooCommerceCartEvent } = await import('../modules/woocommerce/woocommerce.cartRecovery.service.js');
+    const { handleWooCommerceCartEvent } = await import('../../modules/woocommerce/woocommerce.cartRecovery.service.js');
     return handleWooCommerceCartEvent(job.data);
   }
   // Shopify cart recovery jobs
   if (job.name?.startsWith('shopify-cart-')) {
-    const { processCartReminder } = await import('../modules/shopify/shopify.cartRecovery.service.js');
+    const { processCartReminder } = await import('../../modules/shopify/shopify.cartRecovery.service.js');
     return processCartReminder(job.data);
   }
 
   // ── Shopify Post-Purchase Engagement Jobs ──
   if (job.name === 'shopify-review-request') {
-    const { processReviewRequestJob } = await import('../modules/shopify/shopify.postPurchase.service.js');
+    const { processReviewRequestJob } = await import('../../modules/shopify/shopify.postPurchase.service.js');
     return processReviewRequestJob(job.data);
   }
   if (job.name === 'shopify-cross-sell') {
-    const { processCrossSellJob } = await import('../modules/shopify/shopify.postPurchase.service.js');
+    const { processCrossSellJob } = await import('../../modules/shopify/shopify.postPurchase.service.js');
     return processCrossSellJob(job.data);
   }
    if (job.name === 'shopify-upsell') {
-    const { processUpsellJob } = await import('../modules/shopify/shopify.postPurchase.service.js');
+    const { processUpsellJob } = await import('../../modules/shopify/shopify.postPurchase.service.js');
     return processUpsellJob(job.data);
   }
   if (job.name === 'shopify-reorder-reminder') {
-    const { processReorderReminderJob } = await import('../modules/shopify/shopify.postPurchase.service.js');
+    const { processReorderReminderJob } = await import('../../modules/shopify/shopify.postPurchase.service.js');
     return processReorderReminderJob(job.data);
   }
   if (job.name === 'shopify-win-back') {
-    const { processWinBackJob } = await import('../modules/shopify/shopify.postPurchase.service.js');
+    const { processWinBackJob } = await import('../../modules/shopify/shopify.postPurchase.service.js');
     return processWinBackJob(job.data);
   }
   // WooCommerce cart recovery jobs (future)
   if (job.name?.startsWith('woo-cart-')) {
-    const { processCartReminder } = await import('../modules/woocommerce/woocommerce.cartRecovery.service.js');
+    const { processCartReminder } = await import('../../modules/woocommerce/woocommerce.cartRecovery.service.js');
     return processCartReminder(job.data);
   }
   // All other order webhook jobs (orders/create, orders/updated, etc.)

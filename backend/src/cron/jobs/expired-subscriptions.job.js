@@ -1,10 +1,10 @@
-// backend/src/jobs/checkExpiredSubscriptions.js (do not remove this comment)
+// backend/src/cron/jobs/checkExpiredSubscriptions.js (do not remove this comment)
 import cron from 'node-cron';
-import prisma from '../config/prisma.js';
+import prisma from '../../config/prisma.js';
 import {
   sendSubscriptionExpiredEmail,
   sendDataDeletionWarningEmail
-} from '../modules/auth/email.service.js';
+} from '../../modules/auth/email.service.js';
 import nodemailer from 'nodemailer';
 
 const transporter = nodemailer.createTransport({

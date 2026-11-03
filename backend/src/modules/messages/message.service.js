@@ -11,7 +11,7 @@ import { emitToTenant, emitToUser } from '../../lib/socket.js';
 import fs from 'fs';
 import path from 'path';
 import { trackUsage } from '../quick-replies/quickReply.service.js';
-import pushService, { shouldSendPush } from '../../services/pushService.js';
+import pushService, { shouldSendPush } from '../../modules/notifications/push.service.js';
 
 const CLOSED_STATUSES = ['RESOLVED', 'CLOSED'];
 

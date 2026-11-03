@@ -1,6 +1,6 @@
-// backend/src/workers/cleanupWorker.js (do not remove this comment)
+// backend/src/cron/workers/cleanupWorker.js (do not remove this comment)
 
-import prisma from '../config/prisma.js';
+import prisma from '../../config/prisma.js';
 
 const CLEANUP_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours
 const ABANDONMENT_THRESHOLD_HOURS = 24;

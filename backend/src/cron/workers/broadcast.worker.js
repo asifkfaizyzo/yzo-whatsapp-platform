@@ -1,18 +1,18 @@
-// backend/src/workers/broadcastWorker.js (do not remove this comment)
+// backend/src/cron/workers/broadcastWorker.js (do not remove this comment)
 import fs from 'fs';
 import path from 'path';
 import mime from 'mime-types';
 import { Worker } from 'bullmq';
-import { QUEUE_NAME_BROADCAST } from '../queues/broadcastQueue.js';
-import { redisConnection } from '../config/redis.js';
-import prisma from '../config/prisma.js';
-import { getOrCreateConversation } from '../modules/conversations/conversation.service.js';
-import { emitToTenant } from '../lib/socket.js';
-import { decrypt } from '../lib/crypto.js';
-import { generateSignedUrl } from '../lib/utils/signed.url.js';
-import { parseMetaError } from '../lib/meta.errorCodes.js';
-import { checkAndIncrementDailyCap } from '../lib/rateLimiter.js';
-import { createNotification } from '../modules/notifications/notification.service.js';
+import { QUEUE_NAME_BROADCAST } from '../queues/broadcast.queue.js';
+import { redisConnection } from '../../config/redis.js';
+import prisma from '../../config/prisma.js';
+import { getOrCreateConversation } from '../../modules/conversations/conversation.service.js';
+import { emitToTenant } from '../../lib/socket.js';
+import { decrypt } from '../../lib/crypto.js';
+import { generateSignedUrl } from '../../lib/utils/signed.url.js';
+import { parseMetaError } from '../../lib/meta.errorCodes.js';
+import { checkAndIncrementDailyCap } from '../../lib/rateLimiter.js';
+import { createNotification } from '../../modules/notifications/notification.service.js';
 
 const MEDIA_HEADER_TYPES = ['IMAGE', 'VIDEO', 'DOCUMENT'];
 

@@ -1,6 +1,6 @@
-// backend/src/jobs/cleanupWebhookEventsJob.js (do not remove this comment)
+// backend/src/cron/jobs/cleanupWebhookEventsJob.js (do not remove this comment)
 import cron from 'node-cron';
-import prisma from '../config/prisma.js';
+import prisma from '../../config/prisma.js';
 
 export const startWebhookEventsCleanupJob = () => {
   // Runs daily at 03:00 AM

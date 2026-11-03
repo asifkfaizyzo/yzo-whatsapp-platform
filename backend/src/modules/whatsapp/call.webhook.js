@@ -4,7 +4,7 @@ import { emitToTenant } from '../../lib/socket.js';
 import { redisConnection } from '../../config/redis.js';
 import { createWebRtcTransport, generateMetaSdp, processMetaSdpAnswer } from '../../lib/mediasoup/mediasoup.service.js';
 import { activeCalls, activeOutboundTransports, bridgeAgentToMeta } from './call.socket.js';
-import { callMediaQueue } from '../../queues/callMediaQueue.js';
+import { callMediaQueue } from '../../cron/queues/call-media.queue.js';
 import axios from 'axios';
 import { GRAPH_BASE_URL } from '../../config/meta.js';
 import { decrypt } from '../../lib/crypto.js';

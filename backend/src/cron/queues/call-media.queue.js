@@ -1,6 +1,6 @@
-// backend/src/queues/callMediaQueue.js (do not remove this comment)
+// backend/src/cron/queues/call-media.queue.js (do not remove this comment)
 import { Queue } from 'bullmq';
-import { redisConnection } from '../config/redis.js';
+import { redisConnection } from '../../config/redis.js';
 
 export const QUEUE_NAME_CALL_MEDIA = 'call-media-queue';
 

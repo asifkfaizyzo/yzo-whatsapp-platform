@@ -2,7 +2,7 @@
 import crypto from 'node:crypto';
 import prisma from '../../config/prisma.js';
 import { decrypt } from '../../lib/crypto.js';
-import { orderWebhookQueue } from '../../queues/orderWebhookQueue.js';
+import { orderWebhookQueue } from '../../cron/queues/order-webhook.queue.js';
 import { handleProductUpdateForBackInStock } from './shopify.backInStock.service.js';
 import { upsertProduct, markProductDeleted } from './shopify.productSync.service.js';
 

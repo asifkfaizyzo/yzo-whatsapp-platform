@@ -4,7 +4,7 @@ import prisma from '../../config/prisma.js';
 import { decrypt } from '../../lib/crypto.js';
 import { emitToTenant } from '../../lib/socket.js';
 import { logLeadStatusToSheet } from '../google-sheets/googleSheets.service.js';
-import { orderWebhookQueue } from '../../queues/orderWebhookQueue.js';
+import { orderWebhookQueue } from '../../cron/queues/order-webhook.queue.js';
 import {
   handleCheckoutUpdate,
   cancelCartReminders,
@@ -15,7 +15,7 @@ import {
   scheduleCrossSell,
   scheduleUpsell,
 } from './shopify.postPurchase.service.js';
-import { generateTrackingUrl } from '../../utils/trackingHelper.js';
+import { generateTrackingUrl } from '../../lib/utils/tracking.helper.js';
 
 
 

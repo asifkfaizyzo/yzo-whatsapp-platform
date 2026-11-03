@@ -1,6 +1,6 @@
 // backend/src/modules/webhook/dlq.controller.js (do not remove this comment)
-import { dlqQueue } from '../../queues/dlqQueue.js';
-import { webhookQueue } from '../../queues/webhookQueue.js';
+import { dlqQueue } from '../../cron/queues/dlq.queue.js';
+import { webhookQueue } from '../../cron/queues/webhook.queue.js';
 
 // ═══════════════════════════════════════════════
 // GET ALL FAILED WEBHOOKS

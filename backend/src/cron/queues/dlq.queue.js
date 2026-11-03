@@ -1,6 +1,6 @@
-// backend/src/queues/dlqQueue.js (do not remove this comment)
+// backend/src/cron/queues/dlq.queue.js (do not remove this comment)
 import { Queue } from 'bullmq';
-import { redisConnection } from '../config/redis.js';
+import { redisConnection } from '../../config/redis.js';
 
 export const QUEUE_NAME_DLQ = 'webhook-dlq';
 

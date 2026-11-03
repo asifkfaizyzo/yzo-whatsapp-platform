@@ -1,6 +1,6 @@
-// backend/src/queues/orderWebhookQueue.js (do not remove this comment)
+// backend/src/cron/queues/order-webhook.queue.js (do not remove this comment)
 import { Queue } from 'bullmq';
-import { redisConnection } from '../config/redis.js';
+import { redisConnection } from '../../config/redis.js';
 
 export const QUEUE_NAME_ORDER_WEBHOOK = 'order-webhook-events';
 
@@ -19,7 +19,7 @@ export const orderWebhookQueue = new Queue(QUEUE_NAME_ORDER_WEBHOOK, {
 
 
 
-// ── ADD THIS AT THE BOTTOM OF src/queues/orderWebhookQueue.js ──
+// ── ADD THIS AT THE BOTTOM OF src/cron/queues/order-webhook.queue.js ──
 export const addOrderWebhookJob = async (jobName, data, customJobId = null) => {
   return await orderWebhookQueue.add(jobName, data, {
     jobId: customJobId || undefined,

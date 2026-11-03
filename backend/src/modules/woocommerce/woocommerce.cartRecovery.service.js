@@ -2,7 +2,7 @@
 import axios from 'axios';
 import prisma from '../../config/prisma.js';
 import { decrypt } from '../../lib/crypto.js';
-import { orderWebhookQueue } from '../../queues/orderWebhookQueue.js';
+import { orderWebhookQueue } from '../../cron/queues/order-webhook.queue.js';
 import { sendMessageService } from '../messages/message.service.js';
 
 const REMINDER_TIERS = ['1h', '24h', '48h'];

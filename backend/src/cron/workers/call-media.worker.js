@@ -1,11 +1,11 @@
-// backend/src/workers/callMediaWorker.js (do not remove this comment)
+// backend/src/cron/workers/callMediaWorker.js (do not remove this comment)
 import { Worker } from 'bullmq';
-import { QUEUE_NAME_CALL_MEDIA } from '../queues/callMediaQueue.js';
-import { redisConnection } from '../config/redis.js';
-import prisma from '../config/prisma.js';
-import { decrypt } from '../lib/crypto.js';
-import { emitToTenant } from '../lib/socket.js';
-import { GRAPH_BASE_URL } from '../config/meta.js';
+import { QUEUE_NAME_CALL_MEDIA } from '../queues/call-media.queue.js';
+import { redisConnection } from '../../config/redis.js';
+import prisma from '../../config/prisma.js';
+import { decrypt } from '../../lib/crypto.js';
+import { emitToTenant } from '../../lib/socket.js';
+import { GRAPH_BASE_URL } from '../../config/meta.js';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
