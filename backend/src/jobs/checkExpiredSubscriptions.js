@@ -4,7 +4,7 @@ import prisma from '../config/prisma.js';
 import {
   sendSubscriptionExpiredEmail,
   sendDataDeletionWarningEmail
-} from '../modules/auth/emailService.js';
+} from '../modules/auth/email.service.js';
 import nodemailer from 'nodemailer';
 
 const transporter = nodemailer.createTransport({

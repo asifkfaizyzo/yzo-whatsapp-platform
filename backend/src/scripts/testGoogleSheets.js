@@ -1,7 +1,7 @@
 // backend/src/scripts/testGoogleSheets.js (do not remove this comment)
 import 'dotenv/config';
 import prisma from '../config/prisma.js';
-import { logLeadStatusToSheet } from '../modules/google-sheets/googleSheetsService.js';
+import { logLeadStatusToSheet } from '../modules/google-sheets/googleSheets.service.js';
 
 async function testConnection() {
   try {

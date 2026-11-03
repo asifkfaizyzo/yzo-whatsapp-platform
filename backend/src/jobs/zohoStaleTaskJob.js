@@ -1,7 +1,7 @@
 // backend/src/jobs/zohoStaleTaskJob.js (do not remove this comment)
 
 import cron from 'node-cron';
-import { scanAndCreateStaleTasks } from '../modules/zoho/zohoTaskService.js';
+import { scanAndCreateStaleTasks } from '../modules/zoho/zoho.task.service.js';
 
 export const startZohoStaleTaskJob = () => {
   // Run every 6 hours
