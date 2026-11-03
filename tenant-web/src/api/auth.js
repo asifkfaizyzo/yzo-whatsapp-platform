@@ -1,11 +1,6 @@
-// tenant-web/src/services/auth.service.js (do not remove this comment)
-
-import api from "../lib/axios";
-import api2 from "../lib/axios"; // Targets VITE_API_URL (/api2)
-import axios from "axios"; // Raw axios to easily target VITE_USER_API_URL (/api3)
+// tenant-web/src/api/auth.js (do not remove this comment)
+import api, { userApi } from "./axios";
 import { useAuthStore } from '../store/useAuthStore';
-
-const USER_API_URL = `${import.meta.env.VITE_BACKEND_URL}/api3`;
 
 // Step 1: First name + Last name
 export const registerStep1 = async (formData) => {
@@ -15,7 +10,6 @@ export const registerStep1 = async (formData) => {
       lastName: formData.lastName,
     });
 
-    // Update state to record the step session
     const currentToken = useAuthStore.getState().accessToken;
     const onboardingUser = { ...response.data.data.user, type: 'TENANT' };
     useAuthStore.getState().login(onboardingUser, currentToken || null);
@@ -119,7 +113,6 @@ export const registerStep5 = async (formData) => {
       useCase: formData.useCase,
     });
 
-    // Onboarding complete! Set the actual full login session
     const loggedInUser = { ...response.data.data.user, type: 'TENANT' };
     useAuthStore.getState().login(loggedInUser, response.data.data.accessToken);
 
@@ -140,7 +133,6 @@ export const login = async (email, password) => {
       password,
     });
 
-    // Set Zustand store state
     useAuthStore.getState().login(response.data.data.user, response.data.data.accessToken);
 
     console.log(response.data.data.user);
@@ -167,20 +159,18 @@ export const logout = async () => {
   }
 };
 
-
-
 // Invite / Create a new agent user under this Tenant
 export const createTenantUser = async (userData) => {
   try {
     const response = await api.post("/create-user", {
       name: userData.name,
       email: userData.email,
-      password: userData.password, // Backend requires a password to create a user
+      password: userData.password,
     });
 
     return {
       success: true,
-      data: response.data.data, // This contains the created user object
+      data: response.data.data,
     };
   } catch (error) {
     return {
@@ -196,7 +186,7 @@ export const getTenantUsers = async () => {
     const response = await api.get("/get-all-users");
     return {
       success: true,
-      data: response.data.data, // Contains count and users array
+      data: response.data.data,
     };
   } catch (error) {
     return {
@@ -273,17 +263,14 @@ export const deleteTenantUser = async (userId) => {
   }
 };
 
-
-// ✅ Forgot Password for Tenant/User
+// Forgot Password for Tenant/User
 export const forgotPasswordTenant = async (email, roleType = 'TENANT') => {
   try {
     if (roleType === 'USER') {
-      // Call User forgot password endpoint
-      const response = await axios.post(`${USER_API_URL}/forgot-usr-password`, { email });
+      const response = await userApi.post('/forgot-usr-password', { email });
       return { success: true, message: response.data?.message };
     } else {
-      // Call Tenant forgot password endpoint
-      const response = await api2.post('/forgot-ten-password', { email });
+      const response = await api.post('/forgot-ten-password', { email });
       return { success: true, message: response.data?.message };
     }
   } catch (error) {
@@ -294,18 +281,18 @@ export const forgotPasswordTenant = async (email, roleType = 'TENANT') => {
   }
 };
 
-// ✅ Reset Password for Tenant/User
+// Reset Password for Tenant/User
 export const resetPasswordTenant = async (token, newPassword, confirmPassword, roleType = 'TENANT') => {
   try {
     if (roleType === 'USER') {
-      const response = await axios.post(`${USER_API_URL}/reset-usr-password`, {
+      const response = await userApi.post('/reset-usr-password', {
         token,
         newPassword,
         confirmPassword
       });
       return { success: true, message: response.data?.message };
     } else {
-      const response = await api2.post('/reset-ten-password', {
+      const response = await api.post('/reset-ten-password', {
         token,
         newPassword,
         confirmPassword
@@ -320,13 +307,11 @@ export const resetPasswordTenant = async (token, newPassword, confirmPassword, r
   }
 };
 
-
 // Google Login
 export const loginWithGoogle = async (credential) => {
   try {
     const response = await api.post("/google-login", { credential });
 
-    // Log user details and save in Zustand store
     useAuthStore.getState().login(response.data.data.user, response.data.data.accessToken);
 
     return {
@@ -346,7 +331,6 @@ export const loginWithFacebook = async (accessToken) => {
   try {
     const response = await api.post("/facebook-login", { accessToken });
 
-    // Log user details and save in Zustand store
     useAuthStore.getState().login(response.data.data.user, response.data.data.accessToken);
 
     return {

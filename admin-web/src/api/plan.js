@@ -1,4 +1,4 @@
-// admin-web/src/lib/planService.js (do not remove this comment)
+// admin-web/src/api/plan.js (do not remove this comment)
 import api from "./axios";
 
 export const getPlans = async () => {
@@ -73,11 +73,7 @@ export const deleteFeature = async (id) => {
   }
 };
 
-
-
-// ══════════════════════════════════════════
 // TAX / GST SETTINGS
-// ══════════════════════════════════════════
 
 export const getTaxSettings = async () => {
   try {
@@ -93,10 +89,10 @@ export const getTaxSettings = async () => {
 
 export const updateTaxSettings = async (data) => {
   try {
-     const res = await api.put("/settings/tax", data);
+    const res = await api.put("/settings/tax", data);
     return {
       success: true,
-      data:    res.data.data,
+      data: res.data.data,
       message: res.data.message,
     };
   } catch (err) {

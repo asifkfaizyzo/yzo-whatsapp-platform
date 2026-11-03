@@ -10,7 +10,7 @@ import {
   AlertCircle,
   Check,
 } from "lucide-react";
-import { pauseSubscription } from "../../services/billing.service";
+import { pauseSubscription } from "../../api/billing";
 import { useToast } from "../../context/ToastContext";
 
 export default function PauseSubscriptionModal({

@@ -1,5 +1,5 @@
-// tenant-web/src/services/conversation.service.js (do not remove this comment)
-import api from "../lib/axios";
+// tenant-web/src/api/conversation.js (do not remove this comment)
+import api from "./axios";
 
 const CONV_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api5`;
 
@@ -11,7 +11,7 @@ export const createConversation = async (contactId) => {
     const response = await api.post(`${CONV_BASE_URL}/create-conversation`, { contactId });
     return {
       success: true,
-      data: response.data.conversation, // The conversation object
+      data: response.data.conversation,
     };
   } catch (error) {
     return {
@@ -36,7 +36,7 @@ export const getAssignedConversations = async (page = 1, limit = 20, filter = "a
 
     return {
       success: true,
-      data: response.data, // ✅ return FULL response, let Inbox.jsx extract what it needs
+      data: response.data,
     };
   } catch (error) {
     return {
@@ -45,6 +45,7 @@ export const getAssignedConversations = async (page = 1, limit = 20, filter = "a
     };
   }
 };
+
 /**
  * Get messages for a specific conversation
  */
@@ -82,8 +83,6 @@ export const updateConversationStatus = async (conversationId, status) => {
     };
   }
 };
-
-
 
 // Archive conversation
 export const archiveConversation = async (conversationId) => {
@@ -145,8 +144,6 @@ export const getArchivedConversations = async (page = 1, limit = 20) => {
   }
 };
 
-
-
 // Bulk reassign conversations
 export const bulkReassignConversations = async (conversationIds, newUserId) => {
   try {
@@ -169,8 +166,7 @@ export const bulkReassignConversations = async (conversationIds, newUserId) => {
   }
 };
 
-
-// ── Mark conversation as read ─────────────────────────────
+// Mark conversation as read
 export const markConversationAsRead = async (conversationId) => {
   try {
     const response = await api.patch(
@@ -184,7 +180,6 @@ export const markConversationAsRead = async (conversationId) => {
     };
   }
 };
-
 
 /**
  * Get media, links, or docs for a specific conversation
@@ -205,7 +200,6 @@ export const getConversationMedia = async (conversationId, type = "media", page 
     };
   }
 };
-
 
 /**
  * Toggle Pin / Unpin conversation

@@ -1,6 +1,6 @@
 // tenant-web/src/store/useWhatsAppStore.js (do not remove this comment)
 import { create } from "zustand";
-import { getWhatsappStatus } from "../services/tenant.service";
+import { getWhatsappStatus } from "../api/tenant";
 import { getSocket } from "../lib/socket";
 
 export const useWhatsAppStore = create((set, get) => ({

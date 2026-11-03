@@ -1,6 +1,5 @@
-// tenant-web/src/services/zoho.service.js (do not remove this comment)
-
-import api from "../lib/axios";
+// tenant-web/src/api/zoho.js (do not remove this comment)
+import api from "./axios";
 
 const ZOHO_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api2/zoho`;
 
@@ -43,8 +42,6 @@ export const getZohoStatus = async () => {
 /**
  * Fetch Zoho CRM plan info and capabilities
  */
-
-
 export const getZohoPlanInfo = async (forceRefresh = false) => {
   try {
     const url = forceRefresh ? `${ZOHO_BASE_URL}/plan?refresh=true` : `${ZOHO_BASE_URL}/plan`;
@@ -189,7 +186,6 @@ export const updateZohoPreferences = async (preferences) => {
     };
   }
 };
-
 
 export const triggerZohoPullSync = async () => {
   try {

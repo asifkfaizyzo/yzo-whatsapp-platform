@@ -1,6 +1,5 @@
-// admin-web/src/services/reports.service.js (do not remove this comment)
-
-import api from '../lib/axios';
+// admin-web/src/api/reports.js (do not remove this comment)
+import api from "./axios";
 
 /**
  * Fetch Performance KPI cards data

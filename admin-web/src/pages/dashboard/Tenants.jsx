@@ -58,9 +58,9 @@ import {
   PlusCircle,
   Receipt,
 } from "lucide-react";
-import api from "../../lib/axios";
+import api from "../../api/axios";
 import axios from "axios";
-import { getPlans } from "../../lib/planService";
+import { getPlans } from "../../api/plan";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

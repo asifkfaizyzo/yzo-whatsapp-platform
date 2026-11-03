@@ -3,9 +3,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useAuthStore } from "../store/useAuthStore";
-import { getPublicPlans } from "../services/plan.service";
+import { getPublicPlans } from "../api/plan";
 import { useToast } from "../context/ToastContext";
-import api from "../lib/axios";
+import api from "../api/axios";
 import { ShieldAlert, ShieldCheck, Receipt, HelpCircle, ArrowRight, Sparkles, CheckCircle2, CreditCard, ChevronLeft } from "lucide-react";
 import { createPortal } from "react-dom";
 import { PaymentVerifyingLoader, PaymentSuccessScreen } from "../components/CustomLoader";

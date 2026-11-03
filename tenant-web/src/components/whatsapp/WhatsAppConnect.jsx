@@ -1,7 +1,7 @@
 // tenant-web/src/components/whatsapp/WhatsAppConnect.jsx (do not remove this comment)
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
-import api from "../../lib/axios";
+import api from "../../api/axios";
 import { WhatsAppLoader } from "../CustomLoader";
 
 const CONFIG_ID = "1063577526237503";

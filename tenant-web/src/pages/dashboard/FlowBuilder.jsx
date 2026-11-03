@@ -22,13 +22,13 @@ import AskQuestionNode from "../../components/automation/NodeTypes/AskQuestionNo
 import ConditionNode from "../../components/automation/NodeTypes/ConditionNode";
 import AssignAgentNode from "../../components/automation/NodeTypes/AssignAgentNode";
 import EndFlowNode from "../../components/automation/NodeTypes/EndFlowNode";
-import flowService from "../../services/flow.service";
+import flowService from "../../api/flow";
 import InteractiveButtonsNode from "../../components/automation/NodeTypes/interactiveButtonsNode";
 import CatalogNode from "../../components/automation/NodeTypes/CatalogNode";
 import AskLocationNode from "../../components/automation/NodeTypes/AskLocationNode";
 import SendLocationNode from "../../components/automation/NodeTypes/SendLocationNode";
 import PaymentNode from "../../components/automation/NodeTypes/PaymentNode";
-import { getWhatsappStatus } from "../../services/tenant.service";
+import { getWhatsappStatus } from "../../api/tenant";
 import { useToast } from "../../context/ToastContext";
 
 // Register node types

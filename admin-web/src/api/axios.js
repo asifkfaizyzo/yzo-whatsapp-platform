@@ -1,4 +1,4 @@
-// admin-web/src/lib/axios.js (do not remove this comment)
+// admin-web/src/api/axios.js (do not remove this comment)
 import axios from 'axios';
 import { useAdminAuthStore } from '../store/useAdminAuthStore';
 
@@ -24,7 +24,7 @@ const processQueue = (error, token = null) => {
   failedQueue = [];
 };
 
-// ✅ Attach Access Token
+// Attach Access Token
 api.interceptors.request.use(
   (config) => {
     const token = useAdminAuthStore.getState().accessToken;
@@ -37,7 +37,7 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// ✅ Queue Concurrent Refresh Requests
+// Queue Concurrent Refresh Requests
 api.interceptors.response.use(
   (response) => response,
   async (error) => {

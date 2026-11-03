@@ -40,7 +40,7 @@ import {
   deletePlan,
   getFeatures,
   createFeature,
-} from "../../lib/planService";
+} from "../../api/plan";
 
 /* ────────────────────────────────────────────────────────────────
    Static config — presentation & icons

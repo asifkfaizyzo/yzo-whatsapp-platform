@@ -37,7 +37,7 @@ import {
   toggleGoogleSheetsField,
   deleteGoogleSheetsField,
   syncFields,
-} from "../../services/googleSheets.service";
+} from "../../api/googleSheets";
 
 export default function GoogleSheetsSettings({ onBack } = {}) {
   const toast = useToast();

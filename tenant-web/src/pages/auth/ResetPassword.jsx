@@ -1,7 +1,7 @@
 // tenant-web/src/pages/auth/ResetPassword.jsx (do not remove this comment)
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { resetPasswordTenant } from "../../services/auth.service";
+import { resetPasswordTenant } from "../../api/auth";
 import { CheckCircle2, RefreshCw } from "lucide-react";
 import { useFormHandler } from "../../hooks/useFormHandler";
 import { resetPasswordSchema } from "../../validations/auth.validation";

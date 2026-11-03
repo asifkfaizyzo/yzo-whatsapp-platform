@@ -1,7 +1,7 @@
 // tenant-web/src/pages/dashboard/CallSettings.jsx (do not remove this comment)
 import React, { useState, useEffect } from 'react';
 import { PhoneCall, PhoneForwarded, Upload, X, Loader2, Save, Sliders, History } from 'lucide-react';
-import api from '../../lib/axios';
+import api from '../../api/axios';
 import { useToast } from '../../context/ToastContext';
 import { useWhatsAppStore } from '../../store/useWhatsAppStore';
 import { useAuthStore } from '../../store/useAuthStore';

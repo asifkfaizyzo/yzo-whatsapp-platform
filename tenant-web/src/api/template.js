@@ -1,5 +1,5 @@
-// tenant-web/src/services/template.service.js (do not remove this comment)
-import api from "../lib/axios";
+// tenant-web/src/api/template.js (do not remove this comment)
+import api from "./axios";
 
 const TEMPLATE_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api8`;
 
@@ -14,8 +14,6 @@ export const getTemplates = async () => {
 };
 
 // 2. Submit new template
-// Accepts either a plain object (JSON) or a FormData instance (for media uploads).
-// When FormData is passed, axios will automatically set the correct multipart boundary.
 export const createTemplate = async (templateData) => {
   try {
     const isMultipart = templateData instanceof FormData;
@@ -27,7 +25,6 @@ export const createTemplate = async (templateData) => {
     return { success: false, message: error.response?.data?.message || "Failed to create template" };
   }
 };
-
 
 // 3. Sync from Meta Account
 export const syncTemplates = async () => {

@@ -1,4 +1,4 @@
-// tenant-web/src/lib/axios.js (do not remove this comment)
+// tenant-web/src/api/axios.js (do not remove this comment)
 import axios from 'axios';
 import { useAuthStore } from '../store/useAuthStore';
 
@@ -38,8 +38,8 @@ api.interceptors.response.use(
       try {
         const isUser = localStorage.getItem('user_type') === 'USER';
         const refreshEndpoint = isUser ? '/refresh-user-access' : '/refresh-token';
-        const refreshBaseUrl = isUser 
-          ? `${import.meta.env.VITE_BACKEND_URL}/api3` 
+        const refreshBaseUrl = isUser
+          ? `${import.meta.env.VITE_BACKEND_URL}/api3`
           : `${import.meta.env.VITE_BACKEND_URL}/api2`;
 
         const response = await axios.post(
@@ -49,7 +49,7 @@ api.interceptors.response.use(
         );
 
         const newAccessToken = isUser ? response.data.data.accessToken : response.data.accessToken;
-        
+
         useAuthStore.setState({ accessToken: newAccessToken });
 
         originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
@@ -67,3 +67,59 @@ api.interceptors.response.use(
 );
 
 export default api;
+
+// ============================================
+// USER API INSTANCE (targets /api3)
+// Same interceptors, different base URL
+// ============================================
+export const userApi = axios.create({
+  baseURL: `${import.meta.env.VITE_BACKEND_URL}/api3`,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  withCredentials: true,
+});
+
+userApi.interceptors.request.use((config) => {
+  const token = useAuthStore.getState().accessToken;
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+}, (error) => Promise.reject(error));
+
+userApi.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !originalRequest.url.includes('/login') &&
+      !originalRequest.url.includes('/refresh')
+    ) {
+      originalRequest._retry = true;
+
+      try {
+        const response = await axios.post(
+          `${import.meta.env.VITE_BACKEND_URL}/api3/refresh-user-access`,
+          {},
+          { withCredentials: true }
+        );
+
+        const newAccessToken = response.data.data.accessToken;
+        useAuthStore.setState({ accessToken: newAccessToken });
+
+        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+        return userApi(originalRequest);
+      } catch (refreshError) {
+        useAuthStore.getState().logout();
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);

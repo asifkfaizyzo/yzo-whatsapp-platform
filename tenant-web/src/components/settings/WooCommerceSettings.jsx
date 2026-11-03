@@ -33,7 +33,7 @@ import {
   updateWooCommerceAlertSettings,
   getWooCommerceCartRecoveryWebhookConfig,
   updateWooCommerceCartRecoverySettings,
-} from "../../services/woocommerce.service";
+} from "../../api/woocommerce";
 
 export default function WooCommerceSettings({ onBack } = {}) {
   const toast = useToast();

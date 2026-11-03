@@ -1,5 +1,5 @@
-// tenant-web/src/services/tenant.service.js (do not remove this comment)
-import api from "../lib/axios";
+// tenant-web/src/api/tenant.js (do not remove this comment)
+import api from "./axios";
 
 const TENANT_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api2`;
 
@@ -11,7 +11,7 @@ export const getTenantUsers = async () => {
     const response = await api.get(`${TENANT_BASE_URL}/get-all-users`);
     return {
       success: true,
-      data: response.data.data.users || response.data.data, // adjust depending on backend envelope
+      data: response.data.data.users || response.data.data,
     };
   } catch (error) {
     return {
@@ -169,7 +169,6 @@ export const updateTenantProfile = async (profileData) => {
   }
 };
 
-
 /**
  * Update/Set tenant password
  */
@@ -187,7 +186,6 @@ export const updateTenantPassword = async (passwordData) => {
     };
   }
 };
-
 
 /**
  * Fetch WhatsApp Cloud API configurations
@@ -284,28 +282,21 @@ export const setupWhatsappManual = async ({ phoneNumberId, wabaId, accessToken }
   }
 };
 
-
-
-
-// Find the base URL pattern used by other tenant functions in this file
-// Look at getTenantProfile or updateTenantProfile — copy the SAME URL pattern
-
 // =========== Upload Tenant Logo ===========
 export const uploadTenantLogo = async (formData) => {
   try {
     console.log("🟢 Service: Making API call to upload logo");
-    
-    // ⚠️ REPLACE the URL below to match your other tenant functions
+
     const res = await api.post(
-      `${import.meta.env.VITE_BACKEND_URL}/api2/upload-logo`, 
-      formData, 
+      `${import.meta.env.VITE_BACKEND_URL}/api2/upload-logo`,
+      formData,
       {
         headers: {
           "Content-Type": "multipart/form-data",
         },
       }
     );
-    
+
     console.log("🟢 Service: Response received:", res.data);
     return { success: true, data: res.data.data };
   } catch (err) {
@@ -313,7 +304,7 @@ export const uploadTenantLogo = async (formData) => {
     console.log("🔴 Service: Response:", err?.response?.data);
     console.log("🔴 Service: Status:", err?.response?.status);
     console.log("🔴 Service: URL called:", err?.config?.url);
-    
+
     return {
       success: false,
       message: err?.response?.data?.message || "Failed to upload logo",
@@ -480,4 +471,4 @@ export const disconnectRazorpayOAuth = async () => {
       message: error.response?.data?.error || error.response?.data?.message || "Failed to disconnect Razorpay",
     };
   }
-};
+};

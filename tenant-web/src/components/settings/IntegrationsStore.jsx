@@ -15,11 +15,11 @@ import ZohoLogo from "./ZohoLogo";
 import ShopifyLogo from "./ShopifyLogo";
 import WooCommerceLogo from "./WooCommerceLogo";
 
-import { getPaymentGatewayConfig } from "../../services/tenant.service";
-import { getGoogleSheetsStatus } from "../../services/googleSheets.service";
-import { getZohoStatus } from "../../services/zoho.service";
-import { shopifyService } from "../../services/shopify.service";
-import { woocommerceService } from "../../services/woocommerce.service";
+import { getPaymentGatewayConfig } from "../../api/tenant";
+import { getGoogleSheetsStatus } from "../../api/googleSheets";
+import { getZohoStatus } from "../../api/zoho";
+import { shopifyService } from "../../api/shopify";
+import { woocommerceService } from "../../api/woocommerce";
 
 export default function IntegrationsStore() {
   const [searchParams, setSearchParams] = useSearchParams();

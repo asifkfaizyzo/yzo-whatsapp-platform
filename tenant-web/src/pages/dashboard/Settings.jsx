@@ -41,7 +41,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { FaFacebookMessenger, FaInstagram, FaWhatsapp } from "react-icons/fa";
-import { getTags, createTag } from "../../services/tag.service";
+import { getTags, createTag } from "../../api/tag";
 import { useToast } from "../../context/ToastContext";
 import {
   getAutoReopenConfig,
@@ -59,11 +59,11 @@ import {
   getMetaChannelsStatus,
   connectMetaChannels,
   disconnectMetaChannels,
-} from "../../services/tenant.service";
+} from "../../api/tenant";
 import {
   getUserProfile,
   updateUserPassword,
-} from "../../services/user.service";
+} from "../../api/user";
 import WhatsAppConnect from "../../components/whatsapp/WhatsAppConnect";
 import QuickReplies from "./QuickReplies";
 import Team from "./Team";

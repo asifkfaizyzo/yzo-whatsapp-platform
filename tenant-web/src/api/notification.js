@@ -1,6 +1,5 @@
-// tenant-web/src/services/notification.service.js (do not remove this comment)
-
-import api from "../lib/axios";
+// tenant-web/src/api/notification.js (do not remove this comment)
+import api from "./axios";
 
 const BASE_URL = "/notifications";
 
@@ -50,9 +49,7 @@ export const clearAll = async () => {
   }
 };
 
-
-
-// 🆕 Get paginated notifications (for full page)
+// Get paginated notifications (for full page)
 export const getPaginatedNotifications = async ({
   page = 1,
   limit = 20,
@@ -75,7 +72,7 @@ export const getPaginatedNotifications = async ({
   }
 };
 
-// 🆕 Delete a single notification
+// Delete a single notification
 export const deleteNotification = async (id) => {
   try {
     await api.delete(`${BASE_URL}/${id}`);

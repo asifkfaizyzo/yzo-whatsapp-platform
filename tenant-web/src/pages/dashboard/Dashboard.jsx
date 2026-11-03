@@ -20,14 +20,14 @@ import {
   Ticket,
 } from "lucide-react";
 import { Link, useOutletContext } from "react-router-dom";
-import { getTenantUsers } from "../../services/tenant.service";
-import { getContacts } from "../../services/contact.service";
-import { getTemplates } from "../../services/template.service";
-import { getBroadcasts } from "../../services/broadcast.service";
-import { getAssignedConversations } from "../../services/conversation.service";
+import { getTenantUsers } from "../../api/tenant";
+import { getContacts } from "../../api/contact";
+import { getTemplates } from "../../api/template";
+import { getBroadcasts } from "../../api/broadcast";
+import { getAssignedConversations } from "../../api/conversation";
 import { useAuthStore } from "../../store/useAuthStore";
 import { getSocket } from "../../lib/socket";
-import api from "../../lib/axios";
+import api from "../../api/axios";
 import { useWhatsAppStore } from "../../store/useWhatsAppStore";
 import CancelAtPeriodEndBanner from "../../components/billing/CancelAtPeriodEndBanner";
 import PausedSubscriptionBanner from "../../components/billing/PausedSubscriptionBanner";

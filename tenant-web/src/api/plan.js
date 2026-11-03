@@ -1,8 +1,7 @@
-// tenant-web/src/services/plan.service.js (do not remove this comment)
+// tenant-web/src/api/plan.js (do not remove this comment)
+import api from "./axios";
 
-import api from "../lib/axios";
-
-// ── Get all active plans (public — no auth needed) ──
+// Get all active plans (public — no auth needed)
 export const getPublicPlans = async () => {
   try {
     const response = await api.get("/plans/public");
@@ -18,8 +17,7 @@ export const getPublicPlans = async () => {
   }
 };
 
-
-// ✅ Create Razorpay Recurring Subscription (Autopay with immediate Cycle 1 debit)
+// Create Razorpay Recurring Subscription (Autopay with immediate Cycle 1 debit)
 export const createPaidSubscription = async (planId, billingType) => {
   try {
     const response = await api.post("/plans/create-paid-subscription", {
@@ -38,7 +36,7 @@ export const createPaidSubscription = async (planId, billingType) => {
   }
 };
 
-// ✅ Verify Paid Subscription signature and activate
+// Verify Paid Subscription signature and activate
 export const verifyPaidSubscription = async (subscriptionData) => {
   try {
     const response = await api.post("/plans/verify-paid-subscription", subscriptionData);
@@ -55,7 +53,7 @@ export const verifyPaidSubscription = async (subscriptionData) => {
   }
 };
 
-// ✅ Create Razorpay order (One-time fallback)
+// Create Razorpay order (One-time fallback)
 export const createPaymentOrder = async (planId, billingType) => {
   try {
     const response = await api.post("/plans/create-order", {
@@ -74,7 +72,7 @@ export const createPaymentOrder = async (planId, billingType) => {
   }
 };
 
-// ✅ Verify payment and activate plan (One-time fallback)
+// Verify payment and activate plan (One-time fallback)
 export const verifyPayment = async (paymentData) => {
   try {
     const response = await api.post("/plans/verify-payment", paymentData);
@@ -90,14 +88,12 @@ export const verifyPayment = async (paymentData) => {
   }
 };
 
-
-// ── Fetch Public GST Settings ──
+// Fetch Public GST Settings
 export const getPublicTaxSettings = async () => {
   try {
     const res = await api.get("/settings/tax/public");
     return { success: true, data: res.data.data };
   } catch (err) {
-    // Fallback if API fails
     return {
       success: true,
       data: {

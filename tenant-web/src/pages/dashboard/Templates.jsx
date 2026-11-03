@@ -24,8 +24,8 @@ import {
   MessageSquare,
   Play,
 } from "lucide-react";
-import { getTemplates, createTemplate, syncTemplates, deleteTemplate } from "../../services/template.service";
-import { getWhatsappStatus } from "../../services/tenant.service";
+import { getTemplates, createTemplate, syncTemplates, deleteTemplate } from "../../api/template";
+import { getWhatsappStatus } from "../../api/tenant";
 import { useConfirm } from "../../context/ConfirmContext";
 import { useToast } from "../../context/ToastContext";
 import WhatsAppRequiredModal from "../../components/whatsapp/WhatsAppRequiredModal";

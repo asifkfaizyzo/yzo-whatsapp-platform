@@ -1,5 +1,5 @@
-// tenant-web/src/services/message.service.js (do not remove this comment)
-import api from "../lib/axios";
+// tenant-web/src/api/message.js (do not remove this comment)
+import api from "./axios";
 
 const MSG_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api6`;
 
@@ -29,7 +29,6 @@ export const sendMessage = async (contactId, text, options = {}) => {
   }
 };
 
-
 /**
  * Send a media message (image, file, video, audio, voice)
  * @param {string} contactId - The contact's ID
@@ -58,8 +57,6 @@ export const sendMediaMessage = async (contactId, formData) => {
   }
 };
 
-
-
 /**
  * Delete a message (soft delete)
  * @param {string} messageId - The message ID to delete
@@ -79,9 +76,7 @@ export const deleteMessage = async (messageId) => {
   }
 };
 
-
-
-//sendLocation
+// sendLocation
 const WA_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api2/whatsapp`;
 
 export const sendLocation = async ({

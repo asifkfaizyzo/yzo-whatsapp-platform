@@ -45,7 +45,7 @@ import {
   fetchReportDelivery,
   fetchReportTenants,
   fetchReportSystemHealth
-} from '../../services/reports.service';
+} from '../../api/reports';
 
 export default function Reports() {
   const [dateRange, setDateRange] = useState('30days');

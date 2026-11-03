@@ -17,7 +17,7 @@ import {
   User,
 } from "lucide-react";
 import { useOutletContext,useSearchParams } from "react-router-dom";
-import api from "../../lib/axios";
+import api from "../../api/axios";
 
 // ── Helpers ──
 const formatDate = (dateStr) => {

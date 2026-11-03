@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { createPortal } from "react-dom";
 import { PauseCircle, Play, CheckCircle2, X } from "lucide-react";
-import { resumeSubscription } from "../../services/billing.service";
+import { resumeSubscription } from "../../api/billing";
 import { useToast } from "../../context/ToastContext";
 import { useAuthStore } from "../../store/useAuthStore";
 

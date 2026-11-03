@@ -30,7 +30,7 @@ import {
   verifyEmailOtp,
   loginWithGoogle,
   loginWithFacebook,
-} from "../../services/auth.service";
+} from "../../api/auth";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useToast } from "../../context/ToastContext";
 import FormError from "../../components/FormError";

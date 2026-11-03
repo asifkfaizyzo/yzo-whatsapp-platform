@@ -1,7 +1,6 @@
-// tenant-web/src/services/contact.service.js (do not remove this comment)
-import api from "../lib/axios";
+// tenant-web/src/api/contact.js (do not remove this comment)
+import api from "./axios";
 
-// Dynamically target the contact routes (e.g., http://localhost:3000/api4)
 const CONTACTS_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api4`;
 
 /**
@@ -18,7 +17,7 @@ export const getContacts = async (page = 1, limit = 10, search = "", filter = "a
     });
     return {
       success: true,
-      data: response.data.data, // Contains count, totalPages, currentPage, limit, channelCounts, and contacts
+      data: response.data.data,
     };
   } catch (error) {
     return {
@@ -71,11 +70,6 @@ export const deleteContact = async (contactId) => {
   }
 };
 
-
-
-/**
- * Bulk delete contacts by IDs
- */
 /**
  * Bulk delete contacts by IDs or Filters
  */
@@ -86,14 +80,12 @@ export const bulkDeleteContacts = async (contactIds = [], mode = 'selected', fil
     if (mode === 'filter') payload.filters = filters;
     if (mode === 'all') payload.confirmation = confirmation;
 
-    // ✅ Uses ${CONTACTS_BASE_URL}/bulk-delete (Matches all other working routes in this file)
     const response = await api.post(`${CONTACTS_BASE_URL}/bulk-delete`, payload);
     return response.data;
   } catch (error) {
     return { success: false, message: error.response?.data?.message || 'Failed to bulk delete contacts' };
   }
 };
-
 
 /**
  * Update a contact by ID
@@ -180,8 +172,6 @@ export const importContacts = async (file) => {
   }
 };
 
-
-
 /**
  * Get CSV import guidelines
  */
@@ -199,9 +189,6 @@ export const getImportGuidelines = async () => {
     };
   }
 };
-
-
-
 
 /**
  * Download sample CSV template
@@ -231,8 +218,6 @@ export const downloadSampleCSV = async () => {
   }
 };
 
-
-
 /**
  * Add a tag to a contact
  */
@@ -251,7 +236,9 @@ export const addTagToContact = async (contactId, tagId) => {
   }
 };
 
-// ── Remove Tag from Contact ──
+/**
+ * Remove Tag from Contact
+ */
 export const removeTagFromContact = async (contactId, tagId) => {
   try {
     const res = await api.delete(`${CONTACTS_BASE_URL}/${contactId}/tags/${tagId}`);

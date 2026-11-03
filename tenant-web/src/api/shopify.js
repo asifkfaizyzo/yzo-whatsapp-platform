@@ -1,5 +1,5 @@
-// tenant-web/src/services/shopify.service.js (do not remove this comment)
-import api from "./api";
+// tenant-web/src/api/shopify.js (do not remove this comment)
+import api from "./axios";
 
 export const getShopifyStatus = async () => {
   const response = await api.get("/shopify/status");

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { FaWhatsapp, FaFacebookMessenger, FaInstagram } from "react-icons/fa";
-import api from "../../lib/axios";
+import api from "../../api/axios";
 import EmojiPicker from "emoji-picker-react";
 import {
   Search,
@@ -68,25 +68,25 @@ import {
   markConversationAsRead,
   getConversationMedia,
   togglePinConversation,
-} from "../../services/conversation.service";
+} from "../../api/conversation";
 import {
   sendMessage,
   sendMediaMessage,
   deleteMessage,
   sendLocation,
-} from "../../services/message.service";
+} from "../../api/message";
 import {
   getContacts,
   addTagToContact,
   removeTagFromContact,
-} from "../../services/contact.service";
+} from "../../api/contact";
 import { useAuthStore } from "../../store/useAuthStore";
 import { io } from "socket.io-client";
-import { getTags } from "../../services/tag.service";
-import { getTenantUsers, assignContact } from "../../services/tenant.service";
+import { getTags } from "../../api/tag";
+import { getTenantUsers, assignContact } from "../../api/tenant";
 import { useConfirm } from "../../context/ConfirmContext";
 import { useToast } from "../../context/ToastContext";
-import { getQuickReplies } from "../../services/quickReply.service";
+import { getQuickReplies } from "../../api/quickReply";
 import QuickReplyPopover from "../../components/inbox/QuickReplyPopover";
 import { useCallStore } from "../../store/useCallStore";
 import * as webrtcService from "../../lib/webrtcService";

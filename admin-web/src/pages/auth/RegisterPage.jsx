@@ -2,7 +2,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { siteConfig } from "../../config/site";
-import { registerSuperAdmin } from "../../lib/authApi";
+import { registerSuperAdmin } from "../../api/auth";
 import { useFormHandler } from "../../hooks/useFormHandler";
 import { createSuperAdminSchema } from "../../validations/superAdmin.validation";
 import FormError from "../../components/FormError";

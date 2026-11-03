@@ -1,5 +1,5 @@
-// tenant-web/src/services/tag.service.js (do not remove this comment)
-import api from "../lib/axios";
+// tenant-web/src/api/tag.js (do not remove this comment)
+import api from "./axios";
 
 const TAGS_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api7`;
 
@@ -11,7 +11,7 @@ export const getTags = async () => {
     const response = await api.get(`${TAGS_BASE_URL}/get-all-tag`);
     return {
       success: true,
-      data: response.data.data, // Array of tags
+      data: response.data.data,
     };
   } catch (error) {
     return {

@@ -28,7 +28,7 @@ import {
   updateShopifyCartRecoverySettings,
   getShopifyPostPurchaseSettings,
   updateShopifyPostPurchaseSettings,
-} from "../../services/shopify.service";
+} from "../../api/shopify";
 
 const shopifyWebhookUrl = import.meta.env.VITE_BACKEND_URL
   ? `${import.meta.env.VITE_BACKEND_URL.replace(/\/+$/, "")}/api2/shopify/webhooks`

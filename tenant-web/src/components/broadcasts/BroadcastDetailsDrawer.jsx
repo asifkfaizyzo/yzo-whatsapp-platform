@@ -30,7 +30,7 @@ import {
   retryFailedBroadcast,
   pauseBroadcast,
   resumeBroadcast
-} from "../../services/broadcast.service";
+} from "../../api/broadcast";
 import { useToast } from "../../context/ToastContext";
 import { useConfirm } from "../../context/ConfirmContext";
 import { io } from "socket.io-client";

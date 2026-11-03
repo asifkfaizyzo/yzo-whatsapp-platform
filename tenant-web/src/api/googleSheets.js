@@ -1,12 +1,9 @@
-// tenant-web/src/services/googleSheets.service.js (do not remove this comment)
+// tenant-web/src/api/googleSheets.js (do not remove this comment)
+import api from "./axios";
 
-import api from "../lib/axios";
-
-// If your axios baseURL already includes '/api', use '/google-sheets'
-// Otherwise use '/api/google-sheets'
 const GOOGLE_SHEETS_BASE = "/google-sheets";
 
-// ── Existing OAuth Connections ──
+// OAuth Connections
 export const getGoogleSheetsAuthUrl = async () => {
   try {
     const res = await api.get(`${GOOGLE_SHEETS_BASE}/auth-url`);
@@ -43,7 +40,7 @@ export const disconnectGoogleSheets = async () => {
   }
 };
 
-// ── Existing Sheet Broadcast Actions ──
+// Sheet Broadcast Actions
 export const previewGoogleSheet = async (sheetUrl, tabName = "Sheet1") => {
   try {
     const res = await api.get(`${GOOGLE_SHEETS_BASE}/preview`, {
@@ -70,7 +67,7 @@ export const launchGoogleSheetBroadcast = async (payload) => {
   }
 };
 
-// ── 🆕 Custom Column Fields API Methods ──
+// Custom Column Fields API Methods
 
 /**
  * Fetch all column fields configured for the tenant
@@ -78,9 +75,9 @@ export const launchGoogleSheetBroadcast = async (payload) => {
 export const getGoogleSheetsFields = async () => {
   try {
     const res = await api.get(`${GOOGLE_SHEETS_BASE}/fields`);
-    return { 
-      success: true, 
-      data: res.data?.data || res.data?.fields || res.data 
+    return {
+      success: true,
+      data: res.data?.data || res.data?.fields || res.data
     };
   } catch (error) {
     return {
@@ -96,9 +93,9 @@ export const getGoogleSheetsFields = async () => {
 export const addGoogleSheetsField = async (payload) => {
   try {
     const res = await api.post(`${GOOGLE_SHEETS_BASE}/fields`, payload);
-    return { 
-      success: true, 
-      data: res.data?.data || res.data?.field || res.data 
+    return {
+      success: true,
+      data: res.data?.data || res.data?.field || res.data
     };
   } catch (error) {
     return {
@@ -114,9 +111,9 @@ export const addGoogleSheetsField = async (payload) => {
 export const updateGoogleSheetsField = async (fieldId, payload) => {
   try {
     const res = await api.put(`${GOOGLE_SHEETS_BASE}/fields/${fieldId}`, payload);
-    return { 
-      success: true, 
-      data: res.data?.data || res.data?.field || res.data 
+    return {
+      success: true,
+      data: res.data?.data || res.data?.field || res.data
     };
   } catch (error) {
     return {
@@ -132,9 +129,9 @@ export const updateGoogleSheetsField = async (fieldId, payload) => {
 export const toggleGoogleSheetsField = async (fieldId, isActive) => {
   try {
     const res = await api.put(`${GOOGLE_SHEETS_BASE}/fields/${fieldId}/toggle`, { isActive });
-    return { 
-      success: true, 
-      data: res.data?.data || res.data?.field || res.data 
+    return {
+      success: true,
+      data: res.data?.data || res.data?.field || res.data
     };
   } catch (error) {
     return {
@@ -165,9 +162,9 @@ export const deleteGoogleSheetsField = async (fieldId) => {
 export const reorderGoogleSheetsFields = async (fieldOrders) => {
   try {
     const res = await api.put(`${GOOGLE_SHEETS_BASE}/fields/reorder`, { fieldOrders });
-    return { 
-      success: true, 
-      data: res.data?.data || res.data?.fields || res.data 
+    return {
+      success: true,
+      data: res.data?.data || res.data?.fields || res.data
     };
   } catch (error) {
     return {
@@ -183,9 +180,9 @@ export const reorderGoogleSheetsFields = async (fieldOrders) => {
 export const syncGoogleSheetsFields = async () => {
   try {
     const res = await api.post(`${GOOGLE_SHEETS_BASE}/fields/sync`);
-    return { 
-      success: true, 
-      data: res.data?.data || res.data 
+    return {
+      success: true,
+      data: res.data?.data || res.data
     };
   } catch (error) {
     return {
@@ -195,7 +192,7 @@ export const syncGoogleSheetsFields = async () => {
   }
 };
 
-// ── Named & Default Combined Export ──
+// Named & Default Combined Export
 export default {
   getGoogleSheetsAuthUrl,
   getGoogleSheetsStatus,
@@ -211,10 +208,8 @@ export default {
   syncGoogleSheetsFields,
 };
 
-
-// 🆕 Export syncFields for Repair Sheet Structure
+// Export syncFields for Repair Sheet Structure
 export const syncFields = async () => {
-  // Use whatever axios/api client instance is used in this file (e.g., api, apiClient, or axios)
-  const response = await api.post('/google-sheets/fields/sync'); 
+  const response = await api.post('/google-sheets/fields/sync');
   return response.data;
 };

@@ -1,5 +1,5 @@
-// tenant-web/src/services/woocommerce.service.js (do not remove this comment)
-import api from "./api";
+// tenant-web/src/api/woocommerce.js (do not remove this comment)
+import api from "./axios";
 
 export const getWooCommerceStatus = async () => {
   const response = await api.get("/woocommerce/status");
@@ -36,15 +36,12 @@ export const updateWooCommerceCartRecoverySettings = async (settings) => {
   return response.data;
 };
 
-// 👇 1-Click OAuth
 export const getWooCommerceOAuthUrl = async (storeUrl) => {
   const res = await api.get(
     `/woocommerce/oauth/url?storeUrl=${encodeURIComponent(storeUrl)}`
   );
-
   return res.data;
 };
-
 
 export const saveWooCommerceConfig = connectWooCommerce;
 

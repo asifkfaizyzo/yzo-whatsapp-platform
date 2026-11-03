@@ -1,7 +1,7 @@
-// tenant-web/src/services/billing.service.js (do not remove this comment)
-import api from "../lib/axios";
+// tenant-web/src/api/billing.js (do not remove this comment)
+import api from "./axios";
 
-// ── Get billing overview + payment history ──
+// Get billing overview + payment history
 export const getBillingDetails = async () => {
   try {
     const response = await api.get("/plans/billing");
@@ -14,8 +14,7 @@ export const getBillingDetails = async () => {
   }
 };
 
-
-// ── Pause Subscription ──
+// Pause Subscription
 export const pauseSubscription = async (pauseData = {}) => {
   try {
     const response = await api.post("/billing/pause", pauseData);
@@ -28,7 +27,7 @@ export const pauseSubscription = async (pauseData = {}) => {
   }
 };
 
-// ── Resume Subscription ──
+// Resume Subscription
 export const resumeSubscription = async () => {
   try {
     const response = await api.post("/billing/resume");
@@ -41,7 +40,7 @@ export const resumeSubscription = async () => {
   }
 };
 
-// ── Download Invoice ──
+// Download Invoice
 export const downloadInvoice = async (paymentId) => {
   try {
     const response = await api.get(`/plans/billing/invoice/${paymentId}`, {

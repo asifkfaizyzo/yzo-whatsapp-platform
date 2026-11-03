@@ -1,26 +1,25 @@
-// admin-web/src/services/notification.service.js (do not remove this comment)
-import api from "../lib/axios";
+// admin-web/src/api/notification.js (do not remove this comment)
+import api from "./axios";
 
 const BASE_URL = "/super-admin/notifications";
 
-// ── Get all superadmin notifications ──
+// Get all superadmin notifications
 export const getAdminNotifications = async () => {
   try {
     const res = await api.get(BASE_URL);
     return {
       success: true,
-      data: res.data.data, // { notifications: [], unreadCount: 0 }
+      data: res.data.data,
     };
   } catch (error) {
     return {
       success: false,
-      message:
-        error.response?.data?.message || "Failed to fetch notifications",
+      message: error.response?.data?.message || "Failed to fetch notifications",
     };
   }
 };
 
-// ── 🆕 Get paginated notifications (for full page) ──
+// Get paginated notifications (for full page)
 export const getAdminNotificationsPaginated = async ({
   page = 1,
   limit = 20,
@@ -38,14 +37,12 @@ export const getAdminNotificationsPaginated = async ({
   } catch (error) {
     return {
       success: false,
-      message:
-        error.response?.data?.message || "Failed to fetch notifications",
+      message: error.response?.data?.message || "Failed to fetch notifications",
     };
   }
 };
 
-
-// ── Mark one as read ──
+// Mark one as read
 export const markAdminNotifAsRead = async (id) => {
   try {
     await api.patch(`${BASE_URL}/${id}/read`);
@@ -55,7 +52,7 @@ export const markAdminNotifAsRead = async (id) => {
   }
 };
 
-// ── Mark all as read ──
+// Mark all as read
 export const markAllAdminNotifsAsRead = async () => {
   try {
     await api.patch(`${BASE_URL}/read-all`);
@@ -65,7 +62,7 @@ export const markAllAdminNotifsAsRead = async () => {
   }
 };
 
-// ── Clear all ──
+// Clear all
 export const clearAllAdminNotifs = async () => {
   try {
     await api.delete(`${BASE_URL}/clear-all`);
@@ -75,8 +72,7 @@ export const clearAllAdminNotifs = async () => {
   }
 };
 
-
-// ── 🆕 Delete a single notification ──
+// Delete a single notification
 export const deleteAdminNotif = async (id) => {
   try {
     await api.delete(`${BASE_URL}/${id}`);

@@ -3,7 +3,7 @@ import Navbar from "../components/landing/layout/Navbar";
 import Footer from "../components/landing/layout/Footer";
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { getPublicPlans } from "../services/plan.service";
+import { getPublicPlans } from "../api/plan";
 
 export default function Pricing() {
   // ── Live from DB ──

@@ -20,7 +20,7 @@ import {
   markAllAdminNotifsAsRead,
   clearAllAdminNotifs,
   deleteAdminNotif,
-} from "../../services/notification.service";
+} from "../../api/notification";
 import { useNotificationStore } from "../../store/useNotificationStore";
 import { getAdminSocket } from "../../lib/socket";
 import { useAdminAuthStore } from "../../store/useAdminAuthStore";

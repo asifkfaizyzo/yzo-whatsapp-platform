@@ -1,7 +1,7 @@
 // tenant-web/src/components/billing/CancelSubscriptionModal.jsx (do not remove this comment)
 import React, { useState, useEffect } from "react";
 import { AlertTriangle, CheckCircle, ShieldAlert, X } from "lucide-react";
-import api from "../../lib/axios";
+import api from "../../api/axios";
 import { createPortal } from "react-dom";
 
 export default function CancelSubscriptionModal({ isOpen, onClose, planName, periodEndDate, onSuccess }) {

@@ -1,9 +1,8 @@
-// admin-web/src/lib/authApi.js (do not remove this comment)
-
+// admin-web/src/api/auth.js (do not remove this comment)
 import api from './axios';
 import { useAdminAuthStore } from '../store/useAdminAuthStore';
 
-// ✅ Super Admin Register
+// Super Admin Register
 export const registerSuperAdmin = async (userData) => {
   try {
     const response = await api.post('/create', {
@@ -11,7 +10,7 @@ export const registerSuperAdmin = async (userData) => {
       email: userData.email,
       password: userData.password,
     });
-    
+
     const registerData = response.data?.data;
     const user = registerData?.user || registerData?.superAdmin;
     if (registerData && user && registerData.accessToken) {
@@ -27,7 +26,7 @@ export const registerSuperAdmin = async (userData) => {
   }
 };
 
-// ✅ Super Admin Login
+// Super Admin Login
 export const loginSuperAdmin = async (email, password) => {
   try {
     const response = await api.post('/login', { email, password });
@@ -46,7 +45,7 @@ export const loginSuperAdmin = async (email, password) => {
   }
 };
 
-// ✅ Logout
+// Logout
 export const logoutSuperAdmin = async () => {
   try {
     await useAdminAuthStore.getState().logout();
@@ -56,7 +55,7 @@ export const logoutSuperAdmin = async () => {
   }
 };
 
-// ✅ Request Reset Link for Super Admin
+// Request Reset Link for Super Admin
 export const forgotPasswordSuperAdmin = async (email) => {
   try {
     const response = await api.post('/forgot-sup-password', { email });
@@ -69,7 +68,7 @@ export const forgotPasswordSuperAdmin = async (email) => {
   }
 };
 
-// ✅ Reset Password for Super Admin
+// Reset Password for Super Admin
 export const resetPasswordSuperAdmin = async (token, newPassword, confirmPassword) => {
   try {
     const response = await api.post('/reset-sup-password', {
