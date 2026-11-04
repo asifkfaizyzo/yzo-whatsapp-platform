@@ -4,21 +4,24 @@ import dotenv from "dotenv";
 dotenv.config();
 
 let instance = null;
+let cachedKeyId = null;
 
 export const getRazorpay = () => {
   const key_id = (process.env.RAZORPAY_KEY_ID || "").trim();
   const key_secret = (process.env.RAZORPAY_KEY_SECRET || "").trim();
 
   if (!key_id || !key_secret) {
-    console.warn("⚠️ Warning: RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET is missing or empty.");
+    console.error("❌ RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET is missing from .env");
+    throw new Error("Razorpay credentials not configured");
   }
 
-  if (!instance) {
-    instance = new Razorpay({
-      key_id,
-      key_secret,
-    });
+  // Recreate instance if keys changed or if previous instance was broken
+  if (!instance || cachedKeyId !== key_id) {
+    instance = new Razorpay({ key_id, key_secret });
+    cachedKeyId = key_id;
+    console.log(`✅ Razorpay initialized (key: ${key_id.slice(0, 10)}...)`);
   }
+
   return instance;
 };
 

@@ -9,7 +9,7 @@ export const getAllPlans = async () => {
         include: { feature: true },
       },
       integrations: true,
-      _count: { select: { tenants: true } },
+      _count: { select: { tenantSubscriptions: true } },
     },
     orderBy: { monthlyPrice: "asc" },
   });
@@ -36,7 +36,7 @@ export const getPlanById = async (id) => {
     include: {
       features: { include: { feature: true } },
       integrations: true,
-      _count: { select: { tenants: true } },
+      _count: { select: { tenantSubscriptions: true } },
     },
   });
 };

@@ -335,7 +335,7 @@ function PlanCard({ plan, popular, onEdit, onToggle, onDelete }) {
       <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-medium text-slate-400">
         <span className="flex items-center gap-1 text-slate-500">
           <Building2 size={13} className="text-slate-400" />
-          {plan._count?.tenants ?? 0} active subscribers
+          {plan._count?.tenantSubscriptions ?? 0} active subscribers
         </span>
       </div>
     </div>
@@ -389,7 +389,7 @@ function PlanRow({ plan, popular, onEdit, onToggle, onDelete }) {
       </div>
 
       <div className="hidden sm:block text-xs font-semibold text-slate-500 w-28 text-center">
-        {plan._count?.tenants ?? 0} Tenants
+        {plan._count?.tenantSubscriptions ?? 0} Tenants
       </div>
 
       <ActionsMenu plan={plan} onEdit={onEdit} onToggle={onToggle} onDelete={onDelete} />
@@ -432,7 +432,7 @@ export default function SubscriptionPlans() {
   const avgMonthly = plans.length
     ? Math.round(plans.reduce((sum, p) => sum + Number(p.monthlyPrice || 0), 0) / plans.length)
     : 0;
-  const totalTenants = plans.reduce((sum, p) => sum + (p._count?.tenants ?? 0), 0);
+  const totalTenants = plans.reduce((sum, p) => sum + (p._count?.tenantSubscriptions ?? 0), 0);
 
   // Load Data
   const loadData = async () => {

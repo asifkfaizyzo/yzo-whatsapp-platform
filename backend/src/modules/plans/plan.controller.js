@@ -853,9 +853,13 @@ export const createSubscriptionTrial = async (req, res) => {
     }
 
     // Save ID immediately to link to tenant
-await prisma.tenantSubscription.update({
+await prisma.tenantSubscription.upsert({
       where: { tenantId: tenant.id },
-      data: { razorpaySubscriptionId: subscription.id }
+      create: {
+        tenantId: tenant.id,
+        razorpaySubscriptionId: subscription.id,
+      },
+      update: { razorpaySubscriptionId: subscription.id }
     });
 
     return res.status(200).json({
@@ -941,9 +945,23 @@ export const verifySubscriptionTrial = async (req, res) => {
         status: 'APPROVED',
       }
     });
-    const subRow = await prisma.tenantSubscription.update({
+    const subRow = await prisma.tenantSubscription.upsert({
       where: { tenantId },
-      data: {
+      create: {
+        tenantId,
+        planId: chosenPlan ? chosenPlan.id : tenant.planId,
+        currentPlan: chosenPlan ? chosenPlan.name : tenant.currentPlan,
+        subscriptionStatus: 'trialing',
+        planStatus: 'active',
+        hasUsedTrial: true,
+        trialPlanId: chosenPlan ? chosenPlan.id : null,
+        autopayEnabled: true,
+        autopayMethod: rzpSubscription.payment_method || 'card',
+        razorpaySubscriptionId: razorpay_subscription_id,
+        planPeriodStart: periodStart,
+        planPeriodEnd: periodEnd,
+      },
+      update: {
         planId: chosenPlan ? chosenPlan.id : tenant.planId,
         currentPlan: chosenPlan ? chosenPlan.name : tenant.currentPlan,
         subscriptionStatus: 'trialing',
@@ -1230,9 +1248,23 @@ export const verifyPaidSubscription = async (req, res) => {
           ...(phone ? { phone } : {}),
         },
       });
-      const subRow = await tx.tenantSubscription.update({
+      const subRow = await tx.tenantSubscription.upsert({
         where: { tenantId },
-        data: {
+        create: {
+          tenantId,
+          planId: plan.id,
+          currentPlan: plan.name,
+          planStatus: "active",
+          subscriptionStatus: "active",
+          billingType: validBillingType,
+          autopayEnabled: true,
+          autopayMethod: paymentDetails?.method || "card",
+          razorpaySubscriptionId: razorpay_subscription_id,
+          planActivatedAt: periodStart,
+          planPeriodStart: periodStart,
+          planPeriodEnd: periodEnd,
+        },
+        update: {
           planId: plan.id,
           currentPlan: plan.name,
           planStatus: "active",
