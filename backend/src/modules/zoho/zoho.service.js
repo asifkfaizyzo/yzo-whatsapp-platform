@@ -256,10 +256,11 @@ export async function handleOAuthCallback(queryParams, req) {
       );
     }
 
-    const existingTenant = await prisma.tenant.findUnique({
+    const existingRow = await prisma.tenant.findUnique({
       where: { id: tenantId },
-      select: { id: true, zohoAccountId: true, tenantName: true, email: true },
+      select: { id: true, tenantName: true, email: true, zoho: { select: { zohoAccountId: true } } },
     });
+    const existingTenant = { ...existingRow, ...existingRow?.zoho };
 
     if (!existingTenant) {
       throw new Error("Tenant workspace record not found");
@@ -348,19 +349,24 @@ export async function handleOAuthCallback(queryParams, req) {
  * Get safe connection status for the authenticated tenant.
  */
 export async function getZohoConnectionStatus(tenantId) {
-  const tenant = await prisma.tenant.findUnique({
+  const tenantRow = await prisma.tenant.findUnique({
     where: { id: tenantId },
     select: {
-      zohoConnectionStatus: true,
-      zohoAccountEmail: true,
-      zohoAccountId: true,
-      zohoDataCenter: true,
-      zohoApiDomain: true,
-      zohoConnectedAt: true,
-      zohoTokenExpiresAt: true,
-      zohoScopes: true,
+      zoho: {
+        select: {
+          zohoConnectionStatus: true,
+          zohoAccountEmail: true,
+          zohoAccountId: true,
+          zohoDataCenter: true,
+          zohoApiDomain: true,
+          zohoConnectedAt: true,
+          zohoTokenExpiresAt: true,
+          zohoScopes: true,
+        },
+      },
     },
   });
+  const tenant = tenantRow?.zoho || {};
 
   if (!tenant) {
     throw new Error("Tenant not found");
@@ -445,18 +451,22 @@ export async function testZohoConnection(tenantId) {
  * Disconnect Zoho CRM integration for the authenticated tenant.
  */
 export async function disconnectZoho(tenantId, meta = {}) {
-  const tenant = await prisma.tenant.findUnique({
+  const tenantRow = await prisma.tenant.findUnique({
     where: { id: tenantId },
     select: {
       id: true,
-      zohoRefreshToken: true,
-      zohoDataCenter: true,
-      zohoAccountEmail: true,
       tenantName: true,
       email: true,
+      zoho: {
+        select: {
+          zohoRefreshToken: true,
+          zohoDataCenter: true,
+          zohoAccountEmail: true,
+        },
+      },
     },
   });
-
+  const tenant = { ...tenantRow, ...tenantRow?.zoho };
   if (!tenant) {
     throw new Error("Tenant not found");
   }
@@ -497,8 +507,8 @@ export async function disconnectZoho(tenantId, meta = {}) {
     }
   }
 
-  await prisma.tenant.update({
-    where: { id: tenantId },
+await prisma.tenantZoho.update({
+    where: { tenantId },
     data: {
       zohoAccessToken: null,
       zohoRefreshToken: null,

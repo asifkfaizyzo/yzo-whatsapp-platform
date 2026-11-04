@@ -898,8 +898,8 @@ async function sendProductionCartTemplate({
     const axios = (await import('axios')).default;
     const { decrypt } = await import('../../../lib/crypto.js');
 
-    const tenantConfig = await prisma.tenant.findUnique({
-      where: { id: tenantId },
+    const tenantConfig = await prisma.tenantWhatsApp.findUnique({
+      where: { tenantId },
       select: {
         whatsappPhoneId: true,
         whatsappAccessToken: true,

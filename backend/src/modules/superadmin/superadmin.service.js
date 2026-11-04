@@ -230,7 +230,7 @@ export const resetPasswordSuperAdminService = async (token, newPassword, confirm
 
 //===========get all tenants by superadmin===========
 export const getAllTenantsService = async () => {
-  const tenants = await prisma.tenant.findMany({
+  const tenantsRaw = await prisma.tenant.findMany({
     select: {
       id:             true,
       tenantName:     true,
@@ -249,20 +249,28 @@ export const getAllTenantsService = async () => {
       status:         true,
       createdAt:      true,
       updatedAt:      true,
-      planId:         true,
-      planStatus:     true,
-      billingType:    true,
-      planActivatedAt: true,
-      subscriptionStatus: true,
-      currentPlan:    true,
-      planPeriodStart: true,
-      planPeriodEnd:  true,
-      cancelRequestedAt: true,
-      cancellationReason: true,
-      reactivatedAt:  true,
-      dataDeletionDate: true,
-      whatsappPhoneId: true,
-      whatsappWabaId: true,
+      subscription: {
+        select: {
+          planId:             true,
+          planStatus:         true,
+          billingType:        true,
+          planActivatedAt:    true,
+          subscriptionStatus: true,
+          currentPlan:        true,
+          planPeriodStart:    true,
+          planPeriodEnd:      true,
+          cancelRequestedAt:  true,
+          cancellationReason: true,
+          reactivatedAt:      true,
+          dataDeletionDate:   true,
+        },
+      },
+      whatsapp: {
+        select: {
+          whatsappPhoneId: true,
+          whatsappWabaId:  true,
+        },
+      },
       plan: {
         select: {
           id:             true,
@@ -297,6 +305,7 @@ export const getAllTenantsService = async () => {
     },
     orderBy: { createdAt: 'desc' },
   });
+  const tenants = tenantsRaw.map(t => ({ ...t, ...t.subscription, ...t.whatsapp }));
 
   return {
     message: 'Tenants fetched successfully',
@@ -888,11 +897,10 @@ export const getRevenueStatsService = async () => {
     .filter(p => new Date(p.createdAt) >= startOfLastMonth && new Date(p.createdAt) <= endOfLastMonth)
     .reduce((sum, p) => sum + p.totalAmount, 0);
 
-  const activeTenants = await prisma.tenant.count({
+  const activeTenants = await prisma.tenantSubscription.count({
     where: { planStatus: 'active' },
   });
-
-  const planDistribution = await prisma.tenant.groupBy({
+  const planDistribution = await prisma.tenantSubscription.groupBy({
     by:    ['planId'],
     where: { planStatus: 'active', planId: { not: null } },
     _count: { planId: true },

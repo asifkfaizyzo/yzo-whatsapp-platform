@@ -256,7 +256,7 @@ export const exchangeToken = async (req, res) => {
     // ── Step 5: Check duplicate ───────────────────────────────────────
     const existingTenant = await prisma.tenant.findFirst({
       where: {
-        whatsappPhoneId: phoneNumberId,
+        whatsapp: { whatsappPhoneId: phoneNumberId },
         NOT: { id: tenantId },
       },
       select: { id: true, tenantName: true },
@@ -311,13 +311,20 @@ export const exchangeToken = async (req, res) => {
     }
 
     // ── Step 7: Save to DB (token encrypted at rest) ─────────────────────────────────
-    await prisma.tenant.update({
-      where: { id: tenantId },
-      data: {
+    await prisma.tenantWhatsApp.upsert({
+      where: { tenantId },
+      create: {
+        tenantId,
         whatsappWabaId: wabaId,
         whatsappPhoneId: phoneNumberId,
-        whatsappAccessToken: encrypt(accessToken), // ✅ always encrypted at rest
-        whatsappPin: encrypt(regPin),               // ✅ auto-generated PIN stored encrypted
+        whatsappAccessToken: encrypt(accessToken),
+        whatsappPin: encrypt(regPin),
+      },
+      update: {
+        whatsappWabaId: wabaId,
+        whatsappPhoneId: phoneNumberId,
+        whatsappAccessToken: encrypt(accessToken),
+        whatsappPin: encrypt(regPin),
       },
     });
 
@@ -402,7 +409,7 @@ export const setupWhatsApp = async (req, res) => {
   try {
     const existingTenant = await prisma.tenant.findFirst({
       where: {
-        whatsappPhoneId: phoneNumberId,
+        whatsapp: { whatsappPhoneId: phoneNumberId },
         NOT: { id: tenantId },
       },
       select: { id: true, tenantName: true },
@@ -508,9 +515,16 @@ export const setupWhatsApp = async (req, res) => {
       console.warn("[WhatsApp] Webhook subscription failed (non-fatal):", e.message);
     }
 
-    await prisma.tenant.update({
-      where: { id: tenantId },
-      data: {
+    await prisma.tenantWhatsApp.upsert({
+      where: { tenantId },
+      create: {
+        tenantId,
+        whatsappPhoneId: phoneNumberId,
+        whatsappWabaId: resolvedWabaId,
+        whatsappAccessToken: encrypt(accessToken),
+        whatsappPin: encrypt(regPin),
+      },
+      update: {
         whatsappPhoneId: phoneNumberId,
         whatsappWabaId: resolvedWabaId,
         whatsappAccessToken: encrypt(accessToken),
@@ -589,14 +603,15 @@ export const getWhatsAppStatus = async (req, res) => {
   const tenantId = req.tenantId;
 
   try {
-    const tenant = await prisma.tenant.findUnique({
+    const tenantRow = await prisma.tenant.findUnique({
       where: { id: tenantId },
       select: {
-        whatsappPhoneId: true,
-        whatsappWabaId: true,
-        whatsappAccessToken: true,
+        whatsapp: {
+          select: { whatsappPhoneId: true, whatsappWabaId: true, whatsappAccessToken: true },
+        },
       },
     });
+    const tenant = tenantRow?.whatsapp || {};
 
     const isConnected = !!(tenant?.whatsappPhoneId && tenant?.whatsappWabaId);
     if (!isConnected) {
@@ -839,15 +854,15 @@ export const disconnectWhatsApp = async (req, res) => {
   const tenantId = req.tenantId;
 
   try {
-    const tenant = await prisma.tenant.findUnique({
+    const tenantRow = await prisma.tenant.findUnique({
       where: { id: tenantId },
       select: {
         tenantName: true,
-        email: true, 
-        whatsappPhoneId: true,
-        whatsappWabaId: true,
+        email: true,
+        whatsapp: { select: { whatsappPhoneId: true, whatsappWabaId: true } },
       },
     });
+    const tenant = { ...tenantRow, ...tenantRow?.whatsapp };
 
     if (!tenant) {
       return res.status(404).json({
@@ -863,8 +878,8 @@ export const disconnectWhatsApp = async (req, res) => {
       });
     }
 
-    await prisma.tenant.update({
-      where: { id: tenantId },
+    await prisma.tenantWhatsApp.update({
+      where: { tenantId },
       data: {
         whatsappPhoneId: null,
         whatsappWabaId: null,
@@ -922,13 +937,13 @@ export const registerPhoneNumber = async (req, res) => {
   const { pin } = req.body;
 
   try {
-    const tenant = await prisma.tenant.findUnique({
+    const tenantRow = await prisma.tenant.findUnique({
       where: { id: tenantId },
       select: {
-        whatsappPhoneId: true,
-        whatsappAccessToken: true,
+        whatsapp: { select: { whatsappPhoneId: true, whatsappAccessToken: true } },
       },
     });
+    const tenant = tenantRow?.whatsapp || {};
 
     if (!tenant?.whatsappPhoneId || !tenant?.whatsappAccessToken) {
       return res.status(400).json({

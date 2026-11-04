@@ -1,16 +1,16 @@
 // backend/src/modules/zoho/crm/zoho.contact.service.js (do not remove this comment)
 
-import prisma from '../../../config/prisma.js';
-import { zohoRequest } from '../zoho.client.js';
-import { emitToTenant } from '../../../lib/socket.js';
-import { createAuditLog } from '../../audit/audit.service.js';
-import { redisConnection } from '../../../config/redis.js';
+import prisma from "../../../config/prisma.js";
+import { zohoRequest } from "../zoho.client.js";
+import { emitToTenant } from "../../../lib/socket.js";
+import { createAuditLog } from "../../audit/audit.service.js";
+import { redisConnection } from "../../../config/redis.js";
 
 const BATCH_SIZE = 100;
 const SYNC_LOCK_TTL = 30;
 
 const DEFAULT_PREFERENCES = {
-  syncDestination: 'CONTACTS',
+  syncDestination: "CONTACTS",
   logConversationNotes: true,
   createDealsOnOrders: true,
   createFollowUpTasks: true,
@@ -24,9 +24,14 @@ export async function getTenantZohoPreferences(tenantId) {
   try {
     const key = `zoho_prefs:${tenantId}`;
     const raw = await redisConnection.get(key);
-    return raw ? { ...DEFAULT_PREFERENCES, ...JSON.parse(raw) } : DEFAULT_PREFERENCES;
+    return raw
+      ? { ...DEFAULT_PREFERENCES, ...JSON.parse(raw) }
+      : DEFAULT_PREFERENCES;
   } catch (err) {
-    console.warn(`⚠️ [ZohoPreferences] Redis error for tenant ${tenantId}, using defaults:`, err.message);
+    console.warn(
+      `⚠️ [ZohoPreferences] Redis error for tenant ${tenantId}, using defaults:`,
+      err.message,
+    );
     return DEFAULT_PREFERENCES;
   }
 }
@@ -37,22 +42,22 @@ export async function getTenantZohoPreferences(tenantId) {
 async function isZohoConnected(tenantId) {
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
-    select: { zohoConnectionStatus: true },
+    select: { zoho: { select: { zohoConnectionStatus: true } } },
   });
-  return tenant?.zohoConnectionStatus === 'CONNECTED';
+  return tenant?.zoho?.zohoConnectionStatus === "CONNECTED";
 }
 
 /**
  * Deterministic Name Split Rule
  */
 export function splitContactName(rawName) {
-  const trimmed = (rawName || '').trim();
+  const trimmed = (rawName || "").trim();
 
   if (!trimmed) {
-    return { firstName: null, lastName: 'Unknown' };
+    return { firstName: null, lastName: "Unknown" };
   }
 
-  const lastSpaceIndex = trimmed.lastIndexOf(' ');
+  const lastSpaceIndex = trimmed.lastIndexOf(" ");
 
   if (lastSpaceIndex === -1) {
     return { firstName: null, lastName: trimmed };
@@ -63,7 +68,7 @@ export function splitContactName(rawName) {
 
   return {
     firstName: firstName || null,
-    lastName: lastName || 'Unknown',
+    lastName: lastName || "Unknown",
   };
 }
 
@@ -75,8 +80,8 @@ export function formatContactForZoho(contact, existingZohoId = null) {
 
   const payload = {
     Last_Name: lastName,
-    Lead_Source: 'WhatsApp',
-    Description: `Lead generated via Sudo Reply WhatsApp on ${new Date().toLocaleDateString('en-IN')}. Channel: ${contact.channel || 'WHATSAPP'}`,
+    Lead_Source: "WhatsApp",
+    Description: `Lead generated via Sudo Reply WhatsApp on ${new Date().toLocaleDateString("en-IN")}. Channel: ${contact.channel || "WHATSAPP"}`,
   };
 
   if (firstName) {
@@ -113,14 +118,14 @@ export async function autoSyncContactToZoho(tenantId, contactId) {
 
     // Check preference
     const prefs = await getTenantZohoPreferences(tenantId);
-    if (!prefs.autoSyncNewContacts || prefs.syncDestination !== 'CONTACTS') {
+    if (!prefs.autoSyncNewContacts || prefs.syncDestination !== "CONTACTS") {
       return; // Sync disabled or routed to Leads instead
     }
 
     const contact = await prisma.contact.findUnique({
       where: { id: contactId },
       include: {
-        providerMappings: { where: { provider: 'ZOHO' } },
+        providerMappings: { where: { provider: "ZOHO" } },
         contactTags: { include: { tag: true } },
       },
     });
@@ -130,49 +135,52 @@ export async function autoSyncContactToZoho(tenantId, contactId) {
     }
 
     const existingMapping = contact.providerMappings?.[0];
-    const zohoPayload = formatContactForZoho(contact, existingMapping?.providerContactId);
+    const zohoPayload = formatContactForZoho(
+      contact,
+      existingMapping?.providerContactId,
+    );
 
     if (contact.contactTags && contact.contactTags.length > 0) {
       const tagNames = contact.contactTags
         .map((ct) => ct.tag?.name)
         .filter(Boolean);
       if (tagNames.length > 0) {
-        zohoPayload.Tag = tagNames.join(', ');
+        zohoPayload.Tag = tagNames.join(", ");
       }
     }
 
     // Set loop prevention lock in Redis
     const lockKeyContact = `zoho_sync_lock:${contactId}`;
-    await redisConnection.set(lockKeyContact, '1', 'EX', SYNC_LOCK_TTL);
+    await redisConnection.set(lockKeyContact, "1", "EX", SYNC_LOCK_TTL);
 
     if (existingMapping?.providerContactId) {
       const lockKeyRecord = `zoho_sync_lock:${existingMapping.providerContactId}`;
-      await redisConnection.set(lockKeyRecord, '1', 'EX', SYNC_LOCK_TTL);
+      await redisConnection.set(lockKeyRecord, "1", "EX", SYNC_LOCK_TTL);
     }
 
     const response = await zohoRequest(tenantId, {
-      method: 'POST',
-      url: '/crm/v7/Contacts/upsert',
+      method: "POST",
+      url: "/crm/v7/Contacts/upsert",
       data: {
         data: [zohoPayload],
-        duplicate_check_fields: ['Email', 'Phone'],
+        duplicate_check_fields: ["Email", "Phone"],
       },
     });
 
     const result = response?.data?.[0];
 
-    if (result && result.code === 'SUCCESS' && result.details?.id) {
+    if (result && result.code === "SUCCESS" && result.details?.id) {
       const zohoRecordId = result.details.id;
 
       // Lock the newly generated Zoho ID as well
       const lockKeyNewRecord = `zoho_sync_lock:${zohoRecordId}`;
-      await redisConnection.set(lockKeyNewRecord, '1', 'EX', SYNC_LOCK_TTL);
+      await redisConnection.set(lockKeyNewRecord, "1", "EX", SYNC_LOCK_TTL);
 
       await prisma.contactProviderMapping.upsert({
         where: {
           contactId_provider: {
             contactId: contact.id,
-            provider: 'ZOHO',
+            provider: "ZOHO",
           },
         },
         update: {
@@ -182,18 +190,26 @@ export async function autoSyncContactToZoho(tenantId, contactId) {
         create: {
           tenantId,
           contactId: contact.id,
-          provider: 'ZOHO',
+          provider: "ZOHO",
           providerContactId: zohoRecordId,
           lastSyncedAt: new Date(),
         },
       });
 
-      console.log(`✅ [ZohoAutoSync] Contact ${contact.name} (${contact.id}) synced to Zoho (${result.action})`);
+      console.log(
+        `✅ [ZohoAutoSync] Contact ${contact.name} (${contact.id}) synced to Zoho (${result.action})`,
+      );
     } else {
-      console.warn(`⚠️ [ZohoAutoSync] Contact ${contact.id} failed:`, result?.message || 'Unknown');
+      console.warn(
+        `⚠️ [ZohoAutoSync] Contact ${contact.id} failed:`,
+        result?.message || "Unknown",
+      );
     }
   } catch (error) {
-    console.error(`❌ [ZohoAutoSync] Failed for contact ${contactId}:`, error.response?.data || error.message);
+    console.error(
+      `❌ [ZohoAutoSync] Failed for contact ${contactId}:`,
+      error.response?.data || error.message,
+    );
   }
 }
 
@@ -201,43 +217,46 @@ export async function autoSyncContactToZoho(tenantId, contactId) {
  * Executes a full or incremental contact synchronization for a tenant.
  */
 export async function syncTenantContactsToZoho(tenantId, options = {}) {
-  const { syncType = 'FULL' } = options;
+  const { syncType = "FULL" } = options;
 
-  console.log(`🚀 [ZohoSync] Starting ${syncType} contact sync for tenant: ${tenantId}`);
+  console.log(
+    `🚀 [ZohoSync] Starting ${syncType} contact sync for tenant: ${tenantId}`,
+  );
 
-  const tenant = await prisma.tenant.findUnique({
+  const tenantRow = await prisma.tenant.findUnique({
     where: { id: tenantId },
     select: {
       id: true,
       tenantName: true,
       email: true,
-      zohoConnectionStatus: true,
+      zoho: { select: { zohoConnectionStatus: true } },
     },
   });
+  const tenant = { ...tenantRow, ...tenantRow?.zoho };
 
-  if (!tenant || tenant.zohoConnectionStatus !== 'CONNECTED') {
-    throw new Error('Zoho CRM is not connected for this tenant');
+  if (!tenant || tenant.zohoConnectionStatus !== "CONNECTED") {
+    throw new Error("Zoho CRM is not connected for this tenant");
   }
 
   await createAuditLog({
     actorId: tenant.id,
-    actorType: 'TENANT',
-    actorName: tenant.tenantName || tenant.email || 'Tenant',
-    actorEmail: tenant.email || '',
-    action: 'ZOHO_SYNC_STARTED',
-    module: 'INTEGRATIONS',
+    actorType: "TENANT",
+    actorName: tenant.tenantName || tenant.email || "Tenant",
+    actorEmail: tenant.email || "",
+    action: "ZOHO_SYNC_STARTED",
+    module: "INTEGRATIONS",
     description: `Started ${syncType.toLowerCase()} contact synchronization to Zoho CRM`,
     tenantId: tenant.id,
     metadata: { syncType },
   });
 
-  emitToTenant(tenantId, 'zoho_sync_started', { syncType });
+  emitToTenant(tenantId, "zoho_sync_started", { syncType });
 
   let lastSyncedAt = null;
-  if (syncType === 'INCREMENTAL') {
+  if (syncType === "INCREMENTAL") {
     const latestMapping = await prisma.contactProviderMapping.findFirst({
-      where: { tenantId, provider: 'ZOHO' },
-      orderBy: { lastSyncedAt: 'desc' },
+      where: { tenantId, provider: "ZOHO" },
+      orderBy: { lastSyncedAt: "desc" },
       select: { lastSyncedAt: true },
     });
     lastSyncedAt = latestMapping?.lastSyncedAt || null;
@@ -255,9 +274,11 @@ export async function syncTenantContactsToZoho(tenantId, options = {}) {
     isBlocked: false,
   };
 
-  if (syncType === 'INCREMENTAL' && lastSyncedAt) {
+  if (syncType === "INCREMENTAL" && lastSyncedAt) {
     baseWhere.updatedAt = { gte: lastSyncedAt };
-    console.log(`📅 [ZohoSync] Incremental mode: syncing contacts updated since ${lastSyncedAt}`);
+    console.log(
+      `📅 [ZohoSync] Incremental mode: syncing contacts updated since ${lastSyncedAt}`,
+    );
   }
 
   try {
@@ -265,10 +286,10 @@ export async function syncTenantContactsToZoho(tenantId, options = {}) {
       const contacts = await prisma.contact.findMany({
         where: baseWhere,
         include: {
-          providerMappings: { where: { provider: 'ZOHO' } },
+          providerMappings: { where: { provider: "ZOHO" } },
           contactTags: { include: { tag: true } },
         },
-        orderBy: { createdAt: 'asc' },
+        orderBy: { createdAt: "asc" },
         skip: offset,
         take: BATCH_SIZE,
       });
@@ -277,12 +298,17 @@ export async function syncTenantContactsToZoho(tenantId, options = {}) {
 
       const recordsToUpsert = contacts.map((c) => {
         const existingMapping = c.providerMappings?.[0];
-        const payload = formatContactForZoho(c, existingMapping?.providerContactId);
+        const payload = formatContactForZoho(
+          c,
+          existingMapping?.providerContactId,
+        );
 
         if (c.contactTags && c.contactTags.length > 0) {
-          const tagNames = c.contactTags.map((ct) => ct.tag?.name).filter(Boolean);
+          const tagNames = c.contactTags
+            .map((ct) => ct.tag?.name)
+            .filter(Boolean);
           if (tagNames.length > 0) {
-            payload.Tag = tagNames.join(', ');
+            payload.Tag = tagNames.join(", ");
           }
         }
 
@@ -291,21 +317,31 @@ export async function syncTenantContactsToZoho(tenantId, options = {}) {
 
       // Apply loop locks for the batch chunk
       for (const c of contacts) {
-        await redisConnection.set(`zoho_sync_lock:${c.id}`, '1', 'EX', SYNC_LOCK_TTL);
+        await redisConnection.set(
+          `zoho_sync_lock:${c.id}`,
+          "1",
+          "EX",
+          SYNC_LOCK_TTL,
+        );
         const existingId = c.providerMappings?.[0]?.providerContactId;
         if (existingId) {
-          await redisConnection.set(`zoho_sync_lock:${existingId}`, '1', 'EX', SYNC_LOCK_TTL);
+          await redisConnection.set(
+            `zoho_sync_lock:${existingId}`,
+            "1",
+            "EX",
+            SYNC_LOCK_TTL,
+          );
         }
       }
 
       let response;
       try {
         response = await zohoRequest(tenantId, {
-          method: 'POST',
-          url: '/crm/v7/Contacts/upsert',
+          method: "POST",
+          url: "/crm/v7/Contacts/upsert",
           data: {
             data: recordsToUpsert,
-            duplicate_check_fields: ['Email', 'Phone'],
+            duplicate_check_fields: ["Email", "Phone"],
           },
         });
       } catch (apiError) {
@@ -313,13 +349,21 @@ export async function syncTenantContactsToZoho(tenantId, options = {}) {
         const errorData = apiError.response?.data;
 
         if (status === 429) {
-          const retryAfter = parseInt(apiError.response?.headers?.['retry-after'] || '60', 10);
-          console.warn(`⏳ [ZohoSync] Rate limited. Waiting ${retryAfter}s before retrying batch at offset ${offset}`);
+          const retryAfter = parseInt(
+            apiError.response?.headers?.["retry-after"] || "60",
+            10,
+          );
+          console.warn(
+            `⏳ [ZohoSync] Rate limited. Waiting ${retryAfter}s before retrying batch at offset ${offset}`,
+          );
           await new Promise((r) => setTimeout(r, retryAfter * 1000));
           continue;
         }
 
-        console.error(`❌ [ZohoSync] Batch API error at offset ${offset}:`, errorData || apiError.message);
+        console.error(
+          `❌ [ZohoSync] Batch API error at offset ${offset}:`,
+          errorData || apiError.message,
+        );
         totalFailed += contacts.length;
         offset += contacts.length;
         continue;
@@ -331,20 +375,25 @@ export async function syncTenantContactsToZoho(tenantId, options = {}) {
         const contact = contacts[i];
         const res = results[i];
 
-        if (res && res.code === 'SUCCESS' && res.details?.id) {
+        if (res && res.code === "SUCCESS" && res.details?.id) {
           const zohoRecordId = res.details.id;
           const action = res.action;
 
-          if (action === 'insert') totalCreated++;
+          if (action === "insert") totalCreated++;
           else totalUpdated++;
 
-          await redisConnection.set(`zoho_sync_lock:${zohoRecordId}`, '1', 'EX', SYNC_LOCK_TTL);
+          await redisConnection.set(
+            `zoho_sync_lock:${zohoRecordId}`,
+            "1",
+            "EX",
+            SYNC_LOCK_TTL,
+          );
 
           await prisma.contactProviderMapping.upsert({
             where: {
               contactId_provider: {
                 contactId: contact.id,
-                provider: 'ZOHO',
+                provider: "ZOHO",
               },
             },
             update: {
@@ -354,21 +403,24 @@ export async function syncTenantContactsToZoho(tenantId, options = {}) {
             create: {
               tenantId,
               contactId: contact.id,
-              provider: 'ZOHO',
+              provider: "ZOHO",
               providerContactId: zohoRecordId,
               lastSyncedAt: new Date(),
             },
           });
         } else {
           totalFailed++;
-          console.warn(`⚠️ [ZohoSync] Contact ${contact.id} (${contact.name}) failed:`, res?.message || 'Unknown');
+          console.warn(
+            `⚠️ [ZohoSync] Contact ${contact.id} (${contact.name}) failed:`,
+            res?.message || "Unknown",
+          );
         }
       }
 
       totalProcessed += contacts.length;
       offset += contacts.length;
 
-      emitToTenant(tenantId, 'zoho_sync_progress', {
+      emitToTenant(tenantId, "zoho_sync_progress", {
         processed: totalProcessed,
         created: totalCreated,
         updated: totalUpdated,
@@ -389,21 +441,24 @@ export async function syncTenantContactsToZoho(tenantId, options = {}) {
       completedAt: new Date().toISOString(),
     };
 
-    console.log(`✅ [ZohoSync] Sync completed for tenant ${tenantId}:`, summary);
+    console.log(
+      `✅ [ZohoSync] Sync completed for tenant ${tenantId}:`,
+      summary,
+    );
 
     await createAuditLog({
       actorId: tenant.id,
-      actorType: 'TENANT',
-      actorName: tenant.tenantName || tenant.email || 'Tenant',
-      actorEmail: tenant.email || '',
-      action: 'ZOHO_SYNC_COMPLETED',
-      module: 'INTEGRATIONS',
+      actorType: "TENANT",
+      actorName: tenant.tenantName || tenant.email || "Tenant",
+      actorEmail: tenant.email || "",
+      action: "ZOHO_SYNC_COMPLETED",
+      module: "INTEGRATIONS",
       description: `Completed Zoho contact sync: ${totalCreated} created, ${totalUpdated} updated, ${totalFailed} failed`,
       tenantId: tenant.id,
       metadata: summary,
     });
 
-    emitToTenant(tenantId, 'zoho_sync_completed', summary);
+    emitToTenant(tenantId, "zoho_sync_completed", summary);
 
     return summary;
   } catch (error) {
@@ -411,17 +466,17 @@ export async function syncTenantContactsToZoho(tenantId, options = {}) {
 
     await createAuditLog({
       actorId: tenant.id,
-      actorType: 'TENANT',
-      actorName: tenant.tenantName || tenant.email || 'Tenant',
-      actorEmail: tenant.email || '',
-      action: 'ZOHO_SYNC_FAILED',
-      module: 'INTEGRATIONS',
+      actorType: "TENANT",
+      actorName: tenant.tenantName || tenant.email || "Tenant",
+      actorEmail: tenant.email || "",
+      action: "ZOHO_SYNC_FAILED",
+      module: "INTEGRATIONS",
       description: `Zoho contact sync failed: ${error.message}`,
       tenantId: tenant.id,
       metadata: { error: error.message },
     });
 
-    emitToTenant(tenantId, 'zoho_sync_failed', { error: error.message });
+    emitToTenant(tenantId, "zoho_sync_failed", { error: error.message });
 
     throw error;
   }
@@ -436,11 +491,11 @@ export async function getTenantSyncStats(tenantId) {
       where: { tenantId, isActive: true, isBlocked: false },
     }),
     prisma.contactProviderMapping.count({
-      where: { tenantId, provider: 'ZOHO' },
+      where: { tenantId, provider: "ZOHO" },
     }),
     prisma.contactProviderMapping.findFirst({
-      where: { tenantId, provider: 'ZOHO' },
-      orderBy: { lastSyncedAt: 'desc' },
+      where: { tenantId, provider: "ZOHO" },
+      orderBy: { lastSyncedAt: "desc" },
       select: { lastSyncedAt: true },
     }),
   ]);
@@ -453,30 +508,35 @@ export async function getTenantSyncStats(tenantId) {
   };
 }
 
-
 /**
  * PULL SYNC: Imports all contacts from Zoho CRM down into Sudo Reply.
  * Handles duplicate resolution, phone formatting, and unique constraint safety.
  */
 export async function pullContactsFromZoho(tenantId) {
-  console.log(`📥 [ZohoPullSync] Starting inbound contact import from Zoho CRM for tenant ${tenantId}`);
+  console.log(
+    `📥 [ZohoPullSync] Starting inbound contact import from Zoho CRM for tenant ${tenantId}`,
+  );
 
   let page = 1;
   let totalImported = 0;
   let totalUpdated = 0;
   let hasMore = true;
 
-  const requiredFields = 'id,First_Name,Last_Name,Full_Name,Phone,Mobile,Email,Company,Account_Name';
+  const requiredFields =
+    "id,First_Name,Last_Name,Full_Name,Phone,Mobile,Email,Company,Account_Name";
 
   while (hasMore) {
     let response;
     try {
       response = await zohoRequest(tenantId, {
-        method: 'GET',
+        method: "GET",
         url: `/crm/v7/Contacts?fields=${requiredFields}&page=${page}&per_page=100`,
       });
     } catch (apiErr) {
-      console.error(`❌ [ZohoPullSync] Failed to fetch page ${page}:`, apiErr.response?.data || apiErr.message);
+      console.error(
+        `❌ [ZohoPullSync] Failed to fetch page ${page}:`,
+        apiErr.response?.data || apiErr.message,
+      );
       break;
     }
 
@@ -485,22 +545,29 @@ export async function pullContactsFromZoho(tenantId) {
 
     for (const zc of zohoContacts) {
       const recordId = zc.id;
-      const fullName = `${zc.First_Name || ''} ${zc.Last_Name || ''}`.trim() || zc.Full_Name || 'Zoho Contact';
+      const fullName =
+        `${zc.First_Name || ""} ${zc.Last_Name || ""}`.trim() ||
+        zc.Full_Name ||
+        "Zoho Contact";
       const rawPhone = zc.Phone || zc.Mobile || null;
       const email = zc.Email || null;
-      const company = zc.Company || zc.Account_Name?.name || (typeof zc.Account_Name === 'string' ? zc.Account_Name : null);
+      const company =
+        zc.Company ||
+        zc.Account_Name?.name ||
+        (typeof zc.Account_Name === "string" ? zc.Account_Name : null);
 
       let cleanPhone = null;
       if (rawPhone) {
-        const digits = rawPhone.replace(/\D/g, '');
+        const digits = rawPhone.replace(/\D/g, "");
         if (digits.length === 10) cleanPhone = `+91${digits}`;
-        else if (digits.length === 11 && digits.startsWith('0')) cleanPhone = `+91${digits.slice(1)}`;
+        else if (digits.length === 11 && digits.startsWith("0"))
+          cleanPhone = `+91${digits.slice(1)}`;
         else if (digits.length >= 8) cleanPhone = `+${digits}`;
       }
 
       // 1. Check if mapping already exists by Zoho record ID
       let mapping = await prisma.contactProviderMapping.findFirst({
-        where: { tenantId, provider: 'ZOHO', providerContactId: recordId },
+        where: { tenantId, provider: "ZOHO", providerContactId: recordId },
         include: { contact: true },
       });
 
@@ -514,7 +581,12 @@ export async function pullContactsFromZoho(tenantId) {
             name: fullName || contact.name,
             email: email || contact.email,
             company: company || contact.company,
-            ...(cleanPhone && !contact.phone ? { phone: cleanPhone, whatsappId: cleanPhone.replace(/\D/g, '').slice(-10) } : {}),
+            ...(cleanPhone && !contact.phone
+              ? {
+                  phone: cleanPhone,
+                  whatsappId: cleanPhone.replace(/\D/g, "").slice(-10),
+                }
+              : {}),
           },
         });
         totalUpdated++;
@@ -542,13 +614,18 @@ export async function pullContactsFromZoho(tenantId) {
               phone: cleanPhone,
               email: email || null,
               company: company || null,
-              whatsappId: cleanPhone ? cleanPhone.replace(/\D/g, '').slice(-10) : null,
-              channel: 'WHATSAPP',
+              whatsappId: cleanPhone
+                ? cleanPhone.replace(/\D/g, "").slice(-10)
+                : null,
+              channel: "WHATSAPP",
             },
           });
           totalImported++;
 
-          emitToTenant(tenantId, 'new_contact', { contact, source: 'ZOHO_CRM' });
+          emitToTenant(tenantId, "new_contact", {
+            contact,
+            source: "ZOHO_CRM",
+          });
         } else {
           totalUpdated++;
         }
@@ -556,21 +633,23 @@ export async function pullContactsFromZoho(tenantId) {
 
       if (contact) {
         // Remove any old conflicting mapping for this recordId on another contact
-        await prisma.contactProviderMapping.deleteMany({
-          where: {
-            tenantId,
-            provider: 'ZOHO',
-            providerContactId: recordId,
-            contactId: { not: contact.id },
-          },
-        }).catch(() => {});
+        await prisma.contactProviderMapping
+          .deleteMany({
+            where: {
+              tenantId,
+              provider: "ZOHO",
+              providerContactId: recordId,
+              contactId: { not: contact.id },
+            },
+          })
+          .catch(() => {});
 
         // Safely upsert on contactId_provider
         await prisma.contactProviderMapping.upsert({
           where: {
             contactId_provider: {
               contactId: contact.id,
-              provider: 'ZOHO',
+              provider: "ZOHO",
             },
           },
           update: {
@@ -580,7 +659,7 @@ export async function pullContactsFromZoho(tenantId) {
           create: {
             tenantId,
             contactId: contact.id,
-            provider: 'ZOHO',
+            provider: "ZOHO",
             providerContactId: recordId,
             lastSyncedAt: new Date(),
           },
@@ -592,6 +671,8 @@ export async function pullContactsFromZoho(tenantId) {
     page++;
   }
 
-  console.log(`✅ [ZohoPullSync] Completed: ${totalImported} imported, ${totalUpdated} updated`);
+  console.log(
+    `✅ [ZohoPullSync] Completed: ${totalImported} imported, ${totalUpdated} updated`,
+  );
   return { totalImported, totalUpdated };
 }

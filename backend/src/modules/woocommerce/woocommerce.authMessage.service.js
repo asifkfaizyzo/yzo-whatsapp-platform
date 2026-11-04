@@ -108,10 +108,11 @@ export const deliverWooAuthWhatsAppMessage = async ({
     return { simulated: true };
   }
 
-  const tenant = await prisma.tenant.findUnique({
+  const tenantRow = await prisma.tenant.findUnique({
     where: { id: tenantId },
-    select: { whatsappPhoneId: true, whatsappAccessToken: true },
+    select: { whatsapp: { select: { whatsappPhoneId: true, whatsappAccessToken: true } } },
   });
+  const tenant = tenantRow?.whatsapp || {};
   if (!tenant?.whatsappPhoneId || !tenant?.whatsappAccessToken) {
     throw new Error('WhatsApp is not connected for this store');
   }

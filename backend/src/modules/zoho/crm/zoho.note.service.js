@@ -11,12 +11,12 @@ import { getTenantZohoPreferences } from './zoho.contact.service.js';
  */
 export async function logMessageAsZohoNote(tenantId, contactId, message) {
   try {
-    const tenant = await prisma.tenant.findUnique({
+const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
-      select: { zohoConnectionStatus: true },
+      select: { zoho: { select: { zohoConnectionStatus: true } } },
     });
 
-    if (!tenant || tenant.zohoConnectionStatus !== 'CONNECTED') {
+    if (!tenant || tenant.zoho?.zohoConnectionStatus !== 'CONNECTED') {
       return; // Silent bypass — avoid decryptions/errors for unconnected tenants
     }
 

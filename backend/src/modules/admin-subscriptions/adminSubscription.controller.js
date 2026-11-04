@@ -71,44 +71,51 @@ export const getSubscriptions = async (req, res) => {
           id: true,
           tenantName: true,
           email: true,
-          currentPlan: true,
           plan: {
             select: { id: true, name: true, monthlyPrice: true }
           },
-          subscriptionStatus: true,
-          planStatus: true,
-          autopayEnabled: true,
-          hasUsedTrial: true,
-          trialExtendedCount: true,
-          planPeriodStart: true,
-          planPeriodEnd: true,
-          cancelRequestedAt: true,
-          cancellationReason: true,
-          dataDeletionDate: true,
+          subscription: {
+            select: {
+              currentPlan: true,
+              subscriptionStatus: true,
+              planStatus: true,
+              autopayEnabled: true,
+              hasUsedTrial: true,
+              trialExtendedCount: true,
+              planPeriodStart: true,
+              planPeriodEnd: true,
+              cancelRequestedAt: true,
+              cancellationReason: true,
+              dataDeletionDate: true,
+            }
+          },
           createdAt: true,
         }
       }),
       prisma.tenant.count({ where })
     ]);
 
-    const formattedTenants = tenants.map(t => ({
-      id: t.id,
-      tenantName: t.tenantName,
-      email: t.email,
-      currentPlan: t.currentPlan || (t.plan ? t.plan.name : "Starter"),
-      planId: t.plan?.id,
-      subscriptionStatus: t.subscriptionStatus,
-      planStatus: t.planStatus,
-      autopayEnabled: t.autopayEnabled || false,
-      hasUsedTrial: t.hasUsedTrial || false,
-      trialExtendedCount: t.trialExtendedCount || 0,
-      planPeriodStart: t.planPeriodStart,
-      planPeriodEnd: t.planPeriodEnd,
-      cancelRequestedAt: t.cancelRequestedAt,
-      cancellationReason: t.cancellationReason,
-      dataDeletionDate: t.dataDeletionDate,
-      createdAt: t.createdAt,
-    }));
+    const formattedTenants = tenants.map(t => {
+      const s = t.subscription || {};
+      return {
+        id: t.id,
+        tenantName: t.tenantName,
+        email: t.email,
+        currentPlan: s.currentPlan || (t.plan ? t.plan.name : "Starter"),
+        planId: t.plan?.id,
+        subscriptionStatus: s.subscriptionStatus,
+        planStatus: s.planStatus,
+        autopayEnabled: s.autopayEnabled || false,
+        hasUsedTrial: s.hasUsedTrial || false,
+        trialExtendedCount: s.trialExtendedCount || 0,
+        planPeriodStart: s.planPeriodStart,
+        planPeriodEnd: s.planPeriodEnd,
+        cancelRequestedAt: s.cancelRequestedAt,
+        cancellationReason: s.cancellationReason,
+        dataDeletionDate: s.dataDeletionDate,
+        createdAt: t.createdAt,
+      };
+    });
 
     const totalPages = Math.ceil(total / limit);
 
@@ -390,8 +397,12 @@ export const manualPlanActivation = async (req, res) => {
     // 6. Execute Atomic Transaction
     const result = await prisma.$transaction(async (tx) => {
       // A. Update Tenant to Active
-      const updatedTenant = await tx.tenant.update({
+      await tx.tenant.update({
         where: { id: tenantId },
+        data: { status: 'APPROVED' }
+      });
+      const updatedTenant = await tx.tenantSubscription.update({
+        where: { tenantId },
         data: {
           planId: plan.id,
           currentPlan: plan.name,
@@ -401,7 +412,6 @@ export const manualPlanActivation = async (req, res) => {
           planPeriodEnd: periodEnd,
           subscriptionStatus: 'active',
           planStatus: 'active',
-          status: 'APPROVED',
           dataDeletionDate: null,
           cancelRequestedAt: null,
           cancellationReason: null,

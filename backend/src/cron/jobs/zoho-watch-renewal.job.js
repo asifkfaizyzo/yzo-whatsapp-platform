@@ -12,7 +12,7 @@ export const startZohoWatchRenewalJob = () => {
 
     try {
       const connectedTenants = await prisma.tenant.findMany({
-        where: { zohoConnectionStatus: 'CONNECTED' },
+        where: { zoho: { zohoConnectionStatus: 'CONNECTED' } },
         select: { id: true, tenantName: true },
       });
 

@@ -10,12 +10,12 @@ import { getTenantZohoPreferences } from './zoho.contact.service.js';
  */
 export async function createZohoFollowUpTask(tenantId, contactId, conversationId, reason = 'Follow up') {
   try {
-    const tenant = await prisma.tenant.findUnique({
+   const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
-      select: { zohoConnectionStatus: true },
+      select: { zoho: { select: { zohoConnectionStatus: true } } },
     });
 
-    if (!tenant || tenant.zohoConnectionStatus !== 'CONNECTED') {
+    if (!tenant || tenant.zoho?.zohoConnectionStatus !== 'CONNECTED') {
       return;
     }
 
@@ -80,7 +80,7 @@ export async function scanAndCreateStaleTasks() {
 
   try {
     const connectedTenants = await prisma.tenant.findMany({
-      where: { zohoConnectionStatus: 'CONNECTED' },
+      where: { zoho: { zohoConnectionStatus: 'CONNECTED' } },
       select: { id: true },
     });
 

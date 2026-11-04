@@ -327,14 +327,14 @@ const processWooCustomerCreated = async ({ tenantId, payload }) => {
     });
   }
 
-  const tenant = await prisma.tenant.findUnique({
+  const tenantRow = await prisma.tenant.findUnique({
     where: { id: tenantId },
     select: {
       tenantName: true,
-      whatsappPhoneId: true,
-      whatsappAccessToken: true,
+      whatsapp: { select: { whatsappPhoneId: true, whatsappAccessToken: true } },
     },
   });
+  const tenant = { ...tenantRow, ...tenantRow?.whatsapp };
   const storeName = tenant?.tenantName || 'our store';
   const messageText = buildWooCustomerWelcomeMessage({ customerName, storeName });
 
@@ -742,11 +742,11 @@ export const processOrderWebhookJob = async (job) => {
       if (messageText && process.env.NODE_ENV !== 'production') {
         console.log(`🧪 [Worker] Development mock: order notification recorded in platform for ${customerPhone}`);
       } else if (messageText && process.env.NODE_ENV === 'production' && isNewOrder) {
-        const whatsappConnection = await prisma.tenant.findUnique({
+        const waRow = await prisma.tenant.findUnique({
           where: { id: tenantId },
-          select: { whatsappPhoneId: true, whatsappAccessToken: true }
+          select: { whatsapp: { select: { whatsappPhoneId: true, whatsappAccessToken: true } } }
         });
-        const phoneNumberId = whatsappConnection?.whatsappPhoneId;
+        const whatsappConnection = waRow?.whatsapp || {};        const phoneNumberId = whatsappConnection?.whatsappPhoneId;
         const whatsappToken = whatsappConnection?.whatsappAccessToken
           ? decrypt(whatsappConnection.whatsappAccessToken)
           : null;
@@ -822,10 +822,11 @@ export const processOrderWebhookJob = async (job) => {
             `[Worker] Shipment WhatsApp notification skipped for order #${orderNumber}: courier name and tracking URL are required`
           );
         } else {
-          const whatsappConnection = await prisma.tenant.findUnique({
+          const waRow = await prisma.tenant.findUnique({
             where: { id: tenantId },
-            select: { whatsappPhoneId: true, whatsappAccessToken: true }
+            select: { whatsapp: { select: { whatsappPhoneId: true, whatsappAccessToken: true } } }
           });
+          const whatsappConnection = waRow?.whatsapp || {};
           const phoneNumberId = whatsappConnection?.whatsappPhoneId;
           const whatsappToken = whatsappConnection?.whatsappAccessToken
             ? decrypt(whatsappConnection.whatsappAccessToken)

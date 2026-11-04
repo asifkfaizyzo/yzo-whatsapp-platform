@@ -411,16 +411,15 @@ export const sendMetaMessage = async ({
 
     // 1. Token Expired / Session Invalid (Code 190 or HTTP 401)
     if (errorCode === 190 || response.status === 401) {
-      await prisma.tenant.update({
-        where: { id: tenant.id },
+      await prisma.tenantSocial.update({
+        where: { tenantId: tenant.id },
         data: { facebookPageAccessToken: null }
       });
       emitToTenant(tenant.id, 'channel_error', {
         channel,
         error: 'Page Access Token has expired. Please reconnect in Settings.'
       });
-      throw new Error('Page Access Token expired (code 190). Please reconnect in Settings.');
-    }
+      throw new Error('Page Access Token expired (code 190). Please reconnect in Settings.');    }
 
     // 2. HUMAN_AGENT tag rejected if permission not yet approved by Meta App Review
     if (errorCode === 10) {
@@ -514,16 +513,15 @@ export const sendMetaMediaMessage = async ({
 
     // 1. Token Expired / Session Invalid (Code 190 or HTTP 401)
     if (errorCode === 190 || response.status === 401) {
-      await prisma.tenant.update({
-        where: { id: tenant.id },
+      await prisma.tenantSocial.update({
+        where: { tenantId: tenant.id },
         data: { facebookPageAccessToken: null }
       });
       emitToTenant(tenant.id, 'channel_error', {
         channel,
         error: 'Page Access Token has expired. Please reconnect in Settings.'
       });
-      throw new Error('Page Access Token expired (code 190). Please reconnect in Settings.');
-    }
+      throw new Error('Page Access Token expired (code 190). Please reconnect in Settings.');    }
 
     // 2. HUMAN_AGENT tag rejected if permission not yet approved by Meta App Review
     if (errorCode === 10) {

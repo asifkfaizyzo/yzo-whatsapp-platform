@@ -11,14 +11,18 @@ const processExpiryReminders = async () => {
     // 1. Find tenants who are active or trialing
     const activeTenants = await prisma.tenant.findMany({
       where: {
-        subscriptionStatus: { in: ['active', 'trialing', 'cancel_at_period_end'] }
-      }
+        subscription: {
+          subscriptionStatus: { in: ['active', 'trialing', 'cancel_at_period_end'] }
+        }
+      },
+      include: { subscription: true }
     });
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    for (const tenant of activeTenants) {
+   for (const raw of activeTenants) {
+      const tenant = { ...raw, ...raw.subscription };
       try {
         if (!tenant.planPeriodEnd) continue;
 

@@ -163,7 +163,7 @@ export const getReportKPIsService = async ({ startDate, endDate }) => {
 
   // Gateway Nodes online (tenants with whatsappPhoneId configured)
   const configuredNodesCount = await prisma.tenant.count({
-    where: { whatsappPhoneId: { not: null, not: '' }, isActive: true }
+    where: { whatsapp: { whatsappPhoneId: { not: null, not: '' } }, isActive: true }
   });
 
   return {
@@ -504,7 +504,7 @@ export const getReportTenantsService = async ({ startDate, endDate, search, plan
     ];
   }
   if (planFilter && planFilter !== 'all') {
-    tenantWhere.planId = planFilter;
+    tenantWhere.subscription = { planId: planFilter };
   }
 
   const tenants = await prisma.tenant.findMany({
@@ -608,11 +608,12 @@ export const getReportTenantsService = async ({ startDate, endDate, search, plan
 // ─────────────────────────────────────────────────────────────
 export const getReportSystemHealthService = async () => {
   // Query tenants that have configured whatsappPhoneId
-  const tenantsWithWaba = await prisma.tenant.findMany({
-    where: { whatsappPhoneId: { not: null, not: '' } },
-    select: { id: true, tenantName: true, whatsappPhoneId: true, isActive: true },
+  const tenantsWithWabaRaw = await prisma.tenant.findMany({
+    where: { whatsapp: { whatsappPhoneId: { not: null, not: '' } } },
+    select: { id: true, tenantName: true, isActive: true, whatsapp: { select: { whatsappPhoneId: true } } },
     take: 10
   });
+  const tenantsWithWaba = tenantsWithWabaRaw.map(t => ({ ...t, whatsappPhoneId: t.whatsapp?.whatsappPhoneId }));
 
   const gatewayNodes = await Promise.all(
     tenantsWithWaba.map(async (t, idx) => {

@@ -180,7 +180,7 @@ export const togglePlanStatus = async (id) => {
 // ── Delete plan ──
 export const deletePlan = async (id) => {
   // Check if any tenants are on this plan
-  const tenantCount = await prisma.tenant.count({
+  const tenantCount = await prisma.tenantSubscription.count({
     where: { planId: id },
   });
 

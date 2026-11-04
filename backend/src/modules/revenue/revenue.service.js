@@ -90,7 +90,7 @@ export const getRevenueStatsService = async () => {
 
   // ── Active Tenants ──
   const activeTenants = await prisma.tenant.count({
-    where: { planStatus: "active", isActive: true },
+    where: { subscription: { planStatus: "active" }, isActive: true },
   });
 
   // ── Total Payments Count ──
@@ -196,21 +196,22 @@ export const getRevenuePaymentsService = async () => {
 
 // ── Tenant Billing Detail ──
 export const getTenantBillingDetailService = async (tenantId) => {
-  const tenant = await prisma.tenant.findUnique({
+  const tenantRow = await prisma.tenant.findUnique({
     where: { id: tenantId },
     select: {
       id: true,
       tenantName: true,
       email: true,
       phone: true,
-      planStatus: true,
-      billingType: true,
-      planActivatedAt: true,
+      subscription: {
+        select: { planStatus: true, billingType: true, planActivatedAt: true },
+      },
       plan: {
         select: { id: true, name: true, monthlyPrice: true },
       },
     },
   });
+  const tenant = tenantRow ? { ...tenantRow, ...tenantRow.subscription } : null;
 
   if (!tenant) return null;
 

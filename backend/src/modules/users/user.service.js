@@ -54,17 +54,16 @@ export const loginUserService = async (data, meta = {}) => {
   }
 
   // ── Tenant check ──
-  const tenant = await prisma.tenant.findUnique({
+    const tenantRow = await prisma.tenant.findUnique({
   where:  { id: user.tenantId },
   select: {
     id:          true,
     status:      true,
     isActive:    true,
-    planId:      true,     
-    planStatus:  true,      
-    billingType: true,     
+    subscription: { select: { planId: true, planStatus: true, billingType: true } },
   },
 });
+const tenant = { ...tenantRow, ...tenantRow?.subscription };
 
   if (!tenant || tenant.status === 'BLOCKED' || !tenant.isActive) {
     await createAuditLog({

@@ -328,12 +328,22 @@ export const onboardingStep2 = async (req, res) => {
 
         const updated = await prisma.tenant.update({
             where: { id: tenantId },
-            data: {
-                email,
+            data: { email }
+        });
+
+        await prisma.tenantAuth.upsert({
+            where: { tenantId },
+            create: {
+                tenantId,
                 otpHash,
                 otpExpiresAt,
-                isEmailVerified: false
-            }
+                isEmailVerified: false,
+            },
+            update: {
+                otpHash,
+                otpExpiresAt,
+                isEmailVerified: false,
+            },
         });
 
         await sendVerificationOtpEmail(email, otpCode);
@@ -374,17 +384,18 @@ export const verifyEmailOtp = async (req, res) => {
         }
 
         const tenant = await prisma.tenant.findUnique({
-            where: { id: tenantId }
+            where: { id: tenantId },
+            include: { auth: true }
         });
 
-        if (!tenant || !tenant.otpHash || !tenant.otpExpiresAt) {
+        if (!tenant || !tenant.auth?.otpHash || !tenant.auth?.otpExpiresAt) {
             return res.status(400).json({
                 success: false,
                 message: 'Verification request not found. Please request a new code.'
             });
         }
 
-        if (new Date() > tenant.otpExpiresAt) {
+        if (new Date() > tenant.auth.otpExpiresAt) {
             return res.status(400).json({
                 success: false,
                 message: 'Verification code has expired. Please request a new one.'
@@ -392,7 +403,7 @@ export const verifyEmailOtp = async (req, res) => {
         }
 
         const hashedInput = crypto.createHash('sha256').update(otpCode).digest('hex');
-        if (hashedInput !== tenant.otpHash) {
+        if (hashedInput !== tenant.auth.otpHash) {
             return res.status(400).json({
                 success: false,
                 message: 'Incorrect verification code.'
@@ -401,12 +412,16 @@ export const verifyEmailOtp = async (req, res) => {
 
         const updated = await prisma.tenant.update({
             where: { id: tenantId },
+            data: { onboardingStep: 3 }
+        });
+
+        await prisma.tenantAuth.update({
+            where: { tenantId },
             data: {
                 isEmailVerified: true,
-                onboardingStep: 3,
                 otpHash: null,
-                otpExpiresAt: null
-            }
+                otpExpiresAt: null,
+            },
         });
 
         return res.status(200).json({

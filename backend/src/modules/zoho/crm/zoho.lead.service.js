@@ -14,12 +14,12 @@ const SYNC_LOCK_TTL = 30;
  */
 export async function createZohoLead(tenantId, contact) {
   try {
-    const tenant = await prisma.tenant.findUnique({
+const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
-      select: { zohoConnectionStatus: true },
+      select: { zoho: { select: { zohoConnectionStatus: true } } },
     });
 
-    if (!tenant || tenant.zohoConnectionStatus !== 'CONNECTED') {
+    if (!tenant || tenant.zoho?.zohoConnectionStatus !== 'CONNECTED') {
       return null;
     }
 

@@ -159,8 +159,8 @@ export const sendShopifyWhatsAppTemplate = async ({ tenantId, customerPhone, tem
   }
 
   try {
-    const tenantConfig = await prisma.tenant.findUnique({
-      where: { id: tenantId },
+    const tenantConfig = await prisma.tenantWhatsApp.findUnique({
+      where: { tenantId },
       select: { whatsappPhoneId: true, whatsappAccessToken: true }
     });
 
@@ -1038,11 +1038,10 @@ export const processShopifyOrderLifecycle = async ({
 
         if (!isProductionEnvironment()) {
           try {
-            const tenantConfig = await prisma.tenant.findUnique({
-              where: { id: tenantId },
+            const tenantConfig = await prisma.tenantWhatsApp.findUnique({
+              where: { tenantId },
               select: { whatsappPhoneId: true, whatsappAccessToken: true },
-            });
-            if (tenantConfig?.whatsappPhoneId && tenantConfig?.whatsappAccessToken) {
+            });            if (tenantConfig?.whatsappPhoneId && tenantConfig?.whatsappAccessToken) {
               const token = decrypt(tenantConfig.whatsappAccessToken);
               const cleanPhone = normalizedPhone.replace('+', '');
               await axios.post(

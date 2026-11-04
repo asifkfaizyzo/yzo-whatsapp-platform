@@ -95,8 +95,13 @@ export const submitEnterpriseLead = async (req, res) => {
     await prisma.tenant.update({
       where: { id: tenantId },
       data: {
-        planStatus: 'enterprise_pending',
         onboardingStep: 6,
+      },
+    });
+    await prisma.tenantSubscription.update({
+      where: { tenantId },
+      data: {
+        planStatus: 'enterprise_pending',
       },
     });
 
@@ -142,11 +147,15 @@ export const resetEnterpriseLead = async (req, res) => {
     });
 
     // 2️⃣ Reset plan status to inactive or none
-    const updatedTenant = await prisma.tenant.update({
-      where: { id: tenantId },
+    await prisma.tenantSubscription.update({
+      where: { tenantId },
       data: {
         planStatus: 'inactive', // or none, inactive is default in schema.prisma
       },
+    });
+    const updatedTenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      include: { subscription: true },
     });
 
     return res.json({ 
@@ -417,9 +426,14 @@ export const activateTenant = async (req, res) => {
       prisma.tenant.update({
         where: { id: lead.tenantId },
         data: {
-          planStatus: 'enterprise_active',
           isActive: true,
           status: 'APPROVED' // Force APPROVED status so they can bypass restrictions
+        }
+      }),
+      prisma.tenantSubscription.update({
+        where: { tenantId: lead.tenantId },
+        data: {
+          planStatus: 'enterprise_active',
         }
       })
     ]);

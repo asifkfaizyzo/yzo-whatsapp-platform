@@ -15,11 +15,10 @@ export async function createZohoDealFromOrder(tenantId, order, contact) {
   try {
     const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
-      select: { zohoConnectionStatus: true },
+      select: { zoho: { select: { zohoConnectionStatus: true } } },
     });
 
-    if (!tenant || tenant.zohoConnectionStatus !== 'CONNECTED') {
-      return;
+    if (!tenant || tenant.zoho?.zohoConnectionStatus !== 'CONNECTED') {      return;
     }
 
     const prefs = await getTenantZohoPreferences(tenantId);
@@ -106,10 +105,10 @@ export async function updateZohoDealStage(tenantId, orderId, paymentStatus) {
   try {
     const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
-      select: { zohoConnectionStatus: true },
+      select: { zoho: { select: { zohoConnectionStatus: true } } },
     });
 
-    if (!tenant || tenant.zohoConnectionStatus !== 'CONNECTED') {
+    if (!tenant || tenant.zoho?.zohoConnectionStatus !== 'CONNECTED') {
       return;
     }
 

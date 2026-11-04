@@ -80,20 +80,25 @@ export async function extractAndSaveRateLimits(tenantId, headers) {
  * Ensures a valid access token for the given tenant.
  */
 export async function getValidZohoAccessToken(tenantId) {
-  const tenant = await prisma.tenant.findUnique({
+  const tenantRow = await prisma.tenant.findUnique({
     where: { id: tenantId },
     select: {
       id: true,
-      zohoAccessToken: true,
-      zohoRefreshToken: true,
-      zohoTokenExpiresAt: true,
-      zohoDataCenter: true,
-      zohoApiDomain: true,
-      zohoConnectionStatus: true,
       tenantName: true,
       email: true,
+      zoho: {
+        select: {
+          zohoAccessToken: true,
+          zohoRefreshToken: true,
+          zohoTokenExpiresAt: true,
+          zohoDataCenter: true,
+          zohoApiDomain: true,
+          zohoConnectionStatus: true,
+        },
+      },
     },
   });
+  const tenant = { ...tenantRow, ...tenantRow?.zoho };
 
   if (
     !tenant ||
@@ -119,15 +124,20 @@ export async function getValidZohoAccessToken(tenantId) {
 
   if (!acquiredLock) {
     await new Promise((resolve) => setTimeout(resolve, WAIT_TIMEOUT_MS));
-    const freshTenant = await prisma.tenant.findUnique({
+const freshRow = await prisma.tenant.findUnique({
       where: { id: tenantId },
       select: {
-        zohoAccessToken: true,
-        zohoApiDomain: true,
-        zohoDataCenter: true,
-        zohoConnectionStatus: true,
+        zoho: {
+          select: {
+            zohoAccessToken: true,
+            zohoApiDomain: true,
+            zohoDataCenter: true,
+            zohoConnectionStatus: true,
+          },
+        },
       },
     });
+    const freshTenant = freshRow?.zoho || {};
 
     if (!freshTenant || freshTenant.zohoConnectionStatus !== 'CONNECTED') {
       throw new Error('Zoho connection status invalid after token refresh wait');
@@ -184,8 +194,8 @@ export async function getValidZohoAccessToken(tenantId) {
     const newExpiresAt = new Date(Date.now() + (expires_in || 3600) * 1000);
     const resolvedApiDomain = api_domain || tenant.zohoApiDomain || ZOHO_DC_MAP[dcKey]?.apiDomain || 'https://www.zohoapis.com';
 
-    await prisma.tenant.update({
-      where: { id: tenantId },
+    await prisma.tenantZoho.update({
+      where: { tenantId },
       data: {
         zohoAccessToken: encrypt(access_token),
         zohoTokenExpiresAt: newExpiresAt,
@@ -210,8 +220,8 @@ export async function getValidZohoAccessToken(tenantId) {
     console.error(`❌ [ZohoClient] Token refresh failed for tenant ${tenantId}:`, errorData || error.message);
 
     if (isRevoked) {
-      await prisma.tenant.update({
-        where: { id: tenantId },
+      await prisma.tenantZoho.update({
+        where: { tenantId },
         data: {
           zohoConnectionStatus: 'REFRESH_FAILED',
         },

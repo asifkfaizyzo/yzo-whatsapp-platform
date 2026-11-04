@@ -5,8 +5,8 @@ import { encrypt, decrypt } from '../../../lib/crypto.js';
 export const getWhatsappCredentials = async (req, res, next) => {
     try {
         const tenantId = req.tenant?.id;
-        const tenant = await prisma.tenant.findUnique({
-            where: { id: tenantId },
+        const tenant = await prisma.tenantWhatsApp.findUnique({
+            where: { tenantId },
             select: {
                 whatsappPhoneId: true,
                 whatsappWabaId: true,
@@ -37,9 +37,17 @@ export const updateWhatsappCredentials = async (req, res, next) => {
         const tenantId = req.tenant?.id;
         const { phoneId, wabaId, accessToken, verifyToken, catalogId } = req.body;
 
-        const updated = await prisma.tenant.update({
-            where: { id: tenantId },
-            data: {
+        const updated = await prisma.tenantWhatsApp.upsert({
+            where: { tenantId },
+            update: {
+                whatsappPhoneId: phoneId,
+                whatsappWabaId: wabaId,
+                whatsappAccessToken: accessToken ? encrypt(accessToken) : undefined,
+                whatsappVerifyToken: verifyToken,
+                whatsappCatalogId: catalogId !== undefined ? catalogId : undefined,
+            },
+            create: {
+                tenantId,
                 whatsappPhoneId: phoneId,
                 whatsappWabaId: wabaId,
                 whatsappAccessToken: accessToken ? encrypt(accessToken) : undefined,
@@ -64,8 +72,8 @@ export const updateWhatsappCredentials = async (req, res, next) => {
 export const getMetaChannelsStatus = async (req, res) => {
     try {
         const tenantId = req.tenant?.id;
-        const tenant = await prisma.tenant.findUnique({
-            where: { id: tenantId },
+        const tenant = await prisma.tenantSocial.findUnique({
+            where: { tenantId },
             select: {
                 facebookPageId: true,
                 facebookPageName: true,
@@ -123,9 +131,10 @@ export const connectMetaChannels = async (req, res) => {
         if (instagramAccountId !== undefined) updateData.instagramAccountId = instagramAccountId;
         if (instagramUsername !== undefined) updateData.instagramUsername = instagramUsername;
 
-        const updated = await prisma.tenant.update({
-            where: { id: tenantId },
-            data: updateData,
+        const updated = await prisma.tenantSocial.upsert({
+            where: { tenantId },
+            update: updateData,
+            create: { tenantId, ...updateData },
             select: {
                 facebookPageId: true,
                 facebookPageName: true,

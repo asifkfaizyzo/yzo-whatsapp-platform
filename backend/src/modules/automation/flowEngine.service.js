@@ -2641,13 +2641,13 @@ sendBotMediaMessage: async (tenantId, phone, mediaData, conversation = null, con
       return { messages: [{ id: 'mock_media_' + Date.now() }] }
     }
 
-    const tenant = await prisma.tenant.findUnique({
+    const _waRow = await prisma.tenant.findUnique({
       where: { id: tenantId },
       select: {
-        whatsappPhoneId:     true,
-        whatsappAccessToken: true,
+        whatsapp: { select: { whatsappPhoneId: true, whatsappAccessToken: true } }
       }
     })
+    const tenant = _waRow?.whatsapp || {}
 
     if (!tenant?.whatsappPhoneId || !tenant?.whatsappAccessToken) {
       console.error('❌ Tenant WhatsApp credentials not configured')
@@ -2851,16 +2851,15 @@ saveBotMediaMessage: async (conversationId, mediaData) => {
         return { messages: [{ id: 'mock_' + Date.now() }] }
       }
 
-      const tenant = await prisma.tenant.findUnique({
+      const _waRow = await prisma.tenant.findUnique({
         where: { id: tenantId },
         select: {
-          whatsappPhoneId: true,
-          whatsappAccessToken: true
+          whatsapp: { select: { whatsappPhoneId: true, whatsappAccessToken: true } }
         }
       })
+      const tenant = _waRow?.whatsapp || {}
 
-      if (!tenant?.whatsappPhoneId || !tenant?.whatsappAccessToken) {
-        console.error('❌ Tenant WhatsApp credentials not configured')
+      if (!tenant?.whatsappPhoneId || !tenant?.whatsappAccessToken) {        console.error('❌ Tenant WhatsApp credentials not configured')
         return null
       }
 
@@ -2924,13 +2923,13 @@ saveBotMediaMessage: async (conversationId, mediaData) => {
         return { messages: [{ id: 'mock_btn_' + Date.now() }] }
       }
 
-      const tenant = await prisma.tenant.findUnique({
+      const _waRow = await prisma.tenant.findUnique({
         where: { id: tenantId },
         select: {
-          whatsappPhoneId: true,
-          whatsappAccessToken: true
+          whatsapp: { select: { whatsappPhoneId: true, whatsappAccessToken: true } }
         }
       })
+      const tenant = _waRow?.whatsapp || {}
 
       if (!tenant?.whatsappPhoneId || !tenant?.whatsappAccessToken) {
         console.error('❌ Tenant WhatsApp credentials not configured')
@@ -3033,13 +3032,13 @@ saveBotMediaMessage: async (conversationId, mediaData) => {
         return { messages: [{ id: 'mock_cat_' + Date.now() }] }
       }
 
-      const tenant = await prisma.tenant.findUnique({
+      const _waRow = await prisma.tenant.findUnique({
         where: { id: tenantId },
         select: {
-          whatsappPhoneId: true,
-          whatsappAccessToken: true,
+          whatsapp: { select: { whatsappPhoneId: true, whatsappAccessToken: true } }
         }
       })
+      const tenant = _waRow?.whatsapp || {}
 
       if (!tenant?.whatsappPhoneId || !tenant?.whatsappAccessToken) {
         console.error('❌ Tenant WhatsApp credentials not configured')
@@ -3108,13 +3107,13 @@ saveBotMediaMessage: async (conversationId, mediaData) => {
         return { messages: [{ id: 'mock_loc_req_' + Date.now() }] }
       }
 
-      const tenant = await prisma.tenant.findUnique({
+      const _waRow = await prisma.tenant.findUnique({
         where: { id: tenantId },
         select: {
-          whatsappPhoneId: true,
-          whatsappAccessToken: true
+          whatsapp: { select: { whatsappPhoneId: true, whatsappAccessToken: true } }
         }
       })
+      const tenant = _waRow?.whatsapp || {}
 
       if (!tenant?.whatsappPhoneId || !tenant?.whatsappAccessToken) {
         console.error('❌ Tenant WhatsApp credentials not configured')
@@ -3180,13 +3179,13 @@ saveBotMediaMessage: async (conversationId, mediaData) => {
         return { messages: [{ id: 'mock_pin_' + Date.now() }] }
       }
 
-      const tenant = await prisma.tenant.findUnique({
+      const _waRow = await prisma.tenant.findUnique({
         where: { id: tenantId },
         select: {
-          whatsappPhoneId: true,
-          whatsappAccessToken: true
+          whatsapp: { select: { whatsappPhoneId: true, whatsappAccessToken: true } }
         }
       })
+      const tenant = _waRow?.whatsapp || {}
 
       if (!tenant?.whatsappPhoneId || !tenant?.whatsappAccessToken) {
         console.error('❌ Tenant WhatsApp credentials not configured')
@@ -3556,13 +3555,13 @@ saveBotMediaMessage: async (conversationId, mediaData) => {
         return { messages: [{ id: 'mock_cta_' + Date.now() }] }
       }
 
-      const tenant = await prisma.tenant.findUnique({
+      const _waRow = await prisma.tenant.findUnique({
         where: { id: tenantId },
         select: {
-          whatsappPhoneId: true,
-          whatsappAccessToken: true,
+          whatsapp: { select: { whatsappPhoneId: true, whatsappAccessToken: true } }
         }
       })
+      const tenant = _waRow?.whatsapp || {}
 
       if (!tenant?.whatsappPhoneId || !tenant?.whatsappAccessToken) {
         console.error('❌ Tenant WhatsApp credentials not configured')

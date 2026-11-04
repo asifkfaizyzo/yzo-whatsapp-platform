@@ -28,7 +28,7 @@ export const triggerOutboundMessage = async (req, res) => {
     }
 
     const tenant = await prisma.tenant.findUnique({
-      where: { id: tenantId, zohoConnectionStatus: 'CONNECTED' },
+      where: { id: tenantId, zoho: { zohoConnectionStatus: 'CONNECTED' } },
       select: { id: true, tenantName: true },
     });
 

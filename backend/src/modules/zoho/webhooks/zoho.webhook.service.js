@@ -48,7 +48,7 @@ export async function processZohoWebhookEvent(body) {
       if (!token || !recordId) continue;
 
       const tenant = await prisma.tenant.findFirst({
-        where: { id: token, zohoConnectionStatus: 'CONNECTED' },
+        where: { id: token, zoho: { zohoConnectionStatus: 'CONNECTED' } },
         select: { id: true, tenantName: true },
       });
 

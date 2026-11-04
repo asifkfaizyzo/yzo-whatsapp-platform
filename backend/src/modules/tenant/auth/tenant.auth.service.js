@@ -369,21 +369,32 @@ export const loginOrRegisterWithGoogleService = async (credential) => {
     tenant = await prisma.tenant.create({
       data: {
         tenantName: name ? `${name}'s Workspace` : 'Google Workspace',
-        email, googleId, firstName, lastName,
-        authProvider: 'GOOGLE', status: 'APPROVED',
+        email, firstName, lastName,
+        status: 'APPROVED',
         onboardingStep: 5, onboardingCompleted: true,
+        auth: {
+          create: { googleId, authProvider: 'GOOGLE' },
+        },
       },
+      include: { auth: true },
     });
+    tenant = { ...tenant, ...tenant.auth };
   } else {
     if (tenant.authProvider !== 'GOOGLE' || !tenant.googleId) {
-      tenant = await prisma.tenant.update({
+      await prisma.tenant.update({
         where: { id: tenant.id },
         data: {
-          googleId, authProvider: 'GOOGLE',
           ...(tenant.email ? {} : { email }),
           onboardingStep: 5, onboardingCompleted: true,
         },
       });
+      await prisma.tenantAuth.upsert({
+        where: { tenantId: tenant.id },
+        update: { googleId, authProvider: 'GOOGLE' },
+        create: { tenantId: tenant.id, googleId, authProvider: 'GOOGLE' },
+      });
+      tenant = await prisma.tenant.findUnique({ where: { id: tenant.id }, include: { auth: true } });
+      tenant = { ...tenant, ...tenant.auth };
     }
   }
 
@@ -438,21 +449,32 @@ export const loginOrRegisterWithFacebookService = async (accessToken) => {
     tenant = await prisma.tenant.create({
       data: {
         tenantName: name ? `${name}'s Workspace` : 'Facebook Workspace',
-        email, facebookId, firstName, lastName,
-        authProvider: 'FACEBOOK', status: 'APPROVED',
+        email, firstName, lastName,
+        status: 'APPROVED',
         onboardingStep: 5, onboardingCompleted: true,
+        auth: {
+          create: { facebookId, authProvider: 'FACEBOOK' },
+        },
       },
+      include: { auth: true },
     });
+    tenant = { ...tenant, ...tenant.auth };
   } else {
     if (tenant.authProvider !== 'FACEBOOK' || !tenant.facebookId) {
-      tenant = await prisma.tenant.update({
+      await prisma.tenant.update({
         where: { id: tenant.id },
         data: {
-          facebookId, authProvider: 'FACEBOOK',
           ...(tenant.email ? {} : { email }),
           onboardingStep: 5, onboardingCompleted: true,
         },
       });
+      await prisma.tenantAuth.upsert({
+        where: { tenantId: tenant.id },
+        update: { facebookId, authProvider: 'FACEBOOK' },
+        create: { tenantId: tenant.id, facebookId, authProvider: 'FACEBOOK' },
+      });
+      tenant = await prisma.tenant.findUnique({ where: { id: tenant.id }, include: { auth: true } });
+      tenant = { ...tenant, ...tenant.auth };
     }
   }
 

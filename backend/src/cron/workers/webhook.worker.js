@@ -1,48 +1,68 @@
 // backend/src/cron/workers/webhookWorker.js (do not remove this comment)
-import { Worker } from 'bullmq';
-import { QUEUE_NAME_WEBHOOK } from '../queues/webhook.queue.js';
-import { redisConnection } from '../../config/redis.js';
-import prisma from '../../config/prisma.js';
-import { handleIncomingMessage, sendMessageService  } from '../../modules/messages/message.service.js';
-import { createNotification } from '../../modules/notifications/notification.service.js';
-import { emitToTenant, emitToUser } from '../../lib/socket.js';
-import { isNewWebhookEvent } from '../../lib/idempotency.js';
-import { dlqQueue } from '../queues/dlq.queue.js';
-import { generateSignedUrl } from '../../lib/utils/signed.url.js';
-import { decrypt } from '../../lib/crypto.js';
-import { sendTemplateStatusEmail } from '../../modules/auth/email.service.js';
-import flowEngine from '../../modules/automation/flowEngine.service.js';
-import fs from 'fs';
-import path from 'path';
-import https from 'https';
-import http from 'http';
-import { GRAPH_BASE_URL } from '../../config/meta.js';
-import { handleCallEvents, handleCallPermissionReply, handleAccountSettingsUpdate } from '../../modules/whatsapp/call.webhook.js';
-import { updateWooCommerceOrderStatus } from '../../modules/woocommerce/woocommerce.service.js';
-import { parseWooReviewRating } from '../../modules/woocommerce/woocommerce.orderLifecycle.js';
+import { Worker } from "bullmq";
+import { QUEUE_NAME_WEBHOOK } from "../queues/webhook.queue.js";
+import { redisConnection } from "../../config/redis.js";
+import prisma from "../../config/prisma.js";
+import {
+  handleIncomingMessage,
+  sendMessageService,
+} from "../../modules/messages/message.service.js";
+import { createNotification } from "../../modules/notifications/notification.service.js";
+import { emitToTenant, emitToUser } from "../../lib/socket.js";
+import { isNewWebhookEvent } from "../../lib/idempotency.js";
+import { dlqQueue } from "../queues/dlq.queue.js";
+import { generateSignedUrl } from "../../lib/utils/signed.url.js";
+import { decrypt } from "../../lib/crypto.js";
+import { sendTemplateStatusEmail } from "../../modules/auth/email.service.js";
+import flowEngine from "../../modules/automation/flowEngine.service.js";
+import fs from "fs";
+import path from "path";
+import https from "https";
+import http from "http";
+import { GRAPH_BASE_URL } from "../../config/meta.js";
+import {
+  handleCallEvents,
+  handleCallPermissionReply,
+  handleAccountSettingsUpdate,
+} from "../../modules/whatsapp/call.webhook.js";
+import { updateWooCommerceOrderStatus } from "../../modules/woocommerce/woocommerce.service.js";
+import { parseWooReviewRating } from "../../modules/woocommerce/woocommerce.orderLifecycle.js";
 
 // ─────────────────────────────────────────────────────────────
 // META MEDIA & AVATAR PERSISTENCE HELPER
 // Downloads ephemeral CDN links (fbcdn.net) to local storage
 // ─────────────────────────────────────────────────────────────
-export const downloadMetaMediaFromUrl = async ({ url, type, tenantId, contactId }) => {
+export const downloadMetaMediaFromUrl = async ({
+  url,
+  type,
+  tenantId,
+  contactId,
+}) => {
   try {
-    const saveDir = path.join(process.cwd(), 'uploads', 'tenants', tenantId, 'contacts', String(contactId), 'inbound');
+    const saveDir = path.join(
+      process.cwd(),
+      "uploads",
+      "tenants",
+      tenantId,
+      "contacts",
+      String(contactId),
+      "inbound",
+    );
     if (!fs.existsSync(saveDir)) {
       fs.mkdirSync(saveDir, { recursive: true });
     }
 
     const extMap = {
-      image: '.jpg',
-      avatar: '.jpg',
-      video: '.mp4',
-      audio: '.mp3',
-      file: '.bin',
-      ig_reel: '.mp4',
-      reel: '.mp4',
-      story_mention: '.jpg',
+      image: ".jpg",
+      avatar: ".jpg",
+      video: ".mp4",
+      audio: ".mp3",
+      file: ".bin",
+      ig_reel: ".mp4",
+      reel: ".mp4",
+      story_mention: ".jpg",
     };
-    const ext = extMap[type] || '.bin';
+    const ext = extMap[type] || ".bin";
     const filename = `${Date.now()}_meta_${type}${ext}`;
     const localPath = path.join(saveDir, filename);
 
@@ -52,12 +72,23 @@ export const downloadMetaMediaFromUrl = async ({ url, type, tenantId, contactId 
     fs.writeFileSync(localPath, buffer);
 
     const relativePath = path
-      .join('uploads', 'tenants', tenantId, 'contacts', String(contactId), 'inbound', filename)
-      .replace(/\\/g, '/');
+      .join(
+        "uploads",
+        "tenants",
+        tenantId,
+        "contacts",
+        String(contactId),
+        "inbound",
+        filename,
+      )
+      .replace(/\\/g, "/");
 
-    const publicUrl = process.env.BASE_URL && process.env.BASE_URL.startsWith('http') && !process.env.BASE_URL.includes('localhost')
-      ? `${process.env.BASE_URL.replace(/\/+$/, '')}/${relativePath}`
-      : `/${relativePath}`;
+    const publicUrl =
+      process.env.BASE_URL &&
+      process.env.BASE_URL.startsWith("http") &&
+      !process.env.BASE_URL.includes("localhost")
+        ? `${process.env.BASE_URL.replace(/\/+$/, "")}/${relativePath}`
+        : `/${relativePath}`;
 
     return {
       publicUrl,
@@ -66,8 +97,16 @@ export const downloadMetaMediaFromUrl = async ({ url, type, tenantId, contactId 
       localPath,
     };
   } catch (err) {
-    console.warn(`⚠️ Meta media download failed for ${url}, falling back to original URL:`, err.message);
-    return { publicUrl: url, fileName: `${type}_attachment`, fileSize: null, localPath: null };
+    console.warn(
+      `⚠️ Meta media download failed for ${url}, falling back to original URL:`,
+      err.message,
+    );
+    return {
+      publicUrl: url,
+      fileName: `${type}_attachment`,
+      fileSize: null,
+      localPath: null,
+    };
   }
 };
 
@@ -78,23 +117,28 @@ export const downloadMetaMediaFromUrl = async ({ url, type, tenantId, contactId 
 // ─────────────────────────────────────────────────────────────
 const triggerZohoAutoSyncForNewContact = async (tenantId, contact) => {
   try {
-    const { getTenantZohoPreferences, autoSyncContactToZoho } = await import('../../modules/zoho/crm/zoho.contact.service.js');
+    const { getTenantZohoPreferences, autoSyncContactToZoho } =
+      await import("../../modules/zoho/crm/zoho.contact.service.js");
     const prefs = await getTenantZohoPreferences(tenantId);
 
     if (!prefs?.autoSyncNewContacts) return;
 
-    if (prefs.syncDestination === 'LEADS') {
-      const { createZohoLead } = await import('../../modules/zoho/crm/zoho.lead.service.js');
+    if (prefs.syncDestination === "LEADS") {
+      const { createZohoLead } =
+        await import("../../modules/zoho/crm/zoho.lead.service.js");
       createZohoLead(tenantId, contact).catch((err) => {
-        console.error('⚠️ [WebhookWorker] createZohoLead failed:', err.message);
+        console.error("⚠️ [WebhookWorker] createZohoLead failed:", err.message);
       });
     } else {
       autoSyncContactToZoho(tenantId, contact.id).catch((err) => {
-        console.error('⚠️ [WebhookWorker] autoSyncContactToZoho failed:', err.message);
+        console.error(
+          "⚠️ [WebhookWorker] autoSyncContactToZoho failed:",
+          err.message,
+        );
       });
     }
   } catch (err) {
-    console.error('⚠️ [WebhookWorker] Zoho trigger error:', err.message);
+    console.error("⚠️ [WebhookWorker] Zoho trigger error:", err.message);
   }
 };
 
@@ -102,33 +146,48 @@ const triggerZohoAutoSyncForNewContact = async (tenantId, contact) => {
 // FACEBOOK MESSENGER & INSTAGRAM PROCESSOR
 // ─────────────────────────────────────────────────────────────
 export const processMetaPageOrInstagramJob = async (job, body) => {
-  const isInstagram = body.object === 'instagram';
-  const channel = isInstagram ? 'INSTAGRAM' : 'MESSENGER';
+  const isInstagram = body.object === "instagram";
+  const channel = isInstagram ? "INSTAGRAM" : "MESSENGER";
 
   const entries = body.entry || [];
   for (const entry of entries) {
     const entryId = String(entry.id); // Page ID or IGBA ID
 
     // Find tenant by facebookPageId or instagramAccountId
-    let tenant = await prisma.tenant.findFirst({
+    let _metaRow = await prisma.tenant.findFirst({
       where: isInstagram
-        ? { OR: [{ instagramAccountId: entryId }, { facebookPageId: entryId }] }
-        : { facebookPageId: entryId },
+        ? {
+            social: {
+              OR: [
+                { instagramAccountId: entryId },
+                { facebookPageId: entryId },
+              ],
+            },
+          }
+        : { social: { facebookPageId: entryId } },
+      include: { social: true, subscription: true },
     });
+    let tenant = _metaRow
+      ? { ..._metaRow, ..._metaRow.social, ..._metaRow.subscription }
+      : null;
 
     if (!tenant) {
-      console.warn(`⚠️ [Meta Webhook] No tenant found for ${channel} entry ID: ${entryId}`);
+      console.warn(
+        `⚠️ [Meta Webhook] No tenant found for ${channel} entry ID: ${entryId}`,
+      );
       continue;
     }
 
     const subStatus = tenant.subscriptionStatus;
     const isActive =
-      subStatus === 'active' ||
-      subStatus === 'trialing' ||
-      subStatus === 'cancel_at_period_end';
+      subStatus === "active" ||
+      subStatus === "trialing" ||
+      subStatus === "cancel_at_period_end";
 
     if (!isActive) {
-      console.log(`🚫 [Meta Webhook] Ignored for tenant ${tenant.id} - inactive subscription: ${subStatus}`);
+      console.log(
+        `🚫 [Meta Webhook] Ignored for tenant ${tenant.id} - inactive subscription: ${subStatus}`,
+      );
       continue;
     }
 
@@ -137,44 +196,51 @@ export const processMetaPageOrInstagramJob = async (job, body) => {
     for (const messagingEvent of messagingEvents) {
       // 1. Echo Event Filtering (Ignore messages sent by Page/Agent)
       if (messagingEvent.message?.is_echo) {
-        console.log(`ℹ️ [Meta Webhook] Skipping echo event for message ${messagingEvent.message?.mid}`);
+        console.log(
+          `ℹ️ [Meta Webhook] Skipping echo event for message ${messagingEvent.message?.mid}`,
+        );
         continue;
       }
 
       // 2. Instagram Message Deletion (is_deleted: true)
       if (messagingEvent.message?.is_deleted) {
         const mid = messagingEvent.message.mid;
-        console.log(`🗑️ [Meta Webhook] Handling Instagram deleted message: ${mid}`);
+        console.log(
+          `🗑️ [Meta Webhook] Handling Instagram deleted message: ${mid}`,
+        );
         await prisma.message.updateMany({
           where: { wamid: mid },
           data: {
             isDeleted: true,
             deletedAt: new Date(),
-            text: '[Message deleted]',
+            text: "[Message deleted]",
           },
         });
-        emitToTenant(tenant.id, 'message_status_update', {
+        emitToTenant(tenant.id, "message_status_update", {
           wamid: mid,
           isDeleted: true,
-          text: '[Message deleted]',
+          text: "[Message deleted]",
         });
         continue;
       }
 
       // 3. Delivery Receipts (Messenger Only)
-      if (messagingEvent.delivery && channel === 'MESSENGER') {
+      if (messagingEvent.delivery && channel === "MESSENGER") {
         const mids = messagingEvent.delivery.mids || [];
         if (mids.length > 0) {
-          console.log(`📬 [Meta Webhook] Messenger delivery receipt for mids:`, mids);
+          console.log(
+            `📬 [Meta Webhook] Messenger delivery receipt for mids:`,
+            mids,
+          );
           await prisma.message.updateMany({
             where: { wamid: { in: mids } },
-            data: { status: 'delivered', deliveredAt: new Date() },
+            data: { status: "delivered", deliveredAt: new Date() },
           });
 
           for (const mid of mids) {
-            emitToTenant(tenant.id, 'message_status_update', {
+            emitToTenant(tenant.id, "message_status_update", {
               wamid: mid,
-              status: 'delivered',
+              status: "delivered",
               deliveredAt: new Date(),
             });
           }
@@ -184,25 +250,33 @@ export const processMetaPageOrInstagramJob = async (job, body) => {
 
       // 4. Read Receipts: Instagram (specific mid) vs Messenger (watermark timestamp)
       if (messagingEvent.read) {
-        if (channel === 'INSTAGRAM' && messagingEvent.read.mid) {
+        if (channel === "INSTAGRAM" && messagingEvent.read.mid) {
           const mid = messagingEvent.read.mid;
-          console.log(`👁️ [Meta Webhook] Instagram read receipt for mid: ${mid}`);
+          console.log(
+            `👁️ [Meta Webhook] Instagram read receipt for mid: ${mid}`,
+          );
           await prisma.message.updateMany({
-            where: { wamid: mid, direction: 'OUTBOUND' },
-            data: { status: 'read', readAt: new Date(), isRead: true },
+            where: { wamid: mid, direction: "OUTBOUND" },
+            data: { status: "read", readAt: new Date(), isRead: true },
           });
-          emitToTenant(tenant.id, 'message_status_update', {
+          emitToTenant(tenant.id, "message_status_update", {
             wamid: mid,
-            status: 'read',
+            status: "read",
             readAt: new Date(),
           });
-        } else if (channel === 'MESSENGER' && messagingEvent.read.watermark) {
+        } else if (channel === "MESSENGER" && messagingEvent.read.watermark) {
           const watermark = new Date(messagingEvent.read.watermark);
-          const senderId = String(messagingEvent.sender?.id || '');
-          console.log(`👁️ [Meta Webhook] Messenger read receipt watermark: ${watermark.toISOString()} for sender: ${senderId}`);
+          const senderId = String(messagingEvent.sender?.id || "");
+          console.log(
+            `👁️ [Meta Webhook] Messenger read receipt watermark: ${watermark.toISOString()} for sender: ${senderId}`,
+          );
 
           const contact = await prisma.contact.findFirst({
-            where: { tenantId: tenant.id, channel: 'MESSENGER', channelId: senderId },
+            where: {
+              tenantId: tenant.id,
+              channel: "MESSENGER",
+              channelId: senderId,
+            },
           });
 
           if (contact) {
@@ -214,16 +288,16 @@ export const processMetaPageOrInstagramJob = async (job, body) => {
               await prisma.message.updateMany({
                 where: {
                   conversationId: conversation.id,
-                  direction: 'OUTBOUND',
+                  direction: "OUTBOUND",
                   createdAt: { lte: watermark },
-                  status: { not: 'read' },
+                  status: { not: "read" },
                 },
-                data: { status: 'read', readAt: new Date(), isRead: true },
+                data: { status: "read", readAt: new Date(), isRead: true },
               });
 
-              emitToTenant(tenant.id, 'conversation_read_update', {
+              emitToTenant(tenant.id, "conversation_read_update", {
                 conversationId: conversation.id,
-                channel: 'MESSENGER',
+                channel: "MESSENGER",
                 watermark,
               });
             }
@@ -234,17 +308,22 @@ export const processMetaPageOrInstagramJob = async (job, body) => {
 
       // 5. Inbound Message or Postback Handling
       if (messagingEvent.message || messagingEvent.postback) {
-        const messageId = messagingEvent.message?.mid || messagingEvent.postback?.mid || `meta_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+        const messageId =
+          messagingEvent.message?.mid ||
+          messagingEvent.postback?.mid ||
+          `meta_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
         const isNew = await isNewWebhookEvent(`msg:${messageId}`);
         if (!isNew) {
-          console.log(`⚠️ [Dedup] Skipping duplicate ${channel} message: ${messageId}`);
+          console.log(
+            `⚠️ [Dedup] Skipping duplicate ${channel} message: ${messageId}`,
+          );
           continue;
         }
 
         const senderId = String(messagingEvent.sender.id);
         let text = messagingEvent.message?.text || null;
-        let type = 'TEXT';
+        let type = "TEXT";
         let mediaUrl = null;
         let mediaName = null;
         let mediaSize = null;
@@ -252,23 +331,26 @@ export const processMetaPageOrInstagramJob = async (job, body) => {
 
         // Handle Postbacks (Buttons / Quick replies)
         if (messagingEvent.postback) {
-          text = messagingEvent.postback.title || messagingEvent.postback.payload || 'Action clicked';
-          type = 'TEXT';
+          text =
+            messagingEvent.postback.title ||
+            messagingEvent.postback.payload ||
+            "Action clicked";
+          type = "TEXT";
         }
 
         // Handle Instagram Unsupported message flag
         if (messagingEvent.message?.is_unsupported) {
-          text = '[Unsupported message type]';
-          type = 'TEXT';
+          text = "[Unsupported message type]";
+          type = "TEXT";
         }
 
         // Handle Attachments (Images, Videos, Reels, Audio, Ephemeral)
         const attachment = messagingEvent.message?.attachments?.[0];
         if (attachment) {
-          if (attachment.type === 'ephemeral' || !attachment.payload?.url) {
+          if (attachment.type === "ephemeral" || !attachment.payload?.url) {
             mediaUrl = null;
-            text = '[Disappearing media — cannot be retrieved]';
-            type = 'TEXT';
+            text = "[Disappearing media — cannot be retrieved]";
+            type = "TEXT";
           } else {
             const downloaded = await downloadMetaMediaFromUrl({
               url: attachment.payload.url,
@@ -280,9 +362,16 @@ export const processMetaPageOrInstagramJob = async (job, body) => {
             mediaName = downloaded.fileName;
             mediaSize = downloaded.fileSize;
 
-            type = (attachment.type === 'image' || attachment.type === 'story_mention') ? 'IMAGE' :
-                   (attachment.type === 'video' || attachment.type === 'ig_reel' || attachment.type === 'reel') ? 'VIDEO' :
-                   attachment.type === 'audio' ? 'AUDIO' : 'FILE';
+            type =
+              attachment.type === "image" || attachment.type === "story_mention"
+                ? "IMAGE"
+                : attachment.type === "video" ||
+                    attachment.type === "ig_reel" ||
+                    attachment.type === "reel"
+                  ? "VIDEO"
+                  : attachment.type === "audio"
+                    ? "AUDIO"
+                    : "FILE";
 
             if (!text && attachment.payload?.title) {
               caption = attachment.payload.title;
@@ -291,7 +380,7 @@ export const processMetaPageOrInstagramJob = async (job, body) => {
         }
 
         if (!text && !mediaUrl) {
-          text = '[Attachment]';
+          text = "[Attachment]";
         }
 
         // 6. Contact Lookup or Profile Fetching
@@ -305,28 +394,39 @@ export const processMetaPageOrInstagramJob = async (job, body) => {
           },
         });
 
-        let profileName = channel === 'INSTAGRAM' ? 'Instagram User' : 'Facebook User';
+        let profileName =
+          channel === "INSTAGRAM" ? "Instagram User" : "Facebook User";
         let profileAvatar = null;
         let contactUsername = null;
 
-        if (!contact || contact.name === 'Instagram User' || contact.name === 'Facebook User') {
+        if (
+          !contact ||
+          contact.name === "Instagram User" ||
+          contact.name === "Facebook User"
+        ) {
           if (tenant.facebookPageAccessToken) {
             try {
               const token = decrypt(tenant.facebookPageAccessToken);
-              const fields = channel === 'INSTAGRAM'
-                ? 'name,username,profile_pic'
-                : 'name,first_name,last_name,profile_pic';
+              const fields =
+                channel === "INSTAGRAM"
+                  ? "name,username,profile_pic"
+                  : "name,first_name,last_name,profile_pic";
 
-              const res = await fetch(`${GRAPH_BASE_URL}/${senderId}?fields=${fields}&access_token=${token}`);
+              const res = await fetch(
+                `${GRAPH_BASE_URL}/${senderId}?fields=${fields}&access_token=${token}`,
+              );
               if (res.ok) {
                 const data = await res.json();
-                profileName = data.name || `${data.first_name || ''} ${data.last_name || ''}`.trim() || profileName;
+                profileName =
+                  data.name ||
+                  `${data.first_name || ""} ${data.last_name || ""}`.trim() ||
+                  profileName;
                 contactUsername = data.username || null;
 
                 if (data.profile_pic) {
                   const avatarData = await downloadMetaMediaFromUrl({
                     url: data.profile_pic,
-                    type: 'avatar',
+                    type: "avatar",
                     tenantId: tenant.id,
                     contactId: senderId,
                   });
@@ -334,7 +434,10 @@ export const processMetaPageOrInstagramJob = async (job, body) => {
                 }
               }
             } catch (err) {
-              console.warn(`⚠️ Profile fetch failed for ${senderId}:`, err.message);
+              console.warn(
+                `⚠️ Profile fetch failed for ${senderId}:`,
+                err.message,
+              );
             }
           }
         }
@@ -350,7 +453,10 @@ export const processMetaPageOrInstagramJob = async (job, body) => {
             },
           },
           update: {
-            ...(profileName !== 'Instagram User' && profileName !== 'Facebook User' ? { name: profileName } : {}),
+            ...(profileName !== "Instagram User" &&
+            profileName !== "Facebook User"
+              ? { name: profileName }
+              : {}),
             ...(contactUsername ? { username: contactUsername } : {}),
             ...(profileAvatar ? { avatarUrl: profileAvatar } : {}),
           },
@@ -386,7 +492,7 @@ export const processMetaPageOrInstagramJob = async (job, body) => {
         });
 
         // 8. Emit new_message to Socket.IO tenant room
-        emitToTenant(tenant.id, 'new_message', {
+        emitToTenant(tenant.id, "new_message", {
           conversationId: result.conversation.id,
           channel,
           isNewConversation: isNewContact,
@@ -395,8 +501,8 @@ export const processMetaPageOrInstagramJob = async (job, body) => {
             type: result.message.type,
             text: result.message.text,
             senderId: result.message.senderId,
-            senderType: 'CONTACT',
-            direction: 'INBOUND',
+            senderType: "CONTACT",
+            direction: "INBOUND",
             isFromCustomer: true,
             mediaUrl: result.message.mediaUrl,
             mediaName: result.message.mediaName,
@@ -419,20 +525,19 @@ export const processMetaPageOrInstagramJob = async (job, body) => {
   }
 };
 
-
 // ─────────────────────────────────────────────────────────────
 // WOOCOMMERCE COD VERIFICATION BUTTON HANDLER
 // Button IDs: CONFIRM_COD_{orderNumber}_{wooOrderId}
 //             CANCEL_COD_{orderNumber}_{wooOrderId}
 // ─────────────────────────────────────────────────────────────
 const processWooCodButtonReply = async ({ tenantId, contact, buttonId }) => {
-  const isConfirm = buttonId.startsWith('CONFIRM_COD_');
-  const isCancel = buttonId.startsWith('CANCEL_COD_');
+  const isConfirm = buttonId.startsWith("CONFIRM_COD_");
+  const isCancel = buttonId.startsWith("CANCEL_COD_");
   if (!isConfirm && !isCancel) return;
 
-  const prefix = isConfirm ? 'CONFIRM_COD_' : 'CANCEL_COD_';
+  const prefix = isConfirm ? "CONFIRM_COD_" : "CANCEL_COD_";
   const remainder = buttonId.slice(prefix.length);
-  const lastUnderscore = remainder.lastIndexOf('_');
+  const lastUnderscore = remainder.lastIndexOf("_");
 
   if (lastUnderscore === -1) {
     console.warn(`⚠️ [Woo COD] Unparseable button id: ${buttonId}`);
@@ -447,13 +552,13 @@ const processWooCodButtonReply = async ({ tenantId, contact, buttonId }) => {
     return;
   }
 
-  const newStatus = isConfirm ? 'processing' : 'cancelled';
+  const newStatus = isConfirm ? "processing" : "cancelled";
   const note = isConfirm
     ? `Customer confirmed COD order #${orderNumber} via WhatsApp`
     : `Customer cancelled COD order #${orderNumber} via WhatsApp`;
 
   console.log(
-    `🧾 [Woo COD] ${isConfirm ? 'CONFIRM' : 'CANCEL'} order #${orderNumber} (WC #${wooOrderId}) → ${newStatus}`
+    `🧾 [Woo COD] ${isConfirm ? "CONFIRM" : "CANCEL"} order #${orderNumber} (WC #${wooOrderId}) → ${newStatus}`,
   );
 
   // 1) Update live WooCommerce order (central backend — no PHP on tenant stores)
@@ -464,7 +569,7 @@ const processWooCodButtonReply = async ({ tenantId, contact, buttonId }) => {
     await prisma.ecommerceOrder.updateMany({
       where: {
         tenantId,
-        source: 'WOOCOMMERCE',
+        source: "WOOCOMMERCE",
         OR: [
           { orderNumber: String(orderNumber) },
           { externalId: String(wooOrderId) },
@@ -478,7 +583,9 @@ const processWooCodButtonReply = async ({ tenantId, contact, buttonId }) => {
     });
   } catch (dbErr) {
     // Schema field names may differ slightly across envs — don't block the flow
-    console.warn(`⚠️ [Woo COD] Local ecommerceOrder mirror skipped: ${dbErr.message}`);
+    console.warn(
+      `⚠️ [Woo COD] Local ecommerceOrder mirror skipped: ${dbErr.message}`,
+    );
   }
 
   // 3) WhatsApp confirmation reply (dual-mode via sendMessageService)
@@ -490,7 +597,7 @@ const processWooCodButtonReply = async ({ tenantId, contact, buttonId }) => {
     contactId: contact.id,
     tenantId,
     senderId: null,
-    senderType: 'SYSTEM',
+    senderType: "SYSTEM",
     text: replyText,
   });
 
@@ -501,16 +608,15 @@ const processWooCodButtonReply = async ({ tenantId, contact, buttonId }) => {
 // MAIN JOB PROCESSOR
 // ─────────────────────────────────────────────────────────────
 export const processWebhookJob = async (job) => {
-
   const body = job.data;
   if (!body) return;
 
   // Handle Facebook Messenger and Instagram Direct Webhooks
-  if (body.object === 'page' || body.object === 'instagram') {
+  if (body.object === "page" || body.object === "instagram") {
     return await processMetaPageOrInstagramJob(job, body);
   }
 
-  if (body.object !== 'whatsapp_business_account') return;
+  if (body.object !== "whatsapp_business_account") return;
 
   const entry = body.entry?.[0];
   const change = entry?.changes?.[0];
@@ -519,83 +625,113 @@ export const processWebhookJob = async (job) => {
   const statusUpdate = value?.statuses?.[0];
 
   // TEMP: test failure simulation
-  if (message && message.text?.body === 'FAIL_TEST') {
-    throw new Error('Simulated failure for DLQ test');
+  if (message && message.text?.body === "FAIL_TEST") {
+    throw new Error("Simulated failure for DLQ test");
   }
 
   const phoneId = value?.metadata?.phone_number_id || value?.phone_number_id;
   const wabaId = entry?.id;
   let tenant = null;
+  const _waInc = { whatsapp: true, subscription: true };
   if (phoneId) {
-    tenant = await prisma.tenant.findFirst({ where: { whatsappPhoneId: String(phoneId) } });
+    const _r = await prisma.tenant.findFirst({
+      where: { whatsapp: { whatsappPhoneId: String(phoneId) } },
+      include: _waInc,
+    });
+    if (_r) tenant = { ..._r, ..._r.whatsapp, ..._r.subscription };
   }
   if (!tenant && wabaId) {
-    tenant = await prisma.tenant.findFirst({ where: { whatsappWabaId: String(wabaId) } });
+    const _r = await prisma.tenant.findFirst({
+      where: { whatsapp: { whatsappWabaId: String(wabaId) } },
+      include: _waInc,
+    });
+    if (_r) tenant = { ..._r, ..._r.whatsapp, ..._r.subscription };
   }
   if (!tenant) {
     // Fallback to configured tenant with WhatsApp phone ID
-    tenant = await prisma.tenant.findFirst({ where: { whatsappPhoneId: { not: null } } });
+    const _r = await prisma.tenant.findFirst({
+      where: { whatsapp: { whatsappPhoneId: { not: null } } },
+      include: _waInc,
+    });
+    if (_r) tenant = { ..._r, ..._r.whatsapp, ..._r.subscription };
   }
 
   // ═══════════════════════════════════════════════════════════
   // Handle WhatsApp Calls Webhooks (Phase 2)
   // ═══════════════════════════════════════════════════════════
-  const isCallEvent = 
-    change?.field === 'calls' || 
-    change?.field === 'call_recordings' ||
-    change?.field === 'call_recording' || 
-    Boolean(value?.calls) || 
+  const isCallEvent =
+    change?.field === "calls" ||
+    change?.field === "call_recordings" ||
+    change?.field === "call_recording" ||
+    Boolean(value?.calls) ||
     Boolean(value?.call) ||
     Boolean(value?.call_id) ||
-    Boolean(value?.call_recordings) || 
+    Boolean(value?.call_recordings) ||
     Boolean(value?.call_recording) ||
     Boolean(value?.recordings) ||
     Boolean(value?.recording) ||
     Boolean(value?.call_transcriptions) ||
-    Boolean(value?.call_transcription) || 
-    Boolean(value?.statuses && value.statuses.some(s => s.id?.startsWith('wacid.') || s.type === 'call')) ||
-    (value?.event && ['connect', 'terminate'].includes(value.event));
+    Boolean(value?.call_transcription) ||
+    Boolean(
+      value?.statuses &&
+      value.statuses.some(
+        (s) => s.id?.startsWith("wacid.") || s.type === "call",
+      ),
+    ) ||
+    (value?.event && ["connect", "terminate"].includes(value.event));
 
   if (isCallEvent) {
-    console.log(`📞 [WebhookWorker] Processing Call Event (Field: ${change?.field}) for Tenant: ${tenant?.id || 'none'}`);
+    console.log(
+      `📞 [WebhookWorker] Processing Call Event (Field: ${change?.field}) for Tenant: ${tenant?.id || "none"}`,
+    );
     await handleCallEvents(value, tenant);
     if (!value?.messages) return; // if it only contains call data, return.
   }
-  
-  if (change?.field === 'account_settings_update') {
+
+  if (change?.field === "account_settings_update") {
     await handleAccountSettingsUpdate(value);
     return;
   }
-  
+
   // ═══════════════════════════════════════════════════════════
   // A0. Handle Template Status Updates (Meta approval/rejection)
   // ═══════════════════════════════════════════════════════════
-  const isTemplateStatusEvent = change?.field === 'message_template_status_update' || (value?.event && value?.message_template_name);
+  const isTemplateStatusEvent =
+    change?.field === "message_template_status_update" ||
+    (value?.event && value?.message_template_name);
 
   if (isTemplateStatusEvent) {
     const wabaId = entry?.id;
     const event = value?.event; // 'APPROVED' | 'REJECTED' | 'PAUSED' | 'PENDING_DELETION' | 'DISABLED'
     const templateName = value?.message_template_name;
-    const language = value?.message_template_language || 'en_US';
-    const metaTemplateId = value?.message_template_id ? String(value.message_template_id) : null;
+    const language = value?.message_template_language || "en_US";
+    const metaTemplateId = value?.message_template_id
+      ? String(value.message_template_id)
+      : null;
     const reason = value?.reason;
 
     const templateEventId = `template_status:${wabaId}:${templateName}:${language}:${event}`;
     const isNew = await isNewWebhookEvent(templateEventId);
 
     if (!isNew) {
-      console.log(`⚠️ [Dedup] Skipping duplicate template status event: ${templateEventId}`);
+      console.log(
+        `⚠️ [Dedup] Skipping duplicate template status event: ${templateEventId}`,
+      );
       return;
     }
 
-    console.log(`📋 [Webhook] Processing template status update: "${templateName}" (${language}) -> ${event} [WABA: ${wabaId}]`);
+    console.log(
+      `📋 [Webhook] Processing template status update: "${templateName}" (${language}) -> ${event} [WABA: ${wabaId}]`,
+    );
 
     // 1. Find Tenant by whatsappWabaId
     let tenant = null;
     if (wabaId) {
-      tenant = await prisma.tenant.findFirst({
-        where: { whatsappWabaId: String(wabaId) }
+      const _r = await prisma.tenant.findFirst({
+        where: { whatsapp: { whatsappWabaId: String(wabaId) } },
+        include: { whatsapp: true, subscription: true },
       });
+      if (_r) tenant = { ..._r, ..._r.whatsapp, ..._r.subscription };
     }
 
     // 2. Find Template in DB
@@ -607,40 +743,45 @@ export const processWebhookJob = async (job) => {
             name: templateName,
             language: language,
             tenantId: tenant.id,
-          }
-        }
+          },
+        },
       });
     }
 
     if (!template && metaTemplateId) {
       template = await prisma.template.findFirst({
-        where: { metaTemplateId: String(metaTemplateId) }
+        where: { metaTemplateId: String(metaTemplateId) },
       });
       if (template && !tenant) {
-        tenant = await prisma.tenant.findUnique({ where: { id: template.tenantId } });
+        tenant = await prisma.tenant.findUnique({
+          where: { id: template.tenantId },
+        });
       }
     }
 
     if (template && tenant) {
-      let newStatus = 'PENDING';
-      if (event === 'APPROVED') newStatus = 'APPROVED';
-      else if (event === 'REJECTED') newStatus = 'REJECTED';
-      else if (event === 'PAUSED') newStatus = 'PAUSED';
-      else if (event === 'PENDING_DELETION' || event === 'DELETED') newStatus = 'DELETED';
-      else if (event === 'DISABLED') newStatus = 'DISABLED';
+      let newStatus = "PENDING";
+      if (event === "APPROVED") newStatus = "APPROVED";
+      else if (event === "REJECTED") newStatus = "REJECTED";
+      else if (event === "PAUSED") newStatus = "PAUSED";
+      else if (event === "PENDING_DELETION" || event === "DELETED")
+        newStatus = "DELETED";
+      else if (event === "DISABLED") newStatus = "DISABLED";
 
       await prisma.template.update({
         where: { id: template.id },
         data: {
           status: newStatus,
           ...(metaTemplateId ? { metaTemplateId } : {}),
-        }
+        },
       });
 
-      console.log(`✅ Template "${template.name}" status updated to ${newStatus} for tenant ${tenant.id}`);
+      console.log(
+        `✅ Template "${template.name}" status updated to ${newStatus} for tenant ${tenant.id}`,
+      );
 
       // Emit live socket event to tenant room
-      emitToTenant(tenant.id, 'template_status_update', {
+      emitToTenant(tenant.id, "template_status_update", {
         templateId: template.id,
         name: template.name,
         language: template.language,
@@ -652,10 +793,13 @@ export const processWebhookJob = async (job) => {
 
       // Send email notification on approval (or rejection)
       const recipientEmail = tenant.email;
-      if (recipientEmail && (newStatus === 'APPROVED' || newStatus === 'REJECTED')) {
+      if (
+        recipientEmail &&
+        (newStatus === "APPROVED" || newStatus === "REJECTED")
+      ) {
         await sendTemplateStatusEmail({
           toEmail: recipientEmail,
-          tenantName: tenant.tenantName || tenant.firstName || 'Valued Partner',
+          tenantName: tenant.tenantName || tenant.firstName || "Valued Partner",
           templateName: template.name,
           language: template.language,
           category: template.category,
@@ -665,7 +809,9 @@ export const processWebhookJob = async (job) => {
         });
       }
     } else {
-      console.warn(`⚠️ Template "${templateName}" (${language}) not found in DB for WABA ${wabaId}`);
+      console.warn(
+        `⚠️ Template "${templateName}" (${language}) not found in DB for WABA ${wabaId}`,
+      );
     }
 
     return; // template status handled, stop here
@@ -690,7 +836,7 @@ export const processWebhookJob = async (job) => {
 
     const recipient = await prisma.broadcastRecipient.findUnique({
       where: { wamid },
-      include: { broadcast: true }
+      include: { broadcast: true },
     });
 
     if (recipient) {
@@ -699,21 +845,21 @@ export const processWebhookJob = async (job) => {
       const updateData = {};
       const broadcastIncrements = {};
 
-      if (status === 'delivered') {
+      if (status === "delivered") {
         // State machine: Only advance to DELIVERED if not already READ or FAILED
-        if (currentStatus !== 'READ' && currentStatus !== 'FAILED') {
-          updatedStatus = 'DELIVERED';
+        if (currentStatus !== "READ" && currentStatus !== "FAILED") {
+          updatedStatus = "DELIVERED";
         }
         if (!recipient.deliveredAt) {
           updateData.deliveredAt = new Date();
         }
-        if (currentStatus === 'SENT' || currentStatus === 'PENDING') {
+        if (currentStatus === "SENT" || currentStatus === "PENDING") {
           broadcastIncrements.delivered = { increment: 1 };
         }
-      } else if (status === 'read') {
+      } else if (status === "read") {
         // State machine: Advance to READ (highest success state)
-        if (currentStatus !== 'FAILED') {
-          updatedStatus = 'READ';
+        if (currentStatus !== "FAILED") {
+          updatedStatus = "READ";
         }
         if (!recipient.readAt) {
           updateData.readAt = new Date();
@@ -721,29 +867,35 @@ export const processWebhookJob = async (job) => {
         if (!recipient.deliveredAt) {
           updateData.deliveredAt = new Date();
         }
-        if (currentStatus !== 'READ') {
+        if (currentStatus !== "READ") {
           broadcastIncrements.read = { increment: 1 };
           // If it was direct from SENT to READ without delivered webhook, also track delivered
-          if (currentStatus === 'SENT' || currentStatus === 'PENDING') {
+          if (currentStatus === "SENT" || currentStatus === "PENDING") {
             broadcastIncrements.delivered = { increment: 1 };
           }
         }
-      } else if (status === 'failed') {
-        updatedStatus = 'FAILED';
+      } else if (status === "failed") {
+        updatedStatus = "FAILED";
         updateData.failedAt = new Date();
         const errObj = statusUpdate.errors?.[0];
         updateData.errorCode = errObj?.code ? String(errObj.code) : null;
-        updateData.errorMessage = errObj?.details || errObj?.message || errObj?.title || 'Meta Send Failure';
-        console.error(`❌ Meta webhook reported delivery failure for wamid ${wamid} (code ${errObj?.code}): ${updateData.errorMessage}`);
+        updateData.errorMessage =
+          errObj?.details ||
+          errObj?.message ||
+          errObj?.title ||
+          "Meta Send Failure";
+        console.error(
+          `❌ Meta webhook reported delivery failure for wamid ${wamid} (code ${errObj?.code}): ${updateData.errorMessage}`,
+        );
 
-        if (currentStatus !== 'FAILED') {
+        if (currentStatus !== "FAILED") {
           broadcastIncrements.failed = { increment: 1 };
         }
       }
 
       await prisma.broadcastRecipient.update({
         where: { wamid },
-        data: { status: updatedStatus, ...updateData }
+        data: { status: updatedStatus, ...updateData },
       });
 
       // Also keep corresponding conversation Message status in sync if wamid matches
@@ -752,16 +904,25 @@ export const processWebhookJob = async (job) => {
           where: { wamid },
           data: {
             status: status,
-            isRead: status === 'read',
-            ...(updateData.deliveredAt ? { deliveredAt: updateData.deliveredAt } : {}),
+            isRead: status === "read",
+            ...(updateData.deliveredAt
+              ? { deliveredAt: updateData.deliveredAt }
+              : {}),
             ...(updateData.readAt ? { readAt: updateData.readAt } : {}),
             ...(updateData.failedAt ? { failedAt: updateData.failedAt } : {}),
-            ...(updateData.errorCode ? { failureCode: parseInt(updateData.errorCode, 10) || null } : {}),
-            ...(updateData.errorMessage ? { failureReason: updateData.errorMessage } : {})
-          }
+            ...(updateData.errorCode
+              ? { failureCode: parseInt(updateData.errorCode, 10) || null }
+              : {}),
+            ...(updateData.errorMessage
+              ? { failureReason: updateData.errorMessage }
+              : {}),
+          },
         });
       } catch (err) {
-        console.warn(`[webhookWorker] Could not sync message status for wamid ${wamid}:`, err.message);
+        console.warn(
+          `[webhookWorker] Could not sync message status for wamid ${wamid}:`,
+          err.message,
+        );
       }
 
       const broadcastId = recipient.broadcastId;
@@ -770,17 +931,17 @@ export const processWebhookJob = async (job) => {
       if (Object.keys(broadcastIncrements).length > 0) {
         broadcast = await prisma.broadcast.update({
           where: { id: broadcastId },
-          data: broadcastIncrements
+          data: broadcastIncrements,
         });
       }
 
-      emitToTenant(recipient.broadcast.tenantId, 'broadcast_update', {
+      emitToTenant(recipient.broadcast.tenantId, "broadcast_update", {
         broadcastId,
         sent: broadcast.sent,
         delivered: broadcast.delivered,
         read: broadcast.read,
         failed: broadcast.failed,
-        status: broadcast.status
+        status: broadcast.status,
       });
     } else {
       // ── Handle 1-on-1 Message Status Receipt ──
@@ -791,21 +952,22 @@ export const processWebhookJob = async (job) => {
       if (messageToUpdate) {
         const msgUpdateData = {
           status,
-          isRead: status === 'read',
+          isRead: status === "read",
         };
-        if (status === 'delivered') msgUpdateData.deliveredAt = new Date();
-        if (status === 'read') msgUpdateData.readAt = new Date();
-        if (status === 'failed') {
+        if (status === "delivered") msgUpdateData.deliveredAt = new Date();
+        if (status === "read") msgUpdateData.readAt = new Date();
+        if (status === "failed") {
           msgUpdateData.failedAt = new Date();
           msgUpdateData.failureCode = statusUpdate.errors?.[0]?.code || null;
-          msgUpdateData.failureReason = statusUpdate.errors?.[0]?.title || 'Send Failure';
+          msgUpdateData.failureReason =
+            statusUpdate.errors?.[0]?.title || "Send Failure";
         }
         await prisma.message.update({
           where: { wamid },
           data: msgUpdateData,
         });
 
-               // Emit real-time tick update to frontend
+        // Emit real-time tick update to frontend
         const tenantId = messageToUpdate.conversation?.tenantId;
         if (tenantId) {
           const statusPayload = {
@@ -818,16 +980,20 @@ export const processWebhookJob = async (job) => {
             failureReason: msgUpdateData.failureReason || null,
           };
 
-          emitToTenant(tenantId, 'message_status_update', statusPayload);
+          emitToTenant(tenantId, "message_status_update", statusPayload);
 
           // Also emit to assigned agent's user room (for mobile app)
           const conversation = await prisma.conversation.findUnique({
             where: { id: messageToUpdate.conversationId },
-            select: { assignedTo: true, contact: { select: { assignedTo: true } } },
+            select: {
+              assignedTo: true,
+              contact: { select: { assignedTo: true } },
+            },
           });
-          const assignedUserId = conversation?.assignedTo || conversation?.contact?.assignedTo;
+          const assignedUserId =
+            conversation?.assignedTo || conversation?.contact?.assignedTo;
           if (assignedUserId) {
-            emitToUser(assignedUserId, 'message_status_update', statusPayload);
+            emitToUser(assignedUserId, "message_status_update", statusPayload);
           }
         }
       }
@@ -836,13 +1002,12 @@ export const processWebhookJob = async (job) => {
     return; // ✅ status handled, stop here
   }
 
-
   // ═══════════════════════════════════════════════════════════
   // B. Handle Incoming Messages (TEXT + MEDIA)
   // ═══════════════════════════════════════════════════════════
   if (message) {
     const messageId = message.id;
-    console.log('📥 [META WEBHOOK INBOUND WAMID]:', messageId);
+    console.log("📥 [META WEBHOOK INBOUND WAMID]:", messageId);
 
     // ── Idempotency check ──────────────────────────────────
     const isNew = await isNewWebhookEvent(`msg:${messageId}`);
@@ -864,20 +1029,22 @@ export const processWebhookJob = async (job) => {
     // ── Check subscription ─────────────────────────────────
     const subStatus = tenant.subscriptionStatus;
     const isActive =
-      subStatus === 'active' ||
-      subStatus === 'trialing' ||
-      subStatus === 'cancel_at_period_end';
+      subStatus === "active" ||
+      subStatus === "trialing" ||
+      subStatus === "cancel_at_period_end";
 
     if (!isActive) {
-      console.log(`🚫 Webhook ignored for tenant ${tenant.id} - inactive subscription: ${subStatus}`);
+      console.log(
+        `🚫 Webhook ignored for tenant ${tenant.id} - inactive subscription: ${subStatus}`,
+      );
       return;
     }
 
     // ── Find or create contact ─────────────────────────────
-    const normalizedPhone = `+${customerPhone.replace(/^\+/, '')}`;
+    const normalizedPhone = `+${customerPhone.replace(/^\+/, "")}`;
 
     let contact = await prisma.contact.findFirst({
-      where: { phone: normalizedPhone, tenantId: tenant.id }
+      where: { phone: normalizedPhone, tenantId: tenant.id },
     });
 
     let isNewContact = false;
@@ -889,8 +1056,8 @@ export const processWebhookJob = async (job) => {
           name: value.contacts?.[0]?.profile?.name || normalizedPhone,
           phone: normalizedPhone,
           tenantId: tenant.id,
-          whatsappId: normalizedPhone.replace(/^\+/, '').slice(-10)
-        }
+          whatsappId: normalizedPhone.replace(/^\+/, "").slice(-10),
+        },
       });
       console.log(`🆕 New contact: ${contact.name} (${normalizedPhone})`);
     } else {
@@ -899,7 +1066,7 @@ export const processWebhookJob = async (job) => {
 
     // ── Extract message content based on type ─────────────
     let text = null;
-    let type = 'TEXT';
+    let type = "TEXT";
     let mediaUrl = null;
     let mediaName = null;
     let mediaSize = null;
@@ -912,28 +1079,31 @@ export const processWebhookJob = async (job) => {
     let locAddress = null;
 
     // ── Handle Call Permission Reply ──────────────────────
-    if (messageType === 'interactive' && message.interactive?.type === 'call_permission_reply') {
+    if (
+      messageType === "interactive" &&
+      message.interactive?.type === "call_permission_reply"
+    ) {
       await handleCallPermissionReply(message, tenant, phoneId);
       return;
     }
 
     // ── Handle Voicemail (audio with wacid prefix) ───────
-    if (messageType === 'audio' && messageId.startsWith('wacid.')) {
+    if (messageType === "audio" && messageId.startsWith("wacid.")) {
       console.log(`🎙️ [Webhook] Voicemail received for wacid: ${messageId}`);
       return;
     }
 
     // ── TEXT ───────────────────────────────────────────────
-    if (messageType === 'text') {
+    if (messageType === "text") {
       text = message.text?.body;
-      type = 'TEXT';
+      type = "TEXT";
 
       // ── IMAGE ──────────────────────────────────────────────
-    } else if (messageType === 'image') {
+    } else if (messageType === "image") {
       const media = message.image;
       caption = media.caption || null;
       mediaMimeType = media.mime_type;
-      type = 'IMAGE';
+      type = "IMAGE";
 
       try {
         const downloaded = await downloadWhatsAppMedia({
@@ -948,19 +1118,18 @@ export const processWebhookJob = async (job) => {
         mediaUrl = downloaded.publicUrl;
         mediaName = downloaded.fileName;
         mediaSize = downloaded.fileSize;
-
       } catch (err) {
         console.error(`❌ Image download failed:`, err.message);
-        text = '[Image - download failed]';
-        type = 'TEXT';
+        text = "[Image - download failed]";
+        type = "TEXT";
       }
 
       // ── VIDEO ──────────────────────────────────────────────
-    } else if (messageType === 'video') {
+    } else if (messageType === "video") {
       const media = message.video;
       caption = media.caption || null;
       mediaMimeType = media.mime_type;
-      type = 'VIDEO';
+      type = "VIDEO";
 
       try {
         const downloaded = await downloadWhatsAppMedia({
@@ -975,18 +1144,17 @@ export const processWebhookJob = async (job) => {
         mediaUrl = downloaded.publicUrl;
         mediaName = downloaded.fileName;
         mediaSize = downloaded.fileSize;
-
       } catch (err) {
         console.error(`❌ Video download failed:`, err.message);
-        text = '[Video - download failed]';
-        type = 'TEXT';
+        text = "[Video - download failed]";
+        type = "TEXT";
       }
 
       // ── AUDIO ──────────────────────────────────────────────
-    } else if (messageType === 'audio') {
+    } else if (messageType === "audio") {
       const media = message.audio;
       mediaMimeType = media.mime_type;
-      type = 'AUDIO';
+      type = "AUDIO";
 
       try {
         const downloaded = await downloadWhatsAppMedia({
@@ -1001,19 +1169,18 @@ export const processWebhookJob = async (job) => {
         mediaUrl = downloaded.publicUrl;
         mediaName = downloaded.fileName;
         mediaSize = downloaded.fileSize;
-
       } catch (err) {
         console.error(`❌ Audio download failed:`, err.message);
-        text = '[Audio - download failed]';
-        type = 'TEXT';
+        text = "[Audio - download failed]";
+        type = "TEXT";
       }
 
       // ── DOCUMENT ───────────────────────────────────────────
-    } else if (messageType === 'document') {
+    } else if (messageType === "document") {
       const media = message.document;
       caption = media.caption || null;
       mediaMimeType = media.mime_type;
-      type = 'FILE';
+      type = "FILE";
 
       try {
         const downloaded = await downloadWhatsAppMedia({
@@ -1028,24 +1195,23 @@ export const processWebhookJob = async (job) => {
         mediaUrl = downloaded.publicUrl;
         mediaName = media.filename || downloaded.fileName;
         mediaSize = downloaded.fileSize;
-
       } catch (err) {
         console.error(`❌ Document download failed:`, err.message);
-        text = `[Document: ${media.filename || 'file'} - download failed]`;
-        type = 'TEXT';
+        text = `[Document: ${media.filename || "file"} - download failed]`;
+        type = "TEXT";
       }
 
       // ── STICKER ────────────────────────────────────────────
-    } else if (messageType === 'sticker') {
+    } else if (messageType === "sticker") {
       const media = message.sticker;
       mediaMimeType = media.mime_type;
-      type = 'IMAGE';
+      type = "IMAGE";
 
       try {
         const downloaded = await downloadWhatsAppMedia({
           mediaId: media.id,
           mimeType: media.mime_type,
-          fileName: 'sticker',
+          fileName: "sticker",
           tenantId: tenant.id,
           contactId: contact.id,
           accessToken: decrypt(tenant.whatsappAccessToken),
@@ -1054,69 +1220,86 @@ export const processWebhookJob = async (job) => {
         mediaUrl = downloaded.publicUrl;
         mediaName = downloaded.fileName;
         mediaSize = downloaded.fileSize;
-
       } catch (err) {
         console.error(`❌ Sticker download failed:`, err.message);
-        text = '[Sticker]';
-        type = 'TEXT';
+        text = "[Sticker]";
+        type = "TEXT";
       }
 
       // ── LOCATION ───────────────────────────────────────────
-    } else if (messageType === 'location') {
+    } else if (messageType === "location") {
       const loc = message.location;
-      type = 'LOCATION';
+      type = "LOCATION";
 
       locLatitude = loc.latitude || null;
       locLongitude = loc.longitude || null;
       locName = loc.name || null;
       locAddress = loc.address || null;
-      text = (locLatitude && locLongitude) ? `https://maps.google.com/?q=${locLatitude},${locLongitude}` : (locAddress || locName || 'Location Shared');
+      text =
+        locLatitude && locLongitude
+          ? `https://maps.google.com/?q=${locLatitude},${locLongitude}`
+          : locAddress || locName || "Location Shared";
 
-      console.log(`📍 Location received: lat=${loc.latitude}, lng=${loc.longitude}, text="${text}"`);
+      console.log(
+        `📍 Location received: lat=${loc.latitude}, lng=${loc.longitude}, text="${text}"`,
+      );
 
       // ── CONTACTS ───────────────────────────────────────────
-    } else if (messageType === 'contacts') {
+    } else if (messageType === "contacts") {
       const c = message.contacts?.[0];
-      text = `👤 Contact shared: ${c?.name?.formatted_name || 'Unknown'}`;
-      type = 'TEXT';
+      text = `👤 Contact shared: ${c?.name?.formatted_name || "Unknown"}`;
+      type = "TEXT";
 
       // ── INTERACTIVE (Button / List replies) ─────────────────
-    } else if (messageType === 'interactive') {
+    } else if (messageType === "interactive") {
       const interactiveType = message.interactive?.type;
 
-      if (interactiveType === 'button_reply') {
+      if (interactiveType === "button_reply") {
         text = message.interactive.button_reply.title;
-        type = 'TEXT';
-        console.log(`🖱️ Button clicked: "${text}" (id: ${message.interactive.button_reply.id})`);
-
-      } else if (interactiveType === 'list_reply') {
+        type = "TEXT";
+        console.log(
+          `🖱️ Button clicked: "${text}" (id: ${message.interactive.button_reply.id})`,
+        );
+      } else if (interactiveType === "list_reply") {
         text = message.interactive.list_reply.title;
-        type = 'TEXT';
-        console.log(`📋 List selected: "${text}" (id: ${message.interactive.list_reply.id})`);
-
+        type = "TEXT";
+        console.log(
+          `📋 List selected: "${text}" (id: ${message.interactive.list_reply.id})`,
+        );
       } else {
         console.log(`ℹ️ Unknown interactive type: ${interactiveType}`);
         return;
       }
 
       // ── ORDER (WhatsApp Cart / Commerce) ───────────────────
-    } else if (messageType === 'order') {
+    } else if (messageType === "order") {
       const orderPayload = message.order;
-      const catalogId = orderPayload?.catalog_id || tenant.whatsappCatalogId || null;
+      const catalogId =
+        orderPayload?.catalog_id || tenant.whatsappCatalogId || null;
       const items = orderPayload?.product_items || [];
       const customerNote = orderPayload?.text || null;
 
-      const currency = items[0]?.currency || 'INR';
-      const totalAmount = items.reduce((sum, it) => sum + (Number(it.item_price || 0) * Number(it.quantity || 1)), 0);
+      const currency = items[0]?.currency || "INR";
+      const totalAmount = items.reduce(
+        (sum, it) =>
+          sum + Number(it.item_price || 0) * Number(it.quantity || 1),
+        0,
+      );
 
       const orderNumber = `ORD-${tenant.id.slice(-4).toUpperCase()}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
 
-      const formattedItems = items.map(it => `• *${it.product_retailer_id}* (x${it.quantity}) — ${it.currency || currency} ${it.item_price}`).join('\n');
-      text = `🛍️ *Order Placed #${orderNumber}*\n\n📦 *Items:*\n${formattedItems}\n\n💰 *Total:* ${currency} ${totalAmount.toFixed(2)}${customerNote ? `\n\n📝 *Note:* ${customerNote}` : ''}`;
-      type = 'ORDER';
+      const formattedItems = items
+        .map(
+          (it) =>
+            `• *${it.product_retailer_id}* (x${it.quantity}) — ${it.currency || currency} ${it.item_price}`,
+        )
+        .join("\n");
+      text = `🛍️ *Order Placed #${orderNumber}*\n\n📦 *Items:*\n${formattedItems}\n\n💰 *Total:* ${currency} ${totalAmount.toFixed(2)}${customerNote ? `\n\n📝 *Note:* ${customerNote}` : ""}`;
+      type = "ORDER";
 
-      console.log(`🛍️ [ORDER WEBHOOK] Received order ${orderNumber} with ${items.length} items. Total: ${currency} ${totalAmount}`);
-
+      console.log(
+        `🛍️ [ORDER WEBHOOK] Received order ${orderNumber} with ${items.length} items. Total: ${currency} ${totalAmount}`,
+      );
     } else {
       console.log(`ℹ️ Unsupported message type: ${messageType} - skipping`);
       return;
@@ -1149,15 +1332,16 @@ export const processWebhookJob = async (job) => {
 
     // ── Phase 4: Log message as Zoho Note ──
     try {
-      const { logMessageAsZohoNote } = await import('../../modules/zoho/crm/zoho.note.service.js');
+      const { logMessageAsZohoNote } =
+        await import("../../modules/zoho/crm/zoho.note.service.js");
       logMessageAsZohoNote(tenant.id, contact.id, {
-        direction: 'INBOUND',
-        senderType: 'CONTACT',
+        direction: "INBOUND",
+        senderType: "CONTACT",
         type,
         text,
         mediaName,
         caption,
-        channel: 'WhatsApp',
+        channel: "WhatsApp",
         locLatitude,
         locLongitude,
         locName,
@@ -1171,43 +1355,64 @@ export const processWebhookJob = async (job) => {
       await triggerZohoAutoSyncForNewContact(tenant.id, contact);
     }
 
-       // ── WooCommerce Review Rating Detection ──
+    // ── WooCommerce Review Rating Detection ──
     const reviewRating = parseWooReviewRating(text);
     if (reviewRating !== null) {
-      const customerDigits = String(contact.phone || '').replace(/\D/g, '');
+      const customerDigits = String(contact.phone || "").replace(/\D/g, "");
       const recentReviewRequests = await prisma.ecommerceOrder.findMany({
         where: {
           tenantId: tenant.id,
-          source: 'WOOCOMMERCE',
-          status: { in: ['completed', 'delivered', 'wc-completed', 'wc-delivered'] },
-          reviewRequestedAt: { gte: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000) },
+          source: "WOOCOMMERCE",
+          status: {
+            in: ["completed", "delivered", "wc-completed", "wc-delivered"],
+          },
+          reviewRequestedAt: {
+            gte: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000),
+          },
           reviewRating: null,
         },
-        orderBy: { reviewRequestedAt: 'desc' },
+        orderBy: { reviewRequestedAt: "desc" },
         take: 20,
       });
       const reviewOrder = recentReviewRequests.find((candidate) => {
-        const orderDigits = String(candidate.customerPhone || '').replace(/\D/g, '');
-        return orderDigits && customerDigits && (
-          orderDigits === customerDigits ||
-          orderDigits.endsWith(customerDigits.slice(-8)) ||
-          customerDigits.endsWith(orderDigits.slice(-8))
+        const orderDigits = String(candidate.customerPhone || "").replace(
+          /\D/g,
+          "",
+        );
+        return (
+          orderDigits &&
+          customerDigits &&
+          (orderDigits === customerDigits ||
+            orderDigits.endsWith(customerDigits.slice(-8)) ||
+            customerDigits.endsWith(orderDigits.slice(-8)))
         );
       });
 
       if (reviewOrder) {
         await prisma.ecommerceOrder.updateMany({
-          where: { id: reviewOrder.id, tenantId: tenant.id, reviewRating: null },
+          where: {
+            id: reviewOrder.id,
+            tenantId: tenant.id,
+            reviewRating: null,
+          },
           data: { reviewRating, reviewReceivedAt: new Date() },
         });
-        console.log(`⭐ [WooCommerce] Saved ${reviewRating}/5 review for order #${reviewOrder.orderNumber}`);
+        console.log(
+          `⭐ [WooCommerce] Saved ${reviewRating}/5 review for order #${reviewOrder.orderNumber}`,
+        );
       }
     }
 
     // ── WooCommerce COD Verification (CONFIRM_COD_ / CANCEL_COD_) ──
-    if (messageType === 'interactive' && message.interactive?.type === 'button_reply') {
-      const codButtonId = String(message.interactive.button_reply?.id || '');
-      if (codButtonId.startsWith('CONFIRM_COD_') || codButtonId.startsWith('CANCEL_COD_')) {
+    if (
+      messageType === "interactive" &&
+      message.interactive?.type === "button_reply"
+    ) {
+      const codButtonId = String(message.interactive.button_reply?.id || "");
+      if (
+        codButtonId.startsWith("CONFIRM_COD_") ||
+        codButtonId.startsWith("CANCEL_COD_")
+      ) {
         try {
           await processWooCodButtonReply({
             tenantId: tenant.id,
@@ -1215,21 +1420,24 @@ export const processWebhookJob = async (job) => {
             buttonId: codButtonId,
           });
         } catch (codErr) {
-          console.error(`❌ [Woo COD] Button handler failed for ${codButtonId}:`, codErr.message);
+          console.error(
+            `❌ [Woo COD] Button handler failed for ${codButtonId}:`,
+            codErr.message,
+          );
         }
       }
     }
 
     // ── Socket: emit to tenant room ────────────────────────
-    emitToTenant(tenant.id, 'new_message', {
+    emitToTenant(tenant.id, "new_message", {
       conversationId: result.conversation.id,
       message: {
         id: result.message.id,
         type: result.message.type,
         text: result.message.text,
         senderId: result.message.senderId,
-        senderType: 'CONTACT',
-        direction: 'INBOUND',
+        senderType: "CONTACT",
+        direction: "INBOUND",
         isFromCustomer: true,
         mediaUrl: result.message.mediaUrl,
         mediaName: result.message.mediaName,
@@ -1241,7 +1449,7 @@ export const processWebhookJob = async (job) => {
         locName: result.message.locName,
         locAddress: result.message.locAddress,
         createdAt: result.message.createdAt,
-      }
+      },
     });
 
     // ── Save + Emit notification ───────────────────────────
@@ -1260,13 +1468,13 @@ export const processWebhookJob = async (job) => {
       const tenantNotif = await createNotification({
         tenantId: tenant.id,
         userId: null,
-        type: 'new_message',
+        type: "new_message",
         title: notifTitle,
         message: notifMessage,
         metadata: notifMeta,
       });
 
-      emitToTenant(tenant.id, 'new_notification', {
+      emitToTenant(tenant.id, "new_notification", {
         notification: {
           id: tenantNotif.id,
           type: tenantNotif.type,
@@ -1279,20 +1487,20 @@ export const processWebhookJob = async (job) => {
       });
       console.log(`📤 Tenant notif saved+emitted: ${tenantNotif.id}`);
     } catch (err) {
-      console.error('❌ Tenant notification failed:', err.message);
+      console.error("❌ Tenant notification failed:", err.message);
     }
 
     // ── Socket: emit to assigned user ──────────────────────
     if (contact.assignedTo) {
-      emitToUser(contact.assignedTo, 'new_message', {
+      emitToUser(contact.assignedTo, "new_message", {
         conversationId: result.conversation.id,
         message: {
           id: result.message.id,
           type: result.message.type,
           text: result.message.text,
           senderId: result.message.senderId,
-          senderType: 'CONTACT',
-          direction: 'INBOUND',
+          senderType: "CONTACT",
+          direction: "INBOUND",
           isFromCustomer: true,
           mediaUrl: result.message.mediaUrl,
           mediaName: result.message.mediaName,
@@ -1304,20 +1512,20 @@ export const processWebhookJob = async (job) => {
           locName: result.message.locName,
           locAddress: result.message.locAddress,
           createdAt: result.message.createdAt,
-        }
+        },
       });
 
       try {
         const userNotif = await createNotification({
           tenantId: tenant.id,
           userId: contact.assignedTo,
-          type: 'new_message',
+          type: "new_message",
           title: notifTitle,
           message: notifMessage,
           metadata: notifMeta,
         });
 
-        emitToUser(contact.assignedTo, 'new_notification', {
+        emitToUser(contact.assignedTo, "new_notification", {
           notification: {
             id: userNotif.id,
             type: userNotif.type,
@@ -1330,39 +1538,49 @@ export const processWebhookJob = async (job) => {
         });
         console.log(`📤 User notif saved+emitted to: ${contact.assignedTo}`);
       } catch (err) {
-        console.error('❌ User notification failed:', err.message);
+        console.error("❌ User notification failed:", err.message);
       }
     } else {
       console.log(`ℹ️ Contact unassigned - tenant room notified only`);
     }
 
     // ── Save Order in DB & Trigger Order Flow (if messageType === 'order') ──
-    if (messageType === 'order') {
+    if (messageType === "order") {
       try {
         const orderPayload = message.order;
-        const catalogId = orderPayload?.catalog_id || tenant.whatsappCatalogId || null;
+        const catalogId =
+          orderPayload?.catalog_id || tenant.whatsappCatalogId || null;
         const items = orderPayload?.product_items || [];
         const customerNote = orderPayload?.text || null;
-        const currency = items[0]?.currency || 'INR';
-        const totalAmount = items.reduce((sum, it) => sum + (Number(it.item_price || 0) * Number(it.quantity || 1)), 0);
+        const currency = items[0]?.currency || "INR";
+        const totalAmount = items.reduce(
+          (sum, it) =>
+            sum + Number(it.item_price || 0) * Number(it.quantity || 1),
+          0,
+        );
 
         const existingPendingOrder = await prisma.order.findFirst({
           where: {
             conversationId: result.conversation.id,
-            status: 'PENDING'
+            status: "PENDING",
           },
-          orderBy: { createdAt: 'desc' }
+          orderBy: { createdAt: "desc" },
         });
 
         const existingFlowData = result.conversation.flowData || {};
-        const deliveryAddress = existingFlowData.deliveryAddress || existingPendingOrder?.deliveryAddress || null;
+        const deliveryAddress =
+          existingFlowData.deliveryAddress ||
+          existingPendingOrder?.deliveryAddress ||
+          null;
 
         let createdOrder;
 
         if (existingPendingOrder) {
-          await prisma.orderItem.deleteMany({
-            where: { orderId: existingPendingOrder.id }
-          }).catch(() => null);
+          await prisma.orderItem
+            .deleteMany({
+              where: { orderId: existingPendingOrder.id },
+            })
+            .catch(() => null);
 
           createdOrder = await prisma.order.update({
             where: { id: existingPendingOrder.id },
@@ -1371,27 +1589,32 @@ export const processWebhookJob = async (job) => {
               totalAmount,
               currency,
               customerNote,
-              deliveryAddress: deliveryAddress || existingPendingOrder.deliveryAddress,
+              deliveryAddress:
+                deliveryAddress || existingPendingOrder.deliveryAddress,
               wamid: messageId,
               items: {
-                create: items.map(it => ({
+                create: items.map((it) => ({
                   tenantId: tenant.id,
                   productRetailerId: it.product_retailer_id,
                   productName: it.product_retailer_id,
                   quantity: Number(it.quantity || 1),
                   itemPrice: Number(it.item_price || 0),
                   currency: it.currency || currency,
-                }))
-              }
+                })),
+              },
             },
             include: {
-              items: true
-            }
+              items: true,
+            },
           });
-          console.log(`✅ [ORDER UPDATED] Existing Order #${createdOrder.orderNumber} updated with items (ID: ${createdOrder.id})`);
+          console.log(
+            `✅ [ORDER UPDATED] Existing Order #${createdOrder.orderNumber} updated with items (ID: ${createdOrder.id})`,
+          );
         } else {
           const orderMatch = text ? text.match(/#([A-Z0-9_-]+)/) : null;
-          const orderNumber = orderMatch ? orderMatch[1] : `ORD-${tenant.id.slice(-4).toUpperCase()}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+          const orderNumber = orderMatch
+            ? orderMatch[1]
+            : `ORD-${tenant.id.slice(-4).toUpperCase()}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
 
           createdOrder = await prisma.order.create({
             data: {
@@ -1408,50 +1631,60 @@ export const processWebhookJob = async (job) => {
               deliveryName: existingFlowData.deliveryName || null,
               deliveryLat: existingFlowData.deliveryLat || null,
               deliveryLng: existingFlowData.deliveryLng || null,
-              status: 'PENDING',
+              status: "PENDING",
               wamid: messageId,
               items: {
-                create: items.map(it => ({
+                create: items.map((it) => ({
                   tenantId: tenant.id,
                   productRetailerId: it.product_retailer_id,
                   productName: it.product_retailer_id,
                   quantity: Number(it.quantity || 1),
                   itemPrice: Number(it.item_price || 0),
                   currency: it.currency || currency,
-                }))
-              }
+                })),
+              },
             },
             include: {
-              items: true
-            }
+              items: true,
+            },
           });
-          console.log(`✅ [ORDER CREATED] New Order #${createdOrder.orderNumber} saved (ID: ${createdOrder.id})`);
+          console.log(
+            `✅ [ORDER CREATED] New Order #${createdOrder.orderNumber} saved (ID: ${createdOrder.id})`,
+          );
         }
 
         // ── Phase 4: Create Zoho Deal from order ──
         try {
-          const { createZohoDealFromOrder } = await import('../../modules/zoho/crm/zoho.deal.service.js');
-          createZohoDealFromOrder(tenant.id, createdOrder, contact).catch(() => {});
+          const { createZohoDealFromOrder } =
+            await import("../../modules/zoho/crm/zoho.deal.service.js");
+          createZohoDealFromOrder(tenant.id, createdOrder, contact).catch(
+            () => {},
+          );
         } catch (_) {}
 
-        emitToTenant(tenant.id, 'new_order', {
+        emitToTenant(tenant.id, "new_order", {
           order: createdOrder,
           conversationId: result.conversation.id,
           contactName: contact.name,
-          contactPhone: contact.phone
+          contactPhone: contact.phone,
         });
 
-        await flowEngine.triggerOrderFlow(result.conversation, contact, createdOrder);
-
+        await flowEngine.triggerOrderFlow(
+          result.conversation,
+          contact,
+          createdOrder,
+        );
       } catch (orderErr) {
-        console.error('❌ Failed to create order or trigger order flow:', orderErr);
+        console.error(
+          "❌ Failed to create order or trigger order flow:",
+          orderErr,
+        );
       }
     }
 
     console.log(`✅ Message processed: type=${type}, contact=${contact.name}`);
   }
 };
-
 
 // ─────────────────────────────────────────────────────────────
 // DOWNLOAD WHATSAPP MEDIA
@@ -1468,14 +1701,10 @@ const downloadWhatsAppMedia = async ({
   contactId,
   accessToken,
 }) => {
-
   // ── Step 1: Get temporary download URL ──────────────────
-  const metaRes = await fetch(
-    `https://graph.facebook.com/v23.0/${mediaId}`,
-    {
-      headers: { Authorization: `Bearer ${accessToken}` }
-    }
-  );
+  const metaRes = await fetch(`https://graph.facebook.com/v23.0/${mediaId}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
 
   if (!metaRes.ok) {
     const err = await metaRes.json();
@@ -1486,18 +1715,18 @@ const downloadWhatsAppMedia = async ({
   const downloadUrl = metaData.url;
 
   if (!downloadUrl) {
-    throw new Error('No download URL returned from Meta API');
+    throw new Error("No download URL returned from Meta API");
   }
 
   // ── Step 2: Build save path ──────────────────────────────
   const saveDir = path.join(
     process.cwd(),
-    'uploads',
-    'tenants',
+    "uploads",
+    "tenants",
     tenantId,
-    'contacts',
+    "contacts",
     contactId,
-    'inbound'
+    "inbound",
   );
 
   fs.mkdirSync(saveDir, { recursive: true });
@@ -1505,10 +1734,11 @@ const downloadWhatsAppMedia = async ({
   // ── Step 3: Build filename ───────────────────────────────
   const ext = getExtFromMime(mimeType);
   const baseName = fileName
-    ? path.basename(fileName, path.extname(fileName))
-      .replace(/\s+/g, '_')
-      .replace(/[^a-zA-Z0-9_-]/g, '')
-      .substring(0, 50)
+    ? path
+        .basename(fileName, path.extname(fileName))
+        .replace(/\s+/g, "_")
+        .replace(/[^a-zA-Z0-9_-]/g, "")
+        .substring(0, 50)
     : `media_${mediaId}`;
 
   const uniqueFileName = `${Date.now()}_${baseName}${ext}`;
@@ -1517,12 +1747,12 @@ const downloadWhatsAppMedia = async ({
   // ── Step 4: Download file ────────────────────────────────
   await new Promise((resolve, reject) => {
     const urlObj = new URL(downloadUrl);
-    const protocol = urlObj.protocol === 'https:' ? https : http;
+    const protocol = urlObj.protocol === "https:" ? https : http;
 
     const options = {
       hostname: urlObj.hostname,
       path: urlObj.pathname + urlObj.search,
-      method: 'GET',
+      method: "GET",
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
@@ -1531,29 +1761,28 @@ const downloadWhatsAppMedia = async ({
     const fileStream = fs.createWriteStream(localPath);
 
     const request = protocol.request(options, (response) => {
-
       if (response.statusCode !== 200) {
         fileStream.close();
         if (fs.existsSync(localPath)) fs.unlinkSync(localPath);
         return reject(
-          new Error(`Download failed with status: ${response.statusCode}`)
+          new Error(`Download failed with status: ${response.statusCode}`),
         );
       }
 
       response.pipe(fileStream);
 
-      fileStream.on('finish', () => {
+      fileStream.on("finish", () => {
         fileStream.close();
         resolve();
       });
 
-      fileStream.on('error', (err) => {
+      fileStream.on("error", (err) => {
         if (fs.existsSync(localPath)) fs.unlinkSync(localPath);
         reject(err);
       });
     });
 
-    request.on('error', (err) => {
+    request.on("error", (err) => {
       if (fs.existsSync(localPath)) fs.unlinkSync(localPath);
       reject(err);
     });
@@ -1573,12 +1802,23 @@ const downloadWhatsAppMedia = async ({
 
   // ── Step 6: Build permanent public URL ──────────────────
   const relativePath = path
-    .join('uploads', 'tenants', tenantId, 'contacts', contactId, 'inbound', uniqueFileName)
-    .replace(/\\/g, '/');
+    .join(
+      "uploads",
+      "tenants",
+      tenantId,
+      "contacts",
+      contactId,
+      "inbound",
+      uniqueFileName,
+    )
+    .replace(/\\/g, "/");
 
-  const publicUrl = process.env.BASE_URL && process.env.BASE_URL.startsWith('http') && !process.env.BASE_URL.includes('localhost')
-    ? `${process.env.BASE_URL.replace(/\/+$/, '')}/${relativePath}`
-    : relativePath;
+  const publicUrl =
+    process.env.BASE_URL &&
+    process.env.BASE_URL.startsWith("http") &&
+    !process.env.BASE_URL.includes("localhost")
+      ? `${process.env.BASE_URL.replace(/\/+$/, "")}/${relativePath}`
+      : relativePath;
 
   console.log(`✅ Media saved: ${localPath} (${fileSize} bytes)`);
 
@@ -1590,65 +1830,60 @@ const downloadWhatsAppMedia = async ({
   };
 };
 
-
 // ─────────────────────────────────────────────────────────────
 // MIME TYPE → FILE EXTENSION
 // ─────────────────────────────────────────────────────────────
 const MIME_TO_EXT = {
-  'image/jpeg': '.jpg',
-  'image/jpg': '.jpg',
-  'image/png': '.png',
-  'image/webp': '.webp',
-  'image/gif': '.gif',
-  'video/mp4': '.mp4',
-  'video/3gpp': '.3gp',
-  'audio/mpeg': '.mp3',
-  'audio/ogg': '.ogg',
-  'audio/ogg; codecs=opus': '.ogg',
-  'audio/m4a': '.m4a',
-  'audio/amr': '.amr',
-  'audio/mp4': '.mp4',
-  'audio/webm': '.webm',
-  'application/pdf': '.pdf',
-  'application/msword': '.doc',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
-  'application/vnd.ms-excel': '.xls',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
-  'text/plain': '.txt',
-  'image/webp; codecs=vp8': '.webp',
+  "image/jpeg": ".jpg",
+  "image/jpg": ".jpg",
+  "image/png": ".png",
+  "image/webp": ".webp",
+  "image/gif": ".gif",
+  "video/mp4": ".mp4",
+  "video/3gpp": ".3gp",
+  "audio/mpeg": ".mp3",
+  "audio/ogg": ".ogg",
+  "audio/ogg; codecs=opus": ".ogg",
+  "audio/m4a": ".m4a",
+  "audio/amr": ".amr",
+  "audio/mp4": ".mp4",
+  "audio/webm": ".webm",
+  "application/pdf": ".pdf",
+  "application/msword": ".doc",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+    ".docx",
+  "application/vnd.ms-excel": ".xls",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+  "text/plain": ".txt",
+  "image/webp; codecs=vp8": ".webp",
 };
 
 const getExtFromMime = (mimeType) => {
-  if (!mimeType) return '.bin';
-  const baseMime = mimeType.split(';')[0].trim().toLowerCase();
-  return MIME_TO_EXT[mimeType] || MIME_TO_EXT[baseMime] || '.bin';
+  if (!mimeType) return ".bin";
+  const baseMime = mimeType.split(";")[0].trim().toLowerCase();
+  return MIME_TO_EXT[mimeType] || MIME_TO_EXT[baseMime] || ".bin";
 };
-
 
 // ─────────────────────────────────────────────────────────────
 // WORKER STARTUP (unchanged)
 // ─────────────────────────────────────────────────────────────
 export const startWebhookWorker = () => {
-  const worker = new Worker(
-    QUEUE_NAME_WEBHOOK,
-    processWebhookJob,
-    {
-      connection: redisConnection,
-      concurrency: 10,
-    }
-  );
+  const worker = new Worker(QUEUE_NAME_WEBHOOK, processWebhookJob, {
+    connection: redisConnection,
+    concurrency: 10,
+  });
 
-  worker.on('completed', (job) => {
+  worker.on("completed", (job) => {
     console.log(`✅ Webhook Job ${job.id} processed successfully`);
   });
 
-  worker.on('failed', async (job, err) => {
+  worker.on("failed", async (job, err) => {
     console.error(`❌ Webhook Job ${job?.id} failed:`, err.message);
 
     if (job && job.attemptsMade >= job.opts.attempts) {
       try {
         await dlqQueue.add(
-          'failed-webhook',
+          "failed-webhook",
           {
             originalJobId: job.id,
             originalJobName: job.name,
@@ -1659,19 +1894,22 @@ export const startWebhookWorker = () => {
             errorStack: err.stack,
             errorName: err.name,
             originalQueue: QUEUE_NAME_WEBHOOK,
-            processingTime: job.processedOn ? Date.now() - job.processedOn : null,
+            processingTime: job.processedOn
+              ? Date.now() - job.processedOn
+              : null,
           },
-          { jobId: `dlq_${job.id}_${Date.now()}` }
+          { jobId: `dlq_${job.id}_${Date.now()}` },
         );
 
-        console.warn(`📮 [DLQ] Job ${job.id} moved to DLQ after ${job.attemptsMade} attempts`);
-
+        console.warn(
+          `📮 [DLQ] Job ${job.id} moved to DLQ after ${job.attemptsMade} attempts`,
+        );
       } catch (dlqError) {
         console.error(`⚠️ [DLQ] Failed to push to DLQ:`, dlqError.message);
       }
     }
   });
 
-  console.log('👷 Webhook worker started with DLQ support');
+  console.log("👷 Webhook worker started with DLQ support");
   return worker;
 };

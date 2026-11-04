@@ -535,14 +535,21 @@ export const verifyPaymentAndActivate = async (req, res) => {
         },
       });
 
-      const updated = await tx.tenant.update({
+      await tx.tenant.update({
         where: { id: tenantId },
+        data: {
+          status: "APPROVED",
+          ...(req.body.address ? { address: req.body.address } : {}),
+          ...(req.body.phone ? { phone: req.body.phone } : {}),
+        },
+      });
+      const subRow = await tx.tenantSubscription.update({
+        where: { tenantId },
         data: {
           planId,
           planStatus: "active",
           billingType: validBillingType,
           planActivatedAt: periodStart,
-          status: "APPROVED",
           subscriptionStatus: "active",
           currentPlan: plan.name,
           planPeriodStart: periodStart,
@@ -550,10 +557,10 @@ export const verifyPaymentAndActivate = async (req, res) => {
           cancelRequestedAt: null,
           cancellationReason: null,
           dataDeletionDate: null,
-          ...(req.body.address ? { address: req.body.address } : {}),
-          ...(req.body.phone ? { phone: req.body.phone } : {}),
         },
       });
+      const tenantRow = await tx.tenant.findUnique({ where: { id: tenantId } });
+      const updated = { ...tenantRow, ...subRow };
 
       return { payment: createdPayment, updatedTenant: updated, alreadyProcessed: false };
     });
@@ -842,8 +849,8 @@ export const createSubscriptionTrial = async (req, res) => {
     }
 
     // Save ID immediately to link to tenant
-    await prisma.tenant.update({
-      where: { id: tenant.id },
+await prisma.tenantSubscription.update({
+      where: { tenantId: tenant.id },
       data: { razorpaySubscriptionId: subscription.id }
     });
 
@@ -923,14 +930,19 @@ export const verifySubscriptionTrial = async (req, res) => {
     const periodStart = new Date();
     const periodEnd = new Date(periodStart.getTime() + trialDays * 86400000);
 
-    const updated = await prisma.tenant.update({
+    await prisma.tenant.update({
       where: { id: tenantId },
+      data: {
+        status: 'APPROVED',
+      }
+    });
+    const subRow = await prisma.tenantSubscription.update({
+      where: { tenantId },
       data: {
         planId: chosenPlan ? chosenPlan.id : tenant.planId,
         currentPlan: chosenPlan ? chosenPlan.name : tenant.currentPlan,
         subscriptionStatus: 'trialing',
         planStatus: 'active',
-        status: 'APPROVED',
         hasUsedTrial: true,
         trialPlanId: chosenPlan ? chosenPlan.id : null,
         autopayEnabled: true,
@@ -941,6 +953,8 @@ export const verifySubscriptionTrial = async (req, res) => {
         dataDeletionDate: null,
       }
     });
+    const tenantRow = await prisma.tenant.findUnique({ where: { id: tenantId } });
+    const updated = { ...tenantRow, ...subRow };
 
     return res.status(200).json({
       success: true,
@@ -1203,15 +1217,22 @@ export const verifyPaidSubscription = async (req, res) => {
       });
 
       // Update Tenant
-      const upd = await tx.tenant.update({
+      await tx.tenant.update({
         where: { id: tenantId },
+        data: {
+          status: "APPROVED",
+          ...(address ? { address } : {}),
+          ...(phone ? { phone } : {}),
+        },
+      });
+      const subRow = await tx.tenantSubscription.update({
+        where: { tenantId },
         data: {
           planId: plan.id,
           currentPlan: plan.name,
           planStatus: "active",
           subscriptionStatus: "active",
           billingType: validBillingType,
-          status: "APPROVED",
           autopayEnabled: true,
           autopayMethod: paymentDetails?.method || "card",
           razorpaySubscriptionId: razorpay_subscription_id,
@@ -1221,10 +1242,10 @@ export const verifyPaidSubscription = async (req, res) => {
           cancelRequestedAt: null,
           cancellationReason: null,
           dataDeletionDate: null,
-          ...(address ? { address } : {}),
-          ...(phone ? { phone } : {}),
         },
       });
+      const tenantRow = await tx.tenant.findUnique({ where: { id: tenantId } });
+      const upd = { ...tenantRow, ...subRow };
 
       return { payment: createdPayment, updatedTenant: upd };
     });
@@ -1329,8 +1350,8 @@ export const getBillingDetails = async (req, res) => {
       const computedDeletionDate = new Date();
       computedDeletionDate.setDate(computedDeletionDate.getDate() + 90);
 
-      await prisma.tenant.update({
-        where: { id: tenantId },
+      await prisma.tenantSubscription.update({
+        where: { tenantId },
         data: {
           subscriptionStatus: 'expired',
           planStatus: 'inactive',

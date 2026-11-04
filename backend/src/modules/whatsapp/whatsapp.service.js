@@ -37,13 +37,13 @@ export const sendLocationService = async ({
 }) => {
 
   // ── Step 1: Get tenant WhatsApp credentials ───────────────
-  const tenant = await prisma.tenant.findUnique({
+  const tenantRow = await prisma.tenant.findUnique({
     where: { id: tenantId },
     select: {
-      whatsappPhoneId:     true,
-      whatsappAccessToken: true,
+      whatsapp: { select: { whatsappPhoneId: true, whatsappAccessToken: true } },
     },
   });
+  const tenant = tenantRow?.whatsapp || {};
 
   // ── Step 2: Send to WhatsApp Cloud API ────────────────────
   let waMessageId = null;

@@ -110,13 +110,16 @@ export const handleRazorpayWebhook = async (req, res) => {
 
           await tx.tenant.update({
             where: { id: existingPayment.tenantId },
+            data: { status: "APPROVED" },
+          });
+          await tx.tenantSubscription.update({
+            where: { tenantId: existingPayment.tenantId },
             data: {
               planId: existingPayment.planId,
               currentPlan: existingPayment.planName,
               billingType: existingPayment.billingType,
               planStatus: "active",
               subscriptionStatus: "active",
-              status: "APPROVED",
               planActivatedAt: periodStart,
               planPeriodStart: periodStart,
               planPeriodEnd: periodEnd,
@@ -161,7 +164,7 @@ export const handleRazorpayWebhook = async (req, res) => {
       const subscription = req.body?.payload?.subscription?.entity;
       if (subscription?.id) {
         console.log(`[Webhook] Mandate authenticated for subscription: ${subscription.id}`);
-        await prisma.tenant.updateMany({
+        await prisma.tenantSubscription.updateMany({
           where: {
             razorpaySubscriptionId: subscription.id,
             autopayEnabled: false,
@@ -192,11 +195,11 @@ export const handleRazorpayWebhook = async (req, res) => {
           return res.status(200).json({ status: "ok", duplicate: true });
         }
 
-        const tenant = await prisma.tenant.findFirst({
+        const subRecord = await prisma.tenantSubscription.findFirst({
           where: { razorpaySubscriptionId: subscription.id },
-          include: { plan: true },
+          include: { tenant: { include: { plan: true } } },
         });
-
+        const tenant = subRecord ? { ...subRecord.tenant, ...subRecord } : null;
         if (tenant) {
           console.log(`[Webhook] Processing recurring renewal for tenant ${tenant.tenantName} (${tenant.id})`);
           const periodStart = new Date(subscription.current_start * 1000);
@@ -210,10 +213,13 @@ export const handleRazorpayWebhook = async (req, res) => {
             // A. Update Tenant to Active
             await tx.tenant.update({
               where: { id: tenant.id },
+              data: { status: "APPROVED" },
+            });
+            await tx.tenantSubscription.update({
+              where: { tenantId: tenant.id },
               data: {
                 subscriptionStatus: "active",
                 planStatus: "active",
-                status: "APPROVED",
                 planPeriodStart: periodStart,
                 planPeriodEnd: periodEnd,
                 dataDeletionDate: null,
@@ -296,12 +302,11 @@ export const handleRazorpayWebhook = async (req, res) => {
       const subscription = req.body?.payload?.subscription?.entity;
       if (subscription?.id) {
         console.warn(`[Webhook] Subscription ${subscription.id} halted / auto-debit failed.`);
-        await prisma.tenant.updateMany({
+        await prisma.tenantSubscription.updateMany({
           where: { razorpaySubscriptionId: subscription.id },
           data: {
             subscriptionStatus: "payment_failed",
             planStatus: "inactive",
-            // Do NOT set dataDeletionDate yet — Razorpay will retry over 3-5 days
           },
         });
       }
@@ -322,11 +327,9 @@ export const handleRazorpayWebhook = async (req, res) => {
       const subscription = req.body?.payload?.subscription?.entity;
       if (subscription?.id) {
         console.log(`[Webhook] Subscription ${subscription.id} reached term completion`);
-        await prisma.tenant.updateMany({
+        await prisma.tenantSubscription.updateMany({
           where: { razorpaySubscriptionId: subscription.id },
-          data: {
-            autopayEnabled: false,
-          },
+          data: { autopayEnabled: false },
         });
       }
     }
@@ -338,7 +341,7 @@ export const handleRazorpayWebhook = async (req, res) => {
       const subscription = req.body?.payload?.subscription?.entity;
       if (subscription?.id) {
         console.log(`[Webhook] Subscription ${subscription.id} cancelled`);
-        await prisma.tenant.updateMany({
+        await prisma.tenantSubscription.updateMany({
           where: { razorpaySubscriptionId: subscription.id },
           data: {
             autopayEnabled: false,
@@ -355,7 +358,7 @@ export const handleRazorpayWebhook = async (req, res) => {
       const subscription = req.body?.payload?.subscription?.entity;
       if (subscription?.id) {
         console.log(`[Webhook] Subscription ${subscription.id} paused`);
-        await prisma.tenant.updateMany({
+        await prisma.tenantSubscription.updateMany({
           where: { razorpaySubscriptionId: subscription.id },
           data: {
             autopayEnabled: false,
@@ -373,7 +376,7 @@ export const handleRazorpayWebhook = async (req, res) => {
       const subscription = req.body?.payload?.subscription?.entity;
       if (subscription?.id) {
         console.log(`[Webhook] Subscription ${subscription.id} resumed`);
-        await prisma.tenant.updateMany({
+        await prisma.tenantSubscription.updateMany({
           where: { razorpaySubscriptionId: subscription.id },
           data: {
             autopayEnabled: true,

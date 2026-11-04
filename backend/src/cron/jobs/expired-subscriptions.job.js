@@ -68,29 +68,31 @@ export const checkExpiredSubscriptions = async () => {
     // Find expired tenants in batches of 100
     const expiredTenants = await prisma.tenant.findMany({
       where: {
-        subscriptionStatus: { in: ['trialing', 'active', 'cancel_at_period_end'] },
-        OR: [
-          // A. Non-autopay tenants whose period has ended
-          {
-            razorpaySubscriptionId: null,
-            planPeriodEnd: { lte: now },
-          },
-          // B. Autopay tenants past the 24-hour grace window without renewal
-          {
-            razorpaySubscriptionId: { not: null },
-            planPeriodEnd: { lte: twentyFourHoursAgo },
-          },
-        ]
+        subscription: {
+          subscriptionStatus: { in: ['trialing', 'active', 'cancel_at_period_end'] },
+          OR: [
+            // A. Non-autopay tenants whose period has ended
+            {
+              razorpaySubscriptionId: null,
+              planPeriodEnd: { lte: now },
+            },
+            // B. Autopay tenants past the 24-hour grace window without renewal
+            {
+              razorpaySubscriptionId: { not: null },
+              planPeriodEnd: { lte: twentyFourHoursAgo },
+            },
+          ]
+        }
       },
+      include: { subscription: true },
       take: 100,
     });
-
     if (expiredTenants.length > 0) {
       console.log(`[${timestamp}] Processing ${expiredTenants.length} expired tenants...`);
       const expiredIds = expiredTenants.map(t => t.id);
 
-      await prisma.tenant.updateMany({
-        where: { id: { in: expiredIds } },
+      await prisma.tenantSubscription.updateMany({
+        where: { tenantId: { in: expiredIds } },
         data: {
           subscriptionStatus: 'expired',
           planStatus: 'inactive',
@@ -123,18 +125,22 @@ export const checkExpiredSubscriptions = async () => {
     const sevenDaysFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     const warningTenants = await prisma.tenant.findMany({
       where: {
-        subscriptionStatus: 'expired',
-        dataDeletionDate: {
-          lte: sevenDaysFromNow,
-          gt: new Date(),
+        subscription: {
+          subscriptionStatus: 'expired',
+          dataDeletionDate: {
+            lte: sevenDaysFromNow,
+            gt: new Date(),
+          },
         },
       },
+      include: { subscription: true },
       take: 100,
     });
 
     const frontendUrl = process.env.FRONTEND_URLS ? process.env.FRONTEND_URLS.split(',')[1] : 'http://localhost:5174';
 
-    for (const tenant of warningTenants) {
+    for (const raw of warningTenants) {
+      const tenant = { ...raw, ...raw.subscription };
       try {
         const daysLeft = Math.ceil((new Date(tenant.dataDeletionDate).getTime() - Date.now()) / (24 * 60 * 60 * 1000));
         sendDataDeletionWarningEmail(tenant.email, {

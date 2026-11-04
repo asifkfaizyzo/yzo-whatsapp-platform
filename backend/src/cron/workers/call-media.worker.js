@@ -12,11 +12,10 @@ import path from 'path';
 
 // Helper to get access token
 const getTenantToken = async (tenantId) => {
-  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
-  if (!tenant || !tenant.whatsappAccessToken) throw new Error('WhatsApp not configured');
-  return decrypt(tenant.whatsappAccessToken);
+  const row = await prisma.tenant.findUnique({ where: { id: tenantId }, include: { whatsapp: true } });
+  if (!row || !row.whatsapp?.whatsappAccessToken) throw new Error('WhatsApp not configured');
+  return decrypt(row.whatsapp.whatsappAccessToken);
 };
-
 export const processCallMediaJob = async (job) => {
   const { type, payload, tenantId, wacid: jobWacid } = job.data;
   const token = await getTenantToken(tenantId);

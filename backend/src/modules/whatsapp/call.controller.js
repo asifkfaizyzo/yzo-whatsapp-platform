@@ -12,9 +12,9 @@ import fs from 'fs';
 
 // Helper to get access token
 const getTenantToken = async (tenantId) => {
-  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
-  if (!tenant || !tenant.whatsappAccessToken) throw new Error('WhatsApp not configured');
-  return decrypt(tenant.whatsappAccessToken);
+  const row = await prisma.tenant.findUnique({ where: { id: tenantId }, include: { whatsapp: true } });
+  if (!row || !row.whatsapp?.whatsappAccessToken) throw new Error('WhatsApp not configured');
+  return decrypt(row.whatsapp.whatsappAccessToken);
 };
 
 // POST /sradmin/whatsapp/calls/accept
@@ -22,9 +22,9 @@ export const acceptCall = async (req, res) => {
   try {
     let { wacid, phoneId, sdpAnswer: clientSdpAnswer } = req.body;
     const tenantId = req.tenant?.id || req.user?.tenantId;
-    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
-    if (!tenant) throw new Error('Tenant not found');
-
+    const tenantRow = await prisma.tenant.findUnique({ where: { id: tenantId }, include: { whatsapp: true } });
+    if (!tenantRow) throw new Error('Tenant not found');
+    const tenant = { ...tenantRow, ...tenantRow?.whatsapp };
     phoneId = phoneId || tenant.whatsappPhoneId;
     const token = decrypt(tenant.whatsappAccessToken);
     if (!token) throw new Error('WhatsApp access token not configured');
@@ -89,8 +89,9 @@ export const rejectCall = async (req, res) => {
   try {
     let { phoneId, wacid } = req.body;
     const tenantId = req.tenant?.id || req.user?.tenantId;
-    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
-    if (!tenant) throw new Error('Tenant not found');
+    const tenantRow = await prisma.tenant.findUnique({ where: { id: tenantId }, include: { whatsapp: true } });
+    if (!tenantRow) throw new Error('Tenant not found');
+    const tenant = { ...tenantRow, ...tenantRow?.whatsapp };
 
     phoneId = phoneId || tenant.whatsappPhoneId;
     const token = decrypt(tenant.whatsappAccessToken);
@@ -136,8 +137,9 @@ export const terminateCall = async (req, res) => {
   try {
     let { phoneId, wacid } = req.body; 
     const tenantId = req.tenant?.id || req.user?.tenantId;
-    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
-    if (!tenant) throw new Error('Tenant not found');
+    const tenantRow = await prisma.tenant.findUnique({ where: { id: tenantId }, include: { whatsapp: true } });
+    if (!tenantRow) throw new Error('Tenant not found');
+    const tenant = { ...tenantRow, ...tenantRow?.whatsapp };
 
     phoneId = phoneId || tenant.whatsappPhoneId;
 
@@ -188,8 +190,9 @@ export const initiateCall = async (req, res) => {
   try {
     let { phoneId, contactId, sdpOffer: clientSdpOffer, conversationId: reqConvId } = req.body; 
     const tenantId = req.tenant?.id || req.user?.tenantId;
-    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
-    if (!tenant) throw new Error('Tenant not found');
+    const tenantRow = await prisma.tenant.findUnique({ where: { id: tenantId }, include: { whatsapp: true } });
+    if (!tenantRow) throw new Error('Tenant not found');
+    const tenant = { ...tenantRow, ...tenantRow?.whatsapp };
     
     phoneId = phoneId || tenant.whatsappPhoneId;
     if (!phoneId) throw new Error('WhatsApp Phone ID not configured');
@@ -335,9 +338,9 @@ export const requestCallPermission = async (req, res) => {
     let { phoneId, contactId } = req.body;
     const tenantId = req.tenant?.id || req.user?.tenantId;
     
-    if (!phoneId) {
-      const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
-      phoneId = tenant.whatsappPhoneId;
+  if (!phoneId) {
+      const waRow = await prisma.tenantWhatsApp.findUnique({ where: { tenantId } });
+      phoneId = waRow?.whatsappPhoneId;
     }
 
     const contact = await prisma.contact.findUnique({ where: { id: contactId } });
@@ -486,8 +489,9 @@ export const uploadVoicemailGreeting = async (req, res) => {
 export const getCallHistory = async (req, res) => {
   try {
     const tenantId = req.tenant?.id || req.user?.tenantId;
-    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
-    if (!tenant) throw new Error('Tenant not found');
+    const tenantRow = await prisma.tenant.findUnique({ where: { id: tenantId }, include: { whatsapp: true } });
+    if (!tenantRow) throw new Error('Tenant not found');
+    const tenant = { ...tenantRow, ...tenantRow?.whatsapp };
 
     const phoneId = tenant.whatsappPhoneId;
     const { 

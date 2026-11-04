@@ -68,8 +68,8 @@ export const cancelSubscription = async (req, res) => {
     const isTrialing = tenant.subscriptionStatus === 'trialing';
 
     const updatedTenant = await prisma.$transaction(async (tx) => {
-      const updated = await tx.tenant.update({
-        where: { id: tenant.id },
+      const updated = await tx.tenantSubscription.update({
+        where: { tenantId: tenant.id },
         data: {
           subscriptionStatus: isTrialing ? 'trialing' : 'cancel_at_period_end',
           autopayEnabled: false,
@@ -200,8 +200,8 @@ export const reactivateSubscription = async (req, res) => {
     }
 
     const updatedTenant = await prisma.$transaction(async (tx) => {
-      const updated = await tx.tenant.update({
-        where: { id: tenant.id },
+      const updated = await tx.tenantSubscription.update({
+        where: { tenantId: tenant.id },
         data: {
           subscriptionStatus: 'active',
           cancelRequestedAt: null,
@@ -312,8 +312,8 @@ export const pauseSubscription = async (req, res) => {
     }
 
     // 2. Update Tenant state in database
-    const updatedTenant = await prisma.tenant.update({
-      where: { id: tenant.id },
+    const updatedTenant = await prisma.tenantSubscription.update({
+      where: { tenantId: tenant.id },
       data: {
         subscriptionStatus: "paused",
         planStatus: "inactive",
@@ -423,8 +423,8 @@ export const resumeSubscription = async (req, res) => {
     }
 
     // 2. Reactivate Tenant in database
-    const updatedTenant = await prisma.tenant.update({
-      where: { id: tenant.id },
+    const updatedTenant = await prisma.tenantSubscription.update({
+      where: { tenantId: tenant.id },
       data: {
         subscriptionStatus: "active",
         planStatus: "active",
@@ -433,7 +433,6 @@ export const resumeSubscription = async (req, res) => {
         reactivatedAt: new Date(),
       },
     });
-
     // 3. Audit Log
     await createAuditLog({
       actorId: tenant.id,
@@ -502,23 +501,25 @@ export const resumeSubscription = async (req, res) => {
 
 export const getBillingOverview = async (req, res) => {
   try {
-    const tenant = await prisma.tenant.findUnique({
+    const tenantRow = await prisma.tenant.findUnique({
       where: { id: req.tenantId },
       select: {
         id: true,
-        subscriptionStatus: true,
-        currentPlan: true,
-        plan: {
-          select: { name: true }
+        plan: { select: { name: true } },
+        subscription: {
+          select: {
+            subscriptionStatus: true,
+            currentPlan: true,
+            hasUsedTrial: true,
+            autopayEnabled: true,
+            autopayMethod: true,
+            trialExtendedCount: true,
+            planPeriodStart: true,
+            planPeriodEnd: true,
+            cancelRequestedAt: true,
+            dataDeletionDate: true,
+          }
         },
-        hasUsedTrial: true,
-        autopayEnabled: true,
-        autopayMethod: true,
-        trialExtendedCount: true,
-        planPeriodStart: true,
-        planPeriodEnd: true,
-        cancelRequestedAt: true,
-        dataDeletionDate: true,
         invoices: {
           orderBy: { createdAt: 'desc' },
           take: 5,
@@ -534,6 +535,7 @@ export const getBillingOverview = async (req, res) => {
         }
       }
     });
+    const tenant = tenantRow ? { ...tenantRow, ...tenantRow.subscription } : null;
 
     if (!tenant) {
       return res.status(404).json({ success: false, message: "Tenant not found" });
@@ -547,15 +549,14 @@ export const getBillingOverview = async (req, res) => {
     if (status === 'cancel_at_period_end' && tenant.planPeriodEnd && new Date(tenant.planPeriodEnd) < now) {
       const computedDeletionDate = new Date(now.getTime() + 90 * 86400000);
 
-      await prisma.tenant.update({
-        where: { id: req.tenantId },
+      await prisma.tenantSubscription.update({
+        where: { tenantId: req.tenantId },
         data: {
           subscriptionStatus: 'expired',
           planStatus: 'inactive',
           dataDeletionDate: computedDeletionDate
         }
-      });
-      status = 'expired';
+      });      status = 'expired';
       dataDeletionDate = computedDeletionDate;
     }
 

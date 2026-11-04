@@ -316,11 +316,15 @@ export async function processCartReminder(data) {
     console.log(`[Woo Cart Recovery] Development recipient override active for cart ${cartId}`);
   }
 
-  const tenant = await prisma.tenant.findUnique({
+  const tenantRow = await prisma.tenant.findUnique({
     where: { id: tenantId },
-    select: { id: true, tenantName: true, whatsappPhoneId: true, whatsappAccessToken: true },
+    select: {
+      id: true,
+      tenantName: true,
+      whatsapp: { select: { whatsappPhoneId: true, whatsappAccessToken: true } },
+    },
   });
-  if (!tenant) return { skipped: true, reason: 'tenant_not_found' };
+  const tenant = { ...tenantRow, ...tenantRow?.whatsapp };  if (!tenant) return { skipped: true, reason: 'tenant_not_found' };
 
   let contact = await prisma.contact.findFirst({
     where: { tenantId, phone: recipient },
