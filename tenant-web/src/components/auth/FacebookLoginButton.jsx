@@ -54,7 +54,7 @@ export default function FacebookLoginButton({ onSuccess, onError, disabled, text
           onError("Facebook login was cancelled or failed.");
         }
       },
-      { scope: "public_profile,email" }
+      { config_id: import.meta.env.VITE_META_SSO_CONFIG_ID }
     );
   };
 

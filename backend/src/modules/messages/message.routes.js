@@ -8,8 +8,10 @@ import upload from "../../middlewares/upload.middleware.js";
 
 const router = express.Router();
 
-//Incoming Message from contact
-router.post('/incoming',upload.single("file"), messageController.incomingMessageController);
+// ── Incoming Message (test/internal simulation) — PROTECTED
+// Real incoming messages arrive via the authenticated Meta webhook (/api/webhook).
+// This route is for internal testing only and must require authentication.
+router.post('/incoming', verifyTenantOrUser, upload.single("file"), messageController.incomingMessageController);
 
 //Send Message Tenant to contact
 router.post("/contacts/:contactId/messages", verifyTenantOrUser, checkSubscriptionAccess, messageController.sendMessage);

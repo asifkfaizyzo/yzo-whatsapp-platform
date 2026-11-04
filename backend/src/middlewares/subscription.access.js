@@ -163,7 +163,14 @@ export const checkSubscriptionAccess = async (req, res, next) => {
       });
     }
 
-    return next();
+    // Deny by default — any unknown or null status does NOT get access
+    console.warn(`[checkSubscriptionAccess] Unknown subscription status "${status}" for tenant ${req.tenantId}. Denying access.`);
+    return res.status(403).json({
+      success: false,
+      code: 'SUBSCRIPTION_UNKNOWN',
+      message: 'Your account does not have an active subscription.',
+      redirect: '/plans'
+    });
   } catch (error) {
     console.error("Subscription access middleware error:", error);
     return res.status(500).json({

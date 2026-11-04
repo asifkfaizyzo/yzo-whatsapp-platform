@@ -190,6 +190,14 @@ app.use('/uploads', (req, res, next) => {
   next();
 }, express.static(path.join(process.cwd(), 'uploads')));
 
+// ── Rate Limiting on Auth Routes ──
+app.use('/api/login',                    authLimiter);
+app.use('/api/create',                   authLimiter);
+app.use('/api2/login',                   authLimiter);
+app.use('/api2/register',                authLimiter); // covers all /register/* including verify-email
+app.use('/api2/forgot-password',         authLimiter);
+app.use('/api2/reset-password',          authLimiter);
+app.use('/api3/login',                   authLimiter);
 
 // ═══════════════════════════════════════════════════════════════
 // RATE LIMITING (auth routes only)

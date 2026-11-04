@@ -6,6 +6,7 @@ export const siteConfig = {
     support: "info@sudoreply.com",
     privacy: "info@sudoreply.com",
     legal: "info@sudoreply.com",
+    info: "info@sudoreply.com",
   },
   hero: {
     title: "WhatsApp marketing & support made simple",

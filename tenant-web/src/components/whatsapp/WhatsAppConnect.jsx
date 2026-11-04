@@ -14,6 +14,8 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
   const [error, setError] = useState(null);
   const [availableWabas, setAvailableWabas] = useState([]);
   const [showSelector, setShowSelector] = useState(false);
+  const [pin, setPin] = useState("");
+  const [pinConfirm, setPinConfirm] = useState("");
 
   // Refs to track state across async operations
   const timeoutRef = useRef(null);

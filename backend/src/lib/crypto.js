@@ -2,10 +2,12 @@
 import crypto from 'crypto';
 
 const ALGORITHM = 'aes-256-gcm';
-// Ensure ENCRYPTION_KEY in .env is 32 bytes hex string (64 characters) or fallback to secret
+// Prefer a dedicated ENCRYPTION_KEY so rotating JWT secrets doesn't corrupt stored tokens.
+// ENCRYPTION_KEY must be a 64-char hex string (32 bytes). Falls back to ACCESS_SECRET
+// for backward compatibility with existing deployments that haven't set this yet.
 const SECRET_KEY = crypto
   .createHash('sha256')
-  .update(process.env.ACCESS_SECRET || 'fallback_encryption_secret_key_32b')
+  .update(process.env.ENCRYPTION_KEY || process.env.ACCESS_SECRET || 'fallback_encryption_secret_key_32b')
   .digest();
 
 export const encrypt = (text) => {
