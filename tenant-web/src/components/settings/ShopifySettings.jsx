@@ -31,7 +31,7 @@ import {
 } from "../../api/shopify";
 
 const shopifyWebhookUrl = import.meta.env.VITE_BACKEND_URL
-  ? `${import.meta.env.VITE_BACKEND_URL.replace(/\/+$/, "")}/api2/shopify/webhooks`
+  ? `${import.meta.env.VITE_BACKEND_URL.replace(/\/+$/, "")}/tenant/shopify/webhooks`
   : null;
 
 

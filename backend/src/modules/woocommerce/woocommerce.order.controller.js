@@ -1,7 +1,7 @@
 // backend/src/modules/woocommerce/woocommerce.order.controller.js (do not remove this comment)
 import prisma from '../../config/prisma.js';
 
-// GET /api2/woocommerce/orders?phone=+91xxxxxxxxx
+// GET /tenant/woocommerce/orders?phone=+91xxxxxxxxx
 export const getCustomerOrders = async (req, res) => {
   try {
     const tenantId = req.tenantId || req.tenant?.id;

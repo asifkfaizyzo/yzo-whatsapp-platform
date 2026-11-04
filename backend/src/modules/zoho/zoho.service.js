@@ -1,28 +1,28 @@
 // backend/src/modules/zoho/zoho.service.js (do not remove this comment)
 
-import crypto from 'crypto';
-import axios from 'axios';
-import prisma from '../../config/prisma.js';
-import { redisConnection } from '../../config/redis.js';
-import { encrypt, decrypt } from '../../lib/crypto.js';
-import { emitToTenant } from '../../lib/socket.js';
-import { createAuditLog } from '../audit/audit.service.js';
+import crypto from "crypto";
+import axios from "axios";
+import prisma from "../../config/prisma.js";
+import { redisConnection } from "../../config/redis.js";
+import { encrypt, decrypt } from "../../lib/crypto.js";
+import { emitToTenant } from "../../lib/socket.js";
+import { createAuditLog } from "../audit/audit.service.js";
 import {
   ZOHO_DC_MAP,
   ZOHO_PHASE_1_SCOPES,
   ZOHO_DEFAULT_AUTH_URL,
   ZOHO_STATE_REDIS_PREFIX,
   ZOHO_STATE_TTL_SECONDS,
-} from './zoho.constants.js';
-import { zohoRequest, extractAndSaveRateLimits } from './zoho.client.js';
-import { detectZohoPlan } from './zoho.plan.service.js';
+} from "./zoho.constants.js";
+import { zohoRequest, extractAndSaveRateLimits } from "./zoho.client.js";
+import { detectZohoPlan } from "./zoho.plan.service.js";
 
 /**
  * Generates a valid Zoho-compliant numeric-only channel ID (max 20 digits, type: long)
  */
-function getZohoNumericChannelId(tenantId, suffix = '1') {
-  const hash = crypto.createHash('md5').update(tenantId).digest('hex');
-  const numericStr = BigInt('0x' + hash.substring(0, 14)).toString();
+function getZohoNumericChannelId(tenantId, suffix = "1") {
+  const hash = crypto.createHash("md5").update(tenantId).digest("hex");
+  const numericStr = BigInt("0x" + hash.substring(0, 14)).toString();
   return `${numericStr.substring(0, 18)}${suffix}`.substring(0, 20);
 }
 
@@ -30,25 +30,31 @@ function getZohoNumericChannelId(tenantId, suffix = '1') {
  * Dynamic URL resolvers matching platform patterns
  */
 export function getDynamicBackendUrl(req) {
-  if (process.env.BACKEND_URL) return process.env.BACKEND_URL.replace(/\/+$/, '');
-  if (process.env.BASE_URL && process.env.BASE_URL.startsWith('http')) return process.env.BASE_URL.replace(/\/+$/, '');
-  
+  if (process.env.BACKEND_URL)
+    return process.env.BACKEND_URL.replace(/\/+$/, "");
+  if (process.env.BASE_URL && process.env.BASE_URL.startsWith("http"))
+    return process.env.BASE_URL.replace(/\/+$/, "");
+
   // If running behind a reverse proxy in production
-  if (process.env.NODE_ENV === 'production') {
-    return 'https://sudoreply.com';
+  if (process.env.NODE_ENV === "production") {
+    return "https://sudoreply.com";
   }
 
-  if (!req || !req.headers) return 'http://localhost:5000'; // Safe background fallback
-  const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
-  const host = req.headers['x-forwarded-host'] || req.headers.host || 'localhost:5000';
+  if (!req || !req.headers) return "http://localhost:5000"; // Safe background fallback
+  const protocol = req.headers["x-forwarded-proto"] || req.protocol || "http";
+  const host =
+    req.headers["x-forwarded-host"] || req.headers.host || "localhost:5000";
   return `${protocol}://${host}`;
 }
 
 export function getDynamicFrontendUrl(req) {
-  if (process.env.FRONTEND_URL) return process.env.FRONTEND_URL.replace(/\/+$/, '');
+  if (process.env.FRONTEND_URL)
+    return process.env.FRONTEND_URL.replace(/\/+$/, "");
 
   const allowedUrls = process.env.FRONTEND_URLS
-    ? process.env.FRONTEND_URLS.split(',').map((s) => s.trim()).filter(Boolean)
+    ? process.env.FRONTEND_URLS.split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
     : [];
 
   const origin = req.headers.origin || req.headers.referer;
@@ -61,8 +67,10 @@ export function getDynamicFrontendUrl(req) {
     } catch (_) {}
   }
 
-  const tenantUrl = allowedUrls.find((u) => u.includes('5174') || !u.includes('5173')) || allowedUrls[0];
-  return (tenantUrl || 'http://localhost:5174').replace(/\/+$/, '');
+  const tenantUrl =
+    allowedUrls.find((u) => u.includes("5174") || !u.includes("5173")) ||
+    allowedUrls[0];
+  return (tenantUrl || "http://localhost:5174").replace(/\/+$/, "");
 }
 
 /**
@@ -71,29 +79,30 @@ export function getDynamicFrontendUrl(req) {
 export async function getOAuthAuthorizeUrl(tenantId, req) {
   const clientId = process.env.ZOHO_CLIENT_ID;
   if (!clientId) {
-    throw new Error('ZOHO_CLIENT_ID is not configured in environment');
+    throw new Error("ZOHO_CLIENT_ID is not configured in environment");
   }
 
   const backendUrl = getDynamicBackendUrl(req);
-  const redirectUri = process.env.ZOHO_REDIRECT_URI || `${backendUrl}/api/zoho/callback`;
+  const redirectUri =
+    process.env.ZOHO_REDIRECT_URI || `${backendUrl}/sradmin/zoho/callback`;
 
   // Generate 32-byte cryptographic random state
-  const state = crypto.randomBytes(32).toString('hex');
+  const state = crypto.randomBytes(32).toString("hex");
   const redisKey = `${ZOHO_STATE_REDIS_PREFIX}${state}`;
 
   // Store in Redis with 10-minute TTL for one-time verification
   await redisConnection.set(
     redisKey,
     JSON.stringify({ tenantId, createdAt: Date.now() }),
-    'EX',
-    ZOHO_STATE_TTL_SECONDS
+    "EX",
+    ZOHO_STATE_TTL_SECONDS,
   );
 
-  const scopeParam = encodeURIComponent(ZOHO_PHASE_1_SCOPES.join(','));
+  const scopeParam = encodeURIComponent(ZOHO_PHASE_1_SCOPES.join(","));
   const authUrl = `${ZOHO_DEFAULT_AUTH_URL}?response_type=code&client_id=${encodeURIComponent(
-    clientId
+    clientId,
   )}&scope=${scopeParam}&access_type=offline&prompt=consent&redirect_uri=${encodeURIComponent(
-    redirectUri
+    redirectUri,
   )}&state=${encodeURIComponent(state)}`;
 
   return { url: authUrl };
@@ -103,14 +112,24 @@ export async function getOAuthAuthorizeUrl(tenantId, req) {
  * Handle incoming OAuth redirection callback from Zoho.
  */
 export async function handleOAuthCallback(queryParams, req) {
-  const { code, state, location, error: oauthError, error_description } = queryParams;
+  const {
+    code,
+    state,
+    location,
+    error: oauthError,
+    error_description,
+  } = queryParams;
   const frontendUrl = getDynamicFrontendUrl(req);
 
   if (oauthError) {
-    console.error('❌ [ZohoOAuth] Authorization denied or failed:', oauthError, error_description);
+    console.error(
+      "❌ [ZohoOAuth] Authorization denied or failed:",
+      oauthError,
+      error_description,
+    );
     return {
       redirectUrl: `${frontendUrl}/dashboard/integrations?app=zoho&error=${encodeURIComponent(
-        error_description || oauthError
+        error_description || oauthError,
       )}`,
     };
   }
@@ -126,10 +145,10 @@ export async function handleOAuthCallback(queryParams, req) {
   const rawStateData = await redisConnection.get(redisKey);
 
   if (!rawStateData) {
-    console.error('❌ [ZohoOAuth] Invalid or expired OAuth state parameter');
+    console.error("❌ [ZohoOAuth] Invalid or expired OAuth state parameter");
     return {
       redirectUrl: `${frontendUrl}/dashboard/integrations?app=zoho&error=${encodeURIComponent(
-        'OAuth session expired or invalid. Please try connecting again.'
+        "OAuth session expired or invalid. Please try connecting again.",
       )}`,
     };
   }
@@ -157,62 +176,68 @@ export async function handleOAuthCallback(queryParams, req) {
     const clientId = process.env.ZOHO_CLIENT_ID;
     const clientSecret = process.env.ZOHO_CLIENT_SECRET;
     const backendUrl = getDynamicBackendUrl(req);
-    const primaryRedirectUri = process.env.ZOHO_REDIRECT_URI || `${backendUrl}/api/zoho/callback`;
+    const primaryRedirectUri =
+      process.env.ZOHO_REDIRECT_URI || `${backendUrl}/sradmin/zoho/callback`;
 
     if (!clientId || !clientSecret) {
-      throw new Error('Zoho application credentials missing on server');
+      throw new Error("Zoho application credentials missing on server");
     }
 
     // Determine token exchange endpoint from DC location parameter
-    const dcKey = (location || 'us').toLowerCase();
-    const accountsDomain = ZOHO_DC_MAP[dcKey]?.accountsDomain || 'accounts.zoho.com';
+    const dcKey = (location || "us").toLowerCase();
+    const accountsDomain =
+      ZOHO_DC_MAP[dcKey]?.accountsDomain || "accounts.zoho.com";
     const tokenUrl = `https://${accountsDomain}/oauth/v2/token`;
 
-    console.log(`🔄 [ZohoOAuth] Exchanging code for tenant ${tenantId} via ${tokenUrl}`);
-
-    const tokenResponse = await axios.post(
-      tokenUrl,
-      null,
-      {
-        params: {
-          grant_type: 'authorization_code',
-          client_id: clientId,
-          client_secret: clientSecret,
-          redirect_uri: primaryRedirectUri,
-          code: code,
-        },
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        timeout: 15000,
-      }
+    console.log(
+      `🔄 [ZohoOAuth] Exchanging code for tenant ${tenantId} via ${tokenUrl}`,
     );
+
+    const tokenResponse = await axios.post(tokenUrl, null, {
+      params: {
+        grant_type: "authorization_code",
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: primaryRedirectUri,
+        code: code,
+      },
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      timeout: 15000,
+    });
 
     const tokenData = tokenResponse.data;
 
     if (tokenData.error) {
-      throw new Error(`Zoho token exchange error: ${tokenData.error_description || tokenData.error}`);
+      throw new Error(
+        `Zoho token exchange error: ${tokenData.error_description || tokenData.error}`,
+      );
     }
 
     const { access_token, refresh_token, expires_in, api_domain } = tokenData;
 
     if (!access_token) {
-      throw new Error('Zoho token exchange response missing access_token');
+      throw new Error("Zoho token exchange response missing access_token");
     }
 
-    const resolvedApiDomain = api_domain || ZOHO_DC_MAP[dcKey]?.apiDomain || 'https://www.zohoapis.com';
+    const resolvedApiDomain =
+      api_domain || ZOHO_DC_MAP[dcKey]?.apiDomain || "https://www.zohoapis.com";
 
     // Fetch Current User Identity to obtain `zuid` and user email
     let connectedUserEmail = null;
     let connectedUserId = null;
 
     try {
-      const userRes = await axios.get(`${resolvedApiDomain.replace(/\/+$/, '')}/crm/v7/users?type=CurrentUser`, {
-        headers: {
-          Authorization: `Zoho-oauthtoken ${access_token}`,
+      const userRes = await axios.get(
+        `${resolvedApiDomain.replace(/\/+$/, "")}/crm/v7/users?type=CurrentUser`,
+        {
+          headers: {
+            Authorization: `Zoho-oauthtoken ${access_token}`,
+          },
+          timeout: 10000,
         },
-        timeout: 10000,
-      });
+      );
 
       // 🎯 CAPTURE LIVE RATE LIMIT HEADERS IMMEDIATELY ON CONNECTION
       if (userRes.headers) {
@@ -225,7 +250,10 @@ export async function handleOAuthCallback(queryParams, req) {
         connectedUserEmail = currentUser.email || null;
       }
     } catch (userErr) {
-      console.warn('⚠️ [ZohoOAuth] Could not fetch CurrentUser profile:', userErr.response?.data || userErr.message);
+      console.warn(
+        "⚠️ [ZohoOAuth] Could not fetch CurrentUser profile:",
+        userErr.response?.data || userErr.message,
+      );
     }
 
     const existingTenant = await prisma.tenant.findUnique({
@@ -234,7 +262,7 @@ export async function handleOAuthCallback(queryParams, req) {
     });
 
     if (!existingTenant) {
-      throw new Error('Tenant workspace record not found');
+      throw new Error("Tenant workspace record not found");
     }
 
     // Account Switching Check: If connecting a DIFFERENT Zoho account, clear stale contact mappings
@@ -243,9 +271,11 @@ export async function handleOAuthCallback(queryParams, req) {
       connectedUserId &&
       existingTenant.zohoAccountId !== connectedUserId
     ) {
-      console.log(`⚠️ [ZohoOAuth] Tenant ${tenantId} switched Zoho accounts (${existingTenant.zohoAccountId} -> ${connectedUserId}). Clearing old ContactProviderMappings.`);
+      console.log(
+        `⚠️ [ZohoOAuth] Tenant ${tenantId} switched Zoho accounts (${existingTenant.zohoAccountId} -> ${connectedUserId}). Clearing old ContactProviderMappings.`,
+      );
       await prisma.contactProviderMapping.deleteMany({
-        where: { tenantId, provider: 'ZOHO' },
+        where: { tenantId, provider: "ZOHO" },
       });
     }
 
@@ -258,9 +288,9 @@ export async function handleOAuthCallback(queryParams, req) {
       zohoApiDomain: resolvedApiDomain,
       zohoAccountEmail: connectedUserEmail,
       zohoAccountId: connectedUserId || existingTenant.zohoAccountId,
-      zohoConnectionStatus: 'CONNECTED',
+      zohoConnectionStatus: "CONNECTED",
       zohoConnectedAt: new Date(),
-      zohoScopes: ZOHO_PHASE_1_SCOPES.join(','),
+      zohoScopes: ZOHO_PHASE_1_SCOPES.join(","),
     };
 
     if (refresh_token) {
@@ -274,34 +304,40 @@ export async function handleOAuthCallback(queryParams, req) {
 
     await createAuditLog({
       actorId: existingTenant.id,
-      actorType: 'TENANT',
-      actorName: existingTenant.tenantName || existingTenant.email || 'Tenant',
-      actorEmail: existingTenant.email || '',
-      action: 'ZOHO_CONNECTED',
-      module: 'INTEGRATIONS',
-      description: `Zoho CRM successfully connected for account ${connectedUserEmail || connectedUserId || 'user'}`,
+      actorType: "TENANT",
+      actorName: existingTenant.tenantName || existingTenant.email || "Tenant",
+      actorEmail: existingTenant.email || "",
+      action: "ZOHO_CONNECTED",
+      module: "INTEGRATIONS",
+      description: `Zoho CRM successfully connected for account ${connectedUserEmail || connectedUserId || "user"}`,
       tenantId: existingTenant.id,
     });
 
     // Run plan detection + webhook subscriptions in background
     postConnectionSetup(tenantId).catch((err) => {
-      console.warn('⚠️ [ZohoOAuth] Post-connection setup failed:', err.message);
+      console.warn("⚠️ [ZohoOAuth] Post-connection setup failed:", err.message);
     });
 
-    emitToTenant(tenantId, 'zoho_connection_updated', {
-      status: 'CONNECTED',
+    emitToTenant(tenantId, "zoho_connection_updated", {
+      status: "CONNECTED",
       accountEmail: connectedUserEmail,
       dataCenter: dcKey,
     });
 
-    console.log(`✅ [ZohoOAuth] Zoho successfully connected for tenant ${tenantId}`);
+    console.log(
+      `✅ [ZohoOAuth] Zoho successfully connected for tenant ${tenantId}`,
+    );
 
     return {
       redirectUrl: `${frontendUrl}/dashboard/integrations?app=zoho&connected=true`,
     };
   } catch (error) {
-    const errorMsg = error.response?.data?.error_description || error.response?.data?.error || error.message || 'OAuth token exchange failed';
-    console.error('❌ [ZohoOAuth] Callback exchange error:', errorMsg);
+    const errorMsg =
+      error.response?.data?.error_description ||
+      error.response?.data?.error ||
+      error.message ||
+      "OAuth token exchange failed";
+    console.error("❌ [ZohoOAuth] Callback exchange error:", errorMsg);
     return {
       redirectUrl: `${frontendUrl}/dashboard/integrations?app=zoho&error=${encodeURIComponent(errorMsg)}`,
     };
@@ -327,33 +363,38 @@ export async function getZohoConnectionStatus(tenantId) {
   });
 
   if (!tenant) {
-    throw new Error('Tenant not found');
+    throw new Error("Tenant not found");
   }
 
   // Fetch cached rate limit details from Redis
   let rateLimit = null;
   try {
-    const cachedLimit = await redisConnection.get(`zoho_rate_limit:${tenantId}`);
+    const cachedLimit = await redisConnection.get(
+      `zoho_rate_limit:${tenantId}`,
+    );
     if (cachedLimit) {
       rateLimit = JSON.parse(cachedLimit);
     }
   } catch (err) {
-    console.warn('⚠️ [ZohoService] Failed to fetch rate limit from Redis:', err.message);
+    console.warn(
+      "⚠️ [ZohoService] Failed to fetch rate limit from Redis:",
+      err.message,
+    );
   }
 
   // 🚫 ZERO FAKE FALLBACKS — Only return real Zoho headers if they exist
-  const dcInfo = ZOHO_DC_MAP[(tenant.zohoDataCenter || 'us').toLowerCase()];
+  const dcInfo = ZOHO_DC_MAP[(tenant.zohoDataCenter || "us").toLowerCase()];
 
   return {
-    connected: tenant.zohoConnectionStatus === 'CONNECTED',
-    status: tenant.zohoConnectionStatus || 'DISCONNECTED',
+    connected: tenant.zohoConnectionStatus === "CONNECTED",
+    status: tenant.zohoConnectionStatus || "DISCONNECTED",
     accountEmail: tenant.zohoAccountEmail || null,
     accountId: tenant.zohoAccountId || null,
     dataCenter: tenant.zohoDataCenter || null,
     dataCenterLabel: dcInfo?.label || tenant.zohoDataCenter || null,
     apiDomain: tenant.zohoApiDomain || null,
     connectedAt: tenant.zohoConnectedAt || null,
-    scopes: tenant.zohoScopes ? tenant.zohoScopes.split(',') : [],
+    scopes: tenant.zohoScopes ? tenant.zohoScopes.split(",") : [],
     rateLimit, // Will be null until real headers arrive from Zoho!
   };
 }
@@ -363,15 +404,18 @@ export async function getZohoConnectionStatus(tenantId) {
  */
 export async function testZohoConnection(tenantId) {
   const result = await zohoRequest(tenantId, {
-    method: 'GET',
-    url: '/crm/v7/users?type=CurrentUser',
+    method: "GET",
+    url: "/crm/v7/users?type=CurrentUser",
   });
 
   const currentUser = result?.users?.[0];
 
   // Auto-subscribe/renew Zoho Webhook Watch whenever testing connection
   subscribeToZohoNotifications(tenantId).catch((err) => {
-    console.warn('⚠️ [ZohoService] Auto-watch renewal on test failed:', err.message);
+    console.warn(
+      "⚠️ [ZohoService] Auto-watch renewal on test failed:",
+      err.message,
+    );
   });
 
   let rateLimit = null;
@@ -384,10 +428,10 @@ export async function testZohoConnection(tenantId) {
 
   return {
     success: true,
-    message: 'Zoho CRM connection is active and valid',
+    message: "Zoho CRM connection is active and valid",
     user: currentUser
       ? {
-          name: currentUser.full_name || currentUser.first_name || 'Zoho User',
+          name: currentUser.full_name || currentUser.first_name || "Zoho User",
           email: currentUser.email,
           role: currentUser.role?.name || null,
           profile: currentUser.profile?.name || null,
@@ -414,33 +458,42 @@ export async function disconnectZoho(tenantId, meta = {}) {
   });
 
   if (!tenant) {
-    throw new Error('Tenant not found');
+    throw new Error("Tenant not found");
   }
 
   // Best-effort notification unsubscription
   try {
     await unsubscribeFromZohoNotifications(tenantId);
   } catch (err) {
-    console.warn('⚠️ [ZohoOAuth] Failed to unsubscribe from notifications:', err.message);
+    console.warn(
+      "⚠️ [ZohoOAuth] Failed to unsubscribe from notifications:",
+      err.message,
+    );
   }
 
   // Best-effort token revocation with Zoho
   if (tenant.zohoRefreshToken) {
     try {
       const decryptedToken = decrypt(tenant.zohoRefreshToken);
-      const dcKey = (tenant.zohoDataCenter || 'us').toLowerCase();
-      const accountsDomain = ZOHO_DC_MAP[dcKey]?.accountsDomain || 'accounts.zoho.com';
+      const dcKey = (tenant.zohoDataCenter || "us").toLowerCase();
+      const accountsDomain =
+        ZOHO_DC_MAP[dcKey]?.accountsDomain || "accounts.zoho.com";
       await axios.post(
         `https://${accountsDomain}/oauth/v2/token/revoke`,
         null,
         {
           params: { token: decryptedToken },
           timeout: 8000,
-        }
+        },
       );
-      console.log(`🗑️ [ZohoOAuth] Revoked refresh token on Zoho for tenant ${tenantId}`);
+      console.log(
+        `🗑️ [ZohoOAuth] Revoked refresh token on Zoho for tenant ${tenantId}`,
+      );
     } catch (revokeErr) {
-      console.warn('⚠️ [ZohoOAuth] Token revocation failed (ignoring):', revokeErr.message);
+      console.warn(
+        "⚠️ [ZohoOAuth] Token revocation failed (ignoring):",
+        revokeErr.message,
+      );
     }
   }
 
@@ -454,7 +507,7 @@ export async function disconnectZoho(tenantId, meta = {}) {
       zohoDataCenter: null,
       zohoApiDomain: null,
       zohoAccountEmail: null,
-      zohoConnectionStatus: 'DISCONNECTED',
+      zohoConnectionStatus: "DISCONNECTED",
       zohoConnectedAt: null,
       zohoScopes: null,
     },
@@ -462,22 +515,22 @@ export async function disconnectZoho(tenantId, meta = {}) {
 
   await createAuditLog({
     actorId: tenant.id,
-    actorType: 'TENANT',
-    actorName: tenant.tenantName || tenant.email || 'Tenant',
-    actorEmail: tenant.email || '',
-    action: 'ZOHO_DISCONNECTED',
-    module: 'INTEGRATIONS',
-    description: `Zoho CRM disconnected (was connected to ${tenant.zohoAccountEmail || 'account'})`,
+    actorType: "TENANT",
+    actorName: tenant.tenantName || tenant.email || "Tenant",
+    actorEmail: tenant.email || "",
+    action: "ZOHO_DISCONNECTED",
+    module: "INTEGRATIONS",
+    description: `Zoho CRM disconnected (was connected to ${tenant.zohoAccountEmail || "account"})`,
     ipAddress: meta.ipAddress,
     userAgent: meta.userAgent,
     tenantId: tenant.id,
   });
 
-  emitToTenant(tenantId, 'zoho_connection_updated', {
-    status: 'DISCONNECTED',
+  emitToTenant(tenantId, "zoho_connection_updated", {
+    status: "DISCONNECTED",
   });
 
-  return { message: 'Zoho CRM integration disconnected successfully' };
+  return { message: "Zoho CRM integration disconnected successfully" };
 }
 
 /**
@@ -486,51 +539,60 @@ export async function disconnectZoho(tenantId, meta = {}) {
  */
 export async function subscribeToZohoNotifications(tenantId) {
   const backendUrl = getDynamicBackendUrl();
-  const webhookUrl = `${backendUrl.replace(/\/+$/, '')}/api/zoho/webhook`;
+  const webhookUrl = `${backendUrl.replace(/\/+$/, "")}/sradmin/zoho/webhook`;
 
-  if (!webhookUrl.startsWith('https://')) {
-    console.warn(`⚠️ [ZohoSetup] Zoho CRM Webhooks require HTTPS. Current: ${webhookUrl}`);
-    return { success: false, message: 'HTTPS required for Zoho webhook' };
+  if (!webhookUrl.startsWith("https://")) {
+    console.warn(
+      `⚠️ [ZohoSetup] Zoho CRM Webhooks require HTTPS. Current: ${webhookUrl}`,
+    );
+    return { success: false, message: "HTTPS required for Zoho webhook" };
   }
 
-  const contactsChannelId = getZohoNumericChannelId(tenantId, '1');
-  const leadsChannelId = getZohoNumericChannelId(tenantId, '2');
+  const contactsChannelId = getZohoNumericChannelId(tenantId, "1");
+  const leadsChannelId = getZohoNumericChannelId(tenantId, "2");
 
   // Zoho max expiry is 1 week; use 6 days for safety margin
-  const channelExpiry = new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString();
+  const channelExpiry = new Date(
+    Date.now() + 6 * 24 * 60 * 60 * 1000,
+  ).toISOString();
 
   // Token max 50 chars per Zoho docs
   const token = tenantId.substring(0, 50);
 
   try {
     const response = await zohoRequest(tenantId, {
-      method: 'POST',
-      url: '/crm/v7/actions/watch',
+      method: "POST",
+      url: "/crm/v7/actions/watch",
       data: {
         watch: [
           {
             channel_id: contactsChannelId,
             channel_expiry: channelExpiry,
-            events: ['Contacts.create', 'Contacts.edit', 'Contacts.delete'],
+            events: ["Contacts.create", "Contacts.edit", "Contacts.delete"],
             notify_url: webhookUrl,
             token,
           },
           {
             channel_id: leadsChannelId,
             channel_expiry: channelExpiry,
-            events: ['Leads.create', 'Leads.edit', 'Leads.delete'],
+            events: ["Leads.create", "Leads.edit", "Leads.delete"],
             notify_url: webhookUrl,
             token,
-          }
+          },
         ],
       },
     });
 
-    console.log(`✅ [ZohoService] Watch registered for tenant ${tenantId} (channels: ${contactsChannelId}, ${leadsChannelId}) -> ${webhookUrl}`);
+    console.log(
+      `✅ [ZohoService] Watch registered for tenant ${tenantId} (channels: ${contactsChannelId}, ${leadsChannelId}) -> ${webhookUrl}`,
+    );
     return { success: true, data: response };
   } catch (error) {
     const errorData = error.response?.data;
-    console.error(`⚠️ [ZohoService] Watch rejected by Zoho:`, JSON.stringify(errorData || error.message, null, 2));
+    console.error(
+      `⚠️ [ZohoService] Watch rejected by Zoho:`,
+      JSON.stringify(errorData || error.message, null, 2),
+    );
     return { success: false, message: error.message };
   }
 }
@@ -540,17 +602,22 @@ export async function subscribeToZohoNotifications(tenantId) {
  * Per Zoho V8 docs: DELETE /actions/watch?channel_ids=xxx,yyy
  */
 export async function unsubscribeFromZohoNotifications(tenantId) {
-  const contactsChannelId = getZohoNumericChannelId(tenantId, '1');
-  const leadsChannelId = getZohoNumericChannelId(tenantId, '2');
+  const contactsChannelId = getZohoNumericChannelId(tenantId, "1");
+  const leadsChannelId = getZohoNumericChannelId(tenantId, "2");
 
   try {
     await zohoRequest(tenantId, {
-      method: 'DELETE',
+      method: "DELETE",
       url: `/crm/v7/actions/watch?channel_ids=${contactsChannelId},${leadsChannelId}`,
     });
-    console.log(`🗑️ [ZohoService] Watch subscriptions removed for tenant ${tenantId}`);
+    console.log(
+      `🗑️ [ZohoService] Watch subscriptions removed for tenant ${tenantId}`,
+    );
   } catch (error) {
-    console.warn(`⚠️ [ZohoService] Could not remove watch:`, error.response?.data?.message || error.message);
+    console.warn(
+      `⚠️ [ZohoService] Could not remove watch:`,
+      error.response?.data?.message || error.message,
+    );
   }
 }
 
@@ -561,10 +628,12 @@ export async function postConnectionSetup(tenantId) {
   // 1. Detect Zoho plan
   try {
     const plan = await detectZohoPlan(tenantId, true);
-    console.log(`📊 [ZohoSetup] Plan detected: ${plan.edition} for tenant ${tenantId}`);
+    console.log(
+      `📊 [ZohoSetup] Plan detected: ${plan.edition} for tenant ${tenantId}`,
+    );
 
     // Emit live update to frontend so UI updates instantly without refresh!
-    emitToTenant(tenantId, 'zoho_plan_updated', plan);
+    emitToTenant(tenantId, "zoho_plan_updated", plan);
   } catch (err) {
     console.warn(`⚠️ [ZohoSetup] Plan detection failed:`, err.message);
   }
@@ -573,10 +642,12 @@ export async function postConnectionSetup(tenantId) {
   try {
     await subscribeToZohoNotifications(tenantId);
   } catch (err) {
-    console.warn(`⚠️ [ZohoSetup] Notification subscription failed:`, err.message);
+    console.warn(
+      `⚠️ [ZohoSetup] Notification subscription failed:`,
+      err.message,
+    );
   }
 }
-
 
 // // src/modules/zoho/zoho.service.js
 
@@ -612,7 +683,7 @@ export async function postConnectionSetup(tenantId) {
 // export function getDynamicBackendUrl(req) {
 //   if (process.env.BACKEND_URL) return process.env.BACKEND_URL.replace(/\/+$/, '');
 //   if (process.env.BASE_URL && process.env.BASE_URL.startsWith('http')) return process.env.BASE_URL.replace(/\/+$/, '');
-  
+
 //   // If running behind a reverse proxy in production
 //   if (process.env.NODE_ENV === 'production') {
 //     return 'https://sudoreply.com';
@@ -655,7 +726,7 @@ export async function postConnectionSetup(tenantId) {
 //   }
 
 //   const backendUrl = getDynamicBackendUrl(req);
-//   const redirectUri = process.env.ZOHO_REDIRECT_URI || `${backendUrl}/api/zoho/callback`;
+//   const redirectUri = process.env.ZOHO_REDIRECT_URI || `${backendUrl}/sradmin/zoho/callback`;
 
 //   // Generate 32-byte cryptographic random state
 //   const state = crypto.randomBytes(32).toString('hex');
@@ -737,7 +808,7 @@ export async function postConnectionSetup(tenantId) {
 //     const clientId = process.env.ZOHO_CLIENT_ID;
 //     const clientSecret = process.env.ZOHO_CLIENT_SECRET;
 //     const backendUrl = getDynamicBackendUrl(req);
-//     const primaryRedirectUri = process.env.ZOHO_REDIRECT_URI || `${backendUrl}/api/zoho/callback`;
+//     const primaryRedirectUri = process.env.ZOHO_REDIRECT_URI || `${backendUrl}/sradmin/zoho/callback`;
 
 //     if (!clientId || !clientSecret) {
 //       throw new Error('Zoho application credentials missing on server');
@@ -1065,7 +1136,7 @@ export async function postConnectionSetup(tenantId) {
 //  */
 // // export async function subscribeToZohoNotifications(tenantId) {
 // //   const backendUrl = getDynamicBackendUrl();
-// //   const webhookUrl = `${backendUrl.replace(/\/+$/, '')}/api/zoho/webhook`;
+// //   const webhookUrl = `${backendUrl.replace(/\/+$/, '')}/sradmin/zoho/webhook`;
 
 // //   if (!webhookUrl.startsWith('https://')) {
 // //     console.warn(`⚠️ [ZohoSetup] Zoho CRM Webhooks require HTTPS. Current: ${webhookUrl}`);
@@ -1127,7 +1198,7 @@ export async function postConnectionSetup(tenantId) {
 //  */
 // export async function subscribeToZohoNotifications(tenantId) {
 //   const backendUrl = getDynamicBackendUrl();
-//   const webhookUrl = `${backendUrl.replace(/\/+$/, '')}/api/zoho/webhook`;
+//   const webhookUrl = `${backendUrl.replace(/\/+$/, '')}/sradmin/zoho/webhook`;
 
 //   if (!webhookUrl.startsWith('https://')) {
 //     console.warn(`⚠️ [ZohoSetup] Zoho CRM Webhooks require HTTPS. Current: ${webhookUrl}`);

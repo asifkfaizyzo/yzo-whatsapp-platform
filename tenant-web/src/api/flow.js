@@ -1,7 +1,7 @@
 // tenant-web/src/api/flow.js (do not remove this comment)
 import api from "./axios";
 
-const FLOW_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api`;
+const FLOW_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/tenant`;
 
 const flowService = {
 

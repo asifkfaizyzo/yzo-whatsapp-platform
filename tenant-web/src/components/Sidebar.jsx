@@ -138,7 +138,7 @@ export default function Sidebar({ userRole, tenantStatus = "APPROVED" }) {
     if (!isAdmin) return;
     try {
       const res = await api.get(
-         `${import.meta.env.VITE_BACKEND_URL}/api2/unassigned-contacts`
+         `${import.meta.env.VITE_BACKEND_URL}/tenant/unassigned-contacts`
       );
       if (res.data?.success) {
         setUnassignedCount(res.data.data?.count || 0);

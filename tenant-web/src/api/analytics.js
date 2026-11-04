@@ -1,7 +1,7 @@
 // tenant-web/src/api/analytics.js (do not remove this comment)
 import api from "./axios";
 
-const ANALYTICS_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api2/analytics`;
+const ANALYTICS_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/tenant/analytics`;
 
 export const getAnalyticsOverview = async (params) => {
   try {

@@ -1,7 +1,7 @@
 // tenant-web/src/api/zoho.js (do not remove this comment)
 import api from "./axios";
 
-const ZOHO_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api2/zoho`;
+const ZOHO_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/tenant/zoho`;
 
 /**
  * Generate Zoho CRM OAuth authorization URL

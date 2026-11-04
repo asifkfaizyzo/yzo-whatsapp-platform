@@ -1,7 +1,7 @@
 // tenant-web/src/api/broadcast.js (do not remove this comment)
 import api from "./axios";
 
-const BROADCAST_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api9`;
+const BROADCAST_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/tenant/broadcasts`;
 
 // 1. Get all campaigns
 export const getBroadcasts = async () => {

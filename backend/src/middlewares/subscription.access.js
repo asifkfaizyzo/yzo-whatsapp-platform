@@ -2,20 +2,20 @@
 import prisma from '../config/prisma.js';
 
 const ALLOWED_EXPIRED_ROUTES = [
-  '/api/billing',
-  '/api2/billing',
-  '/api/plans',
-  '/api2/plans',
-  '/api/account/profile',
-  '/api2/account/profile',
-  '/api/support',
-  '/api2/support',
-  '/api2/me',
-  '/api3/me',
-  '/api/webhook',
-  '/api2/webhook',
-  '/api2/checkout',
-  '/api/checkout',
+  '/sradmin/billing',
+  '/tenant/billing',
+  '/sradmin/plans',
+  '/tenant/plans',
+  '/sradmin/account/profile',
+  '/tenant/account/profile',
+  '/sradmin/support',
+  '/tenant/support',
+  '/tenant/me',
+  '/tenant/user/me',
+  '/sradmin/webhook',
+  '/tenant/webhook',
+  '/tenant/checkout',
+  '/sradmin/checkout',
 ];
 
 export const checkSubscriptionAccess = async (req, res, next) => {

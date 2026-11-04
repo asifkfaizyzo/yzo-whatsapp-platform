@@ -48,7 +48,7 @@ const getWebhookCallbackUrl = () => {
     throw new Error('BACKEND_URL must be a public HTTPS URL without embedded credentials');
   }
 
-  return `${backendUrl.toString().replace(/\/+$/, '')}/api2/shopify/webhooks`;
+  return `${backendUrl.toString().replace(/\/+$/, '')}/tenant/shopify/webhooks`;
 };
 
 /**

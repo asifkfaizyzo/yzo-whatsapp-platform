@@ -98,7 +98,7 @@ export const disconnect = async (req, res) => {
 };
 
 /**
- * POST /api2/zoho/sync/contacts
+ * POST /tenant/zoho/sync/contacts
  * Enqueues a background BullMQ job to sync contacts to Zoho CRM
  */
 export const triggerContactSync = async (req, res) => {
@@ -139,7 +139,7 @@ export const triggerContactSync = async (req, res) => {
 };
 
 /**
- * GET /api2/zoho/sync/status
+ * GET /tenant/zoho/sync/status
  * Returns sync statistics and last sync timestamp
  */
 export const getSyncStatus = async (req, res) => {
@@ -157,7 +157,7 @@ export const getSyncStatus = async (req, res) => {
 };
 
 /**
- * POST /api2/zoho/sync/incremental
+ * POST /tenant/zoho/sync/incremental
  * Triggers incremental sync (only contacts updated since last sync)
  */
 export const triggerIncrementalSync = async (req, res) => {
@@ -190,7 +190,7 @@ export const triggerIncrementalSync = async (req, res) => {
 };
 
 /**
- * GET /api2/zoho/plan
+ * GET /tenant/zoho/plan
  * Returns detected Zoho plan and available features
  */
 
@@ -209,7 +209,7 @@ export const getPlanInfo = async (req, res) => {
   }
 };
 /**
- * GET /api2/zoho/preferences
+ * GET /tenant/zoho/preferences
  * Fetches tenant-specific Zoho automation toggles
  */
 export const getPreferences = async (req, res) => {
@@ -230,7 +230,7 @@ export const getPreferences = async (req, res) => {
 };
 
 /**
- * PUT /api2/zoho/preferences
+ * PUT /tenant/zoho/preferences
  * Updates tenant-specific Zoho automation toggles in Redis
  */
 export const updatePreferences = async (req, res) => {
@@ -262,7 +262,7 @@ export const updatePreferences = async (req, res) => {
 };
 
 /**
- * GET /api2/zoho/products
+ * GET /tenant/zoho/products
  * Fetch products from Zoho CRM
  */
 export const listProducts = async (req, res) => {
@@ -278,7 +278,7 @@ export const listProducts = async (req, res) => {
 };
 
 /**
- * POST /api2/zoho/events
+ * POST /tenant/zoho/events
  * Schedule an appointment in Zoho CRM and send WhatsApp confirmation
  */
 export const bookEvent = async (req, res) => {
@@ -298,7 +298,7 @@ export const bookEvent = async (req, res) => {
 };
 
 /**
- * POST /api2/zoho/tickets/:ticketId/sync-case
+ * POST /tenant/zoho/tickets/:ticketId/sync-case
  * Push a ticket to Zoho Cases
  */
 export const syncTicketCase = async (req, res) => {
@@ -314,7 +314,7 @@ export const syncTicketCase = async (req, res) => {
 };
 
 /**
- * POST /api2/zoho/invoices/:invoiceId/send-whatsapp
+ * POST /tenant/zoho/invoices/:invoiceId/send-whatsapp
  * Send a Zoho invoice notification over WhatsApp
  */
 export const dispatchInvoice = async (req, res) => {

@@ -1,7 +1,7 @@
 // tenant-web/src/api/user.js (do not remove this comment)
 import api from "./axios";
 
-const USER_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api3`;
+const USER_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/tenant/user`;
 
 /**
  * Fetch the logged-in user profile (with tenant info)

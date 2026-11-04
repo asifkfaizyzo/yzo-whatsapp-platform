@@ -771,7 +771,7 @@ export default function Inbox() {
     const markAsRead = async () => {
       try {
         await api.patch(
-          `${import.meta.env.VITE_BACKEND_URL}/api5/mark-read/${activeChatId}`
+          `${import.meta.env.VITE_BACKEND_URL}/tenant/conversations/mark-read/${activeChatId}`
         );
       } catch (err) {
         console.error("Failed to mark as read:", err);
@@ -954,7 +954,7 @@ export default function Inbox() {
           );
 
           api.patch(
-            `${import.meta.env.VITE_BACKEND_URL}/api5/mark-read/${conversationId}`
+            `${import.meta.env.VITE_BACKEND_URL}/tenant/conversations/mark-read/${conversationId}`
           ).catch((err) => console.error("Mark read failed:", err));
         }
       }
@@ -1918,7 +1918,7 @@ export default function Inbox() {
       }));
 
       const res = await api.post(
-        `${import.meta.env.VITE_BACKEND_URL}/api5/send-contact`,
+        `${import.meta.env.VITE_BACKEND_URL}/tenant/conversations/send-contact`,
         {
           to,
           contacts: contactsToSend,

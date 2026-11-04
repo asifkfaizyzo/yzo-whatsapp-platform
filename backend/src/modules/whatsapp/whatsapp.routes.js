@@ -19,7 +19,7 @@ import { sendLocationSchema, setupWhatsAppSchema } from './whatsapp.schema.js';
 
 const router = express.Router();
 
-// GET /api2/whatsapp/status - Allowed for both Tenants and Users (Agents)
+// GET /tenant/whatsapp/status - Allowed for both Tenants and Users (Agents)
 router.get('/status', verifyTenantOrUser, getWhatsAppStatus);
 
 // send-location
@@ -40,7 +40,7 @@ router.post('/calls/permissions/request', verifyTenantOrUser, checkSubscriptionA
 // All other routes require a verified, approved tenant admin
 router.use(verifyTenant, requireApprovedTenant);
 
-// POST /api2/whatsapp/setup
+// POST /tenant/whatsapp/setup
 router.post('/setup', validate(setupWhatsAppSchema), setupWhatsApp);
 
 router.get('/my-wabas', getMyWabas);

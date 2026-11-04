@@ -99,7 +99,7 @@ const notifySuperAdminWhatsAppStatus = async ({
 
 
 // ─────────────────────────────────────────────────────────────────────────────
-// POST /api2/whatsapp/exchange-token
+// POST /tenant/whatsapp/exchange-token
 // ─────────────────────────────────────────────────────────────────────────────
 export const exchangeToken = async (req, res) => {
   const {
@@ -386,7 +386,7 @@ await notifySuperAdminWhatsAppStatus({
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// POST /api2/whatsapp/setup
+// POST /tenant/whatsapp/setup
 // ─────────────────────────────────────────────────────────────────────────────
 export const setupWhatsApp = async (req, res) => {
   const { phoneNumberId, wabaId, accessToken: customToken } = req.body;
@@ -581,9 +581,9 @@ return res.json({
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GET /api2/whatsapp/status
+// GET /tenant/whatsapp/status
 // ─────────────────────────────────────────────────────────────────────────────
-// GET /api2/whatsapp/status
+// GET /tenant/whatsapp/status
 // ─────────────────────────────────────────────────────────────────────────────
 export const getWhatsAppStatus = async (req, res) => {
   const tenantId = req.tenantId;
@@ -773,7 +773,7 @@ export const getWhatsAppStatus = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GET /api2/whatsapp/my-wabas
+// GET /tenant/whatsapp/my-wabas
 // ─────────────────────────────────────────────────────────────────────────────
 export const getMyWabas = async (req, res) => {
   try {
@@ -833,7 +833,7 @@ export const getMyWabas = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// POST /api2/whatsapp/disconnect
+// POST /tenant/whatsapp/disconnect
 // ─────────────────────────────────────────────────────────────────────────────
 export const disconnectWhatsApp = async (req, res) => {
   const tenantId = req.tenantId;
@@ -914,7 +914,7 @@ return res.json({
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// POST /api2/whatsapp/register-phone
+// POST /tenant/whatsapp/register-phone
 // Calls Meta Graph API /{PHONE_NUMBER_ID}/register to activate Cloud API container
 // ─────────────────────────────────────────────────────────────────────────────
 export const registerPhoneNumber = async (req, res) => {
@@ -979,7 +979,7 @@ export const registerPhoneNumber = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// POST /api2/whatsapp/send-location
+// POST /tenant/whatsapp/send-location
 // ─────────────────────────────────────────────────────────────────────────────
 export const sendLocation = async (req, res) => {
         try {

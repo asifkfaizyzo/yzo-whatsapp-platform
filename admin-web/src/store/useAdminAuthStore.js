@@ -13,7 +13,7 @@ export const useAdminAuthStore = create((set) => ({
     set({ isLoading: true });
     try {
       const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}/api/refresh-token`,
+        `${import.meta.env.VITE_API_URL}/sradmin/refresh-token`,
         {},
         { withCredentials: true }
       );
@@ -65,7 +65,7 @@ export const useAdminAuthStore = create((set) => ({
     set({ isLoading: true });
     try {
       await axios.post(
-        `${import.meta.env.VITE_API_URL}/api/logout`,
+        `${import.meta.env.VITE_API_URL}/sradmin/logout`,
         {},
         { withCredentials: true }
       );

@@ -162,8 +162,8 @@ function App() {
           }
         />
         {/* Razorpay Partner OAuth Callback Handlers (Intercepts redirect when landing on port 5174) */}
-        <Route path="/api/auth/razorpay/callback" element={<RazorpayOAuthCallback />} />
-        <Route path="/api2/auth/razorpay/callback" element={<RazorpayOAuthCallback />} />
+        <Route path="/sradmin/auth/razorpay/callback" element={<RazorpayOAuthCallback />} />
+        <Route path="/tenant/auth/razorpay/callback" element={<RazorpayOAuthCallback />} />
         <Route path="/auth/razorpay/callback" element={<RazorpayOAuthCallback />} />
 
         {/* Fallback */}

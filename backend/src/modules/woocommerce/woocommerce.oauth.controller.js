@@ -42,7 +42,7 @@ export const getWooCommerceOAuthUrl = async (req, res) => {
 
     // Build exact backend host and route dynamically
     const backendHost = (process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`).replace(/\/+$/, '');
-    const routePrefix = req.baseUrl || '/api/woocommerce';
+    const routePrefix = req.baseUrl || '/tenant/woocommerce';
     const callbackUrl = `${backendHost}${routePrefix}/oauth/callback`;
 
     const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5174').replace(/\/+$/, '');

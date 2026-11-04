@@ -32,7 +32,7 @@ export const getWooCommerceAuthWebhookConfig = async (req, res) => {
       success: true,
       data: {
         tenantId,
-        endpoint: `${backendUrl}/api2/woocommerce/auth-events?tenantId=${encodeURIComponent(tenantId)}`,
+        endpoint: `${backendUrl}/tenant/woocommerce/auth-events?tenantId=${encodeURIComponent(tenantId)}`,
         signingSecret: connection.webhookSecret,
       },
     });
@@ -79,7 +79,7 @@ export const getWooCommerceCartRecoveryWebhookConfig = async (req, res) => {
       success: true,
       data: {
         tenantId,
-        endpoint: `${backendUrl}/api2/woocommerce/cart-events?tenantId=${encodeURIComponent(tenantId)}`,
+        endpoint: `${backendUrl}/tenant/woocommerce/cart-events?tenantId=${encodeURIComponent(tenantId)}`,
         signingSecret: connection.webhookSecret,
         storeUrl: connection.storeUrl,
       },

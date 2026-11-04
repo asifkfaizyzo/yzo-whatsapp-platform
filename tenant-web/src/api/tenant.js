@@ -1,7 +1,7 @@
 // tenant-web/src/api/tenant.js (do not remove this comment)
 import api from "./axios";
 
-const TENANT_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api2`;
+const TENANT_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/tenant`;
 
 /**
  * Get all users/agents created under the tenant
@@ -288,7 +288,7 @@ export const uploadTenantLogo = async (formData) => {
     console.log("🟢 Service: Making API call to upload logo");
 
     const res = await api.post(
-      `${import.meta.env.VITE_BACKEND_URL}/api2/upload-logo`,
+      `${import.meta.env.VITE_BACKEND_URL}/tenant/upload-logo`,
       formData,
       {
         headers: {
@@ -316,7 +316,7 @@ export const uploadTenantLogo = async (formData) => {
 export const deleteTenantLogo = async () => {
   try {
     const res = await api.delete(
-      `${import.meta.env.VITE_BACKEND_URL}/api2/delete-logo`
+      `${import.meta.env.VITE_BACKEND_URL}/tenant/delete-logo`
     );
     return { success: true, message: res.data.message };
   } catch (err) {

@@ -5,7 +5,7 @@ import { sendMessageService } from '../../messages/message.service.js';
 import { emitToTenant } from '../../../lib/socket.js';
 
 /**
- * POST /api/zoho/trigger/message
+ * POST /sradmin/zoho/trigger/message
  * Allows Zoho CRM Workflows / Deluge scripts to trigger an outbound WhatsApp message.
  *
  * Payload:

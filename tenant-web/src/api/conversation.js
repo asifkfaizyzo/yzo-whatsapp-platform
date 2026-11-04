@@ -1,7 +1,7 @@
 // tenant-web/src/api/conversation.js (do not remove this comment)
 import api from "./axios";
 
-const CONV_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api5`;
+const CONV_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/tenant/conversations`;
 
 /**
  * Get or create a conversation for a contact

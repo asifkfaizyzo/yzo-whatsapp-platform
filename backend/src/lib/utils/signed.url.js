@@ -20,7 +20,7 @@ export const generateSignedUrl = (filePath, tenantId) => {
 
   const baseUrl = process.env.BASE_URL;
   const encoded = encodeURIComponent(filePath);
-  const relativeUrl = `/api/media/serve?path=${encoded}&tenant=${tenantId}&expires=${expires}&sig=${signature}`;
+  const relativeUrl = `/sradmin/media/serve?path=${encoded}&tenant=${tenantId}&expires=${expires}&sig=${signature}`;
 
   if (baseUrl && baseUrl.startsWith('http') && !baseUrl.includes('localhost') && !baseUrl.includes('backend:')) {
     return `${baseUrl.replace(/\/+$/, '')}${relativeUrl}`;

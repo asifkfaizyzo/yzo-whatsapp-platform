@@ -1,7 +1,7 @@
 // tenant-web/src/api/tag.js (do not remove this comment)
 import api from "./axios";
 
-const TAGS_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api7`;
+const TAGS_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/tenant/tags`;
 
 /**
  * Fetch all tags for the logged-in tenant (includes assigned user list)

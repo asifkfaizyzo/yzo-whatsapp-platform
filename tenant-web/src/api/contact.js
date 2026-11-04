@@ -1,7 +1,7 @@
 // tenant-web/src/api/contact.js (do not remove this comment)
 import api from "./axios";
 
-const CONTACTS_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api4`;
+const CONTACTS_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/tenant/contacts`;
 
 /**
  * Fetch all contacts for the logged-in tenant

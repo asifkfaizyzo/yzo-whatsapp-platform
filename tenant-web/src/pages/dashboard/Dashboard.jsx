@@ -122,7 +122,7 @@ export default function Dashboard() {
 
     try {
   const r = await api.get(
-   `${import.meta.env.VITE_BACKEND_URL}/api2/unassigned-contacts`
+   `${import.meta.env.VITE_BACKEND_URL}/tenant/unassigned-contacts`
   );
   if (r.data?.success) {
     setUnassignedCount(r.data.data?.count || 0);

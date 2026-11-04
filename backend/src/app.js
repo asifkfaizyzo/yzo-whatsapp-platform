@@ -62,7 +62,7 @@ const app = express();
 app.set('trust proxy', 1);
 
 // Add Health Check Endpoint
-app.get('/api/health', (req, res) => {
+app.get('/sradmin/health', (req, res) => {
   res.status(200).json({
     status: 'UP',
     timestamp: new Date().toISOString(),
@@ -103,7 +103,7 @@ const authLimiter = rateLimit({
 // app.use(express.json({
 //   limit: '10mb',
 //   verify: (req, res, buf) => {
-//     if (req.originalUrl && req.originalUrl.includes('/api/webhook')) {
+//     if (req.originalUrl && req.originalUrl.includes('/sradmin/webhook')) {
 //       req.rawBody = buf;
 //     }
 //   }
@@ -139,7 +139,7 @@ app.use("/uploads/logos", (req, res, next) => {
   }
 }));
 
-app.use('/api/media', mediaRoutes);
+app.use('/sradmin/media', mediaRoutes);
 
 app.use(cookieParser());
 
@@ -175,102 +175,110 @@ app.use("/uploads", (req, res, next) => {
 }, express.static(path.join(process.cwd(), "uploads")));
 
 // ── Rate Limiting on Auth Routes ──
-app.use('/api/login',            authLimiter);
-app.use('/api/create',           authLimiter);
-app.use('/api2/login',           authLimiter);
-app.use('/api2/register',        authLimiter);
-app.use('/api2/forgot-password', authLimiter);
-app.use('/api2/reset-password',  authLimiter);
-app.use('/api3/login',           authLimiter);
+app.use('/sradmin/login',            authLimiter);
+app.use('/sradmin/create',           authLimiter);
+app.use('/tenant/login',           authLimiter);
+app.use('/tenant/register',        authLimiter);
+app.use('/tenant/forgot-password', authLimiter);
+app.use('/tenant/reset-password',  authLimiter);
+app.use('/tenant/user/login',           authLimiter);
 
 // ──────────────────────────────────────
 // ⭐ SPECIFIC WEBHOOK ROUTES FIRST
 // ──────────────────────────────────────
-app.use('/api/webhook', webhookRoutes);
-app.use('/api/flows', flowRoutes);
+app.use('/sradmin/webhook', webhookRoutes);
+app.use('/sradmin/flows', flowRoutes);
+app.use('/tenant/flows', flowRoutes);
 
 // WooCommerce Direct Webhook Aliases (Fixes 404 errors)
-app.post('/api/webhooks/woocommerce', handleWooCommerceWebhook);
-app.post('/api/woocommerce/webhook', handleWooCommerceWebhook);
+app.post('/sradmin/webhooks/woocommerce', handleWooCommerceWebhook);
+app.post('/sradmin/woocommerce/webhook', handleWooCommerceWebhook);
 
-app.post('/api2/webhooks/woocommerce', handleWooCommerceWebhook);
-app.post('/api2/woocommerce/webhook', handleWooCommerceWebhook);
+app.post('/tenant/webhooks/woocommerce', handleWooCommerceWebhook);
+app.post('/tenant/woocommerce/webhook', handleWooCommerceWebhook);
 
 // ──────────────────────────────────────
 // PUBLIC OAUTH CALLBACKS & WEBHOOKS
 // ──────────────────────────────────────
-app.get('/api/auth/razorpay/callback', handleOAuthCallback);
-app.get('/api2/auth/razorpay/callback', handleOAuthCallback);
+app.get('/sradmin/auth/razorpay/callback', handleOAuthCallback);
+app.get('/tenant/auth/razorpay/callback', handleOAuthCallback);
 app.get('/auth/razorpay/callback', handleOAuthCallback);
 
 // Zoho CRM OAuth Redirect Endpoints
-app.get('/api/zoho/callback', zohoCallbackHandler);
-app.get('/api2/zoho/callback', zohoCallbackHandler);
+app.get('/sradmin/zoho/callback', zohoCallbackHandler);
+app.get('/tenant/zoho/callback', zohoCallbackHandler);
 app.get('/auth/zoho/callback', zohoCallbackHandler);
 
 // Zoho CRM Webhook Ingestion & Messaging Trigger
+app.post('/sradmin/zoho/webhook', handleZohoWebhook);
+app.post('/sradmin/zoho/trigger/message', triggerOutboundMessage);
+
+// ── External webhook aliases (DO NOT RENAME — configured in third-party dashboards) ──
+app.get('/api/zoho/callback', zohoCallbackHandler);
 app.post('/api/zoho/webhook', handleZohoWebhook);
 app.post('/api/zoho/trigger/message', triggerOutboundMessage);
+app.get('/api/auth/razorpay/callback', handleOAuthCallback);
+app.post('/api/webhooks/woocommerce', handleWooCommerceWebhook);
+app.post('/api/woocommerce/webhook', handleWooCommerceWebhook);
 
 // General Public Endpoints
-app.use('/api',  publicRoutes);
-app.use('/api2', publicRoutes);
+app.use('/sradmin',  publicRoutes);
+app.use('/tenant', publicRoutes);
 
 // ──────────────────────────────────────
 // MAIN SaaS ROUTES
 // ──────────────────────────────────────
-app.use('/api',  superadminRoutes);
-app.use('/api2', tenantRoutes);
-app.use('/api3', userRoutes);
+app.use('/sradmin',  superadminRoutes);
+app.use('/tenant', tenantRoutes);
+app.use('/tenant/user', userRoutes);
 
-app.use('/api4',          contactRoutes);
-app.use('/api2/contacts', contactRoutes);
+app.use('/tenant/contacts', contactRoutes);
 
-app.use('/api5', conversationRoutes);
-app.use('/api6', messageRoutes);
-app.use('/api7', tagRoutes);
+app.use('/tenant/conversations', conversationRoutes);
+app.use('/tenant/messages', messageRoutes);
+app.use('/tenant/tags', tagRoutes);
 
-app.use("/api/plans",  planRoutes);
-app.use("/api2/plans", planRoutes);
+app.use("/sradmin/plans",  planRoutes);
+app.use("/tenant/plans", planRoutes);
 
-app.use('/api8', templateRoutes);
-app.use('/api9', broadcastRoutes);
+app.use('/tenant/templates', templateRoutes);
+app.use('/tenant/broadcasts', broadcastRoutes);
 
-app.use('/api2/whatsapp',       whatsappRoutes);
-app.use('/api/google-sheets', googleSheetsRoutes);
-app.use('/api2/google-sheets', googleSheetsRoutes);
-app.use('/api2/shopify', shopifyRoutes);
-app.use('/api2/woocommerce', woocommerceRoutes);
-app.use("/api2/notifications",  notificationRoutes)
-app.use("/api/super-admin/notifications", superAdminNotificationRoutes)
-app.use('/api2/quick-replies', quickReplyRoutes)
+app.use('/tenant/whatsapp',       whatsappRoutes);
+app.use('/sradmin/google-sheets', googleSheetsRoutes);
+app.use('/tenant/google-sheets', googleSheetsRoutes);
+app.use('/tenant/shopify', shopifyRoutes);
+app.use('/tenant/woocommerce', woocommerceRoutes);
+app.use("/tenant/notifications",  notificationRoutes)
+app.use("/sradmin/super-admin/notifications", superAdminNotificationRoutes)
+app.use('/tenant/quick-replies', quickReplyRoutes)
 
-app.use("/api2", ticketRoutes);
-app.use("/api",  adminTicketRoutes);
-app.use("/api",  revenueRoutes);
+app.use("/tenant", ticketRoutes);
+app.use("/sradmin",  adminTicketRoutes);
+app.use("/sradmin",  revenueRoutes);
 
 // Analytics & Reports
-app.use('/api2/analytics', analyticsRoutes);
-app.use("/api", enquiryRoutes);
-app.use("/api2", enquiryRoutes);
+app.use('/tenant/analytics', analyticsRoutes);
+app.use("/sradmin", enquiryRoutes);
+app.use("/tenant", enquiryRoutes);
 
 // Enterprise Leads
-app.use("/api/register/enterprise-lead", enterpriseLeadRoutes);
-app.use("/api2/register/enterprise-lead", enterpriseLeadRoutes);
-app.use("/api/admin/enterprise-leads", enterpriseLeadAdminRoutes);
+app.use("/sradmin/register/enterprise-lead", enterpriseLeadRoutes);
+app.use("/tenant/register/enterprise-lead", enterpriseLeadRoutes);
+app.use("/sradmin/admin/enterprise-leads", enterpriseLeadAdminRoutes);
 
 // Billing & Subscriptions
-app.use('/api/billing', billingRoutes);
-app.use('/api2/billing', billingRoutes);
-app.use('/api/admin/subscriptions', adminSubscriptionsRoute);
+app.use('/sradmin/billing', billingRoutes);
+app.use('/tenant/billing', billingRoutes);
+app.use('/sradmin/admin/subscriptions', adminSubscriptionsRoute);
 
 // Security Audit logs & DLQ Failovers
-app.use('/api/superadmin/audit-logs', auditLogRoutes);
-app.use('/api/dlq', dlqRoutes);
-app.use('/api2/orders', orderRoutes);
+app.use('/sradmin/superadmin/audit-logs', auditLogRoutes);
+app.use('/sradmin/dlq', dlqRoutes);
+app.use('/tenant/orders', orderRoutes);
 
 // Zoho Protected API endpoints
-app.use('/api2/zoho', zohoRoutes);
+app.use('/tenant/zoho', zohoRoutes);
 
 // ──────────────────────────────────────
 // ERROR HANDLERS

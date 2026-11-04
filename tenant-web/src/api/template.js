@@ -1,7 +1,7 @@
 // tenant-web/src/api/template.js (do not remove this comment)
 import api from "./axios";
 
-const TEMPLATE_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api8`;
+const TEMPLATE_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/tenant/templates`;
 
 // 1. Get all templates
 export const getTemplates = async () => {

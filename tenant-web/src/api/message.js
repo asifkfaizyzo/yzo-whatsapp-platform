@@ -1,7 +1,7 @@
 // tenant-web/src/api/message.js (do not remove this comment)
 import api from "./axios";
 
-const MSG_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api6`;
+const MSG_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/tenant/messages`;
 
 /**
  * Send a message to a contact (tenant/user → contact direction)
@@ -77,7 +77,7 @@ export const deleteMessage = async (messageId) => {
 };
 
 // sendLocation
-const WA_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/api2/whatsapp`;
+const WA_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/tenant/whatsapp`;
 
 export const sendLocation = async ({
   to,

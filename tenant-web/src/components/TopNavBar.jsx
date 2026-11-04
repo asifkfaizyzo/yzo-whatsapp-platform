@@ -71,7 +71,7 @@ useEffect(() => {
          }
            } else if (authUser?.type === "USER") {
         // 👤 USER: Fetch from user endpoint (returns tenant info too)
-        const res = await api.get(`${import.meta.env.VITE_BACKEND_URL}/api3/me`);
+        const res = await api.get(`${import.meta.env.VITE_BACKEND_URL}/tenant/user/me`);
         if (res.data?.success && res.data?.data?.tenant?.logo) {
           logoUrl = res.data.data.tenant.logo;
         }

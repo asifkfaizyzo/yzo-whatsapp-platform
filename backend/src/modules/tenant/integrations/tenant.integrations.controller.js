@@ -201,7 +201,7 @@ export const getPaymentGatewayConfig = async (req, res) => {
     }
 
     const host = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
-    const webhookUrl = `${host}/api/webhook/razorpay/order/${tenant.id}`;
+    const webhookUrl = `${host}/sradmin/webhook/razorpay/order/${tenant.id}`;
 
     return res.status(200).json({
       success: true,

@@ -6,8 +6,8 @@ const getAuthConfig = (userType) => {
   const isUser = userType === 'USER';
   return {
     baseUrl: isUser
-      ? `${import.meta.env.VITE_BACKEND_URL}/api3`
-      : `${import.meta.env.VITE_BACKEND_URL}/api2`,
+      ? `${import.meta.env.VITE_BACKEND_URL}/tenant/user`
+      : `${import.meta.env.VITE_BACKEND_URL}/tenant`,
     refreshEndpoint: isUser ? '/refresh-user-access' : '/refresh-token',
     logoutEndpoint: isUser ? '/logout-user' : '/logout',
   };
@@ -30,7 +30,7 @@ export const useAuthStore = create((set) => ({
       if (!userType) {
         try {
           const onboardingRes = await axios.get(
-            `${import.meta.env.VITE_BACKEND_URL}/api2/register/status`,
+            `${import.meta.env.VITE_BACKEND_URL}/tenant/register/status`,
             { withCredentials: true }
           );
           if (onboardingRes.data?.success && onboardingRes.data?.data?.user) {
@@ -110,7 +110,7 @@ export const useAuthStore = create((set) => ({
       // Check if there is an active onboarding session
       try {
         const onboardingRes = await axios.get(
-          `${import.meta.env.VITE_BACKEND_URL}/api2/register/status`,
+          `${import.meta.env.VITE_BACKEND_URL}/tenant/register/status`,
           { withCredentials: true }
         );
         if (onboardingRes.data?.success && onboardingRes.data?.data?.user) {

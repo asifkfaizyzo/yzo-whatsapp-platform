@@ -17,7 +17,7 @@ const getTenantToken = async (tenantId) => {
   return decrypt(tenant.whatsappAccessToken);
 };
 
-// POST /api/whatsapp/calls/accept
+// POST /sradmin/whatsapp/calls/accept
 export const acceptCall = async (req, res) => {
   try {
     let { wacid, phoneId, sdpAnswer: clientSdpAnswer } = req.body;
@@ -84,7 +84,7 @@ export const acceptCall = async (req, res) => {
   }
 };
 
-// POST /api/whatsapp/calls/reject
+// POST /sradmin/whatsapp/calls/reject
 export const rejectCall = async (req, res) => {
   try {
     let { phoneId, wacid } = req.body;
@@ -131,7 +131,7 @@ export const rejectCall = async (req, res) => {
   }
 };
 
-// POST /api/whatsapp/calls/terminate
+// POST /sradmin/whatsapp/calls/terminate
 export const terminateCall = async (req, res) => {
   try {
     let { phoneId, wacid } = req.body; 
@@ -183,7 +183,7 @@ export const terminateCall = async (req, res) => {
   }
 };
 
-// POST /api/whatsapp/calls/initiate
+// POST /sradmin/whatsapp/calls/initiate
 export const initiateCall = async (req, res) => {
   try {
     let { phoneId, contactId, sdpOffer: clientSdpOffer, conversationId: reqConvId } = req.body; 
@@ -312,7 +312,7 @@ export const initiateCall = async (req, res) => {
   }
 };
 
-// GET /api/whatsapp/calls/permissions/:contactId
+// GET /sradmin/whatsapp/calls/permissions/:contactId
 export const getCallPermissions = async (req, res) => {
   try {
     const { contactId } = req.params;
@@ -329,7 +329,7 @@ export const getCallPermissions = async (req, res) => {
   }
 };
 
-// POST /api/whatsapp/calls/permissions/request
+// POST /sradmin/whatsapp/calls/permissions/request
 export const requestCallPermission = async (req, res) => {
   try {
     let { phoneId, contactId } = req.body;
@@ -373,7 +373,7 @@ export const requestCallPermission = async (req, res) => {
   }
 };
 
-// GET /api/whatsapp/calls/settings/:phoneId
+// GET /sradmin/whatsapp/calls/settings/:phoneId
 export const getCallSettings = async (req, res) => {
   try {
     const { phoneId } = req.params;
@@ -403,7 +403,7 @@ export const getCallSettings = async (req, res) => {
   }
 };
 
-// PUT /api/whatsapp/calls/settings/:phoneId
+// PUT /sradmin/whatsapp/calls/settings/:phoneId
 export const updateCallSettings = async (req, res) => {
   try {
     const { phoneId } = req.params;
@@ -429,7 +429,7 @@ export const updateCallSettings = async (req, res) => {
   }
 };
 
-// POST /api/whatsapp/calls/settings/:phoneId/voicemail-greeting
+// POST /sradmin/whatsapp/calls/settings/:phoneId/voicemail-greeting
 export const uploadVoicemailGreeting = async (req, res) => {
   try {
     const { phoneId } = req.params;
@@ -482,7 +482,7 @@ export const uploadVoicemailGreeting = async (req, res) => {
   }
 };
 
-// GET /api2/whatsapp/calls/history
+// GET /tenant/whatsapp/calls/history
 export const getCallHistory = async (req, res) => {
   try {
     const tenantId = req.tenant?.id || req.user?.tenantId;
@@ -601,7 +601,7 @@ export const getCallHistory = async (req, res) => {
   }
 };
 
-// GET /api2/whatsapp/calls/conversation/:conversationId
+// GET /tenant/whatsapp/calls/conversation/:conversationId
 export const getConversationCalls = async (req, res) => {
   try {
     const { conversationId } = req.params;
@@ -667,7 +667,7 @@ export const getConversationCalls = async (req, res) => {
   }
 };
 
-// GET /api2/whatsapp/calls/contact/:contactId
+// GET /tenant/whatsapp/calls/contact/:contactId
 export const getContactCalls = async (req, res) => {
   try {
     const { contactId } = req.params;
@@ -736,7 +736,7 @@ export const getContactCalls = async (req, res) => {
   }
 };
 
-// GET /api/whatsapp/calls/permissions/check/:contactId
+// GET /sradmin/whatsapp/calls/permissions/check/:contactId
 export const checkCallPermission = async (req, res) => {
   try {
     const tenantId = req.tenant?.id || req.user?.tenantId;

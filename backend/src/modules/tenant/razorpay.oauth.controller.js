@@ -55,7 +55,7 @@ async function provisionSubMerchantWebhook(accountId, alertEmail, webhookSecret,
   const partnerKey = process.env.RAZORPAY_KEY_ID;
   const partnerSecret = process.env.RAZORPAY_KEY_SECRET;
   const backendUrl = req ? getDynamicBackendUrl(req) : (process.env.BACKEND_URL || 'http://localhost:5000');
-  const webhookUrl = `${backendUrl}/api/webhook/razorpay/partner`;
+  const webhookUrl = `${backendUrl}/sradmin/webhook/razorpay/partner`;
 
   const headers = {
     'Content-Type': 'application/json',
@@ -211,7 +211,7 @@ function getDynamicFrontendUrl(req) {
 // ──────────────────────────────────────────────
 
 /**
- * GET /api/tenant/payment-gateway/oauth/url
+ * GET /sradmin/tenant/payment-gateway/oauth/url
  * Returns authorization URL for 1-Click Connect
  */
 export async function getOAuthAuthorizeUrl(req, res) {
@@ -223,7 +223,7 @@ export async function getOAuthAuthorizeUrl(req, res) {
 
     const clientId = process.env.RAZORPAY_CLIENT_ID;
     const backendUrl = getDynamicBackendUrl(req);
-    const redirectUri = process.env.RAZORPAY_REDIRECT_URI || `${backendUrl}/api/auth/razorpay/callback`;
+    const redirectUri = process.env.RAZORPAY_REDIRECT_URI || `${backendUrl}/sradmin/auth/razorpay/callback`;
 
     if (!clientId) {
       console.error('❌ [RazorpayOAuth] RAZORPAY_CLIENT_ID missing in process.env');
@@ -265,7 +265,7 @@ function extractErrorMessage(error) {
 }
 
 /**
- * GET /api/auth/razorpay/callback
+ * GET /sradmin/auth/razorpay/callback
  * Handles OAuth redirection callback from auth.razorpay.com
  */
 export async function handleOAuthCallback(req, res) {
@@ -278,7 +278,7 @@ export async function handleOAuthCallback(req, res) {
   const { code, state, error: oauthError, error_description } = req.query;
   const frontendUrl = getDynamicFrontendUrl(req);
   const backendUrl = getDynamicBackendUrl(req);
-  const primaryRedirectUri = process.env.RAZORPAY_REDIRECT_URI || `${backendUrl}/api/auth/razorpay/callback`;
+  const primaryRedirectUri = process.env.RAZORPAY_REDIRECT_URI || `${backendUrl}/sradmin/auth/razorpay/callback`;
 
   if (oauthError) {
     console.error('❌ [RazorpayOAuth] Authorization denied or failed:', oauthError, error_description);
@@ -319,10 +319,10 @@ export async function handleOAuthCallback(req, res) {
     const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
     const redirectCandidates = [
       primaryRedirectUri,
-      'http://localhost:5000/api/auth/razorpay/callback',
-      'http://localhost:5174/api/auth/razorpay/callback',
-      'http://localhost:5000/api2/auth/razorpay/callback',
-      'http://localhost:5174/api2/auth/razorpay/callback',
+      'http://localhost:5000/sradmin/auth/razorpay/callback',
+      'http://localhost:5174/sradmin/auth/razorpay/callback',
+      'http://localhost:5000/tenant/auth/razorpay/callback',
+      'http://localhost:5174/tenant/auth/razorpay/callback',
       'http://localhost:5000/auth/razorpay/callback',
       'http://localhost:5174/auth/razorpay/callback',
     ];
@@ -436,7 +436,7 @@ export async function handleOAuthCallback(req, res) {
 }
 
 /**
- * POST /api/tenant/payment-gateway/oauth/disconnect
+ * POST /sradmin/tenant/payment-gateway/oauth/disconnect
  * Disconnects OAuth integration, cleans up webhook and revokes tokens
  */
 export async function disconnectRazorpayOAuth(req, res) {
@@ -515,7 +515,7 @@ export async function disconnectRazorpayOAuth(req, res) {
 }
 
 /**
- * GET /api/tenant/payment-gateway/oauth/status
+ * GET /sradmin/tenant/payment-gateway/oauth/status
  * Returns current OAuth connection and KYC verification status
  */
 export async function getOAuthStatus(req, res) {

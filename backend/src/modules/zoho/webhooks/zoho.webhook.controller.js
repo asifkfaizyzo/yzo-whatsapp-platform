@@ -3,7 +3,7 @@
 import { processZohoWebhookEvent } from './zoho.webhook.service.js';
 
 /**
- * POST /api/zoho/webhook
+ * POST /sradmin/zoho/webhook
  * Public endpoint — receives Zoho CRM notification events.
  * Tenant identification is done via the `token` field in the notification payload
  * (set to tenantId during subscription creation).

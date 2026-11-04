@@ -35,7 +35,7 @@ export default function RazorpayOAuthCallback() {
         import.meta.env.VITE_API_URL?.replace(/\/api2?$/, "") ||
         "http://localhost:5000";
 
-      const forwardUrl = `${backendUrl}/api/auth/razorpay/callback${window.location.search}`;
+      const forwardUrl = `${backendUrl}/sradmin/auth/razorpay/callback${window.location.search}`;
       console.log("🔀 [RazorpayOAuthCallback] Forwarding code to backend:", forwardUrl);
       window.location.href = forwardUrl;
       return;

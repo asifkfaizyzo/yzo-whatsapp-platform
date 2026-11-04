@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useAuthStore } from '../store/useAuthStore';
 
 const api = axios.create({
-  baseURL: `${import.meta.env.VITE_BACKEND_URL}/api2`,
+  baseURL: `${import.meta.env.VITE_BACKEND_URL}/tenant`,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -39,8 +39,8 @@ api.interceptors.response.use(
         const isUser = localStorage.getItem('user_type') === 'USER';
         const refreshEndpoint = isUser ? '/refresh-user-access' : '/refresh-token';
         const refreshBaseUrl = isUser
-          ? `${import.meta.env.VITE_BACKEND_URL}/api3`
-          : `${import.meta.env.VITE_BACKEND_URL}/api2`;
+          ? `${import.meta.env.VITE_BACKEND_URL}/tenant/user`
+          : `${import.meta.env.VITE_BACKEND_URL}/tenant`;
 
         const response = await axios.post(
           `${refreshBaseUrl}${refreshEndpoint}`,
@@ -69,11 +69,11 @@ api.interceptors.response.use(
 export default api;
 
 // ============================================
-// USER API INSTANCE (targets /api3)
+// USER API INSTANCE (targets /tenant/user)
 // Same interceptors, different base URL
 // ============================================
 export const userApi = axios.create({
-  baseURL: `${import.meta.env.VITE_BACKEND_URL}/api3`,
+  baseURL: `${import.meta.env.VITE_BACKEND_URL}/tenant/user`,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -103,7 +103,7 @@ userApi.interceptors.response.use(
 
       try {
         const response = await axios.post(
-          `${import.meta.env.VITE_BACKEND_URL}/api3/refresh-user-access`,
+          `${import.meta.env.VITE_BACKEND_URL}/tenant/user/refresh-user-access`,
           {},
           { withCredentials: true }
         );

@@ -4,7 +4,7 @@ import { z } from 'zod';
 
 // ─────────────────────────────────────────────────────────────
 // Send Location Schema
-// Used by: POST /api2/whatsapp/send-location
+// Used by: POST /tenant/whatsapp/send-location
 // ─────────────────────────────────────────────────────────────
 
 export const sendLocationSchema = z.object({
@@ -58,7 +58,7 @@ export const sendLocationSchema = z.object({
 });
 // -------------------------------------------------------------
 // Setup WhatsApp Schema
-// Used by: POST /api2/whatsapp/setup
+// Used by: POST /tenant/whatsapp/setup
 // -------------------------------------------------------------
 export const setupWhatsAppSchema = z.object({
   body: z.object({

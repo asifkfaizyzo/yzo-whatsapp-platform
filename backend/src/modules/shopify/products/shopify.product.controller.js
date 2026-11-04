@@ -6,7 +6,7 @@ import {
 } from './shopify.productSync.service.js';
 
 /**
- * POST /api2/shopify/products/sync
+ * POST /tenant/shopify/products/sync
  * Trigger full product sync from Shopify
  */
 export const triggerProductSync = async (req, res) => {
@@ -33,7 +33,7 @@ export const triggerProductSync = async (req, res) => {
 };
 
 /**
- * GET /api2/shopify/products
+ * GET /tenant/shopify/products
  * List synced products with pagination
  */
 export const listProducts = async (req, res) => {
@@ -66,7 +66,7 @@ export const listProducts = async (req, res) => {
 };
 
 /**
- * GET /api2/shopify/products/:shopifyProductId
+ * GET /tenant/shopify/products/:shopifyProductId
  * Get single product detail
  */
 export const getProduct = async (req, res) => {

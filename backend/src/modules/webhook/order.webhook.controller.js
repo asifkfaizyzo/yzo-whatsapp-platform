@@ -121,7 +121,7 @@ export const handleTenantOrderWebhook = async (req, res) => {
 };
 
 /**
- * Phase 1 Partner Webhook Handler: POST /api/webhook/razorpay/partner
+ * Phase 1 Partner Webhook Handler: POST /sradmin/webhook/razorpay/partner
  */
 export const handlePartnerWebhook = async (req, res) => {
   try {
