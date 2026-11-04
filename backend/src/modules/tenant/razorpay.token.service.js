@@ -91,9 +91,10 @@ export async function getValidAccessToken(tenantId) {
       updateData.razorpayRefreshToken = encrypt(newRefreshToken);
     }
 
-    await prisma.tenant.update({
-      where: { id: tenantId },
-      data: updateData,
+await prisma.tenantZoho.upsert({
+      where: { tenantId },
+      create: { tenantId, ...updateData },
+      update: updateData,
     });
 
     return access_token;

@@ -204,10 +204,12 @@ export const getTenantBillingDetailService = async (tenantId) => {
       email: true,
       phone: true,
       subscription: {
-        select: { planStatus: true, billingType: true, planActivatedAt: true },
-      },
-      plan: {
-        select: { id: true, name: true, monthlyPrice: true },
+        select: {
+          planStatus: true,
+          billingType: true,
+          planActivatedAt: true,
+          plan: { select: { id: true, name: true, monthlyPrice: true } },
+        },
       },
     },
   });

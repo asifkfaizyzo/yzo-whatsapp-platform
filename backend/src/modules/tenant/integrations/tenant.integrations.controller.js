@@ -169,8 +169,8 @@ export const disconnectMetaChannels = async (req, res) => {
             updateData.instagramUsername = null;
         }
 
-        await prisma.tenant.update({
-            where: { id: tenantId },
+        await prisma.tenantSocial.update({
+            where: { tenantId },
             data: updateData,
         });
 
@@ -186,24 +186,29 @@ export const disconnectMetaChannels = async (req, res) => {
 export const getPaymentGatewayConfig = async (req, res) => {
   try {
     const tenantId = req.tenant?.id || req.tenantId;
-    const tenant = await prisma.tenant.findUnique({
+    const tenantRow = await prisma.tenant.findUnique({
       where: { id: tenantId },
       select: {
         id: true,
-        razorpayAuthType: true,
-        razorpayAccountId: true,
-        razorpayAccountStatus: true,
-        razorpayKycStatus: true,
-        razorpayWebhookId: true,
-        razorpayKeyId: true,
-        razorpayKeySecret: true,
-        razorpayWebhookSecret: true,
-        enableOnlinePayment: true,
-        enableCod: true,
-        paymentLinkExpiryMins: true,
-        defaultCurrency: true,
+        subscription: {
+          select: {
+            razorpayAuthType: true,
+            razorpayAccountId: true,
+            razorpayAccountStatus: true,
+            razorpayKycStatus: true,
+            razorpayWebhookId: true,
+            razorpayKeyId: true,
+            razorpayKeySecret: true,
+            razorpayWebhookSecret: true,
+            enableOnlinePayment: true,
+            enableCod: true,
+            paymentLinkExpiryMins: true,
+            defaultCurrency: true,
+          },
+        },
       }
     });
+    const tenant = tenantRow ? { ...tenantRow, ...tenantRow.subscription } : null;
 
     if (!tenant) {
       return res.status(404).json({ success: false, message: 'Tenant not found' });
@@ -265,9 +270,10 @@ export const updatePaymentGatewayConfig = async (req, res) => {
     if (paymentLinkExpiryMins !== undefined) updateData.paymentLinkExpiryMins = Math.max(5, Math.min(1440, Number(paymentLinkExpiryMins) || 30));
     if (defaultCurrency !== undefined) updateData.defaultCurrency = defaultCurrency || 'INR';
 
-    const updated = await prisma.tenant.update({
-      where: { id: tenantId },
-      data: updateData,
+    const updated = await prisma.tenantSubscription.upsert({
+      where: { tenantId },
+      update: updateData,
+      create: { tenantId, ...updateData },
     });
 
     const { invalidateTenantRazorpayCache } = await import('../../orders/order.payment.service.js');
@@ -301,8 +307,8 @@ export const testPaymentGatewayConnection = async (req, res) => {
     let secret = razorpayKeySecret;
 
     if (!keyId || !secret) {
-      const tenant = await prisma.tenant.findUnique({
-        where: { id: tenantId },
+      const tenant = await prisma.tenantSubscription.findUnique({
+        where: { tenantId },
         select: { razorpayKeyId: true, razorpayKeySecret: true }
       });
       if (!tenant?.razorpayKeyId || !tenant?.razorpayKeySecret) {

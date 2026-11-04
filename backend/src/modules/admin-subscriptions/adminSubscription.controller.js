@@ -49,8 +49,8 @@ export const getSubscriptions = async (req, res) => {
   if (status) where.subscriptionStatus = status;
   if (plan) {
     where.OR = [
-      { currentPlan: { contains: plan, mode: 'insensitive' } },
-      { plan: { name: { contains: plan, mode: 'insensitive' } } }
+      { subscription: { currentPlan: { contains: plan, mode: 'insensitive' } } },
+      { subscription: { plan: { name: { contains: plan, mode: 'insensitive' } } } }
     ];
   }
   if (search) {
@@ -71,9 +71,6 @@ export const getSubscriptions = async (req, res) => {
           id: true,
           tenantName: true,
           email: true,
-          plan: {
-            select: { id: true, name: true, monthlyPrice: true }
-          },
           subscription: {
             select: {
               currentPlan: true,
@@ -87,6 +84,9 @@ export const getSubscriptions = async (req, res) => {
               cancelRequestedAt: true,
               cancellationReason: true,
               dataDeletionDate: true,
+              plan: {
+                select: { id: true, name: true, monthlyPrice: true }
+              },
             }
           },
           createdAt: true,
@@ -101,8 +101,8 @@ export const getSubscriptions = async (req, res) => {
         id: t.id,
         tenantName: t.tenantName,
         email: t.email,
-        currentPlan: s.currentPlan || (t.plan ? t.plan.name : "Starter"),
-        planId: t.plan?.id,
+        currentPlan: s.currentPlan || (s.plan ? s.plan.name : "Starter"),
+        planId: s.plan?.id,
         subscriptionStatus: s.subscriptionStatus,
         planStatus: s.planStatus,
         autopayEnabled: s.autopayEnabled || false,
@@ -141,8 +141,10 @@ export const updateSubscription = async (req, res) => {
 
   try {
     const tenant = await prisma.tenant.findUnique({
-      where: { id: tenantId }
+      where: { id: tenantId },
+      include: { subscription: true },
     });
+    Object.assign(tenant, tenant?.subscription);
 
     if (!tenant) {
       return res.status(404).json({ success: false, message: "Tenant not found" });
@@ -265,9 +267,18 @@ export const updateSubscription = async (req, res) => {
         return res.status(400).json({ success: false, message: `Unknown action: ${action}` });
     }
 
-    const updated = await prisma.tenant.update({
-      where: { id: tenantId },
-      data: updatedData
+    const { status: tenantStatus, ...subData } = updatedData;
+
+    if (tenantStatus) {
+      await prisma.tenant.update({
+        where: { id: tenantId },
+        data: { status: tenantStatus }
+      });
+    }
+
+    const updatedSub = await prisma.tenantSubscription.update({
+      where: { tenantId },
+      data: subData
     });
 
     // Audit Log
@@ -285,9 +296,9 @@ export const updateSubscription = async (req, res) => {
       metadata: { action, extendDays, note }
     });
 
-    sendStatusUpdateEmail(tenant.email, tenant.tenantName || tenant.email, updated.subscriptionStatus, notificationNote);
+    sendStatusUpdateEmail(tenant.email, tenant.tenantName || tenant.email, updatedSub.subscriptionStatus, notificationNote);
 
-    return res.status(200).json({ success: true, message: "Action completed successfully", data: updated });
+    return res.status(200).json({ success: true, message: "Action completed successfully", data: updatedSub });
   } catch (error) {
     console.error("Admin update subscription error:", error);
     return res.status(500).json({ success: false, message: "Server error updating subscription" });
@@ -343,10 +354,11 @@ export const manualPlanActivation = async (req, res) => {
   }
 
   try {
-    const [tenant, plan] = await Promise.all([
-      prisma.tenant.findUnique({ where: { id: tenantId } }),
+    const [tenantRaw, plan] = await Promise.all([
+      prisma.tenant.findUnique({ where: { id: tenantId }, include: { subscription: true } }),
       prisma.subscriptionPlan.findUnique({ where: { id: planId } }),
     ]);
+    const tenant = { ...tenantRaw, ...tenantRaw?.subscription };
 
     if (!tenant) return res.status(404).json({ success: false, message: "Tenant not found" });
     if (!plan) return res.status(404).json({ success: false, message: "Plan not found" });

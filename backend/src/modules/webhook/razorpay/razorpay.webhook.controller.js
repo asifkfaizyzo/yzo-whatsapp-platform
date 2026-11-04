@@ -54,15 +54,16 @@ export const handleRazorpayWebhook = async (req, res) => {
 
       const existingPayment = await prisma.payment.findFirst({
         where: { razorpayOrderId: orderId },
-        include: { tenant: true },
+        include: { tenant: { include: { subscription: true } } },
       });
 
       if (existingPayment && existingPayment.status !== "SUCCESS") {
         console.log(`[Webhook] Auto-activating plan for order: ${orderId}`);
 
         const gstCalc = await calculateGST(existingPayment.baseAmount);
-        const tenant = existingPayment.tenant;
-
+        const tenant = existingPayment.tenant
+          ? { ...existingPayment.tenant, ...existingPayment.tenant.subscription }
+          : null;
         // Calculate billing period dates (accounting for active plan extension)
         const isSamePlan = tenant?.planId === existingPayment.planId;
         const isSameBillingType = tenant?.billingType === existingPayment.billingType;
@@ -197,7 +198,7 @@ export const handleRazorpayWebhook = async (req, res) => {
 
         const subRecord = await prisma.tenantSubscription.findFirst({
           where: { razorpaySubscriptionId: subscription.id },
-          include: { tenant: { include: { plan: true } } },
+          include: { tenant: true, plan: true },
         });
         const tenant = subRecord ? { ...subRecord.tenant, ...subRecord } : null;
         if (tenant) {

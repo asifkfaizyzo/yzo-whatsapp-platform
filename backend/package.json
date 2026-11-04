@@ -43,6 +43,8 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@babel/parser": "^8.1.0",
+    "@babel/traverse": "^8.1.0",
     "nodemon": "^3.1.14"
   }
 }

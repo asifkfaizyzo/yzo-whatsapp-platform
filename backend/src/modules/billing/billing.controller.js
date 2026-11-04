@@ -22,8 +22,10 @@ export const cancelSubscription = async (req, res) => {
 
   try {
     const tenant = await prisma.tenant.findUnique({
-      where: { id: req.tenantId }
+      where: { id: req.tenantId },
+      include: { subscription: { include: { plan: true } } },
     });
+    Object.assign(tenant, tenant?.subscription);
 
     if (!tenant) {
       return res.status(404).json({ success: false, message: "Tenant not found" });
@@ -185,8 +187,10 @@ export const reactivateSubscription = async (req, res) => {
   try {
     const meta = extractRequestMeta(req);
     const tenant = await prisma.tenant.findUnique({
-      where: { id: req.tenantId }
+      where: { id: req.tenantId },
+      include: { subscription: true },
     });
+    Object.assign(tenant, tenant?.subscription);
 
     if (!tenant) {
       return res.status(404).json({ success: false, message: "Tenant not found" });
@@ -281,7 +285,9 @@ export const pauseSubscription = async (req, res) => {
   try {
     const tenant = await prisma.tenant.findUnique({
       where: { id: req.tenantId },
+      include: { subscription: true },
     });
+    Object.assign(tenant, tenant?.subscription);
 
     if (!tenant) {
       return res.status(404).json({ success: false, message: "Tenant not found" });
@@ -399,7 +405,9 @@ export const resumeSubscription = async (req, res) => {
   try {
     const tenant = await prisma.tenant.findUnique({
       where: { id: req.tenantId },
+      include: { subscription: true },
     });
+    Object.assign(tenant, tenant?.subscription);
 
     if (!tenant) {
       return res.status(404).json({ success: false, message: "Tenant not found" });
@@ -505,7 +513,6 @@ export const getBillingOverview = async (req, res) => {
       where: { id: req.tenantId },
       select: {
         id: true,
-        plan: { select: { name: true } },
         subscription: {
           select: {
             subscriptionStatus: true,
@@ -518,6 +525,7 @@ export const getBillingOverview = async (req, res) => {
             planPeriodEnd: true,
             cancelRequestedAt: true,
             dataDeletionDate: true,
+            plan: { select: { name: true } },
           }
         },
         invoices: {

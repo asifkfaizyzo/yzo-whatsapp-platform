@@ -569,7 +569,9 @@ export const sendMessageService = async ({
 
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
+    include: { whatsapp: true, social: true },
   });
+  Object.assign(tenant, tenant?.whatsapp, tenant?.social);
 
   // ── 2. Get or create conversation early for channel context ──
   const conversation = await getOrCreateConversation(contactId, tenantId, contact.channel || 'WHATSAPP');
@@ -774,7 +776,9 @@ export const sendMediaMessageService = async ({
 
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
+    include: { whatsapp: true, social: true },
   });
+  Object.assign(tenant, tenant?.whatsapp, tenant?.social);
 
   let waMessageId = null;
   let msgStatus = 'sent';
@@ -1117,7 +1121,9 @@ export const markConversationAsReadService = async ({
 
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
+    include: { whatsapp: true },
   });
+  Object.assign(tenant, tenant?.whatsapp);
 
   if (
     process.env.MOCK_WHATSAPP !== 'true' &&
@@ -1308,7 +1314,9 @@ export const sendTemplateMessageService = async ({
   // ── 3. Load tenant credentials ─────────────────────────────
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
+    include: { whatsapp: true },
   });
+  Object.assign(tenant, tenant?.whatsapp);
 
   // ── 4. Get or create conversation ──────────────────────────
   const conversation = await getOrCreateConversation(

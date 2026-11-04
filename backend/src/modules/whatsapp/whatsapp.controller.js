@@ -348,11 +348,12 @@ await notifySuperAdminWhatsAppStatus({
 });
 // ═════════════════════════════════════════════════════════════════
 
-    // ── Auto-sync templates in background on initial connect ──
-    prisma.tenant.findUnique({ where: { id: tenantId } })
+   // ── Auto-sync templates in background on initial connect ──
+    prisma.tenant.findUnique({ where: { id: tenantId }, include: { whatsapp: true } })
       .then((fullTenant) => {
-        if (fullTenant?.whatsappWabaId && fullTenant?.whatsappAccessToken) {
-          return performTemplateSync(fullTenant);
+        const t = fullTenant ? { ...fullTenant, ...fullTenant.whatsapp } : null;
+        if (t?.whatsappWabaId && t?.whatsappAccessToken) {
+          return performTemplateSync(t);
         }
       })
       .then((synced) => {
@@ -551,10 +552,11 @@ await notifySuperAdminWhatsAppStatus({
 // ═════════════════════════════════════════════════════════════════
 
     // ── Auto-sync templates in background on initial connect ──
-    prisma.tenant.findUnique({ where: { id: tenantId } })
+    prisma.tenant.findUnique({ where: { id: tenantId }, include: { whatsapp: true } })
       .then((fullTenant) => {
-        if (fullTenant?.whatsappWabaId && fullTenant?.whatsappAccessToken) {
-          return performTemplateSync(fullTenant);
+        const t = fullTenant ? { ...fullTenant, ...fullTenant.whatsapp } : null;
+        if (t?.whatsappWabaId && t?.whatsappAccessToken) {
+          return performTemplateSync(t);
         }
       })
       .then((synced) => {
@@ -564,7 +566,6 @@ await notifySuperAdminWhatsAppStatus({
         }
       })
       .catch((err) => console.warn('[WhatsApp] Auto-sync templates on manual connect non-fatal error:', err.message));
-
 
      // 📡 Real-time socket emit to update frontend instantly
 emitToTenant(tenantId, 'whatsapp_status_changed', {

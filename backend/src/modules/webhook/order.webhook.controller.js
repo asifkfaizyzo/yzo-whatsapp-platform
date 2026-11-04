@@ -37,15 +37,20 @@ export const handleTenantOrderWebhook = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Tenant ID required' });
     }
 
-    const tenant = await prisma.tenant.findUnique({
+    const tenantRow = await prisma.tenant.findUnique({
       where: { id: tenantId },
       select: {
         id: true,
-        razorpayWebhookSecret: true,
-        enableOnlinePayment: true,
-        enableCod: true,
+        subscription: {
+          select: {
+            razorpayWebhookSecret: true,
+            enableOnlinePayment: true,
+            enableCod: true,
+          },
+        },
       }
     });
+    const tenant = { ...tenantRow, ...tenantRow?.subscription };
 
     if (!tenant) {
       console.warn(`⚠️ [OrderWebhook] Received webhook for non-existent tenant: ${tenantId}`);
@@ -154,16 +159,21 @@ export const handlePartnerWebhook = async (req, res) => {
         return res.status(400).json({ success: false, error: 'Missing account_id for sub-merchant event' });
       }
 
-      tenant = await prisma.tenant.findFirst({
-        where: { razorpayAccountId: accountId },
+      const tenantRow = await prisma.tenant.findFirst({
+        where: { subscription: { razorpayAccountId: accountId } },
         select: {
           id: true,
-          razorpayAccountId: true,
-          razorpayWebhookSecret: true,
-          enableOnlinePayment: true,
-          enableCod: true,
+          subscription: {
+            select: {
+              razorpayAccountId: true,
+              razorpayWebhookSecret: true,
+              enableOnlinePayment: true,
+              enableCod: true,
+            },
+          },
         },
       });
+      tenant = tenantRow ? { ...tenantRow, ...tenantRow.subscription } : null;
 
       if (!tenant) {
         console.warn(`⚠️ [PartnerWebhook] Received commerce webhook for unknown sub-merchant: ${accountId}`);
@@ -202,14 +212,13 @@ export const handlePartnerWebhook = async (req, res) => {
 
       if (accountId) {
         const targetTenant = await prisma.tenant.findFirst({
-          where: { razorpayAccountId: accountId },
+          where: { subscription: { razorpayAccountId: accountId } },
           select: { id: true },
         });
-
         if (targetTenant) {
           if (event === 'account.activated') {
-            await prisma.tenant.update({
-              where: { id: targetTenant.id },
+            await prisma.tenantSubscription.update({
+              where: { tenantId: targetTenant.id },
               data: {
                 razorpayAccountStatus: 'VERIFIED',
                 razorpayKycStatus: 'VERIFIED',
@@ -231,8 +240,8 @@ export const handlePartnerWebhook = async (req, res) => {
 
             console.log(`✅ [PartnerWebhook] Activated tenant ${targetTenant.id} (KYC verified)`);
           } else if (event === 'account.rejected') {
-            await prisma.tenant.update({
-              where: { id: targetTenant.id },
+            await prisma.tenantSubscription.update({
+              where: { tenantId: targetTenant.id },
               data: {
                 razorpayAccountStatus: 'SUSPENDED',
                 razorpayKycStatus: 'REJECTED',

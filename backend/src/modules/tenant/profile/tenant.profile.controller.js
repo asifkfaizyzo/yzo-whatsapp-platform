@@ -178,7 +178,9 @@ export const completeOnboarding = async (req, res) => {
         onboardingStep: 6,
         onboardingCompleted: true,
       },
+      include: { subscription: true },
     });
+    Object.assign(updatedTenant, updatedTenant?.subscription);
 
     const { password: _, ...safeTenant } = updatedTenant;
 

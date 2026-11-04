@@ -58,7 +58,9 @@ export const registerTenantService = async (data) => {
       country,
       status: 'PENDING',
     },
+    include: { subscription: true },
   });
+  Object.assign(tenant, tenant?.subscription);
 
   try {
     const superAdminNotif = await createSuperAdminNotification({
@@ -139,7 +141,7 @@ export const loginTenantService = async (data, meta = {}) => {
     throw new Error('Email and password are required');
   }
 
-  const tenant = await prisma.tenant.findUnique({ where: { email } });
+  const tenant = await prisma.tenant.findUnique({ where: { email }, include: { subscription: true } });
 
   if (!tenant) {
     await createAuditLog({
@@ -212,6 +214,7 @@ export const loginTenantService = async (data, meta = {}) => {
     ipAddress, userAgent, tenantId: tenant.id,
   });
 
+  Object.assign(tenant, tenant?.subscription);
   const { password: _, ...safeTenant } = tenant;
   return {
     message: 'Login successful',
@@ -293,11 +296,13 @@ export const refreshTenantAccessTokenService = async (refreshToken) => {
 
   const tenant = await prisma.tenant.findUnique({
     where: { id: tokenRecord.tenantId },
+    include: { subscription: true },
   });
 
   if (!tenant) {
     throw new Error('Tenant not found');
   }
+  Object.assign(tenant, tenant?.subscription);
 
   const newAccessToken = generateAccessToken({
     id: tenant.id, email: tenant.email, type: 'TENANT',
@@ -347,12 +352,13 @@ export const loginOrRegisterWithGoogleService = async (credential) => {
 
   const { email, name, given_name: firstName, family_name: lastName, sub: googleId } = payload;
 
-  let tenant = await prisma.tenant.findUnique({ where: { email } });
+  let tenant = await prisma.tenant.findUnique({ where: { email }, include: { auth: true, subscription: true } });
   let user = await prisma.user.findUnique({ where: { email } });
 
   if (!tenant) {
-    tenant = await prisma.tenant.findUnique({ where: { googleId } });
+    tenant = await prisma.tenant.findUnique({ where: { auth: { googleId } }, include: { auth: true, subscription: true } });
   }
+  if (tenant) Object.assign(tenant, tenant?.auth, tenant?.subscription);
 
   if (user) {
     const accessToken = generateAccessToken({ id: user.id, email: user.email, type: 'USER' });
@@ -376,9 +382,9 @@ export const loginOrRegisterWithGoogleService = async (credential) => {
           create: { googleId, authProvider: 'GOOGLE' },
         },
       },
-      include: { auth: true },
+      include: { auth: true, subscription: true },
     });
-    tenant = { ...tenant, ...tenant.auth };
+    tenant = { ...tenant, ...tenant.auth, ...tenant.subscription };
   } else {
     if (tenant.authProvider !== 'GOOGLE' || !tenant.googleId) {
       await prisma.tenant.update({
@@ -393,8 +399,8 @@ export const loginOrRegisterWithGoogleService = async (credential) => {
         update: { googleId, authProvider: 'GOOGLE' },
         create: { tenantId: tenant.id, googleId, authProvider: 'GOOGLE' },
       });
-      tenant = await prisma.tenant.findUnique({ where: { id: tenant.id }, include: { auth: true } });
-      tenant = { ...tenant, ...tenant.auth };
+      tenant = await prisma.tenant.findUnique({ where: { id: tenant.id }, include: { auth: true, subscription: true } });
+      tenant = { ...tenant, ...tenant.auth, ...tenant.subscription };
     }
   }
 
@@ -427,12 +433,13 @@ export const loginOrRegisterWithFacebookService = async (accessToken) => {
   const { id: facebookId, name, email: fbEmail, first_name: firstName, last_name: lastName } = fbData;
   const email = fbEmail || `fb_${facebookId}@sudoreply.local`;
 
-  let tenant = await prisma.tenant.findUnique({ where: { email } });
+  let tenant = await prisma.tenant.findUnique({ where: { email }, include: { auth: true, subscription: true } });
   let user = await prisma.user.findUnique({ where: { email } });
 
   if (!tenant) {
-    tenant = await prisma.tenant.findUnique({ where: { facebookId } });
+    tenant = await prisma.tenant.findUnique({ where: { auth: { facebookId } }, include: { auth: true, subscription: true } });
   }
+  if (tenant) Object.assign(tenant, tenant?.auth, tenant?.subscription);
 
   if (user) {
     const jwtAccessToken = generateAccessToken({ id: user.id, email: user.email, type: 'USER' });
@@ -456,9 +463,9 @@ export const loginOrRegisterWithFacebookService = async (accessToken) => {
           create: { facebookId, authProvider: 'FACEBOOK' },
         },
       },
-      include: { auth: true },
+      include: { auth: true, subscription: true },
     });
-    tenant = { ...tenant, ...tenant.auth };
+    tenant = { ...tenant, ...tenant.auth, ...tenant.subscription };
   } else {
     if (tenant.authProvider !== 'FACEBOOK' || !tenant.facebookId) {
       await prisma.tenant.update({
@@ -473,8 +480,8 @@ export const loginOrRegisterWithFacebookService = async (accessToken) => {
         update: { facebookId, authProvider: 'FACEBOOK' },
         create: { tenantId: tenant.id, facebookId, authProvider: 'FACEBOOK' },
       });
-      tenant = await prisma.tenant.findUnique({ where: { id: tenant.id }, include: { auth: true } });
-      tenant = { ...tenant, ...tenant.auth };
+      tenant = await prisma.tenant.findUnique({ where: { id: tenant.id }, include: { auth: true, subscription: true } });
+      tenant = { ...tenant, ...tenant.auth, ...tenant.subscription };
     }
   }
 

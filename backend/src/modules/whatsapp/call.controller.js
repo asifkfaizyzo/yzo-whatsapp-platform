@@ -744,8 +744,9 @@ export const getContactCalls = async (req, res) => {
 export const checkCallPermission = async (req, res) => {
   try {
     const tenantId = req.tenant?.id || req.user?.tenantId;
-    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
-    if (!tenant) throw new Error('Tenant not found');
+    const tenantRow = await prisma.tenant.findUnique({ where: { id: tenantId }, include: { whatsapp: true } });
+    if (!tenantRow) throw new Error('Tenant not found');
+    const tenant = { ...tenantRow, ...tenantRow?.whatsapp };
 
     const contactId = req.params.contactId;
     const contact = await prisma.contact.findUnique({ where: { id: contactId } });

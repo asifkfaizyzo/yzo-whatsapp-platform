@@ -321,7 +321,9 @@ export const verifyPaymentAndActivate = async (req, res) => {
     // 2. Get tenant details
     const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
+      include: { subscription: true },
     });
+    Object.assign(tenant, tenant?.subscription);
 
     if (!tenant) {
       return res.status(404).json({
@@ -521,7 +523,8 @@ export const verifyPaymentAndActivate = async (req, res) => {
       });
 
       if (currentP && currentP.status === "SUCCESS") {
-        const currentT = await tx.tenant.findUnique({ where: { id: tenantId } });
+        const currentTRow = await tx.tenant.findUnique({ where: { id: tenantId }, include: { subscription: true } });
+        const currentT = { ...currentTRow, ...currentTRow?.subscription };
         return { payment: currentP, updatedTenant: currentT, alreadyProcessed: true };
       }
 
@@ -768,10 +771,11 @@ export const createSubscriptionTrial = async (req, res) => {
   }
 
   try {
-    const [tenant, plan] = await Promise.all([
-      prisma.tenant.findUnique({ where: { id: tenantId } }),
+    const [tenantRaw, plan] = await Promise.all([
+      prisma.tenant.findUnique({ where: { id: tenantId }, include: { subscription: true } }),
       prisma.subscriptionPlan.findUnique({ where: { id: planId } })
     ]);
+    const tenant = { ...tenantRaw, ...tenantRaw?.subscription };
 
     if (!tenant) return res.status(404).json({ success: false, message: "Tenant not found" });
     if (!plan) return res.status(404).json({ success: false, message: "Plan not found" });
@@ -915,8 +919,9 @@ export const verifySubscriptionTrial = async (req, res) => {
     // 3. Atomically activate trial
     const tenant = await prisma.tenant.findUnique({ 
       where: { id: tenantId },
-      include: { plan: true }
+      include: { subscription: { include: { plan: true } } }
     });
+    Object.assign(tenant, tenant?.subscription);
 
     if (!tenant) return res.status(404).json({ success: false, message: "Tenant not found" });
 
@@ -982,7 +987,6 @@ export const createPaidSubscription = async (req, res) => {
   try {
     const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
-      include: { plan: true },
     });
 
     if (!tenant) {
@@ -1107,8 +1111,9 @@ export const verifyPaidSubscription = async (req, res) => {
     // 3. Find tenant and chosen plan
     const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
-      include: { plan: true },
+      include: { subscription: { include: { plan: true } } },
     });
+    Object.assign(tenant, tenant?.subscription);
 
     if (!tenant) {
       return res.status(404).json({ success: false, message: "Tenant not found" });
@@ -1321,18 +1326,23 @@ export const getBillingDetails = async (req, res) => {
     const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
       include: {
-        plan: {
-          select: {
-            id: true,
-            name: true,
-            monthlyPrice: true,
-            annualPrice: true,
-            maxAgents: true,
-            description: true,
+        subscription: {
+          include: {
+            plan: {
+              select: {
+                id: true,
+                name: true,
+                monthlyPrice: true,
+                annualPrice: true,
+                maxAgents: true,
+                description: true,
+              },
+            },
           },
         },
       },
     });
+    Object.assign(tenant, tenant?.subscription);
 
     if (!tenant) {
       return res.status(404).json({

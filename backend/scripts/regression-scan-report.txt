@@ -4,16 +4,14 @@
 
 📄 src/cron/jobs/expired-subscriptions.job.js
 ────────────────────────────────────────────────────────────────────────────────
-   L69-86         [READ ] tenant.findMany()
+   L69-89         [READ ] tenant.findMany()
                    → TenantSubscription: subscriptionStatus, planPeriodEnd, razorpaySubscriptionId
-   L92-99         [WRITE] tenant.updateMany()
-                   → TenantSubscription: planStatus, subscriptionStatus, dataDeletionDate
-   L124-133       [READ ] tenant.findMany()
+   L126-138       [READ ] tenant.findMany()
                    → TenantSubscription: subscriptionStatus, dataDeletionDate
 
 📄 src/cron/jobs/expiry-reminders.job.js
 ────────────────────────────────────────────────────────────────────────────────
-   L12-16         [READ ] tenant.findMany()
+   L12-19         [READ ] tenant.findMany()
                    → TenantSubscription: subscriptionStatus
 
 📄 src/cron/jobs/zoho-watch-renewal.job.js
@@ -23,15 +21,15 @@
 
 📄 src/cron/workers/webhook.worker.js
 ────────────────────────────────────────────────────────────────────────────────
-   L113-117       [READ ] tenant.findFirst()
+   L157-169       [READ ] tenant.findFirst()
                    → TenantSocial: facebookPageId, instagramAccountId
-   L530           [READ ] tenant.findFirst()
+   L637-640       [READ ] tenant.findFirst()
                    → TenantWhatsApp: whatsappPhoneId
-   L533           [READ ] tenant.findFirst()
+   L644-647       [READ ] tenant.findFirst()
                    → TenantWhatsApp: whatsappWabaId
-   L537           [READ ] tenant.findFirst()
+   L652-655       [READ ] tenant.findFirst()
                    → TenantWhatsApp: whatsappPhoneId
-   L596-598       [READ ] tenant.findFirst()
+   L730-733       [READ ] tenant.findFirst()
                    → TenantWhatsApp: whatsappWabaId
 
 📄 src/middlewares/subscription.access.js
@@ -41,198 +39,94 @@
 
 📄 src/modules/admin-subscriptions/adminSubscription.controller.js
 ────────────────────────────────────────────────────────────────────────────────
-   L65-90         [READ ] tenant.findMany()
+   L65-94         [READ ] tenant.findMany()
                    → TenantSubscription: planStatus, subscriptionStatus, currentPlan, planPeriodStart, planPeriodEnd, cancelRequestedAt, cancellationReason, dataDeletionDate, hasUsedTrial, trialExtendedCount, autopayEnabled
-   L393-412       [WRITE] tenant.update()
-                   → TenantSubscription: planId, planStatus, planActivatedAt, subscriptionStatus, currentPlan, planPeriodStart, planPeriodEnd, cancelRequestedAt, cancellationReason, dataDeletionDate, razorpaySubscriptionId, autopayEnabled, autopayMethod
 
 📄 src/modules/automation/flowEngine.service.js
 ────────────────────────────────────────────────────────────────────────────────
-   L2644-2650     [READ ] tenant.findUnique()
+   L3214-3221     [READ ] tenant.findUnique()
                    → TenantWhatsApp: whatsappPhoneId, whatsappAccessToken
-   L2854-2860     [READ ] tenant.findUnique()
+   L3464-3471     [READ ] tenant.findUnique()
                    → TenantWhatsApp: whatsappPhoneId, whatsappAccessToken
-   L2927-2933     [READ ] tenant.findUnique()
+   L3555-3562     [READ ] tenant.findUnique()
                    → TenantWhatsApp: whatsappPhoneId, whatsappAccessToken
-   L3036-3042     [READ ] tenant.findUnique()
+   L3686-3693     [READ ] tenant.findUnique()
                    → TenantWhatsApp: whatsappPhoneId, whatsappAccessToken
-   L3111-3117     [READ ] tenant.findUnique()
+   L3771-3778     [READ ] tenant.findUnique()
                    → TenantWhatsApp: whatsappPhoneId, whatsappAccessToken
-   L3183-3189     [READ ] tenant.findUnique()
+   L3855-3862     [READ ] tenant.findUnique()
                    → TenantWhatsApp: whatsappPhoneId, whatsappAccessToken
-   L3559-3565     [READ ] tenant.findUnique()
+   L4316-4323     [READ ] tenant.findUnique()
                    → TenantWhatsApp: whatsappPhoneId, whatsappAccessToken
 
 📄 src/modules/billing/billing.controller.js
 ────────────────────────────────────────────────────────────────────────────────
-   L71-80         [WRITE] tenant.update()
-                   → TenantSubscription: subscriptionStatus, planPeriodEnd, cancelRequestedAt, cancellationReason, autopayEnabled
-   L203-211       [WRITE] tenant.update()
-                   → TenantSubscription: subscriptionStatus, cancelRequestedAt, cancellationReason, reactivatedAt
-   L315-322       [WRITE] tenant.update()
-                   → TenantSubscription: planStatus, subscriptionStatus, autopayEnabled
-   L426-435       [WRITE] tenant.update()
-                   → TenantSubscription: planStatus, subscriptionStatus, reactivatedAt, dataDeletionDate, autopayEnabled
-   L505-536       [READ ] tenant.findUnique()
+   L512-545       [READ ] tenant.findUnique()
                    → TenantSubscription: subscriptionStatus, currentPlan, planPeriodStart, planPeriodEnd, cancelRequestedAt, dataDeletionDate, hasUsedTrial, trialExtendedCount, autopayEnabled, autopayMethod
-   L550-557       [WRITE] tenant.update()
-                   → TenantSubscription: planStatus, subscriptionStatus, dataDeletionDate
-
-📄 src/modules/enterprise-leads/enterpriseLead.controller.js
-────────────────────────────────────────────────────────────────────────────────
-   L95-101        [WRITE] tenant.update()
-                   → TenantSubscription: planStatus
-   L145-150       [WRITE] tenant.update()
-                   → TenantSubscription: planStatus
-   L417-424       [WRITE] tenant.update()
-                   → TenantSubscription: planStatus
-
-📄 src/modules/messages/message.service.js
-────────────────────────────────────────────────────────────────────────────────
-   L414-417       [WRITE] tenant.update()
-                   → TenantSocial: facebookPageAccessToken
-   L517-520       [WRITE] tenant.update()
-                   → TenantSocial: facebookPageAccessToken
-
-📄 src/modules/plans/plan.controller.js
-────────────────────────────────────────────────────────────────────────────────
-   L538-556       [WRITE] tenant.update()
-                   → TenantSubscription: planStatus, billingType, planActivatedAt, subscriptionStatus, currentPlan, planPeriodStart, planPeriodEnd, cancelRequestedAt, cancellationReason, dataDeletionDate
-   L845-848       [WRITE] tenant.update()
-                   → TenantSubscription: razorpaySubscriptionId
-   L926-943       [WRITE] tenant.update()
-                   → TenantSubscription: planId, planStatus, subscriptionStatus, currentPlan, planPeriodStart, planPeriodEnd, dataDeletionDate, hasUsedTrial, trialPlanId, razorpaySubscriptionId, autopayEnabled, autopayMethod
-   L1206-1227     [WRITE] tenant.update()
-                   → TenantSubscription: planId, planStatus, billingType, planActivatedAt, subscriptionStatus, currentPlan, planPeriodStart, planPeriodEnd, cancelRequestedAt, cancellationReason, dataDeletionDate, razorpaySubscriptionId, autopayEnabled, autopayMethod
-   L1332-1339     [WRITE] tenant.update()
-                   → TenantSubscription: planStatus, subscriptionStatus, dataDeletionDate
-
-📄 src/modules/plans/plan.service.js
-────────────────────────────────────────────────────────────────────────────────
-   L183-185       [READ ] tenant.count()
-                   → TenantSubscription: planId
 
 📄 src/modules/revenue/revenue.service.js
 ────────────────────────────────────────────────────────────────────────────────
    L92-94         [READ ] tenant.count()
                    → TenantSubscription: planStatus
-   L199-213       [READ ] tenant.findUnique()
+   L199-215       [READ ] tenant.findUnique()
                    → TenantSubscription: planStatus, billingType, planActivatedAt
-
-📄 src/modules/shopify/orders/shopify.cartRecovery.service.js
-────────────────────────────────────────────────────────────────────────────────
-   L901-907       [READ ] tenant.findUnique()
-                   → TenantWhatsApp: whatsappPhoneId, whatsappAccessToken
-
-📄 src/modules/shopify/orders/shopify.orderLifecycle.js
-────────────────────────────────────────────────────────────────────────────────
-   L162-165       [READ ] tenant.findUnique()
-                   → TenantWhatsApp: whatsappPhoneId, whatsappAccessToken
-   L1041-1044     [READ ] tenant.findUnique()
-                   → TenantWhatsApp: whatsappPhoneId, whatsappAccessToken
 
 📄 src/modules/superadmin/reports.service.js
 ────────────────────────────────────────────────────────────────────────────────
    L165-167       [READ ] tenant.count()
                    → TenantWhatsApp: whatsappPhoneId
-   L611-615       [READ ] tenant.findMany()
+   L612-616       [READ ] tenant.findMany()
                    → TenantWhatsApp: whatsappPhoneId
 
 📄 src/modules/superadmin/superadmin.service.js
 ────────────────────────────────────────────────────────────────────────────────
-   L233-299       [READ ] tenant.findMany()
+   L233-307       [READ ] tenant.findMany()
                    → TenantWhatsApp: whatsappPhoneId, whatsappWabaId
                    → TenantSubscription: planId, planStatus, billingType, planActivatedAt, subscriptionStatus, currentPlan, planPeriodStart, planPeriodEnd, cancelRequestedAt, cancellationReason, reactivatedAt, dataDeletionDate
-   L891-893       [READ ] tenant.count()
-                   → TenantSubscription: planStatus
-   L895-899       [READ ] tenant.groupBy()
-                   → TenantSubscription: planId, planStatus
 
 📄 src/modules/tenant/auth/tenant.auth.service.js
 ────────────────────────────────────────────────────────────────────────────────
-   L369-376       [WRITE] tenant.create()
+   L375-386       [WRITE] tenant.create()
                    → TenantAuth: authProvider
-   L379-386       [WRITE] tenant.update()
+   L456-467       [WRITE] tenant.create()
                    → TenantAuth: authProvider
-   L438-445       [WRITE] tenant.create()
-                   → TenantAuth: authProvider
-   L448-455       [WRITE] tenant.update()
-                   → TenantAuth: authProvider
-
-📄 src/modules/tenant/integrations/tenant.integrations.controller.js
-────────────────────────────────────────────────────────────────────────────────
-   L8-17          [READ ] tenant.findUnique()
-                   → TenantWhatsApp: whatsappPhoneId, whatsappWabaId, whatsappAccessToken, whatsappVerifyToken, whatsappCatalogId
-   L40-49         [WRITE] tenant.update()
-                   → TenantWhatsApp: whatsappPhoneId, whatsappWabaId, whatsappAccessToken, whatsappVerifyToken, whatsappCatalogId
-   L67-76         [READ ] tenant.findUnique()
-                   → TenantSocial: facebookPageId, facebookPageName, facebookPageAccessToken, instagramAccountId, instagramUsername
-   L126-135       [WRITE] tenant.update()
-                   → TenantSocial: facebookPageId, facebookPageName, instagramAccountId, instagramUsername
 
 📄 src/modules/tenant/profile/tenant.profile.controller.js
 ────────────────────────────────────────────────────────────────────────────────
-   L22-56         [READ ] tenant.findUnique()
+   L22-62         [READ ] tenant.findUnique()
                    → TenantAuth: authProvider
                    → TenantSubscription: planId, planStatus, billingType, subscriptionStatus, currentPlan, planPeriodStart, planPeriodEnd, cancelRequestedAt, hasUsedTrial, autopayEnabled
 
 📄 src/modules/users/user.service.js
 ────────────────────────────────────────────────────────────────────────────────
-   L57-67         [READ ] tenant.findUnique()
+   L57-65         [READ ] tenant.findUnique()
                    → TenantSubscription: planId, planStatus, billingType
 
 📄 src/modules/webhook/order.webhook.controller.js
 ────────────────────────────────────────────────────────────────────────────────
-   L330-337       [READ ] tenant.findUnique()
+   L339-345       [READ ] tenant.findUnique()
                    → TenantWhatsApp: whatsappPhoneId, whatsappAccessToken
-   L745-748       [READ ] tenant.findUnique()
+   L754-757       [READ ] tenant.findUnique()
                    → TenantWhatsApp: whatsappPhoneId, whatsappAccessToken
-   L825-828       [READ ] tenant.findUnique()
+   L834-837       [READ ] tenant.findUnique()
                    → TenantWhatsApp: whatsappPhoneId, whatsappAccessToken
-
-📄 src/modules/webhook/razorpay/razorpay.webhook.controller.js
-────────────────────────────────────────────────────────────────────────────────
-   L111-127       [WRITE] tenant.update()
-                   → TenantSubscription: planId, planStatus, billingType, planActivatedAt, subscriptionStatus, currentPlan, planPeriodStart, planPeriodEnd, cancelRequestedAt, cancellationReason, dataDeletionDate
-   L164-173       [WRITE] tenant.updateMany()
-                   → TenantSubscription: razorpaySubscriptionId, autopayEnabled, autopayMethod
-   L195-198       [READ ] tenant.findFirst()
-                   → TenantSubscription: razorpaySubscriptionId
-   L211-224       [WRITE] tenant.update()
-                   → TenantSubscription: planStatus, subscriptionStatus, planPeriodStart, planPeriodEnd, cancelRequestedAt, cancellationReason, dataDeletionDate, autopayEnabled
-   L299-306       [WRITE] tenant.updateMany()
-                   → TenantSubscription: planStatus, subscriptionStatus, razorpaySubscriptionId
-   L325-330       [WRITE] tenant.updateMany()
-                   → TenantSubscription: razorpaySubscriptionId, autopayEnabled
-   L341-347       [WRITE] tenant.updateMany()
-                   → TenantSubscription: subscriptionStatus, razorpaySubscriptionId, autopayEnabled
-   L358-365       [WRITE] tenant.updateMany()
-                   → TenantSubscription: planStatus, subscriptionStatus, razorpaySubscriptionId, autopayEnabled
-   L376-384       [WRITE] tenant.updateMany()
-                   → TenantSubscription: planStatus, subscriptionStatus, dataDeletionDate, razorpaySubscriptionId, autopayEnabled
 
 📄 src/modules/whatsapp/whatsapp.controller.js
 ────────────────────────────────────────────────────────────────────────────────
    L257-263       [READ ] tenant.findFirst()
                    → TenantWhatsApp: whatsappPhoneId
-   L314-322       [WRITE] tenant.update()
-                   → TenantWhatsApp: whatsappPhoneId, whatsappWabaId, whatsappAccessToken, whatsappPin
-   L403-409       [READ ] tenant.findFirst()
+   L411-417       [READ ] tenant.findFirst()
                    → TenantWhatsApp: whatsappPhoneId
-   L511-519       [WRITE] tenant.update()
-                   → TenantWhatsApp: whatsappPhoneId, whatsappWabaId, whatsappAccessToken, whatsappPin
-   L592-599       [READ ] tenant.findUnique()
+   L607-614       [READ ] tenant.findUnique()
                    → TenantWhatsApp: whatsappPhoneId, whatsappWabaId, whatsappAccessToken
-   L842-850       [READ ] tenant.findUnique()
+   L858-865       [READ ] tenant.findUnique()
                    → TenantWhatsApp: whatsappPhoneId, whatsappWabaId
-   L866-873       [WRITE] tenant.update()
-                   → TenantWhatsApp: whatsappPhoneId, whatsappWabaId, whatsappAccessToken
-   L925-931       [READ ] tenant.findUnique()
+   L941-946       [READ ] tenant.findUnique()
                    → TenantWhatsApp: whatsappPhoneId, whatsappAccessToken
 
 📄 src/modules/whatsapp/whatsapp.service.js
 ────────────────────────────────────────────────────────────────────────────────
-   L40-46         [READ ] tenant.findUnique()
+   L40-45         [READ ] tenant.findUnique()
                    → TenantWhatsApp: whatsappPhoneId, whatsappAccessToken
 
 📄 src/modules/woocommerce/woocommerce.authMessage.service.js
@@ -242,21 +136,21 @@
 
 📄 src/modules/woocommerce/woocommerce.cartRecovery.service.js
 ────────────────────────────────────────────────────────────────────────────────
-   L319-322       [READ ] tenant.findUnique()
+   L319-326       [READ ] tenant.findUnique()
                    → TenantWhatsApp: whatsappPhoneId, whatsappAccessToken
 
 📄 src/modules/zoho/crm/zoho.contact.service.js
 ────────────────────────────────────────────────────────────────────────────────
-   L38-41         [READ ] tenant.findUnique()
+   L43-46         [READ ] tenant.findUnique()
                    → TenantZoho: zohoConnectionStatus
-   L208-216       [READ ] tenant.findUnique()
+   L226-234       [READ ] tenant.findUnique()
                    → TenantZoho: zohoConnectionStatus
 
 📄 src/modules/zoho/crm/zoho.deal.service.js
 ────────────────────────────────────────────────────────────────────────────────
    L16-19         [READ ] tenant.findUnique()
                    → TenantZoho: zohoConnectionStatus
-   L107-110       [READ ] tenant.findUnique()
+   L106-109       [READ ] tenant.findUnique()
                    → TenantZoho: zohoConnectionStatus
 
 📄 src/modules/zoho/crm/zoho.lead.service.js
@@ -288,35 +182,29 @@
 
 📄 src/modules/zoho/zoho.client.js
 ────────────────────────────────────────────────────────────────────────────────
-   L83-96         [READ ] tenant.findUnique()
+   L83-100        [READ ] tenant.findUnique()
                    → TenantZoho: zohoAccessToken, zohoRefreshToken, zohoTokenExpiresAt, zohoDataCenter, zohoApiDomain, zohoConnectionStatus
-   L122-130       [READ ] tenant.findUnique()
+   L127-139       [READ ] tenant.findUnique()
                    → TenantZoho: zohoAccessToken, zohoDataCenter, zohoApiDomain, zohoConnectionStatus
-   L187-194       [WRITE] tenant.update()
-                   → TenantZoho: zohoAccessToken, zohoTokenExpiresAt, zohoApiDomain
-   L213-218       [WRITE] tenant.update()
-                   → TenantZoho: zohoConnectionStatus
 
 📄 src/modules/zoho/zoho.service.js
 ────────────────────────────────────────────────────────────────────────────────
    L259-262       [READ ] tenant.findUnique()
                    → TenantZoho: zohoAccountId
-   L351-363       [READ ] tenant.findUnique()
+   L353-369       [READ ] tenant.findUnique()
                    → TenantZoho: zohoTokenExpiresAt, zohoAccountId, zohoDataCenter, zohoApiDomain, zohoAccountEmail, zohoConnectionStatus, zohoConnectedAt, zohoScopes
-   L448-458       [READ ] tenant.findUnique()
+   L455-469       [READ ] tenant.findUnique()
                    → TenantZoho: zohoRefreshToken, zohoDataCenter, zohoAccountEmail
-   L500-514       [WRITE] tenant.update()
-                   → TenantZoho: zohoAccessToken, zohoRefreshToken, zohoTokenExpiresAt, zohoAccountId, zohoDataCenter, zohoApiDomain, zohoAccountEmail, zohoConnectionStatus, zohoConnectedAt, zohoScopes
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  TOTAL: 98 regression(s) across 36 file(s)
+  TOTAL: 54 regression(s) across 28 file(s)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   SUMMARY BY MOVED TABLE
 ────────────────────────────────────────────────────────────────────────────────
-   TenantSubscription      184 field refs across 13 file(s)
-   TenantWhatsApp           70 field refs across 12 file(s)
-   TenantZoho               47 field refs across 10 file(s)
-   TenantSocial             13 field refs across 3 file(s)
-   TenantAuth                5 field refs across 2 file(s)
+   TenantSubscription       61 field refs across 9 file(s)
+   TenantWhatsApp           43 field refs across 9 file(s)
+   TenantZoho               33 field refs across 10 file(s)
+   TenantAuth                3 field refs across 2 file(s)
+   TenantSocial              2 field refs across 1 file(s)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

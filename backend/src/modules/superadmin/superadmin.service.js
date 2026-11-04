@@ -263,26 +263,26 @@ export const getAllTenantsService = async () => {
           cancellationReason: true,
           reactivatedAt:      true,
           dataDeletionDate:   true,
+          plan: {
+            select: {
+              id:             true,
+              name:           true,
+              monthlyPrice:   true,
+              annualPrice:    true,
+              maxAgents:      true,
+              maxBroadcasts:  true,
+              maxAutomations: true,
+              maxCampaigns:   true,
+              maxApiCalls:    true,
+              maxAiCredits:   true,
+            },
+          },
         },
       },
       whatsapp: {
         select: {
           whatsappPhoneId: true,
           whatsappWabaId:  true,
-        },
-      },
-      plan: {
-        select: {
-          id:             true,
-          name:           true,
-          monthlyPrice:   true,
-          annualPrice:    true,
-          maxAgents:      true,
-          maxBroadcasts:  true,
-          maxAutomations: true,
-          maxCampaigns:   true,
-          maxApiCalls:    true,
-          maxAiCredits:   true,
         },
       },
       users: {
@@ -874,7 +874,12 @@ export const getRevenueStatsService = async () => {
     where:   { status: 'SUCCESS' },
     include: {
       tenant: {
-        select: { id: true, tenantName: true, email: true, planStatus: true },
+        select: {
+          id: true,
+          tenantName: true,
+          email: true,
+          subscription: { select: { planStatus: true } },
+        },
       },
     },
     orderBy: { createdAt: 'desc' },
@@ -956,12 +961,17 @@ export const getTenantBillingService = async (tenantId) => {
   const tenant = await prisma.tenant.findUnique({
     where:   { id: tenantId },
     include: {
-      plan: {
-        select: { id: true, name: true, monthlyPrice: true, annualPrice: true, maxAgents: true },
+      subscription: {
+        include: {
+          plan: {
+            select: { id: true, name: true, monthlyPrice: true, annualPrice: true, maxAgents: true },
+          },
+        },
       },
     },
   });
   if (!tenant) throw new Error('Tenant not found');
+  Object.assign(tenant, tenant?.subscription);
 
   const payments = await prisma.payment.findMany({
     where:   { tenantId },

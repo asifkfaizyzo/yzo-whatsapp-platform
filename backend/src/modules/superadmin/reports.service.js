@@ -510,7 +510,7 @@ export const getReportTenantsService = async ({ startDate, endDate, search, plan
   const tenants = await prisma.tenant.findMany({
     where: tenantWhere,
     include: {
-      plan: true,
+      subscription: { include: { plan: true } },
       _count: { select: { users: true, contacts: true } }
     },
     take: 50
@@ -518,6 +518,7 @@ export const getReportTenantsService = async ({ startDate, endDate, search, plan
 
   const tenantRows = await Promise.all(
     tenants.map(async (t) => {
+      Object.assign(t, t?.subscription);
       const totalMsgs = await prisma.message.count({
         where: {
           createdAt: { gte: start, lte: end },
