@@ -6,6 +6,7 @@ import {
 } from "../../middlewares/auth.tenant.js";
 import { verifyTenantOrUser } from "../../middlewares/auth.verifyTenantOrUser.js";
 import {
+  exchangeToken,
   setupWhatsApp,
   getWhatsAppStatus,
   getMyWabas,
@@ -83,6 +84,10 @@ router.post(
   checkSubscriptionAccess,
   requestCallPermission,
 );
+
+// POST /tenant/whatsapp/exchange-token — Embedded Signup code exchange
+// Must be BEFORE requireApprovedTenant (tenant may not be approved yet during onboarding)
+router.post("/exchange-token", verifyTenant, exchangeToken);
 
 // All other routes require a verified, approved tenant admin
 router.use(verifyTenant, requireApprovedTenant);
