@@ -1,23 +1,18 @@
 
 import bcrypt from 'bcrypt';
 import prisma from '../../config/prisma.js';
-import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
 import { emitToTenant, emitToUser,emitToSuperAdmin,} from "../../lib/socket.js";
 import fs from 'fs';
-import path from 'path';
 import axios from 'axios';
 
-import { generateAccessToken, generateRefreshToken, verifyAccessToken, verifyRefreshToken } from '../auth/jwtservice.js';
-import { saveRefreshToken, deleteRefreshToken, findRefreshToken } from '../auth/refreshtokenService.js';
-import { generateResetToken, getResetTokenExpiry, sendPasswordResetEmail, } from '../auth/emailService.js';
-import { forgotPasswordService, resetPasswordService, } from '../auth/passwordService.js';
-import { getOrCreateConversation } from "../../modules/conversations/conversationService.js";
-import { AsyncLocalStorage } from 'async_hooks';
-import { createNotification } from "../notifications/notificationService.js";
-import { checkLimitAccess } from '../../lib/planLimits.js';
-import { createSuperAdminNotification } from '../SuperAdminNotifications/superAdminNotificationService.js';
-import { createAuditLog } from '../audit/auditLogService.js';
+import { generateAccessToken, generateRefreshToken, verifyAccessToken, verifyRefreshToken } from '../auth/jwt.service.js';
+import { saveRefreshToken, deleteRefreshToken, findRefreshToken } from '../auth/refreshToken.service.js';
+import { forgotPasswordService, resetPasswordService, } from '../auth/password.service.js';
+import { createNotification } from "../notifications/notification.service.js";
+import { checkLimitAccess } from '../../lib/plan.limits.js';
+import { createSuperAdminNotification } from '../superadmin-notifications/superadminNotification.service.js';
+import { createAuditLog } from '../audit/audit.service.js';
 
 
 // ===========Tenant Registration Service (with Auto-Login)===========
