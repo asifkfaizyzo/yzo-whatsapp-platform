@@ -48,7 +48,9 @@ export const createTag = async ({ name, priority, description }) => {
  */
 export const assignUserToTag = async (tagId, userId) => {
   try {
-    const response = await api.post(`${TAGS_BASE_URL}/${tagId}/assign-user`, { userId });
+    const response = await api.post(`${TAGS_BASE_URL}/${tagId}/assign-user`, {
+      userId,
+    });
     return {
       success: true,
       data: response.data,
@@ -66,7 +68,9 @@ export const assignUserToTag = async (tagId, userId) => {
  */
 export const removeUserFromTag = async (tagId, userId) => {
   try {
-    const response = await api.delete(`${TAGS_BASE_URL}/${tagId}/users/${userId}`);
+    const response = await api.delete(
+      `${TAGS_BASE_URL}/${tagId}/users/${userId}`,
+    );
     return {
       success: true,
       data: response.data,
@@ -74,7 +78,8 @@ export const removeUserFromTag = async (tagId, userId) => {
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || "Failed to remove user from tag",
+      message:
+        error.response?.data?.message || "Failed to remove user from tag",
     };
   }
 };

@@ -1,18 +1,18 @@
 // backend/src/validations/superadmin.schema.js (do not remove this comment)
-import { z } from 'zod';
-import { emailRule, passwordRule } from '../auth/auth.schema.js';
+import { z } from "zod";
+import { emailRule, passwordRule } from "../auth/auth.schema.js";
 
 // Validate general parameter IDs (e.g. tenantId, userId)
 export const superAdminIdParamSchema = z.object({
   params: z.object({
-    id: z.string().cuid('Invalid ID format'),
+    id: z.string().cuid("Invalid ID format"),
   }),
 });
 
 // Creation of SuperAdmin
 export const createSuperAdminSchema = z.object({
   body: z.object({
-    name: z.string({ required_error: 'Name is required' }).min(2),
+    name: z.string({ required_error: "Name is required" }).min(2),
     email: emailRule,
     password: passwordRule,
   }),
@@ -21,7 +21,7 @@ export const createSuperAdminSchema = z.object({
 // Tenant updates by SuperAdmin
 export const updateTenantByAdminSchema = z.object({
   params: z.object({
-    id: z.string().cuid('Invalid Tenant ID format'),
+    id: z.string().cuid("Invalid Tenant ID format"),
   }),
   body: z.object({
     tenantName: z.string().min(2).optional(),

@@ -5,7 +5,7 @@ import api from "./axios";
  * Fetch Performance KPI cards data
  */
 export const fetchReportKPIs = async (params = {}) => {
-  const response = await api.get('/reports/kpis', { params });
+  const response = await api.get("/reports/kpis", { params });
   return response.data;
 };
 
@@ -13,7 +13,7 @@ export const fetchReportKPIs = async (params = {}) => {
  * Fetch Message Volume & Trends data
  */
 export const fetchReportMessages = async (params = {}) => {
-  const response = await api.get('/reports/messages', { params });
+  const response = await api.get("/reports/messages", { params });
   return response.data;
 };
 
@@ -21,7 +21,7 @@ export const fetchReportMessages = async (params = {}) => {
  * Fetch Delivery Performance data
  */
 export const fetchReportDelivery = async (params = {}) => {
-  const response = await api.get('/reports/delivery', { params });
+  const response = await api.get("/reports/delivery", { params });
   return response.data;
 };
 
@@ -29,7 +29,7 @@ export const fetchReportDelivery = async (params = {}) => {
  * Fetch Tenant Activity & Usage data
  */
 export const fetchReportTenants = async (params = {}) => {
-  const response = await api.get('/reports/tenants', { params });
+  const response = await api.get("/reports/tenants", { params });
   return response.data;
 };
 
@@ -37,6 +37,6 @@ export const fetchReportTenants = async (params = {}) => {
  * Fetch System Health data
  */
 export const fetchReportSystemHealth = async () => {
-  const response = await api.get('/reports/system-health');
+  const response = await api.get("/reports/system-health");
   return response.data;
 };

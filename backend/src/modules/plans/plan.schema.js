@@ -35,13 +35,9 @@ export const createPlanSchema = z.object({
   maxApiCalls: z.number().int().positive().optional().nullable(),
   maxAiCredits: z.number().int().positive().optional().nullable(),
 
-  featureIds: z
-    .array(z.string())
-    .min(1, "Select at least one feature"),
+  featureIds: z.array(z.string()).min(1, "Select at least one feature"),
 
-  integrations: z
-    .array(z.string())
-    .default([]),
+  integrations: z.array(z.string()).default([]),
 });
 
 export const updatePlanSchema = createPlanSchema.partial().extend({

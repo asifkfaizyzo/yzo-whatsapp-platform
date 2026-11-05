@@ -46,15 +46,20 @@ export default function IntegrationsStore() {
   // Check connection statuses of all integrated systems
   const checkStatus = async () => {
     try {
-      const [rzpRes, sheetsRes, zohoRes, shopifyRes, wooRes] = await Promise.allSettled([
-        getPaymentGatewayConfig(),
-        getGoogleSheetsStatus(),
-        getZohoStatus(),
-        shopifyService.getStatus(),
-        woocommerceService.getStatus(),
-      ]);
+      const [rzpRes, sheetsRes, zohoRes, shopifyRes, wooRes] =
+        await Promise.allSettled([
+          getPaymentGatewayConfig(),
+          getGoogleSheetsStatus(),
+          getZohoStatus(),
+          shopifyService.getStatus(),
+          woocommerceService.getStatus(),
+        ]);
 
-      if (rzpRes.status === "fulfilled" && rzpRes.value?.success && rzpRes.value?.data) {
+      if (
+        rzpRes.status === "fulfilled" &&
+        rzpRes.value?.success &&
+        rzpRes.value?.data
+      ) {
         const data = rzpRes.value.data;
         const isConnected =
           data.razorpayAuthType === "OAUTH"
@@ -63,25 +68,42 @@ export default function IntegrationsStore() {
         setIsRazorpayConnected(isConnected);
       }
 
-      if (sheetsRes.status === "fulfilled" && sheetsRes.value?.success && sheetsRes.value?.data) {
+      if (
+        sheetsRes.status === "fulfilled" &&
+        sheetsRes.value?.success &&
+        sheetsRes.value?.data
+      ) {
         setIsSheetsConnected(
-          Boolean(sheetsRes.value.data.isConnected || sheetsRes.value.data.status === "active")
+          Boolean(
+            sheetsRes.value.data.isConnected ||
+            sheetsRes.value.data.status === "active",
+          ),
         );
       }
 
-      if (zohoRes.status === "fulfilled" && zohoRes.value?.success && zohoRes.value?.data) {
+      if (
+        zohoRes.status === "fulfilled" &&
+        zohoRes.value?.success &&
+        zohoRes.value?.data
+      ) {
         setIsZohoConnected(Boolean(zohoRes.value.data.connected));
       }
 
       if (shopifyRes.status === "fulfilled" && shopifyRes.value?.data) {
         setIsShopifyConnected(
-          Boolean(shopifyRes.value.data.isConnected || shopifyRes.value.data.status === "active")
+          Boolean(
+            shopifyRes.value.data.isConnected ||
+            shopifyRes.value.data.status === "active",
+          ),
         );
       }
 
       if (wooRes.status === "fulfilled" && wooRes.value?.data) {
         setIsWooCommerceConnected(
-          Boolean(wooRes.value.data.isConnected || wooRes.value.data.status === "active")
+          Boolean(
+            wooRes.value.data.isConnected ||
+            wooRes.value.data.status === "active",
+          ),
         );
       }
     } catch (err) {
@@ -155,7 +177,9 @@ export default function IntegrationsStore() {
     return (
       <div className="flex flex-col items-center justify-center p-16 space-y-3">
         <RefreshCw className="animate-spin text-blue-600" size={24} />
-        <p className="text-xs text-slate-500 font-medium">Loading integration store...</p>
+        <p className="text-xs text-slate-500 font-medium">
+          Loading integration store...
+        </p>
       </div>
     );
   }
@@ -164,7 +188,6 @@ export default function IntegrationsStore() {
     <div className="animate-in fade-in duration-150">
       {/* Integrations Grid */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        
         {/* Razorpay Card */}
         <div
           onClick={() => handleOpenApp("razorpay")}
@@ -192,7 +215,8 @@ export default function IntegrationsStore() {
               <span>Razorpay Payments</span>
             </h3>
             <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-              Accept UPI, credit/debit cards, and net banking directly in WhatsApp chat with zero platform fees.
+              Accept UPI, credit/debit cards, and net banking directly in
+              WhatsApp chat with zero platform fees.
             </p>
 
             <div className="flex flex-wrap gap-1.5 mt-3.5">
@@ -209,8 +233,13 @@ export default function IntegrationsStore() {
           </div>
 
           <div className="pt-4 mt-5 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-slate-600 group-hover:text-[#0C83FD] transition">
-            <span>{isRazorpayConnected ? "Manage Settings" : "Connect Gateway"}</span>
-            <ArrowRight size={15} className="group-hover:translate-x-1 transition-transform" />
+            <span>
+              {isRazorpayConnected ? "Manage Settings" : "Connect Gateway"}
+            </span>
+            <ArrowRight
+              size={15}
+              className="group-hover:translate-x-1 transition-transform"
+            />
           </div>
         </div>
 
@@ -241,7 +270,8 @@ export default function IntegrationsStore() {
               <span>Google Sheets</span>
             </h3>
             <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-              Auto-export confirmed leads, orders, and payment statuses to a live Google spreadsheet in real time.
+              Auto-export confirmed leads, orders, and payment statuses to a
+              live Google spreadsheet in real time.
             </p>
 
             <div className="flex flex-wrap gap-1.5 mt-3.5">
@@ -258,8 +288,13 @@ export default function IntegrationsStore() {
           </div>
 
           <div className="pt-4 mt-5 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-slate-600 group-hover:text-[#0F9D58] transition">
-            <span>{isSheetsConnected ? "Manage Settings" : "Connect Sheets"}</span>
-            <ArrowRight size={15} className="group-hover:translate-x-1 transition-transform" />
+            <span>
+              {isSheetsConnected ? "Manage Settings" : "Connect Sheets"}
+            </span>
+            <ArrowRight
+              size={15}
+              className="group-hover:translate-x-1 transition-transform"
+            />
           </div>
         </div>
 
@@ -290,7 +325,8 @@ export default function IntegrationsStore() {
               <span>Zoho CRM</span>
             </h3>
             <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-              Synchronize WhatsApp contacts dynamically into Zoho CRM Contact modules with automated background processing.
+              Synchronize WhatsApp contacts dynamically into Zoho CRM Contact
+              modules with automated background processing.
             </p>
 
             <div className="flex flex-wrap gap-1.5 mt-3.5">
@@ -307,8 +343,13 @@ export default function IntegrationsStore() {
           </div>
 
           <div className="pt-4 mt-5 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-slate-600 group-hover:text-[#009A44] transition">
-            <span>{isZohoConnected ? "Manage Settings" : "Connect Zoho CRM"}</span>
-            <ArrowRight size={15} className="group-hover:translate-x-1 transition-transform" />
+            <span>
+              {isZohoConnected ? "Manage Settings" : "Connect Zoho CRM"}
+            </span>
+            <ArrowRight
+              size={15}
+              className="group-hover:translate-x-1 transition-transform"
+            />
           </div>
         </div>
 
@@ -339,7 +380,8 @@ export default function IntegrationsStore() {
               <span>Shopify Store</span>
             </h3>
             <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-              Connect your Shopify store to receive order webhooks, sync products, and trigger instant WhatsApp notifications.
+              Connect your Shopify store to receive order webhooks, sync
+              products, and trigger instant WhatsApp notifications.
             </p>
 
             <div className="flex flex-wrap gap-1.5 mt-3.5">
@@ -356,8 +398,13 @@ export default function IntegrationsStore() {
           </div>
 
           <div className="pt-4 mt-5 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-slate-600 group-hover:text-[#5E8E3E] transition">
-            <span>{isShopifyConnected ? "Manage Settings" : "Connect Shopify"}</span>
-            <ArrowRight size={15} className="group-hover:translate-x-1 transition-transform" />
+            <span>
+              {isShopifyConnected ? "Manage Settings" : "Connect Shopify"}
+            </span>
+            <ArrowRight
+              size={15}
+              className="group-hover:translate-x-1 transition-transform"
+            />
           </div>
         </div>
 
@@ -388,7 +435,8 @@ export default function IntegrationsStore() {
               <span>WooCommerce Store</span>
             </h3>
             <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-              Connect your WordPress WooCommerce store via REST API keys for real-time WhatsApp order alerts.
+              Connect your WordPress WooCommerce store via REST API keys for
+              real-time WhatsApp order alerts.
             </p>
 
             <div className="flex flex-wrap gap-1.5 mt-3.5">
@@ -405,11 +453,17 @@ export default function IntegrationsStore() {
           </div>
 
           <div className="pt-4 mt-5 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-slate-600 group-hover:text-[#7F54B3] transition">
-            <span>{isWooCommerceConnected ? "Manage Settings" : "Connect WooCommerce"}</span>
-            <ArrowRight size={15} className="group-hover:translate-x-1 transition-transform" />
+            <span>
+              {isWooCommerceConnected
+                ? "Manage Settings"
+                : "Connect WooCommerce"}
+            </span>
+            <ArrowRight
+              size={15}
+              className="group-hover:translate-x-1 transition-transform"
+            />
           </div>
         </div>
-
       </div>
     </div>
   );

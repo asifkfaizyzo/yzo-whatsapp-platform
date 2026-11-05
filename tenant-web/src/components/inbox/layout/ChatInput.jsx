@@ -1,5 +1,5 @@
 // tenant-web/src/components/inbox/layout/ChatInput.jsx (do not remove this comment)
-import React from 'react';
+import React from "react";
 import { Paperclip, Smile, Send, Mic, X, MapPin } from "lucide-react";
 import EmojiPicker from "emoji-picker-react";
 import QuickReplyPopover from "../QuickReplyPopover";
@@ -203,7 +203,17 @@ export default function ChatInput({
                 className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-[#F0F2F5] transition text-left"
               >
                 <div className="w-7 h-7 rounded-full bg-[#7F66FF]/10 flex items-center justify-center shrink-0">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7F66FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#7F66FF"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                     <polyline points="14 2 14 8 20 8" />
                     <line x1="16" y1="13" x2="8" y2="13" />
@@ -211,7 +221,9 @@ export default function ChatInput({
                     <polyline points="10 9 9 9 8 9" />
                   </svg>
                 </div>
-                <span className="text-xs font-medium text-[#111B21]">Document</span>
+                <span className="text-xs font-medium text-[#111B21]">
+                  Document
+                </span>
               </button>
 
               {/* Photos & Videos */}
@@ -221,13 +233,25 @@ export default function ChatInput({
                 className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-[#F0F2F5] transition text-left"
               >
                 <div className="w-7 h-7 rounded-full bg-[#007BFC]/10 flex items-center justify-center shrink-0">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#007BFC" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#007BFC"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
                     <circle cx="8.5" cy="8.5" r="1.5" />
                     <polyline points="21 15 16 10 5 21" />
                   </svg>
                 </div>
-                <span className="text-xs font-medium text-[#111B21]">Photos & videos</span>
+                <span className="text-xs font-medium text-[#111B21]">
+                  Photos & videos
+                </span>
               </button>
 
               {/* Audio */}
@@ -237,12 +261,24 @@ export default function ChatInput({
                 className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-[#F0F2F5] transition text-left"
               >
                 <div className="w-7 h-7 rounded-full bg-[#F7943D]/10 flex items-center justify-center shrink-0">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F7943D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#F7943D"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
                     <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" />
                   </svg>
                 </div>
-                <span className="text-xs font-medium text-[#111B21]">Audio</span>
+                <span className="text-xs font-medium text-[#111B21]">
+                  Audio
+                </span>
               </button>
 
               {/* Location */}
@@ -254,7 +290,9 @@ export default function ChatInput({
                 <div className="w-7 h-7 rounded-full bg-[#00A884]/10 flex items-center justify-center shrink-0">
                   <MapPin size={14} className="text-[#00A884]" />
                 </div>
-                <span className="text-xs font-medium text-[#111B21]">Location</span>
+                <span className="text-xs font-medium text-[#111B21]">
+                  Location
+                </span>
               </button>
             </div>
           )}
@@ -288,17 +326,25 @@ export default function ChatInput({
                 if (showQuickReplyPopover && filteredQuickReplies.length > 0) {
                   if (e.key === "ArrowDown") {
                     e.preventDefault();
-                    setQuickReplySelectedIndex((prev) => (prev + 1) % filteredQuickReplies.length);
+                    setQuickReplySelectedIndex(
+                      (prev) => (prev + 1) % filteredQuickReplies.length,
+                    );
                     return;
                   }
                   if (e.key === "ArrowUp") {
                     e.preventDefault();
-                    setQuickReplySelectedIndex((prev) => (prev - 1 + filteredQuickReplies.length) % filteredQuickReplies.length);
+                    setQuickReplySelectedIndex(
+                      (prev) =>
+                        (prev - 1 + filteredQuickReplies.length) %
+                        filteredQuickReplies.length,
+                    );
                     return;
                   }
                   if (e.key === "Enter" || e.key === "Tab") {
                     e.preventDefault();
-                    handleSelectQuickReply(filteredQuickReplies[quickReplySelectedIndex]);
+                    handleSelectQuickReply(
+                      filteredQuickReplies[quickReplySelectedIndex],
+                    );
                     return;
                   }
                   if (e.key === "Escape") {
@@ -319,8 +365,8 @@ export default function ChatInput({
                     return (
                       qr.isActive &&
                       (qr.shortcut.toLowerCase().includes(query) ||
-                       qr.title.toLowerCase().includes(query) ||
-                       qr.content.toLowerCase().includes(query))
+                        qr.title.toLowerCase().includes(query) ||
+                        qr.content.toLowerCase().includes(query))
                     );
                   });
 
@@ -339,17 +385,25 @@ export default function ChatInput({
                   if (val.trim().length > 0) {
                     if (!isTypingRef.current) {
                       isTypingRef.current = true;
-                      socket.emit("agent_typing_start", { conversationId: activeChatId });
+                      socket.emit("agent_typing_start", {
+                        conversationId: activeChatId,
+                      });
                     }
-                    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+                    if (typingTimeoutRef.current)
+                      clearTimeout(typingTimeoutRef.current);
                     typingTimeoutRef.current = setTimeout(() => {
                       isTypingRef.current = false;
-                      socket.emit("agent_typing_stop", { conversationId: activeChatId });
+                      socket.emit("agent_typing_stop", {
+                        conversationId: activeChatId,
+                      });
                     }, 2500);
                   } else {
-                    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+                    if (typingTimeoutRef.current)
+                      clearTimeout(typingTimeoutRef.current);
                     isTypingRef.current = false;
-                    socket.emit("agent_typing_stop", { conversationId: activeChatId });
+                    socket.emit("agent_typing_stop", {
+                      conversationId: activeChatId,
+                    });
                   }
                 }
               }}
@@ -374,10 +428,11 @@ export default function ChatInput({
 
         {activeChat?.channel === "INSTAGRAM" && (
           <span
-            className={`text-[10px] font-medium mr-1 ${new TextEncoder().encode(typedMessage).length > 900
-              ? "text-red-500 font-bold"
-              : "text-[#667781]"
-              }`}
+            className={`text-[10px] font-medium mr-1 ${
+              new TextEncoder().encode(typedMessage).length > 900
+                ? "text-red-500 font-bold"
+                : "text-[#667781]"
+            }`}
           >
             {new TextEncoder().encode(typedMessage).length}/1000 bytes
           </span>

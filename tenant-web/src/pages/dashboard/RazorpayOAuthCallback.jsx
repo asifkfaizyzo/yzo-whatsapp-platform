@@ -20,9 +20,12 @@ export default function RazorpayOAuthCallback() {
       setErrorMessage(msg);
       // Auto-redirect back to integrations with error
       setTimeout(() => {
-        navigate(`/dashboard/integrations?app=razorpay&error=${encodeURIComponent(msg)}`, {
-          replace: true,
-        });
+        navigate(
+          `/dashboard/integrations?app=razorpay&error=${encodeURIComponent(msg)}`,
+          {
+            replace: true,
+          },
+        );
       }, 3000);
       return;
     }
@@ -36,7 +39,10 @@ export default function RazorpayOAuthCallback() {
         "http://localhost:5000";
 
       const forwardUrl = `${backendUrl}/sradmin/auth/razorpay/callback${window.location.search}`;
-      console.log("🔀 [RazorpayOAuthCallback] Forwarding code to backend:", forwardUrl);
+      console.log(
+        "🔀 [RazorpayOAuthCallback] Forwarding code to backend:",
+        forwardUrl,
+      );
       window.location.href = forwardUrl;
       return;
     }
@@ -74,7 +80,11 @@ export default function RazorpayOAuthCallback() {
         {errorMessage && (
           <div className="mt-6 flex justify-center">
             <button
-              onClick={() => navigate("/dashboard/integrations?app=razorpay", { replace: true })}
+              onClick={() =>
+                navigate("/dashboard/integrations?app=razorpay", {
+                  replace: true,
+                })
+              }
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition"
             >
               <ArrowLeft size={14} />

@@ -77,7 +77,10 @@ export const createPlan = async (data) => {
       status: status || "ACTIVE",
       isPopular: Boolean(isPopular),
       hasTrial: hasTrial !== undefined ? Boolean(hasTrial) : true,
-      trialDays: trialDays !== undefined && trialDays !== null ? parseInt(trialDays) : 14,
+      trialDays:
+        trialDays !== undefined && trialDays !== null
+          ? parseInt(trialDays)
+          : 14,
       maxAgents: parseInt(maxAgents),
       maxBroadcasts: maxBroadcasts ? parseInt(maxBroadcasts) : null,
       maxAutomations: maxAutomations ? parseInt(maxAutomations) : null,
@@ -140,7 +143,10 @@ export const updatePlan = async (id, data) => {
       status,
       isPopular: isPopular !== undefined ? Boolean(isPopular) : undefined,
       hasTrial: hasTrial !== undefined ? Boolean(hasTrial) : undefined,
-      trialDays: trialDays !== undefined && trialDays !== null ? parseInt(trialDays) : undefined,
+      trialDays:
+        trialDays !== undefined && trialDays !== null
+          ? parseInt(trialDays)
+          : undefined,
       maxAgents: parseInt(maxAgents),
       maxBroadcasts: maxBroadcasts ? parseInt(maxBroadcasts) : null,
       maxAutomations: maxAutomations ? parseInt(maxAutomations) : null,
@@ -186,7 +192,7 @@ export const deletePlan = async (id) => {
 
   if (tenantCount > 0) {
     throw new Error(
-      `Cannot delete — ${tenantCount} tenant(s) are on this plan`
+      `Cannot delete — ${tenantCount} tenant(s) are on this plan`,
     );
   }
 

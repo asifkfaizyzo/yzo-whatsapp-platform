@@ -11,102 +11,100 @@ import {
   Navigation,
   MapPin,
   CreditCard,
-} from 'lucide-react'
+} from "lucide-react";
 
 const nodeTypes = [
   {
-    type: 'SEND_MESSAGE',
-    label: 'Send Message',
-    description: 'Send a text message',
+    type: "SEND_MESSAGE",
+    label: "Send Message",
+    description: "Send a text message",
     icon: <MessageSquare size={16} className="text-[#125EF2]" />,
-    bg: 'bg-[#EAF2FE]',
-    border: 'border-[#CFE0FD]',
+    bg: "bg-[#EAF2FE]",
+    border: "border-[#CFE0FD]",
   },
   {
-    type: 'PAYMENT',
-    label: 'Razorpay Pay',
-    description: 'WhatsApp Pay button',
+    type: "PAYMENT",
+    label: "Razorpay Pay",
+    description: "WhatsApp Pay button",
     icon: <CreditCard size={16} className="text-emerald-600" />,
-    bg: 'bg-emerald-50',
-    border: 'border-emerald-200',
+    bg: "bg-emerald-50",
+    border: "border-emerald-200",
   },
 
   {
-    type: 'ASK_QUESTION',
-    label: 'Ask Question',
-    description: 'Wait for user reply',
+    type: "ASK_QUESTION",
+    label: "Ask Question",
+    description: "Wait for user reply",
     icon: <HelpCircle size={16} className="text-amber-500" />,
-    bg: 'bg-amber-50',
-    border: 'border-amber-200',
+    bg: "bg-amber-50",
+    border: "border-amber-200",
   },
   {
-    type: 'CONDITION',
-    label: 'Condition',
-    description: 'Branch by reply',
+    type: "CONDITION",
+    label: "Condition",
+    description: "Branch by reply",
     icon: <GitBranch size={16} className="text-purple-500" />,
-    bg: 'bg-purple-50',
-    border: 'border-purple-200',
+    bg: "bg-purple-50",
+    border: "border-purple-200",
   },
   {
-    type: 'INTERACTIVE_BUTTONS',
-    label: 'Buttons',
-    description: 'Show reply buttons',
+    type: "INTERACTIVE_BUTTONS",
+    label: "Buttons",
+    description: "Show reply buttons",
     icon: <MousePointerClick size={16} className="text-green-600" />,
-    bg: 'bg-green-50',
-    border: 'border-green-200',
+    bg: "bg-green-50",
+    border: "border-green-200",
   },
   {
-    type: 'SEND_CATALOG',
-    label: 'Send Catalog',
-    description: 'Open product catalog',
+    type: "SEND_CATALOG",
+    label: "Send Catalog",
+    description: "Open product catalog",
     icon: <ShoppingBag size={16} className="text-indigo-600" />,
-    bg: 'bg-indigo-50',
-    border: 'border-indigo-200',
+    bg: "bg-indigo-50",
+    border: "border-indigo-200",
   },
   {
-    type: 'ASK_LOCATION',
-    label: 'Request Location',
-    description: 'Home delivery GPS',
+    type: "ASK_LOCATION",
+    label: "Request Location",
+    description: "Home delivery GPS",
     icon: <Navigation size={16} className="text-teal-600" />,
-    bg: 'bg-teal-50',
-    border: 'border-teal-200',
+    bg: "bg-teal-50",
+    border: "border-teal-200",
   },
   {
-    type: 'SEND_LOCATION',
-    label: 'Store Location Pin',
-    description: 'Store pickup map pin',
+    type: "SEND_LOCATION",
+    label: "Store Location Pin",
+    description: "Store pickup map pin",
     icon: <MapPin size={16} className="text-orange-600" />,
-    bg: 'bg-orange-50',
-    border: 'border-orange-200',
+    bg: "bg-orange-50",
+    border: "border-orange-200",
   },
   {
-    type: 'ASSIGN_AGENT',
-    label: 'Assign Agent',
-    description: 'Hand off to human',
+    type: "ASSIGN_AGENT",
+    label: "Assign Agent",
+    description: "Hand off to human",
     icon: <UserCheck size={16} className="text-emerald-500" />,
-    bg: 'bg-emerald-50',
-    border: 'border-emerald-200',
+    bg: "bg-emerald-50",
+    border: "border-emerald-200",
   },
   {
-    type: 'END_FLOW',
-    label: 'End Flow',
-    description: 'Stop automation',
+    type: "END_FLOW",
+    label: "End Flow",
+    description: "Stop automation",
     icon: <StopCircle size={16} className="text-red-500" />,
-    bg: 'bg-red-50',
-    border: 'border-red-200',
+    bg: "bg-red-50",
+    border: "border-red-200",
   },
-]
+];
 
 export default function NodePanel() {
-
   const onDragStart = (e, type) => {
-    e.dataTransfer.setData('nodeType', type)
-    e.dataTransfer.effectAllowed = 'move'
-  }
+    e.dataTransfer.setData("nodeType", type);
+    e.dataTransfer.effectAllowed = "move";
+  };
 
   return (
     <div className="w-52 bg-white border-r border-slate-100 flex flex-col">
-
       {/* Header */}
       <div className="p-4 border-b border-slate-100">
         <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
@@ -116,7 +114,7 @@ export default function NodePanel() {
 
       {/* Node List */}
       <div className="p-3 space-y-2 overflow-y-auto flex-1">
-        {nodeTypes.map(node => (
+        {nodeTypes.map((node) => (
           <div
             key={node.type}
             draggable
@@ -130,12 +128,8 @@ export default function NodePanel() {
           >
             <div className="shrink-0">{node.icon}</div>
             <div>
-              <p className="text-xs font-bold text-slate-700">
-                {node.label}
-              </p>
-              <p className="text-[10px] text-slate-400">
-                {node.description}
-              </p>
+              <p className="text-xs font-bold text-slate-700">{node.label}</p>
+              <p className="text-[10px] text-slate-400">{node.description}</p>
             </div>
           </div>
         ))}
@@ -148,5 +142,5 @@ export default function NodePanel() {
         </p>
       </div>
     </div>
-  )
+  );
 }

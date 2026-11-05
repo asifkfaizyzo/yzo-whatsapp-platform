@@ -1,10 +1,13 @@
 // backend/src/modules/zoho/crm/zoho.lead.service.js (do not remove this comment)
 
-import prisma from '../../../config/prisma.js';
-import { zohoRequest } from '../zoho.client.js';
-import { hasZohoFeature } from '../zoho.plan.service.js';
-import { splitContactName, getTenantZohoPreferences } from './zoho.contact.service.js';
-import { redisConnection } from '../../../config/redis.js';
+import prisma from "../../../config/prisma.js";
+import { zohoRequest } from "../zoho.client.js";
+import { hasZohoFeature } from "../zoho.plan.service.js";
+import {
+  splitContactName,
+  getTenantZohoPreferences,
+} from "./zoho.contact.service.js";
+import { redisConnection } from "../../../config/redis.js";
 
 const SYNC_LOCK_TTL = 30;
 
@@ -14,33 +17,35 @@ const SYNC_LOCK_TTL = 30;
  */
 export async function createZohoLead(tenantId, contact) {
   try {
-const tenant = await prisma.tenant.findUnique({
+    const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
       select: { zoho: { select: { zohoConnectionStatus: true } } },
     });
 
-    if (!tenant || tenant.zoho?.zohoConnectionStatus !== 'CONNECTED') {
+    if (!tenant || tenant.zoho?.zohoConnectionStatus !== "CONNECTED") {
       return null;
     }
 
     // Check preference
     const prefs = await getTenantZohoPreferences(tenantId);
-    if (!prefs.autoSyncNewContacts || prefs.syncDestination !== 'LEADS') {
+    if (!prefs.autoSyncNewContacts || prefs.syncDestination !== "LEADS") {
       return null; // Sync disabled or routed to Contacts instead
     }
 
-    const canCreate = await hasZohoFeature(tenantId, 'leads');
+    const canCreate = await hasZohoFeature(tenantId, "leads");
     if (!canCreate) return null;
 
     const existingMapping = await prisma.contactProviderMapping.findFirst({
       where: {
         contactId: contact.id,
-        provider: { in: ['ZOHO', 'ZOHO_LEAD'] },
+        provider: { in: ["ZOHO", "ZOHO_LEAD"] },
       },
     });
 
     if (existingMapping) {
-      console.log(`ℹ️ [ZohoLead] Contact ${contact.id} already mapped to Zoho. Skipping lead creation.`);
+      console.log(
+        `ℹ️ [ZohoLead] Contact ${contact.id} already mapped to Zoho. Skipping lead creation.`,
+      );
       return existingMapping.providerContactId;
     }
 
@@ -48,9 +53,9 @@ const tenant = await prisma.tenant.findUnique({
 
     const leadPayload = {
       Last_Name: lastName,
-      Lead_Status: 'New',
-      Lead_Source: 'WhatsApp',
-      Description: `WhatsApp lead captured via Sudo Reply on ${new Date().toLocaleDateString('en-IN')}. Channel: ${contact.channel || 'WHATSAPP'}`,
+      Lead_Status: "New",
+      Lead_Source: "WhatsApp",
+      Description: `WhatsApp lead captured via Sudo Reply on ${new Date().toLocaleDateString("en-IN")}. Channel: ${contact.channel || "WHATSAPP"}`,
     };
 
     if (firstName) leadPayload.First_Name = firstName;
@@ -63,11 +68,11 @@ const tenant = await prisma.tenant.findUnique({
 
     // Apply loop prevention lock in Redis
     const lockKeyContact = `zoho_sync_lock:${contact.id}`;
-    await redisConnection.set(lockKeyContact, '1', 'EX', SYNC_LOCK_TTL);
+    await redisConnection.set(lockKeyContact, "1", "EX", SYNC_LOCK_TTL);
 
     const response = await zohoRequest(tenantId, {
-      method: 'POST',
-      url: '/crm/v7/Leads',
+      method: "POST",
+      url: "/crm/v7/Leads",
       data: {
         data: [leadPayload],
       },
@@ -75,18 +80,18 @@ const tenant = await prisma.tenant.findUnique({
 
     const result = response?.data?.[0];
 
-    if (result && result.code === 'SUCCESS' && result.details?.id) {
+    if (result && result.code === "SUCCESS" && result.details?.id) {
       const zohoLeadId = result.details.id;
 
       // Lock newly generated lead ID as well
       const lockKeyLead = `zoho_sync_lock:${zohoLeadId}`;
-      await redisConnection.set(lockKeyLead, '1', 'EX', SYNC_LOCK_TTL);
+      await redisConnection.set(lockKeyLead, "1", "EX", SYNC_LOCK_TTL);
 
       await prisma.contactProviderMapping.upsert({
         where: {
           contactId_provider: {
             contactId: contact.id,
-            provider: 'ZOHO_LEAD',
+            provider: "ZOHO_LEAD",
           },
         },
         update: {
@@ -96,19 +101,24 @@ const tenant = await prisma.tenant.findUnique({
         create: {
           tenantId,
           contactId: contact.id,
-          provider: 'ZOHO_LEAD',
+          provider: "ZOHO_LEAD",
           providerContactId: zohoLeadId,
           lastSyncedAt: new Date(),
         },
       });
 
-      console.log(`🎯 [ZohoLead] Created Lead "${contact.name}" (${zohoLeadId})`);
+      console.log(
+        `🎯 [ZohoLead] Created Lead "${contact.name}" (${zohoLeadId})`,
+      );
       return zohoLeadId;
     }
 
     return null;
   } catch (error) {
-    console.error(`❌ [ZohoLead] Failed for contact ${contact.id}:`, error.response?.data || error.message);
+    console.error(
+      `❌ [ZohoLead] Failed for contact ${contact.id}:`,
+      error.response?.data || error.message,
+    );
     return null;
   }
 }

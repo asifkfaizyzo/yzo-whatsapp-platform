@@ -75,7 +75,6 @@ const StatusBadge = ({ status }) => {
   );
 };
 
-
 // ── Custom Tooltip for Chart ──
 const ChartTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
@@ -236,7 +235,6 @@ const PaymentRow = ({ payment, onDownloadInvoice }) => {
         <tr className="bg-[#EAF2FE]/20">
           <td colSpan={7} className="px-5 py-5">
             <div className="flex flex-col sm:flex-row gap-6">
-
               {/* Amount Breakdown */}
               <div className="flex-1 bg-white rounded-2xl border border-slate-100 p-4 shadow-sm">
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
@@ -251,16 +249,16 @@ const PaymentRow = ({ payment, onDownloadInvoice }) => {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">
-  CGST ({payment.gstPercent ? payment.gstPercent / 2 : 9}%)
-</span>
+                      CGST ({payment.gstPercent ? payment.gstPercent / 2 : 9}%)
+                    </span>
                     <span className="font-semibold text-slate-700">
                       {formatINR(cgst)}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">
-  SGST ({payment.gstPercent ? payment.gstPercent / 2 : 9}%)
-</span>
+                      SGST ({payment.gstPercent ? payment.gstPercent / 2 : 9}%)
+                    </span>
                     <span className="font-semibold text-slate-700">
                       {formatINR(sgst)}
                     </span>
@@ -375,7 +373,6 @@ const TenantBillingDetail = ({ tenantId, onBack, onDownloadInvoice }) => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
-
       {/* Back Button */}
       <button
         onClick={onBack}
@@ -434,9 +431,7 @@ const TenantBillingDetail = ({ tenantId, onBack, onDownloadInvoice }) => {
               </p>
             </div>
             <div className="bg-slate-50 rounded-xl p-3">
-              <p className="text-xs text-slate-400 font-semibold">
-                Activated
-              </p>
+              <p className="text-xs text-slate-400 font-semibold">Activated</p>
               <p className="text-sm font-bold text-slate-800 mt-0.5">
                 {formatDate(tenant.planActivatedAt)}
               </p>
@@ -566,12 +561,12 @@ export default function Revenue() {
         api.get("/revenue/stats"),
         api.get("/revenue/payments"),
       ]);
-       console.log("✅ Stats:", statsRes.data);        // ← ADD
-    console.log("✅ Payments:", paymentsRes.data);  // ← ADD
+      console.log("✅ Stats:", statsRes.data); // ← ADD
+      console.log("✅ Payments:", paymentsRes.data); // ← ADD
       if (statsRes.data.success) setStats(statsRes.data.data);
       if (paymentsRes.data.success) setPayments(paymentsRes.data.data);
     } catch (e) {
-      console.log("❌ Error:", e.message);            // ← ADD
+      console.log("❌ Error:", e.message); // ← ADD
       setError("Failed to fetch revenue data");
     } finally {
       setLoading(false);
@@ -604,13 +599,10 @@ export default function Revenue() {
   // Filter payments
   const filteredPayments = payments.filter((p) => {
     const matchStatus = filterStatus === "ALL" || p.status === filterStatus;
-    const matchPlan =
-      filterPlan === "ALL" || p.planName === filterPlan;
+    const matchPlan = filterPlan === "ALL" || p.planName === filterPlan;
     const matchSearch =
       searchQuery === "" ||
-      p.tenant?.tenantName
-        ?.toLowerCase()
-        .includes(searchQuery.toLowerCase()) ||
+      p.tenant?.tenantName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.tenant?.email?.toLowerCase().includes(searchQuery.toLowerCase());
     return matchStatus && matchPlan && matchSearch;
   });
@@ -669,7 +661,6 @@ export default function Revenue() {
   // ── Main Revenue View ──
   return (
     <div className="space-y-8 animate-in fade-in duration-200">
-
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -692,7 +683,6 @@ export default function Revenue() {
       {/* Stats Grid */}
       {stats && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-
           {/* Total Revenue */}
           <div className="card p-5 border border-slate-100 bg-white flex flex-col justify-between">
             <div className="flex items-center justify-between">
@@ -772,14 +762,12 @@ export default function Revenue() {
               </p>
             </div>
           </div>
-
         </div>
       )}
 
       {/* Secondary Stats */}
       {stats && (
         <div className="grid gap-4 sm:grid-cols-3">
-
           {/* GST Collected */}
           <div className="card p-5 border border-slate-100 bg-white">
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
@@ -789,11 +777,10 @@ export default function Revenue() {
               {formatINR(stats.totalGST)}
             </p>
             <p className="text-xs text-slate-400 mt-1">
-  {stats.totalGST > 0
-    ? "GST collected across all payments"
-    : "No GST collected yet"
-  }
-</p>
+              {stats.totalGST > 0
+                ? "GST collected across all payments"
+                : "No GST collected yet"}
+            </p>
           </div>
 
           {/* ARR */}
@@ -821,12 +808,10 @@ export default function Revenue() {
               Successful payments processed
             </p>
           </div>
-
         </div>
       )}
 
-
-            {/* ── Revenue Chart ── */}
+      {/* ── Revenue Chart ── */}
       {stats && (
         <div className="card border border-slate-100 bg-white p-6">
           <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
@@ -871,8 +856,9 @@ export default function Revenue() {
                 <span className="font-bold text-slate-800">
                   {formatINR(
                     stats.monthlyBreakdown.reduce(
-                      (sum, d) => sum + d.revenue, 0
-                    )
+                      (sum, d) => sum + d.revenue,
+                      0,
+                    ),
                   )}
                 </span>
               </span>
@@ -915,7 +901,6 @@ export default function Revenue() {
 
       {/* All Payments Table */}
       <div className="card border border-slate-100 bg-white overflow-hidden">
-
         {/* Table Header + Filters */}
         <div className="px-6 py-4 border-b border-slate-100">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1021,14 +1006,15 @@ export default function Revenue() {
             ...new Map(
               payments
                 .filter((p) => p.tenant)
-                .map((p) => [p.tenant.id, p.tenant])
+                .map((p) => [p.tenant.id, p.tenant]),
             ).values(),
           ].map((tenant) => {
             const tenantPayments = payments.filter(
-              (p) => p.tenant?.id === tenant.id && p.status === "SUCCESS"
+              (p) => p.tenant?.id === tenant.id && p.status === "SUCCESS",
             );
             const tenantTotal = tenantPayments.reduce(
-              (sum, p) => sum + p.totalAmount, 0
+              (sum, p) => sum + p.totalAmount,
+              0,
             );
 
             return (
@@ -1074,7 +1060,6 @@ export default function Revenue() {
           )}
         </div>
       </div>
-
     </div>
   );
 }

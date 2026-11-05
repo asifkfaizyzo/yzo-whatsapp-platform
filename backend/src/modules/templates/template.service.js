@@ -1,8 +1,8 @@
 // backend/src/modules/templates/template.service.js (do not remove this comment)
-import { decrypt } from '../../lib/crypto.js';
-import fs from 'fs';
+import { decrypt } from "../../lib/crypto.js";
+import fs from "fs";
 
-const META_API_VERSION = 'v23.0';
+const META_API_VERSION = "v23.0";
 
 // ─────────────────────────────────────────────────────────────
 // 1. Fetch templates catalog from Meta Business Account (WABA)
@@ -14,14 +14,14 @@ export const fetchMetaTemplates = async (tenant) => {
 
   console.log(`[Templates] Fetching Meta templates for WABA: ${wabaId}...`);
   const response = await fetch(url, {
-    headers: { 'Authorization': `Bearer ${token}` }
+    headers: { Authorization: `Bearer ${token}` },
   });
 
   if (!response.ok) {
     const errorData = await response.json();
     console.error(`[Templates] Fetch failed for WABA ${wabaId}:`, errorData);
-    let msg = errorData.error?.message || 'Failed to fetch templates from Meta';
-    if (msg.includes('message_templates') || errorData.error?.code === 100) {
+    let msg = errorData.error?.message || "Failed to fetch templates from Meta";
+    if (msg.includes("message_templates") || errorData.error?.code === 100) {
       msg = `Invalid WABA ID (${wabaId}). Please ensure your WhatsApp Business Account (WABA) ID is connected, not your Meta Business Portfolio ID.`;
     }
     throw new Error(msg);
@@ -34,27 +34,37 @@ export const fetchMetaTemplates = async (tenant) => {
 // ─────────────────────────────────────────────────────────────
 // 2. Submit a new message template to Meta review pipeline
 // ─────────────────────────────────────────────────────────────
-export const submitMetaTemplate = async (tenant, { name, category, language, components }) => {
+export const submitMetaTemplate = async (
+  tenant,
+  { name, category, language, components },
+) => {
   const url = `https://graph.facebook.com/${META_API_VERSION}/${tenant.whatsappWabaId}/message_templates`;
-  console.log('📤 Submitting template to Meta:', JSON.stringify({ name, category, language, components }, null, 2));
+  console.log(
+    "📤 Submitting template to Meta:",
+    JSON.stringify({ name, category, language, components }, null, 2),
+  );
 
   const response = await fetch(url, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Authorization': `Bearer ${decrypt(tenant.whatsappAccessToken)}`,
-      'Content-Type': 'application/json'
+      Authorization: `Bearer ${decrypt(tenant.whatsappAccessToken)}`,
+      "Content-Type": "application/json",
     },
-    body: JSON.stringify({ name, category, language, components })
+    body: JSON.stringify({ name, category, language, components }),
   });
 
   const data = await response.json();
 
   if (!response.ok) {
-    console.error('❌ Meta template submission error response:', JSON.stringify(data, null, 2));
-    const details = data.error?.error_user_msg 
-      || data.error?.error_data?.details 
-      || data.error?.message 
-      || 'Meta template submission failed';
+    console.error(
+      "❌ Meta template submission error response:",
+      JSON.stringify(data, null, 2),
+    );
+    const details =
+      data.error?.error_user_msg ||
+      data.error?.error_data?.details ||
+      data.error?.message ||
+      "Meta template submission failed";
     throw new Error(details);
   }
 
@@ -67,13 +77,15 @@ export const submitMetaTemplate = async (tenant, { name, category, language, com
 export const deleteMetaTemplate = async (tenant, templateName) => {
   const url = `https://graph.facebook.com/${META_API_VERSION}/${tenant.whatsappWabaId}/message_templates?name=${templateName}`;
   const response = await fetch(url, {
-    method: 'DELETE',
-    headers: { 'Authorization': `Bearer ${decrypt(tenant.whatsappAccessToken)}` }
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${decrypt(tenant.whatsappAccessToken)}` },
   });
 
   if (!response.ok) {
     const errorData = await response.json();
-    throw new Error(errorData.error?.message || 'Meta template deletion failed');
+    throw new Error(
+      errorData.error?.message || "Meta template deletion failed",
+    );
   }
 
   return response.json();
@@ -91,10 +103,10 @@ export const uploadMediaToMeta = async (tenant, filePath, mimeType) => {
   // Step 1: Create an upload session
   const sessionUrl = `https://graph.facebook.com/${META_API_VERSION}/app/uploads`;
   const sessionRes = await fetch(sessionUrl, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Authorization': `OAuth ${accessToken}`,
-      'Content-Type': 'application/json',
+      Authorization: `OAuth ${accessToken}`,
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
       file_length: fileSize,
@@ -104,8 +116,10 @@ export const uploadMediaToMeta = async (tenant, filePath, mimeType) => {
 
   if (!sessionRes.ok) {
     const err = await sessionRes.json();
-    const error = new Error(err.error?.message || 'Failed to create Meta upload session');
-    error.code = 'META_UPLOAD_SESSION_FAILED';
+    const error = new Error(
+      err.error?.message || "Failed to create Meta upload session",
+    );
+    error.code = "META_UPLOAD_SESSION_FAILED";
     throw error;
   }
 
@@ -114,19 +128,21 @@ export const uploadMediaToMeta = async (tenant, filePath, mimeType) => {
   // Step 2: Upload the file binary
   const uploadUrl = `https://graph.facebook.com/${META_API_VERSION}/${uploadSessionId}`;
   const uploadRes = await fetch(uploadUrl, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Authorization': `OAuth ${accessToken}`,
-      'Content-Type': mimeType,
-      'Content-Length': String(fileSize),
+      Authorization: `OAuth ${accessToken}`,
+      "Content-Type": mimeType,
+      "Content-Length": String(fileSize),
     },
     body: fileBuffer,
   });
 
   if (!uploadRes.ok) {
     const err = await uploadRes.json();
-    const error = new Error(err.error?.message || 'Failed to transfer file to Meta');
-    error.code = 'META_UPLOAD_TRANSFER_FAILED';
+    const error = new Error(
+      err.error?.message || "Failed to transfer file to Meta",
+    );
+    error.code = "META_UPLOAD_TRANSFER_FAILED";
     throw error;
   }
 
@@ -134,8 +150,8 @@ export const uploadMediaToMeta = async (tenant, filePath, mimeType) => {
   // Meta returns { h: "<handle>" }
   const handle = result.h;
   if (!handle) {
-    const error = new Error('Meta upload did not return a media handle');
-    error.code = 'META_UPLOAD_NO_HANDLE';
+    const error = new Error("Meta upload did not return a media handle");
+    error.code = "META_UPLOAD_NO_HANDLE";
     throw error;
   }
 
@@ -168,42 +184,44 @@ export const buildTemplateComponents = ({
   const components = [];
 
   // ── HEADER component ──────────────────────────────────────
-  if (headerType === 'TEXT') {
-    const headerComp = { type: 'HEADER', format: 'TEXT', text: headerText };
+  if (headerType === "TEXT") {
+    const headerComp = { type: "HEADER", format: "TEXT", text: headerText };
     // If header contains {{1}}, supply an example
     if (headerText && /\{\{1\}\}/.test(headerText)) {
-      headerComp.example = { header_text: ['sample_header'] };
+      headerComp.example = { header_text: ["sample_header"] };
     }
     components.push(headerComp);
-
-  } else if (['IMAGE', 'VIDEO', 'DOCUMENT'].includes(headerType)) {
+  } else if (["IMAGE", "VIDEO", "DOCUMENT"].includes(headerType)) {
     components.push({
-      type: 'HEADER',
+      type: "HEADER",
       format: headerType,
       example: { header_handle: [headerHandle] },
     });
-
-  } else if (headerType === 'LOCATION') {
+  } else if (headerType === "LOCATION") {
     // Meta native LOCATION header — no data in the template itself
-    components.push({ type: 'HEADER', format: 'LOCATION' });
+    components.push({ type: "HEADER", format: "LOCATION" });
   }
   // NONE → no HEADER component
 
   // ── BODY component ────────────────────────────────────────
-  const bodyComp = { type: 'BODY', text: bodyText };
+  const bodyComp = { type: "BODY", text: bodyText };
   const placeholders = bodyText.match(/\{\{(\d+)\}\}/g);
   if (placeholders) {
     const count = new Set(placeholders).size;
-    const samples = bodyExampleValues.length >= count
-      ? bodyExampleValues.slice(0, count).map(String)
-      : Array.from({ length: count }, (_, i) => bodyExampleValues[i] ?? `sample_${i + 1}`);
+    const samples =
+      bodyExampleValues.length >= count
+        ? bodyExampleValues.slice(0, count).map(String)
+        : Array.from(
+            { length: count },
+            (_, i) => bodyExampleValues[i] ?? `sample_${i + 1}`,
+          );
     bodyComp.example = { body_text: [samples] };
   }
   components.push(bodyComp);
 
   // ── FOOTER component ──────────────────────────────────────
   if (footerText && footerText.trim()) {
-    components.push({ type: 'FOOTER', text: footerText.trim() });
+    components.push({ type: "FOOTER", text: footerText.trim() });
   }
 
   // ── BUTTONS component ─────────────────────────────────────
@@ -214,28 +232,34 @@ export const buildTemplateComponents = ({
     }
 
     // Auto-group CTA buttons (URL, PHONE_NUMBER) and QUICK_REPLY buttons to satisfy Meta API requirements
-    const ctaButtons = buttons.filter(b => b.type !== 'QUICK_REPLY');
-    const qrButtons  = buttons.filter(b => b.type === 'QUICK_REPLY');
+    const ctaButtons = buttons.filter((b) => b.type !== "QUICK_REPLY");
+    const qrButtons = buttons.filter((b) => b.type === "QUICK_REPLY");
     const groupedButtons = [...ctaButtons, ...qrButtons];
 
-    const buttonComps = groupedButtons.map((btn) => {
-      if (btn.type === 'QUICK_REPLY') {
-        return { type: 'QUICK_REPLY', text: btn.text };
-      }
-      if (btn.type === 'URL') {
-        const urlBtn = { type: 'URL', text: btn.text, url: btn.url };
-        if (btn.url && /\{\{1\}\}/.test(btn.url)) {
-          urlBtn.example = ['https://example.com/sample'];
+    const buttonComps = groupedButtons
+      .map((btn) => {
+        if (btn.type === "QUICK_REPLY") {
+          return { type: "QUICK_REPLY", text: btn.text };
         }
-        return urlBtn;
-      }
-      if (btn.type === 'PHONE_NUMBER') {
-        return { type: 'PHONE_NUMBER', text: btn.text, phone_number: btn.phoneNumber };
-      }
-      return null;
-    }).filter(Boolean);
+        if (btn.type === "URL") {
+          const urlBtn = { type: "URL", text: btn.text, url: btn.url };
+          if (btn.url && /\{\{1\}\}/.test(btn.url)) {
+            urlBtn.example = ["https://example.com/sample"];
+          }
+          return urlBtn;
+        }
+        if (btn.type === "PHONE_NUMBER") {
+          return {
+            type: "PHONE_NUMBER",
+            text: btn.text,
+            phone_number: btn.phoneNumber,
+          };
+        }
+        return null;
+      })
+      .filter(Boolean);
 
-    components.push({ type: 'BUTTONS', buttons: buttonComps });
+    components.push({ type: "BUTTONS", buttons: buttonComps });
   }
 
   return { components, validationError: null };
@@ -246,37 +270,37 @@ export const buildTemplateComponents = ({
 // ─────────────────────────────────────────────────────────────
 function validateButtons(buttons) {
   if (buttons.length > 10) {
-    return 'Maximum 10 buttons are allowed per template.';
+    return "Maximum 10 buttons are allowed per template.";
   }
 
-  const urlCount = buttons.filter(b => b.type === 'URL').length;
+  const urlCount = buttons.filter((b) => b.type === "URL").length;
   if (urlCount > 2) {
-    return 'Maximum 2 URL buttons are allowed per template.';
+    return "Maximum 2 URL buttons are allowed per template.";
   }
 
-  const phoneCount = buttons.filter(b => b.type === 'PHONE_NUMBER').length;
+  const phoneCount = buttons.filter((b) => b.type === "PHONE_NUMBER").length;
   if (phoneCount > 1) {
-    return 'Maximum 1 phone number button is allowed per template.';
+    return "Maximum 1 phone number button is allowed per template.";
   }
 
   for (const btn of buttons) {
     if (!btn.text || btn.text.trim().length === 0) {
-      return 'All buttons must have button text.';
+      return "All buttons must have button text.";
     }
     if (btn.text.length > 25) {
       return `Button text "${btn.text}" exceeds 25 character limit.`;
     }
-    if (btn.type === 'URL') {
+    if (btn.type === "URL") {
       if (!btn.url || btn.url.trim().length === 0) {
-        return 'URL buttons must have a URL.';
+        return "URL buttons must have a URL.";
       }
       if (btn.url.length > 2000) {
-        return 'Button URL exceeds 2000 character limit.';
+        return "Button URL exceeds 2000 character limit.";
       }
     }
-    if (btn.type === 'PHONE_NUMBER') {
+    if (btn.type === "PHONE_NUMBER") {
       if (!btn.phoneNumber || btn.phoneNumber.trim().length === 0) {
-        return 'Phone number buttons must have a phone number.';
+        return "Phone number buttons must have a phone number.";
       }
     }
   }
@@ -289,19 +313,25 @@ function validateButtons(buttons) {
 //    Used by syncTemplates to derive the typed enum value
 // ─────────────────────────────────────────────────────────────
 export const inferHeaderTypeFromComponents = (components) => {
-  if (!Array.isArray(components)) return 'NONE';
+  if (!Array.isArray(components)) return "NONE";
 
-  const headerComp = components.find(c => c.type === 'HEADER');
-  if (!headerComp) return 'NONE';
+  const headerComp = components.find((c) => c.type === "HEADER");
+  if (!headerComp) return "NONE";
 
-  const format = (headerComp.format || '').toUpperCase();
+  const format = (headerComp.format || "").toUpperCase();
 
   switch (format) {
-    case 'TEXT':     return 'TEXT';
-    case 'IMAGE':    return 'IMAGE';
-    case 'VIDEO':    return 'VIDEO';
-    case 'DOCUMENT': return 'DOCUMENT';
-    case 'LOCATION': return 'LOCATION';
-    default:         return 'NONE';
+    case "TEXT":
+      return "TEXT";
+    case "IMAGE":
+      return "IMAGE";
+    case "VIDEO":
+      return "VIDEO";
+    case "DOCUMENT":
+      return "DOCUMENT";
+    case "LOCATION":
+      return "LOCATION";
+    default:
+      return "NONE";
   }
-};
+};

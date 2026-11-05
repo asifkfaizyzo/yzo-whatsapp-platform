@@ -12,21 +12,50 @@ import {
   getPublicTaxSettings,
 } from "../api/plan";
 import { Sparkles, ShieldCheck, ChevronLeft } from "lucide-react";
-import { PaymentVerifyingLoader, PaymentSuccessScreen } from "../components/CustomLoader";
-
-
+import {
+  PaymentVerifyingLoader,
+  PaymentSuccessScreen,
+} from "../components/CustomLoader";
 
 // ── Indian States List ──
 const INDIAN_STATES = [
-  "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar",
-  "Chhattisgarh", "Goa", "Gujarat", "Haryana", "Himachal Pradesh",
-  "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra",
-  "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab",
-  "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura",
-  "Uttar Pradesh", "Uttarakhand", "West Bengal",
-  "Andaman and Nicobar Islands", "Chandigarh", "Dadra and Nagar Haveli",
-  "Daman and Diu", "Delhi", "Jammu and Kashmir", "Ladakh",
-  "Lakshadweep", "Puducherry",
+  "Andhra Pradesh",
+  "Arunachal Pradesh",
+  "Assam",
+  "Bihar",
+  "Chhattisgarh",
+  "Goa",
+  "Gujarat",
+  "Haryana",
+  "Himachal Pradesh",
+  "Jharkhand",
+  "Karnataka",
+  "Kerala",
+  "Madhya Pradesh",
+  "Maharashtra",
+  "Manipur",
+  "Meghalaya",
+  "Mizoram",
+  "Nagaland",
+  "Odisha",
+  "Punjab",
+  "Rajasthan",
+  "Sikkim",
+  "Tamil Nadu",
+  "Telangana",
+  "Tripura",
+  "Uttar Pradesh",
+  "Uttarakhand",
+  "West Bengal",
+  "Andaman and Nicobar Islands",
+  "Chandigarh",
+  "Dadra and Nagar Haveli",
+  "Daman and Diu",
+  "Delhi",
+  "Jammu and Kashmir",
+  "Ladakh",
+  "Lakshadweep",
+  "Puducherry",
 ];
 
 // ── Your Company State ──
@@ -169,7 +198,8 @@ export default function Checkout() {
 
   const cgst = gstEnabled && isSameState ? gstAmount / 2 : 0;
   const sgst = gstEnabled && isSameState ? gstAmount / 2 : 0;
-  const igst = gstEnabled && !isSameState && billingDetails.state ? gstAmount : 0;
+  const igst =
+    gstEnabled && !isSameState && billingDetails.state ? gstAmount : 0;
 
   // ── Handle Input Change ──
   const handleChange = (e) => {
@@ -187,16 +217,16 @@ export default function Checkout() {
       newErrors.companyName = "Company name is required";
     if (!billingDetails.email.trim()) newErrors.email = "Email is required";
     if (!billingDetails.phone.trim()) newErrors.phone = "Phone is required";
-    
+
     // Only require state if GST is enabled
     if (gstEnabled && !billingDetails.state) {
       newErrors.state = "Please select your state";
     }
-    
+
     if (
       billingDetails.gstin &&
       !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(
-        billingDetails.gstin
+        billingDetails.gstin,
       )
     ) {
       newErrors.gstin = "Invalid GSTIN format";
@@ -263,7 +293,9 @@ export default function Checkout() {
             }, 2500);
           } else {
             setVerifying(false);
-            toast.error("Subscription verification failed: " + verifyRes.message);
+            toast.error(
+              "Subscription verification failed: " + verifyRes.message,
+            );
             setProcessing(false);
           }
         },
@@ -284,7 +316,10 @@ export default function Checkout() {
       const razorpayInstance = new window.Razorpay(options);
       razorpayInstance.on("payment.failed", function (response) {
         console.error("Razorpay payment failed:", response.error);
-        toast.error(response.error?.description || "Payment authorization failed. Please try again.");
+        toast.error(
+          response.error?.description ||
+            "Payment authorization failed. Please try again.",
+        );
         setProcessing(false);
         setVerifying(false);
       });
@@ -308,7 +343,12 @@ export default function Checkout() {
 
   // ── PAYMENT SUCCESS ──
   if (paid) {
-    return <PaymentSuccessScreen planName={plan?.name} email={billingDetails.email} />;
+    return (
+      <PaymentSuccessScreen
+        planName={plan?.name}
+        email={billingDetails.email}
+      />
+    );
   }
 
   // ── MAIN CHECKOUT ──
@@ -321,7 +361,11 @@ export default function Checkout() {
       <div className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link to="/" className="inline-flex items-center">
-            <img src="/sudo_bg.png" alt="SudoReply Logo" className="w-12 h-12 object-contain" />
+            <img
+              src="/sudo_bg.png"
+              alt="SudoReply Logo"
+              className="w-12 h-12 object-contain"
+            />
           </Link>
           <Link
             to={`/select-plan?upgrade=true&planId=${planId}&billing=${billingType}`}
@@ -333,18 +377,27 @@ export default function Checkout() {
         </div>
         <div className="flex items-center gap-3">
           <div className="hidden sm:flex items-center gap-2 text-xs font-semibold">
-            <Link to={`/select-plan?upgrade=true&planId=${planId}&billing=${billingType}`} className="flex items-center gap-1.5 text-emerald-600 hover:underline">
-              <span className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center text-[10px] font-bold">✓</span>
+            <Link
+              to={`/select-plan?upgrade=true&planId=${planId}&billing=${billingType}`}
+              className="flex items-center gap-1.5 text-emerald-600 hover:underline"
+            >
+              <span className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center text-[10px] font-bold">
+                ✓
+              </span>
               Select Plan
             </Link>
             <span className="text-gray-300">→</span>
             <span className="flex items-center gap-1.5 text-[#125EF2]">
-              <span className="w-5 h-5 rounded-full bg-[#125EF2] flex items-center justify-center text-[10px] font-bold text-white">2</span>
+              <span className="w-5 h-5 rounded-full bg-[#125EF2] flex items-center justify-center text-[10px] font-bold text-white">
+                2
+              </span>
               Checkout
             </span>
             <span className="text-gray-300">→</span>
             <span className="flex items-center gap-1.5 text-gray-400">
-              <span className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-bold">3</span>
+              <span className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-bold">
+                3
+              </span>
               Payment
             </span>
           </div>
@@ -353,7 +406,6 @@ export default function Checkout() {
       </div>
 
       <div className="max-w-5xl mx-auto px-6 py-10">
-
         {/* Page Title */}
         <div className="text-center mb-8">
           <span className="text-[#125EF2] font-semibold text-sm uppercase tracking-wider">
@@ -368,12 +420,13 @@ export default function Checkout() {
         </div>
 
         <div className="grid lg:grid-cols-5 gap-8">
-
           {/* LEFT — Billing Form */}
           <div className="lg:col-span-3 space-y-6">
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
               <h2 className="text-base font-bold text-gray-900 mb-5 flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full bg-[#EAF2FE] text-[#125EF2] flex items-center justify-center text-xs font-bold">1</span>
+                <span className="w-6 h-6 rounded-full bg-[#EAF2FE] text-[#125EF2] flex items-center justify-center text-xs font-bold">
+                  1
+                </span>
                 Billing Details
               </h2>
 
@@ -381,7 +434,8 @@ export default function Checkout() {
                 {/* Company */}
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 mb-1.5">
-                    Company / Business Name<span className="text-red-500 ml-0.5">*</span>
+                    Company / Business Name
+                    <span className="text-red-500 ml-0.5">*</span>
                   </label>
                   <input
                     type="text"
@@ -390,10 +444,16 @@ export default function Checkout() {
                     onChange={handleChange}
                     placeholder="Acme Corp Pvt Ltd"
                     className={`w-full px-4 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#125EF2]/20 focus:border-[#125EF2] transition ${
-                      errors.companyName ? "border-red-300 bg-red-50" : "border-gray-200"
+                      errors.companyName
+                        ? "border-red-300 bg-red-50"
+                        : "border-gray-200"
                     }`}
                   />
-                  {errors.companyName && <p className="text-red-500 text-xs mt-1">{errors.companyName}</p>}
+                  {errors.companyName && (
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.companyName}
+                    </p>
+                  )}
                 </div>
 
                 {/* Email + Phone */}
@@ -409,10 +469,16 @@ export default function Checkout() {
                       onChange={handleChange}
                       placeholder="admin@company.com"
                       className={`w-full px-4 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#125EF2]/20 focus:border-[#125EF2] transition ${
-                        errors.email ? "border-red-300 bg-red-50" : "border-gray-200"
+                        errors.email
+                          ? "border-red-300 bg-red-50"
+                          : "border-gray-200"
                       }`}
                     />
-                    {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+                    {errors.email && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {errors.email}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-gray-600 mb-1.5">
@@ -425,10 +491,16 @@ export default function Checkout() {
                       onChange={handleChange}
                       placeholder="+91 98765 43210"
                       className={`w-full px-4 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#125EF2]/20 focus:border-[#125EF2] transition ${
-                        errors.phone ? "border-red-300 bg-red-50" : "border-gray-200"
+                        errors.phone
+                          ? "border-red-300 bg-red-50"
+                          : "border-gray-200"
                       }`}
                     />
-                    {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
+                    {errors.phone && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {errors.phone}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -452,30 +524,44 @@ export default function Checkout() {
                   <div>
                     <label className="block text-xs font-semibold text-gray-600 mb-1.5">
                       State<span className="text-red-500 ml-0.5">*</span>
-                      <span className="text-gray-400 font-normal ml-1">(determines GST type)</span>
+                      <span className="text-gray-400 font-normal ml-1">
+                        (determines GST type)
+                      </span>
                     </label>
                     <select
                       name="state"
                       value={billingDetails.state}
                       onChange={handleChange}
                       className={`w-full px-4 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#125EF2]/20 focus:border-[#125EF2] transition bg-white ${
-                        errors.state ? "border-red-300 bg-red-50" : "border-gray-200"
+                        errors.state
+                          ? "border-red-300 bg-red-50"
+                          : "border-gray-200"
                       }`}
                     >
                       <option value="">Select State</option>
                       {INDIAN_STATES.map((state) => (
-                        <option key={state} value={state}>{state}</option>
+                        <option key={state} value={state}>
+                          {state}
+                        </option>
                       ))}
                     </select>
-                    {errors.state && <p className="text-red-500 text-xs mt-1">{errors.state}</p>}
+                    {errors.state && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {errors.state}
+                      </p>
+                    )}
 
                     {billingDetails.state && (
-                      <div className={`mt-2 px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 ${
-                        isSameState ? "bg-blue-50 text-blue-700" : "bg-purple-50 text-purple-700"
-                      }`}>
+                      <div
+                        className={`mt-2 px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 ${
+                          isSameState
+                            ? "bg-blue-50 text-blue-700"
+                            : "bg-purple-50 text-purple-700"
+                        }`}
+                      >
                         <span>ℹ️</span>
                         {isSameState
-                          ? `Same state as seller (${COMPANY_STATE}) → CGST (${gstPercent/2}%) + SGST (${gstPercent/2}%)`
+                          ? `Same state as seller (${COMPANY_STATE}) → CGST (${gstPercent / 2}%) + SGST (${gstPercent / 2}%)`
                           : `Different state → IGST (${gstPercent}%)`}
                       </div>
                     )}
@@ -487,22 +573,35 @@ export default function Checkout() {
                   <div>
                     <label className="block text-xs font-semibold text-gray-600 mb-1.5">
                       GSTIN
-                      <span className="text-gray-400 font-normal ml-1">(Optional — for B2B billing)</span>
+                      <span className="text-gray-400 font-normal ml-1">
+                        (Optional — for B2B billing)
+                      </span>
                     </label>
                     <input
                       type="text"
                       name="gstin"
                       value={billingDetails.gstin}
-                      onChange={(e) => handleChange({
-                        target: { name: "gstin", value: e.target.value.toUpperCase() }
-                      })}
+                      onChange={(e) =>
+                        handleChange({
+                          target: {
+                            name: "gstin",
+                            value: e.target.value.toUpperCase(),
+                          },
+                        })
+                      }
                       placeholder="27AABCU9603R1ZM"
                       maxLength={15}
                       className={`w-full px-4 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#125EF2]/20 focus:border-[#125EF2] transition font-mono ${
-                        errors.gstin ? "border-red-300 bg-red-50" : "border-gray-200"
+                        errors.gstin
+                          ? "border-red-300 bg-red-50"
+                          : "border-gray-200"
                       }`}
                     />
-                    {errors.gstin && <p className="text-red-500 text-xs mt-1">{errors.gstin}</p>}
+                    {errors.gstin && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {errors.gstin}
+                      </p>
+                    )}
                     {billingDetails.gstin && !errors.gstin && (
                       <p className="text-emerald-600 text-xs mt-1 font-medium">
                         ✓ GSTIN will appear on your invoice
@@ -516,7 +615,8 @@ export default function Checkout() {
                   <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
                     <p className="text-xs text-blue-700 font-semibold flex items-center gap-2">
                       <span>ℹ️</span>
-                      GST is currently not applied. You will be charged base price only.
+                      GST is currently not applied. You will be charged base
+                      price only.
                     </p>
                   </div>
                 )}
@@ -526,7 +626,9 @@ export default function Checkout() {
             {/* Payment Method Info */}
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
               <h2 className="text-base font-bold text-gray-900 mb-4 flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full bg-[#EAF2FE] text-[#125EF2] flex items-center justify-center text-xs font-bold">2</span>
+                <span className="w-6 h-6 rounded-full bg-[#EAF2FE] text-[#125EF2] flex items-center justify-center text-xs font-bold">
+                  2
+                </span>
                 Payment Method
               </h2>
               <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100">
@@ -534,15 +636,28 @@ export default function Checkout() {
                   src="https://razorpay.com/assets/razorpay-glyph.svg"
                   alt="Razorpay"
                   className="w-8 h-8"
-                  onError={(e) => { e.target.style.display = "none"; }}
+                  onError={(e) => {
+                    e.target.style.display = "none";
+                  }}
                 />
                 <div>
-                  <p className="text-sm font-bold text-gray-800">Razorpay Secure Checkout</p>
-                  <p className="text-xs text-gray-500 mt-0.5">UPI • Credit/Debit Card • Net Banking • Wallets</p>
+                  <p className="text-sm font-bold text-gray-800">
+                    Razorpay Secure Checkout
+                  </p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    UPI • Credit/Debit Card • Net Banking • Wallets
+                  </p>
                 </div>
               </div>
               <p className="text-xs text-gray-400 mt-3 flex items-center gap-1.5">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
                   <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
                   <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                 </svg>
@@ -554,14 +669,19 @@ export default function Checkout() {
           {/* RIGHT — Order Summary */}
           <div className="lg:col-span-2">
             <div className="sticky top-6 space-y-4">
-
               <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                <h2 className="text-base font-bold text-gray-900 mb-4">Order Summary</h2>
+                <h2 className="text-base font-bold text-gray-900 mb-4">
+                  Order Summary
+                </h2>
 
                 <div className="flex items-start justify-between gap-3 p-3 bg-slate-50 rounded-xl mb-4">
                   <div>
-                    <p className="text-sm font-bold text-gray-900">{plan?.name} Plan</p>
-                    <p className="text-xs text-gray-500 mt-0.5 capitalize">{billingType} billing</p>
+                    <p className="text-sm font-bold text-gray-900">
+                      {plan?.name} Plan
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5 capitalize">
+                      {billingType} billing
+                    </p>
                   </div>
                   <span className="text-xs font-bold bg-[#EAF2FE] text-[#125EF2] px-2 py-1 rounded-lg capitalize">
                     {billingType}
@@ -583,24 +703,40 @@ export default function Checkout() {
                       isSameState ? (
                         <>
                           <div className="flex justify-between">
-                            <span className="text-gray-500">CGST ({gstPercent/2}%)</span>
-                            <span className="font-semibold text-gray-800">{formatINR(cgst)}</span>
+                            <span className="text-gray-500">
+                              CGST ({gstPercent / 2}%)
+                            </span>
+                            <span className="font-semibold text-gray-800">
+                              {formatINR(cgst)}
+                            </span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-gray-500">SGST ({gstPercent/2}%)</span>
-                            <span className="font-semibold text-gray-800">{formatINR(sgst)}</span>
+                            <span className="text-gray-500">
+                              SGST ({gstPercent / 2}%)
+                            </span>
+                            <span className="font-semibold text-gray-800">
+                              {formatINR(sgst)}
+                            </span>
                           </div>
                         </>
                       ) : (
                         <div className="flex justify-between">
-                          <span className="text-gray-500">IGST ({gstPercent}%)</span>
-                          <span className="font-semibold text-gray-800">{formatINR(igst)}</span>
+                          <span className="text-gray-500">
+                            IGST ({gstPercent}%)
+                          </span>
+                          <span className="font-semibold text-gray-800">
+                            {formatINR(igst)}
+                          </span>
                         </div>
                       )
                     ) : (
                       <div className="flex justify-between">
-                        <span className="text-gray-500">GST ({gstPercent}%)</span>
-                        <span className="font-semibold text-gray-800">{formatINR(gstAmount)}</span>
+                        <span className="text-gray-500">
+                          GST ({gstPercent}%)
+                        </span>
+                        <span className="font-semibold text-gray-800">
+                          {formatINR(gstAmount)}
+                        </span>
                       </div>
                     )
                   ) : (
@@ -612,7 +748,9 @@ export default function Checkout() {
 
                   {/* Total */}
                   <div className="border-t border-gray-100 pt-3 flex justify-between items-center">
-                    <span className="font-bold text-gray-900">Total Payable</span>
+                    <span className="font-bold text-gray-900">
+                      Total Payable
+                    </span>
                     <span className="text-xl font-extrabold text-[#125EF2]">
                       {formatINR(totalAmount)}
                     </span>
@@ -623,14 +761,17 @@ export default function Checkout() {
                   <div className="mt-3 p-3 bg-green-50 rounded-xl border border-green-100">
                     <p className="text-xs text-green-700 font-semibold">
                       🎉 Annual billing — Save{" "}
-                      {formatINR((plan?.monthlyPrice - basePrice) * 12)} per year!
+                      {formatINR((plan?.monthlyPrice - basePrice) * 12)} per
+                      year!
                     </p>
                   </div>
                 )}
               </div>
 
               <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                <h3 className="text-sm font-bold text-gray-900 mb-3">What's included:</h3>
+                <h3 className="text-sm font-bold text-gray-900 mb-3">
+                  What's included:
+                </h3>
                 <ul className="space-y-2">
                   <li className="flex items-center gap-2 text-xs text-gray-600 font-medium">
                     <span className="text-emerald-500 font-bold">✓</span>
@@ -643,7 +784,10 @@ export default function Checkout() {
                     </li>
                   )}
                   {plan?.features?.map((pf) => (
-                    <li key={pf.id} className="flex items-center gap-2 text-xs text-gray-600 font-medium">
+                    <li
+                      key={pf.id}
+                      className="flex items-center gap-2 text-xs text-gray-600 font-medium"
+                    >
                       <span className="text-emerald-500 font-bold">✓</span>
                       {pf.feature?.name || pf.name}
                     </li>
@@ -658,7 +802,10 @@ export default function Checkout() {
                   <span>Subscription & Billing Notice</span>
                 </div>
                 <p className="text-blue-800/80 leading-relaxed">
-                  Billed upfront today ({billingType === "annual" ? "Annual License" : "Monthly"}). Instant GST invoice generated. Manage or cancel subscription anytime under Workspace Billing.
+                  Billed upfront today (
+                  {billingType === "annual" ? "Annual License" : "Monthly"}).
+                  Instant GST invoice generated. Manage or cancel subscription
+                  anytime under Workspace Billing.
                 </p>
               </div>
 
@@ -673,9 +820,24 @@ export default function Checkout() {
               >
                 {processing ? (
                   <span className="flex items-center justify-center gap-2">
-                    <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                    <svg
+                      className="animate-spin w-4 h-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8v8z"
+                      />
                     </svg>
                     Opening Payment...
                   </span>
@@ -685,7 +847,11 @@ export default function Checkout() {
               </button>
 
               <button
-                onClick={() => navigate(`/select-plan?upgrade=true&planId=${planId}&billing=${billingType}`)}
+                onClick={() =>
+                  navigate(
+                    `/select-plan?upgrade=true&planId=${planId}&billing=${billingType}`,
+                  )
+                }
                 className="w-full py-2.5 text-gray-400 text-sm font-medium hover:text-gray-600 transition text-center"
               >
                 ← Back to Plans

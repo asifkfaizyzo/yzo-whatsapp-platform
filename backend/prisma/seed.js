@@ -10,8 +10,9 @@ async function main() {
   // ══════════════════════════════════════
   // Step 0: Seed SuperAdmin
   // ══════════════════════════════════════
-  const adminEmail = process.env.SUPERADMIN_EMAIL || "ananthukrishna1963@gmail.com";
-  const adminPass  = process.env.SUPERADMIN_PASSWORD || "Admin@123";
+  const adminEmail =
+    process.env.SUPERADMIN_EMAIL || "ananthukrishna1963@gmail.com";
+  const adminPass = process.env.SUPERADMIN_PASSWORD || "Admin@123";
   const hashedPassword = await bcrypt.hash(adminPass, 10);
 
   const superAdmin = await prisma.superAdmin.upsert({
@@ -149,7 +150,14 @@ async function main() {
         "Role Based Access",
         "Webhooks",
       ],
-      integrations: ["Shopify", "Razorpay", "Google Sheets", "Zoho CRM", "HubSpot", "Salesforce"],
+      integrations: [
+        "Shopify",
+        "Razorpay",
+        "Google Sheets",
+        "Zoho CRM",
+        "HubSpot",
+        "Salesforce",
+      ],
     },
   ];
 
@@ -193,26 +201,28 @@ async function main() {
       });
     }
 
-    console.log(`✅ Plan: ${plan.name} — ${plan.features.length} features, ${plan.integrations.length} integrations`);
+    console.log(
+      `✅ Plan: ${plan.name} — ${plan.features.length} features, ${plan.integrations.length} integrations`,
+    );
   }
 
   // ══════════════════════════════════════
   // Step 3: Seed Platform Settings (GST)
   // ══════════════════════════════════════
   await prisma.platformSettings.upsert({
-    where:  { id: "GLOBAL" },
+    where: { id: "GLOBAL" },
     update: {},
     create: {
-      id:               "GLOBAL",
-      gstEnabled:       true,
-      gstPercent:       18.0,
-      gstType:          "CGST_SGST",
+      id: "GLOBAL",
+      gstEnabled: true,
+      gstPercent: 18.0,
+      gstType: "CGST_SGST",
       companyGstNumber: "27AABCU9603R1ZM",
-      pricingType:      "EXCLUSIVE",
-      companyName:      "SudoReply Technologies Pvt Ltd",
-      companyEmail:     "info@sudoreply.com",
-      companyAddress:   "Mumbai, Maharashtra, India",
-      sacCode:          "998314",
+      pricingType: "EXCLUSIVE",
+      companyName: "SudoReply Technologies Pvt Ltd",
+      companyEmail: "info@sudoreply.com",
+      companyAddress: "Mumbai, Maharashtra, India",
+      sacCode: "998314",
     },
   });
   console.log("\n✅ Platform Settings (GST) seeded");
@@ -223,7 +233,9 @@ async function main() {
   const tenant = await prisma.tenant.findFirst();
 
   if (!tenant) {
-    console.log("\n⚠️  No tenant found in DB — skipping Templates, Quick Replies & Campaigns.");
+    console.log(
+      "\n⚠️  No tenant found in DB — skipping Templates, Quick Replies & Campaigns.",
+    );
     console.log("   Create a tenant first, then re-run the seed.\n");
   } else {
     console.log(`\n📌 Using tenant: ${tenant.tenantName || tenant.id}`);
@@ -252,12 +264,20 @@ async function main() {
           {
             type: "BUTTONS",
             buttons: [
-              { type: "URL", text: "Shop Now", url: "https://sudoreply.com/diwali" },
+              {
+                type: "URL",
+                text: "Shop Now",
+                url: "https://sudoreply.com/diwali",
+              },
             ],
           },
         ],
         buttons: [
-          { type: "URL", text: "Shop Now", url: "https://sudoreply.com/diwali" },
+          {
+            type: "URL",
+            text: "Shop Now",
+            url: "https://sudoreply.com/diwali",
+          },
         ],
       },
       {
@@ -300,7 +320,11 @@ async function main() {
           {
             type: "BUTTONS",
             buttons: [
-              { type: "URL", text: "Pay Now", url: "https://sudoreply.com/pay" },
+              {
+                type: "URL",
+                text: "Pay Now",
+                url: "https://sudoreply.com/pay",
+              },
             ],
           },
         ],
@@ -345,7 +369,9 @@ async function main() {
       });
       tplCount++;
     }
-    console.log(`✅ ${tplCount} Templates seeded (${templates.length - tplCount} already existed)`);
+    console.log(
+      `✅ ${tplCount} Templates seeded (${templates.length - tplCount} already existed)`,
+    );
 
     // ══════════════════════════════════════
     // Step 4: Seed Quick Replies
@@ -361,21 +387,24 @@ async function main() {
       {
         shortcut: "pricing",
         title: "Standard Pricing",
-        content: "Hi {{name}}! 👋\n\nHere are our pricing plans:\n\n🥉 Starter — ₹2,999/mo\n🥈 Growth — ₹4,999/mo\n🥇 Scale — ₹9,999/mo\n\nWould you like a detailed comparison?",
+        content:
+          "Hi {{name}}! 👋\n\nHere are our pricing plans:\n\n🥉 Starter — ₹2,999/mo\n🥈 Growth — ₹4,999/mo\n🥇 Scale — ₹9,999/mo\n\nWould you like a detailed comparison?",
         category: "Sales",
         scope: "GLOBAL",
       },
       {
         shortcut: "demo",
         title: "Book a Demo",
-        content: "Great choice, {{name}}! 🎉\n\nYou can book a free 15-min demo here:\n📅 https://calendly.com/sudoreply/demo\n\nPick a slot that works for you!",
+        content:
+          "Great choice, {{name}}! 🎉\n\nYou can book a free 15-min demo here:\n📅 https://calendly.com/sudoreply/demo\n\nPick a slot that works for you!",
         category: "Sales",
         scope: "GLOBAL",
       },
       {
         shortcut: "trial",
         title: "Free Trial Info",
-        content: "Yes, we offer a 14-day free trial on all plans! No credit card required.\n\nJust sign up at https://sudoreply.com/trial and you're good to go. 🚀",
+        content:
+          "Yes, we offer a 14-day free trial on all plans! No credit card required.\n\nJust sign up at https://sudoreply.com/trial and you're good to go. 🚀",
         category: "Sales",
         scope: "GLOBAL",
       },
@@ -383,21 +412,24 @@ async function main() {
       {
         shortcut: "hours",
         title: "Business Hours",
-        content: "Our support team is available:\n\n🕘 Mon–Fri: 9 AM – 7 PM IST\n🕐 Sat: 10 AM – 4 PM IST\n🔴 Sun: Closed\n\nFor urgent issues, email support@sudoreply.com",
+        content:
+          "Our support team is available:\n\n🕘 Mon–Fri: 9 AM – 7 PM IST\n🕐 Sat: 10 AM – 4 PM IST\n🔴 Sun: Closed\n\nFor urgent issues, email support@sudoreply.com",
         category: "Support",
         scope: "GLOBAL",
       },
       {
         shortcut: "reset",
         title: "Password Reset",
-        content: "To reset your password:\n\n1️⃣ Go to the login page\n2️⃣ Click 'Forgot Password'\n3️⃣ Enter your email\n4️⃣ Check your inbox for the reset link\n\nLink expires in 30 minutes. ⏰",
+        content:
+          "To reset your password:\n\n1️⃣ Go to the login page\n2️⃣ Click 'Forgot Password'\n3️⃣ Enter your email\n4️⃣ Check your inbox for the reset link\n\nLink expires in 30 minutes. ⏰",
         category: "Support",
         scope: "GLOBAL",
       },
       {
         shortcut: "escalate",
         title: "Escalate to Manager",
-        content: "I understand this needs more attention. I'm escalating your case to our senior team. You'll hear back within 2 hours. 🙏\n\nReference: {{ticketId}}",
+        content:
+          "I understand this needs more attention. I'm escalating your case to our senior team. You'll hear back within 2 hours. 🙏\n\nReference: {{ticketId}}",
         category: "Support",
         scope: "GLOBAL",
       },
@@ -405,14 +437,16 @@ async function main() {
       {
         shortcut: "invoice",
         title: "Invoice Request",
-        content: "Hi {{name}},\n\nYour latest invoice has been sent to {{email}}. 📄\n\nYou can also download it from Dashboard → Billing → Invoices.\n\nLet me know if you need anything else!",
+        content:
+          "Hi {{name}},\n\nYour latest invoice has been sent to {{email}}. 📄\n\nYou can also download it from Dashboard → Billing → Invoices.\n\nLet me know if you need anything else!",
         category: "Billing",
         scope: "GLOBAL",
       },
       {
         shortcut: "refund",
         title: "Refund Policy",
-        content: "We offer a full refund within 7 days of purchase, no questions asked.\n\nTo request a refund:\n📧 Email billing@sudoreply.com\n📞 Or call +91-XXXX-XXXXXX\n\nRefunds are processed within 5–7 business days.",
+        content:
+          "We offer a full refund within 7 days of purchase, no questions asked.\n\nTo request a refund:\n📧 Email billing@sudoreply.com\n📞 Or call +91-XXXX-XXXXXX\n\nRefunds are processed within 5–7 business days.",
         category: "Billing",
         scope: "GLOBAL",
       },
@@ -420,57 +454,65 @@ async function main() {
       {
         shortcut: "welcome",
         title: "Welcome Message",
-        content: "Welcome to Sudo Reply, {{name}}! 🎊\n\nWe're excited to have you on board. Here's what you can do first:\n\n✅ Connect your WhatsApp number\n✅ Import your contacts\n✅ Set up your first campaign\n\nNeed help? Just type /help anytime!",
+        content:
+          "Welcome to Sudo Reply, {{name}}! 🎊\n\nWe're excited to have you on board. Here's what you can do first:\n\n✅ Connect your WhatsApp number\n✅ Import your contacts\n✅ Set up your first campaign\n\nNeed help? Just type /help anytime!",
         category: "General",
         scope: "GLOBAL",
       },
       {
         shortcut: "thanks",
         title: "Thank You",
-        content: "Thank you for reaching out, {{name}}! 😊\n\nIf you have any more questions, don't hesitate to ask. Have a great day! 🌟",
+        content:
+          "Thank you for reaching out, {{name}}! 😊\n\nIf you have any more questions, don't hesitate to ask. Have a great day! 🌟",
         category: "General",
         scope: "GLOBAL",
       },
-            // ── Variable Testing ──
+      // ── Variable Testing ──
       {
         shortcut: "var-phone",
         title: "Test: Phone Variable",
-        content: "Hi {{name}}! We have your number saved as {{phone}}. Is this correct?",
+        content:
+          "Hi {{name}}! We have your number saved as {{phone}}. Is this correct?",
         category: "Testing",
         scope: "GLOBAL",
       },
       {
         shortcut: "var-company",
         title: "Test: Company Variable",
-        content: "Hello {{name}} from {{company}}! We'd love to set up a partnership. Can we schedule a call?",
+        content:
+          "Hello {{name}} from {{company}}! We'd love to set up a partnership. Can we schedule a call?",
         category: "Testing",
         scope: "GLOBAL",
       },
       {
         shortcut: "var-agent",
         title: "Test: Agent Name Variable",
-        content: "Hi {{name}}! My name is {{agent_name}} and I'll be handling your case today. How can I help?",
+        content:
+          "Hi {{name}}! My name is {{agent_name}} and I'll be handling your case today. How can I help?",
         category: "Testing",
         scope: "GLOBAL",
       },
       {
         shortcut: "var-datetime",
         title: "Test: Date & Time Variables",
-        content: "Hi {{name}}!\n\nThis message was generated on {{current_date}} at {{current_time}}.\n\nYour ticket has been logged.",
+        content:
+          "Hi {{name}}!\n\nThis message was generated on {{current_date}} at {{current_time}}.\n\nYour ticket has been logged.",
         category: "Testing",
         scope: "GLOBAL",
       },
       {
         shortcut: "var-all",
         title: "Test: All Variables",
-        content: "Hi {{name}}!\n\n📱 Phone: {{phone}}\n🏢 Company: {{company}}\n👤 Agent: {{agent_name}}\n📅 Date: {{current_date}}\n🕐 Time: {{current_time}}\n\nAll variables replaced!",
+        content:
+          "Hi {{name}}!\n\n📱 Phone: {{phone}}\n🏢 Company: {{company}}\n👤 Agent: {{agent_name}}\n📅 Date: {{current_date}}\n🕐 Time: {{current_time}}\n\nAll variables replaced!",
         category: "Testing",
         scope: "GLOBAL",
       },
       {
         shortcut: "var-unknown",
         title: "Test: Unknown Variable (stays as-is)",
-        content: "Hi {{name}}! Your order {{order_id}} is being shipped to {{address}}. Track it at {{tracking_url}}.",
+        content:
+          "Hi {{name}}! Your order {{order_id}} is being shipped to {{address}}. Track it at {{tracking_url}}.",
         category: "Testing",
         scope: "GLOBAL",
       },
@@ -481,7 +523,7 @@ async function main() {
       quickReplies.push({
         shortcut: "my-intro",
         title: "Agent Introduction",
-        content: `Hi {{name}}! I'm ${agent.name || 'your agent'}, your dedicated support rep at Sudo Reply. Feel free to ask me anything! 👋`,
+        content: `Hi {{name}}! I'm ${agent.name || "your agent"}, your dedicated support rep at Sudo Reply. Feel free to ask me anything! 👋`,
         category: "General",
         scope: "PERSONAL",
         userId: agent.id,
@@ -500,7 +542,9 @@ async function main() {
       });
 
       if (existing) {
-        console.log(`  ⏭️  Quick reply "/${qr.shortcut}" already exists — skipping`);
+        console.log(
+          `  ⏭️  Quick reply "/${qr.shortcut}" already exists — skipping`,
+        );
         continue;
       }
 
@@ -520,7 +564,9 @@ async function main() {
       });
       qrCount++;
     }
-    console.log(`✅ ${qrCount} Quick Replies seeded (${quickReplies.length - qrCount} already existed)`);
+    console.log(
+      `✅ ${qrCount} Quick Replies seeded (${quickReplies.length - qrCount} already existed)`,
+    );
 
     // ══════════════════════════════════════
     // Step 5: Seed Campaigns (Broadcasts)
@@ -530,8 +576,12 @@ async function main() {
     });
 
     if (!template) {
-      console.log("\n⚠️  No template found for this tenant — skipping Campaigns.");
-      console.log("   Create a WhatsApp template first (via web dashboard), then re-run the seed.\n");
+      console.log(
+        "\n⚠️  No template found for this tenant — skipping Campaigns.",
+      );
+      console.log(
+        "   Create a WhatsApp template first (via web dashboard), then re-run the seed.\n",
+      );
     } else {
       console.log(`📌 Using template: ${template.name || template.id}`);
 
@@ -540,13 +590,20 @@ async function main() {
           name: "Diwali Sale 2024 🪔",
           targetType: "ALL",
           status: "DRAFT",
-          defaultParams: { offer: "30% off", code: "DIWALI30", validTill: "Nov 15" },
+          defaultParams: {
+            offer: "30% off",
+            code: "DIWALI30",
+            validTill: "Nov 15",
+          },
         },
         {
           name: "New Feature Announcement 🚀",
           targetType: "ALL",
           status: "DRAFT",
-          defaultParams: { feature: "AI Copilot", link: "https://sudoreply.com/ai" },
+          defaultParams: {
+            feature: "AI Copilot",
+            link: "https://sudoreply.com/ai",
+          },
         },
         {
           name: "Payment Reminder 💰",
@@ -563,7 +620,9 @@ async function main() {
         });
 
         if (existing) {
-          console.log(`  ⏭️  Campaign "${camp.name}" already exists — skipping`);
+          console.log(
+            `  ⏭️  Campaign "${camp.name}" already exists — skipping`,
+          );
           continue;
         }
 
@@ -581,7 +640,9 @@ async function main() {
         });
         campCount++;
       }
-      console.log(`✅ ${campCount} Campaigns seeded (${campaigns.length - campCount} already existed)`);
+      console.log(
+        `✅ ${campCount} Campaigns seeded (${campaigns.length - campCount} already existed)`,
+      );
     }
   }
 

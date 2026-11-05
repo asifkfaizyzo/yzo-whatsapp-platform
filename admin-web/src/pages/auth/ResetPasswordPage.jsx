@@ -33,7 +33,11 @@ export default function ResetPasswordPage() {
       return;
     }
 
-    const result = await resetPasswordSuperAdmin(token, password, confirmPassword);
+    const result = await resetPasswordSuperAdmin(
+      token,
+      password,
+      confirmPassword,
+    );
     setLoading(false);
 
     if (result.success) {

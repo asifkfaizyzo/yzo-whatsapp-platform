@@ -1,5 +1,5 @@
 // backend/src/modules/tenant/conversations/tenant.conversations.schema.js (do not remove this comment)
-import { z } from 'zod';
+import { z } from "zod";
 
 export const updateAutoReopenSchema = z.object({
   body: z.object({
@@ -18,8 +18,10 @@ export const updateAutoReopenSchema = z.object({
       .optional(),
     smartFilterEnabled: z.boolean().optional(),
     assignmentStrategy: z
-      .enum(['original_agent', 'unassigned_pool'], {
-        errorMap: () => ({ message: "Strategy must be 'original_agent' or 'unassigned_pool'" }),
+      .enum(["original_agent", "unassigned_pool"], {
+        errorMap: () => ({
+          message: "Strategy must be 'original_agent' or 'unassigned_pool'",
+        }),
       })
       .optional(),
   }),

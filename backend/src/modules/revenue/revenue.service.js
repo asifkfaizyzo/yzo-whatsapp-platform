@@ -9,10 +9,10 @@ export const getPlatformRevenueStatsService = async () => {
     select: { totalAmount: true, paidAt: true },
   });
 
-  const now              = new Date();
-  const startOfMonth     = new Date(now.getFullYear(), now.getMonth(), 1);
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const endOfLastMonth   = new Date(now.getFullYear(), now.getMonth(), 0);
+  const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
 
   const thisMonthRevenue = allPayments
     .filter((p) => new Date(p.paidAt) >= startOfMonth)
@@ -28,7 +28,10 @@ export const getPlatformRevenueStatsService = async () => {
   let growthPercent = 0;
   if (lastMonthRevenue > 0) {
     growthPercent = parseFloat(
-      (((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100).toFixed(1)
+      (
+        ((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue) *
+        100
+      ).toFixed(1),
     );
   } else if (thisMonthRevenue > 0) {
     growthPercent = 100;
@@ -40,7 +43,6 @@ export const getPlatformRevenueStatsService = async () => {
     growthPercent,
   };
 };
-
 
 // ── Revenue Page Full Stats ──
 export const getRevenueStatsService = async () => {
@@ -58,14 +60,16 @@ export const getRevenueStatsService = async () => {
     },
   });
 
-  const now              = new Date();
-  const startOfMonth     = new Date(now.getFullYear(), now.getMonth(), 1);
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const endOfLastMonth   = new Date(now.getFullYear(), now.getMonth(), 0);
+  const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
 
   // ── Total Revenue ──
-  const totalRevenue = allPayments
-    .reduce((sum, p) => sum + (p.totalAmount || 0), 0);
+  const totalRevenue = allPayments.reduce(
+    (sum, p) => sum + (p.totalAmount || 0),
+    0,
+  );
 
   // ── This Month ──
   const thisMonthRevenue = allPayments
@@ -81,8 +85,7 @@ export const getRevenueStatsService = async () => {
     .reduce((sum, p) => sum + (p.totalAmount || 0), 0);
 
   // ── Total GST ──
-  const totalGST = allPayments
-    .reduce((sum, p) => sum + (p.gstAmount || 0), 0);
+  const totalGST = allPayments.reduce((sum, p) => sum + (p.gstAmount || 0), 0);
 
   // ── MRR & ARR ──
   const mrr = thisMonthRevenue;
@@ -100,7 +103,7 @@ export const getRevenueStatsService = async () => {
   const monthlyBreakdown = [];
   for (let i = 5; i >= 0; i--) {
     const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const monthEnd   = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
 
     const monthLabel = monthStart.toLocaleString("default", {
       month: "short",
@@ -112,8 +115,10 @@ export const getRevenueStatsService = async () => {
       return d >= monthStart && d <= monthEnd;
     });
 
-    const monthRevenue = monthPayments
-      .reduce((sum, p) => sum + (p.totalAmount || 0), 0);
+    const monthRevenue = monthPayments.reduce(
+      (sum, p) => sum + (p.totalAmount || 0),
+      0,
+    );
 
     monthlyBreakdown.push({
       month: monthLabel,
@@ -148,11 +153,11 @@ export const getRevenueStatsService = async () => {
   });
 
   return {
-    totalRevenue:     parseFloat(totalRevenue.toFixed(2)),
+    totalRevenue: parseFloat(totalRevenue.toFixed(2)),
     thisMonthRevenue: parseFloat(thisMonthRevenue.toFixed(2)),
     lastMonthRevenue: parseFloat(lastMonthRevenue.toFixed(2)),
-    totalGST:         parseFloat(totalGST.toFixed(2)),
-    mrr:              parseFloat(mrr.toFixed(2)),
+    totalGST: parseFloat(totalGST.toFixed(2)),
+    mrr: parseFloat(mrr.toFixed(2)),
     arr,
     activeTenants,
     totalPayments,
@@ -160,7 +165,6 @@ export const getRevenueStatsService = async () => {
     planDistribution,
   };
 };
-
 
 // ── All Payments ──
 export const getRevenuePaymentsService = async () => {
@@ -192,7 +196,6 @@ export const getRevenuePaymentsService = async () => {
     },
   });
 };
-
 
 // ── Tenant Billing Detail ──
 export const getTenantBillingDetailService = async (tenantId) => {
@@ -259,7 +262,6 @@ export const getTenantBillingDetailService = async (tenantId) => {
     totalSpent: parseFloat(totalSpent.toFixed(2)),
   };
 };
-
 
 // ── Invoice URL ──
 export const getInvoiceUrlService = async (paymentId) => {

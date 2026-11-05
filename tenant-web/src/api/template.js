@@ -7,9 +7,16 @@ const TEMPLATE_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/tenant/templates`
 export const getTemplates = async () => {
   try {
     const response = await api.get(`${TEMPLATE_BASE_URL}/`);
-    return { success: true, data: response.data.data, lastSyncedAt: response.data.lastSyncedAt };
+    return {
+      success: true,
+      data: response.data.data,
+      lastSyncedAt: response.data.lastSyncedAt,
+    };
   } catch (error) {
-    return { success: false, message: error.response?.data?.message || "Failed to fetch templates" };
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to fetch templates",
+    };
   }
 };
 
@@ -17,12 +24,19 @@ export const getTemplates = async () => {
 export const createTemplate = async (templateData) => {
   try {
     const isMultipart = templateData instanceof FormData;
-    const response = await api.post(`${TEMPLATE_BASE_URL}/create`, templateData, {
-      headers: isMultipart ? { 'Content-Type': 'multipart/form-data' } : {},
-    });
+    const response = await api.post(
+      `${TEMPLATE_BASE_URL}/create`,
+      templateData,
+      {
+        headers: isMultipart ? { "Content-Type": "multipart/form-data" } : {},
+      },
+    );
     return { success: true, data: response.data.data };
   } catch (error) {
-    return { success: false, message: error.response?.data?.message || "Failed to create template" };
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to create template",
+    };
   }
 };
 
@@ -30,9 +44,17 @@ export const createTemplate = async (templateData) => {
 export const syncTemplates = async () => {
   try {
     const response = await api.post(`${TEMPLATE_BASE_URL}/sync`);
-    return { success: true, data: response.data.data, count: response.data.count, lastSyncedAt: response.data.lastSyncedAt };
+    return {
+      success: true,
+      data: response.data.data,
+      count: response.data.count,
+      lastSyncedAt: response.data.lastSyncedAt,
+    };
   } catch (error) {
-    return { success: false, message: error.response?.data?.message || "Failed to sync templates" };
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to sync templates",
+    };
   }
 };
 
@@ -42,6 +64,9 @@ export const deleteTemplate = async (templateId) => {
     const response = await api.delete(`${TEMPLATE_BASE_URL}/${templateId}`);
     return { success: true, message: response.data.message };
   } catch (error) {
-    return { success: false, message: error.response?.data?.message || "Failed to delete template" };
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to delete template",
+    };
   }
 };

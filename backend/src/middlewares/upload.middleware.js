@@ -5,14 +5,13 @@ import path from "path";
 import fs from "fs";
 
 const storage = multer.diskStorage({
-
   destination: function (req, file, cb) {
-    const tenantId  = req.tenantId;
+    const tenantId = req.tenantId;
     const contactId = req.params.contactId;
 
     // For inbound route, contactId comes from body
     const resolvedContactId = contactId || req.body?.contactId;
-    const resolvedTenantId  = tenantId  || req.body?.tenantId;
+    const resolvedTenantId = tenantId || req.body?.tenantId;
 
     if (!resolvedTenantId || !resolvedContactId) {
       const fallback = path.join("uploads", "temp");
@@ -21,8 +20,8 @@ const storage = multer.diskStorage({
     }
 
     // ✅ Detect inbound or outbound
-    const isInbound = req.path.includes('incoming');
-    const direction = isInbound ? 'inbound' : 'outbound';
+    const isInbound = req.path.includes("incoming");
+    const direction = isInbound ? "inbound" : "outbound";
 
     const uploadPath = path.join(
       "uploads",
@@ -30,7 +29,7 @@ const storage = multer.diskStorage({
       resolvedTenantId,
       "contacts",
       resolvedContactId,
-      direction          // ✅ /outbound or /inbound
+      direction, // ✅ /outbound or /inbound
     );
 
     fs.mkdirSync(uploadPath, { recursive: true });
@@ -39,7 +38,7 @@ const storage = multer.diskStorage({
 
   filename: function (req, file, cb) {
     // ✅ Sanitize filename
-    const ext      = path.extname(file.originalname);
+    const ext = path.extname(file.originalname);
     const baseName = path
       .basename(file.originalname, ext)
       .replace(/\s+/g, "_")

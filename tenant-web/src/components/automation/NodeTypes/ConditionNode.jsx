@@ -1,37 +1,36 @@
 // tenant-web/src/components/automation/NodeTypes/ConditionNode.jsx (do not remove this comment)
 
-import { Handle, Position } from 'reactflow'
-import { GitBranch, X } from 'lucide-react'
-import { useReactFlow } from 'reactflow'
+import { Handle, Position } from "reactflow";
+import { GitBranch, X } from "lucide-react";
+import { useReactFlow } from "reactflow";
 
 const handleStyle = {
-  width: 10, height: 10,
-  background: '#94a3b8',
-  border: '2px solid white',
-}
+  width: 10,
+  height: 10,
+  background: "#94a3b8",
+  border: "2px solid white",
+};
 
 export default function ConditionNode({ id, data, selected }) {
-  const { deleteElements } = useReactFlow()
-  const options = data.options || []
+  const { deleteElements } = useReactFlow();
+  const options = data.options || [];
 
   const handleDelete = (e) => {
-    e.stopPropagation()
-    deleteElements({ nodes: [{ id }] })
-  }
+    e.stopPropagation();
+    deleteElements({ nodes: [{ id }] });
+  };
 
   return (
-    <div className={`bg-white rounded-xl border-2 p-3 w-56 shadow-sm transition relative
-      ${selected
-        ? 'border-purple-400'
-        : 'border-slate-200 hover:border-purple-300'
+    <div
+      className={`bg-white rounded-xl border-2 p-3 w-56 shadow-sm transition relative
+      ${
+        selected
+          ? "border-purple-400"
+          : "border-slate-200 hover:border-purple-300"
       }`}
     >
       {/* ✅ Target handle on LEFT (horizontal flow) */}
-      <Handle
-        type="target"
-        position={Position.Left}
-        style={handleStyle}
-      />
+      <Handle type="target" position={Position.Left} style={handleStyle} />
 
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
@@ -39,9 +38,7 @@ export default function ConditionNode({ id, data, selected }) {
           <div className="p-1.5 rounded-lg bg-purple-50">
             <GitBranch size={13} className="text-purple-500" />
           </div>
-          <span className="text-xs font-bold text-purple-500">
-            Condition
-          </span>
+          <span className="text-xs font-bold text-purple-500">Condition</span>
         </div>
         <button
           onClick={handleDelete}
@@ -60,14 +57,13 @@ export default function ConditionNode({ id, data, selected }) {
               key={i}
               className="relative text-[11px] px-2 py-1.5 rounded-lg pr-3"
               style={{
-                background: opt.default ? '#FEF3C7' : '#F3E8FF',
-                color:      opt.default ? '#92400E' : '#6B21A8'
+                background: opt.default ? "#FEF3C7" : "#F3E8FF",
+                color: opt.default ? "#92400E" : "#6B21A8",
               }}
             >
               {opt.default
-                ? '↳ Else (default)'
-                : `If: ${opt.value || '(empty)'}`
-              }
+                ? "↳ Else (default)"
+                : `If: ${opt.value || "(empty)"}`}
 
               {/* Handle per option — right side */}
               <Handle
@@ -77,8 +73,8 @@ export default function ConditionNode({ id, data, selected }) {
                 style={{
                   ...handleStyle,
                   right: -14,
-                  top:   '50%',
-                  background: opt.default ? '#f59e0b' : '#a855f7'
+                  top: "50%",
+                  background: opt.default ? "#f59e0b" : "#a855f7",
                 }}
               />
             </div>
@@ -90,5 +86,5 @@ export default function ConditionNode({ id, data, selected }) {
         </p>
       )}
     </div>
-  )
+  );
 }

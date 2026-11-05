@@ -1,12 +1,12 @@
 // tenant-web/src/components/inbox/QuickReplyPopover.jsx (do not remove this comment)
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from "react";
 import {
   Zap,
   FileText,
   Image as ImageIcon,
   Check,
   Sparkles,
-} from 'lucide-react';
+} from "lucide-react";
 
 /**
  * QuickReplyPopover
@@ -27,8 +27,8 @@ export default function QuickReplyPopover({
   useEffect(() => {
     if (activeItemRef.current) {
       activeItemRef.current.scrollIntoView({
-        block: 'nearest',
-        behavior: 'smooth',
+        block: "nearest",
+        behavior: "smooth",
       });
     }
   }, [selectedIndex]);
@@ -40,24 +40,27 @@ export default function QuickReplyPopover({
         onClose();
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [onClose]);
 
   if (!quickReplies.length) return null;
 
   // Helper to preview interpolated text
   const previewInterpolated = (raw) => {
-    if (!raw) return '';
+    if (!raw) return "";
     return raw
-      .replace(/{{contactName}}/gi, contact?.name || 'Customer')
-      .replace(/{{contactPhone}}/gi, contact?.phone || '')
-      .replace(/{{agentName}}/gi, user?.name || 'Agent')
-      .replace(/{{companyName}}/gi, user?.tenantName || 'Our Company')
+      .replace(/{{contactName}}/gi, contact?.name || "Customer")
+      .replace(/{{contactPhone}}/gi, contact?.phone || "")
+      .replace(/{{agentName}}/gi, user?.name || "Agent")
+      .replace(/{{companyName}}/gi, user?.tenantName || "Our Company")
       .replace(/{{date}}/gi, new Date().toLocaleDateString())
       .replace(
         /{{time}}/gi,
-        new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
       );
   };
 
@@ -73,13 +76,21 @@ export default function QuickReplyPopover({
           <Zap size={13} className="text-[#075E54] fill-[#075E54]" />
           <span>Quick Replies</span>
           <span className="text-[10px] text-slate-400 font-normal">
-            ({quickReplies.length} match{quickReplies.length > 1 ? 'es' : ''})
+            ({quickReplies.length} match{quickReplies.length > 1 ? "es" : ""})
           </span>
         </div>
         <span className="text-[10px] text-slate-400">
-          <kbd className="rounded bg-white px-1 py-0.5 border border-slate-200 shadow-2xs font-mono">↑</kbd>{' '}
-          <kbd className="rounded bg-white px-1 py-0.5 border border-slate-200 shadow-2xs font-mono">↓</kbd> to navigate,{' '}
-          <kbd className="rounded bg-white px-1.5 py-0.5 border border-slate-200 shadow-2xs font-mono">Enter</kbd> to insert
+          <kbd className="rounded bg-white px-1 py-0.5 border border-slate-200 shadow-2xs font-mono">
+            ↑
+          </kbd>{" "}
+          <kbd className="rounded bg-white px-1 py-0.5 border border-slate-200 shadow-2xs font-mono">
+            ↓
+          </kbd>{" "}
+          to navigate,{" "}
+          <kbd className="rounded bg-white px-1.5 py-0.5 border border-slate-200 shadow-2xs font-mono">
+            Enter
+          </kbd>{" "}
+          to insert
         </span>
       </div>
 
@@ -87,7 +98,7 @@ export default function QuickReplyPopover({
         {quickReplies.map((reply, idx) => {
           const isSelected = idx === selectedIndex;
           const hasMedia = Boolean(reply.mediaUrl);
-          const isPersonal = reply.scope === 'PERSONAL';
+          const isPersonal = reply.scope === "PERSONAL";
           const previewText = previewInterpolated(reply.content);
 
           return (
@@ -100,15 +111,15 @@ export default function QuickReplyPopover({
               onClick={() => onSelect(reply)}
               className={`group flex items-start gap-3 rounded-xl p-2.5 cursor-pointer transition select-none ${
                 isSelected
-                  ? 'bg-emerald-50/80 border border-emerald-200/80 shadow-xs'
-                  : 'hover:bg-slate-50 border border-transparent'
+                  ? "bg-emerald-50/80 border border-emerald-200/80 shadow-xs"
+                  : "hover:bg-slate-50 border border-transparent"
               }`}
             >
               <div
                 className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition ${
                   isSelected
-                    ? 'bg-[#075E54] text-white'
-                    : 'bg-slate-100 text-slate-500 group-hover:bg-[#075E54]/10 group-hover:text-[#075E54]'
+                    ? "bg-[#075E54] text-white"
+                    : "bg-slate-100 text-slate-500 group-hover:bg-[#075E54]/10 group-hover:text-[#075E54]"
                 }`}
               >
                 <span className="font-mono text-xs font-bold">/</span>
@@ -127,15 +138,16 @@ export default function QuickReplyPopover({
                     {hasMedia && (
                       <span
                         className="inline-flex items-center gap-1 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600"
-                        title={reply.mediaName || 'Attached Media'}
+                        title={reply.mediaName || "Attached Media"}
                       >
-                        {reply.mediaType === 'IMAGE' ? (
+                        {reply.mediaType === "IMAGE" ? (
                           <ImageIcon size={11} className="text-emerald-600" />
                         ) : (
                           <FileText size={11} className="text-blue-600" />
                         )}
                         <span className="max-w-[80px] truncate text-[9px]">
-                          {reply.mediaName?.split('.').pop()?.toUpperCase() || 'MEDIA'}
+                          {reply.mediaName?.split(".").pop()?.toUpperCase() ||
+                            "MEDIA"}
                         </span>
                       </span>
                     )}
@@ -143,8 +155,8 @@ export default function QuickReplyPopover({
                     <span
                       className={`rounded px-1.5 py-0.2 text-[9px] font-semibold uppercase ${
                         isPersonal
-                          ? 'bg-indigo-50 text-indigo-700'
-                          : 'bg-slate-100 text-slate-500'
+                          ? "bg-indigo-50 text-indigo-700"
+                          : "bg-slate-100 text-slate-500"
                       }`}
                     >
                       {reply.scope}

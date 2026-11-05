@@ -7,7 +7,7 @@ export default function CampaignReportTable({
   campaigns = [],
   page = 1,
   totalPages = 1,
-  onPageChange
+  onPageChange,
 }) {
   const getStatusBadge = (status) => {
     switch (status?.toUpperCase()) {
@@ -56,24 +56,41 @@ export default function CampaignReportTable({
           <tbody className="divide-y divide-slate-100">
             {campaigns.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-8 text-center text-slate-400 font-medium">
+                <td
+                  colSpan={8}
+                  className="py-8 text-center text-slate-400 font-medium"
+                >
                   No broadcast campaigns found in selected period
                 </td>
               </tr>
             ) : (
               campaigns.map((row) => (
                 <tr key={row.id} className="hover:bg-slate-50/50 transition">
-                  <td className="py-3 px-4 font-bold text-slate-800">{row.name}</td>
+                  <td className="py-3 px-4 font-bold text-slate-800">
+                    {row.name}
+                  </td>
                   <td className="py-3 px-4 text-slate-500">{row.sentDate}</td>
-                  <td className="py-3 px-4 font-medium text-slate-700">{row.recipients.toLocaleString()}</td>
-                  <td className="py-3 px-4 font-semibold text-blue-600">{row.deliveredPct}</td>
-                  <td className="py-3 px-4 font-semibold text-indigo-600">{row.readPct}</td>
-                  <td className="py-3 px-4 font-semibold text-emerald-600">{row.replyPct}</td>
-                  <td className={`py-3 px-4 font-semibold ${row.failed > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
+                  <td className="py-3 px-4 font-medium text-slate-700">
+                    {row.recipients.toLocaleString()}
+                  </td>
+                  <td className="py-3 px-4 font-semibold text-blue-600">
+                    {row.deliveredPct}
+                  </td>
+                  <td className="py-3 px-4 font-semibold text-indigo-600">
+                    {row.readPct}
+                  </td>
+                  <td className="py-3 px-4 font-semibold text-emerald-600">
+                    {row.replyPct}
+                  </td>
+                  <td
+                    className={`py-3 px-4 font-semibold ${row.failed > 0 ? "text-rose-600" : "text-slate-400"}`}
+                  >
                     {row.failed}
                   </td>
                   <td className="py-3 px-4">
-                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${getStatusBadge(row.status)}`}>
+                    <span
+                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${getStatusBadge(row.status)}`}
+                    >
                       {row.status}
                     </span>
                   </td>
@@ -86,7 +103,10 @@ export default function CampaignReportTable({
 
       {/* Table Pagination Controls */}
       <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between text-xs text-slate-500">
-        <span>Showing Page <strong>{page}</strong> of <strong>{totalPages || 1}</strong></span>
+        <span>
+          Showing Page <strong>{page}</strong> of{" "}
+          <strong>{totalPages || 1}</strong>
+        </span>
         <div className="flex items-center gap-1">
           <button
             onClick={() => onPageChange(Math.max(1, page - 1))}

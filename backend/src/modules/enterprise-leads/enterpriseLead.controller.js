@@ -1,37 +1,37 @@
 // backend/src/modules/enterprise-leads/enterpriseLead.controller.js (do not remove this comment)
-import prisma from '../../config/prisma.js';
-import { 
-  sendEnterpriseLeadConfirmationEmail, 
+import prisma from "../../config/prisma.js";
+import {
+  sendEnterpriseLeadConfirmationEmail,
   sendEnterpriseLeadNotificationEmail,
-  sendEnterpriseAccountActivationEmail 
-} from '../auth/email.service.js';
-import { validationResult } from 'express-validator';
+  sendEnterpriseAccountActivationEmail,
+} from "../auth/email.service.js";
+import { validationResult } from "express-validator";
 
 // Map UI display values to Prisma DB enum keys
 const mapCompanySize = (size) => {
-  if (size === '1-10') return 'size_1_10';
-  if (size === '11-50') return 'size_11_50';
-  if (size === '51-200') return 'size_51_200';
-  if (size === '200+') return 'size_200_plus';
+  if (size === "1-10") return "size_1_10";
+  if (size === "11-50") return "size_11_50";
+  if (size === "51-200") return "size_51_200";
+  if (size === "200+") return "size_200_plus";
   return size;
 };
 
 const mapTimeline = (timeline) => {
-  if (timeline === '1-3months') return 'months_1_3';
+  if (timeline === "1-3months") return "months_1_3";
   return timeline; // 'urgent' or 'exploring'
 };
 
 // Map Prisma DB enum keys back to UI display values for API response
 const unmapCompanySize = (size) => {
-  if (size === 'size_1_10') return '1-10';
-  if (size === 'size_11_50') return '11-50';
-  if (size === 'size_51_200') return '51-200';
-  if (size === 'size_200_plus') return '200+';
+  if (size === "size_1_10") return "1-10";
+  if (size === "size_11_50") return "11-50";
+  if (size === "size_51_200") return "51-200";
+  if (size === "size_200_plus") return "200+";
   return size;
 };
 
 const unmapTimeline = (timeline) => {
-  if (timeline === 'months_1_3') return '1-3months';
+  if (timeline === "months_1_3") return "1-3months";
   return timeline;
 };
 
@@ -39,25 +39,25 @@ const unmapTimeline = (timeline) => {
 export const submitEnterpriseLead = async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({ 
-      success: false, 
-      message: 'Validation failed', 
-      errors: errors.array() 
+    return res.status(400).json({
+      success: false,
+      message: "Validation failed",
+      errors: errors.array(),
     });
   }
 
   const tenantId = req.tenantId; // From verifyOnboarding middleware
-  const { 
-    companyName, 
-    contactName, 
-    email, 
-    phone, 
-    role, 
-    companySize, 
-    estimatedUsers, 
-    requirements, 
-    timeline, 
-    preferredContact 
+  const {
+    companyName,
+    contactName,
+    email,
+    phone,
+    role,
+    companySize,
+    estimatedUsers,
+    requirements,
+    timeline,
+    preferredContact,
   } = req.body;
 
   try {
@@ -78,16 +78,16 @@ export const submitEnterpriseLead = async (req, res) => {
         requirements: requirements || null,
         timeline: timelineEnum,
         preferredContact,
-        status: 'pending',
+        status: "pending",
         history: [
           {
-            status: 'pending',
+            status: "pending",
             timestamp: new Date().toISOString(),
-            adminName: 'System',
-            adminId: 'system',
-            notes: 'Enterprise lead request submitted via onboarding flow.'
-          }
-        ]
+            adminName: "System",
+            adminId: "system",
+            notes: "Enterprise lead request submitted via onboarding flow.",
+          },
+        ],
       },
     });
 
@@ -101,14 +101,16 @@ export const submitEnterpriseLead = async (req, res) => {
     await prisma.tenantSubscription.update({
       where: { tenantId },
       data: {
-        planStatus: 'enterprise_pending',
+        planStatus: "enterprise_pending",
       },
     });
 
     // 3️⃣ Send Nodemailer emails (non-blocking)
-    sendEnterpriseLeadConfirmationEmail(email, contactName).catch(console.error);
-    
-    const adminEmail = process.env.EMAIL_USER || 'info@sudoreply.com';
+    sendEnterpriseLeadConfirmationEmail(email, contactName).catch(
+      console.error,
+    );
+
+    const adminEmail = process.env.EMAIL_USER || "info@sudoreply.com";
     sendEnterpriseLeadNotificationEmail(adminEmail, {
       companyName,
       contactName,
@@ -119,19 +121,19 @@ export const submitEnterpriseLead = async (req, res) => {
       estimatedUsers,
       requirements,
       timeline,
-      preferredContact
+      preferredContact,
     }).catch(console.error);
 
-    return res.status(201).json({ 
-      success: true, 
-      status: 'enterprise_pending',
-      data: lead 
+    return res.status(201).json({
+      success: true,
+      status: "enterprise_pending",
+      data: lead,
     });
   } catch (error) {
-    console.error('❌ Submit enterprise lead error:', error);
-    return res.status(500).json({ 
-      success: false, 
-      message: 'Failed to submit enterprise request' 
+    console.error("❌ Submit enterprise lead error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to submit enterprise request",
     });
   }
 };
@@ -143,14 +145,14 @@ export const resetEnterpriseLead = async (req, res) => {
   try {
     // 1️⃣ Delete any enterprise leads associated with this tenant
     await prisma.enterpriseLead.deleteMany({
-      where: { tenantId, status: 'pending' },
+      where: { tenantId, status: "pending" },
     });
 
     // 2️⃣ Reset plan status to inactive or none
     await prisma.tenantSubscription.update({
       where: { tenantId },
       data: {
-        planStatus: 'inactive', // or none, inactive is default in schema.prisma
+        planStatus: "inactive", // or none, inactive is default in schema.prisma
       },
     });
     const updatedTenant = await prisma.tenant.findUnique({
@@ -158,16 +160,16 @@ export const resetEnterpriseLead = async (req, res) => {
       include: { subscription: true },
     });
 
-    return res.json({ 
-      success: true, 
-      message: 'Onboarding reset successfully', 
-      tenant: updatedTenant 
+    return res.json({
+      success: true,
+      message: "Onboarding reset successfully",
+      tenant: updatedTenant,
     });
   } catch (error) {
-    console.error('❌ Reset enterprise lead error:', error);
-    return res.status(500).json({ 
-      success: false, 
-      message: 'Failed to reset onboarding flow' 
+    console.error("❌ Reset enterprise lead error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to reset onboarding flow",
     });
   }
 };
@@ -196,9 +198,9 @@ export const getLeads = async (req, res) => {
   }
   if (search) {
     where.OR = [
-      { companyName: { contains: search, mode: 'insensitive' } },
-      { contactName: { contains: search, mode: 'insensitive' } },
-      { email: { contains: search, mode: 'insensitive' } },
+      { companyName: { contains: search, mode: "insensitive" } },
+      { contactName: { contains: search, mode: "insensitive" } },
+      { email: { contains: search, mode: "insensitive" } },
     ];
   }
 
@@ -216,22 +218,22 @@ export const getLeads = async (req, res) => {
               firstName: true,
               lastName: true,
               createdAt: true,
-            }
-          }
+            },
+          },
         },
         orderBy: [
           // Order pending first, then by date desc
-          { status: 'asc' }, 
-          { createdAt: 'desc' }
-        ]
+          { status: "asc" },
+          { createdAt: "desc" },
+        ],
       }),
       prisma.enterpriseLead.count({ where }),
     ]);
 
-    const formattedLeads = leads.map(lead => ({
+    const formattedLeads = leads.map((lead) => ({
       ...lead,
       companySize: unmapCompanySize(lead.companySize),
-      timeline: unmapTimeline(lead.timeline)
+      timeline: unmapTimeline(lead.timeline),
     }));
 
     const totalPages = Math.ceil(total / limit);
@@ -247,10 +249,10 @@ export const getLeads = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('❌ Get enterprise leads error:', error);
-    return res.status(500).json({ 
-      success: false, 
-      message: 'Failed to fetch enterprise leads' 
+    console.error("❌ Get enterprise leads error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch enterprise leads",
     });
   }
 };
@@ -263,32 +265,32 @@ export const getLead = async (req, res) => {
     const lead = await prisma.enterpriseLead.findUnique({
       where: { id },
       include: {
-        tenant: true
-      }
+        tenant: true,
+      },
     });
 
     if (!lead) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Lead not found' 
+      return res.status(404).json({
+        success: false,
+        message: "Lead not found",
       });
     }
 
     const formattedLead = {
       ...lead,
       companySize: unmapCompanySize(lead.companySize),
-      timeline: unmapTimeline(lead.timeline)
+      timeline: unmapTimeline(lead.timeline),
     };
 
-    return res.json({ 
-      success: true, 
-      data: formattedLead 
+    return res.json({
+      success: true,
+      data: formattedLead,
     });
   } catch (error) {
-    console.error('❌ Get single lead error:', error);
-    return res.status(500).json({ 
-      success: false, 
-      message: 'Failed to fetch lead details' 
+    console.error("❌ Get single lead error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch lead details",
     });
   }
 };
@@ -298,20 +300,26 @@ export const updateStatus = async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
 
-  const validStatuses = ['pending', 'contacted', 'negotiating', 'converted', 'rejected'];
+  const validStatuses = [
+    "pending",
+    "contacted",
+    "negotiating",
+    "converted",
+    "rejected",
+  ];
   if (!validStatuses.includes(status)) {
-    return res.status(400).json({ 
-      success: false, 
-      message: 'Invalid status value' 
+    return res.status(400).json({
+      success: false,
+      message: "Invalid status value",
     });
   }
 
   try {
     const lead = await prisma.enterpriseLead.findUnique({ where: { id } });
     if (!lead) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Lead not found' 
+      return res.status(404).json({
+        success: false,
+        message: "Lead not found",
       });
     }
 
@@ -319,9 +327,9 @@ export const updateStatus = async (req, res) => {
     const historyItem = {
       status,
       timestamp: new Date().toISOString(),
-      adminName: req.superAdmin?.name || 'Admin',
-      adminId: req.superAdminId || 'unknown',
-      notes: `Status changed to '${status}'`
+      adminName: req.superAdmin?.name || "Admin",
+      adminId: req.superAdminId || "unknown",
+      notes: `Status changed to '${status}'`,
     };
 
     const currentHistory = Array.isArray(lead.history) ? lead.history : [];
@@ -331,19 +339,19 @@ export const updateStatus = async (req, res) => {
       where: { id },
       data: {
         status,
-        history: updatedHistory
-      }
+        history: updatedHistory,
+      },
     });
 
-    return res.json({ 
-      success: true, 
-      data: updatedLead 
+    return res.json({
+      success: true,
+      data: updatedLead,
     });
   } catch (error) {
-    console.error('❌ Update status error:', error);
-    return res.status(500).json({ 
-      success: false, 
-      message: 'Failed to update status' 
+    console.error("❌ Update status error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update status",
     });
   }
 };
@@ -357,19 +365,19 @@ export const updateNotes = async (req, res) => {
     const updated = await prisma.enterpriseLead.update({
       where: { id },
       data: {
-        internalNotes: internal_notes
-      }
+        internalNotes: internal_notes,
+      },
     });
 
-    return res.json({ 
-      success: true, 
-      data: updated 
+    return res.json({
+      success: true,
+      data: updated,
     });
   } catch (error) {
-    console.error('❌ Update notes error:', error);
-    return res.status(500).json({ 
-      success: false, 
-      message: 'Failed to save notes' 
+    console.error("❌ Update notes error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to save notes",
     });
   }
 };
@@ -381,30 +389,30 @@ export const activateTenant = async (req, res) => {
 
   try {
     const lead = await prisma.enterpriseLead.findUnique({
-      where: { id }
+      where: { id },
     });
 
     if (!lead) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Lead not found' 
+      return res.status(404).json({
+        success: false,
+        message: "Lead not found",
       });
     }
 
-    if (lead.status === 'converted') {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Tenant account is already activated' 
+    if (lead.status === "converted") {
+      return res.status(400).json({
+        success: false,
+        message: "Tenant account is already activated",
       });
     }
 
     // Add status history entry
     const historyItem = {
-      status: 'converted',
+      status: "converted",
       timestamp: new Date().toISOString(),
-      adminName: req.superAdmin?.name || 'Admin',
+      adminName: req.superAdmin?.name || "Admin",
       adminId,
-      notes: 'Enterprise account activated.'
+      notes: "Enterprise account activated.",
     };
 
     const currentHistory = Array.isArray(lead.history) ? lead.history : [];
@@ -416,40 +424,42 @@ export const activateTenant = async (req, res) => {
       prisma.enterpriseLead.update({
         where: { id },
         data: {
-          status: 'converted',
+          status: "converted",
           activatedAt: new Date(),
           activatedByAdminId: adminId,
-          history: updatedHistory
-        }
+          history: updatedHistory,
+        },
       }),
       // 2️⃣ Update tenant status and activation
       prisma.tenant.update({
         where: { id: lead.tenantId },
         data: {
           isActive: true,
-          status: 'APPROVED' // Force APPROVED status so they can bypass restrictions
-        }
+          status: "APPROVED", // Force APPROVED status so they can bypass restrictions
+        },
       }),
       prisma.tenantSubscription.update({
         where: { tenantId: lead.tenantId },
         data: {
-          planStatus: 'enterprise_active',
-        }
-      })
+          planStatus: "enterprise_active",
+        },
+      }),
     ]);
 
     // 3️⃣ Send activation confirmation email to tenant (non-blocking)
-    sendEnterpriseAccountActivationEmail(lead.email, lead.contactName).catch(console.error);
+    sendEnterpriseAccountActivationEmail(lead.email, lead.contactName).catch(
+      console.error,
+    );
 
-    return res.json({ 
-      success: true, 
-      message: 'Enterprise account activated successfully' 
+    return res.json({
+      success: true,
+      message: "Enterprise account activated successfully",
     });
   } catch (error) {
-    console.error('❌ Activate enterprise account error:', error);
-    return res.status(500).json({ 
-      success: false, 
-      message: 'Failed to activate enterprise account' 
+    console.error("❌ Activate enterprise account error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to activate enterprise account",
     });
   }
 };
@@ -463,15 +473,15 @@ export const deleteLead = async (req, res) => {
       where: { id },
     });
 
-    return res.json({ 
-      success: true, 
-      message: 'Lead record deleted successfully' 
+    return res.json({
+      success: true,
+      message: "Lead record deleted successfully",
     });
   } catch (error) {
-    console.error('❌ Delete lead error:', error);
-    return res.status(500).json({ 
-      success: false, 
-      message: 'Failed to delete lead record' 
+    console.error("❌ Delete lead error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete lead record",
     });
   }
 };

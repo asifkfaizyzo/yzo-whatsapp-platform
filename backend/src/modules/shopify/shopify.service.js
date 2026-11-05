@@ -1,36 +1,41 @@
 // backend/src/modules/shopify/shopify.service.js (do not remove this comment)
-import axios from 'axios';
-import prisma from '../../config/prisma.js';
-import { encrypt, decrypt } from '../../lib/crypto.js';
-import { registerShopifyWebhooks } from './webhooks/shopify.webhook.service.js';
-
+import axios from "axios";
+import prisma from "../../config/prisma.js";
+import { encrypt, decrypt } from "../../lib/crypto.js";
+import { registerShopifyWebhooks } from "./webhooks/shopify.webhook.service.js";
 
 /**
  * Connect a Shopify Custom App for a tenant
  */
-export const connect = async (tenantId, userId, { shopName, accessToken, webhookSecret }) => {
-  if (typeof webhookSecret !== 'string' || !webhookSecret.trim()) {
-    throw new Error('Shopify API secret is required to verify webhook signatures');
+export const connect = async (
+  tenantId,
+  userId,
+  { shopName, accessToken, webhookSecret },
+) => {
+  if (typeof webhookSecret !== "string" || !webhookSecret.trim()) {
+    throw new Error(
+      "Shopify API secret is required to verify webhook signatures",
+    );
   }
 
   // 1. Sanitize shop domain
   let cleanShop = shopName
-    .replace(/^https?:\/\//i, '')
-    .replace(/\/.*$/, '')
+    .replace(/^https?:\/\//i, "")
+    .replace(/\/.*$/, "")
     .trim()
     .toLowerCase();
-  if (!cleanShop.includes('.')) cleanShop = `${cleanShop}.myshopify.com`;
+  if (!cleanShop.includes(".")) cleanShop = `${cleanShop}.myshopify.com`;
   if (!/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(cleanShop)) {
-    throw new Error('Enter a valid Shopify myshopify.com domain');
+    throw new Error("Enter a valid Shopify myshopify.com domain");
   }
 
   // 2. Validate credentials against Shopify Admin REST API
   try {
-    const apiVersion = process.env.SHOPIFY_API_VERSION || '2026-07';
+    const apiVersion = process.env.SHOPIFY_API_VERSION || "2026-07";
     await axios.get(`https://${cleanShop}/admin/api/${apiVersion}/shop.json`, {
       headers: {
-        'X-Shopify-Access-Token': accessToken,
-        'Content-Type': 'application/json',
+        "X-Shopify-Access-Token": accessToken,
+        "Content-Type": "application/json",
       },
       timeout: 10000,
     });
@@ -39,8 +44,10 @@ export const connect = async (tenantId, userId, { shopName, accessToken, webhook
       err.response?.data?.errors ||
       err.response?.statusText ||
       err.message ||
-      'Could not verify Shopify store with provided credentials';
-    throw new Error(`Shopify verification failed: ${typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg)}`);
+      "Could not verify Shopify store with provided credentials";
+    throw new Error(
+      `Shopify verification failed: ${typeof errorMsg === "string" ? errorMsg : JSON.stringify(errorMsg)}`,
+    );
   }
 
   // 3. Upsert connection record (1 per tenant)
@@ -51,7 +58,7 @@ export const connect = async (tenantId, userId, { shopName, accessToken, webhook
       accessToken: encrypt(accessToken),
       webhookSecret: webhookSecret ? encrypt(webhookSecret) : null,
       connectedBy: userId || null,
-      status: 'active',
+      status: "active",
     },
     create: {
       tenantId,
@@ -59,26 +66,38 @@ export const connect = async (tenantId, userId, { shopName, accessToken, webhook
       accessToken: encrypt(accessToken),
       webhookSecret: webhookSecret ? encrypt(webhookSecret) : null,
       connectedBy: userId || null,
-      status: 'active',
+      status: "active",
     },
   });
 
-   // 4. AUTOMATIC WEBHOOK REGISTRATION
+  // 4. AUTOMATIC WEBHOOK REGISTRATION
   try {
-     const webhookResults = await registerShopifyWebhooks(cleanShop, accessToken);
-     const failedTopics = webhookResults.filter((result) => result.status === 'failed');
-     if (failedTopics.length > 0) {
-       console.error(
-         `❌ Shopify webhook setup incomplete for ${cleanShop}:`,
-         failedTopics.map(({ topic, error }) => `${topic} (${error})`).join('; ')
-       );
-     }
-     if (failedTopics.some(({ topic }) => topic === 'checkouts/update')) {
-       console.error(`❌ Abandoned-cart recovery will not receive checkout webhooks for ${cleanShop}`);
-     }
-   } catch (webhooksErr) {
-     console.error('⚠️ Automatic webhook registration error:', webhooksErr.message);
-   }
+    const webhookResults = await registerShopifyWebhooks(
+      cleanShop,
+      accessToken,
+    );
+    const failedTopics = webhookResults.filter(
+      (result) => result.status === "failed",
+    );
+    if (failedTopics.length > 0) {
+      console.error(
+        `❌ Shopify webhook setup incomplete for ${cleanShop}:`,
+        failedTopics
+          .map(({ topic, error }) => `${topic} (${error})`)
+          .join("; "),
+      );
+    }
+    if (failedTopics.some(({ topic }) => topic === "checkouts/update")) {
+      console.error(
+        `❌ Abandoned-cart recovery will not receive checkout webhooks for ${cleanShop}`,
+      );
+    }
+  } catch (webhooksErr) {
+    console.error(
+      "⚠️ Automatic webhook registration error:",
+      webhooksErr.message,
+    );
+  }
 
   return {
     id: connection.id,
@@ -97,10 +116,10 @@ export const getConnectionStatus = async (tenantId) => {
     where: { tenantId },
   });
 
-  if (!connection || connection.status !== 'active') {
+  if (!connection || connection.status !== "active") {
     return {
       isConnected: false,
-      status: connection?.status || 'not_connected',
+      status: connection?.status || "not_connected",
       shopName: null,
       connectedAt: null,
       hasWebhookSecret: false,
@@ -118,7 +137,10 @@ export const getConnectionStatus = async (tenantId) => {
   };
 };
 
-export const updateCartRecoverySettings = async (tenantId, cartRecoveryEnabled) => {
+export const updateCartRecoverySettings = async (
+  tenantId,
+  cartRecoveryEnabled,
+) => {
   const connection = await prisma.shopifyConnection.update({
     where: { tenantId },
     data: { cartRecoveryEnabled },
@@ -137,7 +159,7 @@ export const disconnect = async (tenantId) => {
   });
 
   if (!existing) {
-    throw new Error('No active Shopify connection found for this tenant');
+    throw new Error("No active Shopify connection found for this tenant");
   }
 
   await prisma.shopifyConnection.delete({

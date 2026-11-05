@@ -1,5 +1,5 @@
 // tenant-web/src/components/inbox/layout/ChatSidebar.jsx (do not remove this comment)
-import React from 'react';
+import React from "react";
 import {
   MessageSquarePlus,
   MoreVertical,
@@ -148,10 +148,11 @@ export default function ChatSidebar({
         <div className="relative" ref={channelFilterRef}>
           <button
             onClick={() => setShowChannelFilter((prev) => !prev)}
-            className={`p-2 rounded-lg border transition-all flex items-center justify-center shrink-0 relative ${selectedChannel !== "ALL"
+            className={`p-2 rounded-lg border transition-all flex items-center justify-center shrink-0 relative ${
+              selectedChannel !== "ALL"
                 ? "bg-[#075E54] text-white border-[#075E54] shadow-xs"
                 : "bg-white text-[#54656F] border-gray-200/80 hover:text-[#075E54] hover:bg-emerald-50/50"
-              }`}
+            }`}
             title="Filter by channel"
             aria-label="Filter channels"
           >
@@ -182,23 +183,26 @@ export default function ChatSidebar({
                 {/* All Channels */}
                 <button
                   onClick={() => handleSelectChannelFilter("ALL")}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition ${selectedChannel === "ALL"
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition ${
+                    selectedChannel === "ALL"
                       ? "bg-[#075E54] text-white font-semibold"
                       : "text-[#111B21] hover:bg-[#F0F2F5] font-medium"
-                    }`}
+                  }`}
                 >
                   <div className="flex items-center gap-2">
                     <span
-                      className={`w-2 h-2 rounded-full ${selectedChannel === "ALL" ? "bg-white" : "bg-gray-400"
-                        }`}
+                      className={`w-2 h-2 rounded-full ${
+                        selectedChannel === "ALL" ? "bg-white" : "bg-gray-400"
+                      }`}
                     />
                     <span>All Channels</span>
                   </div>
                   <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${selectedChannel === "ALL"
+                    className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                      selectedChannel === "ALL"
                         ? "bg-white/20 text-white"
                         : "bg-gray-100 text-gray-600"
-                      }`}
+                    }`}
                   >
                     {activeChannelCounts?.ALL || 0}
                   </span>
@@ -207,25 +211,28 @@ export default function ChatSidebar({
                 {/* WhatsApp */}
                 <button
                   onClick={() => handleSelectChannelFilter("WHATSAPP")}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition ${selectedChannel === "WHATSAPP"
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition ${
+                    selectedChannel === "WHATSAPP"
                       ? "bg-[#25D366] text-white font-semibold"
                       : "text-[#111B21] hover:bg-emerald-50/70 font-medium"
-                    }`}
+                  }`}
                 >
                   <div className="flex items-center gap-2">
                     <FaWhatsapp
-                      className={`text-sm ${selectedChannel === "WHATSAPP"
+                      className={`text-sm ${
+                        selectedChannel === "WHATSAPP"
                           ? "text-white"
                           : "text-[#25D366]"
-                        }`}
+                      }`}
                     />
                     <span>WhatsApp</span>
                   </div>
                   <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${selectedChannel === "WHATSAPP"
+                    className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                      selectedChannel === "WHATSAPP"
                         ? "bg-white/25 text-white"
                         : "bg-emerald-100 text-emerald-800"
-                      }`}
+                    }`}
                   >
                     {activeChannelCounts?.WHATSAPP || 0}
                   </span>
@@ -234,25 +241,28 @@ export default function ChatSidebar({
                 {/* Messenger */}
                 <button
                   onClick={() => handleSelectChannelFilter("MESSENGER")}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition ${selectedChannel === "MESSENGER"
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition ${
+                    selectedChannel === "MESSENGER"
                       ? "bg-[#0084FF] text-white font-semibold"
                       : "text-[#111B21] hover:bg-blue-50/70 font-medium"
-                    }`}
+                  }`}
                 >
                   <div className="flex items-center gap-2">
                     <FaFacebookMessenger
-                      className={`text-sm ${selectedChannel === "MESSENGER"
+                      className={`text-sm ${
+                        selectedChannel === "MESSENGER"
                           ? "text-white"
                           : "text-[#0084FF]"
-                        }`}
+                      }`}
                     />
                     <span>Messenger</span>
                   </div>
                   <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${selectedChannel === "MESSENGER"
+                    className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                      selectedChannel === "MESSENGER"
                         ? "bg-white/25 text-white"
                         : "bg-blue-100 text-blue-800"
-                      }`}
+                    }`}
                   >
                     {activeChannelCounts?.MESSENGER || 0}
                   </span>
@@ -261,25 +271,28 @@ export default function ChatSidebar({
                 {/* Instagram */}
                 <button
                   onClick={() => handleSelectChannelFilter("INSTAGRAM")}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition ${selectedChannel === "INSTAGRAM"
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition ${
+                    selectedChannel === "INSTAGRAM"
                       ? "bg-gradient-to-r from-[#FD1D1D] via-[#E1306C] to-[#833AB4] text-white font-semibold"
                       : "text-[#111B21] hover:bg-fuchsia-50/70 font-medium"
-                    }`}
+                  }`}
                 >
                   <div className="flex items-center gap-2">
                     <FaInstagram
-                      className={`text-sm ${selectedChannel === "INSTAGRAM"
+                      className={`text-sm ${
+                        selectedChannel === "INSTAGRAM"
                           ? "text-white"
                           : "text-[#E1306C]"
-                        }`}
-                  />
-                  <span>Instagram</span>
-                </div>
+                      }`}
+                    />
+                    <span>Instagram</span>
+                  </div>
                   <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${selectedChannel === "INSTAGRAM"
+                    className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                      selectedChannel === "INSTAGRAM"
                         ? "bg-white/25 text-white"
                         : "bg-fuchsia-100 text-fuchsia-800"
-                      }`}
+                    }`}
                   >
                     {activeChannelCounts?.INSTAGRAM || 0}
                   </span>
@@ -298,19 +311,21 @@ export default function ChatSidebar({
             <button
               key={tab.value}
               onClick={() => handleTabClick(tab.value)}
-              className={`flex items-center gap-1.5 px-3 py-2.5 text-[11px] font-semibold whitespace-nowrap border-b-2 transition duration-150 shrink-0 ${isTabActive
-                ? "border-[#25D366] text-[#075E54]"
-                : "border-transparent text-[#667781] hover:text-[#111B21] hover:border-emerald-200"
-                }`}
+              className={`flex items-center gap-1.5 px-3 py-2.5 text-[11px] font-semibold whitespace-nowrap border-b-2 transition duration-150 shrink-0 ${
+                isTabActive
+                  ? "border-[#25D366] text-[#075E54]"
+                  : "border-transparent text-[#667781] hover:text-[#111B21] hover:border-emerald-200"
+              }`}
             >
               <span>{tab.label}</span>
               <span
-                className={`inline-flex items-center justify-center min-w-[18px] h-[17px] px-1 rounded-full text-[9px] font-bold leading-none ${isTabActive
-                  ? "bg-[#25D366]/15 text-[#075E54]"
-                  : tab.value === "unread" && tab.count > 0
-                    ? "bg-[#25D366] text-white"
-                    : "bg-[#F0F2F5] text-[#667781]"
-                  }`}
+                className={`inline-flex items-center justify-center min-w-[18px] h-[17px] px-1 rounded-full text-[9px] font-bold leading-none ${
+                  isTabActive
+                    ? "bg-[#25D366]/15 text-[#075E54]"
+                    : tab.value === "unread" && tab.count > 0
+                      ? "bg-[#25D366] text-white"
+                      : "bg-[#F0F2F5] text-[#667781]"
+                }`}
               >
                 {tab.count > 99 ? "99+" : tab.count}
               </span>
@@ -364,28 +379,36 @@ export default function ChatSidebar({
             const lastMsg = chat.messages?.[0];
             const lastCall = chat.waCalls?.[0];
             let latestActivity = lastMsg;
-            if (lastCall && (!lastMsg || new Date(lastCall.createdAt) > new Date(lastMsg.createdAt))) {
-                latestActivity = {
-                    type: 'CALL',
-                    status: lastCall.status,
-                    direction: lastCall.direction,
-                    createdAt: lastCall.createdAt,
-                };
+            if (
+              lastCall &&
+              (!lastMsg ||
+                new Date(lastCall.createdAt) > new Date(lastMsg.createdAt))
+            ) {
+              latestActivity = {
+                type: "CALL",
+                status: lastCall.status,
+                direction: lastCall.direction,
+                createdAt: lastCall.createdAt,
+              };
             }
 
             const isActive = String(chat.id) === String(activeChatId);
             const avatarBg = getAvatarStyle(contactName);
             const unreadCount = getUnreadCount(chat.id);
-            const timeStr = latestActivity ? formatTime(latestActivity.createdAt) : "";
+            const timeStr = latestActivity
+              ? formatTime(latestActivity.createdAt)
+              : "";
 
             return (
               <div
                 key={chat.id || `chat-${chatIdx}`}
-                className={`w-full flex items-start gap-3 px-4 py-3.5 border-b border-[#F0F2F5] transition ${isActive ? "bg-[#F0F2F5]" : "hover:bg-[#F5F6F6] bg-white"
-                  } ${bulkSelectMode && selectedConvIds.includes(chat.id)
+                className={`w-full flex items-start gap-3 px-4 py-3.5 border-b border-[#F0F2F5] transition ${
+                  isActive ? "bg-[#F0F2F5]" : "hover:bg-[#F5F6F6] bg-white"
+                } ${
+                  bulkSelectMode && selectedConvIds.includes(chat.id)
                     ? "bg-emerald-50 border-l-2 border-l-[#25D366]"
                     : ""
-                  }`}
+                }`}
               >
                 {bulkSelectMode && userRole === "admin" && (
                   <div className="flex items-center justify-center pt-3 shrink-0">
@@ -445,7 +468,7 @@ export default function ChatSidebar({
                     </span>
                   </div>
 
-                                       <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0">
                     {/* Name on Left, Time + Pin Icon on Right */}
                     <div className="flex items-center justify-between gap-1.5">
                       <span
@@ -503,16 +526,30 @@ export default function ChatSidebar({
         {!loading && tabFilteredChats.length === 0 && (
           <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
             <div className="w-16 h-16 rounded-full flex items-center justify-center mb-3 bg-gray-100">
-              {selectedChannel === "WHATSAPP" && <FaWhatsapp className="w-8 h-8 text-[#25D366]" />}
-              {selectedChannel === "MESSENGER" && <FaFacebookMessenger className="w-8 h-8 text-[#0084FF]" />}
-              {selectedChannel === "INSTAGRAM" && <FaInstagram className="w-8 h-8 text-[#E1306C]" />}
-              {selectedChannel === "ALL" && <MessageSquarePlus className="w-8 h-8 text-gray-400" />}
+              {selectedChannel === "WHATSAPP" && (
+                <FaWhatsapp className="w-8 h-8 text-[#25D366]" />
+              )}
+              {selectedChannel === "MESSENGER" && (
+                <FaFacebookMessenger className="w-8 h-8 text-[#0084FF]" />
+              )}
+              {selectedChannel === "INSTAGRAM" && (
+                <FaInstagram className="w-8 h-8 text-[#E1306C]" />
+              )}
+              {selectedChannel === "ALL" && (
+                <MessageSquarePlus className="w-8 h-8 text-gray-400" />
+              )}
             </div>
             <p className="text-sm font-semibold text-[#111B21]">
-              No {selectedChannel === "ALL" ? "" : selectedChannel.toLowerCase()} conversations yet
+              No{" "}
+              {selectedChannel === "ALL" ? "" : selectedChannel.toLowerCase()}{" "}
+              conversations yet
             </p>
             <p className="text-xs text-[#667781] mt-1 max-w-xs">
-              When customers message your {selectedChannel === "ALL" ? "channels" : selectedChannel.toLowerCase()} account, conversations will appear here in real time.
+              When customers message your{" "}
+              {selectedChannel === "ALL"
+                ? "channels"
+                : selectedChannel.toLowerCase()}{" "}
+              account, conversations will appear here in real time.
             </p>
           </div>
         )}

@@ -95,12 +95,14 @@ export default function Inbox() {
   const confirm = useConfirm();
   const toast = useToast();
   const { user, accessToken } = useAuthStore();
-  const setCall = useCallStore(s => s.setCall);
-  const globalActiveCall = useCallStore(s => s.activeCall);
+  const setCall = useCallStore((s) => s.setCall);
+  const globalActiveCall = useCallStore((s) => s.activeCall);
 
   const handleRequestCallPermission = async (contact) => {
     try {
-      const res = await api.post('/whatsapp/calls/permissions/request', { contactId: contact.id });
+      const res = await api.post("/whatsapp/calls/permissions/request", {
+        contactId: contact.id,
+      });
       if (res.data?.success) {
         toast.success("Call permission request sent to user!");
       } else {
@@ -108,7 +110,13 @@ export default function Inbox() {
       }
     } catch (err) {
       console.error(err);
-      toast.error(typeof err.response?.data?.error === 'object' ? JSON.stringify(err.response.data.error) : (err.response?.data?.error || err.message || "Error sending permission request."));
+      toast.error(
+        typeof err.response?.data?.error === "object"
+          ? JSON.stringify(err.response.data.error)
+          : err.response?.data?.error ||
+              err.message ||
+              "Error sending permission request.",
+      );
     }
   };
 
@@ -116,17 +124,20 @@ export default function Inbox() {
     if (globalActiveCall) return toast.error("A call is already in progress.");
     try {
       const sdpOffer = await webrtcService.initiateOutboundCall();
-      const res = await api.post('/whatsapp/calls/initiate', {
+      const res = await api.post("/whatsapp/calls/initiate", {
         contactId: contact.id,
         conversationId: activeChatId,
-        sdpOffer
+        sdpOffer,
       });
       if (res.data?.success) {
-        const callId = res.data?.callId || res.data?.data?.calls?.[0]?.id || res.data?.data?.id;
+        const callId =
+          res.data?.callId ||
+          res.data?.data?.calls?.[0]?.id ||
+          res.data?.data?.id;
         const callData = {
-          wacid: callId || 'temp_' + Date.now(),
-          status: 'DIALING',
-          direction: 'BUSINESS_INITIATED',
+          wacid: callId || "temp_" + Date.now(),
+          status: "DIALING",
+          direction: "BUSINESS_INITIATED",
           contactId: contact.id,
           fromNumber: contact.phone || null,
         };
@@ -147,13 +158,22 @@ export default function Inbox() {
       }
     } catch (err) {
       webrtcService.endCall();
-      if (err.name === 'NotAllowedError' || err.message?.toLowerCase().includes('permission denied')) {
-        toast.error("Microphone access was denied. Please allow microphone permissions in your browser to make calls.");
-      } else if (err.response?.data?.error === 'NO_CALL_PERMISSION') {
+      if (
+        err.name === "NotAllowedError" ||
+        err.message?.toLowerCase().includes("permission denied")
+      ) {
+        toast.error(
+          "Microphone access was denied. Please allow microphone permissions in your browser to make calls.",
+        );
+      } else if (err.response?.data?.error === "NO_CALL_PERMISSION") {
         setPendingCallContact(contact);
         setShowCallPermissionModal(true);
       } else {
-        toast.error(err.response?.data?.message || err.message || "Failed to initiate call.");
+        toast.error(
+          err.response?.data?.message ||
+            err.message ||
+            "Failed to initiate call.",
+        );
       }
     }
   };
@@ -166,20 +186,23 @@ export default function Inbox() {
     searchParams.get("filter") || (userRole === "admin" ? "all" : "my");
   const activeTab = searchParams.get("tab") || "all";
 
-    // ── Core State ──
+  // ── Core State ──
   const [chats, setChats] = useState([]);
   const [activeChatId, setActiveChatId] = useState(urlConversationId || null);
   const [loadingMessages, setLoadingMessages] = useState(false);
 
   const [showCallPermissionModal, setShowCallPermissionModal] = useState(false);
-  const [showInitiateCallConfirmModal, setShowInitiateCallConfirmModal] = useState(false);
+  const [showInitiateCallConfirmModal, setShowInitiateCallConfirmModal] =
+    useState(false);
   const [pendingCallContact, setPendingCallContact] = useState(null);
 
   const handleSmartCallClick = async (contact) => {
     if (globalActiveCall) return toast.error("A call is already in progress.");
     if (!contact?.id) return;
     try {
-      const res = await api.get(`/whatsapp/calls/permissions/check/${contact.id}`);
+      const res = await api.get(
+        `/whatsapp/calls/permissions/check/${contact.id}`,
+      );
       if (res.data?.hasPermission) {
         // Contact is approved: show confirmation modal before dialing
         setPendingCallContact(contact);
@@ -196,7 +219,7 @@ export default function Inbox() {
     }
   };
 
-    // Handle Toggle Pin / Unpin Chat (Max 3 pinned chats)
+  // Handle Toggle Pin / Unpin Chat (Max 3 pinned chats)
   const handleTogglePin = async (e, convId) => {
     e?.stopPropagation();
     if (!convId) return;
@@ -208,7 +231,9 @@ export default function Inbox() {
 
     // 1️⃣ Friendly limit check before calling backend API
     if (!isCurrentlyPinned) {
-      const currentPinnedCount = chats.filter((c) => Boolean(c.isPinned)).length;
+      const currentPinnedCount = chats.filter((c) =>
+        Boolean(c.isPinned),
+      ).length;
       if (currentPinnedCount >= 3) {
         toast.info("Maximum 3 chats can be pinned at a time.");
         return;
@@ -230,7 +255,7 @@ export default function Inbox() {
                   isPinned: newPinnedState,
                   pinnedAt: res.conversation.pinnedAt,
                 }
-              : c
+              : c,
           );
 
           // Strict boolean sorting function
@@ -272,10 +297,10 @@ export default function Inbox() {
           next.set("conversationId", String(chatId));
           return next;
         },
-        { replace: true }
+        { replace: true },
       );
     },
-    [activeChatId, setSearchParams]
+    [activeChatId, setSearchParams],
   );
   const [messages, setMessages] = useState([]);
   const [activeChatCalls, setActiveChatCalls] = useState([]);
@@ -330,21 +355,31 @@ export default function Inbox() {
   const [stagedQuickReply, setStagedQuickReply] = useState(null);
   const lastQuickRepliesFetchRef = useRef(0);
 
-  const loadQuickReplies = useCallback(async (force = false) => {
-    const now = Date.now();
-    if (!force && quickRepliesList.length > 0 && now - lastQuickRepliesFetchRef.current < 5 * 60 * 1000) {
-      return;
-    }
-    try {
-      const res = await getQuickReplies({ limit: 100, includeInactive: false });
-      if (res.success && res.data) {
-        setQuickRepliesList(res.data);
-        lastQuickRepliesFetchRef.current = now;
+  const loadQuickReplies = useCallback(
+    async (force = false) => {
+      const now = Date.now();
+      if (
+        !force &&
+        quickRepliesList.length > 0 &&
+        now - lastQuickRepliesFetchRef.current < 5 * 60 * 1000
+      ) {
+        return;
       }
-    } catch (err) {
-      console.warn("Failed to load quick replies:", err);
-    }
-  }, [quickRepliesList.length]);
+      try {
+        const res = await getQuickReplies({
+          limit: 100,
+          includeInactive: false,
+        });
+        if (res.success && res.data) {
+          setQuickRepliesList(res.data);
+          lastQuickRepliesFetchRef.current = now;
+        }
+      } catch (err) {
+        console.warn("Failed to load quick replies:", err);
+      }
+    },
+    [quickRepliesList.length],
+  );
 
   useEffect(() => {
     loadQuickReplies();
@@ -358,12 +393,22 @@ export default function Inbox() {
       .replace(/{{agentName}}/gi, authUser?.name || "Agent")
       .replace(/{{companyName}}/gi, authUser?.tenantName || "Our Company")
       .replace(/{{date}}/gi, new Date().toLocaleDateString())
-      .replace(/{{time}}/gi, new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+      .replace(
+        /{{time}}/gi,
+        new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      );
   };
 
   const handleSelectQuickReply = (reply) => {
     if (!reply) return;
-    const interpolated = interpolateQuickReply(reply.content, activeChat?.contact, user);
+    const interpolated = interpolateQuickReply(
+      reply.content,
+      activeChat?.contact,
+      user,
+    );
     setTypedMessage(interpolated);
     if (reply.mediaUrl) {
       setStagedQuickReply(reply);
@@ -382,7 +427,7 @@ export default function Inbox() {
   const recordingTimerRef = useRef(null);
   const audioChunksRef = useRef([]);
 
-    // ── Scroll ──
+  // ── Scroll ──
   const messagesEndRef = useRef(null);
   const chatContainerRef = useRef(null);
   const [showScrollArrow, setShowScrollArrow] = useState(false);
@@ -400,7 +445,8 @@ export default function Inbox() {
     const container = chatContainerRef.current;
     if (!container) return;
     const isScrolledUp =
-      container.scrollHeight - container.scrollTop - container.clientHeight > 350;
+      container.scrollHeight - container.scrollTop - container.clientHeight >
+      350;
     setShowScrollArrow(isScrolledUp);
   };
 
@@ -475,7 +521,7 @@ export default function Inbox() {
   // ── Image Preview Lightbox State ──
   const [previewImageModal, setPreviewImageModal] = useState(null);
 
-    // ── Right Contact Panel State & Media Tab State ──
+  // ── Right Contact Panel State & Media Tab State ──
   const [showContactPanel, setShowContactPanel] = useState(() => {
     const saved = localStorage.getItem("inbox_contact_panel_open");
     return saved === "true";
@@ -485,7 +531,11 @@ export default function Inbox() {
   const [mediaActiveTab, setMediaActiveTab] = useState("media"); // "media" | "docs" | "links"
   const [mediaItems, setMediaItems] = useState([]);
   const [loadingMediaItems, setLoadingMediaItems] = useState(false);
-  const [mediaCategoryCounts, setMediaCategoryCounts] = useState({ media: 0, docs: 0, links: 0 });
+  const [mediaCategoryCounts, setMediaCategoryCounts] = useState({
+    media: 0,
+    docs: 0,
+    links: 0,
+  });
 
   // Load Media Items for Right Panel
   const loadMediaCategory = useCallback(async (convId, category) => {
@@ -581,7 +631,7 @@ export default function Inbox() {
   // };
 
   // ⭐ Smart 24h Expired Check (Looks ONLY at Customer Messages)
-  
+
   // const is24hExpired = (chat) => {
   //   if (!chat) return false;
 
@@ -607,10 +657,9 @@ export default function Inbox() {
   //   const hoursDiff = (Date.now() - lastCustomerTime) / (1000 * 60 * 60);
   //   return hoursDiff >= 24;
   // };
-  
 
-      // Helper: Check if 24-hour messaging window has expired since customer's last message
-      // Helper: Check if 24-hour messaging window has expired since customer's last message
+  // Helper: Check if 24-hour messaging window has expired since customer's last message
+  // Helper: Check if 24-hour messaging window has expired since customer's last message
   const is24hExpired = (chat) => {
     if (!chat) return false;
 
@@ -619,7 +668,7 @@ export default function Inbox() {
 
     // Get the MOST RECENT customer message from the end of the messages array
     const inboundMsgs = (chat.messages || []).filter(
-      (m) => m.isFromCustomer || m.direction === "INBOUND"
+      (m) => m.isFromCustomer || m.direction === "INBOUND",
     );
     const lastInboundMsg = inboundMsgs[inboundMsgs.length - 1];
 
@@ -635,7 +684,6 @@ export default function Inbox() {
     return elapsed > TWENTY_FOUR_HOURS;
   };
 
-
   // ── Helpers ──
   const formatLastMessagePreview = (msg) => {
     if (!msg) return "No messages yet";
@@ -645,15 +693,19 @@ export default function Inbox() {
       if (msg.status === "MISSED") return "📞 Missed Call";
       if (msg.status === "REJECTED") return "📞 Declined Call";
       if (msg.status === "FAILED") return "📞 Failed Call";
-      return msg.direction === "BUSINESS_INITIATED" ? "📞 Outgoing Call" : "📞 Incoming Call";
+      return msg.direction === "BUSINESS_INITIATED"
+        ? "📞 Outgoing Call"
+        : "📞 Incoming Call";
     }
 
     if (type === "AUDIO") return "🎵 Voice message";
     if (type === "IMAGE") return msg.caption ? `📷 ${msg.caption}` : "📷 Photo";
     if (type === "VIDEO") return msg.caption ? `🎥 ${msg.caption}` : "🎥 Video";
-    if (type === "FILE") return msg.mediaName ? `📄 ${msg.mediaName}` : "📄 Document";
+    if (type === "FILE")
+      return msg.mediaName ? `📄 ${msg.mediaName}` : "📄 Document";
     if (type === "LOCATION") return "📍 Location";
-    if (type === "INTERACTIVE_BUTTONS") return msg.text || "Interactive Message";
+    if (type === "INTERACTIVE_BUTTONS")
+      return msg.text || "Interactive Message";
 
     if (!msg.text || msg.text === "Message") return "Text Message";
     return msg.text;
@@ -697,9 +749,9 @@ export default function Inbox() {
     return isNaN(d.getTime())
       ? ""
       : d.toLocaleDateString(
-        undefined,
-        options || { weekday: "long", month: "short", day: "numeric" },
-      );
+          undefined,
+          options || { weekday: "long", month: "short", day: "numeric" },
+        );
   };
 
   // ── Load Tags and Agents ──
@@ -720,7 +772,12 @@ export default function Inbox() {
     async (silent = false) => {
       if (!silent) setLoading(true);
       try {
-        const res = await getAssignedConversations(1, 50, filter, selectedChannel);
+        const res = await getAssignedConversations(
+          1,
+          50,
+          filter,
+          selectedChannel,
+        );
         if (res.success) {
           const convList =
             res.data?.conversations ||
@@ -759,7 +816,6 @@ export default function Inbox() {
     loadConversations();
   }, [loadConversations]);
 
-
   // ── Clear unread when chat opened ──
   useEffect(() => {
     if (!activeChatId) return;
@@ -771,7 +827,7 @@ export default function Inbox() {
     const markAsRead = async () => {
       try {
         await api.patch(
-          `${import.meta.env.VITE_BACKEND_URL}/tenant/conversations/mark-read/${activeChatId}`
+          `${import.meta.env.VITE_BACKEND_URL}/tenant/conversations/mark-read/${activeChatId}`,
         );
       } catch (err) {
         console.error("Failed to mark as read:", err);
@@ -782,10 +838,8 @@ export default function Inbox() {
     // 3. Update chats state so sidebar count decreases
     setChats((prev) =>
       prev.map((c) =>
-        String(c.id) === String(activeChatId)
-          ? { ...c, unreadCount: 0 }
-          : c
-      )
+        String(c.id) === String(activeChatId) ? { ...c, unreadCount: 0 } : c,
+      ),
     );
   }, [activeChatId]);
 
@@ -878,8 +932,13 @@ export default function Inbox() {
   useEffect(() => {
     if (!socket) return;
 
-    if (prevChatIdRef.current && String(prevChatIdRef.current) !== String(activeChatId)) {
-      socket.emit("leave_conversation", { conversationId: prevChatIdRef.current });
+    if (
+      prevChatIdRef.current &&
+      String(prevChatIdRef.current) !== String(activeChatId)
+    ) {
+      socket.emit("leave_conversation", {
+        conversationId: prevChatIdRef.current,
+      });
     }
 
     if (activeChatId) {
@@ -893,13 +952,19 @@ export default function Inbox() {
     setTypingAgents([]);
 
     const handleViewersUpdated = (data) => {
-      if (activeChatId && String(data.conversationId) === String(activeChatId)) {
+      if (
+        activeChatId &&
+        String(data.conversationId) === String(activeChatId)
+      ) {
         setActiveViewers(data.viewers || []);
       }
     };
 
     const handleTypingUpdated = (data) => {
-      if (activeChatId && String(data.conversationId) === String(activeChatId)) {
+      if (
+        activeChatId &&
+        String(data.conversationId) === String(activeChatId)
+      ) {
         setTypingAgents(data.typingAgents || []);
       }
     };
@@ -927,7 +992,7 @@ export default function Inbox() {
       }
 
       // const isFromCustomer = message?.isFromCustomer === true;
-            const isFromCustomer =
+      const isFromCustomer =
         message?.isFromCustomer === true || message?.direction === "INBOUND";
       const isCurrentChatOpen =
         activeChatId && String(activeChatId) === String(conversationId);
@@ -949,13 +1014,15 @@ export default function Inbox() {
             prev.map((c) =>
               String(c.id) === String(conversationId)
                 ? { ...c, unreadCount: 0 }
-                : c
-            )
+                : c,
+            ),
           );
 
-          api.patch(
-            `${import.meta.env.VITE_BACKEND_URL}/tenant/conversations/mark-read/${conversationId}`
-          ).catch((err) => console.error("Mark read failed:", err));
+          api
+            .patch(
+              `${import.meta.env.VITE_BACKEND_URL}/tenant/conversations/mark-read/${conversationId}`,
+            )
+            .catch((err) => console.error("Mark read failed:", err));
         }
       }
 
@@ -981,7 +1048,7 @@ export default function Inbox() {
 
         // ⭐ CHECK: Is this message already the latest in the chat?
         const currentChat = prevChats.find(
-          (c) => String(c.id) === String(conversationId)
+          (c) => String(c.id) === String(conversationId),
         );
         const currentLatestMsgId = currentChat?.messages?.[0]?.id;
 
@@ -994,11 +1061,14 @@ export default function Inbox() {
           : Date.now();
 
         // If duplicate OR older message → don't touch the list
-        if (currentLatestMsgId === message.id || newMessageTime < currentLatestTime) {
+        if (
+          currentLatestMsgId === message.id ||
+          newMessageTime < currentLatestTime
+        ) {
           return prevChats;
         }
 
-              const msgCreatedAt = message.createdAt || new Date().toISOString();
+        const msgCreatedAt = message.createdAt || new Date().toISOString();
         const isCustomerMsg =
           message?.isFromCustomer === true || message?.direction === "INBOUND";
 
@@ -1026,7 +1096,7 @@ export default function Inbox() {
         });
 
         // Reorder (only when we have a truly new message)
-                // Reorder (only when we have a truly new message - pinned chats stay on top)
+        // Reorder (only when we have a truly new message - pinned chats stay on top)
         return updated.sort((a, b) => {
           if (a.isPinned !== b.isPinned) return b.isPinned ? 1 : -1;
           if (a.isPinned && b.isPinned) {
@@ -1042,19 +1112,18 @@ export default function Inbox() {
       });
     };
 
-
     // ── Handle deleted message ──
     const handleMessageDeleted = ({ messageId, conversationId: convId }) => {
       setMessages((prev) =>
         prev.map((m) =>
           m.id === messageId
             ? {
-              ...m,
-              isDeleted: true,
-              text: null,
-              mediaUrl: null,
-              caption: null,
-            }
+                ...m,
+                isDeleted: true,
+                text: null,
+                mediaUrl: null,
+                caption: null,
+              }
             : m,
         ),
       );
@@ -1085,8 +1154,8 @@ export default function Inbox() {
         prev.map((c) =>
           conversationIds.includes(c.id)
             ? { ...c, contact: { ...c.contact, assignedTo: newUserId } }
-            : c
-        )
+            : c,
+        ),
       );
     };
 
@@ -1102,8 +1171,8 @@ export default function Inbox() {
           prev.map((c) =>
             String(c.id) === String(conversationId)
               ? { ...c, unreadCount: 0 }
-              : c
-          )
+              : c,
+          ),
         );
         setUnreadMap((prev) => ({ ...prev, [String(conversationId)]: 0 }));
         return;
@@ -1114,26 +1183,31 @@ export default function Inbox() {
         prev.map((c) =>
           String(c.id) === String(conversationId)
             ? { ...c, unreadCount: unreadCount }
-            : c
-        )
+            : c,
+        ),
       );
     };
 
-       const handleConversationAssigned = (data) => {
+    const handleConversationAssigned = (data) => {
       if (data.conversation) {
         setChats((prev) => {
-          const exists = prev.some((c) => String(c.id) === String(data.conversation.id));
+          const exists = prev.some(
+            (c) => String(c.id) === String(data.conversation.id),
+          );
           if (exists) return prev;
-          
+
           const updated = [data.conversation, ...prev];
-          
+
           // Sort: Pinned chats stay at the top, unpinned sorted by activity/created date
           return updated.sort((a, b) => {
             if (a.isPinned !== b.isPinned) return b.isPinned ? -1 : 1;
             if (a.isPinned && b.isPinned) {
               return new Date(b.pinnedAt) - new Date(a.pinnedAt);
             }
-            return new Date(b.lastActivityAt || b.updatedAt || b.createdAt) - new Date(a.lastActivityAt || a.updatedAt || a.createdAt);
+            return (
+              new Date(b.lastActivityAt || b.updatedAt || b.createdAt) -
+              new Date(a.lastActivityAt || a.updatedAt || a.createdAt)
+            );
           });
         });
       }
@@ -1152,7 +1226,7 @@ export default function Inbox() {
             };
           }
           return m;
-        })
+        }),
       );
     };
 
@@ -1190,11 +1264,16 @@ export default function Inbox() {
         return prev.map((c) => {
           if (c.wacid === data.wacid) {
             const recs = c.recordings || [];
-            const newRec = data.recording || { mediaUrl: data.mediaUrl, downloadStatus: "DOWNLOADED" };
+            const newRec = data.recording || {
+              mediaUrl: data.mediaUrl,
+              downloadStatus: "DOWNLOADED",
+            };
             return {
               ...c,
               recordings: [
-                ...recs.filter((r) => r.id !== newRec.id && r.mediaUrl !== newRec.mediaUrl),
+                ...recs.filter(
+                  (r) => r.id !== newRec.id && r.mediaUrl !== newRec.mediaUrl,
+                ),
                 newRec,
               ],
             };
@@ -1215,11 +1294,18 @@ export default function Inbox() {
         return prev.map((c) => {
           if (c.wacid === data.wacid) {
             const trans = c.transcripts || [];
-            const newTrans = data.transcript || { fullText: data.fullText, mediaUrl: data.mediaUrl, downloadStatus: "DOWNLOADED" };
+            const newTrans = data.transcript || {
+              fullText: data.fullText,
+              mediaUrl: data.mediaUrl,
+              downloadStatus: "DOWNLOADED",
+            };
             return {
               ...c,
               transcripts: [
-                ...trans.filter((t) => t.id !== newTrans.id && t.mediaUrl !== newTrans.mediaUrl),
+                ...trans.filter(
+                  (t) =>
+                    t.id !== newTrans.id && t.mediaUrl !== newTrans.mediaUrl,
+                ),
                 newTrans,
               ],
             };
@@ -1239,7 +1325,7 @@ export default function Inbox() {
     socket.on("call_status_update", handleCallStatusUpdate);
     socket.on("call_recording_ready", handleCallRecordingReady);
     socket.on("call_transcript_ready", handleCallTranscriptReady);
-    
+
     const handleConversationsUpdated = () => {
       loadConversations(true);
     };
@@ -1285,7 +1371,10 @@ export default function Inbox() {
   // ── Close emoji picker when clicking outside ──
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target)) {
+      if (
+        emojiPickerRef.current &&
+        !emojiPickerRef.current.contains(e.target)
+      ) {
         setShowEmojiPicker(false);
       }
     };
@@ -1389,8 +1478,9 @@ export default function Inbox() {
 
     if (file.size > maxSize) {
       toast.warning(
-        `File too large. Max size is ${isImage ? "5MB" : isVideo || isAudio ? "16MB" : "100MB"
-        }`
+        `File too large. Max size is ${
+          isImage ? "5MB" : isVideo || isAudio ? "16MB" : "100MB"
+        }`,
       );
       e.target.value = "";
       return;
@@ -1486,7 +1576,11 @@ export default function Inbox() {
       setStagedQuickReply(null);
     }
 
-    const res = await sendMessage(activeChat.contact.id, messageText, sendOptions);
+    const res = await sendMessage(
+      activeChat.contact.id,
+      messageText,
+      sendOptions,
+    );
     if (res.success) {
       if (isClosedOrResolved) loadConversations();
     } else {
@@ -1506,12 +1600,12 @@ export default function Inbox() {
           prev.map((m) =>
             m.id === messageId
               ? {
-                ...m,
-                isDeleted: true,
-                text: null,
-                mediaUrl: null,
-                caption: null,
-              }
+                  ...m,
+                  isDeleted: true,
+                  text: null,
+                  mediaUrl: null,
+                  caption: null,
+                }
               : m,
           ),
         );
@@ -1731,7 +1825,7 @@ export default function Inbox() {
     setAssigningUser(false);
   };
 
-    // ── Media & Avatar Helpers ──
+  // ── Media & Avatar Helpers ──
   const getMediaUrl = (mediaUrl) => {
     if (!mediaUrl) return "";
 
@@ -1743,14 +1837,15 @@ export default function Inbox() {
       cleaned = cleaned.replace(/^https?:\/\/[^\/]+/, "").replace(/^\/+/, "");
     }
 
-    if (
-      cleaned.startsWith("http://") ||
-      cleaned.startsWith("https://")
-    ) {
+    if (cleaned.startsWith("http://") || cleaned.startsWith("https://")) {
       return cleaned;
     }
 
-    const backend = (import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL || "http://localhost:5000").replace(/\/+$/, "");
+    const backend = (
+      import.meta.env.VITE_BACKEND_URL ||
+      import.meta.env.VITE_API_URL ||
+      "http://localhost:5000"
+    ).replace(/\/+$/, "");
     const cleanPath = cleaned.startsWith("/") ? cleaned : `/${cleaned}`;
     return `${backend}${cleanPath}`;
   };
@@ -1758,7 +1853,11 @@ export default function Inbox() {
   const getAvatarUrl = (url) => {
     if (!url) return null;
     if (url.startsWith("http://") || url.startsWith("https://")) return url;
-    const backend = (import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL || "http://localhost:5000").replace(/\/+$/, "");
+    const backend = (
+      import.meta.env.VITE_BACKEND_URL ||
+      import.meta.env.VITE_API_URL ||
+      "http://localhost:5000"
+    ).replace(/\/+$/, "");
     return `${backend}/${url.replace(/^\/+/, "")}`;
   };
 
@@ -1863,7 +1962,6 @@ export default function Inbox() {
     }
   };
 
-
   // ── Handle Emoji Select ──
   const handleEmojiClick = (emojiData) => {
     setTypedMessage((prev) => prev + emojiData.emoji);
@@ -1923,7 +2021,7 @@ export default function Inbox() {
           to,
           contacts: contactsToSend,
           conversationId: activeChatId,
-        }
+        },
       );
 
       if (res.data?.success) {
@@ -1931,16 +2029,14 @@ export default function Inbox() {
         setSelectedContactsToShare([]);
         setContactPickerSearch("");
         toast.success(
-          `${contactsToSend.length} contact(s) shared successfully!`
+          `${contactsToSend.length} contact(s) shared successfully!`,
         );
       } else {
         toast.error(res.data?.message || "Failed to share contact");
       }
     } catch (err) {
       console.error("Share contact error:", err);
-      toast.error(
-        err.response?.data?.message || "Failed to share contact"
-      );
+      toast.error(err.response?.data?.message || "Failed to share contact");
     }
     setSendingContact(false);
   };
@@ -1953,7 +2049,6 @@ export default function Inbox() {
       return [...prev, contact];
     });
   };
-
 
   // ── Send Location ──
   const handleSendLocation = async () => {
@@ -2005,7 +2100,6 @@ export default function Inbox() {
     }
     setSendingLocation(false);
   };
-
 
   // ── Send Voice Message ──
   const sendVoiceMessage = async (audioBlob) => {
@@ -2183,22 +2277,24 @@ export default function Inbox() {
       channelCounts?.WHATSAPP !== undefined && channelCounts?.WHATSAPP !== 0
         ? channelCounts.WHATSAPP
         : chats.filter(
-          (c) =>
-            !c.channel ||
-            (c.channel || c.platform || "").toUpperCase() === "WHATSAPP"
-        ).length,
+            (c) =>
+              !c.channel ||
+              (c.channel || c.platform || "").toUpperCase() === "WHATSAPP",
+          ).length,
     MESSENGER:
       channelCounts?.MESSENGER !== undefined && channelCounts?.MESSENGER !== 0
         ? channelCounts.MESSENGER
         : chats.filter(
-          (c) => (c.channel || c.platform || "").toUpperCase() === "MESSENGER"
-        ).length,
+            (c) =>
+              (c.channel || c.platform || "").toUpperCase() === "MESSENGER",
+          ).length,
     INSTAGRAM:
       channelCounts?.INSTAGRAM !== undefined && channelCounts?.INSTAGRAM !== 0
         ? channelCounts.INSTAGRAM
         : chats.filter(
-          (c) => (c.channel || c.platform || "").toUpperCase() === "INSTAGRAM"
-        ).length,
+            (c) =>
+              (c.channel || c.platform || "").toUpperCase() === "INSTAGRAM",
+          ).length,
   };
 
   // ── Filters ──
@@ -2218,28 +2314,44 @@ export default function Inbox() {
   const tabCounts = {
     all: chats.filter((c) => {
       if (selectedChannel && selectedChannel !== "ALL") {
-        const chatChannel = (c.channel || c.platform || "WHATSAPP").toUpperCase();
+        const chatChannel = (
+          c.channel ||
+          c.platform ||
+          "WHATSAPP"
+        ).toUpperCase();
         return chatChannel === selectedChannel.toUpperCase();
       }
       return true;
     }).length,
     unread: chats.filter((c) => {
       if (selectedChannel && selectedChannel !== "ALL") {
-        const chatChannel = (c.channel || c.platform || "WHATSAPP").toUpperCase();
+        const chatChannel = (
+          c.channel ||
+          c.platform ||
+          "WHATSAPP"
+        ).toUpperCase();
         if (chatChannel !== selectedChannel.toUpperCase()) return false;
       }
       return c.status === "OPEN" && getUnreadCount(c.id) > 0;
     }).length,
     open: chats.filter((c) => {
       if (selectedChannel && selectedChannel !== "ALL") {
-        const chatChannel = (c.channel || c.platform || "WHATSAPP").toUpperCase();
+        const chatChannel = (
+          c.channel ||
+          c.platform ||
+          "WHATSAPP"
+        ).toUpperCase();
         if (chatChannel !== selectedChannel.toUpperCase()) return false;
       }
       return c.status === "OPEN";
     }).length,
     closed: chats.filter((c) => {
       if (selectedChannel && selectedChannel !== "ALL") {
-        const chatChannel = (c.channel || c.platform || "WHATSAPP").toUpperCase();
+        const chatChannel = (
+          c.channel ||
+          c.platform ||
+          "WHATSAPP"
+        ).toUpperCase();
         if (chatChannel !== selectedChannel.toUpperCase()) return false;
       }
       return c.status === "RESOLVED" || c.status === "CLOSED";
@@ -2278,7 +2390,9 @@ export default function Inbox() {
     setShowChannelFilter(false);
 
     if (channelKey !== "ALL" && activeChat) {
-      const currentChatChannel = (activeChat.channel || "WHATSAPP").toUpperCase();
+      const currentChatChannel = (
+        activeChat.channel || "WHATSAPP"
+      ).toUpperCase();
       if (currentChatChannel !== channelKey.toUpperCase()) {
         setActiveChatId(null);
         const params = { filter };
@@ -2308,20 +2422,24 @@ export default function Inbox() {
       desc: "Connect with customers and manage incoming inquiries from your Facebook Pages. Select a conversation to get started.",
       footer: "Connected to Meta Messenger Platform",
       iconBg: "bg-[#0084FF] text-white shadow-blue-500/20",
-      renderIcon: () => <FaFacebookMessenger className="w-10 h-10 text-white" />,
+      renderIcon: () => (
+        <FaFacebookMessenger className="w-10 h-10 text-white" />
+      ),
     },
     INSTAGRAM: {
       title: "Instagram Direct",
       desc: "Respond to Instagram DMs, story mentions, and customer inquiries in real time. Select a conversation to get started.",
       footer: "Connected to Instagram Graph API",
-      iconBg: "bg-gradient-to-tr from-[#FD1D1D] via-[#E1306C] to-[#833AB4] text-white shadow-pink-500/20",
+      iconBg:
+        "bg-gradient-to-tr from-[#FD1D1D] via-[#E1306C] to-[#833AB4] text-white shadow-pink-500/20",
       renderIcon: () => <FaInstagram className="w-10 h-10 text-white" />,
     },
     ALL: {
       title: "Unified Business Inbox",
       desc: "Manage customer conversations across WhatsApp, Instagram, and Facebook Messenger all in one place. Select a conversation to get started.",
       footer: "Unified Omnichannel Messaging Platform",
-      iconBg: "bg-gradient-to-br from-[#075E54] to-[#128C7E] text-white shadow-teal-500/20",
+      iconBg:
+        "bg-gradient-to-br from-[#075E54] to-[#128C7E] text-white shadow-teal-500/20",
       renderIcon: () => (
         <div className="flex items-center justify-center gap-2 text-white">
           <FaWhatsapp className="text-xl" />
@@ -2529,7 +2647,13 @@ export default function Inbox() {
 
                   {tabFilteredChats.length === 0 && !loading && (
                     <div className="mb-4 px-3 py-2 bg-[#F0F2F5] rounded-xl text-xs text-[#54656F] flex items-center gap-2">
-                      <span>No {selectedChannel !== "ALL" ? selectedChannel.toLowerCase() : ""} chats in this tab</span>
+                      <span>
+                        No{" "}
+                        {selectedChannel !== "ALL"
+                          ? selectedChannel.toLowerCase()
+                          : ""}{" "}
+                        chats in this tab
+                      </span>
                       {selectedChannel !== "ALL" && (
                         <button
                           onClick={() => setSelectedChannel("ALL")}
@@ -2559,7 +2683,7 @@ export default function Inbox() {
       </div>
       {/* ══ End Middle Chat Area ══ */}
 
-           {/* ══════════════════════════════════════
+      {/* ══════════════════════════════════════
           RIGHT PANEL (WhatsApp Style Info & Media)
       ══════════════════════════════════════ */}
       <ContactPanel
@@ -2789,7 +2913,6 @@ export default function Inbox() {
         </div>
       )}
 
-
       {/* ══ End Archived Modal ══ */}
 
       <LocationModal
@@ -2912,9 +3035,15 @@ export default function Inbox() {
             <div className="w-10 h-10 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center mb-3">
               <Phone size={20} />
             </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-1">Permission Needed</h3>
+            <h3 className="text-lg font-bold text-gray-900 mb-1">
+              Permission Needed
+            </h3>
             <p className="text-sm text-gray-600 mb-6">
-              Calling permission is required before you can call <span className="font-semibold text-gray-800">{pendingCallContact.name || pendingCallContact.phone}</span>. Would you like to request permission now?
+              Calling permission is required before you can call{" "}
+              <span className="font-semibold text-gray-800">
+                {pendingCallContact.name || pendingCallContact.phone}
+              </span>
+              . Would you like to request permission now?
             </p>
             <div className="flex items-center gap-3 w-full">
               <button
@@ -2948,9 +3077,15 @@ export default function Inbox() {
             <div className="w-10 h-10 rounded-full bg-blue-50 text-[#125EF2] flex items-center justify-center mb-3">
               <Phone size={20} />
             </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-1">Start WhatsApp Call</h3>
+            <h3 className="text-lg font-bold text-gray-900 mb-1">
+              Start WhatsApp Call
+            </h3>
             <p className="text-sm text-gray-600 mb-6">
-              Are you sure you want to call <span className="font-semibold text-gray-800">{pendingCallContact.name || pendingCallContact.phone}</span>?
+              Are you sure you want to call{" "}
+              <span className="font-semibold text-gray-800">
+                {pendingCallContact.name || pendingCallContact.phone}
+              </span>
+              ?
             </p>
             <div className="flex items-center gap-3 w-full">
               <button

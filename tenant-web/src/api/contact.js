@@ -6,14 +6,20 @@ const CONTACTS_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/tenant/contacts`;
 /**
  * Fetch all contacts for the logged-in tenant
  */
-export const getContacts = async (page = 1, limit = 10, search = "", filter = "all", channel = "ALL") => {
+export const getContacts = async (
+  page = 1,
+  limit = 10,
+  search = "",
+  filter = "all",
+  channel = "ALL",
+) => {
   try {
     const params = { page, limit, search, filter };
     if (channel && channel !== "ALL") {
       params.channel = channel;
     }
     const response = await api.get(`${CONTACTS_BASE_URL}/get-all-contacts`, {
-      params
+      params,
     });
     return {
       success: true,
@@ -57,7 +63,9 @@ export const createContact = async (contactData) => {
  */
 export const deleteContact = async (contactId) => {
   try {
-    const response = await api.delete(`${CONTACTS_BASE_URL}/delete-contact/${contactId}`);
+    const response = await api.delete(
+      `${CONTACTS_BASE_URL}/delete-contact/${contactId}`,
+    );
     return {
       success: true,
       data: response.data,
@@ -73,17 +81,29 @@ export const deleteContact = async (contactId) => {
 /**
  * Bulk delete contacts by IDs or Filters
  */
-export const bulkDeleteContacts = async (contactIds = [], mode = 'selected', filters = {}, confirmation = '') => {
+export const bulkDeleteContacts = async (
+  contactIds = [],
+  mode = "selected",
+  filters = {},
+  confirmation = "",
+) => {
   try {
     const payload = { mode };
-    if (mode === 'selected') payload.contactIds = contactIds;
-    if (mode === 'filter') payload.filters = filters;
-    if (mode === 'all') payload.confirmation = confirmation;
+    if (mode === "selected") payload.contactIds = contactIds;
+    if (mode === "filter") payload.filters = filters;
+    if (mode === "all") payload.confirmation = confirmation;
 
-    const response = await api.post(`${CONTACTS_BASE_URL}/bulk-delete`, payload);
+    const response = await api.post(
+      `${CONTACTS_BASE_URL}/bulk-delete`,
+      payload,
+    );
     return response.data;
   } catch (error) {
-    return { success: false, message: error.response?.data?.message || 'Failed to bulk delete contacts' };
+    return {
+      success: false,
+      message:
+        error.response?.data?.message || "Failed to bulk delete contacts",
+    };
   }
 };
 
@@ -92,14 +112,17 @@ export const bulkDeleteContacts = async (contactIds = [], mode = 'selected', fil
  */
 export const updateContact = async (contactId, contactData) => {
   try {
-    const response = await api.put(`${CONTACTS_BASE_URL}/update-contact/${contactId}`, {
-      name: contactData.name,
-      phone: contactData.phone,
-      countryCode: contactData.countryCode,
-      email: contactData.email,
-      tags: contactData.tags,
-      company: contactData.company,
-    });
+    const response = await api.put(
+      `${CONTACTS_BASE_URL}/update-contact/${contactId}`,
+      {
+        name: contactData.name,
+        phone: contactData.phone,
+        countryCode: contactData.countryCode,
+        email: contactData.email,
+        tags: contactData.tags,
+        company: contactData.company,
+      },
+    );
     return {
       success: true,
       data: response.data.data,
@@ -117,7 +140,9 @@ export const updateContact = async (contactId, contactData) => {
  */
 export const blockContact = async (contactId) => {
   try {
-    const response = await api.patch(`${CONTACTS_BASE_URL}/block-contact/${contactId}`);
+    const response = await api.patch(
+      `${CONTACTS_BASE_URL}/block-contact/${contactId}`,
+    );
     return {
       success: true,
       data: response.data.data,
@@ -135,7 +160,9 @@ export const blockContact = async (contactId) => {
  */
 export const unblockContact = async (contactId) => {
   try {
-    const response = await api.patch(`${CONTACTS_BASE_URL}/unblock-contact/${contactId}`);
+    const response = await api.patch(
+      `${CONTACTS_BASE_URL}/unblock-contact/${contactId}`,
+    );
     return {
       success: true,
       data: response.data.data,
@@ -185,7 +212,8 @@ export const getImportGuidelines = async () => {
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || "Failed to load import guidelines",
+      message:
+        error.response?.data?.message || "Failed to load import guidelines",
     };
   }
 };
@@ -223,7 +251,9 @@ export const downloadSampleCSV = async () => {
  */
 export const addTagToContact = async (contactId, tagId) => {
   try {
-    const response = await api.post(`${CONTACTS_BASE_URL}/${contactId}/tags`, { tagId });
+    const response = await api.post(`${CONTACTS_BASE_URL}/${contactId}/tags`, {
+      tagId,
+    });
     return {
       success: true,
       data: response.data,
@@ -241,10 +271,12 @@ export const addTagToContact = async (contactId, tagId) => {
  */
 export const removeTagFromContact = async (contactId, tagId) => {
   try {
-    const res = await api.delete(`${CONTACTS_BASE_URL}/${contactId}/tags/${tagId}`);
+    const res = await api.delete(
+      `${CONTACTS_BASE_URL}/${contactId}/tags/${tagId}`,
+    );
     return {
       success: true,
-      data: res.data
+      data: res.data,
     };
   } catch (err) {
     return {

@@ -1,34 +1,39 @@
 // backend/src/modules/zoho/crm/zoho.task.service.js (do not remove this comment)
 
-import prisma from '../../../config/prisma.js';
-import { zohoRequest } from '../zoho.client.js';
-import { hasZohoFeature } from '../zoho.plan.service.js';
-import { getTenantZohoPreferences } from './zoho.contact.service.js';
+import prisma from "../../../config/prisma.js";
+import { zohoRequest } from "../zoho.client.js";
+import { hasZohoFeature } from "../zoho.plan.service.js";
+import { getTenantZohoPreferences } from "./zoho.contact.service.js";
 
 /**
  * Create a follow-up Task in Zoho CRM for an unresolved conversation.
  */
-export async function createZohoFollowUpTask(tenantId, contactId, conversationId, reason = 'Follow up') {
+export async function createZohoFollowUpTask(
+  tenantId,
+  contactId,
+  conversationId,
+  reason = "Follow up",
+) {
   try {
-   const tenant = await prisma.tenant.findUnique({
+    const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
       select: { zoho: { select: { zohoConnectionStatus: true } } },
     });
 
-    if (!tenant || tenant.zoho?.zohoConnectionStatus !== 'CONNECTED') {
+    if (!tenant || tenant.zoho?.zohoConnectionStatus !== "CONNECTED") {
       return;
     }
 
     const prefs = await getTenantZohoPreferences(tenantId);
     if (!prefs.createFollowUpTasks) return;
 
-    const canCreate = await hasZohoFeature(tenantId, 'tasks');
+    const canCreate = await hasZohoFeature(tenantId, "tasks");
     if (!canCreate) return;
 
     const mapping = await prisma.contactProviderMapping.findFirst({
       where: {
         contactId,
-        provider: { in: ['ZOHO', 'ZOHO_LEAD'] },
+        provider: { in: ["ZOHO", "ZOHO_LEAD"] },
       },
     });
 
@@ -39,23 +44,23 @@ export async function createZohoFollowUpTask(tenantId, contactId, conversationId
 
     const taskPayload = {
       Subject: `${reason} — Sudo Reply`,
-      Due_Date: dueDate.toISOString().split('T')[0],
-      Status: 'Not Started',
-      Priority: 'High',
+      Due_Date: dueDate.toISOString().split("T")[0],
+      Status: "Not Started",
+      Priority: "High",
       Description: `Conversation needs follow-up.\nReason: ${reason}\nCreated by Sudo Reply automation.`,
     };
 
-    if (mapping.provider === 'ZOHO_LEAD') {
-      taskPayload.$se_module = 'Leads';
+    if (mapping.provider === "ZOHO_LEAD") {
+      taskPayload.$se_module = "Leads";
       taskPayload.What_Id = mapping.providerContactId;
     } else {
-      taskPayload.$se_module = 'Contacts';
+      taskPayload.$se_module = "Contacts";
       taskPayload.Contact_Name = mapping.providerContactId;
     }
 
     const response = await zohoRequest(tenantId, {
-      method: 'POST',
-      url: '/crm/v7/Tasks',
+      method: "POST",
+      url: "/crm/v7/Tasks",
       data: {
         data: [taskPayload],
       },
@@ -63,11 +68,16 @@ export async function createZohoFollowUpTask(tenantId, contactId, conversationId
 
     const result = response?.data?.[0];
 
-    if (result && result.code === 'SUCCESS') {
-      console.log(`✅ [ZohoTask] Created follow-up task for contact ${contactId}`);
+    if (result && result.code === "SUCCESS") {
+      console.log(
+        `✅ [ZohoTask] Created follow-up task for contact ${contactId}`,
+      );
     }
   } catch (error) {
-    console.error(`❌ [ZohoTask] Failed for contact ${contactId}:`, error.response?.data || error.message);
+    console.error(
+      `❌ [ZohoTask] Failed for contact ${contactId}:`,
+      error.response?.data || error.message,
+    );
   }
 }
 
@@ -80,7 +90,7 @@ export async function scanAndCreateStaleTasks() {
 
   try {
     const connectedTenants = await prisma.tenant.findMany({
-      where: { zoho: { zohoConnectionStatus: 'CONNECTED' } },
+      where: { zoho: { zohoConnectionStatus: "CONNECTED" } },
       select: { id: true },
     });
 
@@ -89,20 +99,20 @@ export async function scanAndCreateStaleTasks() {
       const prefs = await getTenantZohoPreferences(tenant.id);
       if (!prefs.createFollowUpTasks) continue;
 
-      const canCreate = await hasZohoFeature(tenant.id, 'tasks');
+      const canCreate = await hasZohoFeature(tenant.id, "tasks");
       if (!canCreate) continue;
 
       const staleConversations = await prisma.conversation.findMany({
         where: {
           tenantId: tenant.id,
-          status: 'OPEN',
+          status: "OPEN",
           lastMessageAt: { lte: cutoff },
         },
         include: {
           contact: {
             include: {
               providerMappings: {
-                where: { provider: { in: ['ZOHO', 'ZOHO_LEAD'] } },
+                where: { provider: { in: ["ZOHO", "ZOHO_LEAD"] } },
               },
             },
           },
@@ -116,21 +126,23 @@ export async function scanAndCreateStaleTasks() {
             tenant.id,
             conv.contact.id,
             conv.id,
-            `No response for ${STALE_HOURS}+ hours`
+            `No response for ${STALE_HOURS}+ hours`,
           );
 
           await prisma.conversation.update({
             where: { id: conv.id },
-            data: { status: 'OPEN' },
+            data: { status: "OPEN" },
           });
         }
       }
 
       if (staleConversations.length > 0) {
-        console.log(`📋 [ZohoTask] Created ${staleConversations.length} follow-up tasks for tenant ${tenant.id}`);
+        console.log(
+          `📋 [ZohoTask] Created ${staleConversations.length} follow-up tasks for tenant ${tenant.id}`,
+        );
       }
     }
   } catch (error) {
-    console.error('❌ [ZohoTask] Stale scan failed:', error.message);
+    console.error("❌ [ZohoTask] Stale scan failed:", error.message);
   }
 }

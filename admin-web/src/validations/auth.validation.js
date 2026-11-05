@@ -1,11 +1,11 @@
 // admin-web/src/validations/auth.validation.js (do not remove this comment)
-import { z } from 'zod';
-import { emailRule, passwordRule } from '../utils/validationHelpers';
+import { z } from "zod";
+import { emailRule, passwordRule } from "../utils/validationHelpers";
 
 // Login Validation Schema
 export const loginSchema = z.object({
   email: emailRule,
-  password: z.string().min(1, 'Password is required'),
+  password: z.string().min(1, "Password is required"),
 });
 
 // Forgot Password Schema
@@ -16,11 +16,11 @@ export const forgotPasswordSchema = z.object({
 // Reset Password Schema
 export const resetPasswordSchema = z
   .object({
-    token: z.string().min(1, 'Token is required'),
+    token: z.string().min(1, "Token is required"),
     newPassword: passwordRule,
-    confirmPassword: z.string().min(1, 'Confirm password is required'),
+    confirmPassword: z.string().min(1, "Confirm password is required"),
   })
   .refine((data) => data.newPassword === data.confirmPassword, {
-    message: 'Passwords do not match',
-    path: ['confirmPassword'],
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
   });

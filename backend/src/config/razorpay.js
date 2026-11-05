@@ -11,7 +11,9 @@ export const getRazorpay = () => {
   const key_secret = (process.env.RAZORPAY_KEY_SECRET || "").trim();
 
   if (!key_id || !key_secret) {
-    console.error("❌ RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET is missing from .env");
+    console.error(
+      "❌ RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET is missing from .env",
+    );
     throw new Error("Razorpay credentials not configured");
   }
 
@@ -26,11 +28,14 @@ export const getRazorpay = () => {
 };
 
 // Proxy to allow direct property access like razorpay.subscriptions.cancel(...)
-export const razorpay = new Proxy({}, {
-  get(target, prop) {
-    const client = getRazorpay();
-    return client[prop];
-  }
-});
+export const razorpay = new Proxy(
+  {},
+  {
+    get(target, prop) {
+      const client = getRazorpay();
+      return client[prop];
+    },
+  },
+);
 
 export default razorpay;

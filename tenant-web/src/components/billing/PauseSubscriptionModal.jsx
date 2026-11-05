@@ -54,7 +54,9 @@ export default function PauseSubscriptionModal({
       });
 
       if (res.success) {
-        toast.success("Subscription paused successfully. Your data is safely preserved.");
+        toast.success(
+          "Subscription paused successfully. Your data is safely preserved.",
+        );
         onClose();
         if (onSuccess) onSuccess();
       } else {
@@ -74,7 +76,6 @@ export default function PauseSubscriptionModal({
       style={{ zIndex: 99999 }}
     >
       <div className="w-full max-w-lg rounded-3xl bg-white shadow-2xl overflow-hidden border border-slate-100 flex flex-col animate-in zoom-in-95 duration-200">
-        
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-amber-50/70 via-white to-amber-50/30">
           <div className="flex items-center gap-3">
@@ -101,7 +102,6 @@ export default function PauseSubscriptionModal({
 
         {/* Modal Body */}
         <div className="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
-          
           {/* Benefit Highlights Callout */}
           <div className="rounded-2xl bg-slate-50 border border-slate-200/80 p-4 space-y-2.5">
             <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
@@ -187,14 +187,17 @@ export default function PauseSubscriptionModal({
               onChange={(e) => setReason(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition"
             >
-              <option value="temporary_break">Taking a short break / Holiday</option>
-              <option value="seasonal_business">Seasonal business off-period</option>
+              <option value="temporary_break">
+                Taking a short break / Holiday
+              </option>
+              <option value="seasonal_business">
+                Seasonal business off-period
+              </option>
               <option value="budget_restructure">Temporary budget pause</option>
               <option value="testing_paused">Campaign testing complete</option>
               <option value="other">Other reason</option>
             </select>
           </div>
-
         </div>
 
         {/* Modal Footer */}
@@ -221,9 +224,8 @@ export default function PauseSubscriptionModal({
             )}
           </button>
         </div>
-
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }

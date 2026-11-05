@@ -15,11 +15,11 @@ const router = Router();
 
 router.use(verifyTenantOrUser);
 
-router.get("/",              getNotifications);
-router.get("/paginated",     getPaginatedNotifications);
-router.patch("/:id/read",   markAsRead);
-router.patch("/read-all",   markAllAsRead);
+router.get("/", getNotifications);
+router.get("/paginated", getPaginatedNotifications);
+router.patch("/:id/read", markAsRead);
+router.patch("/read-all", markAllAsRead);
 router.delete("/clear-all", clearAll);
-router.delete("/:id",        deleteNotification);
+router.delete("/:id", deleteNotification);
 
 export default router;

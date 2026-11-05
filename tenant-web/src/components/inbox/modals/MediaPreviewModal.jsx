@@ -1,10 +1,12 @@
 // tenant-web/src/components/inbox/modals/MediaPreviewModal.jsx (do not remove this comment)
-import React from 'react';
-import { X, Paperclip } from 'lucide-react';
-export default function MediaPreviewModal({ previewImageModal, setPreviewImageModal }) {
-return (
-<>
-
+import React from "react";
+import { X, Paperclip } from "lucide-react";
+export default function MediaPreviewModal({
+  previewImageModal,
+  setPreviewImageModal,
+}) {
+  return (
+    <>
       {previewImageModal && (
         <div
           className="fixed inset-0 z-[9999] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
@@ -24,7 +26,8 @@ return (
             </button>
 
             {/* IMAGE PREVIEW */}
-            {(previewImageModal.type === "IMAGE" || !previewImageModal.type) && (
+            {(previewImageModal.type === "IMAGE" ||
+              !previewImageModal.type) && (
               <img
                 src={previewImageModal.url}
                 alt={previewImageModal.name || "Preview"}
@@ -51,7 +54,12 @@ return (
                 <p className="text-white text-sm font-semibold mb-4 truncate max-w-xs mx-auto">
                   {previewMediaModal?.name || "Voice / Audio Message"}
                 </p>
-                <audio src={previewImageModal.url} controls autoPlay className="w-full" />
+                <audio
+                  src={previewImageModal.url}
+                  controls
+                  autoPlay
+                  className="w-full"
+                />
               </div>
             )}
 
@@ -94,16 +102,21 @@ return (
             )}
 
             {/* Caption & Filename footer (for IMAGE/VIDEO/AUDIO) */}
-            {(previewImageModal.caption || previewImageModal.name) && previewImageModal.type !== "FILE" && (
-              <div className="mt-4 text-center px-4 py-2.5 bg-black/60 rounded-xl text-white/90 text-sm backdrop-blur-md max-w-xl shadow-lg border border-white/10">
-                {previewImageModal.caption && (
-                  <p className="font-semibold text-white">{previewImageModal.caption}</p>
-                )}
-                {previewImageModal.name && (
-                  <p className="text-xs text-white/60 mt-0.5">{previewImageModal.name}</p>
-                )}
-              </div>
-            )}
+            {(previewImageModal.caption || previewImageModal.name) &&
+              previewImageModal.type !== "FILE" && (
+                <div className="mt-4 text-center px-4 py-2.5 bg-black/60 rounded-xl text-white/90 text-sm backdrop-blur-md max-w-xl shadow-lg border border-white/10">
+                  {previewImageModal.caption && (
+                    <p className="font-semibold text-white">
+                      {previewImageModal.caption}
+                    </p>
+                  )}
+                  {previewImageModal.name && (
+                    <p className="text-xs text-white/60 mt-0.5">
+                      {previewImageModal.name}
+                    </p>
+                  )}
+                </div>
+              )}
           </div>
         </div>
       )}

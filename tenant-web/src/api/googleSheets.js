@@ -11,7 +11,10 @@ export const getGoogleSheetsAuthUrl = async () => {
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.error || error.response?.data?.message || "Failed to get auth URL",
+      message:
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        "Failed to get auth URL",
     };
   }
 };
@@ -23,7 +26,10 @@ export const getGoogleSheetsStatus = async () => {
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.error || error.response?.data?.message || "Failed to fetch status",
+      message:
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        "Failed to fetch status",
     };
   }
 };
@@ -35,7 +41,10 @@ export const disconnectGoogleSheets = async () => {
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.error || error.response?.data?.message || "Failed to disconnect",
+      message:
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        "Failed to disconnect",
     };
   }
 };
@@ -62,7 +71,8 @@ export const launchGoogleSheetBroadcast = async (payload) => {
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.error || "Failed to launch sheet broadcast",
+      message:
+        error.response?.data?.error || "Failed to launch sheet broadcast",
     };
   }
 };
@@ -77,12 +87,15 @@ export const getGoogleSheetsFields = async () => {
     const res = await api.get(`${GOOGLE_SHEETS_BASE}/fields`);
     return {
       success: true,
-      data: res.data?.data || res.data?.fields || res.data
+      data: res.data?.data || res.data?.fields || res.data,
     };
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.error || error.response?.data?.message || "Failed to fetch fields configuration",
+      message:
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        "Failed to fetch fields configuration",
     };
   }
 };
@@ -95,12 +108,15 @@ export const addGoogleSheetsField = async (payload) => {
     const res = await api.post(`${GOOGLE_SHEETS_BASE}/fields`, payload);
     return {
       success: true,
-      data: res.data?.data || res.data?.field || res.data
+      data: res.data?.data || res.data?.field || res.data,
     };
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.error || error.response?.data?.message || "Failed to add custom field",
+      message:
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        "Failed to add custom field",
     };
   }
 };
@@ -110,15 +126,21 @@ export const addGoogleSheetsField = async (payload) => {
  */
 export const updateGoogleSheetsField = async (fieldId, payload) => {
   try {
-    const res = await api.put(`${GOOGLE_SHEETS_BASE}/fields/${fieldId}`, payload);
+    const res = await api.put(
+      `${GOOGLE_SHEETS_BASE}/fields/${fieldId}`,
+      payload,
+    );
     return {
       success: true,
-      data: res.data?.data || res.data?.field || res.data
+      data: res.data?.data || res.data?.field || res.data,
     };
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.error || error.response?.data?.message || "Failed to update field",
+      message:
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        "Failed to update field",
     };
   }
 };
@@ -128,15 +150,21 @@ export const updateGoogleSheetsField = async (fieldId, payload) => {
  */
 export const toggleGoogleSheetsField = async (fieldId, isActive) => {
   try {
-    const res = await api.put(`${GOOGLE_SHEETS_BASE}/fields/${fieldId}/toggle`, { isActive });
+    const res = await api.put(
+      `${GOOGLE_SHEETS_BASE}/fields/${fieldId}/toggle`,
+      { isActive },
+    );
     return {
       success: true,
-      data: res.data?.data || res.data?.field || res.data
+      data: res.data?.data || res.data?.field || res.data,
     };
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.error || error.response?.data?.message || "Failed to toggle field sync status",
+      message:
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        "Failed to toggle field sync status",
     };
   }
 };
@@ -151,7 +179,10 @@ export const deleteGoogleSheetsField = async (fieldId) => {
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.error || error.response?.data?.message || "Failed to delete custom field",
+      message:
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        "Failed to delete custom field",
     };
   }
 };
@@ -161,15 +192,20 @@ export const deleteGoogleSheetsField = async (fieldId) => {
  */
 export const reorderGoogleSheetsFields = async (fieldOrders) => {
   try {
-    const res = await api.put(`${GOOGLE_SHEETS_BASE}/fields/reorder`, { fieldOrders });
+    const res = await api.put(`${GOOGLE_SHEETS_BASE}/fields/reorder`, {
+      fieldOrders,
+    });
     return {
       success: true,
-      data: res.data?.data || res.data?.fields || res.data
+      data: res.data?.data || res.data?.fields || res.data,
     };
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.error || error.response?.data?.message || "Failed to save columns alignment order",
+      message:
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        "Failed to save columns alignment order",
     };
   }
 };
@@ -182,12 +218,15 @@ export const syncGoogleSheetsFields = async () => {
     const res = await api.post(`${GOOGLE_SHEETS_BASE}/fields/sync`);
     return {
       success: true,
-      data: res.data?.data || res.data
+      data: res.data?.data || res.data,
     };
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.error || error.response?.data?.message || "Failed to synchronize configurations to sheets",
+      message:
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        "Failed to synchronize configurations to sheets",
     };
   }
 };
@@ -210,6 +249,6 @@ export default {
 
 // Export syncFields for Repair Sheet Structure
 export const syncFields = async () => {
-  const response = await api.post('/google-sheets/fields/sync');
+  const response = await api.post("/google-sheets/fields/sync");
   return response.data;
 };

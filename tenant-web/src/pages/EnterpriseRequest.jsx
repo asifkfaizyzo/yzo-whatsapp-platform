@@ -26,7 +26,9 @@ export default function EnterpriseRequest() {
   useEffect(() => {
     if (user) {
       setCompanyName(user.tenantName || "");
-      const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ");
+      const fullName = [user.firstName, user.lastName]
+        .filter(Boolean)
+        .join(" ");
       setContactName(fullName || user.name || "");
       setEmail(user.email || "");
     }
@@ -37,7 +39,13 @@ export default function EnterpriseRequest() {
     setLoading(true);
     setError("");
 
-    if (!companyName || !contactName || !companySize || !timeline || !preferredContact) {
+    if (
+      !companyName ||
+      !contactName ||
+      !companySize ||
+      !timeline ||
+      !preferredContact
+    ) {
       setError("Please fill in all required fields.");
       setLoading(false);
       return;
@@ -65,7 +73,9 @@ export default function EnterpriseRequest() {
       }
     } catch (err) {
       console.error("Enterprise request error:", err);
-      setError(err.response?.data?.message || "An error occurred. Please try again.");
+      setError(
+        err.response?.data?.message || "An error occurred. Please try again.",
+      );
     } finally {
       setLoading(false);
     }
@@ -95,7 +105,11 @@ export default function EnterpriseRequest() {
         {/* Header */}
         <div className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <img src="/sudo_bg.png" alt="SudoReply Logo" className="w-12 h-12 object-contain" />
+            <img
+              src="/sudo_bg.png"
+              alt="SudoReply Logo"
+              className="w-12 h-12 object-contain"
+            />
           </div>
           <button
             onClick={() => logout().then(() => navigate("/login"))}
@@ -113,9 +127,13 @@ export default function EnterpriseRequest() {
               <div className="absolute inset-0 h-20 w-20 rounded-full border-2 border-blue-500/20 animate-pulse pointer-events-none" />
             </div>
 
-            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Request Received!</h2>
+            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
+              Request Received!
+            </h2>
             <p className="mt-4 text-slate-600 text-sm leading-relaxed">
-              Thank you <strong>{contactName}</strong>! We have received your enterprise request. Our team will review your details and contact you at <strong>{email}</strong> within 24 hours.
+              Thank you <strong>{contactName}</strong>! We have received your
+              enterprise request. Our team will review your details and contact
+              you at <strong>{email}</strong> within 24 hours.
             </p>
 
             <div className="mt-8 pt-6 border-t border-gray-100 w-full">
@@ -132,7 +150,9 @@ export default function EnterpriseRequest() {
 
         {/* Footer */}
         <div className="py-6 text-center border-t border-gray-100 bg-white">
-          <p className="text-xs text-gray-400">SudoReply | Enterprise Sales Team</p>
+          <p className="text-xs text-gray-400">
+            SudoReply | Enterprise Sales Team
+          </p>
         </div>
       </div>
     );
@@ -145,7 +165,11 @@ export default function EnterpriseRequest() {
       <div className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Link to="/select-plan">
-            <img src="/sudo_bg.png" alt="SudoReply Logo" className="w-12 h-12 object-contain" />
+            <img
+              src="/sudo_bg.png"
+              alt="SudoReply Logo"
+              className="w-12 h-12 object-contain"
+            />
           </Link>
         </div>
         <span className="text-sm text-gray-500">
@@ -156,10 +180,15 @@ export default function EnterpriseRequest() {
       <div className="flex-1 max-w-2xl w-full mx-auto px-6 py-12">
         <div className="bg-white rounded-3xl border border-gray-150 shadow-xl p-8 md:p-10">
           <div className="mb-8">
-            <span className="text-blue-600 font-semibold text-xs uppercase tracking-wider">Enterprise Plan</span>
-            <h1 className="text-2xl font-extrabold text-gray-900 mt-1">Configure Enterprise Request</h1>
+            <span className="text-blue-600 font-semibold text-xs uppercase tracking-wider">
+              Enterprise Plan
+            </span>
+            <h1 className="text-2xl font-extrabold text-gray-900 mt-1">
+              Configure Enterprise Request
+            </h1>
             <p className="text-gray-500 text-sm mt-1.5">
-              Fill in this request form and our dedicated enterprise team will review your workspace limits and get back to you.
+              Fill in this request form and our dedicated enterprise team will
+              review your workspace limits and get back to you.
             </p>
           </div>
 
@@ -173,7 +202,9 @@ export default function EnterpriseRequest() {
             <div className="grid md:grid-cols-2 gap-6">
               {/* Company Name */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Company Name *</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                  Company Name *
+                </label>
                 <input
                   type="text"
                   required
@@ -185,7 +216,9 @@ export default function EnterpriseRequest() {
 
               {/* Contact Name */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Contact Name *</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                  Contact Name *
+                </label>
                 <input
                   type="text"
                   required
@@ -199,7 +232,9 @@ export default function EnterpriseRequest() {
             <div className="grid md:grid-cols-2 gap-6">
               {/* Email Address */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Work Email (Read-only)</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                  Work Email (Read-only)
+                </label>
                 <input
                   type="email"
                   readOnly
@@ -211,7 +246,9 @@ export default function EnterpriseRequest() {
 
               {/* Phone */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Phone Number</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                  Phone Number
+                </label>
                 <input
                   type="tel"
                   value={phone}
@@ -225,7 +262,9 @@ export default function EnterpriseRequest() {
             <div className="grid md:grid-cols-2 gap-6">
               {/* Role */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Your Role</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                  Your Role
+                </label>
                 <input
                   type="text"
                   value={role}
@@ -237,7 +276,9 @@ export default function EnterpriseRequest() {
 
               {/* Estimated Users */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Estimated Users</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                  Estimated Users
+                </label>
                 <input
                   type="number"
                   min="1"
@@ -251,7 +292,9 @@ export default function EnterpriseRequest() {
 
             {/* Company Size */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Company Size *</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Company Size *
+              </label>
               <div className="grid grid-cols-4 gap-4">
                 {["1-10", "11-50", "51-200", "200+"].map((size) => (
                   <label
@@ -278,7 +321,9 @@ export default function EnterpriseRequest() {
 
             {/* What features are you interested in? */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">What features are you interested in?</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                What features are you interested in?
+              </label>
               <textarea
                 rows={3}
                 value={requirements}
@@ -290,7 +335,9 @@ export default function EnterpriseRequest() {
 
             {/* Timeline */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Expected Project Timeline *</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Expected Project Timeline *
+              </label>
               <div className="grid grid-cols-3 gap-4">
                 {[
                   { value: "urgent", label: "Urgent" },
@@ -321,7 +368,9 @@ export default function EnterpriseRequest() {
 
             {/* Preferred Contact Method */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Preferred Contact Method *</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Preferred Contact Method *
+              </label>
               <div className="grid grid-cols-3 gap-4">
                 {[
                   { value: "email", label: "Email" },

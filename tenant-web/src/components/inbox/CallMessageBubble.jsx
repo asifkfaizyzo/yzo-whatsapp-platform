@@ -26,9 +26,12 @@ export default function CallMessageBubble({ call, onCallContact }) {
     call.status === "FAILED" ||
     call.status === "REJECTED" ||
     (!isCompleted && (call.status === "MISSED" || call.status === "NO_ANSWER"));
-  const isInProgress = ["INITIATED", "RINGING", "DIALING", "CONNECTING"].includes(
-    call.status
-  );
+  const isInProgress = [
+    "INITIATED",
+    "RINGING",
+    "DIALING",
+    "CONNECTING",
+  ].includes(call.status);
 
   // Time formatting
   const callDate = call.createdAt ? new Date(call.createdAt) : new Date();
@@ -46,9 +49,10 @@ export default function CallMessageBubble({ call, onCallContact }) {
   };
 
   // Recording
-  const recording = (call.recordings || []).find(
-    (r) => r.downloadStatus === "DOWNLOADED" && r.mediaUrl
-  ) || (call.recordings || [])[0];
+  const recording =
+    (call.recordings || []).find(
+      (r) => r.downloadStatus === "DOWNLOADED" && r.mediaUrl,
+    ) || (call.recordings || [])[0];
 
   const backendUrl = import.meta.env.VITE_BACKEND_URL || "";
   const audioUrl = recording?.mediaUrl
@@ -168,8 +172,8 @@ export default function CallMessageBubble({ call, onCallContact }) {
                 isCompleted
                   ? "bg-[#075E54]/10 text-[#075E54]"
                   : isMissed
-                  ? "bg-rose-100 text-rose-600"
-                  : "bg-blue-100 text-blue-600"
+                    ? "bg-rose-100 text-rose-600"
+                    : "bg-blue-100 text-blue-600"
               }`}
             >
               {isMissed ? (
@@ -186,8 +190,8 @@ export default function CallMessageBubble({ call, onCallContact }) {
                   {isMissed
                     ? "Missed WhatsApp Call"
                     : isOutbound
-                    ? "Outgoing WhatsApp Call"
-                    : "Incoming WhatsApp Call"}
+                      ? "Outgoing WhatsApp Call"
+                      : "Incoming WhatsApp Call"}
                 </span>
               </p>
               <div className="mt-0.5">{getStatusBadge()}</div>
@@ -272,7 +276,11 @@ export default function CallMessageBubble({ call, onCallContact }) {
                   </span>
                 )}
               </span>
-              {showTranscript ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+              {showTranscript ? (
+                <ChevronUp size={13} />
+              ) : (
+                <ChevronDown size={13} />
+              )}
             </button>
 
             {showTranscript && (

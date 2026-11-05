@@ -16,7 +16,8 @@ export const getZohoAuthUrl = async () => {
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || "Failed to start Zoho connection",
+      message:
+        error.response?.data?.message || "Failed to start Zoho connection",
     };
   }
 };
@@ -44,7 +45,9 @@ export const getZohoStatus = async () => {
  */
 export const getZohoPlanInfo = async (forceRefresh = false) => {
   try {
-    const url = forceRefresh ? `${ZOHO_BASE_URL}/plan?refresh=true` : `${ZOHO_BASE_URL}/plan`;
+    const url = forceRefresh
+      ? `${ZOHO_BASE_URL}/plan?refresh=true`
+      : `${ZOHO_BASE_URL}/plan`;
     const response = await api.get(url);
     return {
       success: true,
@@ -53,7 +56,8 @@ export const getZohoPlanInfo = async (forceRefresh = false) => {
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || "Failed to fetch Zoho plan info",
+      message:
+        error.response?.data?.message || "Failed to fetch Zoho plan info",
     };
   }
 };
@@ -99,7 +103,9 @@ export const disconnectZoho = async () => {
  */
 export const triggerZohoSync = async (syncType = "FULL") => {
   try {
-    const response = await api.post(`${ZOHO_BASE_URL}/sync/contacts`, { syncType });
+    const response = await api.post(`${ZOHO_BASE_URL}/sync/contacts`, {
+      syncType,
+    });
     return {
       success: true,
       data: response.data.data,
@@ -127,7 +133,8 @@ export const triggerZohoIncrementalSync = async () => {
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || "Failed to start incremental sync",
+      message:
+        error.response?.data?.message || "Failed to start incremental sync",
     };
   }
 };
@@ -198,7 +205,8 @@ export const triggerZohoPullSync = async () => {
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || "Failed to pull contacts from Zoho",
+      message:
+        error.response?.data?.message || "Failed to pull contacts from Zoho",
     };
   }
 };

@@ -37,11 +37,12 @@ export default function Testimonials() {
 
       <section className="py-20 bg-white">
         <div className="max-w-4xl mx-auto px-6">
-
           {/* Header */}
           <div className="text-center mb-14">
-            <span className="text-[#125EF2] font-semibold text-sm 
-                             uppercase tracking-wider">
+            <span
+              className="text-[#125EF2] font-semibold text-sm 
+                             uppercase tracking-wider"
+            >
               Testimonials
             </span>
             <h1 className="text-3xl font-bold text-gray-900 mt-3 mb-4">
@@ -73,18 +74,18 @@ export default function Testimonials() {
 
                 {/* Author */}
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 bg-[#CFE0FD] rounded-full 
+                  <div
+                    className="w-9 h-9 bg-[#CFE0FD] rounded-full 
                                   flex items-center justify-center 
-                                  text-[#125EF2] font-bold text-sm">
+                                  text-[#125EF2] font-bold text-sm"
+                  >
                     {review.name.charAt(0)}
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-gray-900">
                       {review.name}
                     </p>
-                    <p className="text-xs text-gray-400">
-                      {review.role}
-                    </p>
+                    <p className="text-xs text-gray-400">{review.role}</p>
                   </div>
                 </div>
               </div>
@@ -102,13 +103,10 @@ export default function Testimonials() {
                 <p className="text-2xl font-bold text-gray-900">
                   {stat.number}
                 </p>
-                <p className="text-xs text-gray-400 mt-1">
-                  {stat.label}
-                </p>
+                <p className="text-xs text-gray-400 mt-1">{stat.label}</p>
               </div>
             ))}
           </div>
-
         </div>
       </section>
 

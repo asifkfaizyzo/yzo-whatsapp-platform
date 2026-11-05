@@ -20,16 +20,21 @@ export default function ResetPassword() {
     register,
     onSubmit,
     generalError,
-    formState: { errors, isSubmitting }
+    formState: { errors, isSubmitting },
   } = useFormHandler({
     schema: resetPasswordSchema,
     defaultValues: {
       token: token || "", // Auto-populate token from URL
       newPassword: "",
-      confirmPassword: ""
+      confirmPassword: "",
     },
     onSubmitService: (data) =>
-      resetPasswordTenant(data.token, data.newPassword, data.confirmPassword, roleType),
+      resetPasswordTenant(
+        data.token,
+        data.newPassword,
+        data.confirmPassword,
+        roleType,
+      ),
     onSuccess: () => {
       setSuccess(true);
       setTimeout(() => {

@@ -90,38 +90,93 @@ export function WhatsAppLoader({ visible }) {
         }}
       >
         {/* Spinning ring with WhatsApp icon */}
-        <div style={{ position: "relative", width: "88px", height: "88px", margin: "0 auto 28px" }}>
+        <div
+          style={{
+            position: "relative",
+            width: "88px",
+            height: "88px",
+            margin: "0 auto 28px",
+          }}
+        >
           {/* Outer ring */}
-          <svg width="88" height="88" style={{ position: "absolute", top: 0, left: 0, animation: "wlSpin 1.4s linear infinite" }} viewBox="0 0 88 88">
-            <circle cx="44" cy="44" r="40" fill="none" stroke="#dcfce7" strokeWidth="6" />
-            <circle cx="44" cy="44" r="40" fill="none" stroke="#16a34a" strokeWidth="6"
-              strokeDasharray="60 192" strokeLinecap="round" strokeDashoffset="0" />
+          <svg
+            width="88"
+            height="88"
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              animation: "wlSpin 1.4s linear infinite",
+            }}
+            viewBox="0 0 88 88"
+          >
+            <circle
+              cx="44"
+              cy="44"
+              r="40"
+              fill="none"
+              stroke="#dcfce7"
+              strokeWidth="6"
+            />
+            <circle
+              cx="44"
+              cy="44"
+              r="40"
+              fill="none"
+              stroke="#16a34a"
+              strokeWidth="6"
+              strokeDasharray="60 192"
+              strokeLinecap="round"
+              strokeDashoffset="0"
+            />
           </svg>
           {/* Inner icon */}
-          <div style={{
-            position: "absolute", inset: "10px",
-            background: "linear-gradient(135deg,#22c55e,#16a34a)",
-            borderRadius: "50%",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: "28px",
-          }}>
+          <div
+            style={{
+              position: "absolute",
+              inset: "10px",
+              background: "linear-gradient(135deg,#22c55e,#16a34a)",
+              borderRadius: "50%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "28px",
+            }}
+          >
             💬
           </div>
           {/* Orbiting dot */}
-          <div style={{
-            position: "absolute", top: "44px", left: "44px",
-            animation: "wlOrbit 1.4s linear infinite",
-          }}>
-            <div style={{
-              width: "10px", height: "10px", borderRadius: "50%",
-              background: "#16a34a", marginLeft: "-5px", marginTop: "-5px",
-              boxShadow: "0 0 0 3px #dcfce7",
-            }} />
+          <div
+            style={{
+              position: "absolute",
+              top: "44px",
+              left: "44px",
+              animation: "wlOrbit 1.4s linear infinite",
+            }}
+          >
+            <div
+              style={{
+                width: "10px",
+                height: "10px",
+                borderRadius: "50%",
+                background: "#16a34a",
+                marginLeft: "-5px",
+                marginTop: "-5px",
+                boxShadow: "0 0 0 3px #dcfce7",
+              }}
+            />
           </div>
         </div>
 
         {/* Headline */}
-        <h2 style={{ fontSize: "20px", fontWeight: 700, color: "#0f172a", margin: "0 0 6px" }}>
+        <h2
+          style={{
+            fontSize: "20px",
+            fontWeight: 700,
+            color: "#0f172a",
+            margin: "0 0 6px",
+          }}
+        >
           Connecting WhatsApp…
         </h2>
         <p style={{ fontSize: "13px", color: "#64748b", margin: "0 0 28px" }}>
@@ -137,42 +192,76 @@ export function WhatsAppLoader({ visible }) {
               <div
                 key={i}
                 style={{
-                  display: "flex", alignItems: "center", gap: "12px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
                   padding: "10px 14px",
                   borderRadius: "12px",
                   marginBottom: "6px",
                   background: active ? "#f0fdf4" : "transparent",
-                  border: active ? "1px solid #bbf7d0" : "1px solid transparent",
+                  border: active
+                    ? "1px solid #bbf7d0"
+                    : "1px solid transparent",
                   opacity: i > stepIdx ? 0.35 : 1,
                   transition: "all 0.4s ease",
                   animation: active ? "wlSlideUp 0.3s ease" : "none",
                 }}
               >
                 {/* Status indicator */}
-                <div style={{
-                  width: "28px", height: "28px", borderRadius: "50%", flexShrink: 0,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  background: done ? "#16a34a" : active ? "#dcfce7" : "#f1f5f9",
-                  transition: "background 0.4s",
-                }}>
+                <div
+                  style={{
+                    width: "28px",
+                    height: "28px",
+                    borderRadius: "50%",
+                    flexShrink: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background: done
+                      ? "#16a34a"
+                      : active
+                        ? "#dcfce7"
+                        : "#f1f5f9",
+                    transition: "background 0.4s",
+                  }}
+                >
                   {done ? (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3">
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="#fff"
+                      strokeWidth="3"
+                    >
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
                   ) : active ? (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="3" style={{ animation: "wlSpin 0.9s linear infinite" }}>
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="#16a34a"
+                      strokeWidth="3"
+                      style={{ animation: "wlSpin 0.9s linear infinite" }}
+                    >
                       <circle cx="12" cy="12" r="10" strokeDasharray="40 20" />
                     </svg>
                   ) : (
-                    <span style={{ fontSize: "12px", color: "#94a3b8" }}>{i + 1}</span>
+                    <span style={{ fontSize: "12px", color: "#94a3b8" }}>
+                      {i + 1}
+                    </span>
                   )}
                 </div>
-                <span style={{
-                  fontSize: "13px",
-                  fontWeight: active ? 600 : done ? 500 : 400,
-                  color: active ? "#166534" : done ? "#15803d" : "#94a3b8",
-                  transition: "color 0.3s",
-                }}>
+                <span
+                  style={{
+                    fontSize: "13px",
+                    fontWeight: active ? 600 : done ? 500 : 400,
+                    color: active ? "#166534" : done ? "#15803d" : "#94a3b8",
+                    transition: "color 0.3s",
+                  }}
+                >
                   {step.icon} {step.label}
                 </span>
               </div>
@@ -181,21 +270,30 @@ export function WhatsAppLoader({ visible }) {
         </div>
 
         {/* Progress bar */}
-        <div style={{ background: "#f1f5f9", borderRadius: "99px", height: "6px", overflow: "hidden" }}>
-          <div style={{
-            height: "100%",
-            width: `${progress}%`,
-            background: "linear-gradient(90deg,#22c55e,#16a34a)",
+        <div
+          style={{
+            background: "#f1f5f9",
             borderRadius: "99px",
-            transition: "width 0.3s ease",
-          }} />
+            height: "6px",
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              height: "100%",
+              width: `${progress}%`,
+              background: "linear-gradient(90deg,#22c55e,#16a34a)",
+              borderRadius: "99px",
+              transition: "width 0.3s ease",
+            }}
+          />
         </div>
         <p style={{ fontSize: "11px", color: "#94a3b8", marginTop: "10px" }}>
           🔒 Secured by Meta — we never store your Facebook credentials
         </p>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }
 
@@ -227,8 +325,12 @@ export function PaymentVerifyingLoader({ visible }) {
   return createPortal(
     <div
       style={{
-        position: "fixed", inset: 0, zIndex: 99999,
-        display: "flex", alignItems: "center", justifyContent: "center",
+        position: "fixed",
+        inset: 0,
+        zIndex: 99999,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
         padding: "16px",
         background: "rgba(15, 23, 42, 0.80)",
         backdropFilter: "blur(10px)",
@@ -253,32 +355,104 @@ export function PaymentVerifyingLoader({ visible }) {
         }}
       >
         {/* Concentric counter-rotating rings */}
-        <div style={{ position: "relative", width: "80px", height: "80px", margin: "0 auto 24px" }}>
-          <svg width="80" height="80" viewBox="0 0 80 80" style={{ position: "absolute", animation: "pvSpin 1.1s linear infinite" }}>
-            <circle cx="40" cy="40" r="35" fill="none" stroke="#e0e7ff" strokeWidth="6" />
-            <circle cx="40" cy="40" r="35" fill="none" stroke="#4f46e5" strokeWidth="6"
-              strokeDasharray="55 165" strokeLinecap="round" />
+        <div
+          style={{
+            position: "relative",
+            width: "80px",
+            height: "80px",
+            margin: "0 auto 24px",
+          }}
+        >
+          <svg
+            width="80"
+            height="80"
+            viewBox="0 0 80 80"
+            style={{
+              position: "absolute",
+              animation: "pvSpin 1.1s linear infinite",
+            }}
+          >
+            <circle
+              cx="40"
+              cy="40"
+              r="35"
+              fill="none"
+              stroke="#e0e7ff"
+              strokeWidth="6"
+            />
+            <circle
+              cx="40"
+              cy="40"
+              r="35"
+              fill="none"
+              stroke="#4f46e5"
+              strokeWidth="6"
+              strokeDasharray="55 165"
+              strokeLinecap="round"
+            />
           </svg>
-          <svg width="80" height="80" viewBox="0 0 80 80" style={{ position: "absolute", animation: "pvSpin 0.75s linear infinite reverse" }}>
-            <circle cx="40" cy="40" r="24" fill="none" stroke="#e0e7ff" strokeWidth="4" />
-            <circle cx="40" cy="40" r="24" fill="none" stroke="#818cf8" strokeWidth="4"
-              strokeDasharray="25 126" strokeLinecap="round" />
+          <svg
+            width="80"
+            height="80"
+            viewBox="0 0 80 80"
+            style={{
+              position: "absolute",
+              animation: "pvSpin 0.75s linear infinite reverse",
+            }}
+          >
+            <circle
+              cx="40"
+              cy="40"
+              r="24"
+              fill="none"
+              stroke="#e0e7ff"
+              strokeWidth="4"
+            />
+            <circle
+              cx="40"
+              cy="40"
+              r="24"
+              fill="none"
+              stroke="#818cf8"
+              strokeWidth="4"
+              strokeDasharray="25 126"
+              strokeLinecap="round"
+            />
           </svg>
-          <div style={{
-            position: "absolute", inset: "18px",
-            background: "linear-gradient(135deg,#6366f1,#4f46e5)",
-            borderRadius: "50%",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: "18px",
-          }}>
+          <div
+            style={{
+              position: "absolute",
+              inset: "18px",
+              background: "linear-gradient(135deg,#6366f1,#4f46e5)",
+              borderRadius: "50%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "18px",
+            }}
+          >
             🔒
           </div>
         </div>
 
-        <h2 style={{ fontSize: "19px", fontWeight: 700, color: "#0f172a", margin: "0 0 8px" }}>
+        <h2
+          style={{
+            fontSize: "19px",
+            fontWeight: 700,
+            color: "#0f172a",
+            margin: "0 0 8px",
+          }}
+        >
           Verifying Payment{".".repeat(dots)}
         </h2>
-        <p style={{ fontSize: "13px", color: "#64748b", margin: "0 0 20px", lineHeight: 1.6 }}>
+        <p
+          style={{
+            fontSize: "13px",
+            color: "#64748b",
+            margin: "0 0 20px",
+            lineHeight: 1.6,
+          }}
+        >
           We're confirming your payment with Razorpay. <br />
           <strong>Please don't close or refresh</strong> this page.
         </p>
@@ -289,30 +463,62 @@ export function PaymentVerifyingLoader({ visible }) {
           { label: "Verifying signature", done: sigVerified },
           { label: "Activating plan", done: false },
         ].map((item, i) => (
-          <div key={i} style={{
-            display: "flex", alignItems: "center", gap: "10px",
-            padding: "8px 14px",
-            borderRadius: "10px",
-            marginBottom: "6px",
-            background: item.done ? "#eef2ff" : "#f8fafc",
-            border: `1px solid ${item.done ? "#c7d2fe" : "#e2e8f0"}`,
-            transition: "all 0.3s ease",
-          }}>
-            <div style={{
-              width: "20px", height: "20px", borderRadius: "50%", flexShrink: 0,
-              background: item.done ? "#4f46e5" : "#e2e8f0",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              transition: "background 0.3s ease",
-            }}>
+          <div
+            key={i}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              padding: "8px 14px",
+              borderRadius: "10px",
+              marginBottom: "6px",
+              background: item.done ? "#eef2ff" : "#f8fafc",
+              border: `1px solid ${item.done ? "#c7d2fe" : "#e2e8f0"}`,
+              transition: "all 0.3s ease",
+            }}
+          >
+            <div
+              style={{
+                width: "20px",
+                height: "20px",
+                borderRadius: "50%",
+                flexShrink: 0,
+                background: item.done ? "#4f46e5" : "#e2e8f0",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                transition: "background 0.3s ease",
+              }}
+            >
               {item.done ? (
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3">
+                <svg
+                  width="11"
+                  height="11"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#fff"
+                  strokeWidth="3"
+                >
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
               ) : (
-                <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#cbd5e1" }} />
+                <div
+                  style={{
+                    width: "6px",
+                    height: "6px",
+                    borderRadius: "50%",
+                    background: "#cbd5e1",
+                  }}
+                />
               )}
             </div>
-            <span style={{ fontSize: "12px", fontWeight: item.done ? 600 : 400, color: item.done ? "#3730a3" : "#94a3b8" }}>
+            <span
+              style={{
+                fontSize: "12px",
+                fontWeight: item.done ? 600 : 400,
+                color: item.done ? "#3730a3" : "#94a3b8",
+              }}
+            >
               {item.label}
             </span>
           </div>
@@ -323,7 +529,7 @@ export function PaymentVerifyingLoader({ visible }) {
         </p>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }
 
@@ -339,12 +545,16 @@ export function PaymentSuccessScreen({ planName, email }) {
   }, []);
 
   return (
-    <div style={{
-      minHeight: "100vh",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      background: "linear-gradient(135deg,#f0fdf4 0%,#eff6ff 100%)",
-      padding: "16px",
-    }}>
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "linear-gradient(135deg,#f0fdf4 0%,#eff6ff 100%)",
+        padding: "16px",
+      }}
+    >
       <style>{`
         @keyframes psCheckDraw {
           from { stroke-dashoffset: 100 }
@@ -369,44 +579,73 @@ export function PaymentSuccessScreen({ planName, email }) {
         @keyframes pvSpin { to { transform: rotate(360deg) } }
       `}</style>
 
-      <div style={{
-        background: "#fff",
-        borderRadius: "28px",
-        padding: "52px 40px",
-        maxWidth: "420px",
-        width: "100%",
-        textAlign: "center",
-        boxShadow: "0 24px 80px rgba(0,0,0,0.12)",
-        animation: "psSlideUp 0.5s cubic-bezier(0.34,1.56,0.64,1)",
-        position: "relative",
-        overflow: "hidden",
-      }}>
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: "28px",
+          padding: "52px 40px",
+          maxWidth: "420px",
+          width: "100%",
+          textAlign: "center",
+          boxShadow: "0 24px 80px rgba(0,0,0,0.12)",
+          animation: "psSlideUp 0.5s cubic-bezier(0.34,1.56,0.64,1)",
+          position: "relative",
+          overflow: "hidden",
+        }}
+      >
         {/* Confetti dots */}
         {[...Array(8)].map((_, i) => (
-          <div key={i} style={{
-            position: "absolute",
-            width: "8px", height: "8px", borderRadius: "2px",
-            background: ["#22c55e","#3b82f6","#f59e0b","#ec4899","#8b5cf6","#14b8a6","#f97316","#06b6d4"][i],
-            top: `${10 + (i % 3) * 15}%`,
-            left: `${5 + i * 12}%`,
-            animation: `psConfetti ${0.8 + i * 0.1}s ease-out ${i * 0.07}s both`,
-          }} />
+          <div
+            key={i}
+            style={{
+              position: "absolute",
+              width: "8px",
+              height: "8px",
+              borderRadius: "2px",
+              background: [
+                "#22c55e",
+                "#3b82f6",
+                "#f59e0b",
+                "#ec4899",
+                "#8b5cf6",
+                "#14b8a6",
+                "#f97316",
+                "#06b6d4",
+              ][i],
+              top: `${10 + (i % 3) * 15}%`,
+              left: `${5 + i * 12}%`,
+              animation: `psConfetti ${0.8 + i * 0.1}s ease-out ${i * 0.07}s both`,
+            }}
+          />
         ))}
 
         {/* Checkmark circle */}
-        <div style={{ position: "relative", width: "100px", height: "100px", margin: "0 auto 28px" }}>
+        <div
+          style={{
+            position: "relative",
+            width: "100px",
+            height: "100px",
+            margin: "0 auto 28px",
+          }}
+        >
           {/* Pulse rings */}
           {[0, 1].map((i) => (
-            <div key={i} style={{
-              position: "absolute",
-              inset: "-8px",
-              borderRadius: "50%",
-              border: "2px solid #22c55e",
-              animation: `psPulseRing 1.6s ease-out ${i * 0.4}s infinite`,
-            }} />
+            <div
+              key={i}
+              style={{
+                position: "absolute",
+                inset: "-8px",
+                borderRadius: "50%",
+                border: "2px solid #22c55e",
+                animation: `psPulseRing 1.6s ease-out ${i * 0.4}s infinite`,
+              }}
+            />
           ))}
           <svg width="100" height="100" viewBox="0 0 100 100">
-            <circle cx="50" cy="50" r="46"
+            <circle
+              cx="50"
+              cy="50"
+              r="46"
               fill="none"
               stroke="#22c55e"
               strokeWidth="4"
@@ -419,7 +658,11 @@ export function PaymentSuccessScreen({ planName, email }) {
             />
             <polyline
               points="30,52 44,66 72,36"
-              fill="none" stroke="#22c55e" strokeWidth="5.5" strokeLinecap="round" strokeLinejoin="round"
+              fill="none"
+              stroke="#22c55e"
+              strokeWidth="5.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
               strokeDasharray="100"
               style={{
                 strokeDashoffset: ringDone ? "0" : "100",
@@ -429,29 +672,64 @@ export function PaymentSuccessScreen({ planName, email }) {
           </svg>
         </div>
 
-        <h1 style={{ fontSize: "26px", fontWeight: 800, color: "#0f172a", margin: "0 0 8px", animation: "psSlideUp 0.5s ease 0.2s both" }}>
+        <h1
+          style={{
+            fontSize: "26px",
+            fontWeight: 800,
+            color: "#0f172a",
+            margin: "0 0 8px",
+            animation: "psSlideUp 0.5s ease 0.2s both",
+          }}
+        >
           Payment Successful! 🎉
         </h1>
-        <p style={{ fontSize: "14px", color: "#475569", margin: "0 0 4px", animation: "psSlideUp 0.5s ease 0.3s both" }}>
-          Welcome to the <strong style={{ color: "#125EF2" }}>{planName}</strong> plan.
+        <p
+          style={{
+            fontSize: "14px",
+            color: "#475569",
+            margin: "0 0 4px",
+            animation: "psSlideUp 0.5s ease 0.3s both",
+          }}
+        >
+          Welcome to the{" "}
+          <strong style={{ color: "#125EF2" }}>{planName}</strong> plan.
         </p>
         {email && (
-          <p style={{ fontSize: "12px", color: "#94a3b8", margin: "0 0 24px", animation: "psSlideUp 0.5s ease 0.35s both" }}>
+          <p
+            style={{
+              fontSize: "12px",
+              color: "#94a3b8",
+              margin: "0 0 24px",
+              animation: "psSlideUp 0.5s ease 0.35s both",
+            }}
+          >
             Invoice sent to <strong>{email}</strong>
           </p>
         )}
 
         {/* Redirect notice */}
-        <div style={{
-          display: "flex", alignItems: "center", justifyContent: "center", gap: "10px",
-          padding: "12px 20px",
-          background: "#f0fdf4",
-          border: "1px solid #bbf7d0",
-          borderRadius: "12px",
-          animation: "psSlideUp 0.5s ease 0.45s both",
-        }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5"
-            style={{ animation: "pvSpin 1.2s linear infinite" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "10px",
+            padding: "12px 20px",
+            background: "#f0fdf4",
+            border: "1px solid #bbf7d0",
+            borderRadius: "12px",
+            animation: "psSlideUp 0.5s ease 0.45s both",
+          }}
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#16a34a"
+            strokeWidth="2.5"
+            style={{ animation: "pvSpin 1.2s linear infinite" }}
+          >
             <circle cx="12" cy="12" r="10" strokeDasharray="42 20" />
           </svg>
           <span style={{ fontSize: "12px", fontWeight: 600, color: "#15803d" }}>
@@ -459,7 +737,14 @@ export function PaymentSuccessScreen({ planName, email }) {
           </span>
         </div>
 
-        <p style={{ fontSize: "11px", color: "#cbd5e1", marginTop: "20px", animation: "psSlideUp 0.5s ease 0.5s both" }}>
+        <p
+          style={{
+            fontSize: "11px",
+            color: "#cbd5e1",
+            marginTop: "20px",
+            animation: "psSlideUp 0.5s ease 0.5s both",
+          }}
+        >
           🔒 Secured by Razorpay • PCI DSS Compliant
         </p>
       </div>

@@ -2,7 +2,12 @@
 import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 
-export default function FacebookLoginButton({ onSuccess, onError, disabled, text = "Continue with Facebook" }) {
+export default function FacebookLoginButton({
+  onSuccess,
+  onError,
+  disabled,
+  text = "Continue with Facebook",
+}) {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -23,23 +28,29 @@ export default function FacebookLoginButton({ onSuccess, onError, disabled, text
 
     // Load the SDK asynchronously
     (function (d, s, id) {
-      var js, fjs = d.getElementsByTagName(s)[0];
-      if (d.getElementById(id)) { return; }
-      js = d.createElement(s); js.id = id;
+      var js,
+        fjs = d.getElementsByTagName(s)[0];
+      if (d.getElementById(id)) {
+        return;
+      }
+      js = d.createElement(s);
+      js.id = id;
       js.src = "https://connect.facebook.net/en_US/sdk.js";
-      
+
       // Handle ad-blockers blocking the script
       js.onerror = () => {
         console.error("Facebook SDK failed to load (possible ad-blocker).");
       };
-      
+
       fjs.parentNode.insertBefore(js, fjs);
-    }(document, 'script', 'facebook-jssdk'));
+    })(document, "script", "facebook-jssdk");
   }, []);
 
   const handleLogin = () => {
     if (!window.FB) {
-      onError("Unable to load Facebook Login. Please disable ad-blockers or log in with email.");
+      onError(
+        "Unable to load Facebook Login. Please disable ad-blockers or log in with email.",
+      );
       return;
     }
 
@@ -54,7 +65,7 @@ export default function FacebookLoginButton({ onSuccess, onError, disabled, text
           onError("Facebook login was cancelled or failed.");
         }
       },
-      { scope: "public_profile,email" }
+      { scope: "public_profile,email" },
     );
   };
 
@@ -70,9 +81,16 @@ export default function FacebookLoginButton({ onSuccess, onError, disabled, text
       ) : (
         <>
           <span className="mr-3 flex h-6 w-6 items-center justify-center rounded-full bg-white">
-            <span aria-hidden="true" className="translate-y-[5px] text-[23px] font-bold leading-[24px] text-[#1877f2]">f</span>
+            <span
+              aria-hidden="true"
+              className="translate-y-[5px] text-[23px] font-bold leading-[24px] text-[#1877f2]"
+            >
+              f
+            </span>
           </span>
-          <span className="text-white font-semibold text-[14px] tracking-[0.25px]">{text}</span>
+          <span className="text-white font-semibold text-[14px] tracking-[0.25px]">
+            {text}
+          </span>
         </>
       )}
     </button>

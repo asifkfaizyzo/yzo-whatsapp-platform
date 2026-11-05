@@ -5,14 +5,14 @@ let isRinging = false;
 let ringTimeout = null;
 
 const getAudioContext = () => {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === "undefined") return null;
   if (!audioCtx) {
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     if (AudioContextClass) {
       audioCtx = new AudioContextClass();
     }
   }
-  if (audioCtx && audioCtx.state === 'suspended') {
+  if (audioCtx && audioCtx.state === "suspended") {
     audioCtx.resume().catch(() => {});
   }
   return audioCtx;
@@ -21,17 +21,17 @@ const getAudioContext = () => {
 // Play a single marimba/chime note with harmonic envelope
 const playNote = (ctx, freq, startTime, duration = 0.22) => {
   if (!ctx) return;
-  
+
   // Fundamental tone
   const osc1 = ctx.createOscillator();
   const gain1 = ctx.createGain();
-  osc1.type = 'sine';
+  osc1.type = "sine";
   osc1.frequency.setValueAtTime(freq, startTime);
 
   // Harmonic overtone for bell/marimba brightness
   const osc2 = ctx.createOscillator();
   const gain2 = ctx.createGain();
-  osc2.type = 'triangle';
+  osc2.type = "triangle";
   osc2.frequency.setValueAtTime(freq * 2, startTime);
 
   // Volume envelopes (quick attack, smooth exponential decay)
@@ -61,15 +61,15 @@ const playPhrase = () => {
   if (!ctx) return;
 
   const now = ctx.currentTime;
-  
+
   // WhatsApp distinctive marimba phrase: F#5 -> D5 -> A4 -> D5 -> F#5 -> A5
   const notes = [
-    { freq: 739.99, delay: 0.00, dur: 0.18 }, // F#5
+    { freq: 739.99, delay: 0.0, dur: 0.18 }, // F#5
     { freq: 587.33, delay: 0.15, dur: 0.18 }, // D5
-    { freq: 440.00, delay: 0.30, dur: 0.20 }, // A4
+    { freq: 440.0, delay: 0.3, dur: 0.2 }, // A4
     { freq: 587.33, delay: 0.48, dur: 0.18 }, // D5
     { freq: 739.99, delay: 0.63, dur: 0.18 }, // F#5
-    { freq: 880.00, delay: 0.80, dur: 0.35 }, // A5
+    { freq: 880.0, delay: 0.8, dur: 0.35 }, // A5
   ];
 
   notes.forEach(({ freq, delay, dur }) => {

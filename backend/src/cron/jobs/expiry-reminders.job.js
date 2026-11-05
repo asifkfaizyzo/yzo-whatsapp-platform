@@ -1,7 +1,7 @@
 // backend/src/cron/jobs/expiryRemindersJob.js (do not remove this comment)
-import cron from 'node-cron';
-import prisma from '../../config/prisma.js';
-import { sendExpiryReminderEmail } from '../../modules/auth/email.service.js';
+import cron from "node-cron";
+import prisma from "../../config/prisma.js";
+import { sendExpiryReminderEmail } from "../../modules/auth/email.service.js";
 
 const processExpiryReminders = async () => {
   const timestamp = new Date().toISOString();
@@ -12,16 +12,18 @@ const processExpiryReminders = async () => {
     const activeTenants = await prisma.tenant.findMany({
       where: {
         subscription: {
-          subscriptionStatus: { in: ['active', 'trialing', 'cancel_at_period_end'] }
-        }
+          subscriptionStatus: {
+            in: ["active", "trialing", "cancel_at_period_end"],
+          },
+        },
       },
-      include: { subscription: true }
+      include: { subscription: true },
     });
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-   for (const raw of activeTenants) {
+    for (const raw of activeTenants) {
       const tenant = { ...raw, ...raw.subscription };
       try {
         if (!tenant.planPeriodEnd) continue;
@@ -34,27 +36,31 @@ const processExpiryReminders = async () => {
         const daysRemaining = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
         let reminderType = null;
-        let emailSubject = '';
-        let templateName = '';
+        let emailSubject = "";
+        let templateName = "";
 
-        const isTrialing = tenant.subscriptionStatus === 'trialing';
+        const isTrialing = tenant.subscriptionStatus === "trialing";
 
         if (daysRemaining === 15 && !isTrialing) {
-          reminderType = '15_days_before';
-          emailSubject = 'Your plan expires in 15 days';
-          templateName = 'expiry_reminder_15';
+          reminderType = "15_days_before";
+          emailSubject = "Your plan expires in 15 days";
+          templateName = "expiry_reminder_15";
         } else if (daysRemaining === 7 && !isTrialing) {
-          reminderType = '7_days_before';
-          emailSubject = '7 days left on your subscription';
-          templateName = 'expiry_reminder_7';
+          reminderType = "7_days_before";
+          emailSubject = "7 days left on your subscription";
+          templateName = "expiry_reminder_7";
         } else if (daysRemaining === 3) {
-          reminderType = '3_days_before';
-          emailSubject = isTrialing ? 'Your 14-day free trial ends in 3 days' : 'Only 3 days left to renew';
-          templateName = 'expiry_reminder_3';
+          reminderType = "3_days_before";
+          emailSubject = isTrialing
+            ? "Your 14-day free trial ends in 3 days"
+            : "Only 3 days left to renew";
+          templateName = "expiry_reminder_3";
         } else if (daysRemaining === 1) {
-          reminderType = '1_day_before';
-          emailSubject = isTrialing ? 'Your free trial ends tomorrow' : 'Last chance — expires tomorrow';
-          templateName = 'expiry_reminder_1';
+          reminderType = "1_day_before";
+          emailSubject = isTrialing
+            ? "Your free trial ends tomorrow"
+            : "Last chance — expires tomorrow";
+          templateName = "expiry_reminder_1";
         }
 
         if (reminderType) {
@@ -64,37 +70,49 @@ const processExpiryReminders = async () => {
               tenantId: tenant.id,
               reminderType,
               sentAt: {
-                gte: new Date(Date.now() - 48 * 3600000)
-              }
-            }
+                gte: new Date(Date.now() - 48 * 3600000),
+              },
+            },
           });
 
           if (!existingReminder) {
-            const frontendUrl = process.env.FRONTEND_URLS ? process.env.FRONTEND_URLS.split(',')[1] : 'http://localhost:5174';
+            const frontendUrl = process.env.FRONTEND_URLS
+              ? process.env.FRONTEND_URLS.split(",")[1]
+              : "http://localhost:5174";
 
-            await sendExpiryReminderEmail(tenant.email, templateName, emailSubject, {
-              tenantName: tenant.tenantName || tenant.email,
-              planName: tenant.currentPlan || 'Active Plan',
-              expiryDate: tenant.planPeriodEnd.toLocaleDateString(),
-              daysRemaining,
-              isTrialing,
-              autopayEnabled: tenant.autopayEnabled,
-              billingLink: `${frontendUrl}/settings/billing`,
-              resubscribeLink: `${frontendUrl}/plans`
-            });
+            await sendExpiryReminderEmail(
+              tenant.email,
+              templateName,
+              emailSubject,
+              {
+                tenantName: tenant.tenantName || tenant.email,
+                planName: tenant.currentPlan || "Active Plan",
+                expiryDate: tenant.planPeriodEnd.toLocaleDateString(),
+                daysRemaining,
+                isTrialing,
+                autopayEnabled: tenant.autopayEnabled,
+                billingLink: `${frontendUrl}/settings/billing`,
+                resubscribeLink: `${frontendUrl}/plans`,
+              },
+            );
 
             await prisma.subscriptionReminder.create({
               data: {
                 tenantId: tenant.id,
                 reminderType,
-              }
+              },
             });
 
-            console.log(`[${timestamp}] Sent ${reminderType} reminder to tenant ${tenant.id} (${tenant.email})`);
+            console.log(
+              `[${timestamp}] Sent ${reminderType} reminder to tenant ${tenant.id} (${tenant.email})`,
+            );
           }
         }
       } catch (innerErr) {
-        console.error(`[${timestamp}] Error processing tenant ${tenant.id}:`, innerErr);
+        console.error(
+          `[${timestamp}] Error processing tenant ${tenant.id}:`,
+          innerErr,
+        );
       }
     }
   } catch (err) {
@@ -103,7 +121,7 @@ const processExpiryReminders = async () => {
 };
 
 // Schedule cron to run daily at 08:00 AM
-cron.schedule('0 8 * * *', () => {
+cron.schedule("0 8 * * *", () => {
   processExpiryReminders();
 });
 

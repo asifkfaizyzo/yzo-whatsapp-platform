@@ -19,15 +19,13 @@
 //   })
 // }
 
-
-
-import prisma from '../../config/prisma.js';
+import prisma from "../../config/prisma.js";
 
 export const logActivity = async ({
   conversationId,
   action,
   performedBy = null,
-  performedByType = 'system',
+  performedByType = "system",
   reason = null,
 }) => {
   return prisma.conversationActivity.create({

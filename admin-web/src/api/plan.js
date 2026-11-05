@@ -6,7 +6,10 @@ export const getPlans = async () => {
     const res = await api.get("/plans");
     return { success: true, data: res.data.data };
   } catch (err) {
-    return { success: false, message: err.response?.data?.message || "Failed to fetch plans" };
+    return {
+      success: false,
+      message: err.response?.data?.message || "Failed to fetch plans",
+    };
   }
 };
 
@@ -15,7 +18,10 @@ export const createPlan = async (data) => {
     const res = await api.post("/plans", data);
     return { success: true, data: res.data.data };
   } catch (err) {
-    return { success: false, message: err.response?.data?.message || "Failed to create plan" };
+    return {
+      success: false,
+      message: err.response?.data?.message || "Failed to create plan",
+    };
   }
 };
 
@@ -24,7 +30,10 @@ export const updatePlan = async (id, data) => {
     const res = await api.put(`/plans/${id}`, data);
     return { success: true, data: res.data.data };
   } catch (err) {
-    return { success: false, message: err.response?.data?.message || "Failed to update plan" };
+    return {
+      success: false,
+      message: err.response?.data?.message || "Failed to update plan",
+    };
   }
 };
 
@@ -33,7 +42,10 @@ export const togglePlanStatus = async (id) => {
     const res = await api.patch(`/plans/${id}/toggle-status`);
     return { success: true, data: res.data.data };
   } catch (err) {
-    return { success: false, message: err.response?.data?.message || "Failed to toggle status" };
+    return {
+      success: false,
+      message: err.response?.data?.message || "Failed to toggle status",
+    };
   }
 };
 
@@ -42,7 +54,10 @@ export const deletePlan = async (id) => {
     const res = await api.delete(`/plans/${id}`);
     return { success: true, message: res.data.message };
   } catch (err) {
-    return { success: false, message: err.response?.data?.message || "Failed to delete plan" };
+    return {
+      success: false,
+      message: err.response?.data?.message || "Failed to delete plan",
+    };
   }
 };
 
@@ -51,7 +66,10 @@ export const getFeatures = async () => {
     const res = await api.get("/plans/features");
     return { success: true, data: res.data.data };
   } catch (err) {
-    return { success: false, message: err.response?.data?.message || "Failed to fetch features" };
+    return {
+      success: false,
+      message: err.response?.data?.message || "Failed to fetch features",
+    };
   }
 };
 
@@ -60,7 +78,10 @@ export const createFeature = async (name) => {
     const res = await api.post("/plans/features/create", { name });
     return { success: true, data: res.data.data };
   } catch (err) {
-    return { success: false, message: err.response?.data?.message || "Failed to create feature" };
+    return {
+      success: false,
+      message: err.response?.data?.message || "Failed to create feature",
+    };
   }
 };
 
@@ -69,7 +90,10 @@ export const deleteFeature = async (id) => {
     const res = await api.delete(`/plans/features/${id}`);
     return { success: true, message: res.data.message };
   } catch (err) {
-    return { success: false, message: err.response?.data?.message || "Failed to delete feature" };
+    return {
+      success: false,
+      message: err.response?.data?.message || "Failed to delete feature",
+    };
   }
 };
 

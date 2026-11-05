@@ -17,9 +17,12 @@ export default function CancelAtPeriodEndBanner({ periodEndDate }) {
           <AlertCircle size={18} />
         </div>
         <div>
-          <p className="text-sm font-bold text-amber-900">Subscription scheduled to end</p>
+          <p className="text-sm font-bold text-amber-900">
+            Subscription scheduled to end
+          </p>
           <p className="text-xs text-amber-700 mt-0.5">
-            Autopay is disabled. Full platform access remains active until <strong>{formatDate(periodEndDate)}</strong>.
+            Autopay is disabled. Full platform access remains active until{" "}
+            <strong>{formatDate(periodEndDate)}</strong>.
           </p>
         </div>
       </div>

@@ -24,7 +24,11 @@ export const getUserProfile = async () => {
 /**
  * Update user's own password
  */
-export const updateUserPassword = async ({ currentPassword, newPassword, confirmPassword }) => {
+export const updateUserPassword = async ({
+  currentPassword,
+  newPassword,
+  confirmPassword,
+}) => {
   try {
     const response = await api.put(`${USER_BASE_URL}/change-password`, {
       currentPassword,

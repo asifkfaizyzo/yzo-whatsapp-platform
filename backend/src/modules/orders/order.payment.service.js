@@ -1,9 +1,9 @@
 // backend/src/modules/orders/order.payment.service.js (do not remove this comment)
-import Razorpay from 'razorpay';
-import prisma from '../../config/prisma.js';
-import { decrypt } from '../../lib/crypto.js';
-import redisConnection from '../../config/redis.js';
-import { createNotification } from '../notifications/notification.service.js';
+import Razorpay from "razorpay";
+import prisma from "../../config/prisma.js";
+import { decrypt } from "../../lib/crypto.js";
+import redisConnection from "../../config/redis.js";
+import { createNotification } from "../notifications/notification.service.js";
 
 // ── In-Memory Multi-Worker Tenant Razorpay Cache with Redis Invalidation ──
 const localRazorpayCache = new Map();
@@ -11,12 +11,16 @@ const RZP_CACHE_TTL_MS = 60 * 1000; // 60-second TTL
 
 // Redis subscriber for cross-worker cache invalidation
 const rzpSubClient = redisConnection.duplicate();
-rzpSubClient.subscribe('cache:invalidate:rzp', (err) => {
-  if (err) console.error('❌ Failed to subscribe to cache:invalidate:rzp:', err.message);
+rzpSubClient.subscribe("cache:invalidate:rzp", (err) => {
+  if (err)
+    console.error(
+      "❌ Failed to subscribe to cache:invalidate:rzp:",
+      err.message,
+    );
 });
 
-rzpSubClient.on('message', (channel, tenantId) => {
-  if (channel === 'cache:invalidate:rzp' && tenantId) {
+rzpSubClient.on("message", (channel, tenantId) => {
+  if (channel === "cache:invalidate:rzp" && tenantId) {
     localRazorpayCache.delete(tenantId);
     console.log(`🧹 Flushed local Razorpay cache for tenant ${tenantId}`);
   }
@@ -29,9 +33,9 @@ export const invalidateTenantRazorpayCache = async (tenantId) => {
   if (!tenantId) return;
   localRazorpayCache.delete(tenantId);
   try {
-    await redisConnection.publish('cache:invalidate:rzp', tenantId);
+    await redisConnection.publish("cache:invalidate:rzp", tenantId);
   } catch (err) {
-    console.error('❌ Failed to publish cache:invalidate:rzp:', err.message);
+    console.error("❌ Failed to publish cache:invalidate:rzp:", err.message);
   }
 };
 
@@ -56,7 +60,7 @@ export const createTenantRazorpayInstance = async (tenantId) => {
       razorpayKeySecret: true,
       enableOnlinePayment: true,
       razorpayAccountStatus: true,
-    }
+    },
   });
 
   if (!tenant) {
@@ -65,9 +69,11 @@ export const createTenantRazorpayInstance = async (tenantId) => {
 
   let instance;
 
-  if (tenant.razorpayAuthType === 'OAUTH') {
+  if (tenant.razorpayAuthType === "OAUTH") {
     if (!tenant.razorpayAccountId) {
-      throw new Error(`Razorpay sub-merchant account not connected for tenant ${tenantId}`);
+      throw new Error(
+        `Razorpay sub-merchant account not connected for tenant ${tenantId}`,
+      );
     }
 
     if (tenant.razorpayAccessToken) {
@@ -77,7 +83,10 @@ export const createTenantRazorpayInstance = async (tenantId) => {
           oauthToken: decryptedToken,
         });
       } catch (tokenErr) {
-        console.warn(`⚠️ [RazorpayOAuth] Failed to decrypt access token for tenant ${tenantId}:`, tokenErr.message);
+        console.warn(
+          `⚠️ [RazorpayOAuth] Failed to decrypt access token for tenant ${tenantId}:`,
+          tokenErr.message,
+        );
       }
     }
 
@@ -86,21 +95,25 @@ export const createTenantRazorpayInstance = async (tenantId) => {
       const masterKeySecret = process.env.RAZORPAY_KEY_SECRET;
 
       if (!masterKeyId || !masterKeySecret) {
-        throw new Error('Master Razorpay Partner credentials not configured on platform');
+        throw new Error(
+          "Master Razorpay Partner credentials not configured on platform",
+        );
       }
 
       instance = new Razorpay({
         key_id: masterKeyId,
         key_secret: masterKeySecret,
         headers: {
-          'X-Razorpay-Account': tenant.razorpayAccountId,
+          "X-Razorpay-Account": tenant.razorpayAccountId,
         },
       });
     }
   } else {
     // DIRECT_KEYS mode (backward compatible)
     if (!tenant.razorpayKeyId || !tenant.razorpayKeySecret) {
-      throw new Error(`Razorpay credentials not configured for tenant ${tenantId}`);
+      throw new Error(
+        `Razorpay credentials not configured for tenant ${tenantId}`,
+      );
     }
 
     const decryptedSecret = decrypt(tenant.razorpayKeySecret);
@@ -114,13 +127,15 @@ export const createTenantRazorpayInstance = async (tenantId) => {
   if (instance.api?.rq?.interceptors?.response) {
     instance.api.rq.interceptors.response.use(
       (response) => {
-        const remaining = response.headers?.['x-rate-limit-remaining'];
+        const remaining = response.headers?.["x-rate-limit-remaining"];
         if (remaining !== undefined && Number(remaining) < 50) {
-          console.warn(`⚠️ [Razorpay Rate Limit Alert] Only ${remaining} calls remaining in platform master pool!`);
+          console.warn(
+            `⚠️ [Razorpay Rate Limit Alert] Only ${remaining} calls remaining in platform master pool!`,
+          );
         }
         return response;
       },
-      (error) => Promise.reject(error)
+      (error) => Promise.reject(error),
     );
   }
 
@@ -143,23 +158,23 @@ export const createOrderPaymentLink = async ({ order, tenant, contact }) => {
     const amountInPaise = Math.round(Number(order.totalAmount) * 100);
     const configuredMins = Number(tenant.paymentLinkExpiryMins) || 30;
     const safeExpiryMins = Math.max(16, configuredMins + 1);
-    const expireByUnix = Math.floor(Date.now() / 1000) + (safeExpiryMins * 60);
+    const expireByUnix = Math.floor(Date.now() / 1000) + safeExpiryMins * 60;
 
-    let phoneClean = (contact.phone || '').replace(/[^0-9]/g, '');
-    if (phoneClean.startsWith('91') && phoneClean.length === 12) {
+    let phoneClean = (contact.phone || "").replace(/[^0-9]/g, "");
+    if (phoneClean.startsWith("91") && phoneClean.length === 12) {
       phoneClean = phoneClean.slice(2);
     }
     if (!phoneClean || phoneClean.length !== 10) {
-      phoneClean = '9876543210';
+      phoneClean = "9876543210";
     }
 
     const paymentLinkPayload = {
       amount: amountInPaise,
-      currency: order.currency || tenant.defaultCurrency || 'INR',
+      currency: order.currency || tenant.defaultCurrency || "INR",
       accept_partial: false,
       description: `Payment for Order #${order.orderNumber}`,
       customer: {
-        name: contact.name || 'Valued Customer',
+        name: contact.name || "Valued Customer",
         contact: phoneClean,
       },
       notify: { sms: false, email: false }, // Delivered via WhatsApp
@@ -169,7 +184,7 @@ export const createOrderPaymentLink = async ({ order, tenant, contact }) => {
         orderId: order.id,
         orderNumber: order.orderNumber,
         tenantId: tenant.id,
-        conversationId: order.conversationId || '',
+        conversationId: order.conversationId || "",
       },
     };
 
@@ -179,42 +194,53 @@ export const createOrderPaymentLink = async ({ order, tenant, contact }) => {
     const updatedOrder = await prisma.order.update({
       where: { id: order.id },
       data: {
-        paymentMethod: 'RAZORPAY',
-        paymentStatus: 'UNPAID',
+        paymentMethod: "RAZORPAY",
+        paymentStatus: "UNPAID",
         paymentLinkUrl: paymentLink.short_url,
         paymentLinkExpiresAt: new Date(paymentLink.expire_by * 1000),
         razorpayPaymentLinkId: paymentLink.id,
         paymentAmount: order.totalAmount,
-        paymentCurrency: order.currency || 'INR',
-      }
+        paymentCurrency: order.currency || "INR",
+      },
     });
 
-    console.log(`💳 Created Razorpay Payment Link (${paymentLink.id}) for Order #${order.orderNumber}: ${paymentLink.short_url}`);
+    console.log(
+      `💳 Created Razorpay Payment Link (${paymentLink.id}) for Order #${order.orderNumber}: ${paymentLink.short_url}`,
+    );
     return { paymentLink, order: updatedOrder };
-
   } catch (error) {
-    const errorDetail = error.error?.description || error.description || error.message || JSON.stringify(error);
-    console.error(`❌ Payment link creation failed for Order #${order.orderNumber}:`, errorDetail, {
-      statusCode: error.statusCode,
-      errorResponse: error.error,
-    });
+    const errorDetail =
+      error.error?.description ||
+      error.description ||
+      error.message ||
+      JSON.stringify(error);
+    console.error(
+      `❌ Payment link creation failed for Order #${order.orderNumber}:`,
+      errorDetail,
+      {
+        statusCode: error.statusCode,
+        errorResponse: error.error,
+      },
+    );
 
     // Classification: 401 Unauthorized / Invalid Credentials / Revocation
     const isAuthError =
       error.statusCode === 401 ||
-      (typeof errorDetail === 'string' && errorDetail.toLowerCase().includes('authenticate')) ||
-      (typeof errorDetail === 'string' && errorDetail.toLowerCase().includes('unauthorized'));
+      (typeof errorDetail === "string" &&
+        errorDetail.toLowerCase().includes("authenticate")) ||
+      (typeof errorDetail === "string" &&
+        errorDetail.toLowerCase().includes("unauthorized"));
 
     if (isAuthError) {
       await invalidateTenantRazorpayCache(tenant.id);
-      if (tenant.razorpayAuthType === 'OAUTH') {
+      if (tenant.razorpayAuthType === "OAUTH") {
         // Revocation/invalid account detected: disconnect OAuth and reset account ID
         await prisma.tenant.update({
           where: { id: tenant.id },
           data: {
-            razorpayAuthType: 'DIRECT_KEYS',
+            razorpayAuthType: "DIRECT_KEYS",
             razorpayAccountId: null,
-            razorpayAccountStatus: 'DISCONNECTED',
+            razorpayAccountStatus: "DISCONNECTED",
             enableOnlinePayment: false,
           },
         });
@@ -223,25 +249,31 @@ export const createOrderPaymentLink = async ({ order, tenant, contact }) => {
       try {
         await createNotification({
           tenantId: tenant.id,
-          title: '⚠️ Razorpay Authorization Revoked / Invalid',
+          title: "⚠️ Razorpay Authorization Revoked / Invalid",
           message: `Failed to create payment link for Order #${order.orderNumber}. Razorpay access was revoked or invalid. Switched checkout to Cash on Delivery.`,
-          type: 'SYSTEM',
+          type: "SYSTEM",
         });
       } catch (notifErr) {
-        console.error('Failed to create tenant notification:', notifErr.message);
+        console.error(
+          "Failed to create tenant notification:",
+          notifErr.message,
+        );
       }
 
       // If COD is enabled, fallback automatically
       if (tenant.enableCod) {
-        console.warn(`⚠️ Falling back Order #${order.orderNumber} to COD due to Razorpay authentication error`);
+        console.warn(
+          `⚠️ Falling back Order #${order.orderNumber} to COD due to Razorpay authentication error`,
+        );
         const codOrder = await prisma.order.update({
           where: { id: order.id },
           data: {
-            paymentMethod: 'COD',
-            paymentStatus: 'UNPAID',
-            status: 'CONFIRMED',
-            adminNotes: 'Fell back to COD due to Razorpay authentication failure',
-          }
+            paymentMethod: "COD",
+            paymentStatus: "UNPAID",
+            status: "CONFIRMED",
+            adminNotes:
+              "Fell back to COD due to Razorpay authentication failure",
+          },
         });
         return { fallbackCod: true, order: codOrder };
       }
@@ -260,17 +292,21 @@ export const resendOrderPaymentLink = async ({ orderId, tenantId }) => {
     include: {
       tenant: true,
       contact: true,
-    }
+    },
   });
 
   if (!order) {
-    throw new Error('Order not found');
+    throw new Error("Order not found");
   }
 
-  const isExpired = order.paymentLinkExpiresAt && new Date() > new Date(order.paymentLinkExpiresAt);
+  const isExpired =
+    order.paymentLinkExpiresAt &&
+    new Date() > new Date(order.paymentLinkExpiresAt);
 
   if (isExpired || !order.paymentLinkUrl) {
-    console.log(`🔄 Payment link expired/missing for Order #${order.orderNumber}. Generating fresh link...`);
+    console.log(
+      `🔄 Payment link expired/missing for Order #${order.orderNumber}. Generating fresh link...`,
+    );
     return await createOrderPaymentLink({
       order,
       tenant: order.tenant,
@@ -282,10 +318,12 @@ export const resendOrderPaymentLink = async ({ orderId, tenantId }) => {
     paymentLink: {
       id: order.razorpayPaymentLinkId,
       short_url: order.paymentLinkUrl,
-      expire_by: Math.floor(new Date(order.paymentLinkExpiresAt).getTime() / 1000),
+      expire_by: Math.floor(
+        new Date(order.paymentLinkExpiresAt).getTime() / 1000,
+      ),
     },
     order,
-    isExisting: true
+    isExisting: true,
   };
 };
 
@@ -297,25 +335,30 @@ export const cancelOrderPaymentLink = async ({ orderId, tenantId }) => {
     where: { id: orderId, tenantId },
   });
 
-  if (!order) throw new Error('Order not found');
+  if (!order) throw new Error("Order not found");
 
   if (order.razorpayPaymentLinkId) {
     try {
       const rzp = await createTenantRazorpayInstance(tenantId);
       await rzp.paymentLink.cancel(order.razorpayPaymentLinkId);
-      console.log(`🚫 Cancelled Razorpay Payment Link ${order.razorpayPaymentLinkId} on Razorpay`);
+      console.log(
+        `🚫 Cancelled Razorpay Payment Link ${order.razorpayPaymentLinkId} on Razorpay`,
+      );
     } catch (err) {
-      console.warn(`Warning: Could not cancel link on Razorpay (${order.razorpayPaymentLinkId}):`, err.message);
+      console.warn(
+        `Warning: Could not cancel link on Razorpay (${order.razorpayPaymentLinkId}):`,
+        err.message,
+      );
     }
   }
 
   const updatedOrder = await prisma.order.update({
     where: { id: orderId },
     data: {
-      paymentStatus: 'CANCELLED',
-      status: 'CANCELLED',
-      adminNotes: 'Payment link cancelled by merchant/system',
-    }
+      paymentStatus: "CANCELLED",
+      status: "CANCELLED",
+      adminNotes: "Payment link cancelled by merchant/system",
+    },
   });
 
   return updatedOrder;
@@ -324,18 +367,22 @@ export const cancelOrderPaymentLink = async ({ orderId, tenantId }) => {
 /**
  * Initiate full or partial refund for a paid order
  */
-export const initiateRefund = async (orderId, tenantId, { amount = null, reason = '' } = {}) => {
+export const initiateRefund = async (
+  orderId,
+  tenantId,
+  { amount = null, reason = "" } = {},
+) => {
   const order = await prisma.order.findFirst({
-    where: { id: orderId, tenantId, paymentStatus: 'PAID' },
-    include: { contact: true, tenant: true }
+    where: { id: orderId, tenantId, paymentStatus: "PAID" },
+    include: { contact: true, tenant: true },
   });
 
   if (!order) {
-    throw new Error('No eligible paid order found to refund');
+    throw new Error("No eligible paid order found to refund");
   }
 
   if (!order.razorpayPaymentId) {
-    throw new Error('No Razorpay payment ID found on order');
+    throw new Error("No Razorpay payment ID found on order");
   }
 
   const rzp = await createTenantRazorpayInstance(tenantId);
@@ -344,7 +391,7 @@ export const initiateRefund = async (orderId, tenantId, { amount = null, reason 
     notes: {
       orderId: order.id,
       orderNumber: order.orderNumber,
-      reason: reason || 'Merchant requested refund',
+      reason: reason || "Merchant requested refund",
     },
     receipt: `ref_${order.orderNumber}_${Date.now().toString(36)}`,
   };
@@ -353,21 +400,29 @@ export const initiateRefund = async (orderId, tenantId, { amount = null, reason 
     refundOptions.amount = Math.round(Number(amount) * 100); // paise
   }
 
-  const refund = await rzp.payments.refund(order.razorpayPaymentId, refundOptions);
+  const refund = await rzp.payments.refund(
+    order.razorpayPaymentId,
+    refundOptions,
+  );
 
-  const isFullRefund = !amount || Math.round(Number(amount) * 100) === Math.round(Number(order.totalAmount) * 100);
+  const isFullRefund =
+    !amount ||
+    Math.round(Number(amount) * 100) ===
+      Math.round(Number(order.totalAmount) * 100);
 
   const updatedOrder = await prisma.order.update({
     where: { id: orderId },
     data: {
-      paymentStatus: isFullRefund ? 'REFUNDED' : 'PARTIALLY_REFUNDED',
-      status: isFullRefund ? 'CANCELLED' : order.status,
+      paymentStatus: isFullRefund ? "REFUNDED" : "PARTIALLY_REFUNDED",
+      status: isFullRefund ? "CANCELLED" : order.status,
       refundId: refund.id,
       refundedAt: new Date(),
-      adminNotes: `Refund initiated (${refund.id}): ${reason || 'Merchant initiated'}`,
-    }
+      adminNotes: `Refund initiated (${refund.id}): ${reason || "Merchant initiated"}`,
+    },
   });
 
-  console.log(`💰 Refund initiated (${refund.id}) for Order #${order.orderNumber}. Full refund: ${isFullRefund}`);
+  console.log(
+    `💰 Refund initiated (${refund.id}) for Order #${order.orderNumber}. Full refund: ${isFullRefund}`,
+  );
   return { refund, order: updatedOrder };
 };

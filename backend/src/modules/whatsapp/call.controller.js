@@ -1,19 +1,26 @@
 // backend/src/modules/whatsapp/call.controller.js (do not remove this comment)
-import prisma from '../../config/prisma.js';
-import axios from 'axios';
-import { GRAPH_BASE_URL } from '../../config/meta.js';
-import { redisConnection } from '../../config/redis.js';
-import { createWebRtcTransport, generateMetaSdp } from '../../lib/mediasoup/mediasoup.service.js';
-import { activeCalls, activeOutboundTransports } from './call.socket.js';
-import { emitToTenant } from '../../lib/socket.js';
-import { decrypt } from '../../lib/crypto.js';
-import FormData from 'form-data';
-import fs from 'fs';
+import prisma from "../../config/prisma.js";
+import axios from "axios";
+import { GRAPH_BASE_URL } from "../../config/meta.js";
+import { redisConnection } from "../../config/redis.js";
+import {
+  createWebRtcTransport,
+  generateMetaSdp,
+} from "../../lib/mediasoup/mediasoup.service.js";
+import { activeCalls, activeOutboundTransports } from "./call.socket.js";
+import { emitToTenant } from "../../lib/socket.js";
+import { decrypt } from "../../lib/crypto.js";
+import FormData from "form-data";
+import fs from "fs";
 
 // Helper to get access token
 const getTenantToken = async (tenantId) => {
-  const row = await prisma.tenant.findUnique({ where: { id: tenantId }, include: { whatsapp: true } });
-  if (!row || !row.whatsapp?.whatsappAccessToken) throw new Error('WhatsApp not configured');
+  const row = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    include: { whatsapp: true },
+  });
+  if (!row || !row.whatsapp?.whatsappAccessToken)
+    throw new Error("WhatsApp not configured");
   return decrypt(row.whatsapp.whatsappAccessToken);
 };
 
@@ -22,20 +29,26 @@ export const acceptCall = async (req, res) => {
   try {
     let { wacid, phoneId, sdpAnswer: clientSdpAnswer } = req.body;
     const tenantId = req.tenant?.id || req.user?.tenantId;
-    const tenantRow = await prisma.tenant.findUnique({ where: { id: tenantId }, include: { whatsapp: true } });
-    if (!tenantRow) throw new Error('Tenant not found');
+    const tenantRow = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      include: { whatsapp: true },
+    });
+    if (!tenantRow) throw new Error("Tenant not found");
     const tenant = { ...tenantRow, ...tenantRow?.whatsapp };
     phoneId = phoneId || tenant.whatsappPhoneId;
     const token = decrypt(tenant.whatsappAccessToken);
-    if (!token) throw new Error('WhatsApp access token not configured');
+    if (!token) throw new Error("WhatsApp access token not configured");
 
     // Fetch SDP Answer (Client direct answer first, Redis second, fallback to DB)
-    let sdpAnswer = clientSdpAnswer || await redisConnection.get(`sdp-answer:${wacid}`);
+    let sdpAnswer =
+      clientSdpAnswer || (await redisConnection.get(`sdp-answer:${wacid}`));
     if (!sdpAnswer) {
       const dbCall = await prisma.waCall.findUnique({ where: { wacid } });
       sdpAnswer = dbCall?.sdpAnswer;
       if (!sdpAnswer) {
-        console.warn(`[acceptCall] SDP answer not found in client payload, Redis, or DB for wacid: ${wacid}`);
+        console.warn(
+          `[acceptCall] SDP answer not found in client payload, Redis, or DB for wacid: ${wacid}`,
+        );
       }
     }
 
@@ -43,44 +56,50 @@ export const acceptCall = async (req, res) => {
       const response = await axios.post(
         `${GRAPH_BASE_URL}/${phoneId}/calls`,
         {
-          messaging_product: 'whatsapp',
+          messaging_product: "whatsapp",
           call_id: wacid,
-          action: 'accept',
+          action: "accept",
           ...(sdpAnswer && {
             session: {
-              sdp_type: 'answer',
-              sdp: sdpAnswer
-            }
+              sdp_type: "answer",
+              sdp: sdpAnswer,
+            },
           }),
           recording: {
             status: "ENABLED",
             purpose: "quality assurance",
-            announcement_language: "en_US"
+            announcement_language: "en_US",
           },
           transcription: {
             status: "ENABLED",
             purpose: "quality assurance",
-            announcement_language: "en_US"
-          }
+            announcement_language: "en_US",
+          },
         },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } },
       );
-      console.log('Meta acceptCall response:', JSON.stringify(response.data));
+      console.log("Meta acceptCall response:", JSON.stringify(response.data));
     } catch (metaErr) {
-      console.warn('Meta acceptCall warning:', metaErr.response?.data || metaErr.message);
+      console.warn(
+        "Meta acceptCall warning:",
+        metaErr.response?.data || metaErr.message,
+      );
     }
 
     await prisma.waCall.updateMany({
       where: { wacid },
-      data: { status: 'ACCEPTED' }
+      data: { status: "ACCEPTED" },
     });
 
-    emitToTenant(tenant.id, 'call_status_update', { wacid, status: 'ACCEPTED' });
+    emitToTenant(tenant.id, "call_status_update", {
+      wacid,
+      status: "ACCEPTED",
+    });
 
     res.json({ success: true });
   } catch (error) {
-    console.error('acceptCall error:', error.response?.data || error.message);
-    res.status(500).json({ error: error.message || 'Failed to accept call' });
+    console.error("acceptCall error:", error.response?.data || error.message);
+    res.status(500).json({ error: error.message || "Failed to accept call" });
   }
 };
 
@@ -89,56 +108,68 @@ export const rejectCall = async (req, res) => {
   try {
     let { phoneId, wacid } = req.body;
     const tenantId = req.tenant?.id || req.user?.tenantId;
-    const tenantRow = await prisma.tenant.findUnique({ where: { id: tenantId }, include: { whatsapp: true } });
-    if (!tenantRow) throw new Error('Tenant not found');
+    const tenantRow = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      include: { whatsapp: true },
+    });
+    if (!tenantRow) throw new Error("Tenant not found");
     const tenant = { ...tenantRow, ...tenantRow?.whatsapp };
 
     phoneId = phoneId || tenant.whatsappPhoneId;
     const token = decrypt(tenant.whatsappAccessToken);
 
-    if (wacid && wacid.startsWith('wacid.') && phoneId && token) {
+    if (wacid && wacid.startsWith("wacid.") && phoneId && token) {
       try {
         await axios.post(
           `${GRAPH_BASE_URL}/${phoneId}/calls`,
           {
-            messaging_product: 'whatsapp',
-            action: 'reject',
+            messaging_product: "whatsapp",
+            action: "reject",
             call_id: wacid,
             voicemail: {
-              status: "ENABLED"
-            }
+              status: "ENABLED",
+            },
           },
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: { Authorization: `Bearer ${token}` } },
         );
       } catch (metaErr) {
-        console.warn('Meta reject call warning:', metaErr.response?.data || metaErr.message);
+        console.warn(
+          "Meta reject call warning:",
+          metaErr.response?.data || metaErr.message,
+        );
       }
     }
 
     if (wacid) {
       await prisma.waCall.updateMany({
         where: { wacid },
-        data: { status: 'REJECTED' }
+        data: { status: "REJECTED" },
       });
       activeCalls.delete(wacid);
     }
 
-    emitToTenant(tenant.id, 'call_status_update', { wacid, status: 'REJECTED' });
+    emitToTenant(tenant.id, "call_status_update", {
+      wacid,
+      status: "REJECTED",
+    });
 
-    res.json({ success: true, message: 'Call rejected' });
+    res.json({ success: true, message: "Call rejected" });
   } catch (error) {
-    console.error('rejectCall error:', error);
-    res.status(500).json({ error: error.message || 'Failed to reject call' });
+    console.error("rejectCall error:", error);
+    res.status(500).json({ error: error.message || "Failed to reject call" });
   }
 };
 
 // POST /sradmin/whatsapp/calls/terminate
 export const terminateCall = async (req, res) => {
   try {
-    let { phoneId, wacid } = req.body; 
+    let { phoneId, wacid } = req.body;
     const tenantId = req.tenant?.id || req.user?.tenantId;
-    const tenantRow = await prisma.tenant.findUnique({ where: { id: tenantId }, include: { whatsapp: true } });
-    if (!tenantRow) throw new Error('Tenant not found');
+    const tenantRow = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      include: { whatsapp: true },
+    });
+    if (!tenantRow) throw new Error("Tenant not found");
     const tenant = { ...tenantRow, ...tenantRow?.whatsapp };
 
     phoneId = phoneId || tenant.whatsappPhoneId;
@@ -152,60 +183,78 @@ export const terminateCall = async (req, res) => {
 
     const token = decrypt(tenant.whatsappAccessToken);
 
-    if (wacid && wacid.startsWith('wacid.') && phoneId && token) {
+    if (wacid && wacid.startsWith("wacid.") && phoneId && token) {
       try {
         await axios.post(
           `${GRAPH_BASE_URL}/${phoneId}/calls`,
-          { 
-            messaging_product: 'whatsapp',
-            action: 'terminate',
-            call_id: wacid 
+          {
+            messaging_product: "whatsapp",
+            action: "terminate",
+            call_id: wacid,
           },
-          { headers: { Authorization: `Bearer ${token}` } }
+          { headers: { Authorization: `Bearer ${token}` } },
         );
       } catch (metaErr) {
-        console.warn('Meta terminate call warning (call may already be ended):', metaErr.response?.data || metaErr.message);
+        console.warn(
+          "Meta terminate call warning (call may already be ended):",
+          metaErr.response?.data || metaErr.message,
+        );
       }
     }
 
     if (wacid) {
       await prisma.waCall.updateMany({
         where: { wacid },
-        data: { status: 'COMPLETED' }
+        data: { status: "COMPLETED" },
       });
       activeCalls.delete(wacid);
     }
 
-    emitToTenant(tenant.id, 'call_status_update', { wacid, status: 'COMPLETED' });
+    emitToTenant(tenant.id, "call_status_update", {
+      wacid,
+      status: "COMPLETED",
+    });
 
-    res.json({ success: true, message: 'Call terminated' });
+    res.json({ success: true, message: "Call terminated" });
   } catch (error) {
-    console.error('terminateCall error:', error);
-    res.status(500).json({ error: error.message || 'Failed to terminate call' });
+    console.error("terminateCall error:", error);
+    res
+      .status(500)
+      .json({ error: error.message || "Failed to terminate call" });
   }
 };
 
 // POST /sradmin/whatsapp/calls/initiate
 export const initiateCall = async (req, res) => {
   try {
-    let { phoneId, contactId, sdpOffer: clientSdpOffer, conversationId: reqConvId } = req.body; 
+    let {
+      phoneId,
+      contactId,
+      sdpOffer: clientSdpOffer,
+      conversationId: reqConvId,
+    } = req.body;
     const tenantId = req.tenant?.id || req.user?.tenantId;
-    const tenantRow = await prisma.tenant.findUnique({ where: { id: tenantId }, include: { whatsapp: true } });
-    if (!tenantRow) throw new Error('Tenant not found');
+    const tenantRow = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      include: { whatsapp: true },
+    });
+    if (!tenantRow) throw new Error("Tenant not found");
     const tenant = { ...tenantRow, ...tenantRow?.whatsapp };
-    
+
     phoneId = phoneId || tenant.whatsappPhoneId;
-    if (!phoneId) throw new Error('WhatsApp Phone ID not configured');
-    
+    if (!phoneId) throw new Error("WhatsApp Phone ID not configured");
+
     const token = decrypt(tenant.whatsappAccessToken);
-    if (!token) throw new Error('WhatsApp Access Token not configured');
+    if (!token) throw new Error("WhatsApp Access Token not configured");
 
     // 1. Verify rate limits (simplistic check for 100/day can be done via DB)
-    
+
     // 2. Request Meta to connect
-    const contact = await prisma.contact.findUnique({ where: { id: contactId } });
-    if (!contact) throw new Error('Contact not found');
-    if (!contact.phone) throw new Error('Contact has no phone number');
+    const contact = await prisma.contact.findUnique({
+      where: { id: contactId },
+    });
+    if (!contact) throw new Error("Contact not found");
+    if (!contact.phone) throw new Error("Contact has no phone number");
 
     // Resolve conversationId if not explicitly provided
     let resolvedConversationId = reqConvId || null;
@@ -213,58 +262,66 @@ export const initiateCall = async (req, res) => {
       const conv = await prisma.conversation.findFirst({
         where: { contactId, tenantId: tenant.id },
         select: { id: true },
-        orderBy: { updatedAt: 'desc' }
+        orderBy: { updatedAt: "desc" },
       });
       if (conv) resolvedConversationId = conv.id;
     }
-    
+
     // Clean phone number (remove +, spaces, etc.)
-    const toNumber = contact.phone.replace(/\D/g, '');
+    const toNumber = contact.phone.replace(/\D/g, "");
 
     // 3. Obtain SDP Offer for Meta (Direct Browser WebRTC first, fallback to Mediasoup)
     let sdpOffer = clientSdpOffer || null;
     let outboundTransport = null;
     if (clientSdpOffer) {
-      console.log(`🌐 [WebRTC] Using client direct browser SDP offer for outbound call to: ${toNumber}`);
+      console.log(
+        `🌐 [WebRTC] Using client direct browser SDP offer for outbound call to: ${toNumber}`,
+      );
     } else {
-      console.log(`🌐 [WebRTC] No client SDP offer provided, falling back to Mediasoup for: ${toNumber}`);
+      console.log(
+        `🌐 [WebRTC] No client SDP offer provided, falling back to Mediasoup for: ${toNumber}`,
+      );
       try {
-        const { transport, params: metaTransportParams } = await createWebRtcTransport();
+        const { transport, params: metaTransportParams } =
+          await createWebRtcTransport();
         outboundTransport = transport;
-        sdpOffer = generateMetaSdp(metaTransportParams, 'offer');
+        sdpOffer = generateMetaSdp(metaTransportParams, "offer");
         activeOutboundTransports.set(toNumber, transport);
       } catch (mediaErr) {
-        console.warn('Mediasoup createWebRtcTransport warning:', mediaErr.message);
+        console.warn(
+          "Mediasoup createWebRtcTransport warning:",
+          mediaErr.message,
+        );
       }
     }
 
     const requestBody = {
-      messaging_product: 'whatsapp',
+      messaging_product: "whatsapp",
       to: toNumber,
-      action: 'connect',
+      action: "connect",
       ...(sdpOffer && {
         session: {
-          sdp_type: 'offer',
-          sdp: sdpOffer
-        }
+          sdp_type: "offer",
+          sdp: sdpOffer,
+        },
       }),
       recording: {
-         status: "ENABLED",
-         purpose: "quality assurance",
-         announcement_language: "en_US"
+        status: "ENABLED",
+        purpose: "quality assurance",
+        announcement_language: "en_US",
       },
       transcription: {
-         status: "ENABLED",
-         purpose: "quality assurance",
-         announcement_language: "en_US"
+        status: "ENABLED",
+        purpose: "quality assurance",
+        announcement_language: "en_US",
       },
-      biz_opaque_callback_data: `agent_${req.user?.id || 'tenant'}`
+      biz_opaque_callback_data: `agent_${req.user?.id || "tenant"}`,
     };
 
     const response = await axios.post(
       `${GRAPH_BASE_URL}/${phoneId}/calls`,
       requestBody,
-      { headers: { Authorization: `Bearer ${token}` } }
+      { headers: { Authorization: `Bearer ${token}` } },
     );
 
     const callId = response.data?.calls?.[0]?.id || response.data?.id;
@@ -275,7 +332,7 @@ export const initiateCall = async (req, res) => {
       const existing = activeCalls.get(callId) || {};
       activeCalls.set(callId, {
         ...existing,
-        metaTransport: outboundTransport
+        metaTransport: outboundTransport,
       });
     }
 
@@ -286,19 +343,21 @@ export const initiateCall = async (req, res) => {
         create: {
           wacid: callId,
           businessPhoneId: phoneId,
-          direction: 'BUSINESS_INITIATED',
+          direction: "BUSINESS_INITIATED",
           toNumber,
           fromNumber: tenant.whatsappPhoneId,
-          status: 'DIALING',
+          status: "DIALING",
           bizOpaqueData: requestBody.biz_opaque_callback_data,
           assignedAgentId: req.user?.id || null,
           conversationId: resolvedConversationId,
         },
         update: {
-          status: 'DIALING',
+          status: "DIALING",
           businessPhoneId: phoneId,
-          ...(resolvedConversationId && { conversationId: resolvedConversationId }),
-        }
+          ...(resolvedConversationId && {
+            conversationId: resolvedConversationId,
+          }),
+        },
       });
     }
 
@@ -306,12 +365,20 @@ export const initiateCall = async (req, res) => {
   } catch (error) {
     if (error.response?.data?.error?.code === 138006) {
       return res.status(403).json({
-        error: 'NO_CALL_PERMISSION',
-        message: 'User has not granted call permission. Send a permission request first.'
+        error: "NO_CALL_PERMISSION",
+        message:
+          "User has not granted call permission. Send a permission request first.",
       });
     }
-    console.error('initiateCall error:', error.response?.data || error.message);
-    res.status(500).json({ error: error.response?.data?.error?.message || error.message || 'Failed to initiate call' });
+    console.error("initiateCall error:", error.response?.data || error.message);
+    res
+      .status(500)
+      .json({
+        error:
+          error.response?.data?.error?.message ||
+          error.message ||
+          "Failed to initiate call",
+      });
   }
 };
 
@@ -324,11 +391,11 @@ export const getCallPermissions = async (req, res) => {
 
     const response = await axios.get(
       `${GRAPH_BASE_URL}/${phoneId}/call_permissions?user_wa_id=${contactId}`,
-      { headers: { Authorization: `Bearer ${token}` } }
+      { headers: { Authorization: `Bearer ${token}` } },
     );
     res.json({ success: true, data: response.data });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to get permissions' });
+    res.status(500).json({ error: "Failed to get permissions" });
   }
 };
 
@@ -337,42 +404,57 @@ export const requestCallPermission = async (req, res) => {
   try {
     let { phoneId, contactId } = req.body;
     const tenantId = req.tenant?.id || req.user?.tenantId;
-    
-  if (!phoneId) {
-      const waRow = await prisma.tenantWhatsApp.findUnique({ where: { tenantId } });
+
+    if (!phoneId) {
+      const waRow = await prisma.tenantWhatsApp.findUnique({
+        where: { tenantId },
+      });
       phoneId = waRow?.whatsappPhoneId;
     }
 
-    const contact = await prisma.contact.findUnique({ where: { id: contactId } });
-    if (!contact || !contact.phone) throw new Error('Contact not found or has no phone number');
-    
-    const toNumber = contact.phone.replace(/\D/g, '');
+    const contact = await prisma.contact.findUnique({
+      where: { id: contactId },
+    });
+    if (!contact || !contact.phone)
+      throw new Error("Contact not found or has no phone number");
+
+    const toNumber = contact.phone.replace(/\D/g, "");
 
     const token = await getTenantToken(req.tenant?.id || req.user?.tenantId);
 
     const response = await axios.post(
       `${GRAPH_BASE_URL}/${phoneId}/messages`,
       {
-        messaging_product: 'whatsapp',
-        recipient_type: 'individual',
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
         to: toNumber,
-        type: 'interactive',
+        type: "interactive",
         interactive: {
-          type: 'call_permission_request',
+          type: "call_permission_request",
           body: {
-            text: "Please grant us permission to call you via WhatsApp."
+            text: "Please grant us permission to call you via WhatsApp.",
           },
           action: {
-            name: "call_permission_request"
-          }
-        }
+            name: "call_permission_request",
+          },
+        },
       },
-      { headers: { Authorization: `Bearer ${token}` } }
+      { headers: { Authorization: `Bearer ${token}` } },
     );
     res.json({ success: true, data: response.data });
   } catch (error) {
-    console.error('Call Permission Request Error:', error.response?.data || error.message);
-    res.status(500).json({ error: error.response?.data || error.message || 'Failed to request permission' });
+    console.error(
+      "Call Permission Request Error:",
+      error.response?.data || error.message,
+    );
+    res
+      .status(500)
+      .json({
+        error:
+          error.response?.data ||
+          error.message ||
+          "Failed to request permission",
+      });
   }
 };
 
@@ -382,27 +464,36 @@ export const getCallSettings = async (req, res) => {
     const { phoneId } = req.params;
     const token = await getTenantToken(req.tenant?.id || req.user?.tenantId);
 
-    let callingSettings = { status: 'ENABLED', call_icon_visibility: 'DEFAULT' };
+    let callingSettings = {
+      status: "ENABLED",
+      call_icon_visibility: "DEFAULT",
+    };
     try {
       const response = await axios.get(
         `${GRAPH_BASE_URL}/${phoneId}/settings`,
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } },
       );
       if (response.data?.calling) callingSettings = response.data.calling;
     } catch (metaErr) {
-      console.warn('Meta GET settings warning:', metaErr.response?.data || metaErr.message);
+      console.warn(
+        "Meta GET settings warning:",
+        metaErr.response?.data || metaErr.message,
+      );
     }
-    
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       data: {
-        status: callingSettings.status || 'ENABLED',
-        callIconVisibility: callingSettings.call_icon_visibility || 'DEFAULT'
-      }
+        status: callingSettings.status || "ENABLED",
+        callIconVisibility: callingSettings.call_icon_visibility || "DEFAULT",
+      },
     });
   } catch (error) {
-    console.error('getCallSettings error:', error.response?.data || error.message);
-    res.status(500).json({ error: 'Failed to get call settings' });
+    console.error(
+      "getCallSettings error:",
+      error.response?.data || error.message,
+    );
+    res.status(500).json({ error: "Failed to get call settings" });
   }
 };
 
@@ -416,19 +507,22 @@ export const updateCallSettings = async (req, res) => {
     const payload = {
       calling: {
         status: updateData.status || "ENABLED",
-        call_icon_visibility: updateData.callIconVisibility || "DEFAULT"
-      }
+        call_icon_visibility: updateData.callIconVisibility || "DEFAULT",
+      },
     };
-    
+
     const response = await axios.post(
       `${GRAPH_BASE_URL}/${phoneId}/settings`,
       payload,
-      { headers: { Authorization: `Bearer ${token}` } }
+      { headers: { Authorization: `Bearer ${token}` } },
     );
     res.json({ success: true, data: response.data });
   } catch (error) {
-    console.error('updateCallSettings error:', error.response?.data || error.message);
-    res.status(500).json({ error: 'Failed to update call settings' });
+    console.error(
+      "updateCallSettings error:",
+      error.response?.data || error.message,
+    );
+    res.status(500).json({ error: "Failed to update call settings" });
   }
 };
 
@@ -437,19 +531,23 @@ export const uploadVoicemailGreeting = async (req, res) => {
   try {
     const { phoneId } = req.params;
     const file = req.file;
-    if (!file) return res.status(400).json({ error: 'No file provided' });
+    if (!file) return res.status(400).json({ error: "No file provided" });
 
     const token = await getTenantToken(req.tenant?.id || req.user?.tenantId);
 
     const formData = new FormData();
-    formData.append('messaging_product', 'whatsapp');
-    formData.append('file', fs.createReadStream(file.path), { contentType: 'audio/ogg' });
-    formData.append('use_case', 'call_voicemail_announcement');
+    formData.append("messaging_product", "whatsapp");
+    formData.append("file", fs.createReadStream(file.path), {
+      contentType: "audio/ogg",
+    });
+    formData.append("use_case", "call_voicemail_announcement");
 
     const response = await axios.post(
       `${GRAPH_BASE_URL}/${phoneId}/media`,
       formData,
-      { headers: { ...formData.getHeaders(), Authorization: `Bearer ${token}` } }
+      {
+        headers: { ...formData.getHeaders(), Authorization: `Bearer ${token}` },
+      },
     );
 
     const mediaId = response.data?.id;
@@ -461,17 +559,15 @@ export const uploadVoicemailGreeting = async (req, res) => {
             triggers: ["REJECT", "TIMEOUT"],
             audio: {
               default: {
-                announcement_media_id: mediaId
-              }
-            }
-          }
-        }
+                announcement_media_id: mediaId,
+              },
+            },
+          },
+        },
       };
-      await axios.post(
-        `${GRAPH_BASE_URL}/${phoneId}/settings`,
-        payload,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await axios.post(`${GRAPH_BASE_URL}/${phoneId}/settings`, payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
     }
 
     // cleanup temp file
@@ -479,9 +575,12 @@ export const uploadVoicemailGreeting = async (req, res) => {
 
     res.json({ success: true, data: response.data });
   } catch (error) {
-    console.error('uploadVoicemailGreeting error:', error.response?.data || error.message);
+    console.error(
+      "uploadVoicemailGreeting error:",
+      error.response?.data || error.message,
+    );
     if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
-    res.status(500).json({ error: 'Failed to upload voicemail greeting' });
+    res.status(500).json({ error: "Failed to upload voicemail greeting" });
   }
 };
 
@@ -489,19 +588,22 @@ export const uploadVoicemailGreeting = async (req, res) => {
 export const getCallHistory = async (req, res) => {
   try {
     const tenantId = req.tenant?.id || req.user?.tenantId;
-    const tenantRow = await prisma.tenant.findUnique({ where: { id: tenantId }, include: { whatsapp: true } });
-    if (!tenantRow) throw new Error('Tenant not found');
+    const tenantRow = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      include: { whatsapp: true },
+    });
+    if (!tenantRow) throw new Error("Tenant not found");
     const tenant = { ...tenantRow, ...tenantRow?.whatsapp };
 
     const phoneId = tenant.whatsappPhoneId;
-    const { 
-      page = 1, 
-      limit = 20, 
-      search = '', 
-      direction, 
-      status, 
-      dateFrom, 
-      dateTo 
+    const {
+      page = 1,
+      limit = 20,
+      search = "",
+      direction,
+      status,
+      dateFrom,
+      dateTo,
     } = req.query;
 
     const pageNum = Math.max(1, parseInt(page, 10));
@@ -513,20 +615,23 @@ export const getCallHistory = async (req, res) => {
       where.businessPhoneId = phoneId;
     }
 
-    if (direction && ['BUSINESS_INITIATED', 'USER_INITIATED'].includes(direction)) {
+    if (
+      direction &&
+      ["BUSINESS_INITIATED", "USER_INITIATED"].includes(direction)
+    ) {
       where.direction = direction;
     }
 
-    if (status && status !== 'ALL') {
+    if (status && status !== "ALL") {
       where.status = status;
     }
 
     if (search && search.trim()) {
       const q = search.trim();
       where.OR = [
-        { fromNumber: { contains: q, mode: 'insensitive' } },
-        { toNumber: { contains: q, mode: 'insensitive' } },
-        { wacid: { contains: q, mode: 'insensitive' } }
+        { fromNumber: { contains: q, mode: "insensitive" } },
+        { toNumber: { contains: q, mode: "insensitive" } },
+        { wacid: { contains: q, mode: "insensitive" } },
       ];
     }
 
@@ -541,44 +646,45 @@ export const getCallHistory = async (req, res) => {
         where,
         include: {
           recordings: true,
-          transcripts: true
+          transcripts: true,
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         skip,
-        take
+        take,
       }),
-      prisma.waCall.count({ where })
+      prisma.waCall.count({ where }),
     ]);
 
     // KPI aggregates for this tenant's phone
     const baseWhere = phoneId ? { businessPhoneId: phoneId } : {};
-    const [totalCallsCount, answeredCount, missedCount, durationAgg] = await Promise.all([
-      prisma.waCall.count({ where: baseWhere }),
-      prisma.waCall.count({ 
-        where: { 
-          ...baseWhere, 
-          status: { in: ['ACCEPTED', 'COMPLETED'] } 
-        } 
-      }),
-      prisma.waCall.count({ 
-        where: { 
-          ...baseWhere, 
-          status: { in: ['FAILED', 'REJECTED'] } 
-        } 
-      }),
-      prisma.waCall.aggregate({
-        where: baseWhere,
-        _sum: { duration: true }
-      })
-    ]);
+    const [totalCallsCount, answeredCount, missedCount, durationAgg] =
+      await Promise.all([
+        prisma.waCall.count({ where: baseWhere }),
+        prisma.waCall.count({
+          where: {
+            ...baseWhere,
+            status: { in: ["ACCEPTED", "COMPLETED"] },
+          },
+        }),
+        prisma.waCall.count({
+          where: {
+            ...baseWhere,
+            status: { in: ["FAILED", "REJECTED"] },
+          },
+        }),
+        prisma.waCall.aggregate({
+          where: baseWhere,
+          _sum: { duration: true },
+        }),
+      ]);
 
     const totalDurationSeconds = durationAgg._sum?.duration || 0;
 
     // Serialize BigInt safely
-    const serializedCalls = calls.map(c => ({
+    const serializedCalls = calls.map((c) => ({
       ...c,
       startTime: c.startTime ? Number(c.startTime) : null,
-      endTime: c.endTime ? Number(c.endTime) : null
+      endTime: c.endTime ? Number(c.endTime) : null,
     }));
 
     res.json({
@@ -589,19 +695,21 @@ export const getCallHistory = async (req, res) => {
           total,
           page: pageNum,
           limit: take,
-          totalPages: Math.ceil(total / take)
+          totalPages: Math.ceil(total / take),
         },
         kpis: {
           totalCalls: totalCallsCount,
           answered: answeredCount,
           missed: missedCount,
-          totalDurationSeconds
-        }
-      }
+          totalDurationSeconds,
+        },
+      },
     });
   } catch (error) {
-    console.error('getCallHistory error:', error);
-    res.status(500).json({ error: error.message || 'Failed to fetch call history' });
+    console.error("getCallHistory error:", error);
+    res
+      .status(500)
+      .json({ error: error.message || "Failed to fetch call history" });
   }
 };
 
@@ -609,33 +717,43 @@ export const getCallHistory = async (req, res) => {
 export const getConversationCalls = async (req, res) => {
   try {
     const { conversationId } = req.params;
-    const tenantId = req.user?.tenantId || (req.user?.type === 'TENANT' ? req.user.id : null);
+    const tenantId =
+      req.user?.tenantId || (req.user?.type === "TENANT" ? req.user.id : null);
 
     const conversation = await prisma.conversation.findFirst({
       where: {
         id: conversationId,
-        ...(tenantId ? { tenantId } : {})
+        ...(tenantId ? { tenantId } : {}),
       },
       include: {
-        contact: true
-      }
+        contact: true,
+      },
     });
 
     if (!conversation) {
-      return res.status(404).json({ success: false, message: 'Conversation not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Conversation not found" });
     }
 
-    const phone = conversation.contact?.phone || '';
-    const cleanPhone = phone ? phone.replace(/\D/g, '') : '';
-    const phoneSuffix = cleanPhone.length >= 10 ? cleanPhone.slice(-10) : cleanPhone;
+    const phone = conversation.contact?.phone || "";
+    const cleanPhone = phone ? phone.replace(/\D/g, "") : "";
+    const phoneSuffix =
+      cleanPhone.length >= 10 ? cleanPhone.slice(-10) : cleanPhone;
 
     const phoneConditions = [];
     if (phone) {
       phoneConditions.push({ fromNumber: phone }, { toNumber: phone });
     }
     if (cleanPhone) {
-      phoneConditions.push({ fromNumber: cleanPhone }, { toNumber: cleanPhone });
-      phoneConditions.push({ fromNumber: `+${cleanPhone}` }, { toNumber: `+${cleanPhone}` });
+      phoneConditions.push(
+        { fromNumber: cleanPhone },
+        { toNumber: cleanPhone },
+      );
+      phoneConditions.push(
+        { fromNumber: `+${cleanPhone}` },
+        { toNumber: `+${cleanPhone}` },
+      );
     }
     if (phoneSuffix) {
       phoneConditions.push({ fromNumber: { endsWith: phoneSuffix } });
@@ -644,21 +762,18 @@ export const getConversationCalls = async (req, res) => {
 
     const calls = await prisma.waCall.findMany({
       where: {
-        OR: [
-          { conversationId: conversation.id },
-          ...phoneConditions
-        ]
+        OR: [{ conversationId: conversation.id }, ...phoneConditions],
       },
       include: {
         recordings: true,
-        transcripts: true
+        transcripts: true,
       },
       orderBy: {
-        createdAt: 'asc' // chronological for timeline
-      }
+        createdAt: "asc", // chronological for timeline
+      },
     });
 
-    const serializedCalls = calls.map(c => ({
+    const serializedCalls = calls.map((c) => ({
       ...c,
       startTime: c.startTime ? Number(c.startTime) : null,
       endTime: c.endTime ? Number(c.endTime) : null,
@@ -666,8 +781,13 @@ export const getConversationCalls = async (req, res) => {
 
     res.json({ success: true, data: serializedCalls });
   } catch (error) {
-    console.error('getConversationCalls error:', error);
-    res.status(500).json({ success: false, message: error.message || 'Failed to fetch calls for conversation' });
+    console.error("getConversationCalls error:", error);
+    res
+      .status(500)
+      .json({
+        success: false,
+        message: error.message || "Failed to fetch calls for conversation",
+      });
   }
 };
 
@@ -675,28 +795,32 @@ export const getConversationCalls = async (req, res) => {
 export const getContactCalls = async (req, res) => {
   try {
     const { contactId } = req.params;
-    const tenantId = req.user?.tenantId || (req.user?.type === 'TENANT' ? req.user.id : null);
+    const tenantId =
+      req.user?.tenantId || (req.user?.type === "TENANT" ? req.user.id : null);
 
     const contact = await prisma.contact.findFirst({
       where: {
         id: contactId,
-        ...(tenantId ? { tenantId } : {})
+        ...(tenantId ? { tenantId } : {}),
       },
       include: {
         conversations: {
-          select: { id: true }
-        }
-      }
+          select: { id: true },
+        },
+      },
     });
 
     if (!contact) {
-      return res.status(404).json({ success: false, message: 'Contact not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Contact not found" });
     }
 
-    const convIds = (contact.conversations || []).map(c => c.id);
-    const phone = contact.phone || '';
-    const cleanPhone = phone ? phone.replace(/\D/g, '') : '';
-    const phoneSuffix = cleanPhone.length >= 10 ? cleanPhone.slice(-10) : cleanPhone;
+    const convIds = (contact.conversations || []).map((c) => c.id);
+    const phone = contact.phone || "";
+    const cleanPhone = phone ? phone.replace(/\D/g, "") : "";
+    const phoneSuffix =
+      cleanPhone.length >= 10 ? cleanPhone.slice(-10) : cleanPhone;
 
     const orConditions = [];
     if (convIds.length > 0) {
@@ -707,7 +831,10 @@ export const getContactCalls = async (req, res) => {
     }
     if (cleanPhone) {
       orConditions.push({ fromNumber: cleanPhone }, { toNumber: cleanPhone });
-      orConditions.push({ fromNumber: `+${cleanPhone}` }, { toNumber: `+${cleanPhone}` });
+      orConditions.push(
+        { fromNumber: `+${cleanPhone}` },
+        { toNumber: `+${cleanPhone}` },
+      );
     }
     if (phoneSuffix) {
       orConditions.push({ fromNumber: { endsWith: phoneSuffix } });
@@ -716,18 +843,18 @@ export const getContactCalls = async (req, res) => {
 
     const calls = await prisma.waCall.findMany({
       where: {
-        OR: orConditions.length > 0 ? orConditions : [{ id: 'none' }]
+        OR: orConditions.length > 0 ? orConditions : [{ id: "none" }],
       },
       include: {
         recordings: true,
-        transcripts: true
+        transcripts: true,
       },
       orderBy: {
-        createdAt: 'desc' // newest first for sidebar
-      }
+        createdAt: "desc", // newest first for sidebar
+      },
     });
 
-    const serializedCalls = calls.map(c => ({
+    const serializedCalls = calls.map((c) => ({
       ...c,
       startTime: c.startTime ? Number(c.startTime) : null,
       endTime: c.endTime ? Number(c.endTime) : null,
@@ -735,8 +862,13 @@ export const getContactCalls = async (req, res) => {
 
     res.json({ success: true, data: serializedCalls });
   } catch (error) {
-    console.error('getContactCalls error:', error);
-    res.status(500).json({ success: false, message: error.message || 'Failed to fetch contact calls' });
+    console.error("getContactCalls error:", error);
+    res
+      .status(500)
+      .json({
+        success: false,
+        message: error.message || "Failed to fetch contact calls",
+      });
   }
 };
 
@@ -744,39 +876,49 @@ export const getContactCalls = async (req, res) => {
 export const checkCallPermission = async (req, res) => {
   try {
     const tenantId = req.tenant?.id || req.user?.tenantId;
-    const tenantRow = await prisma.tenant.findUnique({ where: { id: tenantId }, include: { whatsapp: true } });
-    if (!tenantRow) throw new Error('Tenant not found');
+    const tenantRow = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      include: { whatsapp: true },
+    });
+    if (!tenantRow) throw new Error("Tenant not found");
     const tenant = { ...tenantRow, ...tenantRow?.whatsapp };
 
     const contactId = req.params.contactId;
-    const contact = await prisma.contact.findUnique({ where: { id: contactId } });
+    const contact = await prisma.contact.findUnique({
+      where: { id: contactId },
+    });
     if (!contact || !contact.phone) {
       return res.json({ hasPermission: false });
     }
 
     const rawPhone = contact.phone;
-    const cleanPhone = contact.phone.replace(/\D/g, '');
-    const phoneCandidates = Array.from(new Set([rawPhone, cleanPhone, `+${cleanPhone}`]));
+    const cleanPhone = contact.phone.replace(/\D/g, "");
+    const phoneCandidates = Array.from(
+      new Set([rawPhone, cleanPhone, `+${cleanPhone}`]),
+    );
 
     const permission = await prisma.waCallPermission.findFirst({
       where: {
         businessPhoneId: tenant.whatsappPhoneId,
         userWaId: { in: phoneCandidates },
-        permissionStatus: { in: ['permanent', 'temporary'] }
+        permissionStatus: { in: ["permanent", "temporary"] },
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: "desc" },
     });
 
     if (permission) {
-      if (permission.expirationTimestamp && Number(permission.expirationTimestamp) < Date.now() / 1000) {
+      if (
+        permission.expirationTimestamp &&
+        Number(permission.expirationTimestamp) < Date.now() / 1000
+      ) {
         return res.json({ hasPermission: false });
       }
       return res.json({ hasPermission: true });
     }
-    
+
     return res.json({ hasPermission: false });
   } catch (error) {
-    console.error('checkCallPermission error:', error.message);
-    res.status(500).json({ error: 'Failed to check call permission' });
+    console.error("checkCallPermission error:", error.message);
+    res.status(500).json({ error: "Failed to check call permission" });
   }
 };

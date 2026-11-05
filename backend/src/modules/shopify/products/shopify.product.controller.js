@@ -3,7 +3,7 @@ import {
   syncAllProducts,
   getProducts,
   getProductDetail,
-} from './shopify.productSync.service.js';
+} from "./shopify.productSync.service.js";
 
 /**
  * POST /tenant/shopify/products/sync
@@ -13,7 +13,7 @@ export const triggerProductSync = async (req, res) => {
   try {
     const tenantId = req.tenantId || req.tenant?.id || req.user?.tenantId;
     if (!tenantId) {
-      return res.status(401).json({ success: false, message: 'Unauthorized' });
+      return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
     const result = await syncAllProducts(tenantId);
@@ -24,10 +24,10 @@ export const triggerProductSync = async (req, res) => {
       data: result,
     });
   } catch (err) {
-    console.error('💥 [Product Sync Controller]', err.message);
+    console.error("💥 [Product Sync Controller]", err.message);
     return res.status(500).json({
       success: false,
-      message: err.message || 'Product sync failed',
+      message: err.message || "Product sync failed",
     });
   }
 };
@@ -40,7 +40,7 @@ export const listProducts = async (req, res) => {
   try {
     const tenantId = req.tenantId || req.tenant?.id || req.user?.tenantId;
     if (!tenantId) {
-      return res.status(401).json({ success: false, message: 'Unauthorized' });
+      return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
     const { page = 1, limit = 20, status, search } = req.query;
@@ -57,10 +57,10 @@ export const listProducts = async (req, res) => {
       data: result,
     });
   } catch (err) {
-    console.error('💥 [Product List Controller]', err.message);
+    console.error("💥 [Product List Controller]", err.message);
     return res.status(500).json({
       success: false,
-      message: 'Failed to fetch products',
+      message: "Failed to fetch products",
     });
   }
 };
@@ -73,7 +73,7 @@ export const getProduct = async (req, res) => {
   try {
     const tenantId = req.tenantId || req.tenant?.id || req.user?.tenantId;
     if (!tenantId) {
-      return res.status(401).json({ success: false, message: 'Unauthorized' });
+      return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
     const { shopifyProductId } = req.params;
@@ -82,7 +82,7 @@ export const getProduct = async (req, res) => {
     if (!product) {
       return res.status(404).json({
         success: false,
-        message: 'Product not found',
+        message: "Product not found",
       });
     }
 
@@ -91,10 +91,10 @@ export const getProduct = async (req, res) => {
       data: product,
     });
   } catch (err) {
-    console.error('💥 [Product Detail Controller]', err.message);
+    console.error("💥 [Product Detail Controller]", err.message);
     return res.status(500).json({
       success: false,
-      message: 'Failed to fetch product',
+      message: "Failed to fetch product",
     });
   }
 };

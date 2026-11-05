@@ -1,5 +1,5 @@
 // backend/src/modules/broadcasts/broadcast.wooSegment.service.js (do not remove this comment)
-import prisma from '../../config/prisma.js';
+import prisma from "../../config/prisma.js";
 
 /**
  * Resolves WooCommerce orders to SudoReply Contacts based on targeting rules.
@@ -15,15 +15,15 @@ export async function resolveWooCommerceSegment(tenantId, filters = {}) {
 
   // Paid/completed-style order statuses
   const countedStatuses = [
-    'processing',
-    'completed',
-    'shipped',
-    'wc-processing',
-    'wc-completed',
-    'delivered',
+    "processing",
+    "completed",
+    "shipped",
+    "wc-processing",
+    "wc-completed",
+    "delivered",
   ];
 
-    // 1. Fetch all orders for this tenant
+  // 1. Fetch all orders for this tenant
   const orders = await prisma.ecommerceOrder.findMany({
     where: {
       tenantId,
@@ -40,7 +40,7 @@ export async function resolveWooCommerceSegment(tenantId, filters = {}) {
   // 2. Aggregate metrics per cleaned phone number
   const byPhone = new Map();
   for (const o of orders) {
-    const phone = String(o.customerPhone).replace(/\D/g, '');
+    const phone = String(o.customerPhone).replace(/\D/g, "");
     if (!phone) continue;
 
     const amount = parseFloat(o.total) || 0;
@@ -66,15 +66,19 @@ export async function resolveWooCommerceSegment(tenantId, filters = {}) {
 
   // 3. Apply Segmentation Filters
   if (segmentMinSpend != null && !isNaN(Number(segmentMinSpend))) {
-    customers = customers.filter((c) => c.totalSpend >= Number(segmentMinSpend));
+    customers = customers.filter(
+      (c) => c.totalSpend >= Number(segmentMinSpend),
+    );
   }
   if (segmentMinOrders != null && !isNaN(Number(segmentMinOrders))) {
-    customers = customers.filter((c) => c.orderCount >= Number(segmentMinOrders));
+    customers = customers.filter(
+      (c) => c.orderCount >= Number(segmentMinOrders),
+    );
   }
   if (segmentInactiveDays != null && !isNaN(Number(segmentInactiveDays))) {
     const cutoff = now - Number(segmentInactiveDays) * 24 * 60 * 60 * 1000;
     customers = customers.filter(
-      (c) => c.lastOrderAt && c.lastOrderAt.getTime() <= cutoff
+      (c) => c.lastOrderAt && c.lastOrderAt.getTime() <= cutoff,
     );
   }
 
@@ -102,18 +106,23 @@ export async function resolveWooCommerceSegment(tenantId, filters = {}) {
           data: {
             tenantId,
             phone: cust.phone,
-            name: cust.name || 'WooCommerce Customer',
+            name: cust.name || "WooCommerce Customer",
             isActive: true,
           },
         });
         finalContacts.push(created);
       } catch (err) {
-        console.warn(`📢 [Woo Segment] Contact creation failed for ${cust.phone}:`, err.message);
+        console.warn(
+          `📢 [Woo Segment] Contact creation failed for ${cust.phone}:`,
+          err.message,
+        );
       }
     }
   }
 
-  console.log(`📢 [Woo Segment] Resolved ${finalContacts.length} contacts for tenant=${tenantId}`);
+  console.log(
+    `📢 [Woo Segment] Resolved ${finalContacts.length} contacts for tenant=${tenantId}`,
+  );
 
   return {
     contacts: finalContacts,

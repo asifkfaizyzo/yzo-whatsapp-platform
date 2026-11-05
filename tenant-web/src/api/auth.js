@@ -1,6 +1,6 @@
 // tenant-web/src/api/auth.js (do not remove this comment)
 import api, { userApi } from "./axios";
-import { useAuthStore } from '../store/useAuthStore';
+import { useAuthStore } from "../store/useAuthStore";
 
 // Step 1: First name + Last name
 export const registerStep1 = async (formData) => {
@@ -11,7 +11,7 @@ export const registerStep1 = async (formData) => {
     });
 
     const currentToken = useAuthStore.getState().accessToken;
-    const onboardingUser = { ...response.data.data.user, type: 'TENANT' };
+    const onboardingUser = { ...response.data.data.user, type: "TENANT" };
     useAuthStore.getState().login(onboardingUser, currentToken || null);
 
     return { success: true, data: response.data };
@@ -31,7 +31,7 @@ export const registerStep2 = async (formData) => {
     });
 
     const currentToken = useAuthStore.getState().accessToken;
-    const onboardingUser = { ...response.data.data.user, type: 'TENANT' };
+    const onboardingUser = { ...response.data.data.user, type: "TENANT" };
     useAuthStore.getState().login(onboardingUser, currentToken || null);
 
     return { success: true, data: response.data };
@@ -51,7 +51,7 @@ export const verifyEmailOtp = async (otpCode) => {
     });
 
     const currentToken = useAuthStore.getState().accessToken;
-    const onboardingUser = { ...response.data.data.user, type: 'TENANT' };
+    const onboardingUser = { ...response.data.data.user, type: "TENANT" };
     useAuthStore.getState().login(onboardingUser, currentToken || null);
 
     return { success: true, data: response.data };
@@ -71,7 +71,7 @@ export const registerStep3 = async (formData) => {
     });
 
     const currentToken = useAuthStore.getState().accessToken;
-    const onboardingUser = { ...response.data.data.user, type: 'TENANT' };
+    const onboardingUser = { ...response.data.data.user, type: "TENANT" };
     useAuthStore.getState().login(onboardingUser, currentToken || null);
 
     return { success: true, data: response.data };
@@ -92,7 +92,7 @@ export const registerStep4 = async (formData) => {
     });
 
     const currentToken = useAuthStore.getState().accessToken;
-    const onboardingUser = { ...response.data.data.user, type: 'TENANT' };
+    const onboardingUser = { ...response.data.data.user, type: "TENANT" };
     useAuthStore.getState().login(onboardingUser, currentToken || null);
 
     return { success: true, data: response.data };
@@ -113,7 +113,7 @@ export const registerStep5 = async (formData) => {
       useCase: formData.useCase,
     });
 
-    const loggedInUser = { ...response.data.data.user, type: 'TENANT' };
+    const loggedInUser = { ...response.data.data.user, type: "TENANT" };
     useAuthStore.getState().login(loggedInUser, response.data.data.accessToken);
 
     return { success: true, data: response.data };
@@ -133,7 +133,9 @@ export const login = async (email, password) => {
       password,
     });
 
-    useAuthStore.getState().login(response.data.data.user, response.data.data.accessToken);
+    useAuthStore
+      .getState()
+      .login(response.data.data.user, response.data.data.accessToken);
 
     console.log(response.data.data.user);
 
@@ -264,45 +266,50 @@ export const deleteTenantUser = async (userId) => {
 };
 
 // Forgot Password for Tenant/User
-export const forgotPasswordTenant = async (email, roleType = 'TENANT') => {
+export const forgotPasswordTenant = async (email, roleType = "TENANT") => {
   try {
-    if (roleType === 'USER') {
-      const response = await userApi.post('/forgot-usr-password', { email });
+    if (roleType === "USER") {
+      const response = await userApi.post("/forgot-usr-password", { email });
       return { success: true, message: response.data?.message };
     } else {
-      const response = await api.post('/forgot-ten-password', { email });
+      const response = await api.post("/forgot-ten-password", { email });
       return { success: true, message: response.data?.message };
     }
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || 'Failed to send recovery email',
+      message: error.response?.data?.message || "Failed to send recovery email",
     };
   }
 };
 
 // Reset Password for Tenant/User
-export const resetPasswordTenant = async (token, newPassword, confirmPassword, roleType = 'TENANT') => {
+export const resetPasswordTenant = async (
+  token,
+  newPassword,
+  confirmPassword,
+  roleType = "TENANT",
+) => {
   try {
-    if (roleType === 'USER') {
-      const response = await userApi.post('/reset-usr-password', {
+    if (roleType === "USER") {
+      const response = await userApi.post("/reset-usr-password", {
         token,
         newPassword,
-        confirmPassword
+        confirmPassword,
       });
       return { success: true, message: response.data?.message };
     } else {
-      const response = await api.post('/reset-ten-password', {
+      const response = await api.post("/reset-ten-password", {
         token,
         newPassword,
-        confirmPassword
+        confirmPassword,
       });
       return { success: true, message: response.data?.message };
     }
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || 'Failed to reset password',
+      message: error.response?.data?.message || "Failed to reset password",
     };
   }
 };
@@ -312,7 +319,9 @@ export const loginWithGoogle = async (credential) => {
   try {
     const response = await api.post("/google-login", { credential });
 
-    useAuthStore.getState().login(response.data.data.user, response.data.data.accessToken);
+    useAuthStore
+      .getState()
+      .login(response.data.data.user, response.data.data.accessToken);
 
     return {
       success: true,
@@ -331,7 +340,9 @@ export const loginWithFacebook = async (accessToken) => {
   try {
     const response = await api.post("/facebook-login", { accessToken });
 
-    useAuthStore.getState().login(response.data.data.user, response.data.data.accessToken);
+    useAuthStore
+      .getState()
+      .login(response.data.data.user, response.data.data.accessToken);
 
     return {
       success: true,

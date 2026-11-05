@@ -25,19 +25,19 @@ const storage = multer.diskStorage({
 // ── Allowed MIME types ──
 const ALLOWED_MIMES = {
   // Images / Screenshots
-  "image/jpeg":    { label: "Image",    ext: "JPG"  },
-  "image/jpg":     { label: "Image",    ext: "JPG"  },
-  "image/png":     { label: "Image",    ext: "PNG"  },
-  "image/webp":    { label: "Image",    ext: "WEBP" },
+  "image/jpeg": { label: "Image", ext: "JPG" },
+  "image/jpg": { label: "Image", ext: "JPG" },
+  "image/png": { label: "Image", ext: "PNG" },
+  "image/webp": { label: "Image", ext: "WEBP" },
   // Documents
-  "application/pdf": { label: "PDF",   ext: "PDF"  },
+  "application/pdf": { label: "PDF", ext: "PDF" },
   // Video
-  "video/mp4":     { label: "Video",    ext: "MP4"  },
+  "video/mp4": { label: "Video", ext: "MP4" },
   // Audio
-  "audio/mpeg":    { label: "Audio",    ext: "MP3"  },
-  "audio/mp3":     { label: "Audio",    ext: "MP3"  },
+  "audio/mpeg": { label: "Audio", ext: "MP3" },
+  "audio/mp3": { label: "Audio", ext: "MP3" },
   // Text
-  "text/plain":    { label: "Text",     ext: "TXT"  },
+  "text/plain": { label: "Text", ext: "TXT" },
 };
 
 const fileFilter = (req, file, cb) => {
@@ -46,9 +46,9 @@ const fileFilter = (req, file, cb) => {
   } else {
     cb(
       new Error(
-        "Unsupported file type. Allowed: JPG, PNG, WEBP, PDF, MP4, MP3, TXT"
+        "Unsupported file type. Allowed: JPG, PNG, WEBP, PDF, MP4, MP3, TXT",
       ),
-      false
+      false,
     );
   }
 };

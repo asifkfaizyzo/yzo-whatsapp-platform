@@ -29,52 +29,65 @@ import api from "../../api/axios";
 // ─────────────────────────────────────────
 
 const ACTION_COLORS = {
-  LOGIN:                    "bg-emerald-100 text-emerald-700",
-  LOGOUT:                   "bg-slate-100  text-slate-600",
-  LOGIN_FAILED:             "bg-rose-100   text-rose-700",
-  TENANT_APPROVED:          "bg-blue-100   text-blue-700",
-  TENANT_BLOCKED:           "bg-rose-100   text-rose-700",
-  TENANT_UNBLOCKED:         "bg-emerald-100 text-emerald-700",
-  TENANT_DELETED:           "bg-red-100    text-red-800",
-  TENANT_DEACTIVATED:       "bg-amber-100  text-amber-700",
-  TENANT_REACTIVATED:       "bg-emerald-100 text-emerald-700",
-  TENANT_CREATED:           "bg-blue-100   text-blue-700",
-  TENANT_UPDATED:           "bg-violet-100 text-violet-700",
-  USER_DEACTIVATED:         "bg-amber-100  text-amber-700",
-  USER_REACTIVATED:         "bg-emerald-100 text-emerald-700",
-  PAYMENT_SUCCESS:          "bg-emerald-100 text-emerald-700",
-  PAYMENT_FAILED:           "bg-rose-100   text-rose-700",
+  LOGIN: "bg-emerald-100 text-emerald-700",
+  LOGOUT: "bg-slate-100  text-slate-600",
+  LOGIN_FAILED: "bg-rose-100   text-rose-700",
+  TENANT_APPROVED: "bg-blue-100   text-blue-700",
+  TENANT_BLOCKED: "bg-rose-100   text-rose-700",
+  TENANT_UNBLOCKED: "bg-emerald-100 text-emerald-700",
+  TENANT_DELETED: "bg-red-100    text-red-800",
+  TENANT_DEACTIVATED: "bg-amber-100  text-amber-700",
+  TENANT_REACTIVATED: "bg-emerald-100 text-emerald-700",
+  TENANT_CREATED: "bg-blue-100   text-blue-700",
+  TENANT_UPDATED: "bg-violet-100 text-violet-700",
+  USER_DEACTIVATED: "bg-amber-100  text-amber-700",
+  USER_REACTIVATED: "bg-emerald-100 text-emerald-700",
+  PAYMENT_SUCCESS: "bg-emerald-100 text-emerald-700",
+  PAYMENT_FAILED: "bg-rose-100   text-rose-700",
   PASSWORD_RESET_REQUESTED: "bg-amber-100  text-amber-700",
   PASSWORD_RESET_COMPLETED: "bg-emerald-100 text-emerald-700",
-  SYSTEM_CLEANUP:           "bg-slate-100  text-slate-600",
+  SYSTEM_CLEANUP: "bg-slate-100  text-slate-600",
 };
 
 const ACTION_ICONS = {
-  LOGIN:              <LogIn   size={12} />,
-  LOGOUT:             <LogOut  size={12} />,
-  LOGIN_FAILED:       <Ban     size={12} />,
-  TENANT_APPROVED:    <Building2 size={12} />,
-  TENANT_BLOCKED:     <Ban     size={12} />,
-  TENANT_UNBLOCKED:   <Unlock  size={12} />,
-  TENANT_DELETED:     <Trash2  size={12} />,
-  TENANT_DEACTIVATED: <UserX   size={12} />,
+  LOGIN: <LogIn size={12} />,
+  LOGOUT: <LogOut size={12} />,
+  LOGIN_FAILED: <Ban size={12} />,
+  TENANT_APPROVED: <Building2 size={12} />,
+  TENANT_BLOCKED: <Ban size={12} />,
+  TENANT_UNBLOCKED: <Unlock size={12} />,
+  TENANT_DELETED: <Trash2 size={12} />,
+  TENANT_DEACTIVATED: <UserX size={12} />,
   TENANT_REACTIVATED: <UserCheck size={12} />,
-  USER_DEACTIVATED:   <UserX   size={12} />,
-  USER_REACTIVATED:   <UserCheck size={12} />,
+  USER_DEACTIVATED: <UserX size={12} />,
+  USER_REACTIVATED: <UserCheck size={12} />,
 };
 
 const MODULES = [
-  "ALL", "AUTH", "TENANT", "USER",
-  "BILLING", "TICKET", "SYSTEM",
+  "ALL",
+  "AUTH",
+  "TENANT",
+  "USER",
+  "BILLING",
+  "TICKET",
+  "SYSTEM",
 ];
 
 const ACTIONS = [
   "ALL",
-  "LOGIN", "LOGOUT", "LOGIN_FAILED",
-  "TENANT_APPROVED", "TENANT_BLOCKED", "TENANT_UNBLOCKED",
-  "TENANT_DEACTIVATED", "TENANT_REACTIVATED", "TENANT_DELETED",
-  "USER_DEACTIVATED", "USER_REACTIVATED",
-  "PAYMENT_SUCCESS", "PAYMENT_FAILED",
+  "LOGIN",
+  "LOGOUT",
+  "LOGIN_FAILED",
+  "TENANT_APPROVED",
+  "TENANT_BLOCKED",
+  "TENANT_UNBLOCKED",
+  "TENANT_DEACTIVATED",
+  "TENANT_REACTIVATED",
+  "TENANT_DELETED",
+  "USER_DEACTIVATED",
+  "USER_REACTIVATED",
+  "PAYMENT_SUCCESS",
+  "PAYMENT_FAILED",
   "PASSWORD_RESET_REQUESTED",
 ];
 
@@ -86,22 +99,25 @@ const ACTOR_TYPES = ["ALL", "SUPER_ADMIN", "TENANT", "USER", "SYSTEM"];
 
 export default function AuditLogs() {
   // ── State ──
-  const [logs,       setLogs]       = useState([]);
-  const [stats,      setStats]      = useState(null);
-  const [loading,    setLoading]    = useState(true);
-  const [statsLoad,  setStatsLoad]  = useState(true);
+  const [logs, setLogs] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [statsLoad, setStatsLoad] = useState(true);
   const [pagination, setPagination] = useState({
-    total: 0, page: 1, limit: 20, totalPages: 1,
+    total: 0,
+    page: 1,
+    limit: 20,
+    totalPages: 1,
   });
 
   // ── Filters ──
-  const [search,    setSearch]    = useState("");
-  const [module,    setModule]    = useState("ALL");
-  const [action,    setAction]    = useState("ALL");
+  const [search, setSearch] = useState("");
+  const [module, setModule] = useState("ALL");
+  const [action, setAction] = useState("ALL");
   const [actorType, setActorType] = useState("ALL");
-  const [dateFrom,  setDateFrom]  = useState("");
-  const [dateTo,    setDateTo]    = useState("");
-  const [page,      setPage]      = useState(1);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [page, setPage] = useState(1);
 
   // ── Fetch Stats ──
   const fetchStats = useCallback(async () => {
@@ -121,12 +137,12 @@ export default function AuditLogs() {
     setLoading(true);
     try {
       const params = { page, limit: 20 };
-      if (search              ) params.search    = search;
-      if (module    !== "ALL" ) params.module    = module;
-      if (action    !== "ALL" ) params.action    = action;
-      if (actorType !== "ALL" ) params.actorType = actorType;
-      if (dateFrom            ) params.dateFrom  = dateFrom;
-      if (dateTo              ) params.dateTo    = dateTo;
+      if (search) params.search = search;
+      if (module !== "ALL") params.module = module;
+      if (action !== "ALL") params.action = action;
+      if (actorType !== "ALL") params.actorType = actorType;
+      if (dateFrom) params.dateFrom = dateFrom;
+      if (dateTo) params.dateTo = dateTo;
 
       const res = await api.get("/superadmin/audit-logs", { params });
       if (res.data?.success) {
@@ -141,8 +157,12 @@ export default function AuditLogs() {
   }, [page, search, module, action, actorType, dateFrom, dateTo]);
 
   // ── Effects ──
-  useEffect(() => { fetchStats(); }, [fetchStats]);
-  useEffect(() => { fetchLogs();  }, [fetchLogs]);
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
+  useEffect(() => {
+    fetchLogs();
+  }, [fetchLogs]);
 
   // Reset page when filters change
   useEffect(() => {
@@ -161,17 +181,29 @@ export default function AuditLogs() {
   };
 
   const hasActiveFilters =
-    search || module !== "ALL" || action !== "ALL" ||
-    actorType !== "ALL" || dateFrom || dateTo;
+    search ||
+    module !== "ALL" ||
+    action !== "ALL" ||
+    actorType !== "ALL" ||
+    dateFrom ||
+    dateTo;
 
   // ── Export CSV ──
   const exportCSV = () => {
     if (logs.length === 0) return;
 
     const headers = [
-      "ID", "Actor Name", "Actor Email", "Actor Type",
-      "Action", "Module", "Description",
-      "Target", "IP Address", "Browser", "Date",
+      "ID",
+      "Actor Name",
+      "Actor Email",
+      "Actor Type",
+      "Action",
+      "Module",
+      "Description",
+      "Target",
+      "IP Address",
+      "Browser",
+      "Date",
     ];
 
     const rows = logs.map((l) => [
@@ -181,18 +213,18 @@ export default function AuditLogs() {
       l.actorType,
       l.action,
       l.module,
-      `"${l.description}"`,       // wrap in quotes (may have commas)
-      l.targetName  || "-",
-      l.ipAddress   || "-",
-      l.userAgent   ? `"${l.userAgent}"` : "-",
+      `"${l.description}"`, // wrap in quotes (may have commas)
+      l.targetName || "-",
+      l.ipAddress || "-",
+      l.userAgent ? `"${l.userAgent}"` : "-",
       new Date(l.createdAt).toLocaleString("en-IN"),
     ]);
 
-    const csv  = [headers, ...rows].map((r) => r.join(",")).join("\n");
+    const csv = [headers, ...rows].map((r) => r.join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url  = URL.createObjectURL(blob);
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.href     = url;
+    link.href = url;
     link.download = `audit-log-${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
     URL.revokeObjectURL(url);
@@ -201,10 +233,10 @@ export default function AuditLogs() {
   // ── Format Date ──
   const fmtDate = (d) =>
     new Date(d).toLocaleString("en-IN", {
-      day:    "2-digit",
-      month:  "short",
-      year:   "numeric",
-      hour:   "2-digit",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
       minute: "2-digit",
     });
 
@@ -212,9 +244,9 @@ export default function AuditLogs() {
   const actorBadge = (type) => {
     const map = {
       SUPER_ADMIN: "bg-violet-100 text-violet-700",
-      TENANT:      "bg-blue-100   text-blue-700",
-      USER:        "bg-slate-100  text-slate-600",
-      SYSTEM:      "bg-gray-100   text-gray-500",
+      TENANT: "bg-blue-100   text-blue-700",
+      USER: "bg-slate-100  text-slate-600",
+      SYSTEM: "bg-gray-100   text-gray-500",
     };
     return map[type] || "bg-gray-100 text-gray-500";
   };
@@ -224,7 +256,6 @@ export default function AuditLogs() {
   // ─────────────────────────────────────────
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
-
       {/* ── Header ── */}
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
@@ -239,7 +270,10 @@ export default function AuditLogs() {
 
         <div className="flex gap-2 flex-wrap">
           <button
-            onClick={() => { fetchLogs(); fetchStats(); }}
+            onClick={() => {
+              fetchLogs();
+              fetchStats();
+            }}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl
                        border border-slate-200 text-sm font-medium
                        text-slate-600 hover:bg-slate-50 transition"
@@ -269,25 +303,26 @@ export default function AuditLogs() {
             label: "Total Events",
             value: stats?.total ?? "-",
             color: "text-gray-800",
-            bg:    "bg-white",
+            bg: "bg-white",
           },
           {
             label: "Last 24 Hours",
             value: stats?.last24hCount ?? "-",
             color: "text-[#125EF2]",
-            bg:    "bg-white",
+            bg: "bg-white",
           },
           {
             label: "Last 7 Days",
             value: stats?.last7daysCount ?? "-",
             color: "text-violet-600",
-            bg:    "bg-white",
+            bg: "bg-white",
           },
           {
             label: "Failed Logins (24h)",
             value: stats?.failedLogins24h ?? "-",
-            color: stats?.failedLogins24h > 0 ? "text-rose-600" : "text-gray-500",
-            bg:    stats?.failedLogins24h > 0 ? "bg-rose-50" : "bg-white",
+            color:
+              stats?.failedLogins24h > 0 ? "text-rose-600" : "text-gray-500",
+            bg: stats?.failedLogins24h > 0 ? "bg-rose-50" : "bg-white",
           },
         ].map((s) => (
           <div key={s.label} className={`card p-4 ${s.bg}`}>
@@ -303,7 +338,6 @@ export default function AuditLogs() {
 
       {/* ── Filters ── */}
       <div className="card p-4 space-y-4">
-
         {/* Filter Title */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm font-semibold text-gray-600">
@@ -324,7 +358,6 @@ export default function AuditLogs() {
 
         {/* Filter Inputs */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-
           {/* Search */}
           <div className="relative lg:col-span-2">
             <Search
@@ -351,7 +384,9 @@ export default function AuditLogs() {
                        focus:ring-2 focus:ring-[#125EF2]/30"
           >
             {MODULES.map((m) => (
-              <option key={m} value={m}>{m}</option>
+              <option key={m} value={m}>
+                {m}
+              </option>
             ))}
           </select>
 
@@ -395,12 +430,27 @@ export default function AuditLogs() {
         {hasActiveFilters && (
           <div className="flex flex-wrap gap-2">
             {[
-              search      && { label: `Search: ${search}`,     clear: () => setSearch("")        },
-              module !== "ALL"    && { label: `Module: ${module}`,     clear: () => setModule("ALL")     },
-              action !== "ALL"    && { label: `Action: ${action.replace(/_/g," ")}`, clear: () => setAction("ALL") },
-              actorType !== "ALL" && { label: `Actor: ${actorType}`,   clear: () => setActorType("ALL")  },
-              dateFrom    && { label: `From: ${dateFrom}`,     clear: () => setDateFrom("")      },
-              dateTo      && { label: `To: ${dateTo}`,         clear: () => setDateTo("")        },
+              search && {
+                label: `Search: ${search}`,
+                clear: () => setSearch(""),
+              },
+              module !== "ALL" && {
+                label: `Module: ${module}`,
+                clear: () => setModule("ALL"),
+              },
+              action !== "ALL" && {
+                label: `Action: ${action.replace(/_/g, " ")}`,
+                clear: () => setAction("ALL"),
+              },
+              actorType !== "ALL" && {
+                label: `Actor: ${actorType}`,
+                clear: () => setActorType("ALL"),
+              },
+              dateFrom && {
+                label: `From: ${dateFrom}`,
+                clear: () => setDateFrom(""),
+              },
+              dateTo && { label: `To: ${dateTo}`, clear: () => setDateTo("") },
             ]
               .filter(Boolean)
               .map((tag, i) => (
@@ -426,14 +476,17 @@ export default function AuditLogs() {
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-
             {/* Head */}
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
                 {[
-                  "Actor", "Action", "Module",
-                  "Description", "Target",
-                  "IP Address", "Time",
+                  "Actor",
+                  "Action",
+                  "Module",
+                  "Description",
+                  "Target",
+                  "IP Address",
+                  "Time",
                 ].map((h) => (
                   <th
                     key={h}
@@ -448,7 +501,6 @@ export default function AuditLogs() {
 
             {/* Body */}
             <tbody className="divide-y divide-slate-50">
-
               {/* Loading Skeleton */}
               {loading ? (
                 [...Array(6)].map((_, i) => (
@@ -460,9 +512,8 @@ export default function AuditLogs() {
                     ))}
                   </tr>
                 ))
-
-              /* Empty State */
-              ) : logs.length === 0 ? (
+              ) : /* Empty State */
+              logs.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="text-center py-16">
                     <Shield size={40} className="mx-auto text-slate-200 mb-3" />
@@ -476,15 +527,10 @@ export default function AuditLogs() {
                     </p>
                   </td>
                 </tr>
-
-              /* Logs */
               ) : (
+                /* Logs */
                 logs.map((log) => (
-                  <tr
-                    key={log.id}
-                    className="hover:bg-slate-50/60 transition"
-                  >
-
+                  <tr key={log.id} className="hover:bg-slate-50/60 transition">
                     {/* Actor */}
                     <td className="px-4 py-3">
                       <div className="font-semibold text-gray-800 text-xs">
@@ -508,8 +554,10 @@ export default function AuditLogs() {
                         className={`inline-flex items-center gap-1 text-[11px]
                                    font-semibold px-2 py-1 rounded-full
                                    whitespace-nowrap
-                                   ${ACTION_COLORS[log.action]
-                                     || "bg-gray-100 text-gray-600"}`}
+                                   ${
+                                     ACTION_COLORS[log.action] ||
+                                     "bg-gray-100 text-gray-600"
+                                   }`}
                       >
                         {ACTION_ICONS[log.action]}
                         {log.action.replace(/_/g, " ")}
@@ -518,8 +566,10 @@ export default function AuditLogs() {
 
                     {/* Module */}
                     <td className="px-4 py-3">
-                      <span className="text-xs font-medium text-gray-500
-                                       bg-slate-100 px-2 py-1 rounded-lg">
+                      <span
+                        className="text-xs font-medium text-gray-500
+                                       bg-slate-100 px-2 py-1 rounded-lg"
+                      >
                         {log.module}
                       </span>
                     </td>
@@ -549,16 +599,20 @@ export default function AuditLogs() {
 
                     {/* IP Address */}
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-1 text-xs
-                                     font-mono text-gray-500">
+                      <div
+                        className="flex items-center gap-1 text-xs
+                                     font-mono text-gray-500"
+                      >
                         <Globe size={11} className="text-gray-300" />
                         {log.ipAddress === "::1"
                           ? "localhost"
                           : log.ipAddress || "—"}
                       </div>
                       {log.userAgent && (
-                        <div className="flex items-center gap-1 text-[10px]
-                                       text-gray-300 mt-0.5">
+                        <div
+                          className="flex items-center gap-1 text-[10px]
+                                       text-gray-300 mt-0.5"
+                        >
                           <Monitor size={10} />
                           <span className="truncate max-w-[100px]">
                             {log.userAgent.split(" ")[0]}
@@ -569,13 +623,14 @@ export default function AuditLogs() {
 
                     {/* Time */}
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="flex items-center gap-1 text-xs
-                                     text-gray-400">
+                      <div
+                        className="flex items-center gap-1 text-xs
+                                     text-gray-400"
+                      >
                         <Clock size={11} />
                         {fmtDate(log.createdAt)}
                       </div>
                     </td>
-
                   </tr>
                 ))
               )}
@@ -593,12 +648,12 @@ export default function AuditLogs() {
               Showing{" "}
               <span className="font-semibold text-gray-600">
                 {(pagination.page - 1) * pagination.limit + 1}
-              </span>
-              {" "}–{" "}
+              </span>{" "}
+              –{" "}
               <span className="font-semibold text-gray-600">
                 {Math.min(pagination.page * pagination.limit, pagination.total)}
-              </span>
-              {" "}of{" "}
+              </span>{" "}
+              of{" "}
               <span className="font-semibold text-gray-600">
                 {pagination.total}
               </span>{" "}

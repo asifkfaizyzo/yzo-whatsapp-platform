@@ -1,6 +1,6 @@
 // backend/src/modules/billing/billing.controller.js (do not remove this comment)
-import prisma from '../../config/prisma.js';
-import { generateInvoicePDFFromModel } from '../plans/invoice.service.js';
+import prisma from "../../config/prisma.js";
+import { generateInvoicePDFFromModel } from "../plans/invoice.service.js";
 import {
   sendCancellationConfirmedEmail,
   sendCancellationAdminAlertEmail,
@@ -8,17 +8,18 @@ import {
   sendPauseAdminAlertEmail,
   sendResumeAdminAlertEmail,
   sendSubscriptionPausedEmail,
-  sendSubscriptionResumedEmail
-} from '../auth/email.service.js';
-import { createAuditLog } from '../audit/audit.service.js';
-import { extractRequestMeta } from '../../lib/utils/request.meta.js'; 
-import { razorpay } from '../../config/razorpay.js';
-import { createSuperAdminNotification } from '../superadmin-notifications/superadminNotification.service.js';
-import { emitToSuperAdmin } from '../../lib/socket.js';
+  sendSubscriptionResumedEmail,
+} from "../auth/email.service.js";
+import { createAuditLog } from "../audit/audit.service.js";
+import { extractRequestMeta } from "../../lib/utils/request.meta.js";
+import { razorpay } from "../../config/razorpay.js";
+import { createSuperAdminNotification } from "../superadmin-notifications/superadminNotification.service.js";
+import { emitToSuperAdmin } from "../../lib/socket.js";
 
 export const cancelSubscription = async (req, res) => {
   const meta = extractRequestMeta(req);
-  const { reason = 'User cancelled subscription', additionalComment } = req.body;
+  const { reason = "User cancelled subscription", additionalComment } =
+    req.body;
 
   try {
     const tenant = await prisma.tenant.findUnique({
@@ -28,26 +29,47 @@ export const cancelSubscription = async (req, res) => {
     Object.assign(tenant, tenant?.subscription);
 
     if (!tenant) {
-      return res.status(404).json({ success: false, message: "Tenant not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Tenant not found" });
     }
 
-    if (tenant.subscriptionStatus !== 'active' && tenant.subscriptionStatus !== 'trialing' && tenant.subscriptionStatus !== 'paused') {
+    if (
+      tenant.subscriptionStatus !== "active" &&
+      tenant.subscriptionStatus !== "trialing" &&
+      tenant.subscriptionStatus !== "paused"
+    ) {
       return res.status(400).json({
         success: false,
-        message: "No active, trialing, or paused subscription to cancel"
+        message: "No active, trialing, or paused subscription to cancel",
       });
     }
 
     // 1. Attempt to cancel mandate on Razorpay if subscription ID exists
     if (tenant.razorpaySubscriptionId) {
       try {
-        const rzpSubscription = await razorpay.subscriptions.fetch(tenant.razorpaySubscriptionId);
-        if (rzpSubscription && !['cancelled', 'completed', 'expired'].includes(rzpSubscription.status)) {
-          await razorpay.subscriptions.cancel(tenant.razorpaySubscriptionId, false);
-          console.log(`✅ Cancelled Razorpay mandate for subscription ${tenant.razorpaySubscriptionId}`);
+        const rzpSubscription = await razorpay.subscriptions.fetch(
+          tenant.razorpaySubscriptionId,
+        );
+        if (
+          rzpSubscription &&
+          !["cancelled", "completed", "expired"].includes(
+            rzpSubscription.status,
+          )
+        ) {
+          await razorpay.subscriptions.cancel(
+            tenant.razorpaySubscriptionId,
+            false,
+          );
+          console.log(
+            `✅ Cancelled Razorpay mandate for subscription ${tenant.razorpaySubscriptionId}`,
+          );
         }
       } catch (rzpErr) {
-        console.warn("⚠️ Razorpay subscription cancellation notice (proceeding with local DB cancellation):", rzpErr?.error?.description || rzpErr?.message || rzpErr);
+        console.warn(
+          "⚠️ Razorpay subscription cancellation notice (proceeding with local DB cancellation):",
+          rzpErr?.error?.description || rzpErr?.message || rzpErr,
+        );
       }
     }
 
@@ -56,7 +78,7 @@ export const cancelSubscription = async (req, res) => {
     if (!periodEnd && tenant.planActivatedAt) {
       const activatedAt = new Date(tenant.planActivatedAt);
       periodEnd = new Date(activatedAt);
-      if (tenant.billingType === 'annual') {
+      if (tenant.billingType === "annual") {
         periodEnd.setFullYear(periodEnd.getFullYear() + 1);
       } else {
         periodEnd.setMonth(periodEnd.getMonth() + 1);
@@ -67,18 +89,18 @@ export const cancelSubscription = async (req, res) => {
       periodEnd.setDate(periodEnd.getDate() + 14);
     }
 
-    const isTrialing = tenant.subscriptionStatus === 'trialing';
+    const isTrialing = tenant.subscriptionStatus === "trialing";
 
     const updatedTenant = await prisma.$transaction(async (tx) => {
       const updated = await tx.tenantSubscription.update({
         where: { tenantId: tenant.id },
         data: {
-          subscriptionStatus: isTrialing ? 'trialing' : 'cancel_at_period_end',
+          subscriptionStatus: isTrialing ? "trialing" : "cancel_at_period_end",
           autopayEnabled: false,
           cancelRequestedAt: new Date(),
           planPeriodEnd: periodEnd,
-          cancellationReason: reason
-        }
+          cancellationReason: reason,
+        },
       });
 
       await tx.cancellationSurvey.upsert({
@@ -86,13 +108,13 @@ export const cancelSubscription = async (req, res) => {
         create: {
           tenantId: tenant.id,
           reason: reason,
-          additionalComment: additionalComment || null
+          additionalComment: additionalComment || null,
         },
         update: {
           reason: reason,
           additionalComment: additionalComment || null,
-          createdAt: new Date()
-        }
+          createdAt: new Date(),
+        },
       });
 
       return updated;
@@ -101,11 +123,11 @@ export const cancelSubscription = async (req, res) => {
     // Audit log
     await createAuditLog({
       actorId: tenant.id,
-      actorType: 'TENANT',
+      actorType: "TENANT",
       actorName: tenant.tenantName || tenant.email,
       actorEmail: tenant.email,
-      action: 'PLAN_CANCELLED',
-      module: 'BILLING',
+      action: "PLAN_CANCELLED",
+      module: "BILLING",
       description: `Tenant "${tenant.tenantName}" cancelled recurring subscription/autopay`,
       ipAddress: meta.ipAddress,
       userAgent: meta.userAgent,
@@ -120,27 +142,43 @@ export const cancelSubscription = async (req, res) => {
 
     // Send emails
     try {
-      const frontendUrl = process.env.FRONTEND_URLS ? process.env.FRONTEND_URLS.split(',')[1] : 'http://localhost:5174';
+      const frontendUrl = process.env.FRONTEND_URLS
+        ? process.env.FRONTEND_URLS.split(",")[1]
+        : "http://localhost:5174";
       const reactivateLink = `${frontendUrl}/settings/billing`;
-      const periodEndStr = updatedTenant.planPeriodEnd ? new Date(updatedTenant.planPeriodEnd).toLocaleDateString() : 'N/A';
-      const deletionDate = updatedTenant.planPeriodEnd ? new Date(new Date(updatedTenant.planPeriodEnd).getTime() + 90 * 24 * 60 * 60 * 1000).toLocaleDateString() : 'N/A';
+      const periodEndStr = updatedTenant.planPeriodEnd
+        ? new Date(updatedTenant.planPeriodEnd).toLocaleDateString()
+        : "N/A";
+      const deletionDate = updatedTenant.planPeriodEnd
+        ? new Date(
+            new Date(updatedTenant.planPeriodEnd).getTime() +
+              90 * 24 * 60 * 60 * 1000,
+          ).toLocaleDateString()
+        : "N/A";
 
       sendCancellationConfirmedEmail(tenant.email, {
         tenantName: tenant.tenantName || tenant.email,
-        planName: tenant.currentPlan || (tenant.plan ? tenant.plan.name : "Pro"),
+        planName:
+          tenant.currentPlan || (tenant.plan ? tenant.plan.name : "Pro"),
         periodEndDate: periodEndStr,
         dataDeletionDate: deletionDate,
-        reactivateLink
+        reactivateLink,
       });
 
-      sendCancellationAdminAlertEmail(process.env.ADMIN_EMAIL || process.env.EMAIL_USER || 'info@sudoreply.com', {
-        companyName: tenant.tenantName || 'Tenant Company',
-        email: tenant.email,
-        planName: tenant.currentPlan || (tenant.plan ? tenant.plan.name : "Pro"),
-        reason: reason,
-        comment: additionalComment || "No comment",
-        periodEndDate: periodEndStr
-      });
+      sendCancellationAdminAlertEmail(
+        process.env.ADMIN_EMAIL ||
+          process.env.EMAIL_USER ||
+          "info@sudoreply.com",
+        {
+          companyName: tenant.tenantName || "Tenant Company",
+          email: tenant.email,
+          planName:
+            tenant.currentPlan || (tenant.plan ? tenant.plan.name : "Pro"),
+          reason: reason,
+          comment: additionalComment || "No comment",
+          periodEndDate: periodEndStr,
+        },
+      );
     } catch (emailErr) {
       console.warn("Cancellation email delivery error:", emailErr.message);
     }
@@ -150,7 +188,7 @@ export const cancelSubscription = async (req, res) => {
       const notification = await createSuperAdminNotification({
         type: "subscription_cancelled",
         title: "🚨 Subscription Cancelled",
-        message: `${tenant.tenantName} cancelled their subscription (${tenant.currentPlan || 'Plan'}). Reason: ${reason}`,
+        message: `${tenant.tenantName} cancelled their subscription (${tenant.currentPlan || "Plan"}). Reason: ${reason}`,
         metadata: {
           tenantId: tenant.id,
           tenantName: tenant.tenantName,
@@ -163,19 +201,24 @@ export const cancelSubscription = async (req, res) => {
       });
       emitToSuperAdmin("superadmin_notification", { notification });
     } catch (notifErr) {
-      console.warn("SuperAdmin notification failed for cancellation:", notifErr.message);
+      console.warn(
+        "SuperAdmin notification failed for cancellation:",
+        notifErr.message,
+      );
     }
 
-    const accessLabel = isTrialing ? 'free trial' : 'subscription access';
+    const accessLabel = isTrialing ? "free trial" : "subscription access";
 
     return res.status(200).json({
       success: true,
       message: `Autopay cancelled successfully. Your ${accessLabel} remains active until ${new Date(updatedTenant.planPeriodEnd).toLocaleDateString()}.`,
-      periodEndDate: updatedTenant.planPeriodEnd
+      periodEndDate: updatedTenant.planPeriodEnd,
     });
   } catch (error) {
     console.error("Cancel subscription error:", error);
-    return res.status(500).json({ success: false, message: "Server error during cancellation" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Server error during cancellation" });
   }
 };
 
@@ -193,13 +236,15 @@ export const reactivateSubscription = async (req, res) => {
     Object.assign(tenant, tenant?.subscription);
 
     if (!tenant) {
-      return res.status(404).json({ success: false, message: "Tenant not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Tenant not found" });
     }
 
-    if (tenant.subscriptionStatus !== 'cancel_at_period_end') {
+    if (tenant.subscriptionStatus !== "cancel_at_period_end") {
       return res.status(400).json({
         success: false,
-        message: "Subscription is not scheduled for cancellation"
+        message: "Subscription is not scheduled for cancellation",
       });
     }
 
@@ -207,15 +252,15 @@ export const reactivateSubscription = async (req, res) => {
       const updated = await tx.tenantSubscription.update({
         where: { tenantId: tenant.id },
         data: {
-          subscriptionStatus: 'active',
+          subscriptionStatus: "active",
           cancelRequestedAt: null,
           cancellationReason: null,
-          reactivatedAt: new Date()
-        }
+          reactivatedAt: new Date(),
+        },
       });
 
       await tx.cancellationSurvey.deleteMany({
-        where: { tenantId: tenant.id }
+        where: { tenantId: tenant.id },
       });
 
       return updated;
@@ -224,11 +269,11 @@ export const reactivateSubscription = async (req, res) => {
     // Audit log
     await createAuditLog({
       actorId: tenant.id,
-      actorType: 'TENANT',
+      actorType: "TENANT",
       actorName: tenant.tenantName || tenant.email,
       actorEmail: tenant.email,
-      action: 'PLAN_ACTIVATED',
-      module: 'BILLING',
+      action: "PLAN_ACTIVATED",
+      module: "BILLING",
       description: `Tenant "${tenant.tenantName}" reactivated their subscription (cancelled cancellation)`,
       tenantId: tenant.id,
       ipAddress: meta.ipAddress,
@@ -245,7 +290,7 @@ export const reactivateSubscription = async (req, res) => {
       const notification = await createSuperAdminNotification({
         type: "subscription_reactivated",
         title: "🎉 Subscription Reactivated",
-        message: `${tenant.tenantName} reactivated their subscription (${tenant.currentPlan || 'Plan'})`,
+        message: `${tenant.tenantName} reactivated their subscription (${tenant.currentPlan || "Plan"})`,
         metadata: {
           tenantId: tenant.id,
           tenantName: tenant.tenantName,
@@ -256,7 +301,10 @@ export const reactivateSubscription = async (req, res) => {
       });
       emitToSuperAdmin("superadmin_notification", { notification });
     } catch (notifErr) {
-      console.warn("SuperAdmin notification failed for reactivation:", notifErr.message);
+      console.warn(
+        "SuperAdmin notification failed for reactivation:",
+        notifErr.message,
+      );
     }
 
     // 4. Tenant Confirmation Email
@@ -270,17 +318,25 @@ export const reactivateSubscription = async (req, res) => {
       console.warn("Reactivation confirmation email error:", emailErr.message);
     }
 
-    return res.status(200).json({ success: true, message: "Subscription reactivated successfully" });
+    return res
+      .status(200)
+      .json({
+        success: true,
+        message: "Subscription reactivated successfully",
+      });
   } catch (error) {
     console.error("Reactivate subscription error:", error);
-    return res.status(500).json({ success: false, message: "Server error during reactivation" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Server error during reactivation" });
   }
 };
 
 // ── Tenant Self-Service: Pause Subscription ──
 export const pauseSubscription = async (req, res) => {
   const meta = extractRequestMeta(req);
-  const { pauseDuration = "indefinite", reason = "Customer requested pause" } = req.body;
+  const { pauseDuration = "indefinite", reason = "Customer requested pause" } =
+    req.body;
 
   try {
     const tenant = await prisma.tenant.findUnique({
@@ -290,7 +346,9 @@ export const pauseSubscription = async (req, res) => {
     Object.assign(tenant, tenant?.subscription);
 
     if (!tenant) {
-      return res.status(404).json({ success: false, message: "Tenant not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Tenant not found" });
     }
 
     if (tenant.subscriptionStatus === "paused") {
@@ -300,7 +358,11 @@ export const pauseSubscription = async (req, res) => {
       });
     }
 
-    if (!["active", "trialing", "cancel_at_period_end"].includes(tenant.subscriptionStatus)) {
+    if (
+      !["active", "trialing", "cancel_at_period_end"].includes(
+        tenant.subscriptionStatus,
+      )
+    ) {
       return res.status(400).json({
         success: false,
         message: "No active or trialing subscription to pause",
@@ -310,10 +372,17 @@ export const pauseSubscription = async (req, res) => {
     // 1. Pause mandate on Razorpay
     if (tenant.razorpaySubscriptionId) {
       try {
-        await razorpay.subscriptions.pause(tenant.razorpaySubscriptionId, { pause_at: "now" });
-        console.log(`⏸️ Paused Razorpay subscription ${tenant.razorpaySubscriptionId}`);
+        await razorpay.subscriptions.pause(tenant.razorpaySubscriptionId, {
+          pause_at: "now",
+        });
+        console.log(
+          `⏸️ Paused Razorpay subscription ${tenant.razorpaySubscriptionId}`,
+        );
       } catch (rzpErr) {
-        console.warn("⚠️ Razorpay pause notice (proceeding with local DB pause):", rzpErr?.error?.description || rzpErr?.message);
+        console.warn(
+          "⚠️ Razorpay pause notice (proceeding with local DB pause):",
+          rzpErr?.error?.description || rzpErr?.message,
+        );
       }
     }
 
@@ -347,7 +416,8 @@ export const pauseSubscription = async (req, res) => {
     });
 
     // 4. Admin Alert Email
-    const adminEmail = process.env.ADMIN_EMAIL || process.env.EMAIL_USER || 'info@sudoreply.com';
+    const adminEmail =
+      process.env.ADMIN_EMAIL || process.env.EMAIL_USER || "info@sudoreply.com";
     sendPauseAdminAlertEmail(adminEmail, {
       companyName: tenant.tenantName,
       tenantEmail: tenant.email,
@@ -373,7 +443,10 @@ export const pauseSubscription = async (req, res) => {
       });
       emitToSuperAdmin("superadmin_notification", { notification });
     } catch (notifErr) {
-      console.warn("SuperAdmin notification failed for pause:", notifErr.message);
+      console.warn(
+        "SuperAdmin notification failed for pause:",
+        notifErr.message,
+      );
     }
 
     // 6. Tenant Confirmation Email
@@ -389,12 +462,15 @@ export const pauseSubscription = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Your subscription has been paused. Your templates, numbers, and contacts are safely preserved.",
+      message:
+        "Your subscription has been paused. Your templates, numbers, and contacts are safely preserved.",
       data: updatedTenant,
     });
   } catch (error) {
     console.error("Pause subscription error:", error);
-    return res.status(500).json({ success: false, message: "Failed to pause subscription" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to pause subscription" });
   }
 };
 
@@ -410,7 +486,9 @@ export const resumeSubscription = async (req, res) => {
     Object.assign(tenant, tenant?.subscription);
 
     if (!tenant) {
-      return res.status(404).json({ success: false, message: "Tenant not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Tenant not found" });
     }
 
     if (tenant.subscriptionStatus !== "paused") {
@@ -423,10 +501,17 @@ export const resumeSubscription = async (req, res) => {
     // 1. Resume mandate on Razorpay
     if (tenant.razorpaySubscriptionId) {
       try {
-        await razorpay.subscriptions.resume(tenant.razorpaySubscriptionId, { resume_at: "now" });
-        console.log(`✅ Resumed Razorpay subscription ${tenant.razorpaySubscriptionId}`);
+        await razorpay.subscriptions.resume(tenant.razorpaySubscriptionId, {
+          resume_at: "now",
+        });
+        console.log(
+          `✅ Resumed Razorpay subscription ${tenant.razorpaySubscriptionId}`,
+        );
       } catch (rzpErr) {
-        console.warn("⚠️ Razorpay resume notice (proceeding with local DB resume):", rzpErr?.error?.description || rzpErr?.message);
+        console.warn(
+          "⚠️ Razorpay resume notice (proceeding with local DB resume):",
+          rzpErr?.error?.description || rzpErr?.message,
+        );
       }
     }
 
@@ -460,7 +545,8 @@ export const resumeSubscription = async (req, res) => {
     });
 
     // 4. Admin Alert Email
-    const adminEmail = process.env.ADMIN_EMAIL || process.env.EMAIL_USER || 'info@sudoreply.com';
+    const adminEmail =
+      process.env.ADMIN_EMAIL || process.env.EMAIL_USER || "info@sudoreply.com";
     sendResumeAdminAlertEmail(adminEmail, {
       companyName: tenant.tenantName,
       tenantEmail: tenant.email,
@@ -472,7 +558,7 @@ export const resumeSubscription = async (req, res) => {
       const notification = await createSuperAdminNotification({
         type: "subscription_resumed",
         title: "▶️ Subscription Resumed",
-        message: `${tenant.tenantName} resumed their subscription (${tenant.currentPlan || 'Plan'})`,
+        message: `${tenant.tenantName} resumed their subscription (${tenant.currentPlan || "Plan"})`,
         metadata: {
           tenantId: tenant.id,
           tenantName: tenant.tenantName,
@@ -483,7 +569,10 @@ export const resumeSubscription = async (req, res) => {
       });
       emitToSuperAdmin("superadmin_notification", { notification });
     } catch (notifErr) {
-      console.warn("SuperAdmin notification failed for resume:", notifErr.message);
+      console.warn(
+        "SuperAdmin notification failed for resume:",
+        notifErr.message,
+      );
     }
 
     // 6. Tenant Confirmation Email
@@ -498,12 +587,15 @@ export const resumeSubscription = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Subscription resumed successfully! Your platform features are active.",
+      message:
+        "Subscription resumed successfully! Your platform features are active.",
       data: updatedTenant,
     });
   } catch (error) {
     console.error("Resume subscription error:", error);
-    return res.status(500).json({ success: false, message: "Failed to resume subscription" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to resume subscription" });
   }
 };
 
@@ -526,10 +618,10 @@ export const getBillingOverview = async (req, res) => {
             cancelRequestedAt: true,
             dataDeletionDate: true,
             plan: { select: { name: true } },
-          }
+          },
         },
         invoices: {
-          orderBy: { createdAt: 'desc' },
+          orderBy: { createdAt: "desc" },
           take: 5,
           select: {
             id: true,
@@ -538,15 +630,19 @@ export const getBillingOverview = async (req, res) => {
             amount: true,
             currency: true,
             status: true,
-            createdAt: true
-          }
-        }
-      }
+            createdAt: true,
+          },
+        },
+      },
     });
-    const tenant = tenantRow ? { ...tenantRow, ...tenantRow.subscription } : null;
+    const tenant = tenantRow
+      ? { ...tenantRow, ...tenantRow.subscription }
+      : null;
 
     if (!tenant) {
-      return res.status(404).json({ success: false, message: "Tenant not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Tenant not found" });
     }
 
     let status = tenant.subscriptionStatus;
@@ -554,23 +650,29 @@ export const getBillingOverview = async (req, res) => {
     const now = new Date();
 
     // Self-healing: if cancelled plan has reached its period end, expire it immediately
-    if (status === 'cancel_at_period_end' && tenant.planPeriodEnd && new Date(tenant.planPeriodEnd) < now) {
+    if (
+      status === "cancel_at_period_end" &&
+      tenant.planPeriodEnd &&
+      new Date(tenant.planPeriodEnd) < now
+    ) {
       const computedDeletionDate = new Date(now.getTime() + 90 * 86400000);
 
       await prisma.tenantSubscription.update({
         where: { tenantId: req.tenantId },
         data: {
-          subscriptionStatus: 'expired',
-          planStatus: 'inactive',
-          dataDeletionDate: computedDeletionDate
-        }
-      });      status = 'expired';
+          subscriptionStatus: "expired",
+          planStatus: "inactive",
+          dataDeletionDate: computedDeletionDate,
+        },
+      });
+      status = "expired";
       dataDeletionDate = computedDeletionDate;
     }
 
     const formattedTenant = {
       subscriptionStatus: status,
-      currentPlan: tenant.currentPlan || (tenant.plan ? tenant.plan.name : "Starter"),
+      currentPlan:
+        tenant.currentPlan || (tenant.plan ? tenant.plan.name : "Starter"),
       hasUsedTrial: tenant.hasUsedTrial || false,
       autopayEnabled: tenant.autopayEnabled || false,
       autopayMethod: tenant.autopayMethod || null,
@@ -579,13 +681,18 @@ export const getBillingOverview = async (req, res) => {
       planPeriodEnd: tenant.planPeriodEnd,
       cancelRequestedAt: tenant.cancelRequestedAt,
       dataDeletionDate: dataDeletionDate,
-      invoices: tenant.invoices
+      invoices: tenant.invoices,
     };
 
     return res.status(200).json({ success: true, data: formattedTenant });
   } catch (error) {
     console.error("Get billing overview error:", error);
-    return res.status(500).json({ success: false, message: "Server error fetching billing details" });
+    return res
+      .status(500)
+      .json({
+        success: false,
+        message: "Server error fetching billing details",
+      });
   }
 };
 
@@ -593,27 +700,39 @@ export const getInvoices = async (req, res) => {
   try {
     const invoices = await prisma.invoice.findMany({
       where: { tenantId: req.tenantId },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: "desc" },
     });
     return res.status(200).json({ success: true, data: invoices });
   } catch (error) {
     console.error("Get invoices error:", error);
-    return res.status(500).json({ success: false, message: "Failed to fetch invoices" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to fetch invoices" });
   }
 };
 
 export const downloadInvoicePdf = async (req, res) => {
   try {
     const invoice = await prisma.invoice.findFirst({
-      where: { id: req.params.id, tenantId: req.tenantId }
+      where: { id: req.params.id, tenantId: req.tenantId },
     });
-    if (!invoice) return res.status(404).json({ success: false, message: "Invoice not found" });
+    if (!invoice)
+      return res
+        .status(404)
+        .json({ success: false, message: "Invoice not found" });
 
-    const tenant = await prisma.tenant.findUnique({ where: { id: req.tenantId } });
-    const { filePath, invoiceNumber } = await generateInvoicePDFFromModel(invoice, tenant);
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: req.tenantId },
+    });
+    const { filePath, invoiceNumber } = await generateInvoicePDFFromModel(
+      invoice,
+      tenant,
+    );
     return res.download(filePath, `${invoiceNumber}.pdf`);
   } catch (error) {
     console.error("Download invoice error:", error);
-    return res.status(500).json({ success: false, message: "Failed to download invoice" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to download invoice" });
   }
 };

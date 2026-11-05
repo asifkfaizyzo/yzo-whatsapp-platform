@@ -1,6 +1,6 @@
 // admin-web/src/utils/toast.js (do not remove this comment)
 
-import toast from 'react-hot-toast';
+import toast from "react-hot-toast";
 
 // ✅ Success — green check
 export const showSuccess = (message) => {
@@ -15,11 +15,11 @@ export const showError = (message = "Something went wrong") => {
 // 🔔 Info / Notification — custom blue
 export const showInfo = (message) => {
   toast(message, {
-    icon: '🔔',
+    icon: "🔔",
     style: {
-      background:  '#EAF2FE',
-      color:       '#125EF2',
-      border:      '1px solid #CFE0FD',
+      background: "#EAF2FE",
+      color: "#125EF2",
+      border: "1px solid #CFE0FD",
     },
   });
 };
@@ -27,11 +27,11 @@ export const showInfo = (message) => {
 // ⚠️ Warning — amber
 export const showWarning = (message) => {
   toast(message, {
-    icon: '⚠️',
+    icon: "⚠️",
     style: {
-      background:  '#FEF3C7',
-      color:       '#92400E',
-      border:      '1px solid #FDE68A',
+      background: "#FEF3C7",
+      color: "#92400E",
+      border: "1px solid #FDE68A",
     },
   });
 };

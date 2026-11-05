@@ -204,7 +204,9 @@ export default function ZohoSettings({ onBack } = {}) {
       toast.success("🎉 Zoho CRM connected successfully!");
       cleanUrlParams();
     } else if (errorParam) {
-      toast.error(`OAuth Integration failed: ${decodeURIComponent(errorParam)}`);
+      toast.error(
+        `OAuth Integration failed: ${decodeURIComponent(errorParam)}`,
+      );
       cleanUrlParams();
     }
   }, []);
@@ -214,7 +216,11 @@ export default function ZohoSettings({ onBack } = {}) {
     url.searchParams.delete("app");
     url.searchParams.delete("connected");
     url.searchParams.delete("error");
-    window.history.replaceState({}, "", url.pathname + (url.search ? url.search : ""));
+    window.history.replaceState(
+      {},
+      "",
+      url.pathname + (url.search ? url.search : ""),
+    );
   };
 
   // ── Connect Flow ──
@@ -241,7 +247,7 @@ export default function ZohoSettings({ onBack } = {}) {
       const res = await testZohoConnection();
       if (res.success) {
         toast.success(
-          `Connection healthy! Verified account: ${res.data?.user?.email || "Zoho User"}`
+          `Connection healthy! Verified account: ${res.data?.user?.email || "Zoho User"}`,
         );
         // Immediately set rateLimit in component state
         if (res.data?.rateLimit) {
@@ -249,7 +255,9 @@ export default function ZohoSettings({ onBack } = {}) {
         }
         fetchStatusAndStats(false);
       } else {
-        toast.error(res.message || "Connection check failed. Reconnect required.");
+        toast.error(
+          res.message || "Connection check failed. Reconnect required.",
+        );
       }
     } catch (err) {
       toast.error("Could not reach Zoho API");
@@ -264,7 +272,9 @@ export default function ZohoSettings({ onBack } = {}) {
     try {
       const res = await triggerZohoSync("FULL");
       if (res.success) {
-        toast.success("Background full synchronization queued. Updating progress...");
+        toast.success(
+          "Background full synchronization queued. Updating progress...",
+        );
         setTimeout(() => {
           fetchSyncStats();
           fetchStatusAndStats(false); // Refresh API credits remaining
@@ -285,7 +295,9 @@ export default function ZohoSettings({ onBack } = {}) {
     try {
       const res = await triggerZohoIncrementalSync();
       if (res.success) {
-        toast.success("Incremental sync queued — only modified contacts will update.");
+        toast.success(
+          "Incremental sync queued — only modified contacts will update.",
+        );
         setTimeout(() => {
           fetchSyncStats();
           fetchStatusAndStats(false); // Refresh API credits remaining
@@ -356,7 +368,9 @@ export default function ZohoSettings({ onBack } = {}) {
     return (
       <div className="flex flex-col items-center justify-center p-16 space-y-3">
         <RefreshCw className="animate-spin text-[#009A44]" size={24} />
-        <p className="text-xs text-slate-500 font-medium">Querying Zoho integration status...</p>
+        <p className="text-xs text-slate-500 font-medium">
+          Querying Zoho integration status...
+        </p>
       </div>
     );
   }
@@ -367,7 +381,9 @@ export default function ZohoSettings({ onBack } = {}) {
   // Rate limit computations
   const rateLimit = connection.rateLimit;
   const usedCredits = rateLimit ? rateLimit.limit - rateLimit.remaining : 0;
-  const usagePercentage = rateLimit ? Math.round((usedCredits / rateLimit.limit) * 100) : 0;
+  const usagePercentage = rateLimit
+    ? Math.round((usedCredits / rateLimit.limit) * 100)
+    : 0;
 
   return (
     <div className="w-full space-y-6 animate-in fade-in duration-150">
@@ -399,7 +415,10 @@ export default function ZohoSettings({ onBack } = {}) {
                 </span>
               ) : connection.status === "REFRESH_FAILED" ? (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
-                  <AlertCircle size={12} className="text-rose-500 animate-bounce" />
+                  <AlertCircle
+                    size={12}
+                    className="text-rose-500 animate-bounce"
+                  />
                   Action Required
                 </span>
               ) : (
@@ -410,16 +429,22 @@ export default function ZohoSettings({ onBack } = {}) {
 
               {/* Connected Plan Badge */}
               {isConnected && (
-                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold capitalize border ${
-                  planInfo.edition === "Enterprise" || planInfo.edition === "Ultimate" || planInfo.edition === "Trial"
-                    ? "bg-purple-50 text-purple-700 border-purple-200"
-                    : planInfo.edition === "Professional"
-                      ? "bg-blue-50 text-blue-700 border-blue-200"
-                      : planInfo.edition === "Standard"
-                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                        : "bg-slate-50 text-slate-700 border-slate-200"
-                }`}>
-                  {planInfo.edition === "Enterprise" || planInfo.edition === "Ultimate" || planInfo.edition === "Trial" ? (
+                <span
+                  className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold capitalize border ${
+                    planInfo.edition === "Enterprise" ||
+                    planInfo.edition === "Ultimate" ||
+                    planInfo.edition === "Trial"
+                      ? "bg-purple-50 text-purple-700 border-purple-200"
+                      : planInfo.edition === "Professional"
+                        ? "bg-blue-50 text-blue-700 border-blue-200"
+                        : planInfo.edition === "Standard"
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          : "bg-slate-50 text-slate-700 border-slate-200"
+                  }`}
+                >
+                  {planInfo.edition === "Enterprise" ||
+                  planInfo.edition === "Ultimate" ||
+                  planInfo.edition === "Trial" ? (
                     <Sparkles size={11} className="text-purple-500" />
                   ) : (
                     <Layers size={11} />
@@ -429,7 +454,8 @@ export default function ZohoSettings({ onBack } = {}) {
               )}
             </div>
             <p className="text-xs text-slate-500 mt-1 max-w-2xl leading-relaxed">
-              Synchronize your WhatsApp contacts with Zoho CRM Contacts database seamlessly to build comprehensive customer relationships.
+              Synchronize your WhatsApp contacts with Zoho CRM Contacts database
+              seamlessly to build comprehensive customer relationships.
             </p>
           </div>
         </div>
@@ -476,9 +502,12 @@ export default function ZohoSettings({ onBack } = {}) {
                     <CheckCircle2 size={20} />
                   </div>
                   <div className="space-y-1">
-                    <h3 className="text-sm font-bold text-slate-900">Your Zoho CRM account is linked</h3>
+                    <h3 className="text-sm font-bold text-slate-900">
+                      Your Zoho CRM account is linked
+                    </h3>
                     <p className="text-xs text-slate-500">
-                      Sudo Reply has been authorized to securely sync contacts into your CRM workspace module.
+                      Sudo Reply has been authorized to securely sync contacts
+                      into your CRM workspace module.
                     </p>
                   </div>
                 </div>
@@ -486,20 +515,33 @@ export default function ZohoSettings({ onBack } = {}) {
                 {/* Zoho account details strip */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-3 border-t border-slate-100">
                   <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl">
-                    <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wide">Connected Account</span>
-                    <span className="text-xs font-bold text-slate-700 truncate block mt-0.5">{connection.accountEmail}</span>
+                    <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                      Connected Account
+                    </span>
+                    <span className="text-xs font-bold text-slate-700 truncate block mt-0.5">
+                      {connection.accountEmail}
+                    </span>
                   </div>
                   <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl">
-                    <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wide">Data Center (DC)</span>
+                    <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                      Data Center (DC)
+                    </span>
                     <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5 mt-0.5">
                       <Server size={12} className="text-[#009A44]" />
                       {connection.dataCenterLabel}
                     </span>
                   </div>
                   <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl">
-                    <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wide">Connected On</span>
+                    <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                      Connected On
+                    </span>
                     <span className="text-xs font-bold text-slate-700 block mt-0.5">
-                      {connection.connectedAt ? new Date(connection.connectedAt).toLocaleDateString(undefined, { dateStyle: 'medium' }) : "Recently"}
+                      {connection.connectedAt
+                        ? new Date(connection.connectedAt).toLocaleDateString(
+                            undefined,
+                            { dateStyle: "medium" },
+                          )
+                        : "Recently"}
                     </span>
                   </div>
                 </div>
@@ -513,7 +555,10 @@ export default function ZohoSettings({ onBack } = {}) {
                     className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition shadow-2xs disabled:opacity-50"
                   >
                     {testing ? (
-                      <RefreshCw size={13} className="animate-spin text-[#009A44]" />
+                      <RefreshCw
+                        size={13}
+                        className="animate-spin text-[#009A44]"
+                      />
                     ) : (
                       <ShieldCheck size={13} className="text-blue-500" />
                     )}
@@ -537,7 +582,8 @@ export default function ZohoSettings({ onBack } = {}) {
                       </span>
                     </div>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      Export active WhatsApp contacts directly to Zoho CRM Contacts database.
+                      Export active WhatsApp contacts directly to Zoho CRM
+                      Contacts database.
                     </p>
                   </div>
 
@@ -549,7 +595,14 @@ export default function ZohoSettings({ onBack } = {}) {
                       disabled={syncTriggering || syncLoading}
                       className="px-3.5 py-2 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition shadow-2xs disabled:opacity-50"
                     >
-                      <RefreshCw size={13} className={syncTriggering ? "animate-spin text-emerald-700" : "text-emerald-700"} />
+                      <RefreshCw
+                        size={13}
+                        className={
+                          syncTriggering
+                            ? "animate-spin text-emerald-700"
+                            : "text-emerald-700"
+                        }
+                      />
                       <span>Import from Zoho (Pull)</span>
                     </button>
 
@@ -559,7 +612,14 @@ export default function ZohoSettings({ onBack } = {}) {
                       disabled={syncTriggering || syncLoading}
                       className="px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition shadow-2xs disabled:opacity-50"
                     >
-                      <RefreshCw size={13} className={syncTriggering ? "animate-spin text-[#009A44]" : "text-slate-500"} />
+                      <RefreshCw
+                        size={13}
+                        className={
+                          syncTriggering
+                            ? "animate-spin text-[#009A44]"
+                            : "text-slate-500"
+                        }
+                      />
                       <span>Incremental Sync</span>
                     </button>
 
@@ -574,7 +634,11 @@ export default function ZohoSettings({ onBack } = {}) {
                       ) : (
                         <Play size={13} fill="white" />
                       )}
-                      <span>{syncTriggering ? "Queueing Sync..." : "Sync Contacts Now"}</span>
+                      <span>
+                        {syncTriggering
+                          ? "Queueing Sync..."
+                          : "Sync Contacts Now"}
+                      </span>
                     </button>
                   </div>
                 </div>
@@ -582,8 +646,13 @@ export default function ZohoSettings({ onBack } = {}) {
                 {/* Sync Statistics Dashboard */}
                 {syncLoading ? (
                   <div className="py-8 flex flex-col items-center gap-2 text-slate-400">
-                    <Loader2 size={24} className="animate-spin text-[#009A44]" />
-                    <span className="text-xs font-semibold">Updating sync statistics...</span>
+                    <Loader2
+                      size={24}
+                      className="animate-spin text-[#009A44]"
+                    />
+                    <span className="text-xs font-semibold">
+                      Updating sync statistics...
+                    </span>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -592,8 +661,12 @@ export default function ZohoSettings({ onBack } = {}) {
                         <Users2 size={16} />
                       </div>
                       <div>
-                        <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Sudo Contacts</span>
-                        <span className="text-lg font-extrabold text-slate-800">{syncStats.totalContacts}</span>
+                        <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                          Sudo Contacts
+                        </span>
+                        <span className="text-lg font-extrabold text-slate-800">
+                          {syncStats.totalContacts}
+                        </span>
                       </div>
                     </div>
 
@@ -602,8 +675,12 @@ export default function ZohoSettings({ onBack } = {}) {
                         <Check size={16} />
                       </div>
                       <div>
-                        <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Synced to Zoho</span>
-                        <span className="text-lg font-extrabold text-slate-800">{syncStats.mappedContacts}</span>
+                        <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                          Synced to Zoho
+                        </span>
+                        <span className="text-lg font-extrabold text-slate-800">
+                          {syncStats.mappedContacts}
+                        </span>
                       </div>
                     </div>
 
@@ -612,8 +689,12 @@ export default function ZohoSettings({ onBack } = {}) {
                         <RefreshCw size={14} className="text-amber-500" />
                       </div>
                       <div>
-                        <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Pending Sync</span>
-                        <span className="text-lg font-extrabold text-slate-800">{syncStats.unmappedContacts}</span>
+                        <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                          Pending Sync
+                        </span>
+                        <span className="text-lg font-extrabold text-slate-800">
+                          {syncStats.unmappedContacts}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -627,7 +708,10 @@ export default function ZohoSettings({ onBack } = {}) {
                   </span>
                   <span className="font-semibold text-slate-800">
                     {syncStats.lastSyncedAt
-                      ? new Date(syncStats.lastSyncedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+                      ? new Date(syncStats.lastSyncedAt).toLocaleString(
+                          undefined,
+                          { dateStyle: "medium", timeStyle: "short" },
+                        )
                       : "Never Synced"}
                   </span>
                 </div>
@@ -642,12 +726,16 @@ export default function ZohoSettings({ onBack } = {}) {
                       <span>Automation & Workflow Preferences</span>
                     </h3>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      Configure how Sudo Reply synchronizes data into your Zoho CRM modules.
+                      Configure how Sudo Reply synchronizes data into your Zoho
+                      CRM modules.
                     </p>
                   </div>
                   {prefsSaving && (
                     <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-slate-400">
-                      <RefreshCw size={11} className="animate-spin text-[#009A44]" />
+                      <RefreshCw
+                        size={11}
+                        className="animate-spin text-[#009A44]"
+                      />
                       Saving...
                     </span>
                   )}
@@ -655,22 +743,36 @@ export default function ZohoSettings({ onBack } = {}) {
 
                 {prefsLoading ? (
                   <div className="py-8 flex flex-col items-center gap-2 text-slate-400">
-                    <Loader2 size={22} className="animate-spin text-[#009A44]" />
-                    <span className="text-xs font-semibold">Loading preferences...</span>
+                    <Loader2
+                      size={22}
+                      className="animate-spin text-[#009A44]"
+                    />
+                    <span className="text-xs font-semibold">
+                      Loading preferences...
+                    </span>
                   </div>
                 ) : (
                   <div className="space-y-4">
                     {/* Switch 1: Auto-Sync on Creation */}
                     <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50/70 border border-slate-100">
                       <div>
-                        <h4 className="text-xs font-bold text-slate-800">Auto-Sync New Contacts</h4>
-                        <p className="text-[11px] text-slate-500">Instantly push new WhatsApp leads to Zoho CRM.</p>
+                        <h4 className="text-xs font-bold text-slate-800">
+                          Auto-Sync New Contacts
+                        </h4>
+                        <p className="text-[11px] text-slate-500">
+                          Instantly push new WhatsApp leads to Zoho CRM.
+                        </p>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input
                           type="checkbox"
                           checked={preferences.autoSyncNewContacts}
-                          onChange={(e) => handleUpdatePreference('autoSyncNewContacts', e.target.checked)}
+                          onChange={(e) =>
+                            handleUpdatePreference(
+                              "autoSyncNewContacts",
+                              e.target.checked,
+                            )
+                          }
                           className="sr-only peer"
                         />
                         <div className="w-9 h-5 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#009A44]" />
@@ -680,14 +782,24 @@ export default function ZohoSettings({ onBack } = {}) {
                     {/* Switch 2: Conversation Notes */}
                     <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50/70 border border-slate-100">
                       <div>
-                        <h4 className="text-xs font-bold text-slate-800">Log Chat History as Notes</h4>
-                        <p className="text-[11px] text-slate-500">Attach WhatsApp conversation logs to Zoho Contact records.</p>
+                        <h4 className="text-xs font-bold text-slate-800">
+                          Log Chat History as Notes
+                        </h4>
+                        <p className="text-[11px] text-slate-500">
+                          Attach WhatsApp conversation logs to Zoho Contact
+                          records.
+                        </p>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input
                           type="checkbox"
                           checked={preferences.logConversationNotes}
-                          onChange={(e) => handleUpdatePreference('logConversationNotes', e.target.checked)}
+                          onChange={(e) =>
+                            handleUpdatePreference(
+                              "logConversationNotes",
+                              e.target.checked,
+                            )
+                          }
                           className="sr-only peer"
                         />
                         <div className="w-9 h-5 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#009A44]" />
@@ -697,14 +809,24 @@ export default function ZohoSettings({ onBack } = {}) {
                     {/* Switch 3: Deal Creation */}
                     <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50/70 border border-slate-100">
                       <div>
-                        <h4 className="text-xs font-bold text-slate-800">Create Deals on WhatsApp Orders</h4>
-                        <p className="text-[11px] text-slate-500">Automatically generate a Zoho CRM Deal when an order is placed.</p>
+                        <h4 className="text-xs font-bold text-slate-800">
+                          Create Deals on WhatsApp Orders
+                        </h4>
+                        <p className="text-[11px] text-slate-500">
+                          Automatically generate a Zoho CRM Deal when an order
+                          is placed.
+                        </p>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input
                           type="checkbox"
                           checked={preferences.createDealsOnOrders}
-                          onChange={(e) => handleUpdatePreference('createDealsOnOrders', e.target.checked)}
+                          onChange={(e) =>
+                            handleUpdatePreference(
+                              "createDealsOnOrders",
+                              e.target.checked,
+                            )
+                          }
                           className="sr-only peer"
                         />
                         <div className="w-9 h-5 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#009A44]" />
@@ -714,14 +836,24 @@ export default function ZohoSettings({ onBack } = {}) {
                     {/* Switch 4: Follow-up Tasks */}
                     <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50/70 border border-slate-100">
                       <div>
-                        <h4 className="text-xs font-bold text-slate-800">Auto-Create Follow-up Tasks</h4>
-                        <p className="text-[11px] text-slate-500">Create reminder tasks in Zoho for conversations unresolved after 24h.</p>
+                        <h4 className="text-xs font-bold text-slate-800">
+                          Auto-Create Follow-up Tasks
+                        </h4>
+                        <p className="text-[11px] text-slate-500">
+                          Create reminder tasks in Zoho for conversations
+                          unresolved after 24h.
+                        </p>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input
                           type="checkbox"
                           checked={preferences.createFollowUpTasks}
-                          onChange={(e) => handleUpdatePreference('createFollowUpTasks', e.target.checked)}
+                          onChange={(e) =>
+                            handleUpdatePreference(
+                              "createFollowUpTasks",
+                              e.target.checked,
+                            )
+                          }
                           className="sr-only peer"
                         />
                         <div className="w-9 h-5 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#009A44]" />
@@ -731,12 +863,21 @@ export default function ZohoSettings({ onBack } = {}) {
                     {/* Sync Destination Selector */}
                     <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50/70 border border-slate-100">
                       <div>
-                        <h4 className="text-xs font-bold text-slate-800">Sync Destination Module</h4>
-                        <p className="text-[11px] text-slate-500">Choose which Zoho module receives new contacts.</p>
+                        <h4 className="text-xs font-bold text-slate-800">
+                          Sync Destination Module
+                        </h4>
+                        <p className="text-[11px] text-slate-500">
+                          Choose which Zoho module receives new contacts.
+                        </p>
                       </div>
                       <select
                         value={preferences.syncDestination}
-                        onChange={(e) => handleUpdatePreference('syncDestination', e.target.value)}
+                        onChange={(e) =>
+                          handleUpdatePreference(
+                            "syncDestination",
+                            e.target.value,
+                          )
+                        }
                         className="text-xs font-semibold bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#009A44]/20 focus:border-[#009A44] cursor-pointer"
                       >
                         <option value="CONTACTS">Contacts</option>
@@ -755,19 +896,27 @@ export default function ZohoSettings({ onBack } = {}) {
                   <div className="w-16 h-16 rounded-3xl bg-white border border-slate-200 shadow-sm flex items-center justify-center mx-auto">
                     <ZohoLogo className="w-10 h-10" />
                   </div>
-                  <h3 className="text-xl font-bold text-slate-900">Connect Sudo Reply to Zoho CRM</h3>
+                  <h3 className="text-xl font-bold text-slate-900">
+                    Connect Sudo Reply to Zoho CRM
+                  </h3>
                   <p className="text-xs text-slate-500 leading-relaxed">
-                    Map Sudo Reply WhatsApp contacts into Zoho CRM Contact modules. Keep your customer databases in sync automatically.
+                    Map Sudo Reply WhatsApp contacts into Zoho CRM Contact
+                    modules. Keep your customer databases in sync automatically.
                   </p>
                 </div>
 
                 {connection.status === "REFRESH_FAILED" && (
                   <div className="p-4 rounded-xl border border-rose-100 bg-rose-50/50 text-left text-rose-900 text-xs flex gap-3 max-w-lg mx-auto">
-                    <AlertTriangle size={18} className="text-rose-600 shrink-0 mt-0.5" />
+                    <AlertTriangle
+                      size={18}
+                      className="text-rose-600 shrink-0 mt-0.5"
+                    />
                     <div className="space-y-1">
                       <p className="font-bold">Authorization Expired</p>
                       <p className="leading-relaxed">
-                        Sudo Reply's authorization token was revoked on Zoho CRM or has expired. Please click "Connect Zoho CRM" below to re-authorize.
+                        Sudo Reply's authorization token was revoked on Zoho CRM
+                        or has expired. Please click "Connect Zoho CRM" below to
+                        re-authorize.
                       </p>
                     </div>
                   </div>
@@ -781,11 +930,16 @@ export default function ZohoSettings({ onBack } = {}) {
                     className="px-8 py-3.5 text-xs font-bold rounded-xl bg-gradient-to-r from-[#009A44] to-[#007C36] text-white hover:opacity-95 transition inline-flex items-center gap-2.5 shadow-md hover:shadow-lg disabled:opacity-60"
                   >
                     {connecting ? (
-                      <RefreshCw size={16} className="animate-spin text-white" />
+                      <RefreshCw
+                        size={16}
+                        className="animate-spin text-white"
+                      />
                     ) : (
                       <Zap size={16} />
                     )}
-                    <span>{connecting ? "Connecting..." : "Connect Zoho CRM"}</span>
+                    <span>
+                      {connecting ? "Connecting..." : "Connect Zoho CRM"}
+                    </span>
                   </button>
                   <p className="text-[11px] text-slate-400 mt-2">
                     Secured with standard Zoho Server-Based OAuth 2.0 protocol.
@@ -798,7 +952,9 @@ export default function ZohoSettings({ onBack } = {}) {
                     <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center mb-2.5">
                       <Users2 size={18} />
                     </div>
-                    <h4 className="text-xs font-bold text-slate-800">Contact Sync</h4>
+                    <h4 className="text-xs font-bold text-slate-800">
+                      Contact Sync
+                    </h4>
                     <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
                       Push WhatsApp leads directly into Zoho Contacts.
                     </p>
@@ -808,7 +964,9 @@ export default function ZohoSettings({ onBack } = {}) {
                     <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center mb-2.5">
                       <Zap size={18} />
                     </div>
-                    <h4 className="text-xs font-bold text-slate-800">One-Click Install</h4>
+                    <h4 className="text-xs font-bold text-slate-800">
+                      One-Click Install
+                    </h4>
                     <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
                       Instant connection. Sudo automatically resolves your DC.
                     </p>
@@ -818,7 +976,9 @@ export default function ZohoSettings({ onBack } = {}) {
                     <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center mb-2.5">
                       <ShieldCheck size={18} />
                     </div>
-                    <h4 className="text-xs font-bold text-slate-800">Security Built-in</h4>
+                    <h4 className="text-xs font-bold text-slate-800">
+                      Security Built-in
+                    </h4>
                     <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
                       Credential keys are fully GCM-encrypted at rest.
                     </p>
@@ -837,9 +997,13 @@ export default function ZohoSettings({ onBack } = {}) {
               <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                 <div className="flex items-center gap-2">
                   <BarChart3 size={14} className="text-[#009A44]" />
-                  <h4 className="text-xs font-bold text-slate-800">Zoho API Usage Limits</h4>
+                  <h4 className="text-xs font-bold text-slate-800">
+                    Zoho API Usage Limits
+                  </h4>
                 </div>
-                <span className="text-[10px] text-slate-400 font-medium">Live Quota</span>
+                <span className="text-[10px] text-slate-400 font-medium">
+                  Live Quota
+                </span>
               </div>
 
               {rateLimit ? (
@@ -874,13 +1038,22 @@ export default function ZohoSettings({ onBack } = {}) {
                   {/* Detailed info */}
                   <div className="pt-2 border-t border-slate-100 grid grid-cols-2 gap-2 text-[10px]">
                     <div className="p-2 bg-slate-50/50 rounded-lg">
-                      <span className="block text-slate-400 font-bold uppercase tracking-wider">Quota Limit</span>
-                      <span className="text-xs font-extrabold text-slate-700 mt-0.5">{rateLimit.limit.toLocaleString()}</span>
+                      <span className="block text-slate-400 font-bold uppercase tracking-wider">
+                        Quota Limit
+                      </span>
+                      <span className="text-xs font-extrabold text-slate-700 mt-0.5">
+                        {rateLimit.limit.toLocaleString()}
+                      </span>
                     </div>
                     <div className="p-2 bg-slate-50/50 rounded-lg">
-                      <span className="block text-slate-400 font-bold uppercase tracking-wider">Recorded At</span>
+                      <span className="block text-slate-400 font-bold uppercase tracking-wider">
+                        Recorded At
+                      </span>
                       <span className="text-xs font-extrabold text-slate-700 mt-0.5">
-                        {new Date(rateLimit.updatedAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(rateLimit.updatedAt).toLocaleTimeString(
+                          undefined,
+                          { hour: "2-digit", minute: "2-digit" },
+                        )}
                       </span>
                     </div>
                   </div>
@@ -888,7 +1061,8 @@ export default function ZohoSettings({ onBack } = {}) {
               ) : (
                 <div className="py-3 text-center space-y-2">
                   <p className="text-[11px] text-slate-500 leading-relaxed">
-                    Awaiting first API request to record quota. Live quota will be recorded on your first contact sync or connection test.
+                    Awaiting first API request to record quota. Live quota will
+                    be recorded on your first contact sync or connection test.
                   </p>
                   <button
                     type="button"
@@ -909,7 +1083,9 @@ export default function ZohoSettings({ onBack } = {}) {
               <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                 <div className="flex items-center gap-2">
                   <ShieldCheck size={14} className="text-[#009A44]" />
-                  <h4 className="text-xs font-bold text-slate-800">Plan Capabilities</h4>
+                  <h4 className="text-xs font-bold text-slate-800">
+                    Plan Capabilities
+                  </h4>
                 </div>
                 <button
                   type="button"
@@ -918,14 +1094,20 @@ export default function ZohoSettings({ onBack } = {}) {
                   title="Re-detect Zoho CRM Plan"
                   className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-[#009A44] transition disabled:opacity-50"
                 >
-                  <RefreshCw size={11} className={planLoading ? "animate-spin text-[#009A44]" : ""} />
+                  <RefreshCw
+                    size={11}
+                    className={planLoading ? "animate-spin text-[#009A44]" : ""}
+                  />
                   <span>Re-detect</span>
                 </button>
               </div>
 
               {planLoading ? (
                 <div className="flex items-center gap-2 py-3 justify-center text-xs text-slate-400">
-                  <RefreshCw className="animate-spin text-[#009A44]" size={12} />
+                  <RefreshCw
+                    className="animate-spin text-[#009A44]"
+                    size={12}
+                  />
                   <span>Loading capabilities...</span>
                 </div>
               ) : (
@@ -944,7 +1126,10 @@ export default function ZohoSettings({ onBack } = {}) {
                         <Check size={12} strokeWidth={3} /> Active
                       </span>
                     ) : (
-                      <span className="font-semibold text-slate-400 flex items-center gap-1" title="Requires Standard Plan+">
+                      <span
+                        className="font-semibold text-slate-400 flex items-center gap-1"
+                        title="Requires Standard Plan+"
+                      >
                         <Lock size={11} /> Locked
                       </span>
                     )}
@@ -957,7 +1142,10 @@ export default function ZohoSettings({ onBack } = {}) {
                         <Check size={12} strokeWidth={3} /> Active
                       </span>
                     ) : (
-                      <span className="font-semibold text-slate-400 flex items-center gap-1" title="Requires Standard Plan+">
+                      <span
+                        className="font-semibold text-slate-400 flex items-center gap-1"
+                        title="Requires Standard Plan+"
+                      >
                         <Lock size={11} /> Locked
                       </span>
                     )}
@@ -970,7 +1158,10 @@ export default function ZohoSettings({ onBack } = {}) {
                         <Check size={12} strokeWidth={3} /> Active
                       </span>
                     ) : (
-                      <span className="font-semibold text-slate-400 flex items-center gap-1" title="Requires Professional Plan+">
+                      <span
+                        className="font-semibold text-slate-400 flex items-center gap-1"
+                        title="Requires Professional Plan+"
+                      >
                         <Lock size={11} /> Locked
                       </span>
                     )}
@@ -983,7 +1174,10 @@ export default function ZohoSettings({ onBack } = {}) {
                         <Check size={12} strokeWidth={3} /> Active
                       </span>
                     ) : (
-                      <span className="font-semibold text-slate-400 flex items-center gap-1" title="Requires Enterprise Plan+">
+                      <span
+                        className="font-semibold text-slate-400 flex items-center gap-1"
+                        title="Requires Enterprise Plan+"
+                      >
                         <Lock size={11} /> Locked
                       </span>
                     )}
@@ -997,20 +1191,35 @@ export default function ZohoSettings({ onBack } = {}) {
           <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-2xs space-y-3">
             <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
               <Server size={14} className="text-[#009A44]" />
-              <h4 className="text-xs font-bold text-slate-800">Multi-DC Support</h4>
+              <h4 className="text-xs font-bold text-slate-800">
+                Multi-DC Support
+              </h4>
             </div>
             <p className="text-[11px] text-slate-500 leading-relaxed">
-              Zoho isolates accounts strictly across regional Data Centers. Sudo Reply fully supports automatic detection across all supported global Zoho domains, including:
+              Zoho isolates accounts strictly across regional Data Centers. Sudo
+              Reply fully supports automatic detection across all supported
+              global Zoho domains, including:
             </p>
             <div className="flex flex-wrap gap-1.5 text-[10px] font-semibold">
-              <span className="px-2 py-0.5 rounded bg-slate-50 border border-slate-100 text-slate-600">IN (India)</span>
-              <span className="px-2 py-0.5 rounded bg-slate-50 border border-slate-100 text-slate-600">US (United States)</span>
-              <span className="px-2 py-0.5 rounded bg-slate-50 border border-slate-100 text-slate-600">EU (Europe)</span>
-              <span className="px-2 py-0.5 rounded bg-slate-50 border border-slate-100 text-slate-600">AU (Australia)</span>
-              <span className="px-2 py-0.5 rounded bg-slate-50 border border-slate-100 text-slate-600">JP (Japan)</span>
+              <span className="px-2 py-0.5 rounded bg-slate-50 border border-slate-100 text-slate-600">
+                IN (India)
+              </span>
+              <span className="px-2 py-0.5 rounded bg-slate-50 border border-slate-100 text-slate-600">
+                US (United States)
+              </span>
+              <span className="px-2 py-0.5 rounded bg-slate-50 border border-slate-100 text-slate-600">
+                EU (Europe)
+              </span>
+              <span className="px-2 py-0.5 rounded bg-slate-50 border border-slate-100 text-slate-600">
+                AU (Australia)
+              </span>
+              <span className="px-2 py-0.5 rounded bg-slate-50 border border-slate-100 text-slate-600">
+                JP (Japan)
+              </span>
             </div>
             <p className="text-[9px] text-slate-400 italic">
-              Authorization keys are matched dynamically with your regional login DC.
+              Authorization keys are matched dynamically with your regional
+              login DC.
             </p>
           </div>
 
@@ -1018,15 +1227,26 @@ export default function ZohoSettings({ onBack } = {}) {
           <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-2xs space-y-3">
             <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
               <Info size={14} className="text-blue-500" />
-              <h4 className="text-xs font-bold text-slate-800">Guidelines & Mapping</h4>
+              <h4 className="text-xs font-bold text-slate-800">
+                Guidelines & Mapping
+              </h4>
             </div>
             <p className="text-[11px] text-slate-500 leading-relaxed">
               Before syncing, note Sudo's name-splitting strategy:
             </p>
             <ul className="list-disc pl-4 text-[10px] text-slate-500 space-y-1.5">
-              <li>Names are split on the <strong>last space</strong> for Zoho First Name & Last Name formatting.</li>
-              <li>Single-word names (e.g., Madonna) map entirely to the mandatory <strong>Last Name</strong> field.</li>
-              <li>Only active WhatsApp contacts with valid names will be processed during the background sync.</li>
+              <li>
+                Names are split on the <strong>last space</strong> for Zoho
+                First Name & Last Name formatting.
+              </li>
+              <li>
+                Single-word names (e.g., Madonna) map entirely to the mandatory{" "}
+                <strong>Last Name</strong> field.
+              </li>
+              <li>
+                Only active WhatsApp contacts with valid names will be processed
+                during the background sync.
+              </li>
             </ul>
           </div>
         </div>
@@ -1041,9 +1261,13 @@ export default function ZohoSettings({ onBack } = {}) {
             </div>
 
             <div className="space-y-1">
-              <h3 className="text-sm font-bold text-slate-800">Disconnect Zoho CRM?</h3>
+              <h3 className="text-sm font-bold text-slate-800">
+                Disconnect Zoho CRM?
+              </h3>
               <p className="text-xs text-slate-500 leading-relaxed">
-                Disconnecting will clear all tokens. Synchronization will stop. Your mapped contact relationships will remain intact in the database for future reconnections.
+                Disconnecting will clear all tokens. Synchronization will stop.
+                Your mapped contact relationships will remain intact in the
+                database for future reconnections.
               </p>
             </div>
 
@@ -1062,8 +1286,12 @@ export default function ZohoSettings({ onBack } = {}) {
                 onClick={handleDisconnectConfirm}
                 className="px-4 py-2 text-xs font-semibold rounded-xl bg-rose-600 text-white hover:bg-rose-700 transition flex items-center gap-1.5 shadow-xs disabled:opacity-50"
               >
-                {disconnecting && <RefreshCw size={13} className="animate-spin" />}
-                <span>{disconnecting ? "Disconnecting..." : "Yes, Disconnect"}</span>
+                {disconnecting && (
+                  <RefreshCw size={13} className="animate-spin" />
+                )}
+                <span>
+                  {disconnecting ? "Disconnecting..." : "Yes, Disconnect"}
+                </span>
               </button>
             </div>
           </div>

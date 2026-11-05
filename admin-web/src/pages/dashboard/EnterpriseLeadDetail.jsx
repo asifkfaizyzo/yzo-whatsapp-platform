@@ -1,7 +1,19 @@
 // admin-web/src/pages/dashboard/EnterpriseLeadDetail.jsx (do not remove this comment)
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { ArrowLeft, User, Building, Mail, Phone, Calendar, Users, ListFilter, Trash2, CheckCircle2, AlertTriangle } from "lucide-react";
+import {
+  ArrowLeft,
+  User,
+  Building,
+  Mail,
+  Phone,
+  Calendar,
+  Users,
+  ListFilter,
+  Trash2,
+  CheckCircle2,
+  AlertTriangle,
+} from "lucide-react";
 import api from "../../api/axios";
 
 export default function EnterpriseLeadDetail() {
@@ -43,7 +55,9 @@ export default function EnterpriseLeadDetail() {
   const handleStatusChange = async (newStatus) => {
     setUpdating(true);
     try {
-      const response = await api.patch(`/admin/enterprise-leads/${id}/status`, { status: newStatus });
+      const response = await api.patch(`/admin/enterprise-leads/${id}/status`, {
+        status: newStatus,
+      });
       if (response.data.success) {
         // Refresh details to sync history
         await fetchLead();
@@ -59,7 +73,9 @@ export default function EnterpriseLeadDetail() {
   const handleNotesSave = async () => {
     setSavingNotes(true);
     try {
-      const response = await api.patch(`/admin/enterprise-leads/${id}/notes`, { internal_notes: notes });
+      const response = await api.patch(`/admin/enterprise-leads/${id}/notes`, {
+        internal_notes: notes,
+      });
       if (response.data.success) {
         alert("Internal notes saved successfully!");
       }
@@ -115,7 +131,10 @@ export default function EnterpriseLeadDetail() {
         <span className="text-4xl">⚠️</span>
         <h3 className="text-lg font-bold text-slate-700">Failed to load</h3>
         <p className="text-sm text-slate-500">{error || "Lead not found."}</p>
-        <Link to="/dashboard/enquiries?tab=enterprise" className="inline-block bg-[#125EF2] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-blue-600 transition">
+        <Link
+          to="/dashboard/enquiries?tab=enterprise"
+          className="inline-block bg-[#125EF2] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-blue-600 transition"
+        >
           Back to Leads
         </Link>
       </div>
@@ -140,7 +159,10 @@ export default function EnterpriseLeadDetail() {
     <div className="space-y-6 max-w-5xl mx-auto animate-in fade-in duration-200">
       {/* Header back link */}
       <div className="flex items-center justify-between">
-        <Link to="/dashboard/enquiries?tab=enterprise" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 font-medium">
+        <Link
+          to="/dashboard/enquiries?tab=enterprise"
+          className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 font-medium"
+        >
           <ArrowLeft size={16} />
           <span>Back to Leads</span>
         </Link>
@@ -148,15 +170,25 @@ export default function EnterpriseLeadDetail() {
 
       {/* Main Grid Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
         {/* Section 1: Lead Information (Left / Spans 2 cols) */}
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-6 md:p-8 space-y-6">
             <div className="border-b border-slate-100 pb-4">
-              <span className="text-xs font-semibold text-blue-600 uppercase tracking-wide">Enterprise Request</span>
-              <h2 className="text-2xl font-bold text-slate-900 mt-1">{lead.companyName}</h2>
+              <span className="text-xs font-semibold text-blue-600 uppercase tracking-wide">
+                Enterprise Request
+              </span>
+              <h2 className="text-2xl font-bold text-slate-900 mt-1">
+                {lead.companyName}
+              </h2>
               <p className="text-sm text-slate-500 mt-1">
-                Submitted on {new Date(lead.createdAt).toLocaleDateString(undefined, { dateStyle: "long" })} at {new Date(lead.createdAt).toLocaleTimeString(undefined, { timeStyle: "short" })}
+                Submitted on{" "}
+                {new Date(lead.createdAt).toLocaleDateString(undefined, {
+                  dateStyle: "long",
+                })}{" "}
+                at{" "}
+                {new Date(lead.createdAt).toLocaleTimeString(undefined, {
+                  timeStyle: "short",
+                })}
               </p>
             </div>
 
@@ -166,7 +198,9 @@ export default function EnterpriseLeadDetail() {
                 <User size={18} className="text-slate-400 shrink-0" />
                 <div>
                   <p className="text-slate-400 font-medium">Contact Name</p>
-                  <p className="text-slate-800 font-bold mt-0.5">{lead.contactName}</p>
+                  <p className="text-slate-800 font-bold mt-0.5">
+                    {lead.contactName}
+                  </p>
                 </div>
               </div>
 
@@ -175,7 +209,12 @@ export default function EnterpriseLeadDetail() {
                 <div>
                   <p className="text-slate-400 font-medium">Email Address</p>
                   <p className="text-slate-800 font-bold mt-0.5">
-                    <a href={`mailto:${lead.email}`} className="text-blue-600 hover:underline">{lead.email}</a>
+                    <a
+                      href={`mailto:${lead.email}`}
+                      className="text-blue-600 hover:underline"
+                    >
+                      {lead.email}
+                    </a>
                   </p>
                 </div>
               </div>
@@ -184,7 +223,13 @@ export default function EnterpriseLeadDetail() {
                 <Phone size={18} className="text-slate-400 shrink-0" />
                 <div>
                   <p className="text-slate-400 font-medium">Phone Number</p>
-                  <p className="text-slate-800 font-bold mt-0.5">{lead.phone || <span className="text-slate-400 italic font-normal">Not provided</span>}</p>
+                  <p className="text-slate-800 font-bold mt-0.5">
+                    {lead.phone || (
+                      <span className="text-slate-400 italic font-normal">
+                        Not provided
+                      </span>
+                    )}
+                  </p>
                 </div>
               </div>
 
@@ -192,7 +237,13 @@ export default function EnterpriseLeadDetail() {
                 <Building size={18} className="text-slate-400 shrink-0" />
                 <div>
                   <p className="text-slate-400 font-medium">Role / Job Title</p>
-                  <p className="text-slate-800 font-bold mt-0.5">{lead.role || <span className="text-slate-400 italic font-normal">Not provided</span>}</p>
+                  <p className="text-slate-800 font-bold mt-0.5">
+                    {lead.role || (
+                      <span className="text-slate-400 italic font-normal">
+                        Not provided
+                      </span>
+                    )}
+                  </p>
                 </div>
               </div>
 
@@ -200,7 +251,9 @@ export default function EnterpriseLeadDetail() {
                 <Users size={18} className="text-slate-400 shrink-0" />
                 <div>
                   <p className="text-slate-400 font-medium">Company Size</p>
-                  <p className="text-slate-800 font-bold mt-0.5">{lead.companySize} employees</p>
+                  <p className="text-slate-800 font-bold mt-0.5">
+                    {lead.companySize} employees
+                  </p>
                 </div>
               </div>
 
@@ -208,7 +261,13 @@ export default function EnterpriseLeadDetail() {
                 <Users size={18} className="text-slate-400 shrink-0" />
                 <div>
                   <p className="text-slate-400 font-medium">Estimated Users</p>
-                  <p className="text-slate-800 font-bold mt-0.5">{lead.estimatedUsers || <span className="text-slate-400 italic font-normal">Not specified</span>}</p>
+                  <p className="text-slate-800 font-bold mt-0.5">
+                    {lead.estimatedUsers || (
+                      <span className="text-slate-400 italic font-normal">
+                        Not specified
+                      </span>
+                    )}
+                  </p>
                 </div>
               </div>
 
@@ -216,24 +275,36 @@ export default function EnterpriseLeadDetail() {
                 <Calendar size={18} className="text-slate-400 shrink-0" />
                 <div>
                   <p className="text-slate-400 font-medium">Project Timeline</p>
-                  <p className="text-slate-800 font-bold mt-0.5">{getTimelineLabel(lead.timeline)}</p>
+                  <p className="text-slate-800 font-bold mt-0.5">
+                    {getTimelineLabel(lead.timeline)}
+                  </p>
                 </div>
               </div>
 
               <div className="flex gap-3">
                 <ListFilter size={18} className="text-slate-400 shrink-0" />
                 <div>
-                  <p className="text-slate-400 font-medium">Preferred Contact Method</p>
-                  <p className="text-slate-800 font-bold mt-0.5">{getPreferredContactLabel(lead.preferredContact)}</p>
+                  <p className="text-slate-400 font-medium">
+                    Preferred Contact Method
+                  </p>
+                  <p className="text-slate-800 font-bold mt-0.5">
+                    {getPreferredContactLabel(lead.preferredContact)}
+                  </p>
                 </div>
               </div>
             </div>
 
             {/* Custom requirements */}
             <div className="pt-4 border-t border-slate-100 space-y-2">
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Key Features Interested In</span>
+              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
+                Key Features Interested In
+              </span>
               <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
-                {lead.requirements || <span className="text-slate-400 italic font-normal">No specific requirements mentioned.</span>}
+                {lead.requirements || (
+                  <span className="text-slate-400 italic font-normal">
+                    No specific requirements mentioned.
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -241,22 +312,31 @@ export default function EnterpriseLeadDetail() {
 
         {/* Section 2: Sales Management (Right / Spans 1 col) */}
         <div className="space-y-6">
-          
           {/* Quick Actions Panel */}
           <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-6 space-y-4">
-            <h3 className="font-bold text-slate-800 text-base">Sales Actions</h3>
-            
+            <h3 className="font-bold text-slate-800 text-base">
+              Sales Actions
+            </h3>
+
             {/* Quick Status Buttons */}
             <div className="grid grid-cols-2 gap-2 text-xs">
               <button
-                disabled={updating || lead.status === "contacted" || lead.status === "converted"}
+                disabled={
+                  updating ||
+                  lead.status === "contacted" ||
+                  lead.status === "converted"
+                }
                 onClick={() => handleStatusChange("contacted")}
                 className="px-3 py-2.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl font-semibold transition disabled:opacity-50"
               >
                 Mark Contacted
               </button>
               <button
-                disabled={updating || lead.status === "negotiating" || lead.status === "converted"}
+                disabled={
+                  updating ||
+                  lead.status === "negotiating" ||
+                  lead.status === "converted"
+                }
                 onClick={() => handleStatusChange("negotiating")}
                 className="px-3 py-2.5 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-xl font-semibold transition disabled:opacity-50"
               >
@@ -271,13 +351,21 @@ export default function EnterpriseLeadDetail() {
               className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-sm transition shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <CheckCircle2 size={16} />
-              <span>{lead.status === "converted" ? "Account Activated" : "Activate Account"}</span>
+              <span>
+                {lead.status === "converted"
+                  ? "Account Activated"
+                  : "Activate Account"}
+              </span>
             </button>
 
             {/* Reject & Delete */}
             <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-slate-100">
               <button
-                disabled={updating || lead.status === "rejected" || lead.status === "converted"}
+                disabled={
+                  updating ||
+                  lead.status === "rejected" ||
+                  lead.status === "converted"
+                }
                 onClick={() => handleStatusChange("rejected")}
                 className="px-3 py-2.5 border border-red-100 hover:bg-red-50 text-red-600 rounded-xl font-semibold transition disabled:opacity-50"
               >
@@ -294,10 +382,14 @@ export default function EnterpriseLeadDetail() {
 
           {/* Current Status & Notes */}
           <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-6 space-y-4">
-            <h3 className="font-bold text-slate-800 text-base">Internal Status & Notes</h3>
-            
+            <h3 className="font-bold text-slate-800 text-base">
+              Internal Status & Notes
+            </h3>
+
             <div className="space-y-1">
-              <label className="text-xs text-slate-400 font-bold uppercase">Status Dropdown</label>
+              <label className="text-xs text-slate-400 font-bold uppercase">
+                Status Dropdown
+              </label>
               <select
                 disabled={updating || lead.status === "converted"}
                 value={lead.status}
@@ -315,7 +407,11 @@ export default function EnterpriseLeadDetail() {
             <div className="space-y-1.5 pt-2">
               <label className="text-xs text-slate-400 font-bold uppercase flex justify-between">
                 <span>Internal Notes</span>
-                {savingNotes && <span className="text-blue-600 lowercase font-normal">saving...</span>}
+                {savingNotes && (
+                  <span className="text-blue-600 lowercase font-normal">
+                    saving...
+                  </span>
+                )}
               </label>
               <textarea
                 rows={4}
@@ -336,7 +432,9 @@ export default function EnterpriseLeadDetail() {
 
           {/* History log */}
           <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-6 space-y-4">
-            <h3 className="font-bold text-slate-800 text-base">Contact History Log</h3>
+            <h3 className="font-bold text-slate-800 text-base">
+              Contact History Log
+            </h3>
             <div className="flow-root">
               <ul className="-mb-8">
                 {Array.isArray(lead.history) && lead.history.length > 0 ? (
@@ -344,25 +442,45 @@ export default function EnterpriseLeadDetail() {
                     <li key={logIdx}>
                       <div className="relative pb-8">
                         {logIdx !== lead.history.length - 1 ? (
-                          <span className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-slate-200" aria-hidden="true" />
+                          <span
+                            className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-slate-200"
+                            aria-hidden="true"
+                          />
                         ) : null}
                         <div className="relative flex space-x-3">
                           <div>
-                            <span className={`h-8 w-8 rounded-full flex items-center justify-center ring-8 ring-white ${
-                              log.status === "converted" ? "bg-green-500 text-white" :
-                              log.status === "rejected" ? "bg-red-500 text-white" :
-                              log.status === "negotiating" ? "bg-purple-500 text-white" :
-                              log.status === "contacted" ? "bg-blue-500 text-white" : "bg-slate-400 text-white"
-                            }`}>
+                            <span
+                              className={`h-8 w-8 rounded-full flex items-center justify-center ring-8 ring-white ${
+                                log.status === "converted"
+                                  ? "bg-green-500 text-white"
+                                  : log.status === "rejected"
+                                    ? "bg-red-500 text-white"
+                                    : log.status === "negotiating"
+                                      ? "bg-purple-500 text-white"
+                                      : log.status === "contacted"
+                                        ? "bg-blue-500 text-white"
+                                        : "bg-slate-400 text-white"
+                              }`}
+                            >
                               ●
                             </span>
                           </div>
                           <div className="flex-1 min-w-0 pt-1.5">
                             <p className="text-xs font-bold text-slate-800">
-                              Status: <span className="capitalize">{log.status}</span>
+                              Status:{" "}
+                              <span className="capitalize">{log.status}</span>
                             </p>
                             <p className="text-[10px] text-slate-400 mt-0.5">
-                              By {log.adminName} on {new Date(log.timestamp).toLocaleDateString(undefined, { dateStyle: "short" })} at {new Date(log.timestamp).toLocaleTimeString(undefined, { timeStyle: "short" })}
+                              By {log.adminName} on{" "}
+                              {new Date(log.timestamp).toLocaleDateString(
+                                undefined,
+                                { dateStyle: "short" },
+                              )}{" "}
+                              at{" "}
+                              {new Date(log.timestamp).toLocaleTimeString(
+                                undefined,
+                                { timeStyle: "short" },
+                              )}
                             </p>
                           </div>
                         </div>
@@ -370,7 +488,9 @@ export default function EnterpriseLeadDetail() {
                     </li>
                   ))
                 ) : (
-                  <p className="text-xs text-slate-400 italic">No history log found.</p>
+                  <p className="text-xs text-slate-400 italic">
+                    No history log found.
+                  </p>
                 )}
               </ul>
             </div>
@@ -381,7 +501,9 @@ export default function EnterpriseLeadDetail() {
                 <div>
                   <span className="text-slate-400">Activated At:</span>
                   <p className="font-semibold text-slate-800 mt-0.5">
-                    {lead.activatedAt ? new Date(lead.activatedAt).toLocaleString() : "N/A"}
+                    {lead.activatedAt
+                      ? new Date(lead.activatedAt).toLocaleString()
+                      : "N/A"}
                   </p>
                 </div>
                 <div>
@@ -404,9 +526,13 @@ export default function EnterpriseLeadDetail() {
               <CheckCircle2 size={28} />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-slate-900">Activate Enterprise Account?</h3>
+              <h3 className="text-lg font-bold text-slate-900">
+                Activate Enterprise Account?
+              </h3>
               <p className="text-sm text-slate-500 mt-2">
-                This will activate the custom Enterprise Plan for <strong>{lead.companyName}</strong>. An email notification will be sent to the administrator at <strong>{lead.email}</strong>.
+                This will activate the custom Enterprise Plan for{" "}
+                <strong>{lead.companyName}</strong>. An email notification will
+                be sent to the administrator at <strong>{lead.email}</strong>.
               </p>
             </div>
             <div className="flex gap-4">
@@ -437,9 +563,13 @@ export default function EnterpriseLeadDetail() {
               <AlertTriangle size={24} />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-slate-900">Delete Lead Record?</h3>
+              <h3 className="text-lg font-bold text-slate-900">
+                Delete Lead Record?
+              </h3>
               <p className="text-sm text-slate-500 mt-2">
-                Are you sure you want to delete the lead record for <strong>{lead.companyName}</strong>? This action cannot be undone.
+                Are you sure you want to delete the lead record for{" "}
+                <strong>{lead.companyName}</strong>? This action cannot be
+                undone.
               </p>
             </div>
             <div className="flex gap-4">

@@ -1,11 +1,13 @@
 // backend/src/modules/contacts/contact.tenant.service.js (do not remove this comment)
 import {
-  createContact, getAllContacts, getContactById,
-  updateContact, deleteContact, blockContact,
+  createContact,
+  getAllContacts,
+  getContactById,
+  updateContact,
+  deleteContact,
+  blockContact,
   unblockContact,
-} from './contact.crud.service.js';
-
-
+} from "./contact.crud.service.js";
 
 export const tenantCreateContact = async (data, tenantId) => {
   return await createContact(data, tenantId);

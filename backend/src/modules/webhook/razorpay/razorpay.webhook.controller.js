@@ -25,14 +25,19 @@ export const handleRazorpayWebhook = async (req, res) => {
     // Verify Signature
     const expectedSignature = crypto
       .createHmac("sha256", webhookSecret)
-      .update(req.rawBody ? req.rawBody.toString("utf8") : JSON.stringify(req.body))
+      .update(
+        req.rawBody ? req.rawBody.toString("utf8") : JSON.stringify(req.body),
+      )
       .digest("hex");
 
     // Safe constant-time comparison
     const expectedBuf = Buffer.from(expectedSignature, "utf8");
     const sigBuf = Buffer.from(signature, "utf8");
 
-    if (expectedBuf.length !== sigBuf.length || !crypto.timingSafeEqual(expectedBuf, sigBuf)) {
+    if (
+      expectedBuf.length !== sigBuf.length ||
+      !crypto.timingSafeEqual(expectedBuf, sigBuf)
+    ) {
       console.warn("⚠️ Invalid Razorpay Webhook Signature");
       return res.status(400).send("Invalid signature");
     }
@@ -62,11 +67,15 @@ export const handleRazorpayWebhook = async (req, res) => {
 
         const gstCalc = await calculateGST(existingPayment.baseAmount);
         const tenant = existingPayment.tenant
-          ? { ...existingPayment.tenant, ...existingPayment.tenant.subscription }
+          ? {
+              ...existingPayment.tenant,
+              ...existingPayment.tenant.subscription,
+            }
           : null;
         // Calculate billing period dates (accounting for active plan extension)
         const isSamePlan = tenant?.planId === existingPayment.planId;
-        const isSameBillingType = tenant?.billingType === existingPayment.billingType;
+        const isSameBillingType =
+          tenant?.billingType === existingPayment.billingType;
         const isCurrentPlanActive =
           tenant?.subscriptionStatus === "active" ||
           tenant?.subscriptionStatus === "cancel_at_period_end";
@@ -83,7 +92,10 @@ export const handleRazorpayWebhook = async (req, res) => {
         }
 
         const wasExtended =
-          isSamePlan && isSameBillingType && isCurrentPlanActive && isNotExpired;
+          isSamePlan &&
+          isSameBillingType &&
+          isCurrentPlanActive &&
+          isNotExpired;
 
         if (wasExtended && tenant.planPeriodEnd) {
           periodStart = new Date(tenant.planPeriodEnd);
@@ -137,7 +149,7 @@ export const handleRazorpayWebhook = async (req, res) => {
         try {
           const { filePath, fileUrl, invoiceNumber } = await generateInvoicePDF(
             updatedPayment,
-            tenant
+            tenant,
           );
 
           await prisma.payment.update({
@@ -153,7 +165,10 @@ export const handleRazorpayWebhook = async (req, res) => {
             pdfPath: filePath,
           });
         } catch (pdfErr) {
-          console.error("❌ PDF generation or email failed in webhook:", pdfErr.message);
+          console.error(
+            "❌ PDF generation or email failed in webhook:",
+            pdfErr.message,
+          );
         }
       }
     }
@@ -164,7 +179,9 @@ export const handleRazorpayWebhook = async (req, res) => {
     else if (event === "subscription.authenticated") {
       const subscription = req.body?.payload?.subscription?.entity;
       if (subscription?.id) {
-        console.log(`[Webhook] Mandate authenticated for subscription: ${subscription.id}`);
+        console.log(
+          `[Webhook] Mandate authenticated for subscription: ${subscription.id}`,
+        );
         await prisma.tenantSubscription.updateMany({
           where: {
             razorpaySubscriptionId: subscription.id,
@@ -192,7 +209,9 @@ export const handleRazorpayWebhook = async (req, res) => {
         });
 
         if (existingPayment) {
-          console.log(`[Webhook] Duplicate subscription.charged event for payment ${payment.id} — skipping`);
+          console.log(
+            `[Webhook] Duplicate subscription.charged event for payment ${payment.id} — skipping`,
+          );
           return res.status(200).json({ status: "ok", duplicate: true });
         }
 
@@ -202,7 +221,9 @@ export const handleRazorpayWebhook = async (req, res) => {
         });
         const tenant = subRecord ? { ...subRecord.tenant, ...subRecord } : null;
         if (tenant) {
-          console.log(`[Webhook] Processing recurring renewal for tenant ${tenant.tenantName} (${tenant.id})`);
+          console.log(
+            `[Webhook] Processing recurring renewal for tenant ${tenant.tenantName} (${tenant.id})`,
+          );
           const periodStart = new Date(subscription.current_start * 1000);
           const periodEnd = new Date(subscription.current_end * 1000);
           const totalAmount = payment.amount / 100;
@@ -239,7 +260,8 @@ export const handleRazorpayWebhook = async (req, res) => {
                 razorpaySignature: signature,
                 paymentType: "ONLINE",
                 planId: tenant.planId || "unknown",
-                planName: tenant.currentPlan || tenant.plan?.name || "Active Plan",
+                planName:
+                  tenant.currentPlan || tenant.plan?.name || "Active Plan",
                 billingType: tenant.billingType || "monthly",
                 baseAmount: gstCalc.baseAmount,
                 gstPercent: gstCalc.gstPercent || 18,
@@ -257,7 +279,8 @@ export const handleRazorpayWebhook = async (req, res) => {
               data: {
                 tenantId: tenant.id,
                 invoiceNumber,
-                planName: tenant.currentPlan || tenant.plan?.name || "Active Plan",
+                planName:
+                  tenant.currentPlan || tenant.plan?.name || "Active Plan",
                 amount: totalAmount,
                 baseAmount: gstCalc.baseAmount,
                 gstAmount: gstCalc.gstAmount,
@@ -276,7 +299,10 @@ export const handleRazorpayWebhook = async (req, res) => {
 
           // Generate Invoice PDF & Email
           try {
-            const { filePath, fileUrl } = await generateInvoicePDF(updatedPayment, tenant);
+            const { filePath, fileUrl } = await generateInvoicePDF(
+              updatedPayment,
+              tenant,
+            );
             await prisma.payment.update({
               where: { id: updatedPayment.id },
               data: { invoiceUrl: fileUrl },
@@ -290,7 +316,10 @@ export const handleRazorpayWebhook = async (req, res) => {
               pdfPath: filePath,
             });
           } catch (pdfErr) {
-            console.error("❌ PDF generation or email failed for subscription.charged:", pdfErr.message);
+            console.error(
+              "❌ PDF generation or email failed for subscription.charged:",
+              pdfErr.message,
+            );
           }
         }
       }
@@ -302,7 +331,9 @@ export const handleRazorpayWebhook = async (req, res) => {
     else if (event === "subscription.halted") {
       const subscription = req.body?.payload?.subscription?.entity;
       if (subscription?.id) {
-        console.warn(`[Webhook] Subscription ${subscription.id} halted / auto-debit failed.`);
+        console.warn(
+          `[Webhook] Subscription ${subscription.id} halted / auto-debit failed.`,
+        );
         await prisma.tenantSubscription.updateMany({
           where: { razorpaySubscriptionId: subscription.id },
           data: {
@@ -318,7 +349,9 @@ export const handleRazorpayWebhook = async (req, res) => {
     // ─────────────────────────────────────────────────────────────
     else if (event === "subscription.pending") {
       const subscription = req.body?.payload?.subscription?.entity;
-      console.log(`[Webhook] Subscription ${subscription?.id} is pending mandate approval`);
+      console.log(
+        `[Webhook] Subscription ${subscription?.id} is pending mandate approval`,
+      );
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -327,7 +360,9 @@ export const handleRazorpayWebhook = async (req, res) => {
     else if (event === "subscription.completed") {
       const subscription = req.body?.payload?.subscription?.entity;
       if (subscription?.id) {
-        console.log(`[Webhook] Subscription ${subscription.id} reached term completion`);
+        console.log(
+          `[Webhook] Subscription ${subscription.id} reached term completion`,
+        );
         await prisma.tenantSubscription.updateMany({
           where: { razorpaySubscriptionId: subscription.id },
           data: { autopayEnabled: false },
@@ -403,7 +438,9 @@ export const handleRazorpayWebhook = async (req, res) => {
         });
 
         if (existingPayment && existingPayment.status === "PENDING") {
-          console.warn(`[Webhook] Marking payment as FAILED for order: ${orderId}`);
+          console.warn(
+            `[Webhook] Marking payment as FAILED for order: ${orderId}`,
+          );
           await prisma.payment.update({
             where: { id: existingPayment.id },
             data: {

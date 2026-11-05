@@ -1,63 +1,98 @@
 // backend/src/modules/users/user.routes.js (do not remove this comment)
 //backend\src\modules\users\user.routes.js
-import express from 'express';
-import * as userController from './user.controller.js';
-import { generateAccessToken, generateRefreshToken } from '../auth/jwt.service.js';
-import { forgotPasswordUser, resetPasswordUser } from './user.controller.js';
-import { verifyTenantOrUser } from '../../middlewares/auth.verifyTenantOrUser.js';
-import { verifyUser } from '../../middlewares/auth.user.js';
+import express from "express";
+import * as userController from "./user.controller.js";
 import {
-  loginSchema, forgotPasswordSchema, resetPasswordSchema,
-  refreshTokenSchema, logoutSchema, changePasswordSchema,
+  generateAccessToken,
+  generateRefreshToken,
+} from "../auth/jwt.service.js";
+import { forgotPasswordUser, resetPasswordUser } from "./user.controller.js";
+import { verifyTenantOrUser } from "../../middlewares/auth.verifyTenantOrUser.js";
+import { verifyUser } from "../../middlewares/auth.user.js";
+import {
+  loginSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+  refreshTokenSchema,
+  logoutSchema,
+  changePasswordSchema,
   googleLoginSchema,
-} from '../auth/auth.schema.js';
-import validate from '../../middlewares/validate.middleware.js';
+} from "../auth/auth.schema.js";
+import validate from "../../middlewares/validate.middleware.js";
 
 const router = express.Router();
 
 // ═════════════════════════════════════════
 // AUTH ROUTES
 // ═════════════════════════════════════════
-router.post('/login-user', validate(loginSchema), userController.loginUser);
-router.post('/logout-user', validate(logoutSchema), userController.logoutUser);
-router.post('/refresh-user-access', validate(refreshTokenSchema), userController.refreshUserAccessToken);
-router.post('/forgot-usr-password', validate(forgotPasswordSchema), userController.forgotPasswordUser);
-router.post('/reset-usr-password', validate(resetPasswordSchema), userController.resetPasswordUser);
-router.post('/google-login', validate(googleLoginSchema), userController.googleLoginUser);
+router.post("/login-user", validate(loginSchema), userController.loginUser);
+router.post("/logout-user", validate(logoutSchema), userController.logoutUser);
+router.post(
+  "/refresh-user-access",
+  validate(refreshTokenSchema),
+  userController.refreshUserAccessToken,
+);
+router.post(
+  "/forgot-usr-password",
+  validate(forgotPasswordSchema),
+  userController.forgotPasswordUser,
+);
+router.post(
+  "/reset-usr-password",
+  validate(resetPasswordSchema),
+  userController.resetPasswordUser,
+);
+router.post(
+  "/google-login",
+  validate(googleLoginSchema),
+  userController.googleLoginUser,
+);
 
 // ═════════════════════════════════════════
 // USER PROFILE ROUTES
 // ═════════════════════════════════════════
-router.get('/me', verifyUser, userController.getUserProfile);
-router.put('/change-password', verifyUser, userController.updateUserPassword);
+router.get("/me", verifyUser, userController.getUserProfile);
+router.put("/change-password", verifyUser, userController.updateUserPassword);
 
 // ═════════════════════════════════════════
 // CONTACTS
 // ═════════════════════════════════════════
-router.get('/my-assigned-contacts', verifyUser, userController.getMyAssignedContacts);
+router.get(
+  "/my-assigned-contacts",
+  verifyUser,
+  userController.getMyAssignedContacts,
+);
 
 // ═════════════════════════════════════════
 // 🆕 AGENT AVAILABILITY
 // ═════════════════════════════════════════
-router.patch('/availability', verifyUser, userController.updateAvailability);
+router.patch("/availability", verifyUser, userController.updateAvailability);
 
 // ═════════════════════════════════════════
 // 🆕 DASHBOARD STATS
 // ═════════════════════════════════════════
-router.get('/dashboard-stats', verifyUser, userController.getDashboardStats);
+router.get("/dashboard-stats", verifyUser, userController.getDashboardStats);
 
 // ═════════════════════════════════════════
 // 🆕 GLOBAL UNREAD BADGE
 // ═════════════════════════════════════════
-router.get('/unread-count', verifyUser, userController.getUnreadBadgeCount);
+router.get("/unread-count", verifyUser, userController.getUnreadBadgeCount);
 
 // ═════════════════════════════════════════
 // 🆕 PUSH TOKEN
 // ═════════════════════════════════════════
-router.post('/push-token', verifyUser, userController.registerPushToken);
-router.delete('/push-token', verifyUser, userController.clearPushToken);
+router.post("/push-token", verifyUser, userController.registerPushToken);
+router.delete("/push-token", verifyUser, userController.clearPushToken);
 
-router.get('/notification-preferences', verifyTenantOrUser, userController.getNotificationPreferences);
-router.patch('/notification-preferences', verifyTenantOrUser, userController.updateNotificationPreferences);
+router.get(
+  "/notification-preferences",
+  verifyTenantOrUser,
+  userController.getNotificationPreferences,
+);
+router.patch(
+  "/notification-preferences",
+  verifyTenantOrUser,
+  userController.updateNotificationPreferences,
+);
 
 export default router;

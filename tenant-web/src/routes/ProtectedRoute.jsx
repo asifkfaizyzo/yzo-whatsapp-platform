@@ -1,6 +1,6 @@
 // tenant-web/src/routes/ProtectedRoute.jsx (do not remove this comment)
-import { Navigate, useLocation } from 'react-router-dom';
-import { useAuthStore } from '../store/useAuthStore';
+import { Navigate, useLocation } from "react-router-dom";
+import { useAuthStore } from "../store/useAuthStore";
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { isAuthenticated, user, isLoading, isHydrated } = useAuthStore();
@@ -17,57 +17,61 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
 
   // ❌ Not logged in
   if (!isAuthenticated || !user) {
-    if (location.pathname === '/register') {
+    if (location.pathname === "/register") {
       return children;
     }
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   // ❌ Wrong role
-  const role = user.type === 'TENANT' ? 'admin' : 'agent';
+  const role = user.type === "TENANT" ? "admin" : "agent";
   if (allowedRoles && !allowedRoles.includes(role)) {
     return <Navigate to="/dashboard" replace />;
   }
 
   // ✅ No plan → select plan
   const isPlanPage =
-    location.pathname === '/select-plan' ||
-    location.pathname === '/plans' ||
-    location.pathname === '/payment' ||
-    location.pathname === '/checkout';
+    location.pathname === "/select-plan" ||
+    location.pathname === "/plans" ||
+    location.pathname === "/payment" ||
+    location.pathname === "/checkout";
   // ❌ Incomplete onboarding → force them to the registration/onboarding page
-  if (user?.type === 'TENANT' && !user?.onboardingCompleted) {
-    if (location.pathname !== '/register') {
+  if (user?.type === "TENANT" && !user?.onboardingCompleted) {
+    if (location.pathname !== "/register") {
       return <Navigate to="/register" replace />;
     }
-  } else if (user?.type === 'TENANT' && user?.onboardingCompleted) {
+  } else if (user?.type === "TENANT" && user?.onboardingCompleted) {
     // ✅ Enterprise Pending check
-    if (user?.planStatus === 'enterprise_pending') {
-      if (location.pathname !== '/enterprise-request') {
+    if (user?.planStatus === "enterprise_pending") {
+      if (location.pathname !== "/enterprise-request") {
         return <Navigate to="/enterprise-request" replace />;
       }
       return children;
     }
 
     // Already finished onboarding → prevent accessing register page
-    if (location.pathname === '/register') {
+    if (location.pathname === "/register") {
       return <Navigate to="/dashboard" replace />;
     }
 
     // ✅ No plan → select plan (only check if onboarding is fully completed!)
     const isPlanPage =
-      location.pathname === '/select-plan' ||
-      location.pathname === '/plans' ||
-      location.pathname === '/payment' ||
-      location.pathname === '/checkout' ||
-      location.pathname === '/enterprise-request';
+      location.pathname === "/select-plan" ||
+      location.pathname === "/plans" ||
+      location.pathname === "/payment" ||
+      location.pathname === "/checkout" ||
+      location.pathname === "/enterprise-request";
 
-    if (!user.planId && user?.planStatus !== 'enterprise_active' && !isPlanPage) {
+    if (
+      !user.planId &&
+      user?.planStatus !== "enterprise_active" &&
+      !isPlanPage
+    ) {
       return <Navigate to="/select-plan" replace />;
     }
   }
 
   return children;
-};  // ← function closes HERE
+}; // ← function closes HERE
 
 export default ProtectedRoute;

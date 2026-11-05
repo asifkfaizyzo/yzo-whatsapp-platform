@@ -1,6 +1,6 @@
 // tenant-web/src/hooks/useWebRTC.js (do not remove this comment)
-import { useRef, useEffect } from 'react';
-import * as webrtcService from '../lib/webrtcService';
+import { useRef, useEffect } from "react";
+import * as webrtcService from "../lib/webrtcService";
 
 export const useWebRTC = () => {
   const remoteAudioRef = useRef(null);
@@ -17,6 +17,6 @@ export const useWebRTC = () => {
     handleRemoteAnswer: webrtcService.handleRemoteAnswer,
     acceptIncomingCall: webrtcService.acceptIncomingCall,
     muteMic: webrtcService.muteMic,
-    endCall: webrtcService.endCall
+    endCall: webrtcService.endCall,
   };
 };

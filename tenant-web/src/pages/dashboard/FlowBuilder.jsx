@@ -45,7 +45,6 @@ const nodeTypes = {
   PAYMENT: PaymentNode,
 };
 
-
 function FlowBuilderInner() {
   const { flowId } = useParams();
   const navigate = useNavigate();

@@ -22,14 +22,14 @@ import {
   ChevronLeft,
   ChevronRight,
   ShieldAlert,
-  Loader2
+  Loader2,
 } from "lucide-react";
 import {
   getBroadcastRecipients,
   exportBroadcastRecipients,
   retryFailedBroadcast,
   pauseBroadcast,
-  resumeBroadcast
+  resumeBroadcast,
 } from "../../api/broadcast";
 import { useToast } from "../../context/ToastContext";
 import { useConfirm } from "../../context/ConfirmContext";
@@ -40,7 +40,7 @@ export default function BroadcastDetailsDrawer({
   broadcastId,
   isOpen,
   onClose,
-  onCampaignUpdated
+  onCampaignUpdated,
 }) {
   const toast = useToast();
   const confirm = useConfirm();
@@ -54,24 +54,27 @@ export default function BroadcastDetailsDrawer({
   const [selectedError, setSelectedError] = useState(null);
 
   // Fetch paginated recipient data
-  const fetchRecipients = useCallback(async (targetPage = 1, status = activeTab, query = searchTerm) => {
-    if (!broadcastId) return;
-    setLoading(true);
-    const res = await getBroadcastRecipients(broadcastId, {
-      page: targetPage,
-      limit: 25,
-      status: status === "ALL" ? "" : status,
-      search: query
-    });
+  const fetchRecipients = useCallback(
+    async (targetPage = 1, status = activeTab, query = searchTerm) => {
+      if (!broadcastId) return;
+      setLoading(true);
+      const res = await getBroadcastRecipients(broadcastId, {
+        page: targetPage,
+        limit: 25,
+        status: status === "ALL" ? "" : status,
+        search: query,
+      });
 
-    if (res.success && res.data) {
-      setData(res.data);
-      setPage(res.data.pagination?.page || 1);
-    } else {
-      toast.error(res.message || "Failed to load broadcast delivery logs.");
-    }
-    setLoading(false);
-  }, [broadcastId, activeTab, searchTerm, toast]);
+      if (res.success && res.data) {
+        setData(res.data);
+        setPage(res.data.pagination?.page || 1);
+      } else {
+        toast.error(res.message || "Failed to load broadcast delivery logs.");
+      }
+      setLoading(false);
+    },
+    [broadcastId, activeTab, searchTerm, toast],
+  );
 
   useEffect(() => {
     if (isOpen && broadcastId) {
@@ -88,7 +91,8 @@ export default function BroadcastDetailsDrawer({
     let activeTenantId = "";
     try {
       const userObj = JSON.parse(userStr);
-      activeTenantId = userObj.type === "TENANT" ? userObj.id : (userObj.tenantId || userObj.id);
+      activeTenantId =
+        userObj.type === "TENANT" ? userObj.id : userObj.tenantId || userObj.id;
     } catch (e) {
       return;
     }
@@ -98,7 +102,7 @@ export default function BroadcastDetailsDrawer({
     const token = useAuthStore.getState().accessToken;
     const socket = io(socketUrl, {
       auth: { token },
-      transports: ["websocket"]
+      transports: ["websocket"],
     });
 
     const joinAndListen = () => {
@@ -113,23 +117,35 @@ export default function BroadcastDetailsDrawer({
 
     socket.on("broadcast_update", (updateData) => {
       if (updateData.broadcastId === broadcastId) {
-        setData(prev => {
+        setData((prev) => {
           if (!prev) return prev;
           const updatedCampaign = {
             ...prev.campaign,
-            status: updateData.status || prev.campaign.status
+            status: updateData.status || prev.campaign.status,
           };
           const updatedCounts = {
             ...prev.counts,
-            sent: updateData.sent !== undefined ? updateData.sent : prev.counts.sent,
-            delivered: updateData.delivered !== undefined ? updateData.delivered : prev.counts.delivered,
-            read: updateData.read !== undefined ? updateData.read : prev.counts.read,
-            failed: updateData.failed !== undefined ? updateData.failed : prev.counts.failed,
+            sent:
+              updateData.sent !== undefined
+                ? updateData.sent
+                : prev.counts.sent,
+            delivered:
+              updateData.delivered !== undefined
+                ? updateData.delivered
+                : prev.counts.delivered,
+            read:
+              updateData.read !== undefined
+                ? updateData.read
+                : prev.counts.read,
+            failed:
+              updateData.failed !== undefined
+                ? updateData.failed
+                : prev.counts.failed,
           };
           return {
             ...prev,
             campaign: updatedCampaign,
-            counts: updatedCounts
+            counts: updatedCounts,
           };
         });
       }
@@ -179,8 +195,14 @@ export default function BroadcastDetailsDrawer({
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      const campaignName = (data?.campaign?.name || "broadcast").replace(/[^a-zA-Z0-9_-]/g, "_");
-      link.setAttribute("download", `broadcast_${campaignName}_delivery_report.csv`);
+      const campaignName = (data?.campaign?.name || "broadcast").replace(
+        /[^a-zA-Z0-9_-]/g,
+        "_",
+      );
+      link.setAttribute(
+        "download",
+        `broadcast_${campaignName}_delivery_report.csv`,
+      );
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -197,15 +219,18 @@ export default function BroadcastDetailsDrawer({
     const ok = await confirm({
       type: "warning",
       title: "Retry Failed Messages?",
-      message: "This will re-queue all failed recipients with recoverable errors (e.g. rate limits or network issues). Permanently invalid phone numbers will be skipped automatically.",
-      confirmLabel: "Retry Now"
+      message:
+        "This will re-queue all failed recipients with recoverable errors (e.g. rate limits or network issues). Permanently invalid phone numbers will be skipped automatically.",
+      confirmLabel: "Retry Now",
     });
     if (!ok) return;
 
     setActionLoading(true);
     const res = await retryFailedBroadcast(broadcastId);
     if (res.success) {
-      toast.success(res.data?.message || "Failed recipients re-queued for delivery!");
+      toast.success(
+        res.data?.message || "Failed recipients re-queued for delivery!",
+      );
       fetchRecipients(1, activeTab, searchTerm);
       if (onCampaignUpdated) onCampaignUpdated();
     } else {
@@ -245,12 +270,19 @@ export default function BroadcastDetailsDrawer({
   if (!isOpen) return null;
 
   const campaign = data?.campaign || {};
-  const counts = data?.counts || { all: 0, sent: 0, delivered: 0, read: 0, failed: 0, pending: 0 };
+  const counts = data?.counts || {
+    all: 0,
+    sent: 0,
+    delivered: 0,
+    read: 0,
+    failed: 0,
+    pending: 0,
+  };
   const pagination = data?.pagination || { page: 1, totalPages: 1, total: 0 };
   const recipients = data?.recipients || [];
 
   return createPortal(
-    <div 
+    <div
       className="fixed inset-0 z-50 overflow-hidden bg-slate-900/50 backdrop-blur-xs flex justify-end animate-in fade-in duration-200"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
@@ -259,7 +291,6 @@ export default function BroadcastDetailsDrawer({
       }}
     >
       <div className="w-full max-w-4xl bg-white h-full shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-right duration-300">
-        
         {/* Top Header */}
         <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3 min-w-0">
@@ -271,18 +302,24 @@ export default function BroadcastDetailsDrawer({
                 <h2 className="text-base font-bold text-slate-800 truncate">
                   {campaign.name || "Broadcast Details & Delivery Logs"}
                 </h2>
-                <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${
-                  campaign.status === "COMPLETED"
-                    ? "bg-emerald-50 text-emerald-700 border-emerald-100"
-                    : campaign.status === "PAUSED"
-                    ? "bg-amber-50 text-amber-700 border-amber-200"
-                    : campaign.status === "SCHEDULED"
-                    ? "bg-purple-50 text-purple-700 border-purple-100"
-                    : campaign.status === "CANCELLED"
-                    ? "bg-rose-50 text-rose-700 border-rose-100"
-                    : "bg-blue-50 text-blue-700 border-blue-100"
-                }`}>
-                  <span className="capitalize">{campaign.status ? campaign.status.toLowerCase() : "loading..."}</span>
+                <span
+                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${
+                    campaign.status === "COMPLETED"
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                      : campaign.status === "PAUSED"
+                        ? "bg-amber-50 text-amber-700 border-amber-200"
+                        : campaign.status === "SCHEDULED"
+                          ? "bg-purple-50 text-purple-700 border-purple-100"
+                          : campaign.status === "CANCELLED"
+                            ? "bg-rose-50 text-rose-700 border-rose-100"
+                            : "bg-blue-50 text-blue-700 border-blue-100"
+                  }`}
+                >
+                  <span className="capitalize">
+                    {campaign.status
+                      ? campaign.status.toLowerCase()
+                      : "loading..."}
+                  </span>
                 </span>
                 {campaign.templateName && (
                   <span className="font-mono text-[10px] bg-slate-200/60 text-slate-700 font-semibold px-2 py-0.5 rounded border border-slate-300/60">
@@ -291,7 +328,10 @@ export default function BroadcastDetailsDrawer({
                 )}
               </div>
               <p className="text-[11px] text-slate-400 font-medium mt-0.5">
-                Launched {campaign.createdAt ? new Date(campaign.createdAt).toLocaleString() : "—"}
+                Launched{" "}
+                {campaign.createdAt
+                  ? new Date(campaign.createdAt).toLocaleString()
+                  : "—"}
               </p>
             </div>
           </div>
@@ -356,8 +396,12 @@ export default function BroadcastDetailsDrawer({
               <Users size={14} className="text-slate-400" />
             </div>
             <div className="mt-2">
-              <span className="text-lg font-black text-slate-800">{counts.all.toLocaleString()}</span>
-              <span className="text-[10px] text-slate-400 font-semibold block">100% audience</span>
+              <span className="text-lg font-black text-slate-800">
+                {counts.all.toLocaleString()}
+              </span>
+              <span className="text-[10px] text-slate-400 font-semibold block">
+                100% audience
+              </span>
             </div>
           </div>
 
@@ -368,8 +412,12 @@ export default function BroadcastDetailsDrawer({
               <Send size={14} className="text-blue-500" />
             </div>
             <div className="mt-2">
-              <span className="text-lg font-black text-blue-900">{counts.sent.toLocaleString()}</span>
-              <span className="text-[10px] text-blue-600 font-semibold block">API Accepted</span>
+              <span className="text-lg font-black text-blue-900">
+                {counts.sent.toLocaleString()}
+              </span>
+              <span className="text-[10px] text-blue-600 font-semibold block">
+                API Accepted
+              </span>
             </div>
           </div>
 
@@ -380,7 +428,9 @@ export default function BroadcastDetailsDrawer({
               <CheckCheck size={15} className="text-emerald-500" />
             </div>
             <div className="mt-2">
-              <span className="text-lg font-black text-emerald-900">{counts.delivered.toLocaleString()}</span>
+              <span className="text-lg font-black text-emerald-900">
+                {counts.delivered.toLocaleString()}
+              </span>
               <span className="text-[10px] text-emerald-700 font-semibold block">
                 {campaign.rates?.deliveryRate || "0.0"}% delivery rate
               </span>
@@ -394,7 +444,9 @@ export default function BroadcastDetailsDrawer({
               <Eye size={14} className="text-indigo-500" />
             </div>
             <div className="mt-2">
-              <span className="text-lg font-black text-indigo-900">{counts.read.toLocaleString()}</span>
+              <span className="text-lg font-black text-indigo-900">
+                {counts.read.toLocaleString()}
+              </span>
               <span className="text-[10px] text-indigo-700 font-semibold block">
                 {campaign.rates?.readRate || "0.0"}% read rate
               </span>
@@ -408,7 +460,9 @@ export default function BroadcastDetailsDrawer({
               <AlertTriangle size={14} className="text-rose-500" />
             </div>
             <div className="mt-2">
-              <span className="text-lg font-black text-rose-900">{counts.failed.toLocaleString()}</span>
+              <span className="text-lg font-black text-rose-900">
+                {counts.failed.toLocaleString()}
+              </span>
               <span className="text-[10px] text-rose-600 font-semibold block">
                 {campaign.rates?.failureRate || "0.0"}% failure rate
               </span>
@@ -422,7 +476,9 @@ export default function BroadcastDetailsDrawer({
             <div className="flex items-center gap-2 text-rose-900 font-medium">
               <AlertTriangle size={15} className="text-rose-600 shrink-0" />
               <span>
-                <strong>{counts.failed} messages failed.</strong> Filter by <strong>Failed</strong> tab below to inspect Meta error codes and reasons.
+                <strong>{counts.failed} messages failed.</strong> Filter by{" "}
+                <strong>Failed</strong> tab below to inspect Meta error codes
+                and reasons.
               </span>
             </div>
             <button
@@ -443,11 +499,36 @@ export default function BroadcastDetailsDrawer({
           <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
             {[
               { id: "ALL", label: "All", count: counts.all },
-              { id: "READ", label: "Read", count: counts.read, color: "text-indigo-600" },
-              { id: "DELIVERED", label: "Delivered", count: counts.delivered, color: "text-emerald-600" },
-              { id: "SENT", label: "Sent", count: counts.sent, color: "text-blue-600" },
-              { id: "FAILED", label: "Failed", count: counts.failed, color: "text-rose-600" },
-              { id: "PENDING", label: "Pending", count: counts.pending, color: "text-slate-500" },
+              {
+                id: "READ",
+                label: "Read",
+                count: counts.read,
+                color: "text-indigo-600",
+              },
+              {
+                id: "DELIVERED",
+                label: "Delivered",
+                count: counts.delivered,
+                color: "text-emerald-600",
+              },
+              {
+                id: "SENT",
+                label: "Sent",
+                count: counts.sent,
+                color: "text-blue-600",
+              },
+              {
+                id: "FAILED",
+                label: "Failed",
+                count: counts.failed,
+                color: "text-rose-600",
+              },
+              {
+                id: "PENDING",
+                label: "Pending",
+                count: counts.pending,
+                color: "text-slate-500",
+              },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -460,9 +541,13 @@ export default function BroadcastDetailsDrawer({
                 }`}
               >
                 <span>{tab.label}</span>
-                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
-                  activeTab === tab.id ? "bg-slate-100 text-slate-800" : "bg-slate-200/50 text-slate-500"
-                }`}>
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
+                    activeTab === tab.id
+                      ? "bg-slate-100 text-slate-800"
+                      : "bg-slate-200/50 text-slate-500"
+                  }`}
+                >
                   {tab.count || 0}
                 </span>
               </button>
@@ -470,8 +555,14 @@ export default function BroadcastDetailsDrawer({
           </div>
 
           {/* Search Form */}
-          <form onSubmit={handleSearchSubmit} className="relative min-w-[220px]">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <form
+            onSubmit={handleSearchSubmit}
+            className="relative min-w-[220px]"
+          >
+            <Search
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+            />
             <input
               type="text"
               placeholder="Search name or phone..."
@@ -487,12 +578,16 @@ export default function BroadcastDetailsDrawer({
           {loading ? (
             <div className="flex flex-col items-center justify-center h-64 text-slate-400 gap-2">
               <Loader2 size={24} className="animate-spin text-[#125EF2]" />
-              <span className="text-xs font-semibold">Loading recipient logs...</span>
+              <span className="text-xs font-semibold">
+                Loading recipient logs...
+              </span>
             </div>
           ) : recipients.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-slate-400 gap-2">
               <Info size={28} className="text-slate-300" />
-              <p className="text-xs font-medium text-slate-500">No recipients matched the selected filter.</p>
+              <p className="text-xs font-medium text-slate-500">
+                No recipients matched the selected filter.
+              </p>
             </div>
           ) : (
             <table className="w-full text-left border-collapse">
@@ -517,28 +612,36 @@ export default function BroadcastDetailsDrawer({
                       <td className="py-3 px-6">
                         <div className="flex items-center gap-2.5">
                           <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-600 font-bold text-[10px] flex items-center justify-center shrink-0 border border-slate-200">
-                            {r.contactName ? r.contactName.charAt(0).toUpperCase() : "?"}
+                            {r.contactName
+                              ? r.contactName.charAt(0).toUpperCase()
+                              : "?"}
                           </div>
                           <div>
-                            <p className="font-bold text-slate-800">{r.contactName}</p>
-                            <p className="text-[11px] text-slate-400 font-mono mt-0.5">{r.contactPhone}</p>
+                            <p className="font-bold text-slate-800">
+                              {r.contactName}
+                            </p>
+                            <p className="text-[11px] text-slate-400 font-mono mt-0.5">
+                              {r.contactPhone}
+                            </p>
                           </div>
                         </div>
                       </td>
 
                       {/* Status Badge */}
                       <td className="py-3 px-4 text-center">
-                        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${
-                          r.status === "READ"
-                            ? "bg-indigo-50 text-indigo-700 border-indigo-100"
-                            : r.status === "DELIVERED"
-                            ? "bg-emerald-50 text-emerald-700 border-emerald-100"
-                            : r.status === "SENT"
-                            ? "bg-blue-50 text-blue-700 border-blue-100"
-                            : r.status === "FAILED"
-                            ? "bg-rose-50 text-rose-700 border-rose-100"
-                            : "bg-slate-100 text-slate-600 border-slate-200"
-                        }`}>
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${
+                            r.status === "READ"
+                              ? "bg-indigo-50 text-indigo-700 border-indigo-100"
+                              : r.status === "DELIVERED"
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                                : r.status === "SENT"
+                                  ? "bg-blue-50 text-blue-700 border-blue-100"
+                                  : r.status === "FAILED"
+                                    ? "bg-rose-50 text-rose-700 border-rose-100"
+                                    : "bg-slate-100 text-slate-600 border-slate-200"
+                          }`}
+                        >
                           {r.status === "READ" ? (
                             <Eye size={10} />
                           ) : r.status === "DELIVERED" ? (
@@ -550,23 +653,43 @@ export default function BroadcastDetailsDrawer({
                           ) : (
                             <Clock size={10} />
                           )}
-                          <span className="capitalize">{r.status.toLowerCase()}</span>
+                          <span className="capitalize">
+                            {r.status.toLowerCase()}
+                          </span>
                         </span>
                       </td>
 
                       {/* Sent At */}
                       <td className="py-3 px-4 text-right font-mono text-[11px] text-slate-600">
-                        {r.sentAt ? new Date(r.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : "—"}
+                        {r.sentAt
+                          ? new Date(r.sentAt).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              second: "2-digit",
+                            })
+                          : "—"}
                       </td>
 
                       {/* Delivered At */}
                       <td className="py-3 px-4 text-right font-mono text-[11px] text-emerald-700">
-                        {r.deliveredAt ? new Date(r.deliveredAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : "—"}
+                        {r.deliveredAt
+                          ? new Date(r.deliveredAt).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              second: "2-digit",
+                            })
+                          : "—"}
                       </td>
 
                       {/* Read At */}
                       <td className="py-3 px-4 text-right font-mono text-[11px] text-indigo-700">
-                        {r.readAt ? new Date(r.readAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : "—"}
+                        {r.readAt
+                          ? new Date(r.readAt).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              second: "2-digit",
+                            })
+                          : "—"}
                       </td>
 
                       {/* Error Diagnostic / WAMID */}
@@ -574,14 +697,21 @@ export default function BroadcastDetailsDrawer({
                         {hasError ? (
                           <div className="flex items-center gap-1.5">
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-rose-50 text-rose-700 border border-rose-200 rounded text-[10px] font-bold">
-                              {diag?.errorCode || r.errorCode ? `Error ${diag?.errorCode || r.errorCode}` : "Failed"}
+                              {diag?.errorCode || r.errorCode
+                                ? `Error ${diag?.errorCode || r.errorCode}`
+                                : "Failed"}
                             </span>
-                            <span className="text-[11px] text-rose-600 truncate max-w-[200px]" title={diag?.description || r.errorMessage}>
+                            <span
+                              className="text-[11px] text-rose-600 truncate max-w-[200px]"
+                              title={diag?.description || r.errorMessage}
+                            >
                               {diag?.title || r.errorMessage}
                             </span>
                             <button
                               type="button"
-                              onClick={() => setSelectedError({ recipient: r, diag })}
+                              onClick={() =>
+                                setSelectedError({ recipient: r, diag })
+                              }
                               className="text-slate-400 hover:text-slate-600 p-0.5 rounded transition shrink-0"
                               title="View diagnostic details"
                             >
@@ -589,7 +719,10 @@ export default function BroadcastDetailsDrawer({
                             </button>
                           </div>
                         ) : (
-                          <span className="text-[10px] text-slate-400 font-mono truncate max-w-[140px] block" title={r.wamid || "Awaiting WAMID"}>
+                          <span
+                            className="text-[10px] text-slate-400 font-mono truncate max-w-[140px] block"
+                            title={r.wamid || "Awaiting WAMID"}
+                          >
                             {r.wamid ? r.wamid.slice(0, 16) + "..." : "—"}
                           </span>
                         )}
@@ -605,7 +738,10 @@ export default function BroadcastDetailsDrawer({
         {/* Pagination Footer */}
         <div className="px-6 py-3 border-t border-slate-100 bg-white flex items-center justify-between shrink-0 text-xs text-slate-500 font-medium">
           <div>
-            Showing <strong className="text-slate-800">{recipients.length}</strong> of <strong className="text-slate-800">{pagination.total}</strong> total logs
+            Showing{" "}
+            <strong className="text-slate-800">{recipients.length}</strong> of{" "}
+            <strong className="text-slate-800">{pagination.total}</strong> total
+            logs
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -629,12 +765,11 @@ export default function BroadcastDetailsDrawer({
             </button>
           </div>
         </div>
-
       </div>
 
       {/* Meta Error Diagnostic Modal */}
       {selectedError && (
-        <div 
+        <div
           className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4"
           style={{ zIndex: 99999 }}
           onClick={(e) => {
@@ -648,9 +783,14 @@ export default function BroadcastDetailsDrawer({
                   <ShieldAlert size={20} />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-800">Meta Delivery Failure</h3>
+                  <h3 className="text-sm font-bold text-slate-800">
+                    Meta Delivery Failure
+                  </h3>
                   <span className="text-[10px] font-mono text-rose-600 font-extrabold bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
-                    Code {selectedError.diag?.errorCode || selectedError.recipient?.errorCode || "N/A"}
+                    Code{" "}
+                    {selectedError.diag?.errorCode ||
+                      selectedError.recipient?.errorCode ||
+                      "N/A"}
                   </span>
                 </div>
               </div>
@@ -665,15 +805,29 @@ export default function BroadcastDetailsDrawer({
 
             <div className="space-y-3 text-xs">
               <div className="bg-slate-50 rounded-2xl p-3.5 border border-slate-100 space-y-1">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Recipient Contact</span>
-                <p className="font-bold text-slate-800">{selectedError.recipient?.contactName}</p>
-                <p className="text-[11px] font-mono text-slate-500">{selectedError.recipient?.contactPhone}</p>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  Recipient Contact
+                </span>
+                <p className="font-bold text-slate-800">
+                  {selectedError.recipient?.contactName}
+                </p>
+                <p className="text-[11px] font-mono text-slate-500">
+                  {selectedError.recipient?.contactPhone}
+                </p>
               </div>
 
               <div className="space-y-1.5 p-1">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Diagnostic Reason</span>
-                <p className="font-bold text-slate-800 text-sm">{selectedError.diag?.title || selectedError.recipient?.errorMessage}</p>
-                <p className="text-slate-600 text-xs leading-relaxed">{selectedError.diag?.description || selectedError.recipient?.errorMessage}</p>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  Diagnostic Reason
+                </span>
+                <p className="font-bold text-slate-800 text-sm">
+                  {selectedError.diag?.title ||
+                    selectedError.recipient?.errorMessage}
+                </p>
+                <p className="text-slate-600 text-xs leading-relaxed">
+                  {selectedError.diag?.description ||
+                    selectedError.recipient?.errorMessage}
+                </p>
               </div>
 
               {selectedError.diag?.action && (
@@ -702,6 +856,6 @@ export default function BroadcastDetailsDrawer({
         </div>
       )}
     </div>,
-    document.body
+    document.body,
   );
 }

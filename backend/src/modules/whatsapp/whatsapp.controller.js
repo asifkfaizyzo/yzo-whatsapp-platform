@@ -1,15 +1,19 @@
 // backend/src/modules/whatsapp/whatsapp.controller.js (do not remove this comment)
-import crypto from 'crypto';
-import prisma from '../../config/prisma.js';
-import { encrypt, decrypt } from '../../lib/crypto.js';
-import { sendLocationService } from './whatsapp.service.js';
-import { emitToTenant, emitToUser,emitToSuperAdmin } from '../../lib/socket.js';
-import { createSuperAdminNotification } from '../superadmin-notifications/superadminNotification.service.js';
-import { createAuditLog } from '../audit/audit.service.js';
-import { sendWhatsAppStatusAlertEmail } from '../auth/email.service.js';
-import { performTemplateSync } from '../templates/template.controller.js';
+import crypto from "crypto";
+import prisma from "../../config/prisma.js";
+import { encrypt, decrypt } from "../../lib/crypto.js";
+import { sendLocationService } from "./whatsapp.service.js";
+import {
+  emitToTenant,
+  emitToUser,
+  emitToSuperAdmin,
+} from "../../lib/socket.js";
+import { createSuperAdminNotification } from "../superadmin-notifications/superadminNotification.service.js";
+import { createAuditLog } from "../audit/audit.service.js";
+import { sendWhatsAppStatusAlertEmail } from "../auth/email.service.js";
+import { performTemplateSync } from "../templates/template.controller.js";
 
-import redisClient from '../../config/redis.js';
+import redisClient from "../../config/redis.js";
 
 // ═══════════════════════════════════════════════════
 // HELPER — Notify SuperAdmin on WhatsApp status change
@@ -30,54 +34,56 @@ const notifySuperAdminWhatsAppStatus = async ({
     });
 
     if (!superAdmin) {
-      console.warn('⚠️ No superadmin found — skipping WhatsApp status notification');
+      console.warn(
+        "⚠️ No superadmin found — skipping WhatsApp status notification",
+      );
       return;
     }
 
-    const isConnected = action === 'CONNECTED';
+    const isConnected = action === "CONNECTED";
 
     // 2️⃣ Create audit log
     await createAuditLog({
-      actorId:     tenantId,
-      actorType:   'TENANT',
-      actorName:   tenantName,
-      actorEmail:  tenantEmail,
-      action:      'TENANT_UPDATED',
-      module:      'INTEGRATIONS',
-      description: `Tenant "${tenantName}" ${isConnected ? 'connected' : 'disconnected'} WhatsApp${phoneNumberId ? ` — Phone ID: ${phoneNumberId}` : ''}`,
-      targetId:    phoneNumberId || null,
-      targetType:  'WHATSAPP',
-      targetName:  phoneNumberId || null,
+      actorId: tenantId,
+      actorType: "TENANT",
+      actorName: tenantName,
+      actorEmail: tenantEmail,
+      action: "TENANT_UPDATED",
+      module: "INTEGRATIONS",
+      description: `Tenant "${tenantName}" ${isConnected ? "connected" : "disconnected"} WhatsApp${phoneNumberId ? ` — Phone ID: ${phoneNumberId}` : ""}`,
+      targetId: phoneNumberId || null,
+      targetType: "WHATSAPP",
+      targetName: phoneNumberId || null,
       tenantId,
       metadata: {
         phoneNumberId: phoneNumberId || null,
-        wabaId:        wabaId        || null,
-        event:         isConnected ? 'WHATSAPP_CONNECTED' : 'WHATSAPP_DISCONNECTED',
+        wabaId: wabaId || null,
+        event: isConnected ? "WHATSAPP_CONNECTED" : "WHATSAPP_DISCONNECTED",
         action,
       },
     });
 
     // 3️⃣ Create DB notification for superadmin
     const notification = await createSuperAdminNotification({
-      type:    isConnected ? 'whatsapp_connected' : 'whatsapp_disconnected',
-      title:   isConnected
+      type: isConnected ? "whatsapp_connected" : "whatsapp_disconnected",
+      title: isConnected
         ? `📱 WhatsApp Connected — ${tenantName}`
         : `🔴 WhatsApp Disconnected — ${tenantName}`,
       message: isConnected
         ? `${tenantName} successfully connected their WhatsApp account (Phone ID: ${phoneNumberId})`
-        : `${tenantName} disconnected their WhatsApp account (Phone ID: ${phoneNumberId || 'N/A'})`,
+        : `${tenantName} disconnected their WhatsApp account (Phone ID: ${phoneNumberId || "N/A"})`,
       metadata: {
         tenantId,
         tenantName,
         tenantEmail,
         phoneNumberId: phoneNumberId || null,
-        wabaId:        wabaId        || null,
+        wabaId: wabaId || null,
         action,
       },
     });
 
     // 4️⃣ Emit real-time socket to superadmin
-    emitToSuperAdmin('superadmin_notification', { notification });
+    emitToSuperAdmin("superadmin_notification", { notification });
 
     // 5️⃣ Send email alert to superadmin
     await sendWhatsAppStatusAlertEmail({
@@ -89,25 +95,20 @@ const notifySuperAdminWhatsAppStatus = async ({
       action,
     });
 
-    console.log(`✅ SuperAdmin notified — WhatsApp ${action} for tenant: ${tenantEmail}`);
+    console.log(
+      `✅ SuperAdmin notified — WhatsApp ${action} for tenant: ${tenantEmail}`,
+    );
   } catch (err) {
     // Non-blocking — never crash the main flow
     console.error(`❌ SuperAdmin WhatsApp notification failed: ${err.message}`);
   }
 };
 
-
-
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /tenant/whatsapp/exchange-token
 // ─────────────────────────────────────────────────────────────────────────────
 export const exchangeToken = async (req, res) => {
-  const {
-    code,
-    phoneNumberId: reqPhoneId,
-    wabaId: reqWabaId,
-    pin,
-  } = req.body;
+  const { code, phoneNumberId: reqPhoneId, wabaId: reqWabaId, pin } = req.body;
 
   // Auto-generate 6-digit 2FA PIN if not provided by frontend (WATI-style seamless onboarding)
   const regPin = pin || crypto.randomInt(100000, 999999).toString();
@@ -139,7 +140,6 @@ export const exchangeToken = async (req, res) => {
   console.log("──────────────────────────────────────────────────");
 
   try {
-
     const params = new URLSearchParams({
       client_id: appId,
       client_secret: appSecret,
@@ -150,11 +150,14 @@ export const exchangeToken = async (req, res) => {
     console.log("[WhatsApp] No redirect_uri — Tech Provider flow");
 
     const tokenRes = await fetch(
-      `https://graph.facebook.com/v22.0/oauth/access_token?${params.toString()}`
+      `https://graph.facebook.com/v22.0/oauth/access_token?${params.toString()}`,
     );
     const tokenData = await tokenRes.json();
 
-    console.log("[WhatsApp] Token exchange raw response:", JSON.stringify(tokenData));
+    console.log(
+      "[WhatsApp] Token exchange raw response:",
+      JSON.stringify(tokenData),
+    );
 
     if (!tokenData?.access_token) {
       console.error("❌ Token exchange failed:", tokenData);
@@ -178,7 +181,7 @@ export const exchangeToken = async (req, res) => {
     });
 
     const llRes = await fetch(
-      `https://graph.facebook.com/v22.0/oauth/access_token?${llParams.toString()}`
+      `https://graph.facebook.com/v22.0/oauth/access_token?${llParams.toString()}`,
     );
     const llData = await llRes.json();
 
@@ -186,7 +189,10 @@ export const exchangeToken = async (req, res) => {
       accessToken = llData.access_token;
       console.log("[WhatsApp] ✅ Long-lived token obtained");
     } else {
-      console.warn("[WhatsApp] Could not extend token, using short-lived:", llData);
+      console.warn(
+        "[WhatsApp] Could not extend token, using short-lived:",
+        llData,
+      );
     }
 
     // ── Step 3: Resolve WABA ID from token if not provided ───────────
@@ -199,18 +205,18 @@ export const exchangeToken = async (req, res) => {
       console.log("[WhatsApp] Resolving WABA from debug_token...");
       const debugRes = await fetch(
         `https://graph.facebook.com/debug_token` +
-        `?input_token=${accessToken}` +
-        `&access_token=${appId}|${appSecret}`
+          `?input_token=${accessToken}` +
+          `&access_token=${appId}|${appSecret}`,
       );
       const debugData = await debugRes.json();
       console.log(
         "[WhatsApp] debug_token granular_scopes:",
-        JSON.stringify(debugData?.data?.granular_scopes)
+        JSON.stringify(debugData?.data?.granular_scopes),
       );
 
       wabaId =
         debugData.data?.granular_scopes?.find(
-          (s) => s.scope === "whatsapp_business_management"
+          (s) => s.scope === "whatsapp_business_management",
         )?.target_ids?.[0] || null;
 
       console.log("[WhatsApp] Resolved wabaId:", wabaId);
@@ -220,7 +226,7 @@ export const exchangeToken = async (req, res) => {
     if (wabaId && !phoneNumberId) {
       console.log(`[WhatsApp] Fetching phones for WABA ${wabaId}...`);
       const phoneRes = await fetch(
-        `https://graph.facebook.com/v22.0/${wabaId}/phone_numbers?access_token=${accessToken}`
+        `https://graph.facebook.com/v22.0/${wabaId}/phone_numbers?access_token=${accessToken}`,
       );
       const phoneData = await phoneRes.json();
       console.log("[WhatsApp] Phones response:", JSON.stringify(phoneData));
@@ -231,7 +237,7 @@ export const exchangeToken = async (req, res) => {
       verifiedName = first?.verified_name || null;
     } else if (phoneNumberId) {
       const phoneRes = await fetch(
-        `https://graph.facebook.com/v22.0/${phoneNumberId}?access_token=${accessToken}`
+        `https://graph.facebook.com/v22.0/${phoneNumberId}?access_token=${accessToken}`,
       );
       const phoneData = await phoneRes.json();
       displayPhoneNumber = phoneData.display_phone_number || null;
@@ -276,14 +282,14 @@ export const exchangeToken = async (req, res) => {
         {
           method: "POST",
           headers: { Authorization: `Bearer ${accessToken}` },
-        }
+        },
       );
       const subData = await subRes.json();
       console.log("[WhatsApp] Webhook subscription:", subData);
     } catch (e) {
       console.warn(
         "[WhatsApp] Webhook subscription failed (non-fatal):",
-        e.message
+        e.message,
       );
     }
 
@@ -302,12 +308,15 @@ export const exchangeToken = async (req, res) => {
             messaging_product: "whatsapp",
             pin: regPin,
           }),
-        }
+        },
       );
       const regData = await regRes.json();
       console.log("[WhatsApp] Phone registration response:", regData);
     } catch (e) {
-      console.warn("[WhatsApp] Phone registration failed (non-fatal):", e.message);
+      console.warn(
+        "[WhatsApp] Phone registration failed (non-fatal):",
+        e.message,
+      );
     }
 
     // ── Step 7: Save to DB (token encrypted at rest) ─────────────────────────────────
@@ -329,27 +338,28 @@ export const exchangeToken = async (req, res) => {
     });
 
     console.log(
-  `[WhatsApp] ✅ Tenant ${tenantId} connected — ${displayPhoneNumber}`
-);
+      `[WhatsApp] ✅ Tenant ${tenantId} connected — ${displayPhoneNumber}`,
+    );
 
-// ══════ TASK 3 — SuperAdmin Notification + Email + Audit Log ══════
-const tenantData = await prisma.tenant.findUnique({
-  where:  { id: tenantId },
-  select: { tenantName: true, email: true },
-});
+    // ══════ TASK 3 — SuperAdmin Notification + Email + Audit Log ══════
+    const tenantData = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { tenantName: true, email: true },
+    });
 
-await notifySuperAdminWhatsAppStatus({
-  tenantId,
-  tenantName:   tenantData?.tenantName || 'Unknown Tenant',
-  tenantEmail:  tenantData?.email      || 'unknown@email.com',
-  phoneNumberId,
-  wabaId,
-  action: 'CONNECTED',
-});
-// ═════════════════════════════════════════════════════════════════
+    await notifySuperAdminWhatsAppStatus({
+      tenantId,
+      tenantName: tenantData?.tenantName || "Unknown Tenant",
+      tenantEmail: tenantData?.email || "unknown@email.com",
+      phoneNumberId,
+      wabaId,
+      action: "CONNECTED",
+    });
+    // ═════════════════════════════════════════════════════════════════
 
-   // ── Auto-sync templates in background on initial connect ──
-    prisma.tenant.findUnique({ where: { id: tenantId }, include: { whatsapp: true } })
+    // ── Auto-sync templates in background on initial connect ──
+    prisma.tenant
+      .findUnique({ where: { id: tenantId }, include: { whatsapp: true } })
       .then((fullTenant) => {
         const t = fullTenant ? { ...fullTenant, ...fullTenant.whatsapp } : null;
         if (t?.whatsappWabaId && t?.whatsappAccessToken) {
@@ -358,14 +368,24 @@ await notifySuperAdminWhatsAppStatus({
       })
       .then((synced) => {
         if (synced) {
-          console.log(`[WhatsApp] ✅ Auto-synced ${synced.length} templates on first connect for tenant ${tenantId}`);
-          emitToTenant(tenantId, 'templates_synced', { count: synced.length, lastSyncedAt: new Date() });
+          console.log(
+            `[WhatsApp] ✅ Auto-synced ${synced.length} templates on first connect for tenant ${tenantId}`,
+          );
+          emitToTenant(tenantId, "templates_synced", {
+            count: synced.length,
+            lastSyncedAt: new Date(),
+          });
         }
       })
-      .catch((err) => console.warn('[WhatsApp] Auto-sync templates on connect non-fatal error:', err.message));
+      .catch((err) =>
+        console.warn(
+          "[WhatsApp] Auto-sync templates on connect non-fatal error:",
+          err.message,
+        ),
+      );
 
-        // 📡 Real-time socket emit to update frontend instantly
-    emitToTenant(tenantId, 'whatsapp_status_changed', {
+    // 📡 Real-time socket emit to update frontend instantly
+    emitToTenant(tenantId, "whatsapp_status_changed", {
       isConnected: true,
       phoneNumberId,
       wabaId,
@@ -381,9 +401,6 @@ await notifySuperAdminWhatsAppStatus({
       displayPhoneNumber,
       verifiedName,
     });
-
-
-
   } catch (err) {
     console.error("❌ exchangeToken error:", err);
     return res.status(500).json({
@@ -428,19 +445,23 @@ export const setupWhatsApp = async (req, res) => {
       });
     }
 
-    const accessToken = customToken?.trim() || process.env.META_SYSTEM_USER_TOKEN;
+    const accessToken =
+      customToken?.trim() || process.env.META_SYSTEM_USER_TOKEN;
 
     if (!accessToken) {
-      console.error("❌ No access token provided and META_SYSTEM_USER_TOKEN not set");
+      console.error(
+        "❌ No access token provided and META_SYSTEM_USER_TOKEN not set",
+      );
       return res.status(400).json({
         success: false,
-        message: "Permanent Access Token is required. Please provide it in the connection form or configure META_SYSTEM_USER_TOKEN on the server.",
+        message:
+          "Permanent Access Token is required. Please provide it in the connection form or configure META_SYSTEM_USER_TOKEN on the server.",
       });
     }
 
     console.log("[WhatsApp] Verifying with access token...");
     const verifyRes = await fetch(
-      `https://graph.facebook.com/v22.0/${phoneNumberId}?access_token=${accessToken}`
+      `https://graph.facebook.com/v22.0/${phoneNumberId}?access_token=${accessToken}`,
     );
     const verifyData = await verifyRes.json();
 
@@ -456,30 +477,41 @@ export const setupWhatsApp = async (req, res) => {
     if (!resolvedWabaId) {
       return res.status(400).json({
         success: false,
-        message: "WhatsApp Business Account (WABA) ID is required. Please provide your WABA ID.",
+        message:
+          "WhatsApp Business Account (WABA) ID is required. Please provide your WABA ID.",
       });
     }
 
     // Verify WABA ID exists and is accessible with this token
     console.log(`[WhatsApp] Verifying WABA ID ${resolvedWabaId}...`);
     const wabaVerifyRes = await fetch(
-      `https://graph.facebook.com/v22.0/${resolvedWabaId}?access_token=${accessToken}`
+      `https://graph.facebook.com/v22.0/${resolvedWabaId}?access_token=${accessToken}`,
     );
     const wabaVerifyData = await wabaVerifyRes.json();
     if (wabaVerifyData.error) {
-      console.error("[WhatsApp] WABA verification failed:", wabaVerifyData.error);
+      console.error(
+        "[WhatsApp] WABA verification failed:",
+        wabaVerifyData.error,
+      );
       return res.status(400).json({
         success: false,
         message: `WABA ID verification failed: ${wabaVerifyData.error.message}. Please make sure you entered the WhatsApp Business Account ID (WABA ID), NOT your Meta Business Portfolio / Manager ID.`,
       });
     }
 
-    console.log("[WhatsApp] ✅ Verified phone:", verifyData.display_phone_number, "WABA:", resolvedWabaId);
+    console.log(
+      "[WhatsApp] ✅ Verified phone:",
+      verifyData.display_phone_number,
+      "WABA:",
+      resolvedWabaId,
+    );
 
     // ── Register Phone Number with Meta Cloud API ────────────────────
     const regPin = req.body.pin || crypto.randomInt(100000, 999999).toString();
     try {
-      console.log(`[WhatsApp] Auto-registering phone number ${phoneNumberId} with Meta...`);
+      console.log(
+        `[WhatsApp] Auto-registering phone number ${phoneNumberId} with Meta...`,
+      );
       const regRes = await fetch(
         `https://graph.facebook.com/v22.0/${phoneNumberId}/register`,
         {
@@ -492,28 +524,36 @@ export const setupWhatsApp = async (req, res) => {
             messaging_product: "whatsapp",
             pin: regPin,
           }),
-        }
+        },
       );
       const regData = await regRes.json();
       console.log("[WhatsApp] Phone registration response:", regData);
     } catch (e) {
-      console.warn("[WhatsApp] Phone auto-registration error (non-fatal):", e.message);
+      console.warn(
+        "[WhatsApp] Phone auto-registration error (non-fatal):",
+        e.message,
+      );
     }
 
     // ── Subscribe WABA to app webhooks ────────────────────────────────
     try {
-      console.log(`[WhatsApp] Subscribing WABA ${resolvedWabaId} to app webhooks...`);
+      console.log(
+        `[WhatsApp] Subscribing WABA ${resolvedWabaId} to app webhooks...`,
+      );
       const subRes = await fetch(
         `https://graph.facebook.com/v22.0/${resolvedWabaId}/subscribed_apps`,
         {
           method: "POST",
           headers: { Authorization: `Bearer ${accessToken}` },
-        }
+        },
       );
       const subData = await subRes.json();
       console.log("[WhatsApp] Webhook subscription response:", subData);
     } catch (e) {
-      console.warn("[WhatsApp] Webhook subscription failed (non-fatal):", e.message);
+      console.warn(
+        "[WhatsApp] Webhook subscription failed (non-fatal):",
+        e.message,
+      );
     }
 
     await prisma.tenantWhatsApp.upsert({
@@ -535,24 +575,25 @@ export const setupWhatsApp = async (req, res) => {
 
     console.log(`✅ WhatsApp connected for tenant ${tenantId}`);
 
-// ══════ TASK 3 — SuperAdmin Notification + Email + Audit Log ══════
-const tenantInfo = await prisma.tenant.findUnique({
-  where:  { id: tenantId },
-  select: { tenantName: true, email: true },
-});
+    // ══════ TASK 3 — SuperAdmin Notification + Email + Audit Log ══════
+    const tenantInfo = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { tenantName: true, email: true },
+    });
 
-await notifySuperAdminWhatsAppStatus({
-  tenantId,
-  tenantName:   tenantInfo?.tenantName || 'Unknown Tenant',
-  tenantEmail:  tenantInfo?.email      || 'unknown@email.com',
-  phoneNumberId,
-  wabaId,
-  action: 'CONNECTED',
-});
-// ═════════════════════════════════════════════════════════════════
+    await notifySuperAdminWhatsAppStatus({
+      tenantId,
+      tenantName: tenantInfo?.tenantName || "Unknown Tenant",
+      tenantEmail: tenantInfo?.email || "unknown@email.com",
+      phoneNumberId,
+      wabaId,
+      action: "CONNECTED",
+    });
+    // ═════════════════════════════════════════════════════════════════
 
     // ── Auto-sync templates in background on initial connect ──
-    prisma.tenant.findUnique({ where: { id: tenantId }, include: { whatsapp: true } })
+    prisma.tenant
+      .findUnique({ where: { id: tenantId }, include: { whatsapp: true } })
       .then((fullTenant) => {
         const t = fullTenant ? { ...fullTenant, ...fullTenant.whatsapp } : null;
         if (t?.whatsappWabaId && t?.whatsappAccessToken) {
@@ -561,31 +602,39 @@ await notifySuperAdminWhatsAppStatus({
       })
       .then((synced) => {
         if (synced) {
-          console.log(`[WhatsApp] ✅ Auto-synced ${synced.length} templates on manual connect for tenant ${tenantId}`);
-          emitToTenant(tenantId, 'templates_synced', { count: synced.length, lastSyncedAt: new Date() });
+          console.log(
+            `[WhatsApp] ✅ Auto-synced ${synced.length} templates on manual connect for tenant ${tenantId}`,
+          );
+          emitToTenant(tenantId, "templates_synced", {
+            count: synced.length,
+            lastSyncedAt: new Date(),
+          });
         }
       })
-      .catch((err) => console.warn('[WhatsApp] Auto-sync templates on manual connect non-fatal error:', err.message));
+      .catch((err) =>
+        console.warn(
+          "[WhatsApp] Auto-sync templates on manual connect non-fatal error:",
+          err.message,
+        ),
+      );
 
-     // 📡 Real-time socket emit to update frontend instantly
-emitToTenant(tenantId, 'whatsapp_status_changed', {
-  isConnected: true,
-  phoneNumberId,
-  wabaId,
-  displayPhoneNumber: verifyData.display_phone_number || null,
-  verifiedName: verifyData.verified_name || null,
-});
+    // 📡 Real-time socket emit to update frontend instantly
+    emitToTenant(tenantId, "whatsapp_status_changed", {
+      isConnected: true,
+      phoneNumberId,
+      wabaId,
+      displayPhoneNumber: verifyData.display_phone_number || null,
+      verifiedName: verifyData.verified_name || null,
+    });
 
-return res.json({
-  success: true,
-  message: "WhatsApp connected successfully",
-  wabaId,
-  phoneNumberId,
-  displayPhoneNumber: verifyData.display_phone_number,
-  verifiedName: verifyData.verified_name,
-});
-
-
+    return res.json({
+      success: true,
+      message: "WhatsApp connected successfully",
+      wabaId,
+      phoneNumberId,
+      displayPhoneNumber: verifyData.display_phone_number,
+      verifiedName: verifyData.verified_name,
+    });
   } catch (err) {
     console.error("❌ setupWhatsApp error:", err);
     return res.status(500).json({
@@ -608,7 +657,11 @@ export const getWhatsAppStatus = async (req, res) => {
       where: { id: tenantId },
       select: {
         whatsapp: {
-          select: { whatsappPhoneId: true, whatsappWabaId: true, whatsappAccessToken: true },
+          select: {
+            whatsappPhoneId: true,
+            whatsappWabaId: true,
+            whatsappAccessToken: true,
+          },
         },
       },
     });
@@ -635,38 +688,38 @@ export const getWhatsAppStatus = async (req, res) => {
         where: {
           broadcast: { tenantId },
           createdAt: { gte: twentyFourHoursAgo },
-          status: { in: ['SENT', 'DELIVERED', 'READ'] },
+          status: { in: ["SENT", "DELIVERED", "READ"] },
         },
       }),
       prisma.broadcastRecipient.count({
         where: {
           broadcast: { tenantId },
           createdAt: { gte: sevenDaysAgo },
-          status: { in: ['SENT', 'DELIVERED', 'READ'] },
+          status: { in: ["SENT", "DELIVERED", "READ"] },
         },
       }),
     ]);
 
     // Mock WhatsApp mode: return rich simulated health data
-    if (process.env.MOCK_WHATSAPP === 'true') {
+    if (process.env.MOCK_WHATSAPP === "true") {
       return res.json({
         success: true,
         isConnected: true,
         phoneNumberId: tenant.whatsappPhoneId,
         wabaId: tenant.whatsappWabaId,
         health: {
-          displayPhoneNumber: '+91 98475 63246',
-          verifiedName: 'YourZerosandOnes (Demo)',
-          qualityRating: 'GREEN', // 'GREEN' | 'YELLOW' | 'RED' | 'UNKNOWN'
-          messagingLimitTier: 'TIER_1K',
+          displayPhoneNumber: "+91 98475 63246",
+          verifiedName: "YourZerosandOnes (Demo)",
+          qualityRating: "GREEN", // 'GREEN' | 'YELLOW' | 'RED' | 'UNKNOWN'
+          messagingLimitTier: "TIER_1K",
           messagingLimitNumber: 1000,
-          tierName: 'Tier 1K (1,000 / 24 hrs)',
-          status: 'CONNECTED',
-          codeVerificationStatus: 'VERIFIED',
+          tierName: "Tier 1K (1,000 / 24 hrs)",
+          status: "CONNECTED",
+          codeVerificationStatus: "VERIFIED",
           sentLast24h,
           remaining24h: Math.max(0, 1000 - sentLast24h),
           sentLast7d,
-          nextTier: 'Tier 10K (10,000 / 24 hrs)',
+          nextTier: "Tier 10K (10,000 / 24 hrs)",
           nextTierTarget: 1000,
           isMock: true,
         },
@@ -685,47 +738,54 @@ export const getWhatsAppStatus = async (req, res) => {
       } else {
         const accessToken = decrypt(tenant.whatsappAccessToken);
         const metaRes = await fetch(
-          `https://graph.facebook.com/v23.0/${tenant.whatsappPhoneId}?fields=display_phone_number,verified_name,quality_rating,messaging_limit_tier,status,code_verification_status,health_status,throughput&access_token=${accessToken}`
+          `https://graph.facebook.com/v23.0/${tenant.whatsappPhoneId}?fields=display_phone_number,verified_name,quality_rating,messaging_limit_tier,status,code_verification_status,health_status,throughput&access_token=${accessToken}`,
         );
         metaData = await metaRes.json();
-        
+
         if (!metaData.error) {
           // Cache for 10 minutes to avoid hitting Meta API limits
-          await redisClient.set(cacheKey, JSON.stringify(metaData), 'EX', 600);
+          await redisClient.set(cacheKey, JSON.stringify(metaData), "EX", 600);
         }
       }
 
       if (!metaData.error) {
         // Parse Meta tier dynamically
-        const tier = metaData.messaging_limit_tier || 'TIER_1K';
+        const tier = metaData.messaging_limit_tier || "TIER_1K";
         let limitNumber = 1000;
         let tierName = `${tier} / 24 hrs`;
 
-        if (typeof tier === 'string') {
+        if (typeof tier === "string") {
           const upperTier = tier.toUpperCase();
-          if (upperTier.includes('50') && !upperTier.includes('50000') && !upperTier.includes('250')) {
+          if (
+            upperTier.includes("50") &&
+            !upperTier.includes("50000") &&
+            !upperTier.includes("250")
+          ) {
             limitNumber = 50;
-            tierName = 'Tier 50 (50 / 24 hrs)';
-          } else if (upperTier.includes('250')) {
+            tierName = "Tier 50 (50 / 24 hrs)";
+          } else if (upperTier.includes("250")) {
             limitNumber = 250;
-            tierName = 'Tier 250 (250 / 24 hrs)';
-          } else if (upperTier.includes('2K') || upperTier.includes('2000')) {
+            tierName = "Tier 250 (250 / 24 hrs)";
+          } else if (upperTier.includes("2K") || upperTier.includes("2000")) {
             limitNumber = 2000;
-            tierName = 'Tier 2K (2,000 / 24 hrs)';
-          } else if (upperTier.includes('1K') || upperTier.includes('1000')) {
+            tierName = "Tier 2K (2,000 / 24 hrs)";
+          } else if (upperTier.includes("1K") || upperTier.includes("1000")) {
             limitNumber = 1000;
-            tierName = 'Tier 1K (1,000 / 24 hrs)';
-          } else if (upperTier.includes('10K') || upperTier.includes('10000')) {
+            tierName = "Tier 1K (1,000 / 24 hrs)";
+          } else if (upperTier.includes("10K") || upperTier.includes("10000")) {
             limitNumber = 10000;
-            tierName = 'Tier 10K (10,000 / 24 hrs)';
-          } else if (upperTier.includes('100K') || upperTier.includes('100000')) {
+            tierName = "Tier 10K (10,000 / 24 hrs)";
+          } else if (
+            upperTier.includes("100K") ||
+            upperTier.includes("100000")
+          ) {
             limitNumber = 100000;
-            tierName = 'Tier 100K (100,000 / 24 hrs)';
-          } else if (upperTier.includes('UNLIMITED')) {
+            tierName = "Tier 100K (100,000 / 24 hrs)";
+          } else if (upperTier.includes("UNLIMITED")) {
             limitNumber = 1000000;
-            tierName = 'Tier Unlimited (Unlimited / 24 hrs)';
+            tierName = "Tier Unlimited (Unlimited / 24 hrs)";
           } else {
-            const num = parseInt(tier.replace(/\D/g, ''), 10);
+            const num = parseInt(tier.replace(/\D/g, ""), 10);
             if (!isNaN(num) && num > 0) {
               limitNumber = num;
               tierName = `Tier ${num.toLocaleString()} (${num.toLocaleString()} / 24 hrs)`;
@@ -736,7 +796,8 @@ export const getWhatsAppStatus = async (req, res) => {
         }
 
         // Extract official Meta health status & limitations
-        const canSendMessage = metaData.health_status?.can_send_message || 'AVAILABLE';
+        const canSendMessage =
+          metaData.health_status?.can_send_message || "AVAILABLE";
         const entities = metaData.health_status?.entities || [];
         const limitations = [];
         const errors = [];
@@ -747,22 +808,25 @@ export const getWhatsAppStatus = async (req, res) => {
           }
           if (Array.isArray(entity.errors)) {
             // Filter out SIP calling errors (138024, 138025) as we only care about messaging
-            const filteredErrors = entity.errors.filter(err => err.error_code !== 138024 && err.error_code !== 138025);
+            const filteredErrors = entity.errors.filter(
+              (err) => err.error_code !== 138024 && err.error_code !== 138025,
+            );
             errors.push(...filteredErrors);
           }
         }
-        
+
         const throughput = metaData.throughput || null;
 
         metaHealth = {
           displayPhoneNumber: metaData.display_phone_number || null,
           verifiedName: metaData.verified_name || null,
-          qualityRating: metaData.quality_rating || 'GREEN',
+          qualityRating: metaData.quality_rating || "GREEN",
           messagingLimitTier: tier,
           messagingLimitNumber: limitNumber,
           tierName,
-          status: metaData.status || 'CONNECTED',
-          codeVerificationStatus: metaData.code_verification_status || 'VERIFIED',
+          status: metaData.status || "CONNECTED",
+          codeVerificationStatus:
+            metaData.code_verification_status || "VERIFIED",
           canSendMessage,
           limitations,
           errors,
@@ -773,7 +837,10 @@ export const getWhatsAppStatus = async (req, res) => {
         };
       }
     } catch (metaErr) {
-      console.warn('⚠️ Could not fetch live Meta phone health:', metaErr.message);
+      console.warn(
+        "⚠️ Could not fetch live Meta phone health:",
+        metaErr.message,
+      );
     }
 
     return res.json({
@@ -810,7 +877,7 @@ export const getMyWabas = async (req, res) => {
     for (const wabaId of WABA_IDS) {
       try {
         const wabaRes = await fetch(
-          `https://graph.facebook.com/v25.0/${wabaId}?access_token=${accessToken}`
+          `https://graph.facebook.com/v25.0/${wabaId}?access_token=${accessToken}`,
         );
         const wabaData = await wabaRes.json();
 
@@ -820,7 +887,7 @@ export const getMyWabas = async (req, res) => {
         }
 
         const phoneRes = await fetch(
-          `https://graph.facebook.com/v25.0/${wabaId}/phone_numbers?access_token=${accessToken}`
+          `https://graph.facebook.com/v25.0/${wabaId}/phone_numbers?access_token=${accessToken}`,
         );
         const phoneData = await phoneRes.json();
 
@@ -889,39 +956,37 @@ export const disconnectWhatsApp = async (req, res) => {
       },
     });
 
-  console.log(
-  `✅ WhatsApp disconnected for tenant ${tenantId} (${tenant.tenantName})`
-);
-console.log(`   Removed Phone ID: ${tenant.whatsappPhoneId}`);
-console.log(`   Removed WABA ID: ${tenant.whatsappWabaId}`);
+    console.log(
+      `✅ WhatsApp disconnected for tenant ${tenantId} (${tenant.tenantName})`,
+    );
+    console.log(`   Removed Phone ID: ${tenant.whatsappPhoneId}`);
+    console.log(`   Removed WABA ID: ${tenant.whatsappWabaId}`);
 
-// ══════ TASK 4 — SuperAdmin Notification + Email + Audit Log ══════
-await notifySuperAdminWhatsAppStatus({
-  tenantId,
-  tenantName:    tenant.tenantName,
-  tenantEmail:   tenant.email,           // ← directly from existing fetch
-  phoneNumberId: tenant.whatsappPhoneId,
-  wabaId:        tenant.whatsappWabaId,
-  action: 'DISCONNECTED',
-});
-// ═════════════════════════════════════════════════════════════════
+    // ══════ TASK 4 — SuperAdmin Notification + Email + Audit Log ══════
+    await notifySuperAdminWhatsAppStatus({
+      tenantId,
+      tenantName: tenant.tenantName,
+      tenantEmail: tenant.email, // ← directly from existing fetch
+      phoneNumberId: tenant.whatsappPhoneId,
+      wabaId: tenant.whatsappWabaId,
+      action: "DISCONNECTED",
+    });
+    // ═════════════════════════════════════════════════════════════════
 
-// 📡 Real-time socket emit to update frontend instantly
-emitToTenant(tenantId, 'whatsapp_status_changed', {
-  isConnected: false,
-  phoneNumberId: null,
-  wabaId: null,
-  displayPhoneNumber: null,
-  verifiedName: null,
-});
+    // 📡 Real-time socket emit to update frontend instantly
+    emitToTenant(tenantId, "whatsapp_status_changed", {
+      isConnected: false,
+      phoneNumberId: null,
+      wabaId: null,
+      displayPhoneNumber: null,
+      verifiedName: null,
+    });
 
-
-return res.json({
-  success: true,
-  message: "WhatsApp disconnected successfully",
-});
-
-} catch (err) {
+    return res.json({
+      success: true,
+      message: "WhatsApp disconnected successfully",
+    });
+  } catch (err) {
     console.error("❌ disconnectWhatsApp error:", err);
     return res.status(500).json({
       success: false,
@@ -942,7 +1007,9 @@ export const registerPhoneNumber = async (req, res) => {
     const tenantRow = await prisma.tenant.findUnique({
       where: { id: tenantId },
       select: {
-        whatsapp: { select: { whatsappPhoneId: true, whatsappAccessToken: true } },
+        whatsapp: {
+          select: { whatsappPhoneId: true, whatsappAccessToken: true },
+        },
       },
     });
     const tenant = tenantRow?.whatsapp || {};
@@ -954,7 +1021,9 @@ export const registerPhoneNumber = async (req, res) => {
       });
     }
 
-    console.log(`[WhatsApp] Registering phone number ${tenant.whatsappPhoneId} with Meta...`);
+    console.log(
+      `[WhatsApp] Registering phone number ${tenant.whatsappPhoneId} with Meta...`,
+    );
 
     const regRes = await fetch(
       `https://graph.facebook.com/v22.0/${tenant.whatsappPhoneId}/register`,
@@ -968,7 +1037,7 @@ export const registerPhoneNumber = async (req, res) => {
           messaging_product: "whatsapp",
           pin,
         }),
-      }
+      },
     );
     const regData = await regRes.json();
     console.log("[WhatsApp] Phone registration response:", regData);
@@ -976,7 +1045,8 @@ export const registerPhoneNumber = async (req, res) => {
     if (regData.error) {
       return res.status(400).json({
         success: false,
-        message: regData.error.message || "Failed to register phone number with Meta.",
+        message:
+          regData.error.message || "Failed to register phone number with Meta.",
         error: regData.error,
       });
     }
@@ -999,93 +1069,85 @@ export const registerPhoneNumber = async (req, res) => {
 // POST /tenant/whatsapp/send-location
 // ─────────────────────────────────────────────────────────────────────────────
 export const sendLocation = async (req, res) => {
-        try {
-          const {
-            to,
-            latitude,
-            longitude,
-            name,
-            address,
-            conversationId,
-          } = req.body;
+  try {
+    const { to, latitude, longitude, name, address, conversationId } = req.body;
 
-          const tenantId = req.tenantId;
-          const userType = req.userType;
+    const tenantId = req.tenantId;
+    const userType = req.userType;
 
-          // ── Identify sender ──────────────────────────────────────
-          // Same pattern as sendMessage in message.controller.js
-          let senderId = null;
-          let senderType = null;
+    // ── Identify sender ──────────────────────────────────────
+    // Same pattern as sendMessage in message.controller.js
+    let senderId = null;
+    let senderType = null;
 
-          if (userType === 'TENANT' && req.tenant) {
-            senderId = req.tenant.id;
-            senderType = 'TENANT';
-          } else if (userType === 'USER' && req.user) {
-            senderId = req.user.id;
-            senderType = 'USER';
-          }
+    if (userType === "TENANT" && req.tenant) {
+      senderId = req.tenant.id;
+      senderType = "TENANT";
+    } else if (userType === "USER" && req.user) {
+      senderId = req.user.id;
+      senderType = "USER";
+    }
 
-          if (!senderId) {
-            return res.status(401).json({
-              success: false,
-              message: 'Unable to identify sender',
-            });
-          }
+    if (!senderId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unable to identify sender",
+      });
+    }
 
-          // ── Call service ─────────────────────────────────────────
-          const result = await sendLocationService({
-            tenantId,
-            to,
-            latitude,
-            longitude,
-            name,
-            address,
-            conversationId,
-            senderId,
-            senderType,
-          });
+    // ── Call service ─────────────────────────────────────────
+    const result = await sendLocationService({
+      tenantId,
+      to,
+      latitude,
+      longitude,
+      name,
+      address,
+      conversationId,
+      senderId,
+      senderType,
+    });
 
-          // ── Socket emit ──────────────────────────────────────────
-          if (result.message && conversationId) {
-            const socketPayload = {
-              conversationId,
-              message: {
-                id: result.message.id,
-                type: 'LOCATION',
-                direction: 'OUTBOUND',
-                senderType,
-                senderId,
-                isFromCustomer: false,
-                locLatitude: parseFloat(latitude),
-                locLongitude: parseFloat(longitude),
-                locName: name || null,
-                locAddress: address || null,
-                status: 'sent',
-                createdAt: result.message.createdAt,
-              },
-            };
-
-            emitToTenant(tenantId, 'new_message', socketPayload);
-
-            if (userType === 'USER' && req.user?.id) {
-              emitToUser(req.user.id, 'new_message', socketPayload);
-            }
-          }
-
-          return res.status(200).json({
-            success: true,
-            message: 'Location sent successfully',
-            data: {
-              waMessageId: result.waMessageId,
-              messageId: result.message?.id || null,
-            },
-          });
-
-        } catch (error) {
-          console.error('❌ sendLocation error:', error.message);
-          return res.status(error.statusCode || 500).json({
-            success: false,
-            message: error.message || 'Failed to send location',
-          });
-        }
+    // ── Socket emit ──────────────────────────────────────────
+    if (result.message && conversationId) {
+      const socketPayload = {
+        conversationId,
+        message: {
+          id: result.message.id,
+          type: "LOCATION",
+          direction: "OUTBOUND",
+          senderType,
+          senderId,
+          isFromCustomer: false,
+          locLatitude: parseFloat(latitude),
+          locLongitude: parseFloat(longitude),
+          locName: name || null,
+          locAddress: address || null,
+          status: "sent",
+          createdAt: result.message.createdAt,
+        },
       };
+
+      emitToTenant(tenantId, "new_message", socketPayload);
+
+      if (userType === "USER" && req.user?.id) {
+        emitToUser(req.user.id, "new_message", socketPayload);
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Location sent successfully",
+      data: {
+        waMessageId: result.waMessageId,
+        messageId: result.message?.id || null,
+      },
+    });
+  } catch (error) {
+    console.error("❌ sendLocation error:", error.message);
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || "Failed to send location",
+    });
+  }
+};

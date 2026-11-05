@@ -18,10 +18,10 @@ import {
   createPaidSubscription,
   verifyPaidSubscription,
   getBillingDetails,
-  downloadInvoice
+  downloadInvoice,
 } from "./plan.controller.js";
-import { verifySuperAdmin } from "../../middlewares/auth.superAdmin.js"
-import { verifyTenantOrUser } from "../../middlewares/auth.verifyTenantOrUser.js"
+import { verifySuperAdmin } from "../../middlewares/auth.superAdmin.js";
+import { verifyTenantOrUser } from "../../middlewares/auth.verifyTenantOrUser.js";
 import { verifyTenant } from "../../middlewares/auth.tenant.js";
 
 import rateLimit from "express-rate-limit";
@@ -34,7 +34,8 @@ const orderLimiter = rateLimit({
   max: 15,
   message: {
     success: false,
-    message: "Too many payment orders initiated. Please wait a few minutes before trying again.",
+    message:
+      "Too many payment orders initiated. Please wait a few minutes before trying again.",
   },
   standardHeaders: true,
   legacyHeaders: false,
@@ -47,11 +48,24 @@ router.get("/features", getFeatures);
 // ── Razorpay routes (TENANT ONLY — not regular users/agents) ──
 router.post("/create-order", verifyTenant, orderLimiter, createPaymentOrder);
 router.post("/verify-payment", verifyTenant, verifyPaymentAndActivate);
-router.post("/create-subscription-trial", verifyTenant, orderLimiter, createSubscriptionTrial);
-router.post("/verify-subscription-trial", verifyTenant, verifySubscriptionTrial);
-router.post("/create-paid-subscription", verifyTenant, orderLimiter, createPaidSubscription);
+router.post(
+  "/create-subscription-trial",
+  verifyTenant,
+  orderLimiter,
+  createSubscriptionTrial,
+);
+router.post(
+  "/verify-subscription-trial",
+  verifyTenant,
+  verifySubscriptionTrial,
+);
+router.post(
+  "/create-paid-subscription",
+  verifyTenant,
+  orderLimiter,
+  createPaidSubscription,
+);
 router.post("/verify-paid-subscription", verifyTenant, verifyPaidSubscription);
-
 
 // ── Billing details (TENANT ONLY — not users) ──
 router.get("/billing", verifyTenant, getBillingDetails);

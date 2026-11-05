@@ -1,6 +1,13 @@
 // tenant-web/src/components/billing/BillingPage.jsx (do not remove this comment)
 import React, { useEffect, useState } from "react";
-import { CreditCard, Calendar, AlertTriangle, ArrowRight, Download, Receipt } from "lucide-react";
+import {
+  CreditCard,
+  Calendar,
+  AlertTriangle,
+  ArrowRight,
+  Download,
+  Receipt,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import api from "../../api/axios";
 import CancelSubscriptionModal from "./CancelSubscriptionModal";
@@ -22,13 +29,15 @@ export default function BillingPage() {
     try {
       const [overviewRes, invoiceRes] = await Promise.all([
         api.get("/billing"),
-        api.get(`/billing/invoices?page=${page}&limit=10`)
+        api.get(`/billing/invoices?page=${page}&limit=10`),
       ]);
       setBillingData(overviewRes.data.data);
       setInvoices(invoiceRes.data.data.invoices);
       setTotalPages(invoiceRes.data.data.totalPages);
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to load billing information.");
+      setError(
+        err.response?.data?.message || "Failed to load billing information.",
+      );
     } finally {
       setLoading(false);
     }
@@ -56,12 +65,15 @@ export default function BillingPage() {
 
   const handleDownload = async (invoiceId, invoiceNumber) => {
     try {
-      const response = await api.get(`/billing/invoices/${invoiceId}/download`, {
-        responseType: 'blob'
-      });
-      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const response = await api.get(
+        `/billing/invoices/${invoiceId}/download`,
+        {
+          responseType: "blob",
+        },
+      );
+      const blob = new Blob([response.data], { type: "application/pdf" });
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
       a.download = `Invoice-${invoiceNumber}.pdf`;
       a.click();
@@ -79,7 +91,8 @@ export default function BillingPage() {
     );
   }
 
-  const { subscriptionStatus, currentPlan, planPeriodEnd, dataDeletionDate } = billingData || {};
+  const { subscriptionStatus, currentPlan, planPeriodEnd, dataDeletionDate } =
+    billingData || {};
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -87,26 +100,28 @@ export default function BillingPage() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-3">
             <div className="flex items-center gap-3">
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Subscription Plan</span>
-              {subscriptionStatus === 'active' && (
+              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                Subscription Plan
+              </span>
+              {subscriptionStatus === "active" && (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                   Active Plan
                 </span>
               )}
-              {subscriptionStatus === 'cancel_at_period_end' && (
+              {subscriptionStatus === "cancel_at_period_end" && (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-100">
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                   Cancelling
                 </span>
               )}
-              {subscriptionStatus === 'expired' && (
+              {subscriptionStatus === "expired" && (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-red-50 text-red-700 border border-red-100">
                   <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
                   Expired
                 </span>
               )}
-              {subscriptionStatus === 'paused' && (
+              {subscriptionStatus === "paused" && (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
                   <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
                   Paused
@@ -114,30 +129,41 @@ export default function BillingPage() {
               )}
             </div>
 
-            <h2 className="text-2xl md:text-3xl font-extrabold text-slate-800">{currentPlan || "Starter"} Plan</h2>
+            <h2 className="text-2xl md:text-3xl font-extrabold text-slate-800">
+              {currentPlan || "Starter"} Plan
+            </h2>
 
-            {subscriptionStatus === 'active' && planPeriodEnd && (
+            {subscriptionStatus === "active" && planPeriodEnd && (
               <p className="text-sm text-slate-500 font-medium">
-                Next billing date: <strong>{new Date(planPeriodEnd).toLocaleDateString()}</strong>
+                Next billing date:{" "}
+                <strong>{new Date(planPeriodEnd).toLocaleDateString()}</strong>
               </p>
             )}
 
-            {subscriptionStatus === 'cancel_at_period_end' && planPeriodEnd && (
+            {subscriptionStatus === "cancel_at_period_end" && planPeriodEnd && (
               <div className="flex items-center gap-2 text-sm text-amber-700 font-semibold bg-amber-50/50 rounded-xl px-4 py-2 border border-amber-100/50">
                 <Calendar size={16} />
-                <span>Your subscription features will end on {new Date(planPeriodEnd).toLocaleDateString()}</span>
+                <span>
+                  Your subscription features will end on{" "}
+                  {new Date(planPeriodEnd).toLocaleDateString()}
+                </span>
               </div>
             )}
 
-            {subscriptionStatus === 'expired' && planPeriodEnd && (
+            {subscriptionStatus === "expired" && planPeriodEnd && (
               <div className="space-y-2">
                 <p className="text-sm text-red-600 font-bold">
-                  Your plan expired on {new Date(planPeriodEnd).toLocaleDateString()}
+                  Your plan expired on{" "}
+                  {new Date(planPeriodEnd).toLocaleDateString()}
                 </p>
                 {dataDeletionDate && (
                   <div className="flex items-center gap-2 text-xs font-semibold text-red-700 bg-red-50 border border-red-100 rounded-xl p-3.5">
                     <AlertTriangle size={15} />
-                    <span>Warning: Under data policies, your workspace details will be permanently deleted on {new Date(dataDeletionDate).toLocaleDateString()}.</span>
+                    <span>
+                      Warning: Under data policies, your workspace details will
+                      be permanently deleted on{" "}
+                      {new Date(dataDeletionDate).toLocaleDateString()}.
+                    </span>
                   </div>
                 )}
               </div>
@@ -145,7 +171,7 @@ export default function BillingPage() {
           </div>
 
           <div className="shrink-0 flex items-center">
-            {subscriptionStatus === 'active' && (
+            {subscriptionStatus === "active" && (
               <button
                 onClick={() => setIsModalOpen(true)}
                 className="w-full md:w-auto px-6 py-3 rounded-xl bg-slate-50 border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-100 hover:text-slate-800 transition"
@@ -153,7 +179,7 @@ export default function BillingPage() {
                 Cancel Subscription
               </button>
             )}
-            {subscriptionStatus === 'cancel_at_period_end' && (
+            {subscriptionStatus === "cancel_at_period_end" && (
               <button
                 onClick={handleReactivate}
                 disabled={actionLoading}
@@ -162,7 +188,7 @@ export default function BillingPage() {
                 {actionLoading ? "Reactivating..." : "Reactivate Subscription"}
               </button>
             )}
-            {subscriptionStatus === 'expired' && (
+            {subscriptionStatus === "expired" && (
               <button
                 onClick={() => navigate("/plans")}
                 className="w-full md:w-auto px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-sm font-bold text-white transition flex items-center justify-center gap-2"
@@ -201,11 +227,20 @@ export default function BillingPage() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {invoices.map((invoice) => (
-                  <tr key={invoice.id} className="text-sm font-medium text-slate-700 hover:bg-slate-50/50 transition">
-                    <td className="py-4.5 px-6 font-semibold">{invoice.invoiceNumber}</td>
-                    <td className="py-4.5 px-6 text-slate-500">{new Date(invoice.createdAt).toLocaleDateString()}</td>
+                  <tr
+                    key={invoice.id}
+                    className="text-sm font-medium text-slate-700 hover:bg-slate-50/50 transition"
+                  >
+                    <td className="py-4.5 px-6 font-semibold">
+                      {invoice.invoiceNumber}
+                    </td>
+                    <td className="py-4.5 px-6 text-slate-500">
+                      {new Date(invoice.createdAt).toLocaleDateString()}
+                    </td>
                     <td className="py-4.5 px-6">{invoice.planName}</td>
-                    <td className="py-4.5 px-6">{invoice.currency} {invoice.amount}</td>
+                    <td className="py-4.5 px-6">
+                      {invoice.currency} {invoice.amount}
+                    </td>
                     <td className="py-4.5 px-6">
                       <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">
                         Paid
@@ -213,7 +248,9 @@ export default function BillingPage() {
                     </td>
                     <td className="py-4.5 px-6 text-right">
                       <button
-                        onClick={() => handleDownload(invoice.id, invoice.invoiceNumber)}
+                        onClick={() =>
+                          handleDownload(invoice.id, invoice.invoiceNumber)
+                        }
                         className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline px-3 py-1.5 rounded-lg hover:bg-blue-50 transition"
                       >
                         <Download size={13} />
@@ -230,15 +267,17 @@ export default function BillingPage() {
         {totalPages > 1 && (
           <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between">
             <button
-              onClick={() => setPage(p => Math.max(p - 1, 1))}
+              onClick={() => setPage((p) => Math.max(p - 1, 1))}
               disabled={page === 1}
               className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-500 hover:bg-slate-50 disabled:opacity-50 transition"
             >
               Previous
             </button>
-            <span className="text-xs font-bold text-slate-500">Page {page} of {totalPages}</span>
+            <span className="text-xs font-bold text-slate-500">
+              Page {page} of {totalPages}
+            </span>
             <button
-              onClick={() => setPage(p => Math.min(p + 1, totalPages))}
+              onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
               disabled={page === totalPages}
               className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-500 hover:bg-slate-50 disabled:opacity-50 transition"
             >

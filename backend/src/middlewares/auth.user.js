@@ -1,6 +1,6 @@
 // backend/src/middlewares/auth.user.js (do not remove this comment)
 import jwt from "jsonwebtoken";
-import prisma from '../config/prisma.js';
+import prisma from "../config/prisma.js";
 
 export const verifyUser = async (req, res, next) => {
   try {
@@ -31,8 +31,8 @@ export const verifyUser = async (req, res, next) => {
         email: true,
         name: true,
         isActive: true,
-        availabilityStatus: true,   // ← NEW: needed for dashboard
-        tenant: { select: { status: true, isActive: true } }
+        availabilityStatus: true, // ← NEW: needed for dashboard
+        tenant: { select: { status: true, isActive: true } },
       },
     });
 
@@ -50,13 +50,22 @@ export const verifyUser = async (req, res, next) => {
       });
     }
 
-    if (!user.tenant || user.tenant.status === 'BLOCKED' || !user.tenant.isActive) {
-      return res.status(403).json({ success: false, message: "Tenant account is blocked or inactive" });
+    if (
+      !user.tenant ||
+      user.tenant.status === "BLOCKED" ||
+      !user.tenant.isActive
+    ) {
+      return res
+        .status(403)
+        .json({
+          success: false,
+          message: "Tenant account is blocked or inactive",
+        });
     }
 
     req.user = user;
-    req.tenantId = user.tenantId;   // ← FIX: was missing, now consistent with verifyTenantOrUser
-    req.userId = decoded.id;        // ← FIX: also add userId for consistency
+    req.tenantId = user.tenantId; // ← FIX: was missing, now consistent with verifyTenantOrUser
+    req.userId = decoded.id; // ← FIX: also add userId for consistency
     req.userType = "USER";
 
     next();

@@ -76,7 +76,8 @@ export default function GoogleSheetsSettings({ onBack } = {}) {
     try {
       const res = await getGoogleSheetsStatus();
       if (res.success && res.data) {
-        const isConnected = res.data.isConnected || res.data.status === "active";
+        const isConnected =
+          res.data.isConnected || res.data.status === "active";
         setConnection({
           isConnected,
           connectedAt: res.data.connectedAt || null,
@@ -118,7 +119,11 @@ export default function GoogleSheetsSettings({ onBack } = {}) {
   const cleanUrlParams = () => {
     const url = new URL(window.location.href);
     url.searchParams.delete("sheet");
-    window.history.replaceState({}, "", url.pathname + (url.search ? url.search : ""));
+    window.history.replaceState(
+      {},
+      "",
+      url.pathname + (url.search ? url.search : ""),
+    );
   };
 
   // ── Connect / Disconnect ──
@@ -226,10 +231,20 @@ export default function GoogleSheetsSettings({ onBack } = {}) {
       }
 
       if (res.success) {
-        toast.success(editingField ? "Column updated successfully!" : "Column added successfully!");
+        toast.success(
+          editingField
+            ? "Column updated successfully!"
+            : "Column added successfully!",
+        );
         setShowFieldModal(false);
         setEditingField(null);
-        setFieldForm({ fieldName: "", fieldType: "text", options: "", defaultValue: "", isRequired: false });
+        setFieldForm({
+          fieldName: "",
+          fieldType: "text",
+          options: "",
+          defaultValue: "",
+          isRequired: false,
+        });
         fetchFields();
       } else {
         toast.error(res.message || "Failed to save column");
@@ -244,7 +259,9 @@ export default function GoogleSheetsSettings({ onBack } = {}) {
   const handleToggleField = async (fieldId, currentStatus) => {
     try {
       setSheetFields((prev) =>
-        prev.map((f) => (f.id === fieldId ? { ...f, isActive: !currentStatus } : f))
+        prev.map((f) =>
+          f.id === fieldId ? { ...f, isActive: !currentStatus } : f,
+        ),
       );
       const res = await toggleGoogleSheetsField(fieldId, !currentStatus);
       if (res.success) {
@@ -309,7 +326,9 @@ export default function GoogleSheetsSettings({ onBack } = {}) {
     return (
       <div className="flex flex-col items-center justify-center p-16 space-y-3">
         <RefreshCw className="animate-spin text-[#0F9D58]" size={24} />
-        <p className="text-xs text-slate-500 font-medium">Loading Google Sheets integration...</p>
+        <p className="text-xs text-slate-500 font-medium">
+          Loading Google Sheets integration...
+        </p>
       </div>
     );
   }
@@ -336,7 +355,9 @@ export default function GoogleSheetsSettings({ onBack } = {}) {
           </div>
           <div>
             <div className="flex flex-wrap items-center gap-2.5">
-              <h2 className="text-lg font-bold text-slate-900">Google Sheets</h2>
+              <h2 className="text-lg font-bold text-slate-900">
+                Google Sheets
+              </h2>
               {isConnected ? (
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -349,12 +370,14 @@ export default function GoogleSheetsSettings({ onBack } = {}) {
               )}
             </div>
             <p className="text-xs text-slate-500 mt-1 max-w-2xl leading-relaxed">
-              Automatically export confirmed leads, orders, and payment statuses from WhatsApp directly to your Google Workspace spreadsheet in real time.
+              Automatically export confirmed leads, orders, and payment statuses
+              from WhatsApp directly to your Google Workspace spreadsheet in
+              real time.
             </p>
           </div>
         </div>
 
-                {/* Top Header Action - Show Disconnect ONLY when connected */}
+        {/* Top Header Action - Show Disconnect ONLY when connected */}
         {isConnected && (
           <div className="shrink-0">
             <button
@@ -385,9 +408,12 @@ export default function GoogleSheetsSettings({ onBack } = {}) {
                       <CheckCircle2 size={20} />
                     </div>
                     <div>
-                      <h3 className="text-sm font-bold text-slate-900">Your Google Account is Linked</h3>
+                      <h3 className="text-sm font-bold text-slate-900">
+                        Your Google Account is Linked
+                      </h3>
                       <p className="text-xs text-slate-500 mt-1">
-                        Real-time syncing active — confirmed contacts & payments are automatically logged to your spreadsheet.
+                        Real-time syncing active — confirmed contacts & payments
+                        are automatically logged to your spreadsheet.
                       </p>
                     </div>
                   </div>
@@ -396,7 +422,9 @@ export default function GoogleSheetsSettings({ onBack } = {}) {
                 {/* Spreadsheet Quick Actions */}
                 <div className="pt-2 p-4 rounded-xl bg-slate-50/70 border border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div>
-                    <h4 className="text-xs font-bold text-slate-800">Your Connected Spreadsheet</h4>
+                    <h4 className="text-xs font-bold text-slate-800">
+                      Your Connected Spreadsheet
+                    </h4>
                     <p className="text-[11px] text-slate-500 mt-0.5">
                       Access or download your live status records anytime.
                     </p>
@@ -433,7 +461,9 @@ export default function GoogleSheetsSettings({ onBack } = {}) {
                 </div>
 
                 <p className="text-xs text-slate-500 pt-1 leading-relaxed">
-                  Every confirmed WhatsApp lead, order, and payment status change is instantly appended as a new row — <strong>no manual data entry needed</strong>.
+                  Every confirmed WhatsApp lead, order, and payment status
+                  change is instantly appended as a new row —{" "}
+                  <strong>no manual data entry needed</strong>.
                 </p>
               </div>
 
@@ -446,7 +476,8 @@ export default function GoogleSheetsSettings({ onBack } = {}) {
                       <span>Configure Sheet Columns</span>
                     </h4>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      Toggle defaults, add custom fields, and reorder columns for your business needs.
+                      Toggle defaults, add custom fields, and reorder columns
+                      for your business needs.
                     </p>
                   </div>
 
@@ -459,18 +490,31 @@ export default function GoogleSheetsSettings({ onBack } = {}) {
                       title="Rebuild sheet headers if they get out of sync"
                     >
                       {isRepairing ? (
-                        <RefreshCw size={13} className="animate-spin text-[#0F9D58]" />
+                        <RefreshCw
+                          size={13}
+                          className="animate-spin text-[#0F9D58]"
+                        />
                       ) : (
                         <Wrench size={13} />
                       )}
-                      <span>{isRepairing ? "Repairing..." : "Repair Sheet Structure"}</span>
+                      <span>
+                        {isRepairing
+                          ? "Repairing..."
+                          : "Repair Sheet Structure"}
+                      </span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => {
                         setEditingField(null);
-                        setFieldForm({ fieldName: "", fieldType: "text", options: "", defaultValue: "", isRequired: false });
+                        setFieldForm({
+                          fieldName: "",
+                          fieldType: "text",
+                          options: "",
+                          defaultValue: "",
+                          isRequired: false,
+                        });
                         setShowFieldModal(true);
                       }}
                       className="px-3.5 py-2 bg-[#0F9D58] hover:bg-[#0C7C45] text-white text-xs font-bold rounded-xl flex items-center gap-1 transition shadow-xs"
@@ -483,8 +527,13 @@ export default function GoogleSheetsSettings({ onBack } = {}) {
 
                 {fieldsLoading ? (
                   <div className="py-12 flex flex-col items-center gap-3 text-slate-400">
-                    <Loader2 size={24} className="animate-spin text-[#0F9D58]" />
-                    <span className="text-xs font-semibold">Loading fields...</span>
+                    <Loader2
+                      size={24}
+                      className="animate-spin text-[#0F9D58]"
+                    />
+                    <span className="text-xs font-semibold">
+                      Loading fields...
+                    </span>
                   </div>
                 ) : sheetFields.length === 0 ? (
                   <div className="text-center py-10 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
@@ -507,7 +556,10 @@ export default function GoogleSheetsSettings({ onBack } = {}) {
                       </thead>
                       <tbody className="divide-y divide-slate-50">
                         {sheetFields.map((field, index) => (
-                          <tr key={field.id} className="hover:bg-slate-50/30 transition">
+                          <tr
+                            key={field.id}
+                            className="hover:bg-slate-50/30 transition"
+                          >
                             <td className="p-3 text-center">
                               <div className="flex flex-col items-center gap-0.5">
                                 <button
@@ -519,7 +571,9 @@ export default function GoogleSheetsSettings({ onBack } = {}) {
                                 >
                                   <ArrowUp size={12} />
                                 </button>
-                                <span className="text-[10px] font-bold text-slate-600">{index + 1}</span>
+                                <span className="text-[10px] font-bold text-slate-600">
+                                  {index + 1}
+                                </span>
                                 <button
                                   type="button"
                                   onClick={() => handleMoveField(index, "down")}
@@ -533,21 +587,36 @@ export default function GoogleSheetsSettings({ onBack } = {}) {
                             </td>
                             <td className="p-3 font-semibold text-slate-800">
                               <span>{field.fieldName}</span>
-                              {field.isRequired && <span className="text-rose-500 font-bold ml-1">*</span>}
+                              {field.isRequired && (
+                                <span className="text-rose-500 font-bold ml-1">
+                                  *
+                                </span>
+                              )}
                               <span className="block font-mono text-[9px] text-slate-400 mt-0.5 font-normal">
                                 key: {field.fieldKey}
                               </span>
                             </td>
                             <td className="p-3 text-slate-600 capitalize">
-                              <span>{field.fieldType === "yesno" ? "Yes/No" : field.fieldType}</span>
-                              {field.fieldType === "dropdown" && field.options && (
-                                <span
-                                  className="block text-[9px] text-slate-400 mt-0.5 truncate max-w-[150px]"
-                                  title={Array.isArray(field.options) ? field.options.join(", ") : field.options}
-                                >
-                                  {Array.isArray(field.options) ? field.options.join(", ") : field.options}
-                                </span>
-                              )}
+                              <span>
+                                {field.fieldType === "yesno"
+                                  ? "Yes/No"
+                                  : field.fieldType}
+                              </span>
+                              {field.fieldType === "dropdown" &&
+                                field.options && (
+                                  <span
+                                    className="block text-[9px] text-slate-400 mt-0.5 truncate max-w-[150px]"
+                                    title={
+                                      Array.isArray(field.options)
+                                        ? field.options.join(", ")
+                                        : field.options
+                                    }
+                                  >
+                                    {Array.isArray(field.options)
+                                      ? field.options.join(", ")
+                                      : field.options}
+                                  </span>
+                                )}
                             </td>
                             <td className="p-3">
                               <span
@@ -564,13 +633,21 @@ export default function GoogleSheetsSettings({ onBack } = {}) {
                             </td>
                             <td className="p-3 text-center">
                               {field.fieldCategory === "system" ? (
-                                <Lock size={12} className="inline text-slate-400" />
+                                <Lock
+                                  size={12}
+                                  className="inline text-slate-400"
+                                />
                               ) : (
                                 <label className="relative inline-flex items-center cursor-pointer">
                                   <input
                                     type="checkbox"
                                     checked={field.isActive}
-                                    onChange={() => handleToggleField(field.id, field.isActive)}
+                                    onChange={() =>
+                                      handleToggleField(
+                                        field.id,
+                                        field.isActive,
+                                      )
+                                    }
                                     className="sr-only peer"
                                   />
                                   <div className="w-8 h-4 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-emerald-500" />
@@ -579,7 +656,9 @@ export default function GoogleSheetsSettings({ onBack } = {}) {
                             </td>
                             <td className="p-3 text-center">
                               {field.fieldCategory === "system" ? (
-                                <span className="text-[10px] text-slate-400 italic">Locked</span>
+                                <span className="text-[10px] text-slate-400 italic">
+                                  Locked
+                                </span>
                               ) : (
                                 <div className="flex items-center justify-center gap-1.5">
                                   <button
@@ -605,7 +684,9 @@ export default function GoogleSheetsSettings({ onBack } = {}) {
                                   {field.fieldCategory === "custom" && (
                                     <button
                                       type="button"
-                                      onClick={() => handleDeleteField(field.id)}
+                                      onClick={() =>
+                                        handleDeleteField(field.id)
+                                      }
                                       className="p-1.5 border border-rose-200 text-rose-600 hover:bg-rose-50 rounded-lg"
                                       title="Delete"
                                     >
@@ -623,9 +704,13 @@ export default function GoogleSheetsSettings({ onBack } = {}) {
                 )}
 
                 <div className="p-3 bg-blue-50/50 border border-blue-100 rounded-xl text-xs text-blue-900 flex items-start gap-2">
-                  <AlertCircle size={14} className="text-blue-600 shrink-0 mt-0.5" />
+                  <AlertCircle
+                    size={14}
+                    className="text-blue-600 shrink-0 mt-0.5"
+                  />
                   <p className="leading-relaxed">
-                    Changes made here automatically update your live Google Sheet. Use{" "}
+                    Changes made here automatically update your live Google
+                    Sheet. Use{" "}
                     <button
                       type="button"
                       onClick={handleRepairSheet}
@@ -634,7 +719,8 @@ export default function GoogleSheetsSettings({ onBack } = {}) {
                     >
                       Repair Sheet Structure
                     </button>{" "}
-                    if headers ever get out of sync due to manual edits in Google Sheets.
+                    if headers ever get out of sync due to manual edits in
+                    Google Sheets.
                   </p>
                 </div>
               </div>
@@ -652,7 +738,9 @@ export default function GoogleSheetsSettings({ onBack } = {}) {
                     Auto-Export Leads to Google Sheets
                   </h3>
                   <p className="text-xs text-slate-500 leading-relaxed">
-                    Connect your Google account to automatically log every confirmed lead, order, and payment status into a live spreadsheet — zero manual data entry.
+                    Connect your Google account to automatically log every
+                    confirmed lead, order, and payment status into a live
+                    spreadsheet — zero manual data entry.
                   </p>
                 </div>
 
@@ -665,14 +753,22 @@ export default function GoogleSheetsSettings({ onBack } = {}) {
                     className="px-8 py-3.5 text-xs font-bold rounded-xl bg-gradient-to-r from-[#0F9D58] to-[#34A853] text-white hover:opacity-95 transition inline-flex items-center gap-2.5 shadow-md hover:shadow-lg disabled:opacity-60"
                   >
                     {connecting ? (
-                      <RefreshCw size={16} className="animate-spin text-white" />
+                      <RefreshCw
+                        size={16}
+                        className="animate-spin text-white"
+                      />
                     ) : (
                       <FileSpreadsheet size={16} />
                     )}
-                    <span>{connecting ? "Redirecting to Google..." : "Connect Google Account"}</span>
+                    <span>
+                      {connecting
+                        ? "Redirecting to Google..."
+                        : "Connect Google Account"}
+                    </span>
                   </button>
                   <p className="text-[11px] text-slate-400 mt-2">
-                    You will be redirected to Google to sign in and grant spreadsheet access.
+                    You will be redirected to Google to sign in and grant
+                    spreadsheet access.
                   </p>
                 </div>
 
@@ -682,9 +778,12 @@ export default function GoogleSheetsSettings({ onBack } = {}) {
                     <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center mb-2.5">
                       <Zap size={18} />
                     </div>
-                    <h4 className="text-xs font-bold text-slate-800">Real-Time Sync</h4>
+                    <h4 className="text-xs font-bold text-slate-800">
+                      Real-Time Sync
+                    </h4>
                     <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-                      Every lead and order status appears in your sheet instantly.
+                      Every lead and order status appears in your sheet
+                      instantly.
                     </p>
                   </div>
 
@@ -692,9 +791,12 @@ export default function GoogleSheetsSettings({ onBack } = {}) {
                     <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#0C83FD] flex items-center justify-center mb-2.5">
                       <Layers size={18} />
                     </div>
-                    <h4 className="text-xs font-bold text-slate-800">Custom Columns</h4>
+                    <h4 className="text-xs font-bold text-slate-800">
+                      Custom Columns
+                    </h4>
                     <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-                      Add, rename, and reorder columns to match your business workflow.
+                      Add, rename, and reorder columns to match your business
+                      workflow.
                     </p>
                   </div>
 
@@ -702,9 +804,12 @@ export default function GoogleSheetsSettings({ onBack } = {}) {
                     <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center mb-2.5">
                       <ShieldCheck size={18} />
                     </div>
-                    <h4 className="text-xs font-bold text-slate-800">Your Data, Your Sheet</h4>
+                    <h4 className="text-xs font-bold text-slate-800">
+                      Your Data, Your Sheet
+                    </h4>
                     <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-                      Data goes to your own Google Workspace — export CSV/Excel anytime.
+                      Data goes to your own Google Workspace — export CSV/Excel
+                      anytime.
                     </p>
                   </div>
                 </div>
@@ -721,7 +826,9 @@ export default function GoogleSheetsSettings({ onBack } = {}) {
                       1
                     </span>
                     <div>
-                      <h5 className="text-xs font-bold text-slate-800">Connect Google</h5>
+                      <h5 className="text-xs font-bold text-slate-800">
+                        Connect Google
+                      </h5>
                       <p className="text-[11px] text-slate-500 mt-0.5">
                         Sign in with Google and approve spreadsheet access.
                       </p>
@@ -733,9 +840,12 @@ export default function GoogleSheetsSettings({ onBack } = {}) {
                       2
                     </span>
                     <div>
-                      <h5 className="text-xs font-bold text-slate-800">Sheet Auto-Created</h5>
+                      <h5 className="text-xs font-bold text-slate-800">
+                        Sheet Auto-Created
+                      </h5>
                       <p className="text-[11px] text-slate-500 mt-0.5">
-                        A tracker spreadsheet is created with your configured columns.
+                        A tracker spreadsheet is created with your configured
+                        columns.
                       </p>
                     </div>
                   </div>
@@ -745,9 +855,12 @@ export default function GoogleSheetsSettings({ onBack } = {}) {
                       3
                     </span>
                     <div>
-                      <h5 className="text-xs font-bold text-slate-800">Data Flows In</h5>
+                      <h5 className="text-xs font-bold text-slate-800">
+                        Data Flows In
+                      </h5>
                       <p className="text-[11px] text-slate-500 mt-0.5">
-                        Leads, orders, and payment updates are logged automatically.
+                        Leads, orders, and payment updates are logged
+                        automatically.
                       </p>
                     </div>
                   </div>
@@ -764,7 +877,9 @@ export default function GoogleSheetsSettings({ onBack } = {}) {
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <h4 className="text-xs font-bold text-slate-800">Live Sheet Preview</h4>
+                <h4 className="text-xs font-bold text-slate-800">
+                  Live Sheet Preview
+                </h4>
               </div>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
                 Google Sheets
@@ -775,36 +890,62 @@ export default function GoogleSheetsSettings({ onBack } = {}) {
             <div className="rounded-xl border border-slate-200/80 overflow-hidden shadow-inner">
               <div className="bg-[#0F9D58] px-3 py-2 flex items-center gap-2">
                 <FileSpreadsheet size={13} className="text-white" />
-                <span className="text-[10px] font-bold text-white truncate">Lead & Order Tracker</span>
+                <span className="text-[10px] font-bold text-white truncate">
+                  Lead & Order Tracker
+                </span>
               </div>
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className="px-2 py-1.5 text-[9px] font-bold text-slate-600 border-r border-slate-200">Name</th>
-                    <th className="px-2 py-1.5 text-[9px] font-bold text-slate-600 border-r border-slate-200">Phone</th>
-                    <th className="px-2 py-1.5 text-[9px] font-bold text-slate-600">Status</th>
+                    <th className="px-2 py-1.5 text-[9px] font-bold text-slate-600 border-r border-slate-200">
+                      Name
+                    </th>
+                    <th className="px-2 py-1.5 text-[9px] font-bold text-slate-600 border-r border-slate-200">
+                      Phone
+                    </th>
+                    <th className="px-2 py-1.5 text-[9px] font-bold text-slate-600">
+                      Status
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr className="border-b border-slate-100">
-                    <td className="px-2 py-1.5 text-[9px] text-slate-700 border-r border-slate-100">Rahul S.</td>
-                    <td className="px-2 py-1.5 text-[9px] text-slate-500 font-mono border-r border-slate-100">+91 98•••</td>
+                    <td className="px-2 py-1.5 text-[9px] text-slate-700 border-r border-slate-100">
+                      Rahul S.
+                    </td>
+                    <td className="px-2 py-1.5 text-[9px] text-slate-500 font-mono border-r border-slate-100">
+                      +91 98•••
+                    </td>
                     <td className="px-2 py-1.5">
-                      <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700">PAID</span>
+                      <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700">
+                        PAID
+                      </span>
                     </td>
                   </tr>
                   <tr className="border-b border-slate-100">
-                    <td className="px-2 py-1.5 text-[9px] text-slate-700 border-r border-slate-100">Priya M.</td>
-                    <td className="px-2 py-1.5 text-[9px] text-slate-500 font-mono border-r border-slate-100">+91 87•••</td>
+                    <td className="px-2 py-1.5 text-[9px] text-slate-700 border-r border-slate-100">
+                      Priya M.
+                    </td>
+                    <td className="px-2 py-1.5 text-[9px] text-slate-500 font-mono border-r border-slate-100">
+                      +91 87•••
+                    </td>
                     <td className="px-2 py-1.5">
-                      <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-700">PENDING</span>
+                      <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-700">
+                        PENDING
+                      </span>
                     </td>
                   </tr>
                   <tr>
-                    <td className="px-2 py-1.5 text-[9px] text-slate-700 border-r border-slate-100">Arjun K.</td>
-                    <td className="px-2 py-1.5 text-[9px] text-slate-500 font-mono border-r border-slate-100">+91 76•••</td>
+                    <td className="px-2 py-1.5 text-[9px] text-slate-700 border-r border-slate-100">
+                      Arjun K.
+                    </td>
+                    <td className="px-2 py-1.5 text-[9px] text-slate-500 font-mono border-r border-slate-100">
+                      +91 76•••
+                    </td>
                     <td className="px-2 py-1.5">
-                      <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700">NEW LEAD</span>
+                      <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700">
+                        NEW LEAD
+                      </span>
                     </td>
                   </tr>
                 </tbody>
@@ -824,191 +965,236 @@ export default function GoogleSheetsSettings({ onBack } = {}) {
             <div className="space-y-2 text-xs">
               <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
                 <span className="text-slate-500">Sync Type</span>
-                <span className="font-bold text-emerald-600">Real-Time Automatic</span>
+                <span className="font-bold text-emerald-600">
+                  Real-Time Automatic
+                </span>
               </div>
               <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
                 <span className="text-slate-500">Data Logged</span>
-                <span className="font-semibold text-slate-800">Leads, Orders, Payments</span>
+                <span className="font-semibold text-slate-800">
+                  Leads, Orders, Payments
+                </span>
               </div>
               <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
                 <span className="text-slate-500">Column Layout</span>
-                <span className="font-semibold text-slate-800">Fully Customizable</span>
+                <span className="font-semibold text-slate-800">
+                  Fully Customizable
+                </span>
               </div>
               <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
                 <span className="text-slate-500">Export Formats</span>
-                <span className="font-semibold text-slate-800">CSV, Excel (.xlsx)</span>
+                <span className="font-semibold text-slate-800">
+                  CSV, Excel (.xlsx)
+                </span>
               </div>
               <div className="flex items-center justify-between py-1.5">
                 <span className="text-slate-500">Security</span>
-                <span className="font-semibold text-slate-800">Google OAuth 2.0</span>
+                <span className="font-semibold text-slate-800">
+                  Google OAuth 2.0
+                </span>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-           {/* ── Add/Edit Field Modal ── */}
-      {showFieldModal && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 relative z-10 animate-in zoom-in-95 duration-150">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-sm font-bold text-slate-800">
-                {editingField ? `Edit Column (${editingField.fieldName})` : "Add Custom Column"}
-              </h3>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowFieldModal(false);
-                  setEditingField(null);
-                }}
-                className="text-slate-400 hover:text-slate-600 text-lg"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveField} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Column Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  disabled={editingField?.fieldCategory === "system"}
-                  placeholder="e.g. Delivery Method, Priority, Doctor"
-                  value={fieldForm.fieldName}
-                  onChange={(e) => setFieldForm({ ...fieldForm, fieldName: e.target.value })}
-                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-60"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Field Type
-                </label>
-                <select
-                  value={fieldForm.fieldType}
-                  disabled={editingField?.fieldCategory === "system"}
-                  onChange={(e) => setFieldForm({ ...fieldForm, fieldType: e.target.value })}
-                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-60 bg-white"
-                >
-                  <option value="text">Text (General string)</option>
-                  <option value="number">Number</option>
-                  <option value="date">Date</option>
-                  <option value="dropdown">Dropdown (Select list)</option>
-                  <option value="phone">Phone Number</option>
-                  <option value="email">Email Address</option>
-                  <option value="boolean">Boolean (Yes/No)</option>
-                </select>
-              </div>
-
-              {fieldForm.fieldType === "dropdown" && (
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Dropdown Options (Comma-separated) *
-                  </label>
-                  <textarea
-                    rows={2}
-                    required
-                    placeholder="e.g. Standard Delivery, Express 24h, Store Pickup"
-                    value={fieldForm.options}
-                    onChange={(e) => setFieldForm({ ...fieldForm, options: e.target.value })}
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                  />
-                </div>
-              )}
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Default Value (Optional)
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Standard Delivery"
-                  value={fieldForm.defaultValue}
-                  onChange={(e) => setFieldForm({ ...fieldForm, defaultValue: e.target.value })}
-                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                />
-              </div>
-
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  type="checkbox"
-                  id="isRequiredCheckbox"
-                  checked={fieldForm.isRequired || false}
-                  onChange={(e) => setFieldForm({ ...fieldForm, isRequired: e.target.checked })}
-                  className="rounded text-emerald-600 focus:ring-emerald-500 h-4 w-4"
-                />
-                <label htmlFor="isRequiredCheckbox" className="text-xs text-slate-700">
-                  Required field (cannot be empty)
-                </label>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+      {/* ── Add/Edit Field Modal ── */}
+      {showFieldModal &&
+        createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 relative z-10 animate-in zoom-in-95 duration-150">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-sm font-bold text-slate-800">
+                  {editingField
+                    ? `Edit Column (${editingField.fieldName})`
+                    : "Add Custom Column"}
+                </h3>
                 <button
                   type="button"
                   onClick={() => {
                     setShowFieldModal(false);
                     setEditingField(null);
                   }}
-                  className="px-3.5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 border border-slate-200 rounded-xl transition"
+                  className="text-slate-400 hover:text-slate-600 text-lg"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveField} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Column Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    disabled={editingField?.fieldCategory === "system"}
+                    placeholder="e.g. Delivery Method, Priority, Doctor"
+                    value={fieldForm.fieldName}
+                    onChange={(e) =>
+                      setFieldForm({ ...fieldForm, fieldName: e.target.value })
+                    }
+                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-60"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Field Type
+                  </label>
+                  <select
+                    value={fieldForm.fieldType}
+                    disabled={editingField?.fieldCategory === "system"}
+                    onChange={(e) =>
+                      setFieldForm({ ...fieldForm, fieldType: e.target.value })
+                    }
+                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-60 bg-white"
+                  >
+                    <option value="text">Text (General string)</option>
+                    <option value="number">Number</option>
+                    <option value="date">Date</option>
+                    <option value="dropdown">Dropdown (Select list)</option>
+                    <option value="phone">Phone Number</option>
+                    <option value="email">Email Address</option>
+                    <option value="boolean">Boolean (Yes/No)</option>
+                  </select>
+                </div>
+
+                {fieldForm.fieldType === "dropdown" && (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Dropdown Options (Comma-separated) *
+                    </label>
+                    <textarea
+                      rows={2}
+                      required
+                      placeholder="e.g. Standard Delivery, Express 24h, Store Pickup"
+                      value={fieldForm.options}
+                      onChange={(e) =>
+                        setFieldForm({ ...fieldForm, options: e.target.value })
+                      }
+                      className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Default Value (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Standard Delivery"
+                    value={fieldForm.defaultValue}
+                    onChange={(e) =>
+                      setFieldForm({
+                        ...fieldForm,
+                        defaultValue: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="checkbox"
+                    id="isRequiredCheckbox"
+                    checked={fieldForm.isRequired || false}
+                    onChange={(e) =>
+                      setFieldForm({
+                        ...fieldForm,
+                        isRequired: e.target.checked,
+                      })
+                    }
+                    className="rounded text-emerald-600 focus:ring-emerald-500 h-4 w-4"
+                  />
+                  <label
+                    htmlFor="isRequiredCheckbox"
+                    className="text-xs text-slate-700"
+                  >
+                    Required field (cannot be empty)
+                  </label>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowFieldModal(false);
+                      setEditingField(null);
+                    }}
+                    className="px-3.5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 border border-slate-200 rounded-xl transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingField}
+                    className="px-4 py-2 text-xs font-bold text-white bg-[#0F9D58] hover:bg-[#0C7C45] rounded-xl shadow-xs transition flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    {savingField && (
+                      <RefreshCw size={12} className="animate-spin" />
+                    )}
+                    <span>
+                      {editingField ? "Update Column" : "Create Column"}
+                    </span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {/* ── Disconnect Modal ── */}
+      {showDisconnectModal &&
+        createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
+            <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 space-y-4 relative z-10 animate-in zoom-in-95 duration-150">
+              <div className="w-10 h-10 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center border border-rose-100">
+                <AlertTriangle size={20} />
+              </div>
+
+              <div>
+                <h3 className="text-sm font-bold text-slate-800">
+                  Disconnect Google Sheets?
+                </h3>
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                  Disconnecting will stop automatic lead & order syncing to your
+                  spreadsheet. Your existing sheet data will not be deleted. You
+                  can reconnect anytime.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  disabled={disconnecting}
+                  onClick={() => setShowDisconnectModal(false)}
+                  className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 transition"
                 >
                   Cancel
                 </button>
                 <button
-                  type="submit"
-                  disabled={savingField}
-                  className="px-4 py-2 text-xs font-bold text-white bg-[#0F9D58] hover:bg-[#0C7C45] rounded-xl shadow-xs transition flex items-center gap-1.5 disabled:opacity-50"
+                  type="button"
+                  disabled={disconnecting}
+                  onClick={handleDisconnectConfirm}
+                  className="px-4 py-2 text-xs font-semibold rounded-xl bg-rose-600 text-white hover:bg-rose-700 transition flex items-center gap-1.5 shadow-xs disabled:opacity-50"
                 >
-                  {savingField && <RefreshCw size={12} className="animate-spin" />}
-                  <span>{editingField ? "Update Column" : "Create Column"}</span>
+                  {disconnecting && (
+                    <RefreshCw size={13} className="animate-spin" />
+                  )}
+                  <span>
+                    {disconnecting ? "Disconnecting..." : "Yes, Disconnect"}
+                  </span>
                 </button>
               </div>
-            </form>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {/* ── Disconnect Modal ── */}
-      {showDisconnectModal && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 space-y-4 relative z-10 animate-in zoom-in-95 duration-150">
-            <div className="w-10 h-10 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center border border-rose-100">
-              <AlertTriangle size={20} />
             </div>
-
-            <div>
-              <h3 className="text-sm font-bold text-slate-800">Disconnect Google Sheets?</h3>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Disconnecting will stop automatic lead & order syncing to your spreadsheet. Your existing sheet data will not be deleted. You can reconnect anytime.
-              </p>
-            </div>
-
-            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
-              <button
-                type="button"
-                disabled={disconnecting}
-                onClick={() => setShowDisconnectModal(false)}
-                className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 transition"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={disconnecting}
-                onClick={handleDisconnectConfirm}
-                className="px-4 py-2 text-xs font-semibold rounded-xl bg-rose-600 text-white hover:bg-rose-700 transition flex items-center gap-1.5 shadow-xs disabled:opacity-50"
-              >
-                {disconnecting && <RefreshCw size={13} className="animate-spin" />}
-                <span>{disconnecting ? "Disconnecting..." : "Yes, Disconnect"}</span>
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

@@ -1,55 +1,56 @@
 // backend/src/modules/webhook/dlq.controller.js (do not remove this comment)
-import { dlqQueue } from '../../cron/queues/dlq.queue.js';
-import { webhookQueue } from '../../cron/queues/webhook.queue.js';
+import { dlqQueue } from "../../cron/queues/dlq.queue.js";
+import { webhookQueue } from "../../cron/queues/webhook.queue.js";
 
 // ═══════════════════════════════════════════════
 // GET ALL FAILED WEBHOOKS
 // ═══════════════════════════════════════════════
 export const getFailedWebhooks = async (req, res) => {
   try {
-    const page  = parseInt(req.query.page)  || 1;
+    const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
     const start = (page - 1) * limit;
-    const end   = start + limit - 1;
+    const end = start + limit - 1;
 
     // Get failed jobs from DLQ
     const jobs = await dlqQueue.getJobs(
-      ['completed', 'waiting', 'active'],
+      ["completed", "waiting", "active"],
       start,
-      end
+      end,
     );
 
     // Get total count
     const total = await dlqQueue.getJobCounts();
 
     // Format response
-    const failedJobs = jobs.map(job => ({
-      id:             job.id,
-      originalJobId:  job.data.originalJobId,
-      failedAt:       job.data.failedAt,
-      attempts:       job.data.attempts,
-      errorMessage:   job.data.errorMessage,
-      errorName:      job.data.errorName,
-      originalData:   job.data.originalData,
-      createdAt:      new Date(job.timestamp).toISOString(),
+    const failedJobs = jobs.map((job) => ({
+      id: job.id,
+      originalJobId: job.data.originalJobId,
+      failedAt: job.data.failedAt,
+      attempts: job.data.attempts,
+      errorMessage: job.data.errorMessage,
+      errorName: job.data.errorName,
+      originalData: job.data.originalData,
+      createdAt: new Date(job.timestamp).toISOString(),
     }));
 
     return res.status(200).json({
       success: true,
       data: {
-        jobs:    failedJobs,
-        total:   total.waiting + total.completed + total.active,
+        jobs: failedJobs,
+        total: total.waiting + total.completed + total.active,
         page,
         limit,
-        totalPages: Math.ceil((total.waiting + total.completed + total.active) / limit),
-      }
+        totalPages: Math.ceil(
+          (total.waiting + total.completed + total.active) / limit,
+        ),
+      },
     });
-
   } catch (error) {
-    console.error('Failed to fetch DLQ jobs:', error);
+    console.error("Failed to fetch DLQ jobs:", error);
     return res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
     });
   }
 };
@@ -64,17 +65,18 @@ export const getDLQStats = async (req, res) => {
     return res.status(200).json({
       success: true,
       data: {
-        total:     counts.waiting + counts.completed + counts.active + counts.failed,
-        waiting:   counts.waiting,
-        active:    counts.active,
+        total:
+          counts.waiting + counts.completed + counts.active + counts.failed,
+        waiting: counts.waiting,
+        active: counts.active,
         completed: counts.completed,
-        failed:    counts.failed,
-      }
+        failed: counts.failed,
+      },
     });
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
     });
   }
 };
@@ -91,29 +93,28 @@ export const getFailedWebhookDetail = async (req, res) => {
     if (!job) {
       return res.status(404).json({
         success: false,
-        message: 'Failed webhook not found in DLQ'
+        message: "Failed webhook not found in DLQ",
       });
     }
 
     return res.status(200).json({
       success: true,
       data: {
-        id:             job.id,
-        originalJobId:  job.data.originalJobId,
-        failedAt:       job.data.failedAt,
-        attempts:       job.data.attempts,
-        errorMessage:   job.data.errorMessage,
-        errorStack:     job.data.errorStack,
-        errorName:      job.data.errorName,
-        originalData:   job.data.originalData,
-        createdAt:      new Date(job.timestamp).toISOString(),
-      }
+        id: job.id,
+        originalJobId: job.data.originalJobId,
+        failedAt: job.data.failedAt,
+        attempts: job.data.attempts,
+        errorMessage: job.data.errorMessage,
+        errorStack: job.data.errorStack,
+        errorName: job.data.errorName,
+        originalData: job.data.originalData,
+        createdAt: new Date(job.timestamp).toISOString(),
+      },
     });
-
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
     });
   }
 };
@@ -130,18 +131,18 @@ export const retryFailedWebhook = async (req, res) => {
     if (!job) {
       return res.status(404).json({
         success: false,
-        message: 'Failed webhook not found in DLQ'
+        message: "Failed webhook not found in DLQ",
       });
     }
 
     // Push original data back to main queue
     const newJob = await webhookQueue.add(
-      'meta-webhook-payload',
+      "meta-webhook-payload",
       job.data.originalData,
       {
         attempts: 3,
-        backoff: { type: 'exponential', delay: 1000 }
-      }
+        backoff: { type: "exponential", delay: 1000 },
+      },
     );
 
     // Remove from DLQ after successful re-push
@@ -151,18 +152,17 @@ export const retryFailedWebhook = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Webhook retried successfully',
+      message: "Webhook retried successfully",
       data: {
         oldJobId: id,
-        newJobId: newJob.id
-      }
+        newJobId: newJob.id,
+      },
     });
-
   } catch (error) {
-    console.error('Failed to retry DLQ job:', error);
+    console.error("Failed to retry DLQ job:", error);
     return res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
     });
   }
 };
@@ -172,13 +172,13 @@ export const retryFailedWebhook = async (req, res) => {
 // ═══════════════════════════════════════════════
 export const retryAllFailedWebhooks = async (req, res) => {
   try {
-    const jobs = await dlqQueue.getJobs(['waiting', 'completed'], 0, -1);
+    const jobs = await dlqQueue.getJobs(["waiting", "completed"], 0, -1);
 
     if (jobs.length === 0) {
       return res.status(200).json({
         success: true,
-        message: 'No failed webhooks to retry',
-        data: { retriedCount: 0 }
+        message: "No failed webhooks to retry",
+        data: { retriedCount: 0 },
       });
     }
 
@@ -187,14 +187,10 @@ export const retryAllFailedWebhooks = async (req, res) => {
 
     for (const job of jobs) {
       try {
-        await webhookQueue.add(
-          'meta-webhook-payload',
-          job.data.originalData,
-          {
-            attempts: 3,
-            backoff: { type: 'exponential', delay: 1000 }
-          }
-        );
+        await webhookQueue.add("meta-webhook-payload", job.data.originalData, {
+          attempts: 3,
+          backoff: { type: "exponential", delay: 1000 },
+        });
         await job.remove();
         retriedCount++;
       } catch (err) {
@@ -202,7 +198,9 @@ export const retryAllFailedWebhooks = async (req, res) => {
       }
     }
 
-    console.log(`🔄 [DLQ] Bulk retry: ${retriedCount} succeeded, ${errors.length} failed`);
+    console.log(
+      `🔄 [DLQ] Bulk retry: ${retriedCount} succeeded, ${errors.length} failed`,
+    );
 
     return res.status(200).json({
       success: true,
@@ -211,14 +209,13 @@ export const retryAllFailedWebhooks = async (req, res) => {
         retriedCount,
         failedCount: errors.length,
         errors: errors.slice(0, 10), // return first 10 errors
-      }
+      },
     });
-
   } catch (error) {
-    console.error('Failed to bulk retry DLQ:', error);
+    console.error("Failed to bulk retry DLQ:", error);
     return res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
     });
   }
 };
@@ -235,7 +232,7 @@ export const deleteFailedWebhook = async (req, res) => {
     if (!job) {
       return res.status(404).json({
         success: false,
-        message: 'Failed webhook not found'
+        message: "Failed webhook not found",
       });
     }
 
@@ -245,13 +242,12 @@ export const deleteFailedWebhook = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Failed webhook deleted from DLQ'
+      message: "Failed webhook deleted from DLQ",
     });
-
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
     });
   }
 };
@@ -263,28 +259,27 @@ export const clearAllFailedWebhooks = async (req, res) => {
   try {
     // Get all jobs
     const jobs = await dlqQueue.getJobs(
-      ['waiting', 'completed', 'active', 'failed'],
+      ["waiting", "completed", "active", "failed"],
       0,
-      -1
+      -1,
     );
 
     const totalCount = jobs.length;
 
     // Remove all
-    await Promise.all(jobs.map(job => job.remove()));
+    await Promise.all(jobs.map((job) => job.remove()));
 
     console.log(`🗑️ [DLQ] Cleared all ${totalCount} failed webhooks`);
 
     return res.status(200).json({
       success: true,
       message: `Cleared ${totalCount} failed webhooks`,
-      data: { deletedCount: totalCount }
+      data: { deletedCount: totalCount },
     });
-
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message,
     });
   }
 };

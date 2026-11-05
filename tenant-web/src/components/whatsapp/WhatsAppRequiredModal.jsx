@@ -2,7 +2,14 @@
 import React from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { Smartphone, ArrowRight, X, AlertTriangle, ShieldCheck, Zap } from "lucide-react";
+import {
+  Smartphone,
+  ArrowRight,
+  X,
+  AlertTriangle,
+  ShieldCheck,
+  Zap,
+} from "lucide-react";
 
 export default function WhatsAppRequiredModal({
   isOpen,
@@ -10,7 +17,7 @@ export default function WhatsAppRequiredModal({
   onConnect,
   title = "WhatsApp Account Required",
   description = "To create message templates and launch broadcast campaigns, you need to connect your official WhatsApp Business Account first.",
-  feature = "Templates & Broadcasts"
+  feature = "Templates & Broadcasts",
 }) {
   const navigate = useNavigate();
 
@@ -93,6 +100,6 @@ export default function WhatsAppRequiredModal({
         </div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }

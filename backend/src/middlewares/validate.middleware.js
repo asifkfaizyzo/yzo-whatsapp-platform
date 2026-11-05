@@ -1,13 +1,12 @@
 // backend/src/middlewares/validate.middleware.js (do not remove this comment)
-import { ZodError } from 'zod';
+import { ZodError } from "zod";
 
 // =========== Validate Middleware ===========
 const validate = (schema) => (req, res, next) => {
-
   const result = schema.safeParse({
-    body:   req.body,
+    body: req.body,
     params: req.params,
-    query:  req.query,
+    query: req.query,
     cookies: req.cookies,
   });
 
@@ -19,13 +18,13 @@ const validate = (schema) => (req, res, next) => {
   const issues = result.error.issues || result.error.errors || [];
 
   const errors = issues.map((e) => ({
-    field:   e.path.join('.'),
+    field: e.path.join("."),
     message: e.message,
   }));
 
   return res.status(400).json({
     success: false,
-    message: 'Validation failed',
+    message: "Validation failed",
     errors,
   });
 };

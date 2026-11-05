@@ -29,7 +29,8 @@ export default function NotFound() {
         </h2>
 
         <p className="mt-3 text-slate-500 text-sm leading-relaxed">
-          The page you are looking for doesn't exist or has been moved. Check the URL or navigate back to safety.
+          The page you are looking for doesn't exist or has been moved. Check
+          the URL or navigate back to safety.
         </p>
 
         {/* Buttons */}

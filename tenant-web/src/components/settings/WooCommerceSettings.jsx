@@ -48,11 +48,12 @@ export default function WooCommerceSettings({ onBack } = {}) {
   const [showConsumerSecret, setShowConsumerSecret] = useState(false);
   const [showWebhookSecret, setShowWebhookSecret] = useState(false);
   const [savingCartRecovery, setSavingCartRecovery] = useState(false);
-  const [loadingCartWebhookConfig, setLoadingCartWebhookConfig] = useState(false);
+  const [loadingCartWebhookConfig, setLoadingCartWebhookConfig] =
+    useState(false);
   const [showCartWebhookSecret, setShowCartWebhookSecret] = useState(false);
   const [cartWebhookConfig, setCartWebhookConfig] = useState(null);
 
-    const [connection, setConnection] = useState({
+  const [connection, setConnection] = useState({
     isConnected: false,
     storeUrl: null,
     connectedAt: null,
@@ -101,8 +102,11 @@ export default function WooCommerceSettings({ onBack } = {}) {
       const res = await getWooCommerceStatus();
       if (res.success && res.data) {
         const isConnected =
-          res.data.isConnected || ["active", "connected"].includes(String(res.data.status || "").toLowerCase());
-                setConnection({
+          res.data.isConnected ||
+          ["active", "connected"].includes(
+            String(res.data.status || "").toLowerCase(),
+          );
+        setConnection({
           isConnected,
           storeUrl: res.data.storeUrl || null,
           connectedAt: res.data.connectedAt || null,
@@ -110,10 +114,12 @@ export default function WooCommerceSettings({ onBack } = {}) {
           status: res.data.status || null,
         });
         setTrackingUrlTemplates(
-          Object.entries(res.data.trackingUrlTemplates || {}).map(([provider, urlTemplate]) => ({
-            provider,
-            urlTemplate,
-          })),
+          Object.entries(res.data.trackingUrlTemplates || {}).map(
+            ([provider, urlTemplate]) => ({
+              provider,
+              urlTemplate,
+            }),
+          ),
         );
         setAlertForm({
           alertPhone: res.data.alertPhone || "",
@@ -200,7 +206,7 @@ export default function WooCommerceSettings({ onBack } = {}) {
       console.error("1-Click connect error:", err);
       toast.error(
         err?.response?.data?.message ||
-          "Failed to start 1-Click connection. Try manual keys below."
+          "Failed to start 1-Click connection. Try manual keys below.",
       );
       setConnecting(false);
     }
@@ -247,7 +253,7 @@ export default function WooCommerceSettings({ onBack } = {}) {
     } catch (err) {
       console.error("WooCommerce connect error:", err);
       toast.error(
-        err?.response?.data?.message || "Failed to connect WooCommerce store"
+        err?.response?.data?.message || "Failed to connect WooCommerce store",
       );
     }
     setConnecting(false);
@@ -274,7 +280,8 @@ export default function WooCommerceSettings({ onBack } = {}) {
     event.preventDefault();
     setSavingTrackingTemplates(true);
     try {
-      const result = await saveWooCommerceTrackingUrlTemplates(trackingUrlTemplates);
+      const result =
+        await saveWooCommerceTrackingUrlTemplates(trackingUrlTemplates);
       if (result.success) {
         setTrackingUrlTemplates(
           Object.entries(result.data || {}).map(([provider, urlTemplate]) => ({
@@ -288,14 +295,15 @@ export default function WooCommerceSettings({ onBack } = {}) {
       }
     } catch (err) {
       toast.error(
-        err?.response?.data?.message || "Failed to save courier tracking links.",
+        err?.response?.data?.message ||
+          "Failed to save courier tracking links.",
       );
     } finally {
       setSavingTrackingTemplates(false);
     }
   };
 
-    const handleSaveAlertSettings = async (e) => {
+  const handleSaveAlertSettings = async (e) => {
     e.preventDefault();
     setSavingAlerts(true);
     try {
@@ -306,7 +314,9 @@ export default function WooCommerceSettings({ onBack } = {}) {
         toast.error(res.error || "Failed to save alert settings.");
       }
     } catch (err) {
-      toast.error(err?.response?.data?.error || "Failed to save alert settings.");
+      toast.error(
+        err?.response?.data?.error || "Failed to save alert settings.",
+      );
     } finally {
       setSavingAlerts(false);
     }
@@ -316,14 +326,21 @@ export default function WooCommerceSettings({ onBack } = {}) {
     event.preventDefault();
     setSavingCartRecovery(true);
     try {
-      const result = await updateWooCommerceCartRecoverySettings(cartRecoveryForm);
+      const result =
+        await updateWooCommerceCartRecoverySettings(cartRecoveryForm);
       if (!result.success) {
-        throw new Error(result.message || "Failed to save cart recovery settings.");
+        throw new Error(
+          result.message || "Failed to save cart recovery settings.",
+        );
       }
       setCartRecoveryForm((current) => ({ ...current, ...result.data }));
       toast.success("Cart recovery settings saved.");
     } catch (err) {
-      toast.error(err?.response?.data?.message || err.message || "Failed to save cart recovery settings.");
+      toast.error(
+        err?.response?.data?.message ||
+          err.message ||
+          "Failed to save cart recovery settings.",
+      );
     } finally {
       setSavingCartRecovery(false);
     }
@@ -334,11 +351,18 @@ export default function WooCommerceSettings({ onBack } = {}) {
     try {
       const result = await getWooCommerceCartRecoveryWebhookConfig();
       if (!result.success || !result.data) {
-        throw new Error(result.message || "Unable to load cart recovery plugin configuration.");
+        throw new Error(
+          result.message ||
+            "Unable to load cart recovery plugin configuration.",
+        );
       }
       setCartWebhookConfig(result.data);
     } catch (err) {
-      toast.error(err?.response?.data?.message || err.message || "Unable to load cart recovery plugin configuration.");
+      toast.error(
+        err?.response?.data?.message ||
+          err.message ||
+          "Unable to load cart recovery plugin configuration.",
+      );
     } finally {
       setLoadingCartWebhookConfig(false);
     }
@@ -349,7 +373,10 @@ export default function WooCommerceSettings({ onBack } = {}) {
       await navigator.clipboard.writeText(value);
       toast.success("Copied to clipboard.");
     } catch (error) {
-      console.error("Copy WooCommerce cart recovery configuration error:", error);
+      console.error(
+        "Copy WooCommerce cart recovery configuration error:",
+        error,
+      );
       toast.error("Could not copy this value.");
     }
   };
@@ -476,7 +503,6 @@ export default function WooCommerceSettings({ onBack } = {}) {
                     </a>
                   </div>
                 </div>
-
               </div>
 
               <form
@@ -485,9 +511,12 @@ export default function WooCommerceSettings({ onBack } = {}) {
               >
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <h4 className="text-sm font-bold text-slate-900">Abandoned cart recovery</h4>
+                    <h4 className="text-sm font-bold text-slate-900">
+                      Abandoned cart recovery
+                    </h4>
                     <p className="mt-1 text-xs text-slate-500">
-                      Send WhatsApp reminders at selected times. Live sending requires approved cart-reminder templates.
+                      Send WhatsApp reminders at selected times. Live sending
+                      requires approved cart-reminder templates.
                     </p>
                   </div>
                   <label className="inline-flex items-center gap-2.5 cursor-pointer shrink-0">
@@ -499,10 +528,12 @@ export default function WooCommerceSettings({ onBack } = {}) {
                       role="switch"
                       aria-label="Enable WooCommerce abandoned cart recovery"
                       checked={cartRecoveryForm.cartRecoveryEnabled}
-                      onChange={(event) => setCartRecoveryForm((current) => ({
-                        ...current,
-                        cartRecoveryEnabled: event.target.checked,
-                      }))}
+                      onChange={(event) =>
+                        setCartRecoveryForm((current) => ({
+                          ...current,
+                          cartRecoveryEnabled: event.target.checked,
+                        }))
+                      }
                       className="sr-only peer"
                     />
                     <span className="relative h-5 w-9 rounded-full bg-slate-200 transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-transform peer-checked:bg-[#96588A] peer-checked:after:translate-x-4 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[#96588A]" />
@@ -515,15 +546,20 @@ export default function WooCommerceSettings({ onBack } = {}) {
                     ["24 hours", "cartReminder24Enabled"],
                     ["48 hours", "cartReminder48Enabled"],
                   ].map(([label, field]) => (
-                    <label key={field} className="flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 p-3 text-xs font-semibold text-slate-700">
+                    <label
+                      key={field}
+                      className="flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 p-3 text-xs font-semibold text-slate-700"
+                    >
                       <input
                         type="checkbox"
                         checked={cartRecoveryForm[field]}
                         disabled={!cartRecoveryForm.cartRecoveryEnabled}
-                        onChange={(event) => setCartRecoveryForm((current) => ({
-                          ...current,
-                          [field]: event.target.checked,
-                        }))}
+                        onChange={(event) =>
+                          setCartRecoveryForm((current) => ({
+                            ...current,
+                            [field]: event.target.checked,
+                          }))
+                        }
                         className="h-4 w-4 rounded border-slate-300 accent-[#96588A]"
                       />
                       {label} reminder
@@ -535,13 +571,16 @@ export default function WooCommerceSettings({ onBack } = {}) {
                   <input
                     type="checkbox"
                     checked={cartRecoveryForm.cartIncludeImage}
-                    onChange={(event) => setCartRecoveryForm((current) => ({
-                      ...current,
-                      cartIncludeImage: event.target.checked,
-                    }))}
+                    onChange={(event) =>
+                      setCartRecoveryForm((current) => ({
+                        ...current,
+                        cartIncludeImage: event.target.checked,
+                      }))
+                    }
                     className="h-4 w-4 rounded border-slate-300 accent-[#96588A]"
                   />
-                  Include the first product image when an approved image-header template is available
+                  Include the first product image when an approved image-header
+                  template is available
                 </label>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -550,7 +589,12 @@ export default function WooCommerceSettings({ onBack } = {}) {
                     maxLength={100}
                     placeholder="48-hour discount code (optional)"
                     value={cartRecoveryForm.cartDiscountCode}
-                    onChange={(event) => setCartRecoveryForm((current) => ({ ...current, cartDiscountCode: event.target.value }))}
+                    onChange={(event) =>
+                      setCartRecoveryForm((current) => ({
+                        ...current,
+                        cartDiscountCode: event.target.value,
+                      }))
+                    }
                     className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#96588A]"
                   />
                   <input
@@ -558,7 +602,12 @@ export default function WooCommerceSettings({ onBack } = {}) {
                     maxLength={100}
                     placeholder="Discount label (e.g. 10%)"
                     value={cartRecoveryForm.cartDiscountLabel}
-                    onChange={(event) => setCartRecoveryForm((current) => ({ ...current, cartDiscountLabel: event.target.value }))}
+                    onChange={(event) =>
+                      setCartRecoveryForm((current) => ({
+                        ...current,
+                        cartDiscountLabel: event.target.value,
+                      }))
+                    }
                     className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#96588A]"
                   />
                 </div>
@@ -569,13 +618,20 @@ export default function WooCommerceSettings({ onBack } = {}) {
                   ["48-hour message", "cartReminder48Text"],
                 ].map(([label, field]) => (
                   <label key={field} className="block space-y-1.5">
-                    <span className="text-xs font-semibold text-slate-700">{label} (optional)</span>
+                    <span className="text-xs font-semibold text-slate-700">
+                      {label} (optional)
+                    </span>
                     <textarea
                       rows={3}
                       maxLength={4000}
                       placeholder="Leave blank to use the default recovery message. Available: {{customer_name}}, {{store_name}}, {{product_summary}}, {{currency}}, {{total_amount}}, {{checkout_url}}, {{discount_code}}, {{discount_label}}"
                       value={cartRecoveryForm[field]}
-                      onChange={(event) => setCartRecoveryForm((current) => ({ ...current, [field]: event.target.value }))}
+                      onChange={(event) =>
+                        setCartRecoveryForm((current) => ({
+                          ...current,
+                          [field]: event.target.value,
+                        }))
+                      }
                       className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#96588A]"
                     />
                   </label>
@@ -594,9 +650,12 @@ export default function WooCommerceSettings({ onBack } = {}) {
 
               <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-3">
                 <div>
-                  <h4 className="text-sm font-bold text-slate-900">Connect the WooCommerce recovery plugin</h4>
+                  <h4 className="text-sm font-bold text-slate-900">
+                    Connect the WooCommerce recovery plugin
+                  </h4>
                   <p className="mt-1 text-xs text-slate-500">
-                    Install the plugin, then add these values in WordPress → Settings → SudoReply Auth Events.
+                    Install the plugin, then add these values in WordPress →
+                    Settings → SudoReply Auth Events.
                   </p>
                 </div>
                 <button
@@ -605,7 +664,9 @@ export default function WooCommerceSettings({ onBack } = {}) {
                   disabled={loadingCartWebhookConfig}
                   className="px-3.5 py-2 text-xs font-semibold text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 disabled:opacity-60"
                 >
-                  {loadingCartWebhookConfig ? "Loading setup values..." : "Show plugin setup values"}
+                  {loadingCartWebhookConfig
+                    ? "Loading setup values..."
+                    : "Show plugin setup values"}
                 </button>
                 {cartWebhookConfig && (
                   <div className="space-y-2 rounded-xl bg-slate-50 p-3">
@@ -614,17 +675,30 @@ export default function WooCommerceSettings({ onBack } = {}) {
                       ["Tenant ID", cartWebhookConfig.tenantId],
                     ].map(([label, value]) => (
                       <div key={label}>
-                        <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{label}</span>
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                          {label}
+                        </span>
                         <div className="mt-1 flex gap-2">
-                          <input readOnly value={value} className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-[11px] font-mono text-slate-700" />
-                          <button type="button" onClick={() => copyCartWebhookValue(value)} aria-label={`Copy ${label}`} className="rounded-lg border border-slate-200 bg-white px-2.5 text-slate-600 hover:bg-slate-100">
+                          <input
+                            readOnly
+                            value={value}
+                            className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-[11px] font-mono text-slate-700"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => copyCartWebhookValue(value)}
+                            aria-label={`Copy ${label}`}
+                            className="rounded-lg border border-slate-200 bg-white px-2.5 text-slate-600 hover:bg-slate-100"
+                          >
                             <Copy size={14} />
                           </button>
                         </div>
                       </div>
                     ))}
                     <div>
-                      <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Signing secret</span>
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                        Signing secret
+                      </span>
                       <div className="mt-1 flex gap-2">
                         <input
                           readOnly
@@ -632,10 +706,34 @@ export default function WooCommerceSettings({ onBack } = {}) {
                           value={cartWebhookConfig.signingSecret}
                           className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-[11px] font-mono text-slate-700"
                         />
-                        <button type="button" onClick={() => setShowCartWebhookSecret((current) => !current)} aria-label={showCartWebhookSecret ? "Hide signing secret" : "Show signing secret"} className="rounded-lg border border-slate-200 bg-white px-2.5 text-slate-600 hover:bg-slate-100">
-                          {showCartWebhookSecret ? <EyeOff size={14} /> : <Eye size={14} />}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setShowCartWebhookSecret((current) => !current)
+                          }
+                          aria-label={
+                            showCartWebhookSecret
+                              ? "Hide signing secret"
+                              : "Show signing secret"
+                          }
+                          className="rounded-lg border border-slate-200 bg-white px-2.5 text-slate-600 hover:bg-slate-100"
+                        >
+                          {showCartWebhookSecret ? (
+                            <EyeOff size={14} />
+                          ) : (
+                            <Eye size={14} />
+                          )}
                         </button>
-                        <button type="button" onClick={() => copyCartWebhookValue(cartWebhookConfig.signingSecret)} aria-label="Copy signing secret" className="rounded-lg border border-slate-200 bg-white px-2.5 text-slate-600 hover:bg-slate-100">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            copyCartWebhookValue(
+                              cartWebhookConfig.signingSecret,
+                            )
+                          }
+                          aria-label="Copy signing secret"
+                          className="rounded-lg border border-slate-200 bg-white px-2.5 text-slate-600 hover:bg-slate-100"
+                        >
                           <Copy size={14} />
                         </button>
                       </div>
@@ -722,8 +820,7 @@ export default function WooCommerceSettings({ onBack } = {}) {
                 </div>
               </form> */}
 
-
-                            {/* ── ADMIN & OPERATIONAL ALERTS CARD ── */}
+              {/* ── ADMIN & OPERATIONAL ALERTS CARD ── */}
               <form
                 onSubmit={handleSaveAlertSettings}
                 className="p-5 rounded-2xl border border-slate-200 bg-white space-y-5 shadow-2xs"
@@ -737,7 +834,9 @@ export default function WooCommerceSettings({ onBack } = {}) {
                       <h4 className="text-sm font-bold text-slate-900">
                         Admin & Operational Alerts (WhatsApp)
                       </h4>
-                      <p className="text-xs text-slate-500">Choose which alerts to receive.</p>
+                      <p className="text-xs text-slate-500">
+                        Choose which alerts to receive.
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -755,12 +854,18 @@ export default function WooCommerceSettings({ onBack } = {}) {
                       type="text"
                       placeholder="e.g. 919876543210 (leave empty for account phone)"
                       value={alertForm.alertPhone}
-                      onChange={(e) => setAlertForm({ ...alertForm, alertPhone: e.target.value })}
+                      onChange={(e) =>
+                        setAlertForm({
+                          ...alertForm,
+                          alertPhone: e.target.value,
+                        })
+                      }
                       className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#96588A]"
                     />
                   </div>
                   <p className="text-[10px] text-slate-400 mt-1">
-                    Include country code without + or spaces. Defaults to tenant account phone if empty.
+                    Include country code without + or spaces. Defaults to tenant
+                    account phone if empty.
                   </p>
                 </div>
 
@@ -768,13 +873,20 @@ export default function WooCommerceSettings({ onBack } = {}) {
                   {/* 1. Instant New Order Alert */}
                   <div className="flex items-start justify-between p-3.5 rounded-xl border border-slate-100 bg-slate-50/60">
                     <div className="space-y-0.5 pr-4">
-                      <p className="text-xs font-bold text-slate-800">Instant New Order Alert</p>
+                      <p className="text-xs font-bold text-slate-800">
+                        Instant New Order Alert
+                      </p>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
                       <input
                         type="checkbox"
                         checked={alertForm.newOrderAlert}
-                        onChange={(e) => setAlertForm({ ...alertForm, newOrderAlert: e.target.checked })}
+                        onChange={(e) =>
+                          setAlertForm({
+                            ...alertForm,
+                            newOrderAlert: e.target.checked,
+                          })
+                        }
                         className="sr-only peer"
                       />
                       <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#96588A]"></div>
@@ -785,13 +897,20 @@ export default function WooCommerceSettings({ onBack } = {}) {
                   <div className="p-3.5 rounded-xl border border-slate-100 bg-slate-50/60 space-y-3">
                     <div className="flex items-start justify-between">
                       <div className="space-y-0.5 pr-4">
-                        <p className="text-xs font-bold text-slate-800">Low Inventory Warning</p>
+                        <p className="text-xs font-bold text-slate-800">
+                          Low Inventory Warning
+                        </p>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
                         <input
                           type="checkbox"
                           checked={alertForm.lowStockAlert}
-                          onChange={(e) => setAlertForm({ ...alertForm, lowStockAlert: e.target.checked })}
+                          onChange={(e) =>
+                            setAlertForm({
+                              ...alertForm,
+                              lowStockAlert: e.target.checked,
+                            })
+                          }
                           className="sr-only peer"
                         />
                         <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#96588A]"></div>
@@ -800,16 +919,26 @@ export default function WooCommerceSettings({ onBack } = {}) {
 
                     {alertForm.lowStockAlert && (
                       <div className="flex items-center gap-2 pt-2 border-t border-slate-200/60 animate-in fade-in duration-150">
-                        <span className="text-xs text-slate-600 font-medium">Alert when product stock is &le;</span>
+                        <span className="text-xs text-slate-600 font-medium">
+                          Alert when product stock is &le;
+                        </span>
                         <input
                           type="number"
                           min="1"
                           max="999"
                           value={alertForm.lowStockThreshold}
-                          onChange={(e) => setAlertForm({ ...alertForm, lowStockThreshold: parseInt(e.target.value, 10) || 5 })}
+                          onChange={(e) =>
+                            setAlertForm({
+                              ...alertForm,
+                              lowStockThreshold:
+                                parseInt(e.target.value, 10) || 5,
+                            })
+                          }
                           className="w-20 px-2.5 py-1 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#96588A] bg-white text-center font-bold"
                         />
-                        <span className="text-xs text-slate-600 font-medium">items</span>
+                        <span className="text-xs text-slate-600 font-medium">
+                          items
+                        </span>
                       </div>
                     )}
                   </div>
@@ -818,13 +947,20 @@ export default function WooCommerceSettings({ onBack } = {}) {
                   <div className="p-3.5 rounded-xl border border-slate-100 bg-slate-50/60 space-y-3">
                     <div className="flex items-start justify-between">
                       <div className="space-y-0.5 pr-4">
-                        <p className="text-xs font-bold text-slate-800">Daily Business Summary</p>
+                        <p className="text-xs font-bold text-slate-800">
+                          Daily Business Summary
+                        </p>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
                         <input
                           type="checkbox"
                           checked={alertForm.dailySummaryAlert}
-                          onChange={(e) => setAlertForm({ ...alertForm, dailySummaryAlert: e.target.checked })}
+                          onChange={(e) =>
+                            setAlertForm({
+                              ...alertForm,
+                              dailySummaryAlert: e.target.checked,
+                            })
+                          }
                           className="sr-only peer"
                         />
                         <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#96588A]"></div>
@@ -834,15 +970,28 @@ export default function WooCommerceSettings({ onBack } = {}) {
                     {alertForm.dailySummaryAlert && (
                       <div className="flex items-center gap-2 pt-2 border-t border-slate-200/60 animate-in fade-in duration-150">
                         <Clock size={14} className="text-slate-500" />
-                        <span className="text-xs text-slate-600 font-medium">Send summary daily at</span>
+                        <span className="text-xs text-slate-600 font-medium">
+                          Send summary daily at
+                        </span>
                         <select
                           value={alertForm.dailySummaryHour}
-                          onChange={(e) => setAlertForm({ ...alertForm, dailySummaryHour: parseInt(e.target.value, 10) })}
+                          onChange={(e) =>
+                            setAlertForm({
+                              ...alertForm,
+                              dailySummaryHour: parseInt(e.target.value, 10),
+                            })
+                          }
                           className="px-2.5 py-1 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#96588A] bg-white font-medium"
                         >
                           {Array.from({ length: 24 }).map((_, h) => (
                             <option key={h} value={h}>
-                              {h === 0 ? '12:00 AM Midnight' : h < 12 ? `${h}:00 AM` : h === 12 ? '12:00 PM Noon' : `${h - 12}:00 PM`}
+                              {h === 0
+                                ? "12:00 AM Midnight"
+                                : h < 12
+                                  ? `${h}:00 AM`
+                                  : h === 12
+                                    ? "12:00 PM Noon"
+                                    : `${h - 12}:00 PM`}
                             </option>
                           ))}
                         </select>
@@ -857,12 +1006,17 @@ export default function WooCommerceSettings({ onBack } = {}) {
                     disabled={savingAlerts}
                     className="px-5 py-2.5 text-xs font-bold text-white bg-[#96588A] rounded-xl hover:opacity-90 transition disabled:opacity-60 flex items-center gap-1.5 shadow-xs"
                   >
-                    {savingAlerts && <RefreshCw size={13} className="animate-spin" />}
-                    <span>{savingAlerts ? "Saving Settings..." : "Save Alert Settings"}</span>
+                    {savingAlerts && (
+                      <RefreshCw size={13} className="animate-spin" />
+                    )}
+                    <span>
+                      {savingAlerts
+                        ? "Saving Settings..."
+                        : "Save Alert Settings"}
+                    </span>
                   </button>
                 </div>
               </form>
-              
 
               <div className="hidden p-4 rounded-xl border border-slate-200 bg-white space-y-3">
                 <div className="flex items-center justify-between">
@@ -920,7 +1074,8 @@ export default function WooCommerceSettings({ onBack } = {}) {
                     Connect Your WooCommerce Store
                   </h3>
                   <p className="text-xs text-slate-500 leading-relaxed">
-                    Enter your store URL, then approve the connection in WordPress.
+                    Enter your store URL, then approve the connection in
+                    WordPress.
                   </p>
                 </div>
 
@@ -1115,9 +1270,7 @@ export default function WooCommerceSettings({ onBack } = {}) {
                         disabled={connecting}
                         className="w-full px-4 py-2.5 text-xs font-bold rounded-xl border border-[#96588A] text-[#96588A] hover:bg-[#96588A]/5 transition disabled:opacity-60"
                       >
-                        {connecting
-                          ? "Connecting..."
-                          : "Connect with API Keys"}
+                        {connecting ? "Connecting..." : "Connect with API Keys"}
                       </button>
                     </form>
                   )}
@@ -1368,7 +1521,7 @@ export default function WooCommerceSettings({ onBack } = {}) {
               </div>
             </div>
           </div>,
-          document.body
+          document.body,
         )}
     </div>
   );

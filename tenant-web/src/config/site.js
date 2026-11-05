@@ -32,9 +32,9 @@ export const siteConfig = {
 
   // ── SOCIAL MEDIA LINKS ──────────────────────────────────────────────
   social: {
-    facebook:  "https://facebook.com/sudoreply",
+    facebook: "https://facebook.com/sudoreply",
     instagram: "https://instagram.com/sudoreply",
-    youtube:   "https://youtube.com/@sudoreply",
-    linkedin:  "https://linkedin.com/company/sudoreply",
+    youtube: "https://youtube.com/@sudoreply",
+    linkedin: "https://linkedin.com/company/sudoreply",
   },
 };

@@ -1,11 +1,19 @@
 // tenant-web/src/components/inbox/modals/NewChatModal.jsx (do not remove this comment)
-import React from 'react';
-import { FaWhatsapp } from 'react-icons/fa';
-import { Search, RefreshCw, X } from 'lucide-react';
-export default function NewChatModal({ showNewChatModal, setShowNewChatModal, modalSearch, setModalSearch, loadingContacts, filteredContacts, handleSelectContactForChat, getAvatarStyle }) {
-return (
-<>
-
+import React from "react";
+import { FaWhatsapp } from "react-icons/fa";
+import { Search, RefreshCw, X } from "lucide-react";
+export default function NewChatModal({
+  showNewChatModal,
+  setShowNewChatModal,
+  modalSearch,
+  setModalSearch,
+  loadingContacts,
+  filteredContacts,
+  handleSelectContactForChat,
+  getAvatarStyle,
+}) {
+  return (
+    <>
       {showNewChatModal && (
         <div className="fixed inset-0 z-50 bg-[#111B21]/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl border border-emerald-100 shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-150">
@@ -99,7 +107,8 @@ return (
               <div className="pt-2.5 border-t border-[#F0F2F5] text-[10px] text-[#667781] flex items-center gap-1.5">
                 <span className="text-emerald-600 font-bold">ℹ️ Note:</span>
                 <span>
-                  Instagram & Messenger chats appear automatically when customers message your page.
+                  Instagram & Messenger chats appear automatically when
+                  customers message your page.
                 </span>
               </div>
             </div>

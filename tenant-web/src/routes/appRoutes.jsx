@@ -21,11 +21,11 @@ import Billing from "../pages/dashboard/Billing";
 import RazorpayOAuthCallback from "../pages/dashboard/RazorpayOAuthCallback";
 
 // Landing Pages ✅
-import Home from '../pages/Home'
-import Features from '../pages/Features'
-import Pricing from '../pages/Pricing'
-import Testimonials from '../pages/Testimonials'
-import Contact from '../pages/Contact'
+import Home from "../pages/Home";
+import Features from "../pages/Features";
+import Pricing from "../pages/Pricing";
+import Testimonials from "../pages/Testimonials";
+import Contact from "../pages/Contact";
 
 // Support Pages ✅ ADD THESE
 import HelpCenter from "../pages/HelpCenter";
@@ -54,7 +54,6 @@ function App() {
     <>
       <ScrollToTop />
       <Routes>
-
         {/* Public Routes */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
@@ -69,15 +68,12 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
 
-
-
         {/* Landing Routes ✅ */}
         <Route path="/" element={<Home />} />
         <Route path="/features" element={<Features />} />
         <Route path="/pricing" element={<Pricing />} />
         <Route path="/testimonials" element={<Testimonials />} />
         <Route path="/contact" element={<Contact />} />
-
 
         {/* Support & Legal */}
         <Route path="/help" element={<HelpCenter />} />
@@ -123,22 +119,25 @@ function App() {
         />
 
         {/* Protected Tenant Dashboard Routes */}
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <ExpiredRouteGuard>
-                  <MainLayout />
-                </ExpiredRouteGuard>
-              </ProtectedRoute>
-            }
-          >
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <ExpiredRouteGuard>
+                <MainLayout />
+              </ExpiredRouteGuard>
+            </ProtectedRoute>
+          }
+        >
           <Route index element={<Dashboard />} />
           <Route path="inbox" element={<Inbox />} />
           <Route path="broadcasts" element={<Broadcasts />} />
           <Route path="templates" element={<Templates />} />
           <Route path="contacts" element={<Contacts />} />
-          <Route path="team" element={<Navigate to="/dashboard/settings?tab=team" replace />} />
+          <Route
+            path="team"
+            element={<Navigate to="/dashboard/settings?tab=team" replace />}
+          />
           <Route path="reports" element={<Reports />} />
           <Route path="integrations" element={<Integrations />} />
           <Route path="settings" element={<Settings />} />
@@ -147,10 +146,17 @@ function App() {
 
           <Route path="automation" element={<Automation />} />
           <Route path="automation/builder/:flowId" element={<FlowBuilder />} />
-          <Route path="notifications" element={<Notifications />} /> 
-          <Route path="quick-replies" element={<Navigate to="/dashboard/settings?tab=quick-replies" replace />} /> 
-          <Route path="calls" element={<Navigate to="/dashboard/settings?tab=calls" replace />} /> 
-          
+          <Route path="notifications" element={<Notifications />} />
+          <Route
+            path="quick-replies"
+            element={
+              <Navigate to="/dashboard/settings?tab=quick-replies" replace />
+            }
+          />
+          <Route
+            path="calls"
+            element={<Navigate to="/dashboard/settings?tab=calls" replace />}
+          />
         </Route>
 
         <Route
@@ -162,9 +168,18 @@ function App() {
           }
         />
         {/* Razorpay Partner OAuth Callback Handlers (Intercepts redirect when landing on port 5174) */}
-        <Route path="/sradmin/auth/razorpay/callback" element={<RazorpayOAuthCallback />} />
-        <Route path="/tenant/auth/razorpay/callback" element={<RazorpayOAuthCallback />} />
-        <Route path="/auth/razorpay/callback" element={<RazorpayOAuthCallback />} />
+        <Route
+          path="/sradmin/auth/razorpay/callback"
+          element={<RazorpayOAuthCallback />}
+        />
+        <Route
+          path="/tenant/auth/razorpay/callback"
+          element={<RazorpayOAuthCallback />}
+        />
+        <Route
+          path="/auth/razorpay/callback"
+          element={<RazorpayOAuthCallback />}
+        />
 
         {/* Fallback */}
         <Route path="*" element={<NotFound />} />

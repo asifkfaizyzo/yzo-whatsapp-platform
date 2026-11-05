@@ -1,19 +1,19 @@
 // backend/src/modules/enquiries/enquiry.controller.js (do not remove this comment)
-import prisma from '../../config/prisma.js';
-import { 
-  sendEnquiryConfirmationEmail, 
-  sendEnquiryNotificationEmail 
-} from '../auth/email.service.js';
-import { validationResult } from 'express-validator';
+import prisma from "../../config/prisma.js";
+import {
+  sendEnquiryConfirmationEmail,
+  sendEnquiryNotificationEmail,
+} from "../auth/email.service.js";
+import { validationResult } from "express-validator";
 
 // ── Public Enquiry Submission ──
 export const submitEnquiry = async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({ 
-      success: false, 
-      message: 'Validation failed', 
-      errors: errors.array() 
+    return res.status(400).json({
+      success: false,
+      message: "Validation failed",
+      errors: errors.array(),
     });
   }
 
@@ -26,25 +26,30 @@ export const submitEnquiry = async (req, res) => {
         email,
         subject: subject || null,
         message,
-        status: 'new',
+        status: "new",
       },
     });
 
     // Send emails (non-blocking)
     sendEnquiryConfirmationEmail(email, name).catch(console.error);
-    const adminEmail = process.env.EMAIL_USER || 'info@sudoreply.com';
-    sendEnquiryNotificationEmail(adminEmail, { name, email, subject, message }).catch(console.error);
+    const adminEmail = process.env.EMAIL_USER || "info@sudoreply.com";
+    sendEnquiryNotificationEmail(adminEmail, {
+      name,
+      email,
+      subject,
+      message,
+    }).catch(console.error);
 
-    return res.status(201).json({ 
-      success: true, 
-      message: 'Enquiry submitted', 
-      data: enquiry 
+    return res.status(201).json({
+      success: true,
+      message: "Enquiry submitted",
+      data: enquiry,
     });
   } catch (error) {
-    console.error('❌ Submit enquiry error:', error);
-    return res.status(500).json({ 
-      success: false, 
-      message: 'Failed to submit enquiry' 
+    console.error("❌ Submit enquiry error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to submit enquiry",
     });
   }
 };
@@ -65,8 +70,8 @@ export const getEnquiries = async (req, res) => {
   }
   if (search) {
     where.OR = [
-      { name: { contains: search, mode: 'insensitive' } },
-      { email: { contains: search, mode: 'insensitive' } },
+      { name: { contains: search, mode: "insensitive" } },
+      { email: { contains: search, mode: "insensitive" } },
     ];
   }
 
@@ -76,7 +81,7 @@ export const getEnquiries = async (req, res) => {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
       }),
       prisma.enquiry.count({ where }),
     ]);
@@ -94,10 +99,10 @@ export const getEnquiries = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('❌ Get enquiries error:', error);
-    return res.status(500).json({ 
-      success: false, 
-      message: 'Failed to fetch enquiries' 
+    console.error("❌ Get enquiries error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch enquiries",
     });
   }
 };
@@ -112,29 +117,29 @@ export const getEnquiry = async (req, res) => {
     });
 
     if (!enquiry) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Enquiry not found' 
+      return res.status(404).json({
+        success: false,
+        message: "Enquiry not found",
       });
     }
 
     // Auto update status to 'read' if currently 'new'
-    if (enquiry.status === 'new') {
+    if (enquiry.status === "new") {
       enquiry = await prisma.enquiry.update({
         where: { id },
-        data: { status: 'read' },
+        data: { status: "read" },
       });
     }
 
-    return res.json({ 
-      success: true, 
-      data: enquiry 
+    return res.json({
+      success: true,
+      data: enquiry,
     });
   } catch (error) {
-    console.error('❌ Get single enquiry error:', error);
-    return res.status(500).json({ 
-      success: false, 
-      message: 'Failed to fetch enquiry details' 
+    console.error("❌ Get single enquiry error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch enquiry details",
     });
   }
 };
@@ -144,10 +149,10 @@ export const updateStatus = async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
 
-  if (!['new', 'read', 'replied', 'closed'].includes(status)) {
-    return res.status(400).json({ 
-      success: false, 
-      message: 'Invalid status' 
+  if (!["new", "read", "replied", "closed"].includes(status)) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid status",
     });
   }
 
@@ -157,15 +162,15 @@ export const updateStatus = async (req, res) => {
       data: { status },
     });
 
-    return res.json({ 
-      success: true, 
-      data: updated 
+    return res.json({
+      success: true,
+      data: updated,
     });
   } catch (error) {
-    console.error('❌ Update enquiry status error:', error);
-    return res.status(500).json({ 
-      success: false, 
-      message: 'Failed to update status' 
+    console.error("❌ Update enquiry status error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update status",
     });
   }
 };
@@ -179,15 +184,15 @@ export const deleteEnquiry = async (req, res) => {
       where: { id },
     });
 
-    return res.json({ 
-      success: true, 
-      message: 'Enquiry deleted' 
+    return res.json({
+      success: true,
+      message: "Enquiry deleted",
     });
   } catch (error) {
-    console.error('❌ Delete enquiry error:', error);
-    return res.status(500).json({ 
-      success: false, 
-      message: 'Failed to delete enquiry' 
+    console.error("❌ Delete enquiry error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete enquiry",
     });
   }
 };

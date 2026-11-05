@@ -1,6 +1,6 @@
 // admin-web/src/pages/dashboard/Tickets.jsx (do not remove this comment)
 import React, { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom"; 
+import { useSearchParams } from "react-router-dom";
 import {
   TicketCheck,
   RefreshCw,
@@ -668,7 +668,7 @@ const TicketDetail = ({ ticketId, onBack }) => {
 // ══════════════════════════════════════════
 // MAIN TICKETS PAGE
 // ══════════════════════════════════════════
-  export default function Tickets() {
+export default function Tickets() {
   const [searchParams, setSearchParams] = useSearchParams(); // ✅ Added
   const ticketIdParam = searchParams.get("ticketId"); // ✅ Get ticketId from URL
 
@@ -767,7 +767,7 @@ const TicketDetail = ({ ticketId, onBack }) => {
     );
   }
 
-    if (selectedTicketId) {
+  if (selectedTicketId) {
     return (
       <TicketDetail
         ticketId={selectedTicketId}

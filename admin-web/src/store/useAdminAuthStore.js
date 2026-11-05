@@ -1,6 +1,6 @@
 // admin-web/src/store/useAdminAuthStore.js (do not remove this comment)
-import { create } from 'zustand';
-import axios from 'axios';
+import { create } from "zustand";
+import axios from "axios";
 
 export const useAdminAuthStore = create((set) => ({
   user: null,
@@ -15,19 +15,19 @@ export const useAdminAuthStore = create((set) => ({
       const response = await axios.post(
         `${import.meta.env.VITE_API_URL}/sradmin/refresh-token`,
         {},
-        { withCredentials: true }
+        { withCredentials: true },
       );
 
       const accessToken = response.data.accessToken;
-      let userData = JSON.parse(localStorage.getItem('user') || 'null');
+      let userData = JSON.parse(localStorage.getItem("user") || "null");
 
       if (!accessToken) {
-        throw new Error('User session invalid or incomplete');
+        throw new Error("User session invalid or incomplete");
       }
 
       if (!userData) {
         userData = { name: "Super Admin", type: "SUPERADMIN" };
-        localStorage.setItem('user', JSON.stringify(userData));
+        localStorage.setItem("user", JSON.stringify(userData));
       }
 
       set({
@@ -37,9 +37,9 @@ export const useAdminAuthStore = create((set) => ({
         isLoading: false,
       });
     } catch (error) {
-      console.log('Refresh Failed:', error.response?.data || error.message);
+      console.log("Refresh Failed:", error.response?.data || error.message);
       // Expired or invalid session → clear everything
-      localStorage.removeItem('user');
+      localStorage.removeItem("user");
       set({
         user: null,
         accessToken: null,
@@ -51,7 +51,7 @@ export const useAdminAuthStore = create((set) => ({
 
   // ── Login ──
   login: (userData, token) => {
-    localStorage.setItem('user', JSON.stringify(userData));
+    localStorage.setItem("user", JSON.stringify(userData));
     set({
       user: userData,
       accessToken: token,
@@ -67,12 +67,12 @@ export const useAdminAuthStore = create((set) => ({
       await axios.post(
         `${import.meta.env.VITE_API_URL}/sradmin/logout`,
         {},
-        { withCredentials: true }
+        { withCredentials: true },
       );
     } catch (error) {
-      console.error('Logout error on server:', error);
+      console.error("Logout error on server:", error);
     } finally {
-      localStorage.removeItem('user');
+      localStorage.removeItem("user");
       set({
         user: null,
         accessToken: null,

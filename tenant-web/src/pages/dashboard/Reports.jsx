@@ -12,13 +12,20 @@ import { AlertCircle } from "lucide-react";
 
 export default function Reports() {
   const {
-    dateRangePreset, setDateRangePreset,
-    customStartDate, setCustomStartDate,
-    customEndDate, setCustomEndDate,
-    campaignId, setCampaignId,
-    agentId, setAgentId,
-    granularity, setGranularity,
-    campaignPage, setCampaignPage,
+    dateRangePreset,
+    setDateRangePreset,
+    customStartDate,
+    setCustomStartDate,
+    customEndDate,
+    setCustomEndDate,
+    campaignId,
+    setCampaignId,
+    agentId,
+    setAgentId,
+    granularity,
+    setGranularity,
+    campaignPage,
+    setCampaignPage,
     filterOptions,
     overview,
     funnel,
@@ -30,7 +37,7 @@ export default function Reports() {
     error,
     refetch,
     handleExportCSV,
-    handleExportPDF
+    handleExportPDF,
   } = useAnalyticsData();
 
   return (
@@ -75,7 +82,10 @@ export default function Reports() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {loading ? (
           Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="card p-5 border border-slate-200 bg-white rounded-xl h-28 animate-pulse space-y-3">
+            <div
+              key={i}
+              className="card p-5 border border-slate-200 bg-white rounded-xl h-28 animate-pulse space-y-3"
+            >
               <div className="h-3 bg-slate-200 rounded w-1/2"></div>
               <div className="h-6 bg-slate-200 rounded w-3/4"></div>
               <div className="h-2 bg-slate-100 rounded w-1/3"></div>

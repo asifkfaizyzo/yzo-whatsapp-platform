@@ -1,11 +1,11 @@
 // admin-web/src/api/auth.js (do not remove this comment)
-import api from './axios';
-import { useAdminAuthStore } from '../store/useAdminAuthStore';
+import api from "./axios";
+import { useAdminAuthStore } from "../store/useAdminAuthStore";
 
 // Super Admin Register
 export const registerSuperAdmin = async (userData) => {
   try {
-    const response = await api.post('/create', {
+    const response = await api.post("/create", {
       name: userData.name,
       email: userData.email,
       password: userData.password,
@@ -21,7 +21,7 @@ export const registerSuperAdmin = async (userData) => {
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || 'Registration failed',
+      message: error.response?.data?.message || "Registration failed",
     };
   }
 };
@@ -29,7 +29,7 @@ export const registerSuperAdmin = async (userData) => {
 // Super Admin Login
 export const loginSuperAdmin = async (email, password) => {
   try {
-    const response = await api.post('/login', { email, password });
+    const response = await api.post("/login", { email, password });
     const loginData = response.data?.data;
     const user = loginData?.user || loginData?.superAdmin;
     if (loginData && user && loginData.accessToken) {
@@ -40,7 +40,7 @@ export const loginSuperAdmin = async (email, password) => {
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || 'Login failed',
+      message: error.response?.data?.message || "Login failed",
     };
   }
 };
@@ -58,20 +58,24 @@ export const logoutSuperAdmin = async () => {
 // Request Reset Link for Super Admin
 export const forgotPasswordSuperAdmin = async (email) => {
   try {
-    const response = await api.post('/forgot-sup-password', { email });
+    const response = await api.post("/forgot-sup-password", { email });
     return { success: true, message: response.data?.message };
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || 'Failed to send recovery email',
+      message: error.response?.data?.message || "Failed to send recovery email",
     };
   }
 };
 
 // Reset Password for Super Admin
-export const resetPasswordSuperAdmin = async (token, newPassword, confirmPassword) => {
+export const resetPasswordSuperAdmin = async (
+  token,
+  newPassword,
+  confirmPassword,
+) => {
   try {
-    const response = await api.post('/reset-sup-password', {
+    const response = await api.post("/reset-sup-password", {
       token,
       newPassword,
       confirmPassword,
@@ -80,7 +84,7 @@ export const resetPasswordSuperAdmin = async (token, newPassword, confirmPasswor
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || 'Failed to reset password',
+      message: error.response?.data?.message || "Failed to reset password",
     };
   }
 };

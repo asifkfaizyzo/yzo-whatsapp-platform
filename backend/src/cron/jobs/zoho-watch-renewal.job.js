@@ -1,38 +1,49 @@
 // backend/src/cron/jobs/zohoWatchRenewalJob.js (do not remove this comment)
 
-import cron from 'node-cron';
-import prisma from '../../config/prisma.js';
-import { subscribeToZohoNotifications } from '../../modules/zoho/zoho.service.js';
-import { hasZohoFeature } from '../../modules/zoho/zoho.plan.service.js';
+import cron from "node-cron";
+import prisma from "../../config/prisma.js";
+import { subscribeToZohoNotifications } from "../../modules/zoho/zoho.service.js";
+import { hasZohoFeature } from "../../modules/zoho/zoho.plan.service.js";
 
 export const startZohoWatchRenewalJob = () => {
   // Run every 12 hours (at 00:30 and 12:30)
-  cron.schedule('30 */12 * * *', async () => {
-    console.log('🔄 [ZohoWatchJob] Starting automated webhook subscription renewals...');
+  cron.schedule("30 */12 * * *", async () => {
+    console.log(
+      "🔄 [ZohoWatchJob] Starting automated webhook subscription renewals...",
+    );
 
     try {
       const connectedTenants = await prisma.tenant.findMany({
-        where: { zoho: { zohoConnectionStatus: 'CONNECTED' } },
+        where: { zoho: { zohoConnectionStatus: "CONNECTED" } },
         select: { id: true, tenantName: true },
       });
 
       for (const tenant of connectedTenants) {
-        const canWatch = await hasZohoFeature(tenant.id, 'webhooks');
+        const canWatch = await hasZohoFeature(tenant.id, "webhooks");
         if (!canWatch) continue;
 
         try {
           await subscribeToZohoNotifications(tenant.id);
-          console.log(`✅ [ZohoWatchJob] Renewed watch subscription for tenant ${tenant.id}`);
+          console.log(
+            `✅ [ZohoWatchJob] Renewed watch subscription for tenant ${tenant.id}`,
+          );
         } catch (err) {
-          console.warn(`⚠️ [ZohoWatchJob] Renewal skipped/failed for tenant ${tenant.id}:`, err.message);
+          console.warn(
+            `⚠️ [ZohoWatchJob] Renewal skipped/failed for tenant ${tenant.id}:`,
+            err.message,
+          );
         }
       }
 
-      console.log(`✅ [ZohoWatchJob] Renewal pass completed for ${connectedTenants.length} tenants`);
+      console.log(
+        `✅ [ZohoWatchJob] Renewal pass completed for ${connectedTenants.length} tenants`,
+      );
     } catch (err) {
-      console.error('❌ [ZohoWatchJob] Job execution failed:', err.message);
+      console.error("❌ [ZohoWatchJob] Job execution failed:", err.message);
     }
   });
 
-  console.log('🔄 [ZohoWatchJob] Scheduled — runs every 12 hours for subscription renewals');
+  console.log(
+    "🔄 [ZohoWatchJob] Scheduled — runs every 12 hours for subscription renewals",
+  );
 };

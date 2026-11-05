@@ -86,15 +86,17 @@ const Notifications = () => {
       if (!data?.notification) return;
 
       const newNotif = data.notification;
-      console.log("🔔 Live SuperAdmin notification received on page:", newNotif);
+      console.log(
+        "🔔 Live SuperAdmin notification received on page:",
+        newNotif,
+      );
 
       const matchesFilter =
         filter === "all" ||
         (filter === "unread" && !newNotif.isRead) ||
         (filter === "read" && newNotif.isRead);
 
-      const matchesType =
-        typeFilter === "all" || typeFilter === newNotif.type;
+      const matchesType = typeFilter === "all" || typeFilter === newNotif.type;
 
       if (matchesFilter && matchesType && page === 1) {
         setNotifications((prev) => {
@@ -121,8 +123,7 @@ const Notifications = () => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
     return (
-      n.title?.toLowerCase().includes(q) ||
-      n.message?.toLowerCase().includes(q)
+      n.title?.toLowerCase().includes(q) || n.message?.toLowerCase().includes(q)
     );
   });
 
@@ -131,7 +132,7 @@ const Notifications = () => {
     if (!notif.isRead) {
       await markAdminNotifAsRead(notif.id);
       setNotifications((prev) =>
-        prev.map((n) => (n.id === notif.id ? { ...n, isRead: true } : n))
+        prev.map((n) => (n.id === notif.id ? { ...n, isRead: true } : n)),
       );
       setUnreadCount((c) => Math.max(0, c - 1));
       refreshDropdown();
@@ -149,7 +150,7 @@ const Notifications = () => {
         navigate(
           meta.tenantId
             ? `/dashboard/tenants?highlight=${meta.tenantId}`
-            : "/dashboard/revenue"
+            : "/dashboard/revenue",
         );
         break;
 
@@ -178,16 +179,15 @@ const Notifications = () => {
   const handleMarkAllRead = async () => {
     const res = await markAllAdminNotifsAsRead();
     if (res.success) {
-      setNotifications((prev) =>
-        prev.map((n) => ({ ...n, isRead: true }))
-      );
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
       setUnreadCount(0);
       refreshDropdown();
     }
   };
 
   const handleClearAll = async () => {
-    if (!window.confirm("Clear all notifications? This cannot be undone.")) return;
+    if (!window.confirm("Clear all notifications? This cannot be undone."))
+      return;
     const res = await clearAllAdminNotifs();
     if (res.success) {
       setNotifications([]);
@@ -277,9 +277,7 @@ const Notifications = () => {
             <Bell className="w-5 h-5 text-[#125EF2]" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-slate-800">
-              Notifications
-            </h1>
+            <h1 className="text-2xl font-bold text-slate-800">Notifications</h1>
             <p className="text-sm text-slate-500 mt-0.5">
               {total} total • {unreadCount} unread
             </p>
@@ -392,8 +390,8 @@ const Notifications = () => {
               {searchQuery
                 ? "No matching notifications"
                 : filter === "unread"
-                ? "No unread notifications"
-                : "No notifications yet"}
+                  ? "No unread notifications"
+                  : "No notifications yet"}
             </p>
             <p className="text-xs text-slate-400 mt-1">
               {searchQuery

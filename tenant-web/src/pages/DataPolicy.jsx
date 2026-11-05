@@ -10,34 +10,32 @@ export default function PrivacyPolicy() {
 
       <section className="py-20 bg-white">
         <div className="max-w-3xl mx-auto px-6">
-
           {/* Header */}
           <div className="mb-12">
-            <span className="text-[#125EF2] font-semibold text-sm 
-                             uppercase tracking-wider">
+            <span
+              className="text-[#125EF2] font-semibold text-sm 
+                             uppercase tracking-wider"
+            >
               Legal
             </span>
             <h1 className="text-3xl font-bold text-gray-900 mt-3 mb-2">
               Privacy Policy
             </h1>
-            <p className="text-sm text-gray-400">
-              Last updated: June 2026
-            </p>
+            <p className="text-sm text-gray-400">Last updated: June 2026</p>
           </div>
 
           {/* Content */}
           <div className="space-y-8 text-sm text-gray-600 leading-relaxed">
-
             {/* Section 1 */}
             <div>
               <h2 className="text-lg font-semibold text-gray-900 mb-3">
                 1. Information We Collect
               </h2>
               <p>
-                We collect information you provide directly to us, 
-                including your name, email address, phone number, 
-                company name, and any other information you choose 
-                to provide when creating an account or contacting us.
+                We collect information you provide directly to us, including
+                your name, email address, phone number, company name, and any
+                other information you choose to provide when creating an account
+                or contacting us.
               </p>
             </div>
 
@@ -62,10 +60,9 @@ export default function PrivacyPolicy() {
                 3. Data Storage & Security
               </h2>
               <p>
-                We implement industry-standard security measures to 
-                protect your data. All data is encrypted in transit 
-                and at rest. We use secure servers and follow best 
-                practices for data protection.
+                We implement industry-standard security measures to protect your
+                data. All data is encrypted in transit and at rest. We use
+                secure servers and follow best practices for data protection.
               </p>
             </div>
 
@@ -75,11 +72,10 @@ export default function PrivacyPolicy() {
                 4. Data Sharing
               </h2>
               <p>
-                We do not sell, trade, or otherwise transfer your 
-                personal information to third parties. We may share 
-                data only with service providers who assist us in 
-                operating our platform, subject to confidentiality 
-                agreements.
+                We do not sell, trade, or otherwise transfer your personal
+                information to third parties. We may share data only with
+                service providers who assist us in operating our platform,
+                subject to confidentiality agreements.
               </p>
             </div>
 
@@ -104,9 +100,8 @@ export default function PrivacyPolicy() {
                 6. Data Deletion Request
               </h2>
               <p className="mb-3">
-                If you would like to request deletion of your personal 
-                data from Sudoreply, you can submit a request by 
-                contacting us at{" "}
+                If you would like to request deletion of your personal data from
+                Sudoreply, you can submit a request by contacting us at{" "}
                 <a
                   href="mailto:info@sudoreply.com"
                   className="text-[#125EF2] hover:underline"
@@ -123,9 +118,7 @@ export default function PrivacyPolicy() {
               <ul className="list-disc pl-5 space-y-1 text-gray-500 mb-3">
                 <li>Your full name</li>
                 <li>Your registered email address</li>
-                <li>
-                  Your WhatsApp Business account number (if applicable)
-                </li>
+                <li>Your WhatsApp Business account number (if applicable)</li>
               </ul>
               <p className="mb-3">Upon receiving your request we will:</p>
               <ul className="list-disc pl-5 space-y-1 text-gray-500 mb-3">
@@ -134,10 +127,10 @@ export default function PrivacyPolicy() {
                 <li>Notify you once your data has been permanently deleted</li>
               </ul>
               <p>
-                All personal data associated with your account, including 
-                connected WhatsApp Business account information, message 
-                history stored in our systems, and profile data, will be 
-                permanently deleted unless retention is required by law.
+                All personal data associated with your account, including
+                connected WhatsApp Business account information, message history
+                stored in our systems, and profile data, will be permanently
+                deleted unless retention is required by law.
               </p>
             </div>
 
@@ -147,8 +140,8 @@ export default function PrivacyPolicy() {
                 7. Contact Us
               </h2>
               <p>
-                If you have any questions about this Privacy Policy, 
-                please contact us at{" "}
+                If you have any questions about this Privacy Policy, please
+                contact us at{" "}
                 <a
                   href="mailto:info@sudoreply.com"
                   className="text-blue-600 hover:underline"
@@ -157,7 +150,6 @@ export default function PrivacyPolicy() {
                 </a>
               </p>
             </div>
-
           </div>
         </div>
       </section>

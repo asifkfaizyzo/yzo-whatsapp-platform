@@ -29,24 +29,24 @@ export default function ForgotPasswordPage() {
   const [resendTimer, setResendTimer] = useState(0);
   const [resendMessage, setResendMessage] = useState("");
 
-// Inside ForgotPasswordPage component:
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setLoading(true);
-  setError("");
-  if (!email) {
-    setError("Please enter your email address.");
+  // Inside ForgotPasswordPage component:
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    if (!email) {
+      setError("Please enter your email address.");
+      setLoading(false);
+      return;
+    }
+    const result = await forgotPasswordSuperAdmin(email);
     setLoading(false);
-    return;
-  }
-  const result = await forgotPasswordSuperAdmin(email);
-  setLoading(false);
-  if (result.success) {
-    setSuccess(true);
-  } else {
-    setError(result.message);
-  }
-};
+    if (result.success) {
+      setSuccess(true);
+    } else {
+      setError(result.message);
+    }
+  };
 
   const handleResend = async () => {
     if (resendTimer > 0 || resending) return;
@@ -104,7 +104,8 @@ const handleSubmit = async (e) => {
               Restore Access
             </h1>
             <p className="mt-4 max-w-md text-base text-white/80">
-              Recover your administrator account password using our secure token verification flow.
+              Recover your administrator account password using our secure token
+              verification flow.
             </p>
           </div>
 
@@ -139,7 +140,8 @@ const handleSubmit = async (e) => {
               Restore Access
             </h1>
             <p className="mt-2 text-sm text-[color:var(--muted)] max-w-md">
-              Recover your administrator account password using our secure token verification flow.
+              Recover your administrator account password using our secure token
+              verification flow.
             </p>
           </div>
 
@@ -149,9 +151,12 @@ const handleSubmit = async (e) => {
               <>
                 {/* Heading */}
                 <div className="hidden lg:block">
-                  <h2 className="text-2xl font-semibold text-slate-800">ForgotPassword?</h2>
+                  <h2 className="text-2xl font-semibold text-slate-800">
+                    ForgotPassword?
+                  </h2>
                   <p className="mt-2 text-sm text-[color:var(--muted)]">
-                    No worries. Enter your email and we'll send you a link to reset your password.
+                    No worries. Enter your email and we'll send you a link to
+                    reset your password.
                   </p>
                 </div>
 
@@ -219,9 +224,12 @@ const handleSubmit = async (e) => {
                   <CheckCircle2 size={24} />
                 </div>
                 <div className="space-y-2">
-                  <h3 className="text-xl font-bold text-slate-800">Check your inbox</h3>
+                  <h3 className="text-xl font-bold text-slate-800">
+                    Check your inbox
+                  </h3>
                   <p className="text-sm text-[color:var(--muted)] leading-relaxed">
-                    We have sent a secure password reset link to <strong className="text-slate-700">{email}</strong>.
+                    We have sent a secure password reset link to{" "}
+                    <strong className="text-slate-700">{email}</strong>.
                   </p>
                 </div>
                 <div className="pt-2">
@@ -232,7 +240,8 @@ const handleSubmit = async (e) => {
                   >
                     {resending ? (
                       <span className="flex items-center justify-center gap-1.5">
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Resending...
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />{" "}
+                        Resending...
                       </span>
                     ) : resendTimer > 0 ? (
                       `Resend email in ${resendTimer}s`
@@ -241,10 +250,14 @@ const handleSubmit = async (e) => {
                     )}
                   </button>
                   {resendMessage && (
-                    <p className="mt-2 text-xs text-[#125EF2] font-medium">{resendMessage}</p>
+                    <p className="mt-2 text-xs text-[#125EF2] font-medium">
+                      {resendMessage}
+                    </p>
                   )}
                   {error && (
-                    <p className="mt-2 text-xs text-red-650 font-medium">{error}</p>
+                    <p className="mt-2 text-xs text-red-650 font-medium">
+                      {error}
+                    </p>
                   )}
                 </div>
                 <div className="pt-4 border-t border-slate-50">
@@ -271,7 +284,9 @@ const handleSubmit = async (e) => {
                   key={item.title}
                   className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"
                 >
-                  <p className="font-semibold text-slate-800 text-sm">{item.title}</p>
+                  <p className="font-semibold text-slate-800 text-sm">
+                    {item.title}
+                  </p>
                   <p className="mt-1 text-xs text-slate-500">{item.text}</p>
                 </div>
               ))}

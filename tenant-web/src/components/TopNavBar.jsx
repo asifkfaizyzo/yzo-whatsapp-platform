@@ -30,7 +30,7 @@ import api from "../api/axios";
 
 export default function TopNavBar() {
   const navigate = useNavigate();
- const { user: authUser, accessToken } = useAuthStore();
+  const { user: authUser, accessToken } = useAuthStore();
 
   const [user, setUser] = useState(null);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -38,7 +38,7 @@ export default function TopNavBar() {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isWhatsappConnected, setIsWhatsappConnected] = useState(false);
-  const [tenantLogo, setTenantLogo] = useState(null); 
+  const [tenantLogo, setTenantLogo] = useState(null);
 
   const dropdownRef = useRef(null);
   const notifRef = useRef(null);
@@ -57,47 +57,48 @@ export default function TopNavBar() {
   }, []);
 
   // 🆕 Fetch tenant logo (for TENANT role only)
-useEffect(() => {
-  const fetchTenantLogo = async () => {
-    if (!authUser) return;
-    
-    try {
-      let logoUrl = null;
-      if (authUser?.type === "TENANT") {
+  useEffect(() => {
+    const fetchTenantLogo = async () => {
+      if (!authUser) return;
 
-      const res = await api.get("/me");
-      if (res.data?.success && res.data?.data?.logo) {
-        logoUrl = res.data.data.logo;
-         }
-           } else if (authUser?.type === "USER") {
-        // 👤 USER: Fetch from user endpoint (returns tenant info too)
-        const res = await api.get(`${import.meta.env.VITE_BACKEND_URL}/tenant/user/me`);
-        if (res.data?.success && res.data?.data?.tenant?.logo) {
-          logoUrl = res.data.data.tenant.logo;
+      try {
+        let logoUrl = null;
+        if (authUser?.type === "TENANT") {
+          const res = await api.get("/me");
+          if (res.data?.success && res.data?.data?.logo) {
+            logoUrl = res.data.data.logo;
+          }
+        } else if (authUser?.type === "USER") {
+          // 👤 USER: Fetch from user endpoint (returns tenant info too)
+          const res = await api.get(
+            `${import.meta.env.VITE_BACKEND_URL}/tenant/user/me`,
+          );
+          if (res.data?.success && res.data?.data?.tenant?.logo) {
+            logoUrl = res.data.data.tenant.logo;
+          }
         }
-      }
-      
-      if (logoUrl) {
-        setTenantLogo(logoUrl);
-      }
-    } catch (err) {
-      // silent fail — logo is non-critical
-    }
-  };
-  
-  fetchTenantLogo();
-}, [authUser]);
- 
 
-// 🆕 Listen for logo updates from Settings page
-useEffect(() => {
-  const handleLogoUpdate = (event) => {
-    setTenantLogo(event.detail?.logo || null);
-  };
-  
-  window.addEventListener("tenant_logo_updated", handleLogoUpdate);
-  return () => window.removeEventListener("tenant_logo_updated", handleLogoUpdate);
-}, []);
+        if (logoUrl) {
+          setTenantLogo(logoUrl);
+        }
+      } catch (err) {
+        // silent fail — logo is non-critical
+      }
+    };
+
+    fetchTenantLogo();
+  }, [authUser]);
+
+  // 🆕 Listen for logo updates from Settings page
+  useEffect(() => {
+    const handleLogoUpdate = (event) => {
+      setTenantLogo(event.detail?.logo || null);
+    };
+
+    window.addEventListener("tenant_logo_updated", handleLogoUpdate);
+    return () =>
+      window.removeEventListener("tenant_logo_updated", handleLogoUpdate);
+  }, []);
 
   // ── Load notifications from API ──
   const loadNotifications = async () => {
@@ -134,12 +135,14 @@ useEffect(() => {
       notif.type === "new_message" ||
       notif.type === "conversation_reopened"
     ) {
-      const isInboxMounted = !!document.querySelector('[data-inbox-mounted="true"]');
+      const isInboxMounted = !!document.querySelector(
+        '[data-inbox-mounted="true"]',
+      );
 
       if (!isInboxMounted) {
         const currentCount = parseInt(
           localStorage.getItem("inbox_unread_count") || "0",
-          10
+          10,
         );
         const newCount = currentCount + 1;
         localStorage.setItem("inbox_unread_count", String(newCount));
@@ -152,7 +155,7 @@ useEffect(() => {
   useEffect(() => {
     const checkWhatsAppStatus = async () => {
       try {
-        const res = await api.get('/whatsapp/status');
+        const res = await api.get("/whatsapp/status");
         if (res.data?.success && res.data?.isConnected) {
           setIsWhatsappConnected(true);
         } else {
@@ -164,7 +167,6 @@ useEffect(() => {
     };
     checkWhatsAppStatus();
   }, []);
-
 
   // ── Socket: listen for new real-time notifications ──
   useEffect(() => {
@@ -321,7 +323,6 @@ useEffect(() => {
     };
   }, [authUser?.id, authUser?.type, accessToken]);
 
-
   // ── Disconnect socket on logout ──
   const handleLogout = async () => {
     setShowDropdown(false);
@@ -334,37 +335,28 @@ useEffect(() => {
   // ── Close dropdowns when clicking outside ──
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target)
-      ) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setShowDropdown(false);
       }
-      if (
-        notifRef.current &&
-        !notifRef.current.contains(event.target)
-      ) {
+      if (notifRef.current && !notifRef.current.contains(event.target)) {
         setShowNotifications(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
-    return () =>
-      document.removeEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const handleMarkAsRead = async (id) => {
     await markAsRead(id);
     setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
     );
     setUnreadCount((prev) => Math.max(0, prev - 1));
   };
 
   const handleMarkAllAsRead = async () => {
     await markAllAsRead();
-    setNotifications((prev) =>
-      prev.map((n) => ({ ...n, isRead: true }))
-    );
+    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
     setUnreadCount(0);
   };
 
@@ -485,13 +477,13 @@ useEffect(() => {
   };
 
   return (
-    <header className="flex items-center justify-end bg-white
+    <header
+      className="flex items-center justify-end bg-white
                        border-b border-[color:var(--border)] px-6 py-3
-                       h-16 relative z-30 shrink-0">
-
+                       h-16 relative z-30 shrink-0"
+    >
       {/* Right Actions */}
       <div className="flex items-center gap-4">
-
         {/* Notification Bell */}
         <div className="relative" ref={notifRef}>
           <button
@@ -504,11 +496,13 @@ useEffect(() => {
           >
             <Bell size={20} />
             {unreadCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 min-w-[18px]
+              <span
+                className="absolute -top-0.5 -right-0.5 min-w-[18px]
                                h-[18px] px-1 bg-red-500 text-white
                                text-[10px] font-bold rounded-full flex
                                items-center justify-center border-2
-                               border-white">
+                               border-white"
+              >
                 {unreadCount > 99 ? "99+" : unreadCount}
               </span>
             )}
@@ -516,22 +510,27 @@ useEffect(() => {
 
           {/* Notification Dropdown */}
           {showNotifications && (
-            <div className="absolute right-0 mt-2 w-80 rounded-2xl
+            <div
+              className="absolute right-0 mt-2 w-80 rounded-2xl
                             bg-white border border-slate-100 shadow-2xl
                             z-50 animate-in fade-in slide-in-from-top-1
-                            duration-150 overflow-hidden">
-
+                            duration-150 overflow-hidden"
+            >
               {/* Header */}
-              <div className="px-4 py-3 border-b border-slate-100
-                              flex items-center justify-between">
+              <div
+                className="px-4 py-3 border-b border-slate-100
+                              flex items-center justify-between"
+              >
                 <div className="flex items-center gap-2">
                   <Bell size={15} className="text-slate-600" />
                   <span className="text-sm font-bold text-slate-800">
                     Notifications
                   </span>
                   {unreadCount > 0 && (
-                    <span className="bg-red-100 text-red-600 text-[10px]
-                                     font-bold px-1.5 py-0.5 rounded-full">
+                    <span
+                      className="bg-red-100 text-red-600 text-[10px]
+                                     font-bold px-1.5 py-0.5 rounded-full"
+                    >
                       {unreadCount} new
                     </span>
                   )}
@@ -565,10 +564,14 @@ useEffect(() => {
               {/* Notification List */}
               <div className="max-h-80 overflow-y-auto">
                 {notifications.length === 0 ? (
-                  <div className="flex flex-col items-center
-                                  justify-center py-10 px-4">
-                    <div className="w-12 h-12 rounded-full bg-slate-50
-                                    flex items-center justify-center mb-3">
+                  <div
+                    className="flex flex-col items-center
+                                  justify-center py-10 px-4"
+                  >
+                    <div
+                      className="w-12 h-12 rounded-full bg-slate-50
+                                    flex items-center justify-center mb-3"
+                    >
                       <Bell size={20} className="text-slate-300" />
                     </div>
                     <p className="text-sm font-medium text-slate-500">
@@ -592,13 +595,17 @@ useEffect(() => {
                     >
                       {getNotifIcon(notif.type)}
                       <div className="flex-1 min-w-0">
-                        <p className={`text-xs text-slate-800 truncate ${
-                          !notif.isRead ? "font-bold" : "font-semibold"
-                        }`}>
+                        <p
+                          className={`text-xs text-slate-800 truncate ${
+                            !notif.isRead ? "font-bold" : "font-semibold"
+                          }`}
+                        >
                           {notif.title}
                         </p>
-                        <p className="text-[11px] text-slate-500
-                                      mt-0.5 line-clamp-2">
+                        <p
+                          className="text-[11px] text-slate-500
+                                      mt-0.5 line-clamp-2"
+                        >
                           {notif.message}
                         </p>
                         <p className="text-[10px] text-slate-400 mt-1">
@@ -606,8 +613,10 @@ useEffect(() => {
                         </p>
                       </div>
                       {!notif.isRead && (
-                        <span className="w-2 h-2 bg-[#125EF2] rounded-full
-                                         shrink-0 mt-1" />
+                        <span
+                          className="w-2 h-2 bg-[#125EF2] rounded-full
+                                         shrink-0 mt-1"
+                        />
                       )}
                     </button>
                   ))
@@ -615,7 +624,7 @@ useEffect(() => {
               </div>
 
               {/* Footer */}
-                       {/* Footer with View All - 🆕 UPDATED */}
+              {/* Footer with View All - 🆕 UPDATED */}
               <div className="border-t border-slate-100 bg-slate-50/50">
                 {notifications.length > 0 && (
                   <p className="text-[10px] text-slate-400 text-center pt-2">
@@ -638,7 +647,11 @@ useEffect(() => {
                     stroke="currentColor"
                     strokeWidth={2.5}
                   >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M9 5l7 7-7 7"
+                    />
                   </svg>
                 </button>
               </div>
@@ -657,36 +670,41 @@ useEffect(() => {
                        hover:bg-slate-50 border border-transparent
                        hover:border-slate-100 transition duration-150"
           >
-           
-            <div className="w-8 h-8 rounded-xl bg-[#CFE0FD] flex
+            <div
+              className="w-8 h-8 rounded-xl bg-[#CFE0FD] flex
                 items-center justify-center text-[#125EF2]
                 font-semibold text-sm border border-[#CFE0FD]
-                overflow-hidden">
-  {tenantLogo ? (
-    <img
-      src={`${import.meta.env.VITE_BACKEND_URL}${tenantLogo}`}
-      alt="Logo"
-      className="w-full h-full object-cover"
-      onError={(e) => {
-        e.target.style.display = "none";
-      }}
-    />
-  ) : user?.name ? (
-    user.name.charAt(0).toUpperCase()
-  ) : user?.tenantName ? (
-    user.tenantName.charAt(0).toUpperCase()
-  ) : (
-    <User size={16} />
-  )}
-</div>
+                overflow-hidden"
+            >
+              {tenantLogo ? (
+                <img
+                  src={`${import.meta.env.VITE_BACKEND_URL}${tenantLogo}`}
+                  alt="Logo"
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.style.display = "none";
+                  }}
+                />
+              ) : user?.name ? (
+                user.name.charAt(0).toUpperCase()
+              ) : user?.tenantName ? (
+                user.tenantName.charAt(0).toUpperCase()
+              ) : (
+                <User size={16} />
+              )}
+            </div>
 
             <div className="hidden md:flex flex-col text-left mr-1">
-              <span className="text-xs font-semibold text-slate-800
-                               leading-none">
+              <span
+                className="text-xs font-semibold text-slate-800
+                               leading-none"
+              >
                 {user?.name || user?.tenantName || "Tenant Member"}
               </span>
-              <span className="text-[9px] text-[color:var(--muted)]
-                               capitalize mt-0.5 font-medium">
+              <span
+                className="text-[9px] text-[color:var(--muted)]
+                               capitalize mt-0.5 font-medium"
+              >
                 {user?.type === "TENANT" ? "Admin" : "Agent"}
               </span>
             </div>
@@ -698,19 +716,24 @@ useEffect(() => {
           </button>
 
           {showDropdown && (
-            <div className="absolute right-0 mt-2 w-52 rounded-2xl
+            <div
+              className="absolute right-0 mt-2 w-52 rounded-2xl
                             bg-white border border-slate-100 shadow-xl
                             py-1.5 z-50 animate-in fade-in
-                            slide-in-from-top-1 duration-150">
-
+                            slide-in-from-top-1 duration-150"
+            >
               {/* User Info Header */}
               <div className="px-4 py-2.5 border-b border-slate-100">
-                <p className="text-[10px] text-slate-400 font-bold
-                               tracking-wider uppercase">
+                <p
+                  className="text-[10px] text-slate-400 font-bold
+                               tracking-wider uppercase"
+                >
                   Signed in as
                 </p>
-                <p className="text-sm font-semibold text-slate-800
-                               mt-0.5 truncate">
+                <p
+                  className="text-sm font-semibold text-slate-800
+                               mt-0.5 truncate"
+                >
                   {user?.name || user?.tenantName || "Tenant Admin"}
                 </p>
                 <p className="text-xs text-slate-500 truncate mt-0.5">
@@ -719,7 +742,6 @@ useEffect(() => {
               </div>
 
               <div className="py-1">
-
                 {/* Support Tickets */}
                 <button
                   onClick={() => {
@@ -748,7 +770,6 @@ useEffect(() => {
                   <LogOut size={15} />
                   <span>Log Out</span>
                 </button>
-
               </div>
             </div>
           )}

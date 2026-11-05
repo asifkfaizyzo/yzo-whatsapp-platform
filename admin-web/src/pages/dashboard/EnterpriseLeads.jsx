@@ -1,7 +1,14 @@
 // admin-web/src/pages/dashboard/EnterpriseLeads.jsx (do not remove this comment)
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Sparkles, Search, Filter, Eye, ArrowLeft, ArrowRight } from "lucide-react";
+import {
+  Sparkles,
+  Search,
+  Filter,
+  Eye,
+  ArrowLeft,
+  ArrowRight,
+} from "lucide-react";
 import api from "../../api/axios";
 
 export default function EnterpriseLeads() {
@@ -40,7 +47,10 @@ export default function EnterpriseLeads() {
       }
     } catch (err) {
       console.error("Error loading leads:", err);
-      setError(err.response?.data?.message || "Failed to load enterprise leads. Please make sure the server is running.");
+      setError(
+        err.response?.data?.message ||
+          "Failed to load enterprise leads. Please make sure the server is running.",
+      );
     } finally {
       setLoading(false);
     }
@@ -113,7 +123,8 @@ export default function EnterpriseLeads() {
           <span>Enterprise Onboarding Leads</span>
         </h1>
         <p className="text-xs text-gray-500 mt-1">
-          High-intent leads who completed onboarding registration and chose the Enterprise Plan.
+          High-intent leads who completed onboarding registration and chose the
+          Enterprise Plan.
         </p>
       </div>
 
@@ -121,7 +132,10 @@ export default function EnterpriseLeads() {
       <div className="card border border-slate-100 p-5 bg-white rounded-2xl flex flex-col gap-4 shadow-sm">
         <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
           {/* Search */}
-          <form onSubmit={handleSearchSubmit} className="relative w-full md:w-80">
+          <form
+            onSubmit={handleSearchSubmit}
+            className="relative w-full md:w-80"
+          >
             <input
               type="text"
               placeholder="Search company, name or email..."
@@ -132,7 +146,9 @@ export default function EnterpriseLeads() {
             <div className="absolute left-3.5 top-2.5 text-slate-400">
               <Search size={16} />
             </div>
-            <button type="submit" className="hidden">Search</button>
+            <button type="submit" className="hidden">
+              Search
+            </button>
           </form>
 
           {/* Action to trigger quick search */}
@@ -148,7 +164,9 @@ export default function EnterpriseLeads() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-slate-100">
           {/* Status Filter */}
           <div className="flex flex-col gap-1.5">
-            <span className="text-xs text-slate-400 font-bold uppercase">Status</span>
+            <span className="text-xs text-slate-400 font-bold uppercase">
+              Status
+            </span>
             <select
               value={status}
               onChange={(e) => {
@@ -168,7 +186,9 @@ export default function EnterpriseLeads() {
 
           {/* Size Filter */}
           <div className="flex flex-col gap-1.5">
-            <span className="text-xs text-slate-400 font-bold uppercase">Company Size</span>
+            <span className="text-xs text-slate-400 font-bold uppercase">
+              Company Size
+            </span>
             <select
               value={companySize}
               onChange={(e) => {
@@ -187,7 +207,9 @@ export default function EnterpriseLeads() {
 
           {/* Timeline Filter */}
           <div className="flex flex-col gap-1.5">
-            <span className="text-xs text-slate-400 font-bold uppercase">Timeline</span>
+            <span className="text-xs text-slate-400 font-bold uppercase">
+              Timeline
+            </span>
             <select
               value={timeline}
               onChange={(e) => {
@@ -221,7 +243,9 @@ export default function EnterpriseLeads() {
         ) : leads.length === 0 ? (
           <div className="text-center py-20">
             <span className="text-4xl">💼</span>
-            <h3 className="mt-4 text-lg font-bold text-slate-700">No leads found</h3>
+            <h3 className="mt-4 text-lg font-bold text-slate-700">
+              No leads found
+            </h3>
             <p className="text-sm text-slate-400 mt-1 max-w-xs mx-auto">
               There are no sales leads matching your selection criteria.
             </p>
@@ -239,7 +263,9 @@ export default function EnterpriseLeads() {
                   <th className="py-3.5 px-4 font-semibold">Timeline</th>
                   <th className="py-3.5 px-4 font-semibold">Submitted Date</th>
                   <th className="py-3.5 px-4 font-semibold">Status</th>
-                  <th className="py-3.5 px-6 font-semibold text-right">Actions</th>
+                  <th className="py-3.5 px-6 font-semibold text-right">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm">
@@ -249,10 +275,14 @@ export default function EnterpriseLeads() {
                     <tr
                       key={lead.id}
                       className={`transition group ${
-                        isPending ? "bg-amber-50/10 font-medium hover:bg-amber-50/20" : "hover:bg-slate-50/50"
+                        isPending
+                          ? "bg-amber-50/10 font-medium hover:bg-amber-50/20"
+                          : "hover:bg-slate-50/50"
                       }`}
                     >
-                      <td className="py-4 px-6 text-slate-500">{(page - 1) * 10 + index + 1}</td>
+                      <td className="py-4 px-6 text-slate-500">
+                        {(page - 1) * 10 + index + 1}
+                      </td>
                       <td className="py-4 px-4 text-slate-800">
                         <span className="flex items-center gap-2">
                           <strong>{lead.companyName}</strong>
@@ -261,18 +291,29 @@ export default function EnterpriseLeads() {
                           )}
                         </span>
                       </td>
-                      <td className="py-4 px-4 text-slate-700">{lead.contactName}</td>
-                      <td className="py-4 px-4 text-slate-600">{lead.email}</td>
-                      <td className="py-4 px-4 text-slate-600 font-medium">{lead.companySize}</td>
-                      <td className="py-4 px-4 text-slate-600">{getTimelineLabel(lead.timeline)}</td>
-                      <td className="py-4 px-4 text-slate-500">
-                        {new Date(lead.createdAt).toLocaleDateString(undefined, {
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric",
-                        })}
+                      <td className="py-4 px-4 text-slate-700">
+                        {lead.contactName}
                       </td>
-                      <td className="py-4 px-4">{getStatusBadge(lead.status)}</td>
+                      <td className="py-4 px-4 text-slate-600">{lead.email}</td>
+                      <td className="py-4 px-4 text-slate-600 font-medium">
+                        {lead.companySize}
+                      </td>
+                      <td className="py-4 px-4 text-slate-600">
+                        {getTimelineLabel(lead.timeline)}
+                      </td>
+                      <td className="py-4 px-4 text-slate-500">
+                        {new Date(lead.createdAt).toLocaleDateString(
+                          undefined,
+                          {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                          },
+                        )}
+                      </td>
+                      <td className="py-4 px-4">
+                        {getStatusBadge(lead.status)}
+                      </td>
                       <td className="py-4 px-6 text-right">
                         <Link
                           to={`/dashboard/enterprise-leads/${lead.id}`}
@@ -294,9 +335,12 @@ export default function EnterpriseLeads() {
         {totalPages > 1 && !loading && (
           <div className="flex items-center justify-between border-t border-slate-100 px-6 py-4 bg-slate-50/30">
             <p className="text-xs text-slate-500">
-              Showing <span className="font-semibold">{(page - 1) * 10 + 1}</span> to{" "}
-              <span className="font-semibold">{Math.min(page * 10, total)}</span> of{" "}
-              <span className="font-semibold">{total}</span> results
+              Showing{" "}
+              <span className="font-semibold">{(page - 1) * 10 + 1}</span> to{" "}
+              <span className="font-semibold">
+                {Math.min(page * 10, total)}
+              </span>{" "}
+              of <span className="font-semibold">{total}</span> results
             </p>
             <div className="flex gap-2">
               <button
@@ -310,7 +354,9 @@ export default function EnterpriseLeads() {
                 {page} / {totalPages}
               </span>
               <button
-                onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
+                onClick={() =>
+                  setPage((prev) => Math.min(prev + 1, totalPages))
+                }
                 disabled={page === totalPages}
                 className="p-2 border border-slate-200 rounded-xl hover:bg-slate-50 text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
               >

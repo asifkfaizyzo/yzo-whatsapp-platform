@@ -61,7 +61,8 @@ export default function Notifications() {
 
   const LIMIT = 20;
   const userType = authUser?.type;
-  const NOTIF_TYPES = userType === "TENANT" ? NOTIF_TYPES_TENANT : NOTIF_TYPES_USER;
+  const NOTIF_TYPES =
+    userType === "TENANT" ? NOTIF_TYPES_TENANT : NOTIF_TYPES_USER;
 
   // ── Fetch paginated ──
   const loadNotifications = async () => {
@@ -105,8 +106,7 @@ export default function Notifications() {
         (filter === "unread" && !newNotif.isRead) ||
         (filter === "read" && newNotif.isRead);
 
-      const matchesType =
-        typeFilter === "all" || typeFilter === newNotif.type;
+      const matchesType = typeFilter === "all" || typeFilter === newNotif.type;
 
       // Only insert into the current list view if on Page 1 & matches filters
       if (matchesFilter && matchesType && page === 1) {
@@ -131,14 +131,12 @@ export default function Notifications() {
     };
   }, [filter, typeFilter, page]);
 
-
   // ── Client-side search ──
   const filteredNotifs = notifications.filter((n) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
     return (
-      n.title?.toLowerCase().includes(q) ||
-      n.message?.toLowerCase().includes(q)
+      n.title?.toLowerCase().includes(q) || n.message?.toLowerCase().includes(q)
     );
   });
 
@@ -147,7 +145,7 @@ export default function Notifications() {
     if (!notif.isRead) {
       await markAsRead(notif.id);
       setNotifications((prev) =>
-        prev.map((n) => (n.id === notif.id ? { ...n, isRead: true } : n))
+        prev.map((n) => (n.id === notif.id ? { ...n, isRead: true } : n)),
       );
       setUnreadCount((c) => Math.max(0, c - 1));
     }
@@ -155,15 +153,23 @@ export default function Notifications() {
     const meta = notif.metadata || {};
 
     // Navigate based on type
-    if (notif.type === "new_message" || notif.type === "conversation_reopened") {
+    if (
+      notif.type === "new_message" ||
+      notif.type === "conversation_reopened"
+    ) {
       navigate(`/dashboard/inbox?conversationId=${meta.conversationId}`);
     } else if (notif.type === "contact_assigned") {
       navigate("/dashboard/contacts");
     } else if (notif.type === "broadcast_completed") {
       navigate("/dashboard/broadcasts");
     } else if (
-      ["new_ticket", "ticket_reply", "ticket_escalated",
-       "ticket_resolved", "ticket_status_updated"].includes(notif.type)
+      [
+        "new_ticket",
+        "ticket_reply",
+        "ticket_escalated",
+        "ticket_resolved",
+        "ticket_status_updated",
+      ].includes(notif.type)
     ) {
       navigate("/dashboard/tickets");
     }
@@ -178,7 +184,8 @@ export default function Notifications() {
   };
 
   const handleClearAll = async () => {
-    if (!window.confirm("Clear all notifications? This cannot be undone.")) return;
+    if (!window.confirm("Clear all notifications? This cannot be undone."))
+      return;
     const res = await clearAll();
     if (res.success) {
       setNotifications([]);
@@ -201,22 +208,64 @@ export default function Notifications() {
   // ── Icon by type ──
   const getNotifIcon = (type) => {
     const iconMap = {
-      new_message: { bg: "bg-green-100", color: "text-green-600", Icon: MessageSquare },
-      contact_assigned: { bg: "bg-blue-100", color: "text-blue-600", Icon: UserCheck },
-      conversation_reopened: { bg: "bg-amber-100", color: "text-amber-600", Icon: RefreshCw },
-      broadcast_completed: { bg: "bg-purple-100", color: "text-purple-600", Icon: Megaphone },
-      new_ticket: { bg: "bg-blue-100", color: "text-blue-600", Icon: TicketCheck },
-      ticket_reply: { bg: "bg-indigo-100", color: "text-indigo-600", Icon: MessageSquare },
-      ticket_escalated: { bg: "bg-orange-100", color: "text-orange-600", Icon: AlertCircle },
-      ticket_resolved: { bg: "bg-emerald-100", color: "text-emerald-600", Icon: CheckCircle2 },
-      ticket_status_updated: { bg: "bg-emerald-100", color: "text-emerald-600", Icon: CheckCircle2 },
+      new_message: {
+        bg: "bg-green-100",
+        color: "text-green-600",
+        Icon: MessageSquare,
+      },
+      contact_assigned: {
+        bg: "bg-blue-100",
+        color: "text-blue-600",
+        Icon: UserCheck,
+      },
+      conversation_reopened: {
+        bg: "bg-amber-100",
+        color: "text-amber-600",
+        Icon: RefreshCw,
+      },
+      broadcast_completed: {
+        bg: "bg-purple-100",
+        color: "text-purple-600",
+        Icon: Megaphone,
+      },
+      new_ticket: {
+        bg: "bg-blue-100",
+        color: "text-blue-600",
+        Icon: TicketCheck,
+      },
+      ticket_reply: {
+        bg: "bg-indigo-100",
+        color: "text-indigo-600",
+        Icon: MessageSquare,
+      },
+      ticket_escalated: {
+        bg: "bg-orange-100",
+        color: "text-orange-600",
+        Icon: AlertCircle,
+      },
+      ticket_resolved: {
+        bg: "bg-emerald-100",
+        color: "text-emerald-600",
+        Icon: CheckCircle2,
+      },
+      ticket_status_updated: {
+        bg: "bg-emerald-100",
+        color: "text-emerald-600",
+        Icon: CheckCircle2,
+      },
     };
 
-    const config = iconMap[type] || { bg: "bg-gray-100", color: "text-gray-600", Icon: Bell };
+    const config = iconMap[type] || {
+      bg: "bg-gray-100",
+      color: "text-gray-600",
+      Icon: Bell,
+    };
     const { bg, color, Icon } = config;
 
     return (
-      <div className={`w-10 h-10 rounded-full ${bg} flex items-center justify-center shrink-0`}>
+      <div
+        className={`w-10 h-10 rounded-full ${bg} flex items-center justify-center shrink-0`}
+      >
         <Icon size={18} className={color} />
       </div>
     );
@@ -269,7 +318,9 @@ export default function Notifications() {
             className="p-2.5 hover:bg-slate-100 rounded-xl transition"
             title="Refresh"
           >
-            <RefreshCw className={`w-4 h-4 text-slate-600 ${loading ? "animate-spin" : ""}`} />
+            <RefreshCw
+              className={`w-4 h-4 text-slate-600 ${loading ? "animate-spin" : ""}`}
+            />
           </button>
           {unreadCount > 0 && (
             <button
@@ -362,11 +413,13 @@ export default function Notifications() {
               {searchQuery
                 ? "No matching notifications"
                 : filter === "unread"
-                ? "No unread notifications"
-                : "No notifications yet"}
+                  ? "No unread notifications"
+                  : "No notifications yet"}
             </p>
             <p className="text-xs text-slate-400 mt-1">
-              {searchQuery ? "Try a different search term" : "You're all caught up!"}
+              {searchQuery
+                ? "Try a different search term"
+                : "You're all caught up!"}
             </p>
           </div>
         ) : (
@@ -382,7 +435,9 @@ export default function Notifications() {
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-2">
-                  <p className={`text-sm text-slate-800 ${!notif.isRead ? "font-bold" : "font-semibold"}`}>
+                  <p
+                    className={`text-sm text-slate-800 ${!notif.isRead ? "font-bold" : "font-semibold"}`}
+                  >
                     {notif.title}
                   </p>
                   <span className="text-[11px] text-slate-400 shrink-0 mt-0.5">
