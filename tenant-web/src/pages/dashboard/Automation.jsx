@@ -431,7 +431,7 @@ export default function Automation() {
       }
     } catch (err) {
       console.error(err);
-      toast.error('Failed to load flows')
+      toast.error("Failed to load flows");
     } finally {
       setLoading(false);
     }
@@ -510,7 +510,7 @@ export default function Automation() {
     }
   };
 
-    const handleToggleDefault = async (flow) => {
+  const handleToggleDefault = async (flow) => {
     if (!isWhatsAppConnected) {
       setShowConnectModal(true);
       return;
@@ -714,9 +714,11 @@ export default function Automation() {
                   Keywords
                 </button>
 
-                                <button
+                <button
                   onClick={() => handleToggleDefault(flow)}
-                  title={flow.isDefault ? "Remove default setting" : "Set as default"}
+                  title={
+                    flow.isDefault ? "Remove default setting" : "Set as default"
+                  }
                   className={`p-2 rounded-lg transition ${
                     flow.isDefault
                       ? "bg-amber-50 text-amber-600 hover:bg-amber-100"
@@ -725,7 +727,9 @@ export default function Automation() {
                 >
                   <Star
                     size={16}
-                    className={flow.isDefault ? "fill-amber-400 text-amber-500" : ""}
+                    className={
+                      flow.isDefault ? "fill-amber-400 text-amber-500" : ""
+                    }
                   />
                 </button>
 

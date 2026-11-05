@@ -7,7 +7,7 @@ import AdminLayout from "../layouts/AdminLayout";
 import Dashboard from "../pages/dashboard/Dashboard";
 import Tenants from "../pages/dashboard/Tenants";
 import Reports from "../pages/dashboard/Reports";
-import  SubscriptionPlans from "../pages/dashboard/SubscriptionPlans"
+import SubscriptionPlans from "../pages/dashboard/SubscriptionPlans";
 import Settings from "../pages/dashboard/Settings";
 import NotFound from "../pages/NotFound";
 import ResetPasswordPage from "../pages/auth/ResetPasswordPage";
@@ -22,7 +22,7 @@ import EnterpriseLeadDetail from "../pages/dashboard/EnterpriseLeadDetail";
 
 import SubscriptionManagement from "../pages/admin/SubscriptionManagement";
 import AuditLogs from "../pages/dashboard/AuditLogs";
-import Notifications from "../pages/dashboard/Notifications"; 
+import Notifications from "../pages/dashboard/Notifications";
 
 function App() {
   return (
@@ -38,7 +38,10 @@ function App() {
       {/* Protected Admin Routes */}
       <Route element={<AdminLayout />}>
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/dashboard/subscription-plans" element={<SubscriptionPlans />} />
+        <Route
+          path="/dashboard/subscription-plans"
+          element={<SubscriptionPlans />}
+        />
         <Route path="/dashboard/tenants" element={<Tenants />} />
         <Route path="/dashboard/reports" element={<Reports />} />
         <Route path="/dashboard/settings" element={<Settings />} />
@@ -46,19 +49,28 @@ function App() {
         <Route path="/dashboard/revenue" element={<Revenue />} />
         <Route path="/dashboard/audit-logs" element={<AuditLogs />} />
         <Route path="/dashboard/notifications" element={<Notifications />} />
-        
+
         {/* Enquiry Routes */}
         <Route path="/dashboard/enquiries" element={<Enquiries />} />
         <Route path="/dashboard/enquiries/:id" element={<EnquiryDetail />} />
 
         {/* Enterprise Lead Routes */}
-        <Route path="/dashboard/enterprise-leads" element={<Navigate to="/dashboard/enquiries?tab=enterprise" replace />} />
-        <Route path="/dashboard/enterprise-leads/:id" element={<EnterpriseLeadDetail />} />
+        <Route
+          path="/dashboard/enterprise-leads"
+          element={
+            <Navigate to="/dashboard/enquiries?tab=enterprise" replace />
+          }
+        />
+        <Route
+          path="/dashboard/enterprise-leads/:id"
+          element={<EnterpriseLeadDetail />}
+        />
 
         {/* Subscriptions unified with Tenants */}
-        <Route path="/dashboard/subscriptions" element={<Navigate to="/dashboard/tenants" replace />} />
-
-   
+        <Route
+          path="/dashboard/subscriptions"
+          element={<Navigate to="/dashboard/tenants" replace />}
+        />
       </Route>
 
       {/* Fallback */}

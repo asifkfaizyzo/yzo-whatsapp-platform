@@ -6,7 +6,7 @@ import * as notificationService from "./superadminNotification.service.js";
 export const getNotifications = async (req, res) => {
   try {
     const notifications = await notificationService.getNotifications();
-    const unreadCount   = await notificationService.getUnreadCount();
+    const unreadCount = await notificationService.getUnreadCount();
 
     return res.status(200).json({
       success: true,
@@ -62,8 +62,6 @@ export const clearAll = async (req, res) => {
     });
   }
 };
-
-
 
 // ── 🆕 Get paginated notifications ──
 export const getPaginatedNotifications = async (req, res) => {

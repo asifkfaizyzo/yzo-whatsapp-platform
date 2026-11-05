@@ -1,9 +1,9 @@
 // backend/src/cron/queues/broadcast.queue.js (do not remove this comment)
-import { Queue } from 'bullmq';
-import { defaultQueueOptions } from '../../config/bullmq.js';
+import { Queue } from "bullmq";
+import { defaultQueueOptions } from "../../config/bullmq.js";
 
-export const QUEUE_NAME_BROADCAST = 'broadcast-messages';
+export const QUEUE_NAME_BROADCAST = "broadcast-messages";
 
 export const broadcastQueue = new Queue(QUEUE_NAME_BROADCAST, {
-  ...defaultQueueOptions
+  ...defaultQueueOptions,
 });

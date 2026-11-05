@@ -12,7 +12,6 @@
 //   );
 // }
 
-
 import React from "react";
 
 export default function WooCommerceLogo({ className = "w-10 h-10" }) {

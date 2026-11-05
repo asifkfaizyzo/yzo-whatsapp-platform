@@ -1,13 +1,13 @@
 // tenant-web/src/components/automation/NodeTypes/PaymentNode.jsx (do not remove this comment)
-import { Handle, Position } from 'reactflow';
-import { CreditCard, X } from 'lucide-react';
-import { useReactFlow } from 'reactflow';
+import { Handle, Position } from "reactflow";
+import { CreditCard, X } from "lucide-react";
+import { useReactFlow } from "reactflow";
 
 const handleStyle = {
   width: 10,
   height: 10,
-  background: '#10b981',
-  border: '2px solid white',
+  background: "#10b981",
+  border: "2px solid white",
 };
 
 export default function PaymentNode({ id, data, selected }) {
@@ -21,7 +21,7 @@ export default function PaymentNode({ id, data, selected }) {
   return (
     <div
       className={`bg-white rounded-xl border-2 p-3 w-60 shadow-sm transition
-        ${selected ? 'border-emerald-500 shadow-md ring-2 ring-emerald-100' : 'border-slate-200 hover:border-emerald-300'}`}
+        ${selected ? "border-emerald-500 shadow-md ring-2 ring-emerald-100" : "border-slate-200 hover:border-emerald-300"}`}
     >
       <Handle type="target" position={Position.Left} style={handleStyle} />
 
@@ -43,7 +43,7 @@ export default function PaymentNode({ id, data, selected }) {
       </div>
 
       <p className="text-xs text-slate-600 bg-slate-50 rounded-lg p-2 mb-2 line-clamp-2">
-        {data.content || 'Please complete your payment using the button below:'}
+        {data.content || "Please complete your payment using the button below:"}
       </p>
 
       <div className="bg-emerald-50/80 border border-emerald-200 rounded-lg py-1.5 px-2.5 text-center flex items-center justify-center gap-1.5">

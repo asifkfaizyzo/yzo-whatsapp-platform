@@ -151,7 +151,6 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
-
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -185,7 +184,6 @@ export default function SettingsPage() {
 
       {/* Layout */}
       <div className="grid gap-6 md:grid-cols-4 items-start">
-
         {/* Tab Sidebar */}
         <div className="card border border-slate-100 p-2 flex flex-row md:flex-col gap-1 overflow-x-auto shrink-0 bg-white">
           {tabs.map((tab) => (
@@ -210,7 +208,6 @@ export default function SettingsPage() {
 
         {/* Content Panel */}
         <div className="card border border-slate-100 p-6 md:col-span-3 bg-white">
-
           {/* ════ Tab 1: General ════ */}
           {activeTab === "platform" && (
             <form onSubmit={handleSavePlatform} className="space-y-4">
@@ -279,7 +276,9 @@ export default function SettingsPage() {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="label text-xs">Master Phone Number ID</label>
+                  <label className="label text-xs">
+                    Master Phone Number ID
+                  </label>
                   <input
                     type="text"
                     value={gateway.masterPhoneId}
@@ -343,7 +342,6 @@ export default function SettingsPage() {
                 </div>
               ) : (
                 <form onSubmit={handleSaveTax} className="space-y-6">
-
                   <h2 className="text-base font-bold text-slate-800 pb-3 border-b border-slate-100">
                     Tax & GST Configuration
                   </h2>
@@ -618,7 +616,6 @@ export default function SettingsPage() {
                       📋 Live Preview — Sample ₹1,000 Plan
                     </p>
                     <div className="space-y-1.5 text-xs">
-
                       {/* Base */}
                       <div className="flex justify-between text-slate-600">
                         <span>Subtotal (Base Price)</span>
@@ -661,7 +658,6 @@ export default function SettingsPage() {
                           })}
                         </span>
                       </div>
-
                     </div>
                   </div>
 
@@ -685,12 +681,10 @@ export default function SettingsPage() {
                       )}
                     </button>
                   </div>
-
                 </form>
               )}
             </>
           )}
-
         </div>
       </div>
     </div>

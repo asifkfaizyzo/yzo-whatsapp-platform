@@ -7,8 +7,8 @@ import {
   getCampaignsDataService,
   getAgentPerformanceDataService,
   getFilterOptionsService,
-  exportAnalyticsDataService
-} from './analytics.service.js';
+  exportAnalyticsDataService,
+} from "./analytics.service.js";
 
 export const getOverview = async (req, res, next) => {
   try {
@@ -67,9 +67,9 @@ export const getFilters = async (req, res, next) => {
 export const exportData = async (req, res, next) => {
   try {
     const csvString = await exportAnalyticsDataService(req.tenantId, req.query);
-    const filename = `analytics-report-${new Date().toISOString().split('T')[0]}.csv`;
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    const filename = `analytics-report-${new Date().toISOString().split("T")[0]}.csv`;
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
     return res.status(200).send(csvString);
   } catch (error) {
     next(error);

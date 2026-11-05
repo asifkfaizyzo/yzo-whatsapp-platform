@@ -4,22 +4,27 @@
 // Separate from the contact upload middleware so we can enforce
 // template-specific size limits and storage paths independently.
 
-import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 
 // ── Allowed MIME types per Meta template header limits ──────────────────────
-const ALLOWED_IMAGE_MIMES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-const ALLOWED_VIDEO_MIMES = ['video/mp4', 'video/3gpp'];
+const ALLOWED_IMAGE_MIMES = [
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+];
+const ALLOWED_VIDEO_MIMES = ["video/mp4", "video/3gpp"];
 const ALLOWED_DOCUMENT_MIMES = [
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'application/vnd.ms-powerpoint',
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-  'text/plain',
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "text/plain",
 ];
 
 export const TEMPLATE_MEDIA_MIMES = [
@@ -30,9 +35,9 @@ export const TEMPLATE_MEDIA_MIMES = [
 
 // ── Size limits per Meta template header spec ────────────────────────────────
 export const TEMPLATE_SIZE_LIMITS = {
-  IMAGE:    5  * 1024 * 1024,  // 5 MB
-  VIDEO:    16 * 1024 * 1024,  // 16 MB
-  DOCUMENT: 16 * 1024 * 1024,  // 16 MB
+  IMAGE: 5 * 1024 * 1024, // 5 MB
+  VIDEO: 16 * 1024 * 1024, // 16 MB
+  DOCUMENT: 16 * 1024 * 1024, // 16 MB
 };
 
 // ── Storage ──────────────────────────────────────────────────────────────────
@@ -41,10 +46,13 @@ const storage = multer.diskStorage({
     // tenantId is always from auth middleware — never from request body/query
     const tenantId = req.tenantId;
     if (!tenantId) {
-      return cb(new Error('Unauthorized: tenantId missing from auth context'), null);
+      return cb(
+        new Error("Unauthorized: tenantId missing from auth context"),
+        null,
+      );
     }
 
-    const uploadPath = path.join('uploads', 'tenants', tenantId, 'templates');
+    const uploadPath = path.join("uploads", "tenants", tenantId, "templates");
     fs.mkdirSync(uploadPath, { recursive: true });
     cb(null, uploadPath);
   },
@@ -53,8 +61,8 @@ const storage = multer.diskStorage({
     const ext = path.extname(file.originalname).toLowerCase();
     const base = path
       .basename(file.originalname, ext)
-      .replace(/\s+/g, '_')
-      .replace(/[^a-zA-Z0-9_-]/g, '')
+      .replace(/\s+/g, "_")
+      .replace(/[^a-zA-Z0-9_-]/g, "")
       .substring(0, 50);
     cb(null, `${Date.now()}_${base}${ext}`);
   },
@@ -68,9 +76,9 @@ const fileFilter = (_req, file, cb) => {
     cb(
       new Error(
         `Unsupported file type for template header: ${file.mimetype}. ` +
-        `Allowed: JPEG, PNG, WebP (image); MP4, 3GP (video); PDF, Word, Excel, PowerPoint, TXT (document).`
+          `Allowed: JPEG, PNG, WebP (image); MP4, 3GP (video); PDF, Word, Excel, PowerPoint, TXT (document).`,
       ),
-      false
+      false,
     );
   }
 };
@@ -90,7 +98,8 @@ export default templateUpload;
 export function validateTemplateMediaSize(file, headerType) {
   if (!file) return null;
 
-  const limit = TEMPLATE_SIZE_LIMITS[headerType] || TEMPLATE_SIZE_LIMITS.DOCUMENT;
+  const limit =
+    TEMPLATE_SIZE_LIMITS[headerType] || TEMPLATE_SIZE_LIMITS.DOCUMENT;
 
   if (file.size > limit) {
     const mb = (limit / (1024 * 1024)).toFixed(0);

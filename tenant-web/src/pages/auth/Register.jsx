@@ -48,7 +48,10 @@ const step2Schema = z.object({
 });
 
 const otpSchema = z.object({
-  otpCode: z.string().length(6, "Code must be exactly 6 digits").regex(/^\d+$/, "Code must be numbers only"),
+  otpCode: z
+    .string()
+    .length(6, "Code must be exactly 6 digits")
+    .regex(/^\d+$/, "Code must be numbers only"),
 });
 
 const step3Schema = z
@@ -58,7 +61,10 @@ const step3Schema = z
       .min(8, "Password must be at least 8 characters")
       .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
       .regex(/[0-9]/, "Password must contain at least one number")
-      .regex(/[!@#$%^&*]/, "Password must contain at least one special character"),
+      .regex(
+        /[!@#$%^&*]/,
+        "Password must contain at least one special character",
+      ),
     confirmPassword: z.string().min(8, "Confirm password is required"),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -219,7 +225,10 @@ export default function Register() {
     formState: { errors: err1 },
   } = useForm({
     resolver: zodResolver(step1Schema),
-    defaultValues: { firstName: user?.firstName || "", lastName: user?.lastName || "" },
+    defaultValues: {
+      firstName: user?.firstName || "",
+      lastName: user?.lastName || "",
+    },
   });
 
   const {
@@ -263,7 +272,10 @@ export default function Register() {
   } = useForm({
     resolver: zodResolver(step4Schema),
     defaultValues: {
-      tenantName: user?.tenantName && !user.tenantName.endsWith("'s Workspace") ? user.tenantName : "",
+      tenantName:
+        user?.tenantName && !user.tenantName.endsWith("'s Workspace")
+          ? user.tenantName
+          : "",
       websiteUrl: user?.websiteUrl || "",
     },
   });
@@ -275,7 +287,11 @@ export default function Register() {
     formState: { errors: err5 },
   } = useForm({
     resolver: zodResolver(step5Schema),
-    defaultValues: { phone: user?.phone || "", companySize: user?.companySize || "", useCase: user?.useCase || "" },
+    defaultValues: {
+      phone: user?.phone || "",
+      companySize: user?.companySize || "",
+      useCase: user?.useCase || "",
+    },
   });
 
   // Keep step forms populated when user profile finishes loading
@@ -384,11 +400,33 @@ export default function Register() {
 
   // Step Meta Configuration
   const stepsMeta = {
-    1: { title: "What is your name?", subtitle: "Let's start with your first and last name.", label: "Personal info" },
-    2: { title: "What is your work email?", subtitle: "We will use this email for account verification.", label: "Enter email" },
-    3: { title: "Set your password", subtitle: "Make sure it is secure and contains numbers, symbols, and capitals.", label: "Secure account" },
-    4: { title: "Tell us about your company", subtitle: "Please provide your company name and website.", label: "Company details" },
-    5: { title: "Finish setting up your workspace", subtitle: "Please provide your business contact details and target use case.", label: "Workspace launch" },
+    1: {
+      title: "What is your name?",
+      subtitle: "Let's start with your first and last name.",
+      label: "Personal info",
+    },
+    2: {
+      title: "What is your work email?",
+      subtitle: "We will use this email for account verification.",
+      label: "Enter email",
+    },
+    3: {
+      title: "Set your password",
+      subtitle:
+        "Make sure it is secure and contains numbers, symbols, and capitals.",
+      label: "Secure account",
+    },
+    4: {
+      title: "Tell us about your company",
+      subtitle: "Please provide your company name and website.",
+      label: "Company details",
+    },
+    5: {
+      title: "Finish setting up your workspace",
+      subtitle:
+        "Please provide your business contact details and target use case.",
+      label: "Workspace launch",
+    },
   };
 
   const watchedPassword = watch3("password");
@@ -407,9 +445,12 @@ export default function Register() {
             <div className="absolute inset-0 h-20 w-20 rounded-full border-2 border-emerald-500/20 sr-pulse-dot pointer-events-none" />
           </div>
 
-          <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Onboarding complete!</h2>
+          <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
+            Onboarding complete!
+          </h2>
           <p className="mt-3 text-slate-500 text-sm max-w-sm leading-relaxed">
-            Your workspace has been successfully set up. We are redirecting you to select a subscription plan to activate full platform features.
+            Your workspace has been successfully set up. We are redirecting you
+            to select a subscription plan to activate full platform features.
           </p>
 
           <div className="mt-8 flex items-center gap-2 text-sm text-[#125fe2] font-medium bg-[rgba(18,95,226,0.08)] px-4 py-2 rounded-full">
@@ -428,26 +469,98 @@ export default function Register() {
       {/* Left panel */}
       <div
         className="hidden lg:flex w-5/12 min-h-screen p-12 text-white flex-col justify-between relative overflow-hidden"
-        style={{ background: "linear-gradient(160deg, #0c3aa6 0%, #125fe2 46%, #1547a8 100%)" }}
+        style={{
+          background:
+            "linear-gradient(160deg, #0c3aa6 0%, #125fe2 46%, #1547a8 100%)",
+        }}
       >
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:28px_28px] pointer-events-none" />
         <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-white/5 blur-[110px] pointer-events-none" />
         <div className="absolute -bottom-40 -right-24 w-96 h-96 rounded-full bg-[#0c3aa6]/40 blur-[110px] pointer-events-none" />
 
         {/* Message constellation — signature illustration */}
-        <div className="absolute inset-0 pointer-events-none select-none" aria-hidden="true">
-          <div className="absolute sr-bubble-a" style={{ top: "14%", left: "8%", width: 92, height: 34, background: "rgba(255,255,255,0.07)", borderRadius: "16px 16px 16px 4px" }} />
-          <div className="absolute sr-bubble-b" style={{ top: "22%", left: "62%", width: 70, height: 28, background: "rgba(255,255,255,0.10)", borderRadius: "16px 16px 4px 16px" }} />
-          <div className="absolute sr-bubble-c" style={{ top: "38%", left: "18%", width: 56, height: 24, background: "rgba(255,255,255,0.06)", borderRadius: "16px 16px 16px 4px" }} />
-          <div className="absolute sr-bubble-a" style={{ top: "46%", left: "70%", width: 84, height: 30, background: "rgba(255,255,255,0.08)", borderRadius: "16px 16px 4px 16px" }} />
-          <div className="absolute sr-bubble-b" style={{ top: "62%", left: "6%", width: 64, height: 26, background: "rgba(255,255,255,0.06)", borderRadius: "16px 16px 16px 4px" }} />
-          <div className="absolute rounded-full bg-emerald-400 sr-pulse-dot" style={{ top: "31%", left: "56%", width: 8, height: 8 }} />
-          <div className="absolute rounded-full bg-white/40 sr-pulse-dot" style={{ top: "57%", left: "24%", width: 6, height: 6, animationDelay: "0.8s" }} />
+        <div
+          className="absolute inset-0 pointer-events-none select-none"
+          aria-hidden="true"
+        >
+          <div
+            className="absolute sr-bubble-a"
+            style={{
+              top: "14%",
+              left: "8%",
+              width: 92,
+              height: 34,
+              background: "rgba(255,255,255,0.07)",
+              borderRadius: "16px 16px 16px 4px",
+            }}
+          />
+          <div
+            className="absolute sr-bubble-b"
+            style={{
+              top: "22%",
+              left: "62%",
+              width: 70,
+              height: 28,
+              background: "rgba(255,255,255,0.10)",
+              borderRadius: "16px 16px 4px 16px",
+            }}
+          />
+          <div
+            className="absolute sr-bubble-c"
+            style={{
+              top: "38%",
+              left: "18%",
+              width: 56,
+              height: 24,
+              background: "rgba(255,255,255,0.06)",
+              borderRadius: "16px 16px 16px 4px",
+            }}
+          />
+          <div
+            className="absolute sr-bubble-a"
+            style={{
+              top: "46%",
+              left: "70%",
+              width: 84,
+              height: 30,
+              background: "rgba(255,255,255,0.08)",
+              borderRadius: "16px 16px 4px 16px",
+            }}
+          />
+          <div
+            className="absolute sr-bubble-b"
+            style={{
+              top: "62%",
+              left: "6%",
+              width: 64,
+              height: 26,
+              background: "rgba(255,255,255,0.06)",
+              borderRadius: "16px 16px 16px 4px",
+            }}
+          />
+          <div
+            className="absolute rounded-full bg-emerald-400 sr-pulse-dot"
+            style={{ top: "31%", left: "56%", width: 8, height: 8 }}
+          />
+          <div
+            className="absolute rounded-full bg-white/40 sr-pulse-dot"
+            style={{
+              top: "57%",
+              left: "24%",
+              width: 6,
+              height: 6,
+              animationDelay: "0.8s",
+            }}
+          />
         </div>
 
         <div className="relative z-10">
           <Link to="/" className="inline-flex items-center">
-            <img src="/sudo2.png" alt="SudoReply Logo" className="w-14 h-14 object-contain filter drop-shadow-md brightness-110" />
+            <img
+              src="/sudo2.png"
+              alt="SudoReply Logo"
+              className="w-14 h-14 object-contain filter drop-shadow-md brightness-110"
+            />
           </Link>
         </div>
 
@@ -459,18 +572,25 @@ export default function Register() {
             Scale your customer relationships on WhatsApp.
           </h1>
           <p className="mt-6 max-w-md text-[15px] leading-relaxed text-blue-100/70">
-            Enterprises rely on SudoReply to orchestrate bulk campaigns, maintain shared team inboxes, and process customer interactions on Meta's official WhatsApp Cloud API.
+            Enterprises rely on SudoReply to orchestrate bulk campaigns,
+            maintain shared team inboxes, and process customer interactions on
+            Meta's official WhatsApp Cloud API.
           </p>
         </div>
 
         <div className="relative z-10 space-y-3">
           {benefits.map((item) => (
-            <div key={item.title} className="rounded-2xl border border-white/10 bg-white/[0.06] p-4 backdrop-blur-md transition-colors duration-200 hover:bg-white/[0.09]">
+            <div
+              key={item.title}
+              className="rounded-2xl border border-white/10 bg-white/[0.06] p-4 backdrop-blur-md transition-colors duration-200 hover:bg-white/[0.09]"
+            >
               <h3 className="font-semibold text-white text-sm flex items-center gap-2">
                 <CheckIcon />
                 {item.title}
               </h3>
-              <p className="mt-1 text-[13px] text-blue-100/60 leading-relaxed pl-6">{item.text}</p>
+              <p className="mt-1 text-[13px] text-blue-100/60 leading-relaxed pl-6">
+                {item.text}
+              </p>
             </div>
           ))}
         </div>
@@ -481,11 +601,18 @@ export default function Register() {
         {/* Mobile Branding */}
         <div className="flex flex-col items-center text-center lg:hidden mb-8">
           <Link to="/" className="inline-flex items-center mb-4">
-            <img src="/sudo2.png" alt="SudoReply Logo" className="w-14 h-14 object-contain" />
+            <img
+              src="/sudo2.png"
+              alt="SudoReply Logo"
+              className="w-14 h-14 object-contain"
+            />
           </Link>
-          <h1 className="text-[1.75rem] font-bold text-slate-900 tracking-tight">Create your account</h1>
+          <h1 className="text-[1.75rem] font-bold text-slate-900 tracking-tight">
+            Create your account
+          </h1>
           <p className="mt-2 text-sm text-slate-500 max-w-sm">
-            Launch your company WhatsApp platform and start interacting at scale.
+            Launch your company WhatsApp platform and start interacting at
+            scale.
           </p>
         </div>
 
@@ -551,23 +678,34 @@ export default function Register() {
                       <div className="w-full border-t border-slate-200"></div>
                     </div>
                     <div className="relative flex justify-center">
-                      <span className="bg-white px-3 text-xs font-medium text-slate-400 tracking-wide">Or continue with</span>
+                      <span className="bg-white px-3 text-xs font-medium text-slate-400 tracking-wide">
+                        Or continue with
+                      </span>
                     </div>
                   </div>
                 </>
               )}
 
               <div className={step === 1 ? "text-center" : ""}>
-                <h2 className="text-[1.6rem] font-bold text-slate-900 tracking-tight">{stepsMeta[step]?.title}</h2>
-                <p className="text-sm text-slate-500 mt-1.5">{stepsMeta[step]?.subtitle}</p>
+                <h2 className="text-[1.6rem] font-bold text-slate-900 tracking-tight">
+                  {stepsMeta[step]?.title}
+                </h2>
+                <p className="text-sm text-slate-500 mt-1.5">
+                  {stepsMeta[step]?.subtitle}
+                </p>
               </div>
 
               {step === 1 && (
                 <>
-                  <form onSubmit={handleSub1(onStep1Submit)} className="space-y-5">
+                  <form
+                    onSubmit={handleSub1(onStep1Submit)}
+                    className="space-y-5"
+                  >
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-slate-600 mb-1.5">First name <span className="text-red-500">*</span></label>
+                        <label className="block text-sm font-medium text-slate-600 mb-1.5">
+                          First name <span className="text-red-500">*</span>
+                        </label>
                         <div className="relative">
                           <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
                             <User className="h-4 w-4" />
@@ -582,7 +720,9 @@ export default function Register() {
                         <FormError message={err1.firstName?.message} />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-slate-600 mb-1.5">Last name <span className="text-red-500">*</span></label>
+                        <label className="block text-sm font-medium text-slate-600 mb-1.5">
+                          Last name <span className="text-red-500">*</span>
+                        </label>
                         <div className="relative">
                           <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
                             <User className="h-4 w-4" />
@@ -613,122 +753,154 @@ export default function Register() {
                       )}
                     </button>
                   </form>
-
                 </>
               )}
 
-                {step === 2 && (
-                  <>
-                    {!showOtpInput ? (
-                      <form onSubmit={handleSub2(onStep2Submit)} className="space-y-5">
-                        <div>
-                          <label className="block text-sm font-medium text-slate-600 mb-1.5">Work email <span className="text-red-500">*</span></label>
-                          <div className="relative">
-                            <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
-                              <Mail className="h-4 w-4" />
-                            </span>
-                            <input
-                              className={`sr-input pl-10 pr-3.5 ${err2.email ? "sr-input-error" : ""}`}
-                              type="email"
-                              placeholder="jane.doe@company.com"
-                              {...reg2("email")}
-                            />
-                          </div>
-                          <FormError message={err2.email?.message} />
+              {step === 2 && (
+                <>
+                  {!showOtpInput ? (
+                    <form
+                      onSubmit={handleSub2(onStep2Submit)}
+                      className="space-y-5"
+                    >
+                      <div>
+                        <label className="block text-sm font-medium text-slate-600 mb-1.5">
+                          Work email <span className="text-red-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
+                            <Mail className="h-4 w-4" />
+                          </span>
+                          <input
+                            className={`sr-input pl-10 pr-3.5 ${err2.email ? "sr-input-error" : ""}`}
+                            type="email"
+                            placeholder="jane.doe@company.com"
+                            {...reg2("email")}
+                          />
                         </div>
+                        <FormError message={err2.email?.message} />
+                      </div>
 
-                        <div className="flex gap-4 mt-2">
-                          <button
-                            type="button"
-                            onClick={handleLogout}
-                            className="sr-btn-secondary flex-1 justify-center items-center flex gap-2"
-                          >
-                            <ArrowLeft className="h-4 w-4" />
-                            Logout
-                          </button>
-                          <button
-                            type="submit"
-                            disabled={isLoading}
-                            className="sr-btn-primary flex-1 justify-center items-center flex gap-2"
-                          >
-                            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Continue <ArrowRight className="h-4 w-4" /></>}
-                          </button>
+                      <div className="flex gap-4 mt-2">
+                        <button
+                          type="button"
+                          onClick={handleLogout}
+                          className="sr-btn-secondary flex-1 justify-center items-center flex gap-2"
+                        >
+                          <ArrowLeft className="h-4 w-4" />
+                          Logout
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={isLoading}
+                          className="sr-btn-primary flex-1 justify-center items-center flex gap-2"
+                        >
+                          {isLoading ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <>
+                              Continue <ArrowRight className="h-4 w-4" />
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <form
+                      onSubmit={handleSubOtp(onOtpSubmit)}
+                      className="space-y-5"
+                    >
+                      <div>
+                        <label className="block text-sm font-medium text-slate-600 mb-1.5">
+                          Verification Code{" "}
+                          <span className="text-red-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
+                            <Lock className="h-4 w-4" />
+                          </span>
+                          <input
+                            className={`sr-input pl-10 pr-3.5 text-center font-mono letter-spacing-10 ${errOtp.otpCode ? "sr-input-error" : ""}`}
+                            type="text"
+                            maxLength={6}
+                            placeholder="000000"
+                            {...regOtp("otpCode")}
+                          />
                         </div>
-                      </form>
-                    ) : (
-                      <form onSubmit={handleSubOtp(onOtpSubmit)} className="space-y-5">
-                        <div>
-                          <label className="block text-sm font-medium text-slate-600 mb-1.5">Verification Code <span className="text-red-500">*</span></label>
-                          <div className="relative">
-                            <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
-                              <Lock className="h-4 w-4" />
-                            </span>
-                            <input
-                              className={`sr-input pl-10 pr-3.5 text-center font-mono letter-spacing-10 ${errOtp.otpCode ? "sr-input-error" : ""}`}
-                              type="text"
-                              maxLength={6}
-                              placeholder="000000"
-                              {...regOtp("otpCode")}
-                            />
-                          </div>
-                          <FormError message={errOtp.otpCode?.message} />
-                          <p className="mt-2 text-xs text-slate-500">We've sent a 6-digit verification code to your email.</p>
-                        </div>
+                        <FormError message={errOtp.otpCode?.message} />
+                        <p className="mt-2 text-xs text-slate-500">
+                          We've sent a 6-digit verification code to your email.
+                        </p>
+                      </div>
 
-                        <div className="flex justify-between items-center text-xs">
-                          <button
-                            type="button"
-                            onClick={() => setShowOtpInput(false)}
-                            className="text-[#125fe2] hover:underline font-medium"
-                          >
-                            Change Email
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const emailToResend = getVal2("email") || user?.email;
-                              if (!emailToResend) {
-                                setGeneralError("Please enter your email address first.");
-                                return;
-                              }
-                              onStep2Submit({ email: emailToResend }, true);
-                            }}
-                            disabled={isLoading}
-                            className="text-slate-500 hover:text-slate-700 hover:underline font-medium disabled:opacity-50"
-                          >
-                            Resend Code
-                          </button>
-                        </div>
+                      <div className="flex justify-between items-center text-xs">
+                        <button
+                          type="button"
+                          onClick={() => setShowOtpInput(false)}
+                          className="text-[#125fe2] hover:underline font-medium"
+                        >
+                          Change Email
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const emailToResend =
+                              getVal2("email") || user?.email;
+                            if (!emailToResend) {
+                              setGeneralError(
+                                "Please enter your email address first.",
+                              );
+                              return;
+                            }
+                            onStep2Submit({ email: emailToResend }, true);
+                          }}
+                          disabled={isLoading}
+                          className="text-slate-500 hover:text-slate-700 hover:underline font-medium disabled:opacity-50"
+                        >
+                          Resend Code
+                        </button>
+                      </div>
 
-                        <div className="flex gap-4 mt-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setShowOtpInput(false);
-                              resetOtpForm();
-                            }}
-                            className="sr-btn-secondary flex-1 justify-center items-center flex gap-2"
-                          >
-                            <ArrowLeft className="h-4 w-4" />
-                            Back
-                          </button>
-                          <button
-                            type="submit"
-                            disabled={isLoading || watchedOtp?.length !== 6}
-                            className="sr-btn-primary flex-1 justify-center items-center flex gap-2"
-                          >
-                            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Verify Code <ArrowRight className="h-4 w-4" /></>}
-                          </button>
-                        </div>
-                      </form>
-                    )}
-                  </>
-                )}
+                      <div className="flex gap-4 mt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowOtpInput(false);
+                            resetOtpForm();
+                          }}
+                          className="sr-btn-secondary flex-1 justify-center items-center flex gap-2"
+                        >
+                          <ArrowLeft className="h-4 w-4" />
+                          Back
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={isLoading || watchedOtp?.length !== 6}
+                          className="sr-btn-primary flex-1 justify-center items-center flex gap-2"
+                        >
+                          {isLoading ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <>
+                              Verify Code <ArrowRight className="h-4 w-4" />
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </>
+              )}
 
               {step === 3 && (
-                <form onSubmit={handleSub3(onStep3Submit)} className="space-y-5">
+                <form
+                  onSubmit={handleSub3(onStep3Submit)}
+                  className="space-y-5"
+                >
                   <div>
-                    <label className="block text-sm font-medium text-slate-600 mb-1.5">Password <span className="text-red-500">*</span></label>
+                    <label className="block text-sm font-medium text-slate-600 mb-1.5">
+                      Password <span className="text-red-500">*</span>
+                    </label>
                     <div className="relative">
                       <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
                         <Lock className="h-4 w-4" />
@@ -743,10 +915,16 @@ export default function Register() {
                         type="button"
                         onClick={() => setShowPassword((v) => !v)}
                         tabIndex={-1}
-                        aria-label={showPassword ? "Hide password" : "Show password"}
+                        aria-label={
+                          showPassword ? "Hide password" : "Show password"
+                        }
                         className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
                       >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
                       </button>
                     </div>
                     <FormError message={err3.password?.message} />
@@ -755,15 +933,24 @@ export default function Register() {
                       <div className="mt-2 sr-animate-fade-in-slide">
                         <div className="flex gap-1.5">
                           {[0, 1, 2, 3].map((i) => (
-                            <div key={i} className="h-1.5 flex-1 rounded-full bg-slate-100 overflow-hidden">
+                            <div
+                              key={i}
+                              className="h-1.5 flex-1 rounded-full bg-slate-100 overflow-hidden"
+                            >
                               <div
                                 className="h-full rounded-full sr-strength-bar"
-                                style={{ width: i < strengthScore ? "100%" : "0%", backgroundColor: strengthLevel.color }}
+                                style={{
+                                  width: i < strengthScore ? "100%" : "0%",
+                                  backgroundColor: strengthLevel.color,
+                                }}
                               />
                             </div>
                           ))}
                         </div>
-                        <p className="mt-1.5 text-xs font-medium" style={{ color: strengthLevel.color }}>
+                        <p
+                          className="mt-1.5 text-xs font-medium"
+                          style={{ color: strengthLevel.color }}
+                        >
                           {strengthLevel.label}
                         </p>
                       </div>
@@ -771,7 +958,9 @@ export default function Register() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-600 mb-1.5">Confirm password <span className="text-red-500">*</span></label>
+                    <label className="block text-sm font-medium text-slate-600 mb-1.5">
+                      Confirm password <span className="text-red-500">*</span>
+                    </label>
                     <div className="relative">
                       <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
                         <Lock className="h-4 w-4" />
@@ -786,10 +975,18 @@ export default function Register() {
                         type="button"
                         onClick={() => setShowConfirmPassword((v) => !v)}
                         tabIndex={-1}
-                        aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                        aria-label={
+                          showConfirmPassword
+                            ? "Hide password"
+                            : "Show password"
+                        }
                         className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
                       >
-                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        {showConfirmPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
                       </button>
                     </div>
                     <FormError message={err3.confirmPassword?.message} />
@@ -809,16 +1006,27 @@ export default function Register() {
                       disabled={isLoading}
                       className="sr-btn-primary flex-1 justify-center items-center flex gap-2"
                     >
-                      {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Continue <ArrowRight className="h-4 w-4" /></>}
+                      {isLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          Continue <ArrowRight className="h-4 w-4" />
+                        </>
+                      )}
                     </button>
                   </div>
                 </form>
               )}
 
               {step === 4 && (
-                <form onSubmit={handleSub4(onStep4Submit)} className="space-y-5">
+                <form
+                  onSubmit={handleSub4(onStep4Submit)}
+                  className="space-y-5"
+                >
                   <div>
-                    <label className="block text-sm font-medium text-slate-600 mb-1.5">Company name <span className="text-red-500">*</span></label>
+                    <label className="block text-sm font-medium text-slate-600 mb-1.5">
+                      Company name <span className="text-red-500">*</span>
+                    </label>
                     <div className="relative">
                       <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
                         <Building2 className="h-4 w-4" />
@@ -833,7 +1041,9 @@ export default function Register() {
                     <FormError message={err4.tenantName?.message} />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-600 mb-1.5">Website URL</label>
+                    <label className="block text-sm font-medium text-slate-600 mb-1.5">
+                      Website URL
+                    </label>
                     <div className="relative">
                       <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
                         <Globe className="h-4 w-4" />
@@ -862,16 +1072,27 @@ export default function Register() {
                       disabled={isLoading}
                       className="sr-btn-primary flex-1 justify-center items-center flex gap-2"
                     >
-                      {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Continue <ArrowRight className="h-4 w-4" /></>}
+                      {isLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          Continue <ArrowRight className="h-4 w-4" />
+                        </>
+                      )}
                     </button>
                   </div>
                 </form>
               )}
 
               {step === 5 && (
-                <form onSubmit={handleSub5(onStep5Submit)} className="space-y-5">
+                <form
+                  onSubmit={handleSub5(onStep5Submit)}
+                  className="space-y-5"
+                >
                   <div>
-                    <label className="block text-sm font-medium text-slate-600 mb-1.5">Business phone <span className="text-red-500">*</span></label>
+                    <label className="block text-sm font-medium text-slate-600 mb-1.5">
+                      Business phone <span className="text-red-500">*</span>
+                    </label>
                     <div className="relative">
                       <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
                         <Phone className="h-4 w-4" />
@@ -886,7 +1107,9 @@ export default function Register() {
                     <FormError message={err5.phone?.message} />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-600 mb-1.5">Team size <span className="text-red-500">*</span></label>
+                    <label className="block text-sm font-medium text-slate-600 mb-1.5">
+                      Team size <span className="text-red-500">*</span>
+                    </label>
                     <div className="relative">
                       <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
                         <Users className="h-4 w-4" />
@@ -897,14 +1120,21 @@ export default function Register() {
                       >
                         <option value="">Select team size</option>
                         {companySizes.map((size) => (
-                          <option key={size} value={size}>{size}</option>
+                          <option key={size} value={size}>
+                            {size}
+                          </option>
                         ))}
                       </select>
                     </div>
                     <FormError message={err5.companySize?.message} />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-600 mb-1.5">Primary use case <span className="text-xs text-slate-400 font-normal">(Optional)</span></label>
+                    <label className="block text-sm font-medium text-slate-600 mb-1.5">
+                      Primary use case{" "}
+                      <span className="text-xs text-slate-400 font-normal">
+                        (Optional)
+                      </span>
+                    </label>
                     <div className="relative">
                       <span className="absolute left-0 pl-3.5 pt-3.5 flex items-start text-slate-400 pointer-events-none">
                         <MessageSquare className="h-4 w-4" />
@@ -932,7 +1162,13 @@ export default function Register() {
                       disabled={isLoading}
                       className="sr-btn-primary flex-1 justify-center items-center flex gap-2"
                     >
-                      {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Finish onboarding <Check className="h-4 w-4" /></>}
+                      {isLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          Finish onboarding <Check className="h-4 w-4" />
+                        </>
+                      )}
                     </button>
                   </div>
                 </form>
@@ -942,7 +1178,10 @@ export default function Register() {
             {step === 1 && (
               <p className="mt-8 text-center text-sm text-slate-500 sr-animate-fade-in-slide">
                 Already have an account?{" "}
-                <Link to="/login" className="font-semibold text-[#125fe2] hover:text-[#0e4bc0] hover:underline underline-offset-2">
+                <Link
+                  to="/login"
+                  className="font-semibold text-[#125fe2] hover:text-[#0e4bc0] hover:underline underline-offset-2"
+                >
                   Login
                 </Link>
               </p>
@@ -956,8 +1195,18 @@ export default function Register() {
 
 function CheckIcon() {
   return (
-    <svg className="h-4 w-4 text-emerald-300 stroke-[3px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+    <svg
+      className="h-4 w-4 text-emerald-300 stroke-[3px] shrink-0"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={3}
+        d="M5 13l4 4L19 7"
+      />
     </svg>
   );
 }

@@ -17,7 +17,9 @@ export const disconnectWooCommerce = async () => {
 };
 
 export const saveWooCommerceTrackingUrlTemplates = async (templates) => {
-  const response = await api.put("/woocommerce/tracking-url-templates", { templates });
+  const response = await api.put("/woocommerce/tracking-url-templates", {
+    templates,
+  });
   return response.data;
 };
 
@@ -32,13 +34,16 @@ export const getWooCommerceCartRecoveryWebhookConfig = async () => {
 };
 
 export const updateWooCommerceCartRecoverySettings = async (settings) => {
-  const response = await api.put("/woocommerce/cart-recovery-settings", settings);
+  const response = await api.put(
+    "/woocommerce/cart-recovery-settings",
+    settings,
+  );
   return response.data;
 };
 
 export const getWooCommerceOAuthUrl = async (storeUrl) => {
   const res = await api.get(
-    `/woocommerce/oauth/url?storeUrl=${encodeURIComponent(storeUrl)}`
+    `/woocommerce/oauth/url?storeUrl=${encodeURIComponent(storeUrl)}`,
   );
   return res.data;
 };

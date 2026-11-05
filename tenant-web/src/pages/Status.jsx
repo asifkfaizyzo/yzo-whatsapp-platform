@@ -50,7 +50,7 @@
 
 //           {/* Header */}
 //           <div className="text-center mb-14">
-//             <span className="text-[#125EF2] font-semibold text-sm 
+//             <span className="text-[#125EF2] font-semibold text-sm
 //                              uppercase tracking-wider">
 //               Status
 //             </span>
@@ -59,10 +59,10 @@
 //             </h1>
 
 //             {/* Overall Status */}
-//             <div className="inline-flex items-center gap-2 
-//                             bg-[#EAF2FE] border border-[#CFE0FD] 
+//             <div className="inline-flex items-center gap-2
+//                             bg-[#EAF2FE] border border-[#CFE0FD]
 //                             rounded-full px-5 py-2">
-//               <span className="w-2.5 h-2.5 bg-[#125EF2] 
+//               <span className="w-2.5 h-2.5 bg-[#125EF2]
 //                               rounded-full animate-pulse"></span>
 //               <span className="text-sm font-medium text-[#0F4FCC]">
 //                 All Systems Operational
@@ -77,8 +77,8 @@
 //               return (
 //                 <div
 //                   key={service.name}
-//                   className="flex items-center justify-between 
-//                              bg-gray-50 rounded-xl px-6 py-4 
+//                   className="flex items-center justify-between
+//                              bg-gray-50 rounded-xl px-6 py-4
 //                              border border-gray-100"
 //                 >
 //                   <span className="text-sm font-medium text-gray-900">
@@ -96,7 +96,7 @@
 //           </div>
 
 //           {/* Uptime */}
-//           <div className="mt-10 bg-gray-50 rounded-xl p-6 
+//           <div className="mt-10 bg-gray-50 rounded-xl p-6
 //                           border border-gray-100">
 //             <div className="flex items-center justify-between mb-3">
 //               <span className="text-sm font-medium text-gray-900">
@@ -108,7 +108,7 @@
 //             </div>
 //             {/* Progress Bar */}
 //             <div className="w-full bg-gray-200 rounded-full h-2">
-//               <div className="bg-[#125EF2] h-2 rounded-full" 
+//               <div className="bg-[#125EF2] h-2 rounded-full"
 //                    style={{ width: "99.98%" }}></div>
 //             </div>
 //           </div>
@@ -118,7 +118,7 @@
 //             <h2 className="text-lg font-semibold text-gray-900 mb-4">
 //               Recent Incidents
 //             </h2>
-//             <div className="bg-gray-50 rounded-xl p-6 
+//             <div className="bg-gray-50 rounded-xl p-6
 //                             border border-gray-100 text-center">
 //               <p className="text-sm text-gray-400">
 //                 ✅ No incidents reported in the last 30 days
@@ -130,7 +130,7 @@
 //           <div className="text-center mt-10">
 //             <p className="text-sm text-gray-400">
 //               Want status updates?{" "}
-//               <a href="mailto:support@wati.io" 
+//               <a href="mailto:support@wati.io"
 //                  className="text-[#125EF2] hover:underline">
 //                 Subscribe to notifications
 //               </a>

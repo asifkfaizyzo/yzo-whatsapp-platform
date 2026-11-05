@@ -98,28 +98,30 @@ export default function ContactCallsDrawer({
   };
 
   // Filter calls
-  const filteredCalls = calls.filter((c) => {
-    const hasRecording = (c.recordings || []).some(
-      (r) => r.mediaUrl && r.downloadStatus === "DOWNLOADED"
-    );
-    const isMissed =
-      c.status === "FAILED" ||
-      c.status === "REJECTED" ||
-      c.status === "MISSED" ||
-      c.status === "NO_ANSWER";
+  const filteredCalls = calls
+    .filter((c) => {
+      const hasRecording = (c.recordings || []).some(
+        (r) => r.mediaUrl && r.downloadStatus === "DOWNLOADED",
+      );
+      const isMissed =
+        c.status === "FAILED" ||
+        c.status === "REJECTED" ||
+        c.status === "MISSED" ||
+        c.status === "NO_ANSWER";
 
-    if (filter === "recordings") return hasRecording;
-    if (filter === "missed") return isMissed;
-    return true;
-  }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      if (filter === "recordings") return hasRecording;
+      if (filter === "missed") return isMissed;
+      return true;
+    })
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
   // Calculate quick stats
   const totalCalls = calls.length;
   const answeredCalls = calls.filter(
-    (c) => c.status === "COMPLETED" || c.status === "ACCEPTED"
+    (c) => c.status === "COMPLETED" || c.status === "ACCEPTED",
   ).length;
   const recordingsCount = calls.filter((c) =>
-    (c.recordings || []).some((r) => r.mediaUrl)
+    (c.recordings || []).some((r) => r.mediaUrl),
   ).length;
   const totalSeconds = calls.reduce((acc, c) => acc + (c.duration || 0), 0);
 
@@ -254,8 +256,8 @@ export default function ContactCallsDrawer({
               {filter === "recordings"
                 ? "No recorded audio available for this contact yet."
                 : filter === "missed"
-                ? "No missed calls with this contact."
-                : "You haven't made or received any calls with this contact yet."}
+                  ? "No missed calls with this contact."
+                  : "You haven't made or received any calls with this contact yet."}
             </p>
             {onInitiateCall && (
               <button
@@ -278,9 +280,10 @@ export default function ContactCallsDrawer({
               call.status === "MISSED" ||
               call.status === "NO_ANSWER";
 
-            const recording = (call.recordings || []).find(
-              (r) => r.mediaUrl && r.downloadStatus === "DOWNLOADED"
-            ) || (call.recordings || [])[0];
+            const recording =
+              (call.recordings || []).find(
+                (r) => r.mediaUrl && r.downloadStatus === "DOWNLOADED",
+              ) || (call.recordings || [])[0];
 
             const transcript = (call.transcripts || [])[0];
             const isPlayingThis = activePlayingId === call.wacid;
@@ -298,8 +301,8 @@ export default function ContactCallsDrawer({
                         isCompleted
                           ? "bg-emerald-100 text-[#075E54]"
                           : isMissed
-                          ? "bg-rose-100 text-rose-600"
-                          : "bg-blue-100 text-blue-600"
+                            ? "bg-rose-100 text-rose-600"
+                            : "bg-blue-100 text-blue-600"
                       }`}
                     >
                       {isMissed ? (
@@ -315,8 +318,8 @@ export default function ContactCallsDrawer({
                         {isMissed
                           ? "Missed Call"
                           : isOutbound
-                          ? "Outgoing Call"
-                          : "Incoming Call"}
+                            ? "Outgoing Call"
+                            : "Incoming Call"}
                       </p>
                       <p className="text-[10px] text-[#667781] mt-0.5">
                         {formatDate(call.createdAt)}
@@ -330,15 +333,15 @@ export default function ContactCallsDrawer({
                         isCompleted
                           ? "bg-emerald-100 text-emerald-800"
                           : isMissed
-                          ? "bg-rose-100 text-rose-800"
-                          : "bg-blue-100 text-blue-800"
+                            ? "bg-rose-100 text-rose-800"
+                            : "bg-blue-100 text-blue-800"
                       }`}
                     >
                       {isCompleted
                         ? formatDuration(call.duration)
                         : call.status === "REJECTED"
-                        ? "Declined"
-                        : "Missed"}
+                          ? "Declined"
+                          : "Missed"}
                     </span>
                   </div>
                 </div>
@@ -413,7 +416,7 @@ export default function ContactCallsDrawer({
                         setExpandedTranscriptId(
                           expandedTranscriptId === call.wacid
                             ? null
-                            : call.wacid
+                            : call.wacid,
                         )
                       }
                       className="w-full flex items-center justify-between text-[10px] font-semibold text-[#075E54] hover:text-[#064E47]"

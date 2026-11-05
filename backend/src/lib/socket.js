@@ -1,8 +1,8 @@
 // backend/src/lib/socket.js (do not remove this comment)
 
-import { Server } from 'socket.io';
-import jwt from 'jsonwebtoken';
-import { registerCallSocketHandlers } from '../modules/whatsapp/call.socket.js';
+import { Server } from "socket.io";
+import jwt from "jsonwebtoken";
+import { registerCallSocketHandlers } from "../modules/whatsapp/call.socket.js";
 
 let io = null;
 
@@ -57,40 +57,48 @@ export const initSocket = (server) => {
   // 1. Handshake Authentication
   io.use((socket, next) => {
     try {
-      const token = socket.handshake.auth?.token || socket.handshake.headers?.authorization?.split(' ')[1];
+      const token =
+        socket.handshake.auth?.token ||
+        socket.handshake.headers?.authorization?.split(" ")[1];
 
       if (!token) {
-        return next(new Error('Authentication token required for WebSocket connection'));
+        return next(
+          new Error("Authentication token required for WebSocket connection"),
+        );
       }
 
       const decoded = jwt.verify(token, process.env.ACCESS_SECRET);
-      
+
       socket.user = decoded;
-      socket.tenantId = decoded.type === 'TENANT' ? decoded.id : decoded.tenantId;
+      socket.tenantId =
+        decoded.type === "TENANT" ? decoded.id : decoded.tenantId;
       socket.userId = decoded.id;
       socket.userType = decoded.type;
 
       next();
     } catch (err) {
       console.warn(`⚠️ Socket auth rejected: ${err.message}`);
-      return next(new Error('Unauthorized socket connection'));
+      return next(new Error("Unauthorized socket connection"));
     }
   });
 
   // 2. Connection Handler
-  io.on('connection', async (socket) => {
-    console.log(`🔌 Socket connected: ${socket.id} (${socket.userType} - ${socket.userId})`);
+  io.on("connection", async (socket) => {
+    console.log(
+      `🔌 Socket connected: ${socket.id} (${socket.userType} - ${socket.userId})`,
+    );
 
     // Track online agents
-    if (socket.userType === 'USER' && socket.tenantId && socket.userId) {
+    if (socket.userType === "USER" && socket.tenantId && socket.userId) {
       addOnlineUser(socket.tenantId, socket.userId);
 
       setTimeout(async () => {
         try {
-          const { processQueuedConversations } = await import('../modules/contacts/contact.queue.service.js');
+          const { processQueuedConversations } =
+            await import("../modules/contacts/contact.queue.service.js");
           await processQueuedConversations(socket.tenantId);
         } catch (err) {
-          console.error('❌ Failed to process queue on user connect:', err);
+          console.error("❌ Failed to process queue on user connect:", err);
         }
       }, 2000);
     }
@@ -98,27 +106,35 @@ export const initSocket = (server) => {
     // Automatically join tenant room from verified token
     if (socket.tenantId) {
       socket.join(socket.tenantId);
-      console.log(`👤 Socket ${socket.id} automatically joined tenant room: ${socket.tenantId}`);
+      console.log(
+        `👤 Socket ${socket.id} automatically joined tenant room: ${socket.tenantId}`,
+      );
     }
 
     // Room joining
-    socket.on('join_tenant', (tenantId) => {
+    socket.on("join_tenant", (tenantId) => {
       const targetId = tenantId || socket.tenantId;
-      if (targetId && (socket.tenantId === targetId || socket.userType === 'SUPERADMIN')) {
+      if (
+        targetId &&
+        (socket.tenantId === targetId || socket.userType === "SUPERADMIN")
+      ) {
         socket.join(targetId);
         console.log(`👤 Socket ${socket.id} joined tenant room: ${targetId}`);
       }
     });
 
-    socket.on('join_superadmin', () => {
-      if (socket.userType === 'SUPERADMIN') {
-        socket.join('superadmin_room');
+    socket.on("join_superadmin", () => {
+      if (socket.userType === "SUPERADMIN") {
+        socket.join("superadmin_room");
         console.log(`👑 Socket ${socket.id} joined superadmin room`);
       }
     });
 
-    socket.on('join_user', (userId) => {
-      if (userId && (socket.userId === userId || socket.userType === 'TENANT')) {
+    socket.on("join_user", (userId) => {
+      if (
+        userId &&
+        (socket.userId === userId || socket.userType === "TENANT")
+      ) {
         socket.join(`user_${userId}`);
         console.log(`👤 User ${userId} joined room`);
       }
@@ -127,9 +143,12 @@ export const initSocket = (server) => {
     // ── Conversation Presence & Live Typing ──
     const getUserInfo = () => ({
       userId: socket.userId,
-      name: socket.user?.name || socket.user?.email?.split('@')[0] || (socket.userType === 'TENANT' ? 'Admin' : 'Agent'),
-      email: socket.user?.email || '',
-      type: socket.userType
+      name:
+        socket.user?.name ||
+        socket.user?.email?.split("@")[0] ||
+        (socket.userType === "TENANT" ? "Admin" : "Agent"),
+      email: socket.user?.email || "",
+      type: socket.userType,
     });
 
     const broadcastViewers = (conversationId) => {
@@ -144,10 +163,13 @@ export const initSocket = (server) => {
           }
         }
       }
-      io.to(`conversation_${conversationId}`).emit('conversation_viewers_updated', {
-        conversationId,
-        viewers: viewersList
-      });
+      io.to(`conversation_${conversationId}`).emit(
+        "conversation_viewers_updated",
+        {
+          conversationId,
+          viewers: viewersList,
+        },
+      );
     };
 
     const broadcastTyping = (conversationId) => {
@@ -158,14 +180,15 @@ export const initSocket = (server) => {
           typingList.push({ userId: uId, name: entry.name });
         }
       }
-      io.to(`conversation_${conversationId}`).emit('agent_typing_updated', {
+      io.to(`conversation_${conversationId}`).emit("agent_typing_updated", {
         conversationId,
-        typingAgents: typingList
+        typingAgents: typingList,
       });
     };
 
-    socket.on('join_conversation', (data) => {
-      const conversationId = typeof data === 'object' ? data?.conversationId : data;
+    socket.on("join_conversation", (data) => {
+      const conversationId =
+        typeof data === "object" ? data?.conversationId : data;
       if (!conversationId) return;
 
       socket.join(`conversation_${conversationId}`);
@@ -178,8 +201,9 @@ export const initSocket = (server) => {
       broadcastViewers(conversationId);
     });
 
-    socket.on('leave_conversation', (data) => {
-      const conversationId = typeof data === 'object' ? data?.conversationId : data;
+    socket.on("leave_conversation", (data) => {
+      const conversationId =
+        typeof data === "object" ? data?.conversationId : data;
       if (!conversationId) return;
 
       socket.leave(`conversation_${conversationId}`);
@@ -191,7 +215,10 @@ export const initSocket = (server) => {
         }
       }
 
-      if (conversationTyping.has(conversationId) && conversationTyping.get(conversationId).has(socket.userId)) {
+      if (
+        conversationTyping.has(conversationId) &&
+        conversationTyping.get(conversationId).has(socket.userId)
+      ) {
         const entry = conversationTyping.get(conversationId).get(socket.userId);
         if (entry?.timerId) clearTimeout(entry.timerId);
         conversationTyping.get(conversationId).delete(socket.userId);
@@ -205,8 +232,9 @@ export const initSocket = (server) => {
       broadcastViewers(conversationId);
     });
 
-    socket.on('agent_typing_start', (data) => {
-      const conversationId = typeof data === 'object' ? data?.conversationId : data;
+    socket.on("agent_typing_start", (data) => {
+      const conversationId =
+        typeof data === "object" ? data?.conversationId : data;
       if (!conversationId) return;
 
       const userInfo = getUserInfo();
@@ -233,8 +261,9 @@ export const initSocket = (server) => {
       broadcastTyping(conversationId);
     });
 
-    socket.on('agent_typing_stop', (data) => {
-      const conversationId = typeof data === 'object' ? data?.conversationId : data;
+    socket.on("agent_typing_stop", (data) => {
+      const conversationId =
+        typeof data === "object" ? data?.conversationId : data;
       if (!conversationId) return;
 
       if (conversationTyping.has(conversationId)) {
@@ -253,8 +282,8 @@ export const initSocket = (server) => {
     registerCallSocketHandlers(socket, io);
 
     // ── Disconnect ──
-    socket.on('disconnect', () => {
-      if (socket.userType === 'USER' && socket.tenantId && socket.userId) {
+    socket.on("disconnect", () => {
+      if (socket.userType === "USER" && socket.tenantId && socket.userId) {
         removeOnlineUser(socket.tenantId, socket.userId);
       }
 
@@ -306,6 +335,6 @@ export const emitToTenant = (tenantId, event, data) => {
 
 export const emitToSuperAdmin = (event, data) => {
   if (!io) return;
-  io.to('superadmin_room').emit(event, data);
+  io.to("superadmin_room").emit(event, data);
   console.log(`📤 SUPERADMIN EVENT: ${event}`);
 };

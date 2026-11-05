@@ -16,7 +16,8 @@ export default function Integrations() {
             <span>Integrations</span>
           </h1>
           <p className="text-xs text-slate-500 font-medium mt-1">
-            Connect external payment gateways, e-commerce stores, and business tools to supercharge WhatsApp.
+            Connect external payment gateways, e-commerce stores, and business
+            tools to supercharge WhatsApp.
           </p>
         </div>
       </div>

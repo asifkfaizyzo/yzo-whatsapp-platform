@@ -1093,7 +1093,8 @@ export const createBroadcastFromSheet = async ({
     },
   }));
 
-  const { broadcastQueue } = await import("../../cron/queues/broadcast.queue.js");
+  const { broadcastQueue } =
+    await import("../../cron/queues/broadcast.queue.js");
   await broadcastQueue.addBulk(jobs);
 
   console.log(
@@ -1321,10 +1322,13 @@ export async function logLeadStatusToSheet(tenantId, payload) {
         }
       }
 
-      if (lh.includes('contact name') || lh === 'name')
-        return payload["Contact Name"] || payload.contact_name || payload.contactName || '';
-
-     
+      if (lh.includes("contact name") || lh === "name")
+        return (
+          payload["Contact Name"] ||
+          payload.contact_name ||
+          payload.contactName ||
+          ""
+        );
 
       // if (lh.includes('phone'))
       //   return payload["Phone Number"] || payload["Phone"] || payload.phone_number || payload.phone || '';
@@ -1388,7 +1392,12 @@ export async function logLeadStatusToSheet(tenantId, payload) {
         return payload["Tracking Number"] || payload.tracking_number || "";
 
       if (lh.includes("tracking link") || lh.includes("tracking url"))
-        return payload["Tracking Link"] || payload.tracking_link || payload.tracking_url || "";
+        return (
+          payload["Tracking Link"] ||
+          payload.tracking_link ||
+          payload.tracking_url ||
+          ""
+        );
 
       if (lh.includes("amount"))
         return (

@@ -18,7 +18,12 @@ export const getUnreadCount = async () => {
 };
 
 // ── Create a new notification ──
-export const createSuperAdminNotification = async ({ type, title, message, metadata }) => {
+export const createSuperAdminNotification = async ({
+  type,
+  title,
+  message,
+  metadata,
+}) => {
   return await prisma.superAdminNotification.create({
     data: {
       type,
@@ -51,13 +56,12 @@ export const clearAllNotifications = async () => {
   return await prisma.superAdminNotification.deleteMany({});
 };
 
-
 // ── 🆕 Get paginated notifications with filters ──
 export const getPaginatedNotifications = async ({
   page = 1,
   limit = 20,
-  filter = "all",   // all | unread | read
-  type = "all",     // all | tenant_payment | tenant_registered | etc.
+  filter = "all", // all | unread | read
+  type = "all", // all | tenant_payment | tenant_registered | etc.
 }) => {
   // Build where clause based on filters
   const where = {};

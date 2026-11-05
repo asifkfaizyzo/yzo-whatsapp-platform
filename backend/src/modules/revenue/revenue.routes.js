@@ -16,9 +16,13 @@ const router = express.Router();
 router.get("/revenue-stats", verifySuperAdmin, getPlatformRevenueStats);
 
 // ── Revenue page ──
-router.get("/revenue/stats",              verifySuperAdmin, getRevenueStats);
-router.get("/revenue/payments",           verifySuperAdmin, getRevenuePayments);
-router.get("/revenue/tenant/:tenantId",   verifySuperAdmin, getTenantBillingDetail);
+router.get("/revenue/stats", verifySuperAdmin, getRevenueStats);
+router.get("/revenue/payments", verifySuperAdmin, getRevenuePayments);
+router.get(
+  "/revenue/tenant/:tenantId",
+  verifySuperAdmin,
+  getTenantBillingDetail,
+);
 router.get("/revenue/invoice/:paymentId", verifySuperAdmin, getInvoiceUrl);
 
 export default router;

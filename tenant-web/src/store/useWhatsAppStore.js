@@ -24,8 +24,10 @@ export const useWhatsAppStore = create((set, get) => ({
       loading: false,
       phoneNumberId: payload.phoneNumberId ?? get().phoneNumberId,
       wabaId: payload.wabaId ?? get().wabaId,
-      phoneNumber: payload.displayPhoneNumber ?? payload.phoneNumber ?? get().phoneNumber,
-      businessName: payload.verifiedName ?? payload.businessName ?? get().businessName,
+      phoneNumber:
+        payload.displayPhoneNumber ?? payload.phoneNumber ?? get().phoneNumber,
+      businessName:
+        payload.verifiedName ?? payload.businessName ?? get().businessName,
       webhookStatus: payload.webhookStatus ?? "active",
       lastFetchedAt: Date.now(),
     }),
@@ -47,7 +49,8 @@ export const useWhatsAppStore = create((set, get) => ({
 
   fetchStatus: async ({ force = false } = {}) => {
     const state = get();
-    const isFresh = state.lastFetchedAt && Date.now() - state.lastFetchedAt < 30000; // 30s cache
+    const isFresh =
+      state.lastFetchedAt && Date.now() - state.lastFetchedAt < 30000; // 30s cache
 
     if (!force && isFresh && state.isConnected !== null) {
       return state;
@@ -61,7 +64,11 @@ export const useWhatsAppStore = create((set, get) => ({
 
       if (!res.success) {
         if (get().isConnected === null) {
-          set({ isConnected: false, loading: false, lastFetchedAt: Date.now() });
+          set({
+            isConnected: false,
+            loading: false,
+            lastFetchedAt: Date.now(),
+          });
         } else {
           set({ loading: false });
         }
@@ -78,7 +85,8 @@ export const useWhatsAppStore = create((set, get) => ({
           loading: false,
           phoneNumberId: body.phoneNumberId || null,
           wabaId: body.wabaId || null,
-          phoneNumber: health.displayPhoneNumber || body.displayPhoneNumber || null,
+          phoneNumber:
+            health.displayPhoneNumber || body.displayPhoneNumber || null,
           businessName: health.verifiedName || body.verifiedName || null,
           qualityRating: health.qualityRating || null,
           messagingTier: health.tierName || health.messagingLimitTier || null,

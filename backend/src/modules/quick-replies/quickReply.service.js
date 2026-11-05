@@ -1,8 +1,8 @@
 // backend/src/modules/quick-replies/quickReply.service.js (do not remove this comment)
-import path from 'path';
-import fs from 'fs';
-import prisma from '../../config/prisma.js';
-import { detectQuickReplyMediaType } from './quickReply.upload.js';
+import path from "path";
+import fs from "fs";
+import prisma from "../../config/prisma.js";
+import { detectQuickReplyMediaType } from "./quickReply.upload.js";
 
 /**
  * Safely unlinks a file from disk without throwing errors
@@ -17,7 +17,10 @@ const safeUnlink = async (relativePath) => {
       await fs.promises.unlink(fullPath);
     }
   } catch (err) {
-    console.warn(`⚠️ Warning: Failed to unlink file at "${relativePath}":`, err.message);
+    console.warn(
+      `⚠️ Warning: Failed to unlink file at "${relativePath}":`,
+      err.message,
+    );
   }
 };
 
@@ -30,9 +33,9 @@ export const getQuickReplies = async ({
   userType,
   search,
   category,
-  scope = 'ALL',
+  scope = "ALL",
   agentId,
-  sortBy = 'newest',
+  sortBy = "newest",
   page = 1,
   limit = 50,
   includeInactive = false,
@@ -43,28 +46,25 @@ export const getQuickReplies = async ({
     where.isActive = true;
   }
 
-  if (category && category.trim() && category !== 'All') {
+  if (category && category.trim() && category !== "All") {
     where.category = category.trim();
   }
 
   // Scope filtering
-  if (scope === 'GLOBAL') {
-    where.scope = 'GLOBAL';
-  } else if (scope === 'PERSONAL') {
-    where.scope = 'PERSONAL';
-    if (userType === 'USER' && userId) {
+  if (scope === "GLOBAL") {
+    where.scope = "GLOBAL";
+  } else if (scope === "PERSONAL") {
+    where.scope = "PERSONAL";
+    if (userType === "USER" && userId) {
       where.userId = userId;
-    } else if (userType === 'TENANT' && agentId) {
+    } else if (userType === "TENANT" && agentId) {
       where.userId = agentId;
     }
   } else {
     // scope === 'ALL'
-    if (userType === 'USER' && userId) {
-      where.OR = [
-        { scope: 'GLOBAL' },
-        { scope: 'PERSONAL', userId: userId },
-      ];
-    } else if (userType === 'TENANT' && agentId) {
+    if (userType === "USER" && userId) {
+      where.OR = [{ scope: "GLOBAL" }, { scope: "PERSONAL", userId: userId }];
+    } else if (userType === "TENANT" && agentId) {
       where.userId = agentId;
     }
   }
@@ -73,9 +73,9 @@ export const getQuickReplies = async ({
   if (search && search.trim()) {
     const query = search.trim();
     const searchFilter = [
-      { shortcut: { contains: query, mode: 'insensitive' } },
-      { title: { contains: query, mode: 'insensitive' } },
-      { content: { contains: query, mode: 'insensitive' } },
+      { shortcut: { contains: query, mode: "insensitive" } },
+      { title: { contains: query, mode: "insensitive" } },
+      { content: { contains: query, mode: "insensitive" } },
     ];
 
     if (where.OR) {
@@ -89,13 +89,13 @@ export const getQuickReplies = async ({
   const skip = (Math.max(1, page) - 1) * limit;
   const take = Math.min(100, Math.max(1, limit));
 
-  let orderBy = [{ createdAt: 'desc' }];
-  if (sortBy === 'usage') {
-    orderBy = [{ usageCount: 'desc' }, { createdAt: 'desc' }];
-  } else if (sortBy === 'shortcut') {
-    orderBy = [{ shortcut: 'asc' }];
-  } else if (sortBy === 'oldest') {
-    orderBy = [{ createdAt: 'asc' }];
+  let orderBy = [{ createdAt: "desc" }];
+  if (sortBy === "usage") {
+    orderBy = [{ usageCount: "desc" }, { createdAt: "desc" }];
+  } else if (sortBy === "shortcut") {
+    orderBy = [{ shortcut: "asc" }];
+  } else if (sortBy === "oldest") {
+    orderBy = [{ createdAt: "asc" }];
   }
 
   const [total, items] = await Promise.all([
@@ -127,9 +127,13 @@ export const getQuickReplies = async ({
  * Resolves PERSONAL first, then falls back to GLOBAL.
  * Exclusively returns active records (isActive: true).
  */
-export const getQuickReplyByShortcut = async ({ tenantId, userId, shortcut }) => {
+export const getQuickReplyByShortcut = async ({
+  tenantId,
+  userId,
+  shortcut,
+}) => {
   if (!shortcut || !tenantId) return null;
-  const normalized = shortcut.trim().replace(/^\/+/, '').toLowerCase();
+  const normalized = shortcut.trim().replace(/^\/+/, "").toLowerCase();
 
   // 1. Check PERSONAL first if agent userId is available
   if (userId) {
@@ -137,7 +141,7 @@ export const getQuickReplyByShortcut = async ({ tenantId, userId, shortcut }) =>
       where: {
         tenantId,
         shortcut: normalized,
-        scope: 'PERSONAL',
+        scope: "PERSONAL",
         userId,
         isActive: true,
       },
@@ -153,7 +157,7 @@ export const getQuickReplyByShortcut = async ({ tenantId, userId, shortcut }) =>
     where: {
       tenantId,
       shortcut: normalized,
-      scope: 'GLOBAL',
+      scope: "GLOBAL",
       isActive: true,
     },
     include: {
@@ -174,14 +178,16 @@ export const getQuickReplyById = async ({ id, tenantId, userId, userType }) => {
   });
 
   if (!qr) {
-    const err = new Error('Quick reply not found');
+    const err = new Error("Quick reply not found");
     err.statusCode = 404;
     throw err;
   }
 
   // If personal and user is an agent, verify ownership
-  if (qr.scope === 'PERSONAL' && userType === 'USER' && qr.userId !== userId) {
-    const err = new Error('Unauthorized: You do not have access to this personal quick reply');
+  if (qr.scope === "PERSONAL" && userType === "USER" && qr.userId !== userId) {
+    const err = new Error(
+      "Unauthorized: You do not have access to this personal quick reply",
+    );
     err.statusCode = 403;
     throw err;
   }
@@ -201,12 +207,13 @@ export const createQuickReply = async ({
   file,
 }) => {
   // Enforce role-based scope: Agents are forced to PERSONAL; Tenant defaults to GLOBAL
-  let effectiveScope = data.scope || (userType === 'USER' ? 'PERSONAL' : 'GLOBAL');
-  if (userType === 'USER') {
-    effectiveScope = 'PERSONAL';
+  let effectiveScope =
+    data.scope || (userType === "USER" ? "PERSONAL" : "GLOBAL");
+  if (userType === "USER") {
+    effectiveScope = "PERSONAL";
   }
 
-  const effectiveUserId = effectiveScope === 'PERSONAL' ? userId : null;
+  const effectiveUserId = effectiveScope === "PERSONAL" ? userId : null;
 
   // Check for shortcut collision within the target scope
   const existingConflict = await prisma.quickReply.findFirst({
@@ -214,14 +221,14 @@ export const createQuickReply = async ({
       tenantId,
       shortcut: data.shortcut,
       scope: effectiveScope,
-      ...(effectiveScope === 'PERSONAL' ? { userId: effectiveUserId } : {}),
+      ...(effectiveScope === "PERSONAL" ? { userId: effectiveUserId } : {}),
     },
   });
 
   if (existingConflict) {
     if (file?.path) await safeUnlink(file.path);
     const err = new Error(
-      `A ${effectiveScope.toLowerCase()} quick reply with shortcut "/${data.shortcut}" already exists.`
+      `A ${effectiveScope.toLowerCase()} quick reply with shortcut "/${data.shortcut}" already exists.`,
     );
     err.statusCode = 409;
     throw err;
@@ -234,7 +241,11 @@ export const createQuickReply = async ({
   let mediaType = null;
 
   if (file) {
-    mediaUrl = `uploads/tenants/${tenantId}/quick-replies/${file.filename}`.replace(/\\/g, '/');
+    mediaUrl =
+      `uploads/tenants/${tenantId}/quick-replies/${file.filename}`.replace(
+        /\\/g,
+        "/",
+      );
     mediaName = file.originalname;
     mediaSize = file.size;
     mediaMimeType = file.mimetype;
@@ -248,11 +259,12 @@ export const createQuickReply = async ({
         shortcut: data.shortcut,
         title: data.title,
         content: data.content,
-        category: data.category || 'General',
+        category: data.category || "General",
         scope: effectiveScope,
         userId: effectiveUserId,
         createdByType: userType,
-        createdByName: userName || (userType === 'TENANT' ? 'Workspace Admin' : 'Agent'),
+        createdByName:
+          userName || (userType === "TENANT" ? "Workspace Admin" : "Agent"),
         mediaUrl,
         mediaName,
         mediaSize,
@@ -266,9 +278,9 @@ export const createQuickReply = async ({
     });
   } catch (err) {
     if (file?.path) await safeUnlink(file.path);
-    if (err.code === 'P2002') {
+    if (err.code === "P2002") {
       const conflictErr = new Error(
-        `A ${effectiveScope.toLowerCase()} quick reply with shortcut "/${data.shortcut}" already exists.`
+        `A ${effectiveScope.toLowerCase()} quick reply with shortcut "/${data.shortcut}" already exists.`,
       );
       conflictErr.statusCode = 409;
       throw conflictErr;
@@ -294,28 +306,34 @@ export const updateQuickReply = async ({
 
   if (!existing) {
     if (file?.path) await safeUnlink(file.path);
-    const err = new Error('Quick reply not found');
+    const err = new Error("Quick reply not found");
     err.statusCode = 404;
     throw err;
   }
 
   // Permission check: Agents can only update their own personal quick replies
-  if (userType === 'USER') {
-    if (existing.scope === 'GLOBAL') {
+  if (userType === "USER") {
+    if (existing.scope === "GLOBAL") {
       if (file?.path) await safeUnlink(file.path);
-      const err = new Error('Unauthorized: Only administrators can edit company-wide global quick replies');
+      const err = new Error(
+        "Unauthorized: Only administrators can edit company-wide global quick replies",
+      );
       err.statusCode = 403;
       throw err;
     }
-    if (existing.scope === 'PERSONAL' && existing.userId !== userId) {
+    if (existing.scope === "PERSONAL" && existing.userId !== userId) {
       if (file?.path) await safeUnlink(file.path);
-      const err = new Error('Unauthorized: You can only edit your own personal quick replies');
+      const err = new Error(
+        "Unauthorized: You can only edit your own personal quick replies",
+      );
       err.statusCode = 403;
       throw err;
     }
-    if (data.scope === 'GLOBAL') {
+    if (data.scope === "GLOBAL") {
       if (file?.path) await safeUnlink(file.path);
-      const err = new Error('Unauthorized: Only administrators can promote quick replies to Global');
+      const err = new Error(
+        "Unauthorized: Only administrators can promote quick replies to Global",
+      );
       err.statusCode = 403;
       throw err;
     }
@@ -331,7 +349,11 @@ export const updateQuickReply = async ({
         tenantId,
         shortcut: targetShortcut,
         scope: targetScope,
-        ...(targetScope === 'PERSONAL' ? { userId: targetScope === existing.scope ? existing.userId : userId } : {}),
+        ...(targetScope === "PERSONAL"
+          ? {
+              userId: targetScope === existing.scope ? existing.userId : userId,
+            }
+          : {}),
         NOT: { id: existing.id },
       },
     });
@@ -339,7 +361,7 @@ export const updateQuickReply = async ({
     if (conflict) {
       if (file?.path) await safeUnlink(file.path);
       const err = new Error(
-        `A ${targetScope.toLowerCase()} quick reply with shortcut "/${targetShortcut}" already exists.`
+        `A ${targetScope.toLowerCase()} quick reply with shortcut "/${targetShortcut}" already exists.`,
       );
       err.statusCode = 409;
       throw err;
@@ -347,15 +369,23 @@ export const updateQuickReply = async ({
   }
 
   // Change-aware caption limit validation
-  const effectiveContent = data.content !== undefined ? data.content : existing.content;
-  const willHaveAttachment = !!file || (!!existing.mediaUrl && !data.removeMedia);
-  const contentChanged = data.content !== undefined && data.content !== existing.content;
-  const attachmentChanged = !!file || (data.removeMedia !== undefined && data.removeMedia !== false);
+  const effectiveContent =
+    data.content !== undefined ? data.content : existing.content;
+  const willHaveAttachment =
+    !!file || (!!existing.mediaUrl && !data.removeMedia);
+  const contentChanged =
+    data.content !== undefined && data.content !== existing.content;
+  const attachmentChanged =
+    !!file || (data.removeMedia !== undefined && data.removeMedia !== false);
 
-  if ((contentChanged || attachmentChanged) && willHaveAttachment && effectiveContent.length > 1024) {
+  if (
+    (contentChanged || attachmentChanged) &&
+    willHaveAttachment &&
+    effectiveContent.length > 1024
+  ) {
     if (file?.path) await safeUnlink(file.path);
     const err = new Error(
-      'Content exceeds 1,024 characters. Trim the message before adding or modifying an attachment (WhatsApp caption limit).'
+      "Content exceeds 1,024 characters. Trim the message before adding or modifying an attachment (WhatsApp caption limit).",
     );
     err.statusCode = 400;
     throw err;
@@ -370,7 +400,7 @@ export const updateQuickReply = async ({
 
   if (data.scope !== undefined) {
     updateData.scope = data.scope;
-    if (data.scope === 'GLOBAL') {
+    if (data.scope === "GLOBAL") {
       updateData.userId = null; // Promote to global removes user-lock so it's team-wide
     }
   }
@@ -379,7 +409,11 @@ export const updateQuickReply = async ({
 
   if (file) {
     oldFileToUnlink = existing.mediaUrl;
-    updateData.mediaUrl = `uploads/tenants/${tenantId}/quick-replies/${file.filename}`.replace(/\\/g, '/');
+    updateData.mediaUrl =
+      `uploads/tenants/${tenantId}/quick-replies/${file.filename}`.replace(
+        /\\/g,
+        "/",
+      );
     updateData.mediaName = file.originalname;
     updateData.mediaSize = file.size;
     updateData.mediaMimeType = file.mimetype;
@@ -409,9 +443,9 @@ export const updateQuickReply = async ({
     return updated;
   } catch (err) {
     if (file?.path) await safeUnlink(file.path);
-    if (err.code === 'P2002') {
+    if (err.code === "P2002") {
       const conflictErr = new Error(
-        `A ${targetScope.toLowerCase()} quick reply with shortcut "/${targetShortcut}" already exists.`
+        `A ${targetScope.toLowerCase()} quick reply with shortcut "/${targetShortcut}" already exists.`,
       );
       conflictErr.statusCode = 409;
       throw conflictErr;
@@ -429,13 +463,19 @@ export const deleteQuickReply = async ({ id, tenantId, userId, userType }) => {
   });
 
   if (!existing) {
-    const err = new Error('Quick reply not found');
+    const err = new Error("Quick reply not found");
     err.statusCode = 404;
     throw err;
   }
 
-  if (userType === 'USER' && existing.scope === 'PERSONAL' && existing.userId !== userId) {
-    const err = new Error('Unauthorized: You can only delete your own personal quick replies');
+  if (
+    userType === "USER" &&
+    existing.scope === "PERSONAL" &&
+    existing.userId !== userId
+  ) {
+    const err = new Error(
+      "Unauthorized: You can only delete your own personal quick replies",
+    );
     err.statusCode = 403;
     throw err;
   }
@@ -465,7 +505,10 @@ export const trackUsage = async (id, tenantId) => {
       },
     });
   } catch (err) {
-    console.warn(`⚠️ Warning: Failed to track usage for QuickReply "${id}":`, err.message);
+    console.warn(
+      `⚠️ Warning: Failed to track usage for QuickReply "${id}":`,
+      err.message,
+    );
   }
 };
 
@@ -476,8 +519,8 @@ export const getCategories = async ({ tenantId }) => {
   const categories = await prisma.quickReply.findMany({
     where: { tenantId },
     select: { category: true },
-    distinct: ['category'],
-    orderBy: { category: 'asc' },
+    distinct: ["category"],
+    orderBy: { category: "asc" },
   });
 
   return categories.map((c) => c.category).filter(Boolean);

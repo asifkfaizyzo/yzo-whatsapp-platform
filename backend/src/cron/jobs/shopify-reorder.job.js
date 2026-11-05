@@ -1,30 +1,30 @@
 // backend/src/cron/jobs/shopifyReorderReminderJob.js (do not remove this comment)
 
-import prisma from '../../config/prisma.js';
-import { orderWebhookQueue } from '../queues/order-webhook.queue.js';
+import prisma from "../../config/prisma.js";
+import { orderWebhookQueue } from "../queues/order-webhook.queue.js";
 
 /**
  * Runs daily. Finds Shopify orders delivered N days ago and enqueues
  * reorder reminder messages for each.
  */
 export const runShopifyReorderReminders = async () => {
-  console.log('\n🔄 [ReorderReminder] Starting daily reorder scan...');
+  console.log("\n🔄 [ReorderReminder] Starting daily reorder scan...");
 
   try {
     // 1. Get all tenants with Shopify connected + reorder enabled
     const shopifyTenants = await prisma.shopifyConnection.findMany({
       where: {
-        status: 'active',
-        postPurchaseReorderEnabled: true
+        status: "active",
+        postPurchaseReorderEnabled: true,
       },
       select: {
         tenantId: true,
-        postPurchaseReorderDays: true
-      }
+        postPurchaseReorderDays: true,
+      },
     });
 
     if (shopifyTenants.length === 0) {
-      console.log('⏭️ [ReorderReminder] No tenants with reorder enabled.');
+      console.log("⏭️ [ReorderReminder] No tenants with reorder enabled.");
       return;
     }
 
@@ -47,40 +47,42 @@ export const runShopifyReorderReminders = async () => {
       const eligibleOrders = await prisma.ecommerceOrder.findMany({
         where: {
           tenantId,
-          source: 'SHOPIFY',
-          status: { in: ['completed', 'delivered'] },
+          source: "SHOPIFY",
+          status: { in: ["completed", "delivered"] },
           deliveredAt: {
             gte: targetDateStart,
-            lte: targetDateEnd
+            lte: targetDateEnd,
           },
-           reorderReminderSentAt: null,
-          customerPhone: { not:'' }
+          reorderReminderSentAt: null,
+          customerPhone: { not: "" },
         },
-        take: 50 // Batch limit per tenant per run
+        take: 50, // Batch limit per tenant per run
       });
 
       for (const order of eligibleOrders) {
-        if (!order.customerPhone || order.customerPhone === '+') continue;
+        if (!order.customerPhone || order.customerPhone === "+") continue;
 
         await orderWebhookQueue.add(
-          'shopify-reorder-reminder',
+          "shopify-reorder-reminder",
           {
             tenantId,
             ecommerceOrderId: order.id,
             orderNumber: order.orderNumber,
             customerPhone: order.customerPhone,
             customerName: order.customerName,
-            lineItems: order.lineItems
+            lineItems: order.lineItems,
           },
-          { delay: 0 } // Send immediately
+          { delay: 0 }, // Send immediately
         );
 
         totalEnqueued++;
       }
     }
 
-    console.log(`✅ [ReorderReminder] Enqueued ${totalEnqueued} reorder reminders.`);
+    console.log(
+      `✅ [ReorderReminder] Enqueued ${totalEnqueued} reorder reminders.`,
+    );
   } catch (err) {
-    console.error('❌ [ReorderReminder] Error:', err.message);
+    console.error("❌ [ReorderReminder] Error:", err.message);
   }
 };

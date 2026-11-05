@@ -1,43 +1,46 @@
 // backend/src/modules/conversations/conversation.controller.js (do not remove this comment)
 import prisma from "../../config/prisma.js";
 import {
-       togglePinConversation,getOrCreateConversation,getConversationByContact,
-       getAssignedConversations,getMessages,updateConversationStatus,
-       archiveConversation,unarchiveConversation,deleteConversation,
-       getArchivedConversations,  bulkReassignConversations, 
-       markConversationAsRead,  getConversationMedia, 
-       } from './conversation.service.js';
+  togglePinConversation,
+  getOrCreateConversation,
+  getConversationByContact,
+  getAssignedConversations,
+  getMessages,
+  updateConversationStatus,
+  archiveConversation,
+  unarchiveConversation,
+  deleteConversation,
+  getArchivedConversations,
+  bulkReassignConversations,
+  markConversationAsRead,
+  getConversationMedia,
+} from "./conversation.service.js";
 
-
-
-
- // MANUAL CREATE / GET CONVERSATION
+// MANUAL CREATE / GET CONVERSATION
 export const createConversation = async (req, res) => {
   try {
-
     console.log("req.user =>", req.user);
-console.log("req.tenant =>", req.tenant);
-console.log("req.auth =>", req.auth);
+    console.log("req.tenant =>", req.tenant);
+    console.log("req.auth =>", req.auth);
 
     const { contactId } = req.body;
     const tenantId = req.tenantId;
 
-    const contact = await prisma.contact.findUnique({ where: { id: contactId } });
+    const contact = await prisma.contact.findUnique({
+      where: { id: contactId },
+    });
     const result = await getOrCreateConversation(
       contactId,
       tenantId,
-      contact?.channel || 'WHATSAPP'
+      contact?.channel || "WHATSAPP",
     );
 
     return res.json({
       success: true,
-      message: result.isNew
-        ? "New conversation created"
-        : "Conversation ready",
+      message: result.isNew ? "New conversation created" : "Conversation ready",
       isNew: result.isNew,
       conversation: result,
     });
-
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -46,8 +49,6 @@ console.log("req.auth =>", req.auth);
   }
 };
 
-
-
 //Get conversation by contactId
 export const getConversationController = async (req, res) => {
   try {
@@ -55,10 +56,7 @@ export const getConversationController = async (req, res) => {
 
     const tenantId = req.tenantId;
 
-    const conversation = await getConversationByContact(
-      contactId,
-      tenantId
-    );
+    const conversation = await getConversationByContact(contactId, tenantId);
     console.log("Fetched conversation:", conversation);
 
     if (!conversation) {
@@ -73,7 +71,6 @@ export const getConversationController = async (req, res) => {
       message: "Conversation fetched successfully",
       data: conversation,
     });
-
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -82,49 +79,45 @@ export const getConversationController = async (req, res) => {
   }
 };
 
-
-
-
 //getAssignedConversations - conversations assigned to the logged in user
 export const getAssignedConversationsController = async (req, res) => {
   try {
-     console.log("🔥 tenantId:", req.tenantId);      
-    console.log("🔥 userType:", req.userType); 
+    console.log("🔥 tenantId:", req.tenantId);
+    console.log("🔥 userType:", req.userType);
     // 1️⃣ Get logged-in user info
-    const userId = req.userType === 'TENANT' ? null : req.user.id;
+    const userId = req.userType === "TENANT" ? null : req.user.id;
     const tenantId = req.tenantId;
 
     // 2️⃣ Get pagination and filter from URL
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
-    const filter = req.query.filter || (req.userType === 'TENANT' ? 'all' : 'my');
+    const filter =
+      req.query.filter || (req.userType === "TENANT" ? "all" : "my");
 
-    let status = 'ALL'; // ← default is ALL (no status filter)
-let assignmentType = 'all';
+    let status = "ALL"; // ← default is ALL (no status filter)
+    let assignmentType = "all";
 
-if (req.userType === 'TENANT') {
-  if (filter === 'closed') {
-    status = 'CLOSED';
-  } else if (filter === 'open') {
-    status = 'OPEN';
-  } else if (filter === 'assigned') {
-    assignmentType = 'assigned';
-  } else if (filter === 'unassigned') {
-    assignmentType = 'unassigned';
-  }
-  // filter === 'all' → status stays 'ALL' → returns everything
-} else {
-  // User/Agent
-  assignmentType = 'my';
-  if (filter === 'closed') {
-    status = 'CLOSED';
-  } else if (filter === 'open') {
-    status = 'OPEN';
-  }
-  // filter === 'my' → status stays 'ALL' → returns all their chats
-}
-
-
+    if (req.userType === "TENANT") {
+      if (filter === "closed") {
+        status = "CLOSED";
+      } else if (filter === "open") {
+        status = "OPEN";
+      } else if (filter === "assigned") {
+        assignmentType = "assigned";
+      } else if (filter === "unassigned") {
+        assignmentType = "unassigned";
+      }
+      // filter === 'all' → status stays 'ALL' → returns everything
+    } else {
+      // User/Agent
+      assignmentType = "my";
+      if (filter === "closed") {
+        status = "CLOSED";
+      } else if (filter === "open") {
+        status = "OPEN";
+      }
+      // filter === 'my' → status stays 'ALL' → returns all their chats
+    }
 
     const channel = req.query.channel;
 
@@ -145,7 +138,6 @@ if (req.userType === 'TENANT') {
       message: "Conversations fetched successfully",
       ...result,
     });
-
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -153,8 +145,6 @@ if (req.userType === 'TENANT') {
     });
   }
 };
-
-
 
 //Get messages for a conversation (pagination + infinite scroll)
 export const getMessagesController = async (req, res) => {
@@ -165,7 +155,7 @@ export const getMessagesController = async (req, res) => {
     if (!tenantId) {
       return res.status(401).json({
         success: false,
-        message: 'Unauthorized',
+        message: "Unauthorized",
       });
     }
 
@@ -181,19 +171,17 @@ export const getMessagesController = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Messages fetched successfully',
+      message: "Messages fetched successfully",
       ...data,
     });
-
   } catch (err) {
     const status = err.statusCode || 500;
     return res.status(status).json({
       success: false,
-      message: err.message || 'Failed to fetch messages',
+      message: err.message || "Failed to fetch messages",
     });
   }
 };
-
 
 // Update conversation status controller
 export const updateConversationStatusController = async (req, res) => {
@@ -203,7 +191,7 @@ export const updateConversationStatusController = async (req, res) => {
     const tenantId = req.tenantId;
 
     // Extract agent context
-    const agentId = req.userType === 'TENANT' ? null : req.user.id;
+    const agentId = req.userType === "TENANT" ? null : req.user.id;
     const userType = req.userType;
 
     const conversation = await updateConversationStatus({
@@ -227,14 +215,11 @@ export const updateConversationStatusController = async (req, res) => {
   }
 };
 
-
-
-
 // ── Archive Conversation ──────────────────────────────────
 export const archiveConversationController = async (req, res) => {
   try {
     const { conversationId } = req.params;
-    const tenantId    = req.tenantId;
+    const tenantId = req.tenantId;
     const requesterId = req.userType === "TENANT" ? req.tenant.id : req.user.id;
     const requesterRole = req.userType; // "TENANT" or "USER"
 
@@ -248,9 +233,8 @@ export const archiveConversationController = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Conversation archived successfully",
-      data:    result,
+      data: result,
     });
-
   } catch (error) {
     if (error.message.includes("not found")) {
       return res.status(404).json({ success: false, message: error.message });
@@ -262,13 +246,12 @@ export const archiveConversationController = async (req, res) => {
   }
 };
 
-
 // ── Unarchive Conversation ────────────────────────────────
 export const unarchiveConversationController = async (req, res) => {
   try {
     const { conversationId } = req.params;
-    const tenantId      = req.tenantId;
-    const requesterId   = req.userType === "TENANT" ? req.tenant.id : req.user.id;
+    const tenantId = req.tenantId;
+    const requesterId = req.userType === "TENANT" ? req.tenant.id : req.user.id;
     const requesterRole = req.userType;
 
     const result = await unarchiveConversation({
@@ -281,9 +264,8 @@ export const unarchiveConversationController = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Conversation unarchived successfully",
-      data:    result,
+      data: result,
     });
-
   } catch (error) {
     if (error.message.includes("not found")) {
       return res.status(404).json({ success: false, message: error.message });
@@ -292,13 +274,12 @@ export const unarchiveConversationController = async (req, res) => {
   }
 };
 
-
 // ── Delete Conversation ───────────────────────────────────
 export const deleteConversationController = async (req, res) => {
   try {
     const { conversationId } = req.params;
-    const tenantId      = req.tenantId;
-    const requesterId   = req.userType === "TENANT" ? req.tenant.id : req.user.id;
+    const tenantId = req.tenantId;
+    const requesterId = req.userType === "TENANT" ? req.tenant.id : req.user.id;
     const requesterRole = req.userType;
 
     const result = await deleteConversation({
@@ -311,9 +292,8 @@ export const deleteConversationController = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Conversation deleted successfully",
-      data:    result,
+      data: result,
     });
-
   } catch (error) {
     if (error.message.includes("Unauthorized")) {
       return res.status(403).json({ success: false, message: error.message });
@@ -325,14 +305,13 @@ export const deleteConversationController = async (req, res) => {
   }
 };
 
-
 // ── Get Archived Conversations ────────────────────────────
 export const getArchivedConversationsController = async (req, res) => {
   try {
     const tenantId = req.tenantId;
-    const userId   = req.userType === "USER" ? req.user.id : null;
-    const page     = parseInt(req.query.page)  || 1;
-    const limit    = parseInt(req.query.limit) || 20;
+    const userId = req.userType === "USER" ? req.user.id : null;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
 
     const result = await getArchivedConversations({
       tenantId,
@@ -346,18 +325,14 @@ export const getArchivedConversationsController = async (req, res) => {
       message: "Archived conversations fetched successfully",
       ...result,
     });
-
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
 };
 
-
-
 // ────────────── Bulk Reassign Conversations ────────────────────────────
 export const bulkReassignConversationsController = async (req, res) => {
   try {
-
     // ── Guard: Only TENANT (admin) can bulk reassign ───────
     if (req.userType !== "TENANT") {
       return res.status(403).json({
@@ -367,10 +342,10 @@ export const bulkReassignConversationsController = async (req, res) => {
     }
 
     // ── Extract tenant context ─────────────────────────────
-    const tenantId        = req.tenantId;
-    const performedBy     = req.tenant.id;
-    const performedByName  = req.tenant.tenantName || "Admin";
-    const performedByEmail = req.tenant.email      || "";
+    const tenantId = req.tenantId;
+    const performedBy = req.tenant.id;
+    const performedByName = req.tenant.tenantName || "Admin";
+    const performedByEmail = req.tenant.email || "";
 
     // ── Extract body ───────────────────────────────────────
     const { conversationIds, newUserId } = req.body;
@@ -416,7 +391,7 @@ export const bulkReassignConversationsController = async (req, res) => {
     const result = await bulkReassignConversations({
       tenantId,
       conversationIds,
-      newUserId:       newUserId || null,
+      newUserId: newUserId || null,
       performedBy,
       performedByName,
       performedByEmail,
@@ -430,9 +405,7 @@ export const bulkReassignConversationsController = async (req, res) => {
         : `${result.reassignedCount} conversation(s) unassigned successfully`,
       data: result,
     });
-
   } catch (error) {
-
     // User not found / wrong tenant
     if (
       error.message.includes("not found") ||
@@ -459,7 +432,6 @@ export const bulkReassignConversationsController = async (req, res) => {
   }
 };
 
-
 // ── Mark Conversation As Read ─────────────────────────────
 export const markConversationAsReadController = async (req, res) => {
   try {
@@ -474,9 +446,8 @@ export const markConversationAsReadController = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Conversation marked as read",
-      data:    result,
+      data: result,
     });
-
   } catch (error) {
     if (error.message.includes("not found")) {
       return res.status(404).json({ success: false, message: error.message });
@@ -484,7 +455,6 @@ export const markConversationAsReadController = async (req, res) => {
     return res.status(500).json({ success: false, message: error.message });
   }
 };
-
 
 // ── Get Conversation Media / Links / Docs Controller ────
 export const getConversationMediaController = async (req, res) => {
@@ -516,15 +486,14 @@ export const getConversationMediaController = async (req, res) => {
   }
 };
 
-
-
 // ─────────────────────────────────────────────────────────────
 // TOGGLE PIN / UNPIN CONVERSATION
 // ─────────────────────────────────────────────────────────────
 export const togglePinController = async (req, res) => {
   try {
     const { id } = req.params;
-    let tenantId = req.tenantId || req.user?.tenantId || req.headers["x-tenant-id"];
+    let tenantId =
+      req.tenantId || req.user?.tenantId || req.headers["x-tenant-id"];
 
     if (!tenantId) {
       const conv = await prisma.conversation.findUnique({
@@ -537,7 +506,9 @@ export const togglePinController = async (req, res) => {
     }
 
     if (!tenantId) {
-      return res.status(400).json({ success: false, error: "tenantId is required" });
+      return res
+        .status(400)
+        .json({ success: false, error: "tenantId is required" });
     }
 
     const updated = await togglePinConversation(id, tenantId);

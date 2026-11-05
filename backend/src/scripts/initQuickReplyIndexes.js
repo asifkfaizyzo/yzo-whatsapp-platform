@@ -1,5 +1,5 @@
 // backend/src/scripts/initQuickReplyIndexes.js (do not remove this comment)
-import prisma from '../config/prisma.js';
+import prisma from "../config/prisma.js";
 
 export const initQuickReplyIndexes = async () => {
   try {
@@ -15,8 +15,11 @@ export const initQuickReplyIndexes = async () => {
         WHERE "scope" = 'PERSONAL';
     `);
 
-    console.log('✅ QuickReply partial unique indexes verified.');
+    console.log("✅ QuickReply partial unique indexes verified.");
   } catch (err) {
-    console.error('⚠️ Warning: Failed to ensure QuickReply partial indexes:', err.message);
+    console.error(
+      "⚠️ Warning: Failed to ensure QuickReply partial indexes:",
+      err.message,
+    );
   }
 };

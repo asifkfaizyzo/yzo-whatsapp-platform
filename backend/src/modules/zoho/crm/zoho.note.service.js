@@ -1,9 +1,9 @@
 // backend/src/modules/zoho/crm/zoho.note.service.js (do not remove this comment)
 
-import prisma from '../../../config/prisma.js';
-import { zohoRequest } from '../zoho.client.js';
-import { hasZohoFeature } from '../zoho.plan.service.js';
-import { getTenantZohoPreferences } from './zoho.contact.service.js';
+import prisma from "../../../config/prisma.js";
+import { zohoRequest } from "../zoho.client.js";
+import { hasZohoFeature } from "../zoho.plan.service.js";
+import { getTenantZohoPreferences } from "./zoho.contact.service.js";
 
 /**
  * Log a WhatsApp message as a Note in the Zoho Contact/Lead record.
@@ -11,12 +11,12 @@ import { getTenantZohoPreferences } from './zoho.contact.service.js';
  */
 export async function logMessageAsZohoNote(tenantId, contactId, message) {
   try {
-const tenant = await prisma.tenant.findUnique({
+    const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
       select: { zoho: { select: { zohoConnectionStatus: true } } },
     });
 
-    if (!tenant || tenant.zoho?.zohoConnectionStatus !== 'CONNECTED') {
+    if (!tenant || tenant.zoho?.zohoConnectionStatus !== "CONNECTED") {
       return; // Silent bypass — avoid decryptions/errors for unconnected tenants
     }
 
@@ -25,67 +25,74 @@ const tenant = await prisma.tenant.findUnique({
       return; // Notes logging preference is disabled
     }
 
-    const canLog = await hasZohoFeature(tenantId, 'notes');
+    const canLog = await hasZohoFeature(tenantId, "notes");
     if (!canLog) return;
 
     const mapping = await prisma.contactProviderMapping.findFirst({
       where: {
         contactId,
-        provider: { in: ['ZOHO', 'ZOHO_LEAD'] },
+        provider: { in: ["ZOHO", "ZOHO_LEAD"] },
       },
     });
 
     if (!mapping) return;
 
-    const direction = message.direction === 'INBOUND' ? '📥 From Customer' : '📤 From Agent';
-    const senderLabel = message.senderType === 'CONTACT'
-      ? 'Customer'
-      : message.senderType === 'TENANT'
-        ? 'Tenant Admin'
-        : message.senderType === 'USER'
-          ? 'Agent'
-          : 'System';
+    const direction =
+      message.direction === "INBOUND" ? "📥 From Customer" : "📤 From Agent";
+    const senderLabel =
+      message.senderType === "CONTACT"
+        ? "Customer"
+        : message.senderType === "TENANT"
+          ? "Tenant Admin"
+          : message.senderType === "USER"
+            ? "Agent"
+            : "System";
 
     let noteContent = `${direction}\n`;
     noteContent += `Sender: ${senderLabel}\n`;
-    noteContent += `Time: ${new Date(message.createdAt || Date.now()).toLocaleString('en-IN')}\n`;
-    noteContent += `Channel: ${message.channel || 'WhatsApp'}\n\n`;
+    noteContent += `Time: ${new Date(message.createdAt || Date.now()).toLocaleString("en-IN")}\n`;
+    noteContent += `Channel: ${message.channel || "WhatsApp"}\n\n`;
 
-    if (message.type === 'TEXT' && message.text) {
+    if (message.type === "TEXT" && message.text) {
       noteContent += message.text;
-    } else if (message.type === 'IMAGE') {
-      noteContent += `[Image: ${message.mediaName || 'photo'}]${message.caption ? `\nCaption: ${message.caption}` : ''}`;
-    } else if (message.type === 'VIDEO') {
-      noteContent += `[Video: ${message.mediaName || 'video'}]`;
-    } else if (message.type === 'AUDIO') {
-      noteContent += `[Audio: ${message.mediaName || 'voice message'}]`;
-    } else if (message.type === 'FILE') {
-      noteContent += `[Document: ${message.mediaName || 'file'}]`;
-    } else if (message.type === 'LOCATION') {
-      noteContent += `[Location: ${message.locName || ''} ${message.locAddress || ''} (${message.locLatitude}, ${message.locLongitude})]`;
-    } else if (message.type === 'ORDER') {
-      noteContent += message.text || '[Order placed]';
+    } else if (message.type === "IMAGE") {
+      noteContent += `[Image: ${message.mediaName || "photo"}]${message.caption ? `\nCaption: ${message.caption}` : ""}`;
+    } else if (message.type === "VIDEO") {
+      noteContent += `[Video: ${message.mediaName || "video"}]`;
+    } else if (message.type === "AUDIO") {
+      noteContent += `[Audio: ${message.mediaName || "voice message"}]`;
+    } else if (message.type === "FILE") {
+      noteContent += `[Document: ${message.mediaName || "file"}]`;
+    } else if (message.type === "LOCATION") {
+      noteContent += `[Location: ${message.locName || ""} ${message.locAddress || ""} (${message.locLatitude}, ${message.locLongitude})]`;
+    } else if (message.type === "ORDER") {
+      noteContent += message.text || "[Order placed]";
     } else {
       noteContent += message.text || `[${message.type}]`;
     }
 
-    const zohoModule = mapping.provider === 'ZOHO_LEAD' ? 'Leads' : 'Contacts';
+    const zohoModule = mapping.provider === "ZOHO_LEAD" ? "Leads" : "Contacts";
 
     await zohoRequest(tenantId, {
-      method: 'POST',
+      method: "POST",
       url: `/crm/v7/${zohoModule}/${mapping.providerContactId}/Notes`,
       data: {
         data: [
           {
-            Note_Title: `${direction} — ${new Date().toLocaleDateString('en-IN')}`,
+            Note_Title: `${direction} — ${new Date().toLocaleDateString("en-IN")}`,
             Note_Content: noteContent.substring(0, 5000),
           },
         ],
       },
     });
 
-    console.log(`📝 [ZohoNote] Logged ${message.direction} message for contact ${contactId} → Zoho ${zohoModule}`);
+    console.log(
+      `📝 [ZohoNote] Logged ${message.direction} message for contact ${contactId} → Zoho ${zohoModule}`,
+    );
   } catch (error) {
-    console.error(`❌ [ZohoNote] Failed for contact ${contactId}:`, error.response?.data || error.message);
+    console.error(
+      `❌ [ZohoNote] Failed for contact ${contactId}:`,
+      error.response?.data || error.message,
+    );
   }
 }

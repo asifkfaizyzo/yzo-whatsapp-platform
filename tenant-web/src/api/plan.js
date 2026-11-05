@@ -39,7 +39,10 @@ export const createPaidSubscription = async (planId, billingType) => {
 // Verify Paid Subscription signature and activate
 export const verifyPaidSubscription = async (subscriptionData) => {
   try {
-    const response = await api.post("/plans/verify-paid-subscription", subscriptionData);
+    const response = await api.post(
+      "/plans/verify-paid-subscription",
+      subscriptionData,
+    );
     return {
       success: true,
       data: response.data.data,
@@ -48,7 +51,8 @@ export const verifyPaidSubscription = async (subscriptionData) => {
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || "Subscription verification failed",
+      message:
+        error.response?.data?.message || "Subscription verification failed",
     };
   }
 };

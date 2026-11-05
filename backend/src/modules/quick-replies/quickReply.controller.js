@@ -1,14 +1,14 @@
 // backend/src/modules/quick-replies/quickReply.controller.js (do not remove this comment)
-import * as quickReplyService from './quickReply.service.js';
+import * as quickReplyService from "./quickReply.service.js";
 import {
   createQuickReplySchema,
   updateQuickReplySchema,
   queryQuickRepliesSchema,
-} from './quickReply.schema.js';
-import { ZodError } from 'zod';
+} from "./quickReply.schema.js";
+import { ZodError } from "zod";
 
 const formatZodError = (err) => {
-  return err.errors?.map((e) => e.message).join(', ') || 'Validation error';
+  return err.errors?.map((e) => e.message).join(", ") || "Validation error";
 };
 
 export const listQuickReplies = async (req, res) => {
@@ -34,11 +34,13 @@ export const listQuickReplies = async (req, res) => {
     });
   } catch (err) {
     if (err instanceof ZodError) {
-      return res.status(400).json({ success: false, message: formatZodError(err) });
+      return res
+        .status(400)
+        .json({ success: false, message: formatZodError(err) });
     }
     return res.status(err.statusCode || 500).json({
       success: false,
-      message: err.message || 'Failed to fetch quick replies',
+      message: err.message || "Failed to fetch quick replies",
     });
   }
 };
@@ -63,7 +65,7 @@ export const getByShortcut = async (req, res) => {
   } catch (err) {
     return res.status(err.statusCode || 500).json({
       success: false,
-      message: err.message || 'Failed to fetch quick reply by shortcut',
+      message: err.message || "Failed to fetch quick reply by shortcut",
     });
   }
 };
@@ -82,7 +84,7 @@ export const getQuickReply = async (req, res) => {
   } catch (err) {
     return res.status(err.statusCode || 500).json({
       success: false,
-      message: err.message || 'Failed to fetch quick reply',
+      message: err.message || "Failed to fetch quick reply",
     });
   }
 };
@@ -109,15 +111,17 @@ export const createQuickReply = async (req, res) => {
     return res.status(201).json({
       success: true,
       data: result,
-      message: 'Quick reply created successfully',
+      message: "Quick reply created successfully",
     });
   } catch (err) {
     if (err instanceof ZodError) {
-      return res.status(400).json({ success: false, message: formatZodError(err) });
+      return res
+        .status(400)
+        .json({ success: false, message: formatZodError(err) });
     }
     return res.status(err.statusCode || 500).json({
       success: false,
-      message: err.message || 'Failed to create quick reply',
+      message: err.message || "Failed to create quick reply",
     });
   }
 };
@@ -143,15 +147,17 @@ export const updateQuickReply = async (req, res) => {
     return res.json({
       success: true,
       data: result,
-      message: 'Quick reply updated successfully',
+      message: "Quick reply updated successfully",
     });
   } catch (err) {
     if (err instanceof ZodError) {
-      return res.status(400).json({ success: false, message: formatZodError(err) });
+      return res
+        .status(400)
+        .json({ success: false, message: formatZodError(err) });
     }
     return res.status(err.statusCode || 500).json({
       success: false,
-      message: err.message || 'Failed to update quick reply',
+      message: err.message || "Failed to update quick reply",
     });
   }
 };
@@ -169,12 +175,12 @@ export const deleteQuickReply = async (req, res) => {
     return res.json({
       success: true,
       data: result,
-      message: 'Quick reply deleted successfully',
+      message: "Quick reply deleted successfully",
     });
   } catch (err) {
     return res.status(err.statusCode || 500).json({
       success: false,
-      message: err.message || 'Failed to delete quick reply',
+      message: err.message || "Failed to delete quick reply",
     });
   }
 };
@@ -192,7 +198,7 @@ export const listCategories = async (req, res) => {
   } catch (err) {
     return res.status(err.statusCode || 500).json({
       success: false,
-      message: err.message || 'Failed to fetch categories',
+      message: err.message || "Failed to fetch categories",
     });
   }
 };

@@ -1,28 +1,33 @@
 // tenant-web/src/components/reports/AnalyticsHeader.jsx (do not remove this comment)
 
 import React from "react";
-import { 
-  BarChart3, 
-  RotateCw, 
-  Download, 
-  Printer, 
-  Calendar, 
-  Filter, 
-  User 
+import {
+  BarChart3,
+  RotateCw,
+  Download,
+  Printer,
+  Calendar,
+  Filter,
+  User,
 } from "lucide-react";
 
 export default function AnalyticsHeader({
-  dateRangePreset, setDateRangePreset,
-  customStartDate, setCustomStartDate,
-  customEndDate, setCustomEndDate,
-  campaignId, setCampaignId,
-  agentId, setAgentId,
+  dateRangePreset,
+  setDateRangePreset,
+  customStartDate,
+  setCustomStartDate,
+  customEndDate,
+  setCustomEndDate,
+  campaignId,
+  setCampaignId,
+  agentId,
+  setAgentId,
   filterOptions,
   onRefresh,
   onExportCSV,
   onExportPDF,
   loading,
-  exporting
+  exporting,
 }) {
   return (
     <div className="space-y-4">
@@ -34,7 +39,8 @@ export default function AnalyticsHeader({
             <span>Analytics & Reports</span>
           </h1>
           <p className="text-xs text-slate-500 font-medium mt-1">
-            Channel delivery statistics, campaign conversion funnels, and agent performance reports.
+            Channel delivery statistics, campaign conversion funnels, and agent
+            performance reports.
           </p>
         </div>
 
@@ -46,7 +52,10 @@ export default function AnalyticsHeader({
             className="btn btn-ghost border border-slate-200 text-slate-600 hover:bg-slate-50 px-3 py-2 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition"
             title="Refresh Data"
           >
-            <RotateCw size={14} className={loading ? "animate-spin text-[#125EF2]" : ""} />
+            <RotateCw
+              size={14}
+              className={loading ? "animate-spin text-[#125EF2]" : ""}
+            />
             <span>Refresh</span>
           </button>
 
@@ -145,7 +154,10 @@ export default function AnalyticsHeader({
 
         {/* Selected Period Badge */}
         <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-          Active Period: <span className="text-slate-700 font-bold">{dateRangePreset.toUpperCase()}</span>
+          Active Period:{" "}
+          <span className="text-slate-700 font-bold">
+            {dateRangePreset.toUpperCase()}
+          </span>
         </div>
       </div>
     </div>

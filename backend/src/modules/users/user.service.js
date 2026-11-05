@@ -1,21 +1,33 @@
 // backend/src/modules/users/user.service.js (do not remove this comment)
-import bcrypt from 'bcrypt';
-import prisma from '../../config/prisma.js';
-import jwt from 'jsonwebtoken';
+import bcrypt from "bcrypt";
+import prisma from "../../config/prisma.js";
+import jwt from "jsonwebtoken";
 
-import { generateAccessToken, generateRefreshToken, verifyAccessToken, verifyRefreshToken } from '../auth/jwt.service.js';
-import { saveRefreshToken, deleteRefreshToken, findRefreshToken } from '../auth/refreshToken.service.js';
-import { forgotPasswordService, resetPasswordService, } from '../auth/password.service.js';
+import {
+  generateAccessToken,
+  generateRefreshToken,
+  verifyAccessToken,
+  verifyRefreshToken,
+} from "../auth/jwt.service.js";
+import {
+  saveRefreshToken,
+  deleteRefreshToken,
+  findRefreshToken,
+} from "../auth/refreshToken.service.js";
+import {
+  forgotPasswordService,
+  resetPasswordService,
+} from "../auth/password.service.js";
 
-import { createAuditLog } from '../audit/audit.service.js';
+import { createAuditLog } from "../audit/audit.service.js";
 
 // =========user Login Service =========
 export const loginUserService = async (data, meta = {}) => {
-  const { email, password }      = data;
+  const { email, password } = data;
   const { ipAddress, userAgent } = meta;
 
   if (!email || !password) {
-    throw new Error('Email and password are required');
+    throw new Error("Email and password are required");
   }
 
   const user = await prisma.user.findUnique({ where: { email } });
@@ -23,143 +35,145 @@ export const loginUserService = async (data, meta = {}) => {
   // ── User not found ──
   if (!user) {
     await createAuditLog({
-      actorId:     'UNKNOWN',
-      actorType:   'USER',
-      actorName:   'Unknown',
-      actorEmail:  email,
-      action:      'LOGIN_FAILED',
-      module:      'AUTH',
+      actorId: "UNKNOWN",
+      actorType: "USER",
+      actorName: "Unknown",
+      actorEmail: email,
+      action: "LOGIN_FAILED",
+      module: "AUTH",
       description: `Failed user login — email not found: ${email}`,
       ipAddress,
       userAgent,
     });
-    throw new Error('Invalid credentials');
+    throw new Error("Invalid credentials");
   }
 
   // ── User deactivated ──
   if (!user.isActive) {
     await createAuditLog({
-      actorId:     user.id,
-      actorType:   'USER',
-      actorName:   user.name,
-      actorEmail:  user.email,
-      action:      'LOGIN_FAILED',
-      module:      'AUTH',
+      actorId: user.id,
+      actorType: "USER",
+      actorName: user.name,
+      actorEmail: user.email,
+      action: "LOGIN_FAILED",
+      module: "AUTH",
       description: `Deactivated user tried to login`,
       ipAddress,
       userAgent,
-      tenantId:    user.tenantId,
+      tenantId: user.tenantId,
     });
-    throw new Error('Your user account has been deactivated. Please contact support.');
+    throw new Error(
+      "Your user account has been deactivated. Please contact support.",
+    );
   }
 
   // ── Tenant check ──
-    const tenantRow = await prisma.tenant.findUnique({
-  where:  { id: user.tenantId },
-  select: {
-    id:          true,
-    status:      true,
-    isActive:    true,
-    subscription: { select: { planId: true, planStatus: true, billingType: true } },
-  },
-});
-const tenant = { ...tenantRow, ...tenantRow?.subscription };
+  const tenantRow = await prisma.tenant.findUnique({
+    where: { id: user.tenantId },
+    select: {
+      id: true,
+      status: true,
+      isActive: true,
+      subscription: {
+        select: { planId: true, planStatus: true, billingType: true },
+      },
+    },
+  });
+  const tenant = { ...tenantRow, ...tenantRow?.subscription };
 
-  if (!tenant || tenant.status === 'BLOCKED' || !tenant.isActive) {
+  if (!tenant || tenant.status === "BLOCKED" || !tenant.isActive) {
     await createAuditLog({
-      actorId:     user.id,
-      actorType:   'USER',
-      actorName:   user.name,
-      actorEmail:  user.email,
-      action:      'LOGIN_FAILED',
-      module:      'AUTH',
+      actorId: user.id,
+      actorType: "USER",
+      actorName: user.name,
+      actorEmail: user.email,
+      action: "LOGIN_FAILED",
+      module: "AUTH",
       description: `User login failed — organization blocked or deactivated`,
       ipAddress,
       userAgent,
-      tenantId:    user.tenantId,
+      tenantId: user.tenantId,
     });
-    throw new Error('Your organization account is deactivated or blocked.');
+    throw new Error("Your organization account is deactivated or blocked.");
   }
 
-  if (tenant.status === 'PENDING') {
-    throw new Error('Your organization account is pending approval.');
+  if (tenant.status === "PENDING") {
+    throw new Error("Your organization account is pending approval.");
   }
 
   // ── Wrong password ──
   const isPasswordMatch = await bcrypt.compare(password, user.password);
   if (!isPasswordMatch) {
     await createAuditLog({
-      actorId:     user.id,
-      actorType:   'USER',
-      actorName:   user.name,
-      actorEmail:  user.email,
-      action:      'LOGIN_FAILED',
-      module:      'AUTH',
+      actorId: user.id,
+      actorType: "USER",
+      actorName: user.name,
+      actorEmail: user.email,
+      action: "LOGIN_FAILED",
+      module: "AUTH",
       description: `Failed user login — wrong password`,
       ipAddress,
       userAgent,
-      tenantId:    user.tenantId,
+      tenantId: user.tenantId,
     });
-    throw new Error('Invalid credentials');
+    throw new Error("Invalid credentials");
   }
 
   // ── Tokens ──
   const accessToken = generateAccessToken({
-    id:       user.id,
-    email:    user.email,
-    name:     user.name,       // ← ADD name
+    id: user.id,
+    email: user.email,
+    name: user.name, // ← ADD name
     tenantId: user.tenantId,
-    type:     'USER',
+    type: "USER",
   });
 
   const refreshToken = generateRefreshToken({
-    id:       user.id,
+    id: user.id,
     tenantId: user.tenantId,
-    type:     'USER',
+    type: "USER",
   });
 
   await saveRefreshToken({ token: refreshToken, userId: user.id });
 
   // ── Success audit log ──
   await createAuditLog({
-    actorId:     user.id,
-    actorType:   'USER',
-    actorName:   user.name,
-    actorEmail:  user.email,
-    action:      'LOGIN',
-    module:      'AUTH',
+    actorId: user.id,
+    actorType: "USER",
+    actorName: user.name,
+    actorEmail: user.email,
+    action: "LOGIN",
+    module: "AUTH",
     description: `User "${user.name}" logged in successfully`,
     ipAddress,
     userAgent,
-    tenantId:    user.tenantId,
+    tenantId: user.tenantId,
   });
 
   const { password: _, ...safeUser } = user;
   return {
-  message:      'Login successful',
-  accessToken,
-  refreshToken,
-  user: {
-    id:          safeUser.id,
-    name:        safeUser.name,
-    email:       safeUser.email,
-    tenantId:    safeUser.tenantId,
-    type:        'USER',
-    status:      tenant.status,
-    isActive:    safeUser.isActive, 
-    planId:      tenant.planId,      
-    planStatus:  tenant.planStatus,  
-    billingType: tenant.billingType, 
-  },
+    message: "Login successful",
+    accessToken,
+    refreshToken,
+    user: {
+      id: safeUser.id,
+      name: safeUser.name,
+      email: safeUser.email,
+      tenantId: safeUser.tenantId,
+      type: "USER",
+      status: tenant.status,
+      isActive: safeUser.isActive,
+      planId: tenant.planId,
+      planStatus: tenant.planStatus,
+      billingType: tenant.billingType,
+    },
+  };
 };
-};
-
-
 
 // =========user logout service =========
 export const logoutUserService = async (refreshToken, meta = {}) => {
   if (!refreshToken) {
-    throw new Error('Refresh token required');
+    throw new Error("Refresh token required");
   }
 
   // ── Find who owns this refresh token ──
@@ -168,9 +182,9 @@ export const logoutUserService = async (refreshToken, meta = {}) => {
     include: {
       user: {
         select: {
-          id:       true,
-          name:     true,
-          email:    true,
+          id: true,
+          name: true,
+          email: true,
           tenantId: true,
         },
       },
@@ -183,49 +197,46 @@ export const logoutUserService = async (refreshToken, meta = {}) => {
   // ── Log who logged out ──
   if (tokenRecord?.user) {
     await createAuditLog({
-      actorId:     tokenRecord.user.id,
-      actorType:   'USER',
-      actorName:   tokenRecord.user.name,
-      actorEmail:  tokenRecord.user.email,
-      action:      'LOGOUT',
-      module:      'AUTH',
+      actorId: tokenRecord.user.id,
+      actorType: "USER",
+      actorName: tokenRecord.user.name,
+      actorEmail: tokenRecord.user.email,
+      action: "LOGOUT",
+      module: "AUTH",
       description: `User "${tokenRecord.user.name}" logged out`,
-      ipAddress:   meta.ipAddress,
-      userAgent:   meta.userAgent,
-      tenantId:    tokenRecord.user.tenantId,
+      ipAddress: meta.ipAddress,
+      userAgent: meta.userAgent,
+      tenantId: tokenRecord.user.tenantId,
     });
   }
 
-  return { message: 'User logged out successfully' };
+  return { message: "User logged out successfully" };
 };
-
-
 
 // =========user access token refresh service =========
 export const refreshUserAccessTokenService = async (refreshToken) => {
-
   // 1️⃣ Check input
   if (!refreshToken) {
-    throw new Error('Refresh token required');
+    throw new Error("Refresh token required");
   }
 
   // 2️⃣ Find token in DB
-  const tokenRecord = await findRefreshToken(refreshToken, 'USER');
+  const tokenRecord = await findRefreshToken(refreshToken, "USER");
 
   if (!tokenRecord) {
-    throw new Error('Invalid refresh token');
+    throw new Error("Invalid refresh token");
   }
 
   // 3️⃣ Check expiry in DB
   if (tokenRecord.expiresAt < new Date()) {
-    throw new Error('Refresh token expired, please login again');
+    throw new Error("Refresh token expired, please login again");
   }
 
   // 4️⃣ Verify JWT signature
   try {
     verifyRefreshToken(refreshToken);
   } catch (error) {
-    throw new Error('Invalid refresh token');
+    throw new Error("Invalid refresh token");
   }
 
   // 5️⃣ Find User
@@ -234,11 +245,11 @@ export const refreshUserAccessTokenService = async (refreshToken) => {
   });
 
   if (!user) {
-    throw new Error('User not found');
+    throw new Error("User not found");
   }
 
   if (!user.isActive) {
-    throw new Error('User account is deactivated');
+    throw new Error("User account is deactivated");
   }
 
   // 6️⃣ Generate new access token
@@ -246,46 +257,38 @@ export const refreshUserAccessTokenService = async (refreshToken) => {
     id: user.id,
     email: user.email,
     tenantId: user.tenantId,
-    type: 'USER',
+    type: "USER",
   });
 
   // 8️⃣ Return tokens (same refreshToken continues to work)
   return {
-    message: 'Token refreshed successfully',
+    message: "Token refreshed successfully",
     accessToken: newAccessToken,
-    refreshToken: tokenRecord.token,  // Same old refresh token
+    refreshToken: tokenRecord.token, // Same old refresh token
   };
 };
 
-
-
 // ===================== FORGOT PASSWORD =====================
 export const forgotPasswordUserService = async (email) => {
-  return await forgotPasswordService(email, 'USER');
+  return await forgotPasswordService(email, "USER");
 };
 
 // ===================== RESET PASSWORD =====================
 export const resetPasswordUserService = async (
   token,
   newPassword,
-  confirmPassword
+  confirmPassword,
 ) => {
   return await resetPasswordService(
     token,
     newPassword,
     confirmPassword,
-    'USER'
+    "USER",
   );
 };
 
-
-
-
-
-
 // ===================== ASSIGNED CONTACTS =====================
 export const getAssignedContacts = async (userId, tenantId, options = {}) => {
-
   // 🔍 DEBUG: check who is calling API
   // console.log("LOGIN USER ID:", userId);
   // console.log("TENANT ID:", tenantId);
@@ -312,10 +315,7 @@ export const getAssignedContacts = async (userId, tenantId, options = {}) => {
       where,
       skip,
       take: limit,
-      orderBy: [
-        { assignedAt: "desc" },
-        { updatedAt: "desc" },
-      ],
+      orderBy: [{ assignedAt: "desc" }, { updatedAt: "desc" }],
       select: {
         id: true,
         phone: true,
@@ -323,8 +323,8 @@ export const getAssignedContacts = async (userId, tenantId, options = {}) => {
         company: true,
         contactTags: {
           include: {
-            tag: true
-          }
+            tag: true,
+          },
         },
         countryCode: true,
         whatsappId: true,
@@ -349,13 +349,12 @@ export const getAssignedContacts = async (userId, tenantId, options = {}) => {
   };
 };
 
-
 // ============================================================
 // GET LOGGED-IN USER PROFILE (with tenant info)
 // ============================================================
 export const getUserProfileService = async (userId) => {
   if (!userId) {
-    throw new Error('User ID is required');
+    throw new Error("User ID is required");
   }
 
   const user = await prisma.user.findUnique({
@@ -380,29 +379,31 @@ export const getUserProfileService = async (userId) => {
   });
 
   if (!user) {
-    throw new Error('User not found');
+    throw new Error("User not found");
   }
 
   return user;
 };
 
-
 // ============================================================
 // UPDATE USER PASSWORD (User changes their own password)
 // ============================================================
-export const updateUserPasswordService = async (userId, { currentPassword, newPassword, confirmPassword }) => {
+export const updateUserPasswordService = async (
+  userId,
+  { currentPassword, newPassword, confirmPassword },
+) => {
   // 1️⃣ Validate input
   if (!currentPassword) {
-    throw new Error('Current password is required');
+    throw new Error("Current password is required");
   }
   if (!newPassword || !confirmPassword) {
-    throw new Error('New password and confirm password are required');
+    throw new Error("New password and confirm password are required");
   }
   if (newPassword !== confirmPassword) {
-    throw new Error('New passwords do not match');
+    throw new Error("New passwords do not match");
   }
   if (newPassword.length < 8) {
-    throw new Error('Password must be at least 8 characters long');
+    throw new Error("Password must be at least 8 characters long");
   }
 
   // 2️⃣ Find user
@@ -411,13 +412,13 @@ export const updateUserPasswordService = async (userId, { currentPassword, newPa
   });
 
   if (!user) {
-    throw new Error('User not found');
+    throw new Error("User not found");
   }
 
   // 3️⃣ Verify current password
   const isPasswordMatch = await bcrypt.compare(currentPassword, user.password);
   if (!isPasswordMatch) {
-    throw new Error('Current password is incorrect');
+    throw new Error("Current password is incorrect");
   }
 
   // 4️⃣ Hash new password
@@ -434,20 +435,21 @@ export const updateUserPasswordService = async (userId, { currentPassword, newPa
     where: { userId: userId },
   });
 
-    // ✅ ADD audit log
+  // ✅ ADD audit log
   await createAuditLog({
-    actorId:     user.id,
-    actorType:   'USER',
-    actorName:   user.name,
-    actorEmail:  user.email,
-    action:      'PASSWORD_CHANGED',
-    module:      'AUTH',
+    actorId: user.id,
+    actorType: "USER",
+    actorName: user.name,
+    actorEmail: user.email,
+    action: "PASSWORD_CHANGED",
+    module: "AUTH",
     description: `User "${user.name}" changed their password`,
-    tenantId:    user.tenantId,
+    tenantId: user.tenantId,
   });
 
-  return { 
-    message: 'Password updated successfully. Please log in again on other devices.' 
+  return {
+    message:
+      "Password updated successfully. Please log in again on other devices.",
   };
 };
 
@@ -467,7 +469,6 @@ export const updateAvailabilityService = async (userId, status) => {
 
   return user;
 };
-
 
 // ============================================================
 // 🆕 DASHBOARD STATS FOR AGENT
@@ -500,7 +501,7 @@ export const getDashboardStatsService = async (userId, tenantId) => {
       where: {
         tenantId,
         contact: { assignedTo: userId },
-        status: 'OPEN',
+        status: "OPEN",
         isArchived: false,
       },
     }),
@@ -510,7 +511,7 @@ export const getDashboardStatsService = async (userId, tenantId) => {
       where: {
         tenantId,
         userId,
-        status: { in: ['OPEN', 'IN_PROGRESS'] },
+        status: { in: ["OPEN", "IN_PROGRESS"] },
       },
     }),
 
@@ -518,8 +519,8 @@ export const getDashboardStatsService = async (userId, tenantId) => {
     prisma.message.count({
       where: {
         senderId: userId,
-        senderType: 'USER',
-        direction: 'OUTBOUND',
+        senderType: "USER",
+        direction: "OUTBOUND",
         createdAt: { gte: todayStart },
       },
     }),
@@ -545,10 +546,13 @@ export const getDashboardStatsService = async (userId, tenantId) => {
   let avgResponseTimeMins = 0;
   if (recentConversations.length > 0) {
     const totalMs = recentConversations.reduce((sum, c) => {
-      const diff = new Date(c.firstResponseAt).getTime() - new Date(c.incomingAt).getTime();
+      const diff =
+        new Date(c.firstResponseAt).getTime() -
+        new Date(c.incomingAt).getTime();
       return sum + (diff > 0 ? diff : 0);
     }, 0);
-    avgResponseTimeMins = Math.round((totalMs / recentConversations.length / 60000) * 10) / 10;
+    avgResponseTimeMins =
+      Math.round((totalMs / recentConversations.length / 60000) * 10) / 10;
   }
 
   return {
@@ -559,7 +563,6 @@ export const getDashboardStatsService = async (userId, tenantId) => {
     avgResponseTimeMins,
   };
 };
-
 
 // ============================================================
 // 🆕 GLOBAL UNREAD BADGE COUNT
@@ -595,19 +598,19 @@ export const getUnreadBadgeCountService = async (userId, tenantId) => {
 
 // =========== Google Sign-In for Agent (User) ===========
 export const loginUserWithGoogleService = async (credential) => {
-  const { OAuth2Client } = await import('google-auth-library');
+  const { OAuth2Client } = await import("google-auth-library");
   const googleClient = new OAuth2Client();
 
-const ticket = await googleClient.verifyIdToken({
+  const ticket = await googleClient.verifyIdToken({
     idToken: credential,
     audience: [
       process.env.GOOGLE_CLIENT_ID,
       process.env.GOOGLE_CLIENT_ID_MOBILE,
     ].filter(Boolean),
-});
+  });
   const payload = ticket.getPayload();
   if (!payload) {
-    throw new Error('Invalid Google Token payload');
+    throw new Error("Invalid Google Token payload");
   }
 
   const { email } = payload;
@@ -615,24 +618,26 @@ const ticket = await googleClient.verifyIdToken({
   const user = await prisma.user.findUnique({ where: { email } });
 
   if (!user) {
-    throw new Error('No agent account found with this email. Please contact your admin to create an account first.');
+    throw new Error(
+      "No agent account found with this email. Please contact your admin to create an account first.",
+    );
   }
 
   if (!user.isActive) {
-    throw new Error('Your account has been deactivated. Contact your admin.');
+    throw new Error("Your account has been deactivated. Contact your admin.");
   }
 
   const accessToken = generateAccessToken({
     id: user.id,
     email: user.email,
     tenantId: user.tenantId,
-    type: 'USER',
+    type: "USER",
   });
 
   const refreshToken = generateRefreshToken({
     id: user.id,
     tenantId: user.tenantId,
-    type: 'USER',
+    type: "USER",
   });
 
   await saveRefreshToken({
@@ -646,8 +651,8 @@ const ticket = await googleClient.verifyIdToken({
       name: user.name,
       email: user.email,
       tenantId: user.tenantId,
-      type: 'USER',
-      status: 'APPROVED',
+      type: "USER",
+      status: "APPROVED",
     },
     accessToken,
     refreshToken,

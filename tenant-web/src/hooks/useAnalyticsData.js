@@ -8,7 +8,7 @@ import {
   getAnalyticsCampaigns,
   getAnalyticsAgents,
   getAnalyticsFilters,
-  downloadAnalyticsCSV
+  downloadAnalyticsCSV,
 } from "../api/analytics";
 
 export function useAnalyticsData() {
@@ -24,11 +24,17 @@ export function useAnalyticsData() {
   const [campaignPage, setCampaignPage] = useState(1);
 
   // Data States
-  const [filterOptions, setFilterOptions] = useState({ campaigns: [], agents: [] });
+  const [filterOptions, setFilterOptions] = useState({
+    campaigns: [],
+    agents: [],
+  });
   const [overview, setOverview] = useState(null);
   const [funnel, setFunnel] = useState([]);
   const [traffic, setTraffic] = useState([]);
-  const [campaignsData, setCampaignsData] = useState({ items: [], totalPages: 1 });
+  const [campaignsData, setCampaignsData] = useState({
+    items: [],
+    totalPages: 1,
+  });
   const [agentData, setAgentData] = useState({ summary: {}, leaderboard: [] });
 
   // Status States
@@ -54,9 +60,16 @@ export function useAnalyticsData() {
       start.setDate(start.getDate() - 30);
     } else if (dateRangePreset === "last90") {
       start.setDate(start.getDate() - 90);
-    } else if (dateRangePreset === "custom" && customStartDate && customEndDate) {
+    } else if (
+      dateRangePreset === "custom" &&
+      customStartDate &&
+      customEndDate
+    ) {
       start = new Date(customStartDate);
-      return { startDate: start.toISOString(), endDate: new Date(customEndDate).toISOString() };
+      return {
+        startDate: start.toISOString(),
+        endDate: new Date(customEndDate).toISOString(),
+      };
     }
 
     return { startDate: start.toISOString(), endDate: end.toISOString() };
@@ -64,7 +77,7 @@ export function useAnalyticsData() {
 
   // Load filter dropdown options once
   useEffect(() => {
-    getAnalyticsFilters().then(res => {
+    getAnalyticsFilters().then((res) => {
       if (res.success) setFilterOptions(res.data);
     });
   }, []);
@@ -77,24 +90,29 @@ export function useAnalyticsData() {
     const dateParams = getComputedDates();
     const queryParams = {
       ...dateParams,
-      campaignId: campaignId !== 'all' ? campaignId : undefined,
-      agentId: agentId !== 'all' ? agentId : undefined,
+      campaignId: campaignId !== "all" ? campaignId : undefined,
+      agentId: agentId !== "all" ? agentId : undefined,
     };
 
     try {
-      const [overviewRes, funnelRes, trafficRes, campaignsRes, agentsRes] = await Promise.all([
-        getAnalyticsOverview(queryParams),
-        getAnalyticsFunnel(queryParams),
-        getAnalyticsTraffic({ ...queryParams, granularity }),
-        getAnalyticsCampaigns({ ...queryParams, page: campaignPage, limit: 8 }),
-        getAnalyticsAgents(queryParams)
-      ]);
+      const [overviewRes, funnelRes, trafficRes, campaignsRes, agentsRes] =
+        await Promise.all([
+          getAnalyticsOverview(queryParams),
+          getAnalyticsFunnel(queryParams),
+          getAnalyticsTraffic({ ...queryParams, granularity }),
+          getAnalyticsCampaigns({
+            ...queryParams,
+            page: campaignPage,
+            limit: 8,
+          }),
+          getAnalyticsAgents(queryParams),
+        ]);
 
-      if (overviewRes.success)  setOverview(overviewRes.data);
-      if (funnelRes.success)    setFunnel(funnelRes.data);
-      if (trafficRes.success)   setTraffic(trafficRes.data);
+      if (overviewRes.success) setOverview(overviewRes.data);
+      if (funnelRes.success) setFunnel(funnelRes.data);
+      if (trafficRes.success) setTraffic(trafficRes.data);
       if (campaignsRes.success) setCampaignsData(campaignsRes.data);
-      if (agentsRes.success)    setAgentData(agentsRes.data);
+      if (agentsRes.success) setAgentData(agentsRes.data);
 
       if (!overviewRes.success && !funnelRes.success) {
         setError("Failed to load analytics data. Please check connection.");
@@ -116,8 +134,8 @@ export function useAnalyticsData() {
     const dateParams = getComputedDates();
     await downloadAnalyticsCSV({
       ...dateParams,
-      campaignId: campaignId !== 'all' ? campaignId : undefined,
-      agentId: agentId !== 'all' ? agentId : undefined,
+      campaignId: campaignId !== "all" ? campaignId : undefined,
+      agentId: agentId !== "all" ? agentId : undefined,
     });
     setExporting(false);
   };
@@ -128,13 +146,20 @@ export function useAnalyticsData() {
   };
 
   return {
-    dateRangePreset, setDateRangePreset,
-    customStartDate, setCustomStartDate,
-    customEndDate, setCustomEndDate,
-    campaignId, setCampaignId,
-    agentId, setAgentId,
-    granularity, setGranularity,
-    campaignPage, setCampaignPage,
+    dateRangePreset,
+    setDateRangePreset,
+    customStartDate,
+    setCustomStartDate,
+    customEndDate,
+    setCustomEndDate,
+    campaignId,
+    setCampaignId,
+    agentId,
+    setAgentId,
+    granularity,
+    setGranularity,
+    campaignPage,
+    setCampaignPage,
     filterOptions,
     overview,
     funnel,
@@ -146,6 +171,6 @@ export function useAnalyticsData() {
     error,
     refetch: fetchAllData,
     handleExportCSV,
-    handleExportPDF
+    handleExportPDF,
   };
 }

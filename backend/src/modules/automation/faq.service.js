@@ -5,10 +5,9 @@
  * Auto-answers customer WhatsApp queries (shipping, returns, payments) via keyword matching.
  */
 
-import prisma from '../../config/prisma.js'
+import prisma from "../../config/prisma.js";
 
 const faqService = {
-
   // ─────────────────────────────────────────
   // Create a new FAQ entry
   // ─────────────────────────────────────────
@@ -22,8 +21,8 @@ const faqService = {
         category: data.category || null,
         isActive: data.isActive !== false,
         priority: data.priority || 0,
-      }
-    })
+      },
+    });
   },
 
   // ─────────────────────────────────────────
@@ -39,8 +38,8 @@ const faqService = {
         ...(data.category !== undefined && { category: data.category }),
         ...(data.isActive !== undefined && { isActive: data.isActive }),
         ...(data.priority !== undefined && { priority: data.priority }),
-      }
-    })
+      },
+    });
   },
 
   // ─────────────────────────────────────────
@@ -48,8 +47,8 @@ const faqService = {
   // ─────────────────────────────────────────
   deleteFaq: async (faqId) => {
     return prisma.botFaq.delete({
-      where: { id: faqId }
-    })
+      where: { id: faqId },
+    });
   },
 
   // ─────────────────────────────────────────
@@ -62,21 +61,18 @@ const faqService = {
         isActive: true,
         ...(category && { category }),
       },
-      orderBy: [
-        { priority: 'desc' },
-        { createdAt: 'desc' }
-      ]
-    })
+      orderBy: [{ priority: "desc" }, { createdAt: "desc" }],
+    });
   },
 
   // ─────────────────────────────────────────
   // Search FAQ by query (keyword + fuzzy match)
   // ─────────────────────────────────────────
   searchFaq: async (tenantId, query) => {
-    if (!query || !query.trim()) return null
+    if (!query || !query.trim()) return null;
 
-    const normalizedQuery = query.toLowerCase().trim()
-    const queryWords = normalizedQuery.split(/\s+/).filter(w => w.length > 2)
+    const normalizedQuery = query.toLowerCase().trim();
+    const queryWords = normalizedQuery.split(/\s+/).filter((w) => w.length > 2);
 
     // Fetch all active FAQs for this tenant
     const faqs = await prisma.botFaq.findMany({
@@ -84,28 +80,28 @@ const faqService = {
         tenantId,
         isActive: true,
       },
-      orderBy: [
-        { priority: 'desc' },
-        { createdAt: 'desc' }
-      ]
-    })
+      orderBy: [{ priority: "desc" }, { createdAt: "desc" }],
+    });
 
-    if (faqs.length === 0) return null
+    if (faqs.length === 0) return null;
 
-    let bestMatch = null
-    let bestScore = 0
+    let bestMatch = null;
+    let bestScore = 0;
 
     for (const faq of faqs) {
-      let score = 0
-      const faqKeywords = (faq.keywords || []).map(k => k.toLowerCase())
-      const faqQuestion = faq.question.toLowerCase()
+      let score = 0;
+      const faqKeywords = (faq.keywords || []).map((k) => k.toLowerCase());
+      const faqQuestion = faq.question.toLowerCase();
 
       // 1. Exact keyword match (highest weight)
       for (const keyword of faqKeywords) {
         if (normalizedQuery === keyword) {
-          score += 100
-        } else if (normalizedQuery.includes(keyword) || keyword.includes(normalizedQuery)) {
-          score += 60
+          score += 100;
+        } else if (
+          normalizedQuery.includes(keyword) ||
+          keyword.includes(normalizedQuery)
+        ) {
+          score += 60;
         }
       }
 
@@ -113,42 +109,44 @@ const faqService = {
       for (const word of queryWords) {
         for (const keyword of faqKeywords) {
           if (keyword.includes(word) || word.includes(keyword)) {
-            score += 30
+            score += 30;
           }
         }
       }
 
       // 3. Question contains full query
       if (faqQuestion.includes(normalizedQuery)) {
-        score += 50
+        score += 50;
       }
 
       // 4. Query words found in question
-      const questionWords = faqQuestion.split(/\s+/).filter(w => w.length > 3)
-      let questionWordMatches = 0
+      const questionWords = faqQuestion
+        .split(/\s+/)
+        .filter((w) => w.length > 3);
+      let questionWordMatches = 0;
       for (const qWord of questionWords) {
         if (normalizedQuery.includes(qWord)) {
-          questionWordMatches++
+          questionWordMatches++;
         }
       }
       if (questionWords.length > 0) {
-        score += Math.round((questionWordMatches / questionWords.length) * 40)
+        score += Math.round((questionWordMatches / questionWords.length) * 40);
       }
 
       // 5. Priority bonus
-      score += (faq.priority || 0) * 5
+      score += (faq.priority || 0) * 5;
 
       if (score > bestScore) {
-        bestScore = score
-        bestMatch = faq
+        bestScore = score;
+        bestMatch = faq;
       }
     }
 
     // Minimum threshold to avoid irrelevant matches
-    if (bestScore < 20) return null
+    if (bestScore < 20) return null;
 
-    return bestMatch
-  }
-}
+    return bestMatch;
+  },
+};
 
-export default faqService
+export default faqService;

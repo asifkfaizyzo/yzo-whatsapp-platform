@@ -1,6 +1,6 @@
 // backend/src/config/google.sheets.js (do not remove this comment)
-import { google } from 'googleapis';
-import dotenv from 'dotenv';
+import { google } from "googleapis";
+import dotenv from "dotenv";
 
 dotenv.config();
 
@@ -20,7 +20,7 @@ export const getOAuth2Client = (tokens = null) => {
   const oauth2Client = new google.auth.OAuth2(
     GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET,
-    GOOGLE_REDIRECT_URI // This is the missing parameter causing your error
+    GOOGLE_REDIRECT_URI, // This is the missing parameter causing your error
   );
 
   if (tokens) {
@@ -34,8 +34,8 @@ export const getOAuth2Client = (tokens = null) => {
  * Gets a Google Sheets client for a specific tenant
  */
 export const getSheetsClient = async (tenantId) => {
-  // We will handle the database lookup in the service, 
+  // We will handle the database lookup in the service,
   // but this utility helps create the base client
   const oauth2Client = getOAuth2Client();
-  return google.sheets({ version: 'v4', auth: oauth2Client });
+  return google.sheets({ version: "v4", auth: oauth2Client });
 };

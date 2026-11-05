@@ -1,19 +1,19 @@
 // backend/src/modules/zoho/webhooks/zoho.webhook.service.js (do not remove this comment)
 
-import prisma from '../../../config/prisma.js';
-import { emitToTenant } from '../../../lib/socket.js';
-import { createNotification } from '../../notifications/notification.service.js';
-import { zohoRequest } from '../zoho.client.js';
-import { redisConnection } from '../../../config/redis.js';
+import prisma from "../../../config/prisma.js";
+import { emitToTenant } from "../../../lib/socket.js";
+import { createNotification } from "../../notifications/notification.service.js";
+import { zohoRequest } from "../zoho.client.js";
+import { redisConnection } from "../../../config/redis.js";
 
 const SYNC_LOCK_TTL = 30; // 30 seconds loop-prevention window
 
 /**
  * Normalizes phone numbers from Zoho (e.g., "08086415357" -> "+918086415357")
  */
-function normalizeZohoPhone(rawPhone, defaultCountryCode = '+91') {
+function normalizeZohoPhone(rawPhone, defaultCountryCode = "+91") {
   if (!rawPhone) return null;
-  const digits = rawPhone.replace(/\D/g, '');
+  const digits = rawPhone.replace(/\D/g, "");
   if (!digits) return null;
 
   // 10 digits (e.g. 8086415357) -> +918086415357
@@ -21,11 +21,11 @@ function normalizeZohoPhone(rawPhone, defaultCountryCode = '+91') {
     return `${defaultCountryCode}${digits}`;
   }
   // 11 digits starting with 0 (e.g. 08086415357) -> +918086415357
-  if (digits.length === 11 && digits.startsWith('0')) {
+  if (digits.length === 11 && digits.startsWith("0")) {
     return `${defaultCountryCode}${digits.slice(1)}`;
   }
   // 12 digits starting with 91 (e.g. 918086415357) -> +918086415357
-  if (digits.length === 12 && digits.startsWith('91')) {
+  if (digits.length === 12 && digits.startsWith("91")) {
     return `+${digits}`;
   }
 
@@ -48,16 +48,16 @@ export async function processZohoWebhookEvent(body) {
       if (!token || !recordId) continue;
 
       const tenant = await prisma.tenant.findFirst({
-        where: { id: token, zoho: { zohoConnectionStatus: 'CONNECTED' } },
+        where: { id: token, zoho: { zohoConnectionStatus: "CONNECTED" } },
         select: { id: true, tenantName: true },
       });
 
       if (!tenant) continue;
 
       // Handle Contact & Lead module events
-      if (module !== 'Contacts' && module !== 'Leads') continue;
+      if (module !== "Contacts" && module !== "Leads") continue;
 
-      const providerType = module === 'Leads' ? 'ZOHO_LEAD' : 'ZOHO';
+      const providerType = module === "Leads" ? "ZOHO_LEAD" : "ZOHO";
 
       let mapping = await prisma.contactProviderMapping.findUnique({
         where: {
@@ -73,15 +73,19 @@ export async function processZohoWebhookEvent(body) {
       });
 
       // ── Handle Record Deletion in Zoho ──
-      if (operation === 'delete') {
+      if (operation === "delete") {
         if (mapping) {
-          await prisma.contactProviderMapping.delete({ where: { id: mapping.id } });
-          console.log(`🗑️ [ZohoWebhook] Removed mapping for deleted Zoho ${module} record ${recordId}`);
+          await prisma.contactProviderMapping.delete({
+            where: { id: mapping.id },
+          });
+          console.log(
+            `🗑️ [ZohoWebhook] Removed mapping for deleted Zoho ${module} record ${recordId}`,
+          );
 
-          emitToTenant(tenant.id, 'zoho_contact_changed', {
+          emitToTenant(tenant.id, "zoho_contact_changed", {
             contactId: mapping.contactId,
             zohoRecordId: recordId,
-            operation: 'delete',
+            operation: "delete",
             module,
           });
         }
@@ -89,12 +93,14 @@ export async function processZohoWebhookEvent(body) {
       }
 
       // ── Handle Insert / Update from Zoho ──
-      if (operation === 'update' || operation === 'insert') {
+      if (operation === "update" || operation === "insert") {
         // Loop prevention: check if this update was initiated by Sudo Reply
         const lockKeyRecord = `zoho_sync_lock:${recordId}`;
         const isLockedRecord = await redisConnection.get(lockKeyRecord);
         if (isLockedRecord) {
-          console.log(`🔒 [ZohoWebhook] Ignoring echoed update for record ${recordId} (loop prevention active)`);
+          console.log(
+            `🔒 [ZohoWebhook] Ignoring echoed update for record ${recordId} (loop prevention active)`,
+          );
           continue;
         }
 
@@ -102,22 +108,29 @@ export async function processZohoWebhookEvent(body) {
         let zohoRecord = null;
         try {
           const res = await zohoRequest(tenant.id, {
-            method: 'GET',
+            method: "GET",
             url: `/crm/v7/${module}/${recordId}`,
           });
           zohoRecord = res?.data?.[0];
         } catch (fetchErr) {
-          console.warn(`⚠️ [ZohoWebhook] Failed to fetch updated ${module} record ${recordId}:`, fetchErr.message);
+          console.warn(
+            `⚠️ [ZohoWebhook] Failed to fetch updated ${module} record ${recordId}:`,
+            fetchErr.message,
+          );
           continue;
         }
 
         if (!zohoRecord) continue;
 
-        const fullName = `${zohoRecord.First_Name || ''} ${zohoRecord.Last_Name || ''}`.trim() || zohoRecord.Full_Name || 'Zoho Contact';
+        const fullName =
+          `${zohoRecord.First_Name || ""} ${zohoRecord.Last_Name || ""}`.trim() ||
+          zohoRecord.Full_Name ||
+          "Zoho Contact";
         const rawPhone = zohoRecord.Phone || zohoRecord.Mobile || null;
         const normalizedPhone = normalizeZohoPhone(rawPhone);
         const email = zohoRecord.Email || null;
-        const company = zohoRecord.Company || zohoRecord.Account_Name?.name || null;
+        const company =
+          zohoRecord.Company || zohoRecord.Account_Name?.name || null;
 
         // ═══════════════════════════════════════════════════
         // CASE 1: Contact is ALREADY Mapped in Sudo Reply
@@ -128,8 +141,8 @@ export async function processZohoWebhookEvent(body) {
           if (isLockedContact) continue;
 
           // Set loop prevention lock
-          await redisConnection.set(lockKeyContact, '1', 'EX', SYNC_LOCK_TTL);
-          await redisConnection.set(lockKeyRecord, '1', 'EX', SYNC_LOCK_TTL);
+          await redisConnection.set(lockKeyContact, "1", "EX", SYNC_LOCK_TTL);
+          await redisConnection.set(lockKeyRecord, "1", "EX", SYNC_LOCK_TTL);
 
           const updatedContact = await prisma.contact.update({
             where: { id: mapping.contact.id },
@@ -138,7 +151,10 @@ export async function processZohoWebhookEvent(body) {
               email: email || mapping.contact.email,
               company: company || mapping.contact.company,
               ...(normalizedPhone && !mapping.contact.phone
-                ? { phone: normalizedPhone, whatsappId: normalizedPhone.replace(/\D/g, '').slice(-10) }
+                ? {
+                    phone: normalizedPhone,
+                    whatsappId: normalizedPhone.replace(/\D/g, "").slice(-10),
+                  }
                 : {}),
             },
           });
@@ -148,25 +164,31 @@ export async function processZohoWebhookEvent(body) {
             data: { lastSyncedAt: new Date() },
           });
 
-          console.log(`📥 [ZohoWebhook] Synced changes from Zoho to Sudo Reply Contact: "${updatedContact.name}"`);
+          console.log(
+            `📥 [ZohoWebhook] Synced changes from Zoho to Sudo Reply Contact: "${updatedContact.name}"`,
+          );
 
-          emitToTenant(tenant.id, 'contact_updated', {
+          emitToTenant(tenant.id, "contact_updated", {
             contact: updatedContact,
-            source: 'ZOHO_CRM',
+            source: "ZOHO_CRM",
           });
 
           await createNotification({
             tenantId: tenant.id,
             userId: null,
-            type: 'zoho_contact_changed',
+            type: "zoho_contact_changed",
             title: `Zoho CRM ${module} Updated`,
             message: `Contact "${updatedContact.name}" was updated from Zoho CRM.`,
-            metadata: { contactId: updatedContact.id, zohoRecordId: recordId, operation },
+            metadata: {
+              contactId: updatedContact.id,
+              zohoRecordId: recordId,
+              operation,
+            },
           });
 
-        // ═══════════════════════════════════════════════════
-        // CASE 2: Brand NEW Contact Created in Zoho CRM
-        // ═══════════════════════════════════════════════════
+          // ═══════════════════════════════════════════════════
+          // CASE 2: Brand NEW Contact Created in Zoho CRM
+          // ═══════════════════════════════════════════════════
         } else {
           let contact = null;
 
@@ -192,7 +214,9 @@ export async function processZohoWebhookEvent(body) {
 
           // C. If still not found, CREATE brand new contact in Sudo Reply
           if (!contact) {
-            const cleanDigits = normalizedPhone ? normalizedPhone.replace(/\D/g, '') : '';
+            const cleanDigits = normalizedPhone
+              ? normalizedPhone.replace(/\D/g, "")
+              : "";
             contact = await prisma.contact.create({
               data: {
                 tenantId: tenant.id,
@@ -201,21 +225,23 @@ export async function processZohoWebhookEvent(body) {
                 email: email || null,
                 company: company || null,
                 whatsappId: cleanDigits ? cleanDigits.slice(-10) : null,
-                channel: 'WHATSAPP',
+                channel: "WHATSAPP",
               },
             });
 
-            console.log(`🆕 [ZohoWebhook] Created NEW Contact in Sudo Reply from Zoho: "${fullName}" (${normalizedPhone || email})`);
+            console.log(
+              `🆕 [ZohoWebhook] Created NEW Contact in Sudo Reply from Zoho: "${fullName}" (${normalizedPhone || email})`,
+            );
 
-            emitToTenant(tenant.id, 'new_contact', {
+            emitToTenant(tenant.id, "new_contact", {
               contact,
-              source: 'ZOHO_CRM',
+              source: "ZOHO_CRM",
             });
 
             await createNotification({
               tenantId: tenant.id,
               userId: null,
-              type: 'zoho_contact_created',
+              type: "zoho_contact_created",
               title: `New Zoho CRM ${module} Synced`,
               message: `Contact "${fullName}" was imported from Zoho CRM.`,
               metadata: { contactId: contact.id, zohoRecordId: recordId },
@@ -225,18 +251,25 @@ export async function processZohoWebhookEvent(body) {
           // D. Save provider mapping so future edits stay linked
           if (contact) {
             // Apply loop prevention lock
-            await redisConnection.set(`zoho_sync_lock:${contact.id}`, '1', 'EX', SYNC_LOCK_TTL);
-            await redisConnection.set(lockKeyRecord, '1', 'EX', SYNC_LOCK_TTL);
+            await redisConnection.set(
+              `zoho_sync_lock:${contact.id}`,
+              "1",
+              "EX",
+              SYNC_LOCK_TTL,
+            );
+            await redisConnection.set(lockKeyRecord, "1", "EX", SYNC_LOCK_TTL);
 
             // Clean up any conflicting mapping for this recordId
-            await prisma.contactProviderMapping.deleteMany({
-              where: {
-                tenantId: tenant.id,
-                provider: providerType,
-                providerContactId: recordId,
-                contactId: { not: contact.id },
-              },
-            }).catch(() => {});
+            await prisma.contactProviderMapping
+              .deleteMany({
+                where: {
+                  tenantId: tenant.id,
+                  provider: providerType,
+                  providerContactId: recordId,
+                  contactId: { not: contact.id },
+                },
+              })
+              .catch(() => {});
 
             await prisma.contactProviderMapping.upsert({
               where: {
@@ -257,15 +290,17 @@ export async function processZohoWebhookEvent(body) {
                 lastSyncedAt: new Date(),
               },
             });
-            console.log(`🔗 [ZohoWebhook] Linked Zoho ${module} (${recordId}) ↔ Sudo Contact (${contact.id})`);
+            console.log(
+              `🔗 [ZohoWebhook] Linked Zoho ${module} (${recordId}) ↔ Sudo Contact (${contact.id})`,
+            );
           }
         }
       }
     }
 
-    return { status: 'ok' };
+    return { status: "ok" };
   } catch (error) {
-    console.error('❌ [ZohoWebhook] Processing error:', error);
+    console.error("❌ [ZohoWebhook] Processing error:", error);
     throw error;
   }
 }

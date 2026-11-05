@@ -6,9 +6,22 @@ import { useAuthStore } from "../store/useAuthStore";
 import { getPublicPlans } from "../api/plan";
 import { useToast } from "../context/ToastContext";
 import api from "../api/axios";
-import { ShieldAlert, ShieldCheck, Receipt, HelpCircle, ArrowRight, Sparkles, CheckCircle2, CreditCard, ChevronLeft } from "lucide-react";
+import {
+  ShieldAlert,
+  ShieldCheck,
+  Receipt,
+  HelpCircle,
+  ArrowRight,
+  Sparkles,
+  CheckCircle2,
+  CreditCard,
+  ChevronLeft,
+} from "lucide-react";
 import { createPortal } from "react-dom";
-import { PaymentVerifyingLoader, PaymentSuccessScreen } from "../components/CustomLoader";
+import {
+  PaymentVerifyingLoader,
+  PaymentSuccessScreen,
+} from "../components/CustomLoader";
 
 const loadRazorpayScript = () => {
   return new Promise((resolve) => {
@@ -36,28 +49,36 @@ export default function SelectPlan() {
   const [loading, setLoading] = useState(true);
   const [trialLoading, setTrialLoading] = useState(false);
   const [error, setError] = useState("");
-  const [selectedPlanId, setSelectedPlanId] = useState(searchParams.get("planId") || null);
-  const [billingType, setBillingType] = useState(searchParams.get("billing") || "monthly");
-  
+  const [selectedPlanId, setSelectedPlanId] = useState(
+    searchParams.get("planId") || null,
+  );
+  const [billingType, setBillingType] = useState(
+    searchParams.get("billing") || "monthly",
+  );
+
   // Details Modal state
   const [activeDetailsPlan, setActiveDetailsPlan] = useState(null);
-  
+
   // Trial Confirmation Modal state
   const [showTrialConfirmModal, setShowTrialConfirmModal] = useState(false);
   const [trialPlanToConfirm, setTrialPlanToConfirm] = useState(null);
-  
+
   // Verification & Celebration screen states
   const [verifying, setVerifying] = useState(false);
   const [paid, setPaid] = useState(false);
   const [successPlanName, setSuccessPlanName] = useState("");
-  
+
   // Dynamic subscription status tracking
   const [billingDetails, setBillingDetails] = useState(null);
   const [isExpired, setIsExpired] = useState(false);
 
   useEffect(() => {
     // Redirect active tenants (paid or trialing) directly to dashboard unless deliberately on upgrade page
-    const hasActivePlan = user?.planId && (user?.planStatus === "active" || user?.subscriptionStatus === "trialing" || user?.subscriptionStatus === "active");
+    const hasActivePlan =
+      user?.planId &&
+      (user?.planStatus === "active" ||
+        user?.subscriptionStatus === "trialing" ||
+        user?.subscriptionStatus === "active");
     if (!isUpgrade && hasActivePlan && !isExpired) {
       navigate("/dashboard", { replace: true });
       return;
@@ -68,7 +89,7 @@ export default function SelectPlan() {
       try {
         const [plansRes, billingRes] = await Promise.all([
           getPublicPlans(),
-          api.get("/billing").catch(() => null)
+          api.get("/billing").catch(() => null),
         ]);
 
         if (plansRes.success) {
@@ -80,7 +101,10 @@ export default function SelectPlan() {
         if (billingRes && billingRes.data?.success && billingRes.data?.data) {
           const billingData = billingRes.data.data;
           setBillingDetails(billingData);
-          setIsExpired(billingData.subscriptionStatus === 'expired' && !!billingData.planPeriodEnd);
+          setIsExpired(
+            billingData.subscriptionStatus === "expired" &&
+              !!billingData.planPeriodEnd,
+          );
         }
       } catch (err) {
         console.error("Failed to load select plan details:", err);
@@ -99,26 +123,30 @@ export default function SelectPlan() {
     return plan.monthlyPrice;
   };
 
-  const hasUsedTrial = billingDetails?.hasUsedTrial || user?.hasUsedTrial || false;
+  const hasUsedTrial =
+    billingDetails?.hasUsedTrial || user?.hasUsedTrial || false;
   // Free trial is applicable exclusively on monthly billing cycles
-  const isEligibleForTrial = !hasUsedTrial && !isExpired && !isUpgrade && billingType === "monthly";
+  const isEligibleForTrial =
+    !hasUsedTrial && !isExpired && !isUpgrade && billingType === "monthly";
 
   const handleStartTrial = async (planId) => {
-    const chosenPlan = plans.find(p => p.id === planId);
+    const chosenPlan = plans.find((p) => p.id === planId);
     if (!chosenPlan) return;
 
     setTrialLoading(true);
     try {
       const isLoaded = await loadRazorpayScript();
       if (!isLoaded) {
-        toast.error("Payment SDK failed to load. Please check your internet connection.");
+        toast.error(
+          "Payment SDK failed to load. Please check your internet connection.",
+        );
         setTrialLoading(false);
         return;
       }
 
       const res = await api.post("/plans/create-subscription-trial", {
         planId,
-        billingType: "monthly"
+        billingType: "monthly",
       });
 
       if (!res.data.success) {
@@ -139,17 +167,22 @@ export default function SelectPlan() {
           setTrialLoading(false);
           setVerifying(true);
           try {
-            const verifyRes = await api.post("/plans/verify-subscription-trial", {
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_subscription_id: response.razorpay_subscription_id,
-              razorpay_signature: response.razorpay_signature,
-            });
+            const verifyRes = await api.post(
+              "/plans/verify-subscription-trial",
+              {
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_subscription_id: response.razorpay_subscription_id,
+                razorpay_signature: response.razorpay_signature,
+              },
+            );
 
             if (verifyRes.data.success) {
               setVerifying(false);
-              setSuccessPlanName(`${chosenPlan.name} (${trialDays}-Day Free Trial)`);
+              setSuccessPlanName(
+                `${chosenPlan.name} (${trialDays}-Day Free Trial)`,
+              );
               setPaid(true);
-              
+
               // 1. Update client-side user session in Zustand & localStorage
               const token = accessToken || localStorage.getItem("access_token");
               const updatedUser = {
@@ -171,11 +204,15 @@ export default function SelectPlan() {
               }, 2500);
             } else {
               setVerifying(false);
-              toast.error(verifyRes.data?.message || "Failed to verify mandate.");
+              toast.error(
+                verifyRes.data?.message || "Failed to verify mandate.",
+              );
             }
           } catch (verifyErr) {
             setVerifying(false);
-            toast.error(verifyErr.response?.data?.message || "Failed to verify mandate.");
+            toast.error(
+              verifyErr.response?.data?.message || "Failed to verify mandate.",
+            );
           }
         },
         prefill: {
@@ -189,14 +226,17 @@ export default function SelectPlan() {
           ondismiss: function () {
             setTrialLoading(false);
             setVerifying(false);
-          }
-        }
+          },
+        },
       };
 
       const rzp = new window.Razorpay(options);
       rzp.on("payment.failed", function (response) {
         setVerifying(false);
-        toast.error("Mandate authorization failed: " + (response.error?.description || "Please try again."));
+        toast.error(
+          "Mandate authorization failed: " +
+            (response.error?.description || "Please try again."),
+        );
       });
       rzp.open();
     } catch (err) {
@@ -217,7 +257,7 @@ export default function SelectPlan() {
       return;
     }
 
-    const chosenPlan = plans.find(p => p.id === selectedPlanId);
+    const chosenPlan = plans.find((p) => p.id === selectedPlanId);
     if (isEligibleForTrial && chosenPlan?.hasTrial !== false) {
       setTrialPlanToConfirm(chosenPlan);
       setShowTrialConfirmModal(true);
@@ -228,7 +268,9 @@ export default function SelectPlan() {
 
   // Payment Success Screen Celebration
   if (paid) {
-    return <PaymentSuccessScreen planName={successPlanName} email={user?.email} />;
+    return (
+      <PaymentSuccessScreen planName={successPlanName} email={user?.email} />
+    );
   }
 
   const { planPeriodEnd, dataDeletionDate } = billingDetails || {};
@@ -273,7 +315,6 @@ export default function SelectPlan() {
       </div>
 
       <div className="max-w-6xl mx-auto px-6 py-12 space-y-8">
-
         {/* Dynamic Ended Subscription Banner */}
         {isExpired && (
           <div className="rounded-3xl bg-red-50 border border-red-100 p-6 flex flex-col md:flex-row md:items-center gap-6 shadow-sm animate-in fade-in duration-200">
@@ -281,10 +322,19 @@ export default function SelectPlan() {
               <ShieldAlert size={28} />
             </div>
             <div className="space-y-1">
-              <h3 className="text-lg font-bold text-red-800">Your Subscription Has Ended</h3>
+              <h3 className="text-lg font-bold text-red-800">
+                Your Subscription Has Ended
+              </h3>
               <p className="text-sm text-red-600">
-                Expired on: <strong>{planPeriodEnd ? new Date(planPeriodEnd).toLocaleDateString() : 'N/A'}</strong>. 
-                {dataDeletionDate && ` Complete resubscription before ${new Date(dataDeletionDate).toLocaleDateString()} to avoid data removal.`}
+                Expired on:{" "}
+                <strong>
+                  {planPeriodEnd
+                    ? new Date(planPeriodEnd).toLocaleDateString()
+                    : "N/A"}
+                </strong>
+                .
+                {dataDeletionDate &&
+                  ` Complete resubscription before ${new Date(dataDeletionDate).toLocaleDateString()} to avoid data removal.`}
               </p>
             </div>
           </div>
@@ -302,11 +352,18 @@ export default function SelectPlan() {
                   <Receipt size={24} />
                 </div>
                 <div>
-                  <p className="font-bold text-slate-800 text-sm md:text-base">View Invoice History</p>
-                  <p className="text-xs text-slate-400 mt-0.5 font-medium">Access and download your past billing receipts</p>
+                  <p className="font-bold text-slate-800 text-sm md:text-base">
+                    View Invoice History
+                  </p>
+                  <p className="text-xs text-slate-400 mt-0.5 font-medium">
+                    Access and download your past billing receipts
+                  </p>
                 </div>
               </div>
-              <ArrowRight size={18} className="text-slate-400 group-hover:translate-x-1 group-hover:text-blue-600 transition" />
+              <ArrowRight
+                size={18}
+                className="text-slate-400 group-hover:translate-x-1 group-hover:text-blue-600 transition"
+              />
             </Link>
 
             <Link
@@ -318,11 +375,18 @@ export default function SelectPlan() {
                   <HelpCircle size={24} />
                 </div>
                 <div>
-                  <p className="font-bold text-slate-800 text-sm md:text-base">Contact Support</p>
-                  <p className="text-xs text-slate-400 mt-0.5 font-medium">Need help? Get in touch with our billing team</p>
+                  <p className="font-bold text-slate-800 text-sm md:text-base">
+                    Contact Support
+                  </p>
+                  <p className="text-xs text-slate-400 mt-0.5 font-medium">
+                    Need help? Get in touch with our billing team
+                  </p>
                 </div>
               </div>
-              <ArrowRight size={18} className="text-slate-400 group-hover:translate-x-1 group-hover:text-amber-600 transition" />
+              <ArrowRight
+                size={18}
+                className="text-slate-400 group-hover:translate-x-1 group-hover:text-amber-600 transition"
+              />
             </Link>
           </div>
         )}
@@ -335,9 +399,13 @@ export default function SelectPlan() {
                 <Sparkles size={32} className="text-yellow-300" />
               </div>
               <div>
-                <h2 className="text-xl font-black">Free Trial Available on Monthly Plans</h2>
+                <h2 className="text-xl font-black">
+                  Free Trial Available on Monthly Plans
+                </h2>
                 <p className="text-sm text-blue-100 font-medium mt-1">
-                  Enjoy full access with ₹0 today. A ₹1–₹5 refundable token is verified by your bank to set up Autopay, then automatically redirected to your dashboard.
+                  Enjoy full access with ₹0 today. A ₹1–₹5 refundable token is
+                  verified by your bank to set up Autopay, then automatically
+                  redirected to your dashboard.
                 </p>
               </div>
             </div>
@@ -352,20 +420,31 @@ export default function SelectPlan() {
         {/* Title */}
         <div className="text-center mb-4">
           <span className="text-[#125EF2] font-semibold text-sm uppercase tracking-wider">
-            {isExpired ? "Account Expired" : isUpgrade ? "Plan Upgrade" : isEligibleForTrial ? "Start Free Trial" : "Step 1 of 2"}
+            {isExpired
+              ? "Account Expired"
+              : isUpgrade
+                ? "Plan Upgrade"
+                : isEligibleForTrial
+                  ? "Start Free Trial"
+                  : "Step 1 of 2"}
           </span>
           <h1 className="text-3xl font-extrabold text-gray-900 mt-2">
-            {isExpired ? "Select a Subscription Plan" : <>Choose Your <span className="text-[#125EF2]">Plan</span></>}
+            {isExpired ? (
+              "Select a Subscription Plan"
+            ) : (
+              <>
+                Choose Your <span className="text-[#125EF2]">Plan</span>
+              </>
+            )}
           </h1>
           <p className="text-gray-500 mt-2 font-medium">
-            {isExpired 
+            {isExpired
               ? "Choose a suitable business package below to regain instant access to your SudoReply workspace."
               : billingType === "annual"
-              ? "Annual billing saves 25% with full-year paid subscription & immediate tax invoices."
-              : isEligibleForTrial
-              ? "Start a 14-day free trial or purchase directly to unlock your SudoReply workspace."
-              : "Select the plan that best fits your business needs"
-            }
+                ? "Annual billing saves 25% with full-year paid subscription & immediate tax invoices."
+                : isEligibleForTrial
+                  ? "Start a 14-day free trial or purchase directly to unlock your SudoReply workspace."
+                  : "Select the plan that best fits your business needs"}
           </p>
         </div>
 
@@ -440,7 +519,8 @@ export default function SelectPlan() {
                 {
                   id: "enterprise",
                   name: "Enterprise",
-                  description: "For large teams requiring custom volume, dedicated channels, and full-scale WhatsApp operations.",
+                  description:
+                    "For large teams requiring custom volume, dedicated channels, and full-scale WhatsApp operations.",
                   monthlyPrice: 0,
                   isEnterprise: true,
                   features: [
@@ -449,17 +529,18 @@ export default function SelectPlan() {
                     { id: "e3", name: "Custom API & Webhook limits" },
                     { id: "e4", name: "Dedicated Account Manager" },
                     { id: "e5", name: "24/7 SLA Priority Support" },
-                    { id: "e6", name: "Custom integrations" }
+                    { id: "e6", name: "Custom integrations" },
                   ],
                   maxAgents: "Unlimited",
-                  maxBroadcasts: null
-                }
+                  maxBroadcasts: null,
+                },
               ].map((plan, index) => {
                 const isPopular = index === 1;
                 const isSelected = selectedPlanId === plan.id;
                 const isCurrentPlan =
                   plan.id === user?.planId ||
-                  (plan.id === "enterprise" && user?.planStatus === "enterprise_active");
+                  (plan.id === "enterprise" &&
+                    user?.planStatus === "enterprise_active");
                 const isDisabled = isCurrentPlan && !isExpired && !isUpgrade;
                 const price = plan.isEnterprise ? null : getPrice(plan);
 
@@ -474,18 +555,19 @@ export default function SelectPlan() {
                       ${
                         isSelected && !isDisabled
                           ? "ring-4 ring-[#125EF2] shadow-xl scale-[1.02]"
-                          : !isDisabled ? "hover:shadow-lg hover:-translate-y-1 hover:border-[#125EF2]" : ""
+                          : !isDisabled
+                            ? "hover:shadow-lg hover:-translate-y-1 hover:border-[#125EF2]"
+                            : ""
                       }
                       ${
                         isPopular
                           ? "bg-gray-900 text-white font-medium border-transparent"
                           : plan.isEnterprise
-                          ? "bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200"
-                          : "bg-white border-slate-100"
+                            ? "bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200"
+                            : "bg-white border-slate-100"
                       }
                     `}
                   >
-                  
                     {/* Current Plan Badge */}
                     {isCurrentPlan && (
                       <span className="absolute -top-3 left-1/2 -translate-x-1/2 inline-block bg-emerald-500 text-white text-[11px] font-bold px-4 py-1 rounded-full shadow">
@@ -530,7 +612,9 @@ export default function SelectPlan() {
                       {/* Price */}
                       <div className="mt-3 mb-1">
                         {plan.isEnterprise ? (
-                          <span className="text-2xl font-extrabold text-blue-700">Custom Pricing</span>
+                          <span className="text-2xl font-extrabold text-blue-700">
+                            Custom Pricing
+                          </span>
                         ) : (
                           <>
                             <span className="text-4xl font-extrabold">
@@ -548,29 +632,39 @@ export default function SelectPlan() {
                       </div>
 
                       {/* Free Trial Chip (Only on Monthly) */}
-                      {isEligibleForTrial && !plan.isEnterprise && plan.hasTrial !== false && (
-                        <div className="inline-flex items-center gap-1.5 bg-emerald-500/10 text-emerald-600 font-extrabold text-[11px] px-2.5 py-1 rounded-full mb-2">
-                          <CheckCircle2 size={13} />
-                          <span>{plan.trialDays || 14}-Day Free Trial (₹0 Today)</span>
-                        </div>
-                      )}
+                      {isEligibleForTrial &&
+                        !plan.isEnterprise &&
+                        plan.hasTrial !== false && (
+                          <div className="inline-flex items-center gap-1.5 bg-emerald-500/10 text-emerald-600 font-extrabold text-[11px] px-2.5 py-1 rounded-full mb-2">
+                            <CheckCircle2 size={13} />
+                            <span>
+                              {plan.trialDays || 14}-Day Free Trial (₹0 Today)
+                            </span>
+                          </div>
+                        )}
 
                       {/* Annual Savings */}
-                      {!plan.isEnterprise && billingType === "annual" && plan.annualPrice && (
-                        <p className="text-xs text-green-400 font-medium mb-1">
-                          Save ₹
-                          {(
-                            (plan.monthlyPrice - plan.annualPrice) *
-                            12
-                          ).toLocaleString()}
-                          /year (25% OFF)
-                        </p>
-                      )}
+                      {!plan.isEnterprise &&
+                        billingType === "annual" &&
+                        plan.annualPrice && (
+                          <p className="text-xs text-green-400 font-medium mb-1">
+                            Save ₹
+                            {(
+                              (plan.monthlyPrice - plan.annualPrice) *
+                              12
+                            ).toLocaleString()}
+                            /year (25% OFF)
+                          </p>
+                        )}
 
                       {/* Description */}
                       <p
                         className={`text-xs mt-2 mb-4 leading-relaxed font-medium ${
-                          isPopular ? "text-gray-300" : plan.isEnterprise ? "text-slate-600" : "text-gray-500"
+                          isPopular
+                            ? "text-gray-300"
+                            : plan.isEnterprise
+                              ? "text-slate-600"
+                              : "text-gray-500"
                         }`}
                       >
                         {plan.description}
@@ -583,7 +677,9 @@ export default function SelectPlan() {
                           setActiveDetailsPlan(plan);
                         }}
                         className={`text-xs font-bold underline transition mb-4 block ${
-                          isPopular ? "text-blue-300 hover:text-white" : "text-[#125EF2] hover:text-[#0F4FCC]"
+                          isPopular
+                            ? "text-blue-300 hover:text-white"
+                            : "text-[#125EF2] hover:text-[#0F4FCC]"
                         }`}
                       >
                         More details
@@ -614,11 +710,16 @@ export default function SelectPlan() {
                           isPopular
                             ? "border-white/10 text-gray-400"
                             : plan.isEnterprise
-                            ? "border-blue-200 text-blue-800 font-semibold"
-                            : "border-gray-100 text-gray-500"
+                              ? "border-blue-200 text-blue-800 font-semibold"
+                              : "border-gray-100 text-gray-500"
                         }`}
                       >
-                        <p>👥 {plan.maxAgents === "Unlimited" ? "Unlimited agents" : `Up to ${plan.maxAgents} agents`}</p>
+                        <p>
+                          👥{" "}
+                          {plan.maxAgents === "Unlimited"
+                            ? "Unlimited agents"
+                            : `Up to ${plan.maxAgents} agents`}
+                        </p>
                         {plan.isEnterprise ? (
                           <p>📢 Unlimited broadcasts</p>
                         ) : plan.maxBroadcasts ? (
@@ -631,7 +732,7 @@ export default function SelectPlan() {
                       {/* Dual Button Structure */}
                       <div className="mt-5 space-y-2">
                         {isDisabled ? (
-                           <button
+                          <button
                             disabled
                             className="w-full py-2.5 rounded-xl font-bold text-sm bg-emerald-100 text-emerald-700 cursor-not-allowed text-center"
                           >
@@ -668,14 +769,18 @@ export default function SelectPlan() {
                               `}
                             >
                               <Sparkles size={14} />
-                              <span>Start {plan.trialDays || 14}-Day Free Trial (₹0)</span>
+                              <span>
+                                Start {plan.trialDays || 14}-Day Free Trial (₹0)
+                              </span>
                             </button>
 
                             {/* Button 2: Pay Monthly Now (Skip Trial) */}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                navigate(`/checkout?planId=${plan.id}&billing=monthly`);
+                                navigate(
+                                  `/checkout?planId=${plan.id}&billing=monthly`,
+                                );
                               }}
                               className={`
                                 w-full py-2.5 rounded-xl font-bold text-xs transition flex items-center justify-center gap-1.5 border
@@ -695,7 +800,9 @@ export default function SelectPlan() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              navigate(`/checkout?planId=${plan.id}&billing=${billingType}`);
+                              navigate(
+                                `/checkout?planId=${plan.id}&billing=${billingType}`,
+                              );
                             }}
                             className={`
                               w-full py-2.5 rounded-xl font-bold text-sm transition flex items-center justify-center gap-1.5 shadow
@@ -715,7 +822,6 @@ export default function SelectPlan() {
                           </button>
                         )}
                       </div>
-
                     </div>
                   </div>
                 );
@@ -727,178 +833,250 @@ export default function SelectPlan() {
         {/* Secure Encryption Badge */}
         <div className="pt-8 flex items-center justify-center gap-2 text-xs font-bold text-slate-400 border-t border-slate-100">
           <ShieldCheck size={16} className="text-emerald-500" />
-          <span>Secure 256-bit SSL encrypted billing operations • Cancel anytime with 1 click</span>
+          <span>
+            Secure 256-bit SSL encrypted billing operations • Cancel anytime
+            with 1 click
+          </span>
         </div>
 
         {/* Detailed Plan Specifications Modal */}
-        {activeDetailsPlan && createPortal(
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200" style={{ zIndex: 99999 }}>
-            <div className="w-full max-w-lg rounded-3xl bg-white shadow-2xl border border-slate-100 overflow-hidden flex flex-col animate-in scale-in-95 duration-200">
-              
-              {/* Modal Header */}
-              <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 bg-slate-50/50">
-                <div>
-                  <span className="text-[10px] font-extrabold text-[#125EF2] bg-blue-50 px-2.5 py-1 rounded-full uppercase tracking-wider">
-                    {activeDetailsPlan.name} Plan Details
-                  </span>
-                  <h3 className="text-xl font-extrabold text-slate-900 mt-1">{activeDetailsPlan.name} Plan</h3>
-                </div>
-                <button
-                  onClick={() => setActiveDetailsPlan(null)}
-                  className="w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:text-slate-600 flex items-center justify-center transition"
-                >
-                  ✕
-                </button>
-              </div>
-
-              {/* Modal Body */}
-              <div className="p-6 overflow-y-auto max-h-[60vh] space-y-6">
-                <div>
-                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Resource Limits</h4>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
-                      <p className="text-xs text-slate-400 font-semibold">Agents</p>
-                      <p className="font-bold text-slate-800 mt-0.5">{activeDetailsPlan.maxAgents === "Unlimited" ? "Unlimited" : `Up to ${activeDetailsPlan.maxAgents}`}</p>
-                    </div>
-                    <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
-                      <p className="text-xs text-slate-400 font-semibold">Monthly Broadcasts</p>
-                      <p className="font-bold text-slate-800 mt-0.5">{activeDetailsPlan.maxBroadcasts ? `${activeDetailsPlan.maxBroadcasts.toLocaleString()}` : "Unlimited"}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Included Features</h4>
-                  <div className="grid grid-cols-1 gap-2.5">
-                    {activeDetailsPlan.features?.map((f) => (
-                      <div key={f.id} className="flex items-center gap-3 text-sm text-slate-700 bg-slate-50/50 p-2.5 rounded-xl border border-slate-100/60">
-                        <div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 text-xs font-bold">✓</div>
-                        <span className="font-medium">{f.name || f.feature?.name}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Modal Footer */}
-              <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex justify-end">
-                <button
-                  onClick={() => setActiveDetailsPlan(null)}
-                  className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-bold transition"
-                >
-                  Close
-                </button>
-              </div>
-
-            </div>
-          </div>,
-          document.body
-        )}
-
-        {/* Free Trial Confirmation Modal */}
-        {showTrialConfirmModal && trialPlanToConfirm && createPortal(
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200" style={{ zIndex: 99999 }}>
-            <div className="w-full max-w-lg rounded-3xl bg-white shadow-2xl overflow-hidden border-0 flex flex-col animate-in scale-in-95 duration-200">
-              
-              {/* Modal Header */}
-              <div className="p-6 bg-gradient-to-r from-blue-600 to-indigo-700 text-white relative">
-                <div className="flex items-center justify-between">
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-xs font-bold uppercase tracking-wider text-white">
-                    <Sparkles size={13} />
-                    <span>Risk-Free {trialPlanToConfirm.trialDays || 14}-Day Trial</span>
+        {activeDetailsPlan &&
+          createPortal(
+            <div
+              className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+              style={{ zIndex: 99999 }}
+            >
+              <div className="w-full max-w-lg rounded-3xl bg-white shadow-2xl border border-slate-100 overflow-hidden flex flex-col animate-in scale-in-95 duration-200">
+                {/* Modal Header */}
+                <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 bg-slate-50/50">
+                  <div>
+                    <span className="text-[10px] font-extrabold text-[#125EF2] bg-blue-50 px-2.5 py-1 rounded-full uppercase tracking-wider">
+                      {activeDetailsPlan.name} Plan Details
+                    </span>
+                    <h3 className="text-xl font-extrabold text-slate-900 mt-1">
+                      {activeDetailsPlan.name} Plan
+                    </h3>
                   </div>
                   <button
-                    onClick={() => setShowTrialConfirmModal(false)}
-                    className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition"
+                    onClick={() => setActiveDetailsPlan(null)}
+                    className="w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:text-slate-600 flex items-center justify-center transition"
                   >
                     ✕
                   </button>
                 </div>
-                <h3 className="text-2xl font-extrabold mt-3">Start your Free Trial</h3>
-                <p className="text-blue-100 text-xs mt-1 font-medium">
-                  Enjoy full access to {trialPlanToConfirm.name} Plan features for {trialPlanToConfirm.trialDays || 14} days.
-                </p>
-              </div>
 
-              {/* Modal Body */}
-              <div className="p-6 space-y-4">
-                
-                {/* Pricing Summary Box */}
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2.5">
-                  <div className="flex justify-between items-center text-sm font-semibold">
-                    <span className="text-slate-600">Due Today (Trial Setup)</span>
-                    <span className="text-emerald-600 font-extrabold text-base">₹0.00 (Free)</span>
+                {/* Modal Body */}
+                <div className="p-6 overflow-y-auto max-h-[60vh] space-y-6">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
+                      Resource Limits
+                    </h4>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
+                        <p className="text-xs text-slate-400 font-semibold">
+                          Agents
+                        </p>
+                        <p className="font-bold text-slate-800 mt-0.5">
+                          {activeDetailsPlan.maxAgents === "Unlimited"
+                            ? "Unlimited"
+                            : `Up to ${activeDetailsPlan.maxAgents}`}
+                        </p>
+                      </div>
+                      <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
+                        <p className="text-xs text-slate-400 font-semibold">
+                          Monthly Broadcasts
+                        </p>
+                        <p className="font-bold text-slate-800 mt-0.5">
+                          {activeDetailsPlan.maxBroadcasts
+                            ? `${activeDetailsPlan.maxBroadcasts.toLocaleString()}`
+                            : "Unlimited"}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex justify-between items-center text-xs text-slate-500 pt-2 border-t border-slate-200">
-                    <span>First Auto-Renewal (in {trialPlanToConfirm.trialDays || 14} days)</span>
-                    <span className="font-bold text-slate-800">
-                      ₹{(trialPlanToConfirm.monthlyPrice || 0).toLocaleString()} + 18% GST / month
-                    </span>
+
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
+                      Included Features
+                    </h4>
+                    <div className="grid grid-cols-1 gap-2.5">
+                      {activeDetailsPlan.features?.map((f) => (
+                        <div
+                          key={f.id}
+                          className="flex items-center gap-3 text-sm text-slate-700 bg-slate-50/50 p-2.5 rounded-xl border border-slate-100/60"
+                        >
+                          <div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 text-xs font-bold">
+                            ✓
+                          </div>
+                          <span className="font-medium">
+                            {f.name || f.feature?.name}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
-                {/* How Autopay Works Guarantees */}
-                <div className="space-y-3 text-xs text-slate-600">
-                  <div className="flex items-start gap-2.5">
-                    <div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 font-bold mt-0.5 text-[11px]">✓</div>
-                    <div>
-                      <p className="font-bold text-slate-800">₹0 Total Trial Cost</p>
-                      <p className="text-slate-500 mt-0.5">Your bank/UPI app (GPay/PhonePe/Card) debits a small verification token (₹1–₹5) to register the mandate, which is <strong>automatically refunded immediately</strong> by Razorpay.</p>
+                {/* Modal Footer */}
+                <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex justify-end">
+                  <button
+                    onClick={() => setActiveDetailsPlan(null)}
+                    className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-bold transition"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )}
+
+        {/* Free Trial Confirmation Modal */}
+        {showTrialConfirmModal &&
+          trialPlanToConfirm &&
+          createPortal(
+            <div
+              className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+              style={{ zIndex: 99999 }}
+            >
+              <div className="w-full max-w-lg rounded-3xl bg-white shadow-2xl overflow-hidden border-0 flex flex-col animate-in scale-in-95 duration-200">
+                {/* Modal Header */}
+                <div className="p-6 bg-gradient-to-r from-blue-600 to-indigo-700 text-white relative">
+                  <div className="flex items-center justify-between">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-xs font-bold uppercase tracking-wider text-white">
+                      <Sparkles size={13} />
+                      <span>
+                        Risk-Free {trialPlanToConfirm.trialDays || 14}-Day Trial
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => setShowTrialConfirmModal(false)}
+                      className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <h3 className="text-2xl font-extrabold mt-3">
+                    Start your Free Trial
+                  </h3>
+                  <p className="text-blue-100 text-xs mt-1 font-medium">
+                    Enjoy full access to {trialPlanToConfirm.name} Plan features
+                    for {trialPlanToConfirm.trialDays || 14} days.
+                  </p>
+                </div>
+
+                {/* Modal Body */}
+                <div className="p-6 space-y-4">
+                  {/* Pricing Summary Box */}
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2.5">
+                    <div className="flex justify-between items-center text-sm font-semibold">
+                      <span className="text-slate-600">
+                        Due Today (Trial Setup)
+                      </span>
+                      <span className="text-emerald-600 font-extrabold text-base">
+                        ₹0.00 (Free)
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs text-slate-500 pt-2 border-t border-slate-200">
+                      <span>
+                        First Auto-Renewal (in{" "}
+                        {trialPlanToConfirm.trialDays || 14} days)
+                      </span>
+                      <span className="font-bold text-slate-800">
+                        ₹
+                        {(
+                          trialPlanToConfirm.monthlyPrice || 0
+                        ).toLocaleString()}{" "}
+                        + 18% GST / month
+                      </span>
                     </div>
                   </div>
 
-                  <div className="flex items-start gap-2.5">
-                    <div className="w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0 font-bold mt-0.5 text-[11px]">⚡</div>
-                    <div>
-                      <p className="font-bold text-slate-800">Instant Dashboard Redirect</p>
-                      <p className="text-slate-500 mt-0.5">Once you authorize the mandate in your UPI or banking app, you will be automatically redirected directly to your workspace dashboard.</p>
+                  {/* How Autopay Works Guarantees */}
+                  <div className="space-y-3 text-xs text-slate-600">
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 font-bold mt-0.5 text-[11px]">
+                        ✓
+                      </div>
+                      <div>
+                        <p className="font-bold text-slate-800">
+                          ₹0 Total Trial Cost
+                        </p>
+                        <p className="text-slate-500 mt-0.5">
+                          Your bank/UPI app (GPay/PhonePe/Card) debits a small
+                          verification token (₹1–₹5) to register the mandate,
+                          which is{" "}
+                          <strong>automatically refunded immediately</strong> by
+                          Razorpay.
+                        </p>
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="flex items-start gap-2.5">
-                    <div className="w-5 h-5 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center shrink-0 font-bold mt-0.5 text-[11px]">🛡️</div>
-                    <div>
-                      <p className="font-bold text-slate-800">Cancel Anytime in 1-Click</p>
-                      <p className="text-slate-500 mt-0.5">You can cancel Autopay anytime under Billing Settings before Day {trialPlanToConfirm.trialDays || 14} with zero penalties or charges.</p>
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0 font-bold mt-0.5 text-[11px]">
+                        ⚡
+                      </div>
+                      <div>
+                        <p className="font-bold text-slate-800">
+                          Instant Dashboard Redirect
+                        </p>
+                        <p className="text-slate-500 mt-0.5">
+                          Once you authorize the mandate in your UPI or banking
+                          app, you will be automatically redirected directly to
+                          your workspace dashboard.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-5 h-5 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center shrink-0 font-bold mt-0.5 text-[11px]">
+                        🛡️
+                      </div>
+                      <div>
+                        <p className="font-bold text-slate-800">
+                          Cancel Anytime in 1-Click
+                        </p>
+                        <p className="text-slate-500 mt-0.5">
+                          You can cancel Autopay anytime under Billing Settings
+                          before Day {trialPlanToConfirm.trialDays || 14} with
+                          zero penalties or charges.
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
 
+                {/* Modal Footer */}
+                <div className="p-4 px-6 border-t border-slate-100 bg-slate-50 flex gap-3">
+                  <button
+                    onClick={() => {
+                      const planIdToRun = trialPlanToConfirm.id;
+                      setShowTrialConfirmModal(false);
+                      handleStartTrial(planIdToRun);
+                    }}
+                    disabled={trialLoading}
+                    className="flex-1 py-3 bg-[#125EF2] hover:bg-[#0d4fd6] text-white rounded-xl text-sm font-bold transition shadow-md flex items-center justify-center gap-2"
+                  >
+                    {trialLoading ? (
+                      <span>Initiating...</span>
+                    ) : (
+                      <>
+                        <Sparkles size={16} />
+                        <span>Confirm & Setup Autopay (₹0)</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setShowTrialConfirmModal(false)}
+                    className="px-5 py-3 border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 rounded-xl text-sm font-bold transition"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
-
-              {/* Modal Footer */}
-              <div className="p-4 px-6 border-t border-slate-100 bg-slate-50 flex gap-3">
-                <button
-                  onClick={() => {
-                    const planIdToRun = trialPlanToConfirm.id;
-                    setShowTrialConfirmModal(false);
-                    handleStartTrial(planIdToRun);
-                  }}
-                  disabled={trialLoading}
-                  className="flex-1 py-3 bg-[#125EF2] hover:bg-[#0d4fd6] text-white rounded-xl text-sm font-bold transition shadow-md flex items-center justify-center gap-2"
-                >
-                  {trialLoading ? (
-                    <span>Initiating...</span>
-                  ) : (
-                    <>
-                      <Sparkles size={16} />
-                      <span>Confirm & Setup Autopay (₹0)</span>
-                    </>
-                  )}
-                </button>
-                <button
-                  onClick={() => setShowTrialConfirmModal(false)}
-                  className="px-5 py-3 border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 rounded-xl text-sm font-bold transition"
-                >
-                  Cancel
-                </button>
-              </div>
-
-            </div>
-          </div>,
-          document.body
-        )}
-
+            </div>,
+            document.body,
+          )}
       </div>
     </div>
   );

@@ -11,7 +11,6 @@ const socketUrl = import.meta.env.VITE_API_URL;
 //   autoConnect: false,
 // });
 
-
 let _adminSocket = null;
 let _currentToken = null;
 

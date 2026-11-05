@@ -1,23 +1,28 @@
 // backend/src/modules/admin-subscriptions/adminSubscription.controller.js (do not remove this comment)
-import crypto from 'crypto';
-import prisma from '../../config/prisma.js';
-import nodemailer from 'nodemailer';
-import { calculateGST } from '../superadmin/superadmin.service.js';
-import { sendInvoiceEmail } from '../auth/email.service.js';
-import { generateInvoicePDFFromModel } from '../plans/invoice.service.js';
-import { createAuditLog } from '../audit/audit.service.js';
-import { extractRequestMeta } from '../../lib/utils/request.meta.js';
-import { razorpay } from '../plans/plan.controller.js';
+import crypto from "crypto";
+import prisma from "../../config/prisma.js";
+import nodemailer from "nodemailer";
+import { calculateGST } from "../superadmin/superadmin.service.js";
+import { sendInvoiceEmail } from "../auth/email.service.js";
+import { generateInvoicePDFFromModel } from "../plans/invoice.service.js";
+import { createAuditLog } from "../audit/audit.service.js";
+import { extractRequestMeta } from "../../lib/utils/request.meta.js";
+import { razorpay } from "../plans/plan.controller.js";
 
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  service: "gmail",
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
 });
 
-const sendStatusUpdateEmail = async (email, companyName, status, extraNote = "") => {
+const sendStatusUpdateEmail = async (
+  email,
+  companyName,
+  status,
+  extraNote = "",
+) => {
   try {
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) return;
     await transporter.sendMail({
@@ -29,7 +34,7 @@ const sendStatusUpdateEmail = async (email, companyName, status, extraNote = "")
           <h2>Subscription Notification</h2>
           <p>Hi ${companyName},</p>
           <p>We are writing to notify you that your subscription status on SudoReply has been updated to: <strong>${status}</strong>.</p>
-          ${extraNote ? `<p>${extraNote}</p>` : ''}
+          ${extraNote ? `<p>${extraNote}</p>` : ""}
           <p>If you have any questions, please reach out to info@sudoreply.com.</p>
         </div>
       `,
@@ -49,14 +54,20 @@ export const getSubscriptions = async (req, res) => {
   if (status) where.subscriptionStatus = status;
   if (plan) {
     where.OR = [
-      { subscription: { currentPlan: { contains: plan, mode: 'insensitive' } } },
-      { subscription: { plan: { name: { contains: plan, mode: 'insensitive' } } } }
+      {
+        subscription: { currentPlan: { contains: plan, mode: "insensitive" } },
+      },
+      {
+        subscription: {
+          plan: { name: { contains: plan, mode: "insensitive" } },
+        },
+      },
     ];
   }
   if (search) {
     where.OR = [
-      { tenantName: { contains: search, mode: 'insensitive' } },
-      { email: { contains: search, mode: 'insensitive' } }
+      { tenantName: { contains: search, mode: "insensitive" } },
+      { email: { contains: search, mode: "insensitive" } },
     ];
   }
 
@@ -66,7 +77,7 @@ export const getSubscriptions = async (req, res) => {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         select: {
           id: true,
           tenantName: true,
@@ -85,17 +96,17 @@ export const getSubscriptions = async (req, res) => {
               cancellationReason: true,
               dataDeletionDate: true,
               plan: {
-                select: { id: true, name: true, monthlyPrice: true }
+                select: { id: true, name: true, monthlyPrice: true },
               },
-            }
+            },
           },
           createdAt: true,
-        }
+        },
       }),
-      prisma.tenant.count({ where })
+      prisma.tenant.count({ where }),
     ]);
 
-    const formattedTenants = tenants.map(t => {
+    const formattedTenants = tenants.map((t) => {
       const s = t.subscription || {};
       return {
         id: t.id,
@@ -125,12 +136,14 @@ export const getSubscriptions = async (req, res) => {
         tenants: formattedTenants,
         total,
         page,
-        totalPages
-      }
+        totalPages,
+      },
     });
   } catch (error) {
     console.error("Get admin subscriptions error:", error);
-    return res.status(500).json({ success: false, message: "Server error fetching subscriptions" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Server error fetching subscriptions" });
   }
 };
 
@@ -147,7 +160,9 @@ export const updateSubscription = async (req, res) => {
     Object.assign(tenant, tenant?.subscription);
 
     if (!tenant) {
-      return res.status(404).json({ success: false, message: "Tenant not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Tenant not found" });
     }
 
     let updatedData = {};
@@ -155,105 +170,143 @@ export const updateSubscription = async (req, res) => {
     const now = new Date();
 
     switch (action) {
-      case 'pause':
+      case "pause":
         if (tenant.razorpaySubscriptionId) {
           try {
-            await razorpay.subscriptions.pause(tenant.razorpaySubscriptionId, { pause_at: 'now' });
-            console.log(`[Admin] Paused Razorpay subscription ${tenant.razorpaySubscriptionId}`);
+            await razorpay.subscriptions.pause(tenant.razorpaySubscriptionId, {
+              pause_at: "now",
+            });
+            console.log(
+              `[Admin] Paused Razorpay subscription ${tenant.razorpaySubscriptionId}`,
+            );
           } catch (rzpErr) {
-            console.warn(`[Admin] Razorpay pause notice for ${tenant.razorpaySubscriptionId}:`, rzpErr?.error?.description || rzpErr?.message);
+            console.warn(
+              `[Admin] Razorpay pause notice for ${tenant.razorpaySubscriptionId}:`,
+              rzpErr?.error?.description || rzpErr?.message,
+            );
           }
         }
-        updatedData = { 
-          subscriptionStatus: 'paused',
-          planStatus: 'inactive',
+        updatedData = {
+          subscriptionStatus: "paused",
+          planStatus: "inactive",
           autopayEnabled: false,
         };
-        notificationNote = "Your account has been paused by the system administrator.";
+        notificationNote =
+          "Your account has been paused by the system administrator.";
         break;
 
-      case 'reactivate':
+      case "reactivate":
         if (tenant.razorpaySubscriptionId) {
           try {
-            await razorpay.subscriptions.resume(tenant.razorpaySubscriptionId, { resume_at: 'now' });
-            console.log(`[Admin] Resumed Razorpay subscription ${tenant.razorpaySubscriptionId}`);
+            await razorpay.subscriptions.resume(tenant.razorpaySubscriptionId, {
+              resume_at: "now",
+            });
+            console.log(
+              `[Admin] Resumed Razorpay subscription ${tenant.razorpaySubscriptionId}`,
+            );
           } catch (rzpErr) {
-            console.warn(`[Admin] Razorpay resume notice for ${tenant.razorpaySubscriptionId}:`, rzpErr?.error?.description || rzpErr?.message);
+            console.warn(
+              `[Admin] Razorpay resume notice for ${tenant.razorpaySubscriptionId}:`,
+              rzpErr?.error?.description || rzpErr?.message,
+            );
           }
         }
-        updatedData = { 
-          subscriptionStatus: 'active',
-          planStatus: 'active',
+        updatedData = {
+          subscriptionStatus: "active",
+          planStatus: "active",
           autopayEnabled: true,
           dataDeletionDate: null,
           reactivatedAt: now,
         };
-        notificationNote = "Your account is now active again. Enjoy full access!";
+        notificationNote =
+          "Your account is now active again. Enjoy full access!";
         break;
 
-      case 'expire':
+      case "expire":
         if (tenant.razorpaySubscriptionId) {
           try {
-            await razorpay.subscriptions.cancel(tenant.razorpaySubscriptionId, false);
-            console.log(`[Admin] Cancelled Razorpay subscription ${tenant.razorpaySubscriptionId}`);
+            await razorpay.subscriptions.cancel(
+              tenant.razorpaySubscriptionId,
+              false,
+            );
+            console.log(
+              `[Admin] Cancelled Razorpay subscription ${tenant.razorpaySubscriptionId}`,
+            );
           } catch (rzpErr) {
-            console.warn(`[Admin] Razorpay cancel notice for ${tenant.razorpaySubscriptionId}:`, rzpErr?.error?.description || rzpErr?.message);
+            console.warn(
+              `[Admin] Razorpay cancel notice for ${tenant.razorpaySubscriptionId}:`,
+              rzpErr?.error?.description || rzpErr?.message,
+            );
           }
         }
-        updatedData = { 
-          subscriptionStatus: 'expired',
-          planStatus: 'inactive',
+        updatedData = {
+          subscriptionStatus: "expired",
+          planStatus: "inactive",
           planPeriodEnd: now,
           autopayEnabled: false,
           razorpaySubscriptionId: null,
-          dataDeletionDate: new Date(now.getTime() + 90 * 86400000)
+          dataDeletionDate: new Date(now.getTime() + 90 * 86400000),
         };
-        notificationNote = "Your subscription has been terminated and set to expired. Your configuration data is retained for 90 days.";
+        notificationNote =
+          "Your subscription has been terminated and set to expired. Your configuration data is retained for 90 days.";
         break;
 
-      case 'extend_trial':
-      case 'extend': {
+      case "extend_trial":
+      case "extend": {
         const parsedDays = parseInt(extendDays, 10);
         if (isNaN(parsedDays) || parsedDays < 1) {
-          return res.status(400).json({ success: false, message: "extendDays must be a positive integer" });
+          return res.status(400).json({
+            success: false,
+            message: "extendDays must be a positive integer",
+          });
         }
-        const currentEnd = (tenant.planPeriodEnd && new Date(tenant.planPeriodEnd) > now)
-          ? new Date(tenant.planPeriodEnd)
-          : now;
+        const currentEnd =
+          tenant.planPeriodEnd && new Date(tenant.planPeriodEnd) > now
+            ? new Date(tenant.planPeriodEnd)
+            : now;
         const newEnd = new Date(currentEnd.getTime() + parsedDays * 86400000);
 
-        const isTrialing = tenant.subscriptionStatus === 'trialing' || action === 'extend_trial';
+        const isTrialing =
+          tenant.subscriptionStatus === "trialing" || action === "extend_trial";
 
-        updatedData = { 
+        updatedData = {
           planPeriodEnd: newEnd,
-          subscriptionStatus: isTrialing ? 'trialing' : 'active',
-          planStatus: 'active',
-          status: 'APPROVED',
+          subscriptionStatus: isTrialing ? "trialing" : "active",
+          planStatus: "active",
+          status: "APPROVED",
           dataDeletionDate: null,
           trialExtendedCount: (tenant.trialExtendedCount || 0) + 1,
-          trialExtendedByAdmin: req.superAdmin?.email || 'Super Admin',
+          trialExtendedByAdmin: req.superAdmin?.email || "Super Admin",
         };
         notificationNote = `Your plan active period has been extended by ${parsedDays} days. It is now active until ${newEnd.toLocaleDateString()}.`;
         break;
       }
 
-      case 'change_plan': {
+      case "change_plan": {
         if (!planId) {
-          return res.status(400).json({ success: false, message: "planId is required to change plan" });
+          return res.status(400).json({
+            success: false,
+            message: "planId is required to change plan",
+          });
         }
-        const plan = await prisma.subscriptionPlan.findUnique({ where: { id: planId } });
+        const plan = await prisma.subscriptionPlan.findUnique({
+          where: { id: planId },
+        });
         if (!plan) {
-          return res.status(404).json({ success: false, message: "Plan not found" });
+          return res
+            .status(404)
+            .json({ success: false, message: "Plan not found" });
         }
-        const parsedDays = extendDays && !isNaN(extendDays) ? parseInt(extendDays, 10) : 30;
+        const parsedDays =
+          extendDays && !isNaN(extendDays) ? parseInt(extendDays, 10) : 30;
         const periodEnd = new Date(now.getTime() + parsedDays * 86400000);
         updatedData = {
           planId: plan.id,
           currentPlan: plan.name,
-          planStatus: 'active',
-          subscriptionStatus: 'active',
-          status: 'APPROVED',
-          billingType: billingType || tenant.billingType || 'monthly',
+          planStatus: "active",
+          subscriptionStatus: "active",
+          status: "APPROVED",
+          billingType: billingType || tenant.billingType || "monthly",
           planActivatedAt: now,
           planPeriodStart: now,
           planPeriodEnd: periodEnd,
@@ -264,7 +317,9 @@ export const updateSubscription = async (req, res) => {
       }
 
       default:
-        return res.status(400).json({ success: false, message: `Unknown action: ${action}` });
+        return res
+          .status(400)
+          .json({ success: false, message: `Unknown action: ${action}` });
     }
 
     const { status: tenantStatus, ...subData } = updatedData;
@@ -272,96 +327,133 @@ export const updateSubscription = async (req, res) => {
     if (tenantStatus) {
       await prisma.tenant.update({
         where: { id: tenantId },
-        data: { status: tenantStatus }
+        data: { status: tenantStatus },
       });
     }
 
-    const updatedSub = await prisma.tenantSubscription.update({
+    const updatedSub = await prisma.tenantSubscription.upsert({
       where: { tenantId },
-      data: subData
+      create: {
+        tenantId,
+        ...subData,
+      },
+      update: subData,
     });
 
     // Audit Log
     await createAuditLog({
-      actorId: req.superAdmin?.id || 'SUPER_ADMIN',
-      actorType: 'SUPER_ADMIN',
-      actorName: req.superAdmin?.name || 'Super Admin',
-      actorEmail: req.superAdmin?.email || process.env.EMAIL_USER || 'info@sudoreply.com',
-      action: 'PLAN_CHANGED',
-      module: 'BILLING',
+      actorId: req.superAdmin?.id || "SUPER_ADMIN",
+      actorType: "SUPER_ADMIN",
+      actorName: req.superAdmin?.name || "Super Admin",
+      actorEmail:
+        req.superAdmin?.email || process.env.EMAIL_USER || "info@sudoreply.com",
+      action: "PLAN_CHANGED",
+      module: "BILLING",
       description: `Subscription action "${action}" executed for tenant "${tenant.tenantName}"`,
       ipAddress: meta.ipAddress,
       userAgent: meta.userAgent,
       tenantId: tenant.id,
-      metadata: { action, extendDays, note }
+      metadata: { action, extendDays, note },
     });
 
-    sendStatusUpdateEmail(tenant.email, tenant.tenantName || tenant.email, updatedSub.subscriptionStatus, notificationNote);
+    sendStatusUpdateEmail(
+      tenant.email,
+      tenant.tenantName || tenant.email,
+      updatedSub.subscriptionStatus,
+      notificationNote,
+    );
 
-    return res.status(200).json({ success: true, message: "Action completed successfully", data: updatedSub });
+    return res.status(200).json({
+      success: true,
+      message: "Action completed successfully",
+      data: updatedSub,
+    });
   } catch (error) {
     console.error("Admin update subscription error:", error);
-    return res.status(500).json({ success: false, message: "Server error updating subscription" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Server error updating subscription" });
   }
 };
 
 // ── Manual Plan Activation (Offline Payment / Bank Transfer) ──
 export const manualPlanActivation = async (req, res) => {
   const { tenantId } = req.params;
-  const { 
-    planId, 
-    billingType = 'monthly', 
-    durationDays = 30, 
-    paymentRef, 
-    amount, 
-    paymentMethod = 'offline_bank_transfer', 
-    notes 
+  const {
+    planId,
+    billingType = "monthly",
+    durationDays = 30,
+    paymentRef,
+    amount,
+    paymentMethod = "offline_bank_transfer",
+    notes,
   } = req.body;
   const meta = extractRequestMeta(req);
 
   // 1. Strict Validation Layer
   const validationErrors = [];
-  if (!planId || typeof planId !== 'string') {
-    validationErrors.push('planId is required');
+  if (!planId || typeof planId !== "string") {
+    validationErrors.push("planId is required");
   }
 
-  if (amount !== undefined && amount !== null && amount !== '') {
+  if (amount !== undefined && amount !== null && amount !== "") {
     const parsedAmount = parseFloat(amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
-      validationErrors.push('amount must be a positive number');
+      validationErrors.push("amount must be a positive number");
     }
   }
 
   const parsedDurationDays = parseInt(durationDays, 10);
-  if (isNaN(parsedDurationDays) || parsedDurationDays < 1 || parsedDurationDays > 3650) {
-    validationErrors.push('durationDays must be an integer between 1 and 3650');
+  if (
+    isNaN(parsedDurationDays) ||
+    parsedDurationDays < 1 ||
+    parsedDurationDays > 3650
+  ) {
+    validationErrors.push("durationDays must be an integer between 1 and 3650");
   }
 
   const validPaymentMethods = [
-    'offline_bank_transfer', 'cash', 'direct_upi', 'cheque', 'imps', 'neft', 'rtgs'
+    "offline_bank_transfer",
+    "cash",
+    "direct_upi",
+    "cheque",
+    "imps",
+    "neft",
+    "rtgs",
   ];
   if (!validPaymentMethods.includes(paymentMethod.toLowerCase())) {
-    validationErrors.push(`paymentMethod must be one of: ${validPaymentMethods.join(', ')}`);
+    validationErrors.push(
+      `paymentMethod must be one of: ${validPaymentMethods.join(", ")}`,
+    );
   }
 
   if (validationErrors.length > 0) {
     return res.status(400).json({
       success: false,
-      code: 'VALIDATION_ERROR',
-      message: 'Invalid input data',
+      code: "VALIDATION_ERROR",
+      message: "Invalid input data",
       errors: validationErrors,
     });
   }
 
   try {
     const [tenantRaw, plan] = await Promise.all([
-      prisma.tenant.findUnique({ where: { id: tenantId }, include: { subscription: true } }),
+      prisma.tenant.findUnique({
+        where: { id: tenantId },
+        include: { subscription: true },
+      }),
       prisma.subscriptionPlan.findUnique({ where: { id: planId } }),
     ]);
     const tenant = { ...tenantRaw, ...tenantRaw?.subscription };
 
-    if (!tenant) return res.status(404).json({ success: false, message: "Tenant not found" });
-    if (!plan) return res.status(404).json({ success: false, message: "Plan not found" });
+    if (!tenant)
+      return res
+        .status(404)
+        .json({ success: false, message: "Tenant not found" });
+    if (!plan)
+      return res
+        .status(404)
+        .json({ success: false, message: "Plan not found" });
 
     // 2. Idempotency Check: Prevent duplicate payment records for same reference
     if (paymentRef) {
@@ -369,15 +461,15 @@ export const manualPlanActivation = async (req, res) => {
         where: {
           tenantId: tenant.id,
           offlineReference: paymentRef,
-          status: 'SUCCESS',
-        }
+          status: "SUCCESS",
+        },
       });
       if (existingPayment) {
         return res.status(409).json({
           success: false,
-          code: 'DUPLICATE_PAYMENT_REF',
+          code: "DUPLICATE_PAYMENT_REF",
           message: `A payment with reference "${paymentRef}" has already been recorded for this tenant.`,
-          data: { paymentId: existingPayment.id }
+          data: { paymentId: existingPayment.id },
         });
       }
     }
@@ -385,52 +477,84 @@ export const manualPlanActivation = async (req, res) => {
     // 3. Prevent Double Billing: Cancel any active Razorpay subscription before overriding
     if (tenant.razorpaySubscriptionId && tenant.autopayEnabled) {
       try {
-        const rzpSub = await razorpay.subscriptions.fetch(tenant.razorpaySubscriptionId);
-        if (!['cancelled', 'completed', 'expired'].includes(rzpSub.status)) {
-          await razorpay.subscriptions.cancel(tenant.razorpaySubscriptionId, false);
+        const rzpSub = await razorpay.subscriptions.fetch(
+          tenant.razorpaySubscriptionId,
+        );
+        if (!["cancelled", "completed", "expired"].includes(rzpSub.status)) {
+          await razorpay.subscriptions.cancel(
+            tenant.razorpaySubscriptionId,
+            false,
+          );
         }
       } catch (subCancelErr) {
-        console.warn(`Could not cancel Razorpay subscription ${tenant.razorpaySubscriptionId}:`, subCancelErr.message);
+        console.warn(
+          `Could not cancel Razorpay subscription ${tenant.razorpaySubscriptionId}:`,
+          subCancelErr.message,
+        );
       }
     }
 
     // 4. GST & Pricing Calculation (Cleanly computed prior to opening transaction)
     const periodStart = new Date();
-    const periodEnd = new Date(periodStart.getTime() + parsedDurationDays * 86400000);
-    const rawBaseAmount = amount 
-      ? parseFloat(amount) 
-      : (billingType === 'annual' && plan.annualPrice ? plan.annualPrice : plan.monthlyPrice);
+    const periodEnd = new Date(
+      periodStart.getTime() + parsedDurationDays * 86400000,
+    );
+    const rawBaseAmount = amount
+      ? parseFloat(amount)
+      : billingType === "annual" && plan.annualPrice
+        ? plan.annualPrice
+        : plan.monthlyPrice;
     const gstCalc = await calculateGST(rawBaseAmount);
 
     // 5. Generate Collision-Safe Unique Invoice Number
-    const invoiceNumber = `INV-${new Date().getFullYear()}-${Date.now()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
-    const generatedPaymentId = paymentRef || `OFFLINE_PAY_${Date.now()}_${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+    const invoiceNumber = `INV-${new Date().getFullYear()}-${Date.now()}-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
+    const generatedPaymentId =
+      paymentRef ||
+      `OFFLINE_PAY_${Date.now()}_${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
 
     // 6. Execute Atomic Transaction
     const result = await prisma.$transaction(async (tx) => {
       // A. Update Tenant to Active
       await tx.tenant.update({
         where: { id: tenantId },
-        data: { status: 'APPROVED' }
+        data: { status: "APPROVED" },
       });
-      const updatedTenant = await tx.tenantSubscription.update({
+
+      const updatedTenant = await tx.tenantSubscription.upsert({
         where: { tenantId },
-        data: {
+        create: {
+          tenantId,
           planId: plan.id,
           currentPlan: plan.name,
           billingType,
           planActivatedAt: periodStart,
           planPeriodStart: periodStart,
           planPeriodEnd: periodEnd,
-          subscriptionStatus: 'active',
-          planStatus: 'active',
+          subscriptionStatus: "active",
+          planStatus: "active",
           dataDeletionDate: null,
           cancelRequestedAt: null,
           cancellationReason: null,
           razorpaySubscriptionId: null,
           autopayEnabled: false,
           autopayMethod: null,
-        }
+        },
+        update: {
+          planId: plan.id,
+          currentPlan: plan.name,
+          billingType,
+          planActivatedAt: periodStart,
+          planPeriodStart: periodStart,
+          planPeriodEnd: periodEnd,
+          subscriptionStatus: "active",
+          planStatus: "active",
+          dataDeletionDate: null,
+          cancelRequestedAt: null,
+          cancellationReason: null,
+          razorpaySubscriptionId: null,
+          autopayEnabled: false,
+          autopayMethod: null,
+        },
       });
 
       // B. Insert Payment Record (Directly feeds Super Admin Revenue Hub)
@@ -439,8 +563,8 @@ export const manualPlanActivation = async (req, res) => {
           tenantId: tenant.id,
           razorpayOrderId: null,
           razorpayPaymentId: generatedPaymentId,
-          razorpaySignature: 'OFFLINE_VERIFIED_BY_ADMIN',
-          paymentType: 'OFFLINE',
+          razorpaySignature: "OFFLINE_VERIFIED_BY_ADMIN",
+          paymentType: "OFFLINE",
           offlineReference: paymentRef || null,
           planId: plan.id,
           planName: plan.name,
@@ -449,11 +573,11 @@ export const manualPlanActivation = async (req, res) => {
           gstPercent: gstCalc.gstPercent || 18,
           gstAmount: gstCalc.gstAmount || 0,
           totalAmount: gstCalc.totalAmount,
-          currency: 'INR',
+          currency: "INR",
           paymentMethod: paymentMethod.toLowerCase(),
-          status: 'SUCCESS',
+          status: "SUCCESS",
           paidAt: periodStart,
-        }
+        },
       });
 
       // C. Create Official Invoice
@@ -466,31 +590,39 @@ export const manualPlanActivation = async (req, res) => {
           baseAmount: gstCalc.baseAmount,
           gstAmount: gstCalc.gstAmount,
           gstPercent: gstCalc.gstPercent,
-          status: 'paid',
-          currency: 'INR',
+          status: "paid",
+          currency: "INR",
           billingPeriodStart: periodStart,
           billingPeriodEnd: periodEnd,
           paymentMethodBrand: paymentMethod.toUpperCase(),
           paymentMethodLast4: null,
           offlineReference: paymentRef || null,
-        }
+        },
       });
 
       // D. Create Audit Log
       await tx.auditLog.create({
         data: {
-          actorId: req.superAdmin?.id || 'SUPER_ADMIN',
-          actorType: 'SUPER_ADMIN',
-          actorName: req.superAdmin?.name || 'Super Admin',
-          actorEmail: req.superAdmin?.email || process.env.EMAIL_USER || 'info@sudoreply.com',
-          action: 'PLAN_ACTIVATED',
-          module: 'BILLING',
-          description: `Manual offline plan activation for "${tenant.tenantName}" (${plan.name}) — Ref: ${paymentRef || 'N/A'}, Total: ₹${gstCalc.totalAmount}`,
+          actorId: req.superAdmin?.id || "SUPER_ADMIN",
+          actorType: "SUPER_ADMIN",
+          actorName: req.superAdmin?.name || "Super Admin",
+          actorEmail:
+            req.superAdmin?.email ||
+            process.env.EMAIL_USER ||
+            "info@sudoreply.com",
+          action: "PLAN_ACTIVATED",
+          module: "BILLING",
+          description: `Manual offline plan activation for "${tenant.tenantName}" (${plan.name}) — Ref: ${paymentRef || "N/A"}, Total: ₹${gstCalc.totalAmount}`,
           tenantId: tenant.id,
           ipAddress: meta.ipAddress,
           userAgent: meta.userAgent,
-          metadata: { paymentId: payment.id, invoiceId: invoice.id, durationDays: parsedDurationDays, notes }
-        }
+          metadata: {
+            paymentId: payment.id,
+            invoiceId: invoice.id,
+            durationDays: parsedDurationDays,
+            notes,
+          },
+        },
       });
 
       return { updatedTenant, payment, invoice };
@@ -498,10 +630,13 @@ export const manualPlanActivation = async (req, res) => {
 
     // 7. Generate PDF and Send Invoice Email
     try {
-      const { filePath, fileUrl } = await generateInvoicePDFFromModel(result.invoice, tenant);
+      const { filePath, fileUrl } = await generateInvoicePDFFromModel(
+        result.invoice,
+        tenant,
+      );
       await prisma.invoice.update({
         where: { id: result.invoice.id },
-        data: { pdfUrl: fileUrl }
+        data: { pdfUrl: fileUrl },
       });
 
       await sendInvoiceEmail(tenant.email, {
@@ -512,16 +647,22 @@ export const manualPlanActivation = async (req, res) => {
         pdfPath: filePath,
       });
     } catch (emailErr) {
-      console.error(`Invoice delivery warning for ${tenant.email}:`, emailErr.message);
+      console.error(
+        `Invoice delivery warning for ${tenant.email}:`,
+        emailErr.message,
+      );
     }
 
     return res.status(200).json({
       success: true,
       message: `Plan ${plan.name} manually activated for ${parsedDurationDays} days. Revenue updated.`,
-      data: result
+      data: result,
     });
   } catch (error) {
     console.error("Manual plan activation error:", error);
-    return res.status(500).json({ success: false, message: "Failed to manually activate plan: " + error.message });
+    return res.status(500).json({
+      success: false,
+      message: "Failed to manually activate plan: " + error.message,
+    });
   }
 };

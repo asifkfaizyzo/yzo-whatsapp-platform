@@ -23,8 +23,10 @@ import {
 import ShopifyLogo from "./ShopifyLogo";
 import { useToast } from "../../context/ToastContext";
 import {
-  getShopifyStatus,getShopifyOAuthUrl,
-  connectShopify,disconnectShopify,
+  getShopifyStatus,
+  getShopifyOAuthUrl,
+  connectShopify,
+  disconnectShopify,
   updateShopifyCartRecoverySettings,
   getShopifyPostPurchaseSettings,
   updateShopifyPostPurchaseSettings,
@@ -33,7 +35,6 @@ import {
 const shopifyWebhookUrl = import.meta.env.VITE_BACKEND_URL
   ? `${import.meta.env.VITE_BACKEND_URL.replace(/\/+$/, "")}/tenant/shopify/webhooks`
   : null;
-
 
 export default function ShopifySettings({ onBack } = {}) {
   const toast = useToast();
@@ -62,13 +63,19 @@ export default function ShopifySettings({ onBack } = {}) {
   const [cartReminder24Enabled, setCartReminder24Enabled] = useState(true);
   const [cartReminder48Enabled, setCartReminder48Enabled] = useState(true);
   const [savingPostPurchase, setSavingPostPurchase] = useState(false);
-  const [postPurchaseReviewEnabled, setPostPurchaseReviewEnabled] = useState(true);
-  const [postPurchaseReviewDelayDays, setPostPurchaseReviewDelayDays] = useState(3);
-  const [postPurchaseCrossSellEnabled, setPostPurchaseCrossSellEnabled] = useState(true);
-  const [postPurchaseUpsellEnabled, setPostPurchaseUpsellEnabled] = useState(true);
-  const [postPurchaseReorderEnabled, setPostPurchaseReorderEnabled] = useState(false);
+  const [postPurchaseReviewEnabled, setPostPurchaseReviewEnabled] =
+    useState(true);
+  const [postPurchaseReviewDelayDays, setPostPurchaseReviewDelayDays] =
+    useState(3);
+  const [postPurchaseCrossSellEnabled, setPostPurchaseCrossSellEnabled] =
+    useState(true);
+  const [postPurchaseUpsellEnabled, setPostPurchaseUpsellEnabled] =
+    useState(true);
+  const [postPurchaseReorderEnabled, setPostPurchaseReorderEnabled] =
+    useState(false);
   const [postPurchaseReorderDays, setPostPurchaseReorderDays] = useState(30);
-  const [postPurchaseWinBackEnabled, setPostPurchaseWinBackEnabled] = useState(false);
+  const [postPurchaseWinBackEnabled, setPostPurchaseWinBackEnabled] =
+    useState(false);
   const [postPurchaseWinBackDays, setPostPurchaseWinBackDays] = useState(90);
 
   // ── Form State ──
@@ -86,7 +93,7 @@ export default function ShopifySettings({ onBack } = {}) {
       if (res.success && res.data) {
         const isConnected =
           res.data.isConnected || res.data.status === "active";
-                setConnection({
+        setConnection({
           isConnected,
           shopName: res.data.shopName || null,
           connectedAt: res.data.connectedAt || null,
@@ -102,17 +109,30 @@ export default function ShopifySettings({ onBack } = {}) {
         try {
           const pp = await getShopifyPostPurchaseSettings();
           if (pp?.success && pp.data) {
-            setPostPurchaseReviewEnabled(pp.data.postPurchaseReviewEnabled ?? true);
-            setPostPurchaseReviewDelayDays(pp.data.postPurchaseReviewDelayDays ?? 3);
-            setPostPurchaseCrossSellEnabled(pp.data.postPurchaseCrossSellEnabled ?? true);
-            setPostPurchaseUpsellEnabled(pp.data.postPurchaseUpsellEnabled ?? true);
-            setPostPurchaseReorderEnabled(pp.data.postPurchaseReorderEnabled ?? false);
+            setPostPurchaseReviewEnabled(
+              pp.data.postPurchaseReviewEnabled ?? true,
+            );
+            setPostPurchaseReviewDelayDays(
+              pp.data.postPurchaseReviewDelayDays ?? 3,
+            );
+            setPostPurchaseCrossSellEnabled(
+              pp.data.postPurchaseCrossSellEnabled ?? true,
+            );
+            setPostPurchaseUpsellEnabled(
+              pp.data.postPurchaseUpsellEnabled ?? true,
+            );
+            setPostPurchaseReorderEnabled(
+              pp.data.postPurchaseReorderEnabled ?? false,
+            );
             setPostPurchaseReorderDays(pp.data.postPurchaseReorderDays ?? 30);
-            setPostPurchaseWinBackEnabled(pp.data.postPurchaseWinBackEnabled ?? false);
+            setPostPurchaseWinBackEnabled(
+              pp.data.postPurchaseWinBackEnabled ?? false,
+            );
             setPostPurchaseWinBackDays(pp.data.postPurchaseWinBackDays ?? 90);
           }
-        } catch (_) { /* ignore if endpoint not ready */ }
-
+        } catch (_) {
+          /* ignore if endpoint not ready */
+        }
       } else {
         setConnection({
           isConnected: false,
@@ -155,15 +175,24 @@ export default function ShopifySettings({ onBack } = {}) {
 
     setConnecting(true);
     try {
-      const shop = shopDomain.trim().replace(/^https?:\/\//i, "").replace(/\/+$/, "");
+      const shop = shopDomain
+        .trim()
+        .replace(/^https?:\/\//i, "")
+        .replace(/\/+$/, "");
       const response = await getShopifyOAuthUrl(shop);
       if (!response.success || !response.authUrl) {
-        throw new Error(response.message || "Failed to start Shopify authorization");
+        throw new Error(
+          response.message || "Failed to start Shopify authorization",
+        );
       }
       window.location.href = response.authUrl;
     } catch (err) {
       console.error("Shopify one-click connect error:", err);
-      toast.error(err?.response?.data?.message || err.message || "Failed to start Shopify authorization");
+      toast.error(
+        err?.response?.data?.message ||
+          err.message ||
+          "Failed to start Shopify authorization",
+      );
       setConnecting(false);
     }
   };
@@ -193,7 +222,7 @@ export default function ShopifySettings({ onBack } = {}) {
     } catch (err) {
       console.error("Shopify connect error:", err);
       toast.error(
-        err?.response?.data?.message || "Failed to connect Shopify store"
+        err?.response?.data?.message || "Failed to connect Shopify store",
       );
     }
     setConnecting(false);
@@ -216,7 +245,7 @@ export default function ShopifySettings({ onBack } = {}) {
     setDisconnecting(false);
   };
 
-        const handleSavePostPurchase = async (event) => {
+  const handleSavePostPurchase = async (event) => {
     event.preventDefault();
     setSavingPostPurchase(true);
     try {
@@ -233,13 +262,17 @@ export default function ShopifySettings({ onBack } = {}) {
       if (!response.success) throw new Error(response.message || "Save failed");
       toast.success("Post-purchase settings saved.");
     } catch (error) {
-      toast.error(error?.response?.data?.message || error.message || "Failed to save settings.");
+      toast.error(
+        error?.response?.data?.message ||
+          error.message ||
+          "Failed to save settings.",
+      );
     } finally {
       setSavingPostPurchase(false);
     }
   };
 
-      const handleSaveCartRecovery = async (event) => {
+  const handleSaveCartRecovery = async (event) => {
     event.preventDefault();
     setSavingCartRecovery(true);
     try {
@@ -249,8 +282,13 @@ export default function ShopifySettings({ onBack } = {}) {
         cartReminder24Enabled,
         cartReminder48Enabled,
       });
-      if (!response.success || typeof response.data?.cartRecoveryEnabled !== "boolean") {
-        throw new Error(response.message || "Failed to save cart recovery settings.");
+      if (
+        !response.success ||
+        typeof response.data?.cartRecoveryEnabled !== "boolean"
+      ) {
+        throw new Error(
+          response.message || "Failed to save cart recovery settings.",
+        );
       }
       setCartRecoveryEnabled(response.data.cartRecoveryEnabled ?? true);
       setCartReminder1Enabled(response.data.cartReminder1Enabled ?? true);
@@ -259,7 +297,9 @@ export default function ShopifySettings({ onBack } = {}) {
       toast.success("Shopify cart recovery settings saved.");
     } catch (error) {
       toast.error(
-        error?.response?.data?.message || error.message || "Failed to save cart recovery settings.",
+        error?.response?.data?.message ||
+          error.message ||
+          "Failed to save cart recovery settings.",
       );
     } finally {
       setSavingCartRecovery(false);
@@ -268,7 +308,9 @@ export default function ShopifySettings({ onBack } = {}) {
 
   const copyWebhookUrl = async () => {
     if (!shopifyWebhookUrl) {
-      toast.error("Webhook URL unavailable. Configure VITE_BACKEND_URL for the tenant app.");
+      toast.error(
+        "Webhook URL unavailable. Configure VITE_BACKEND_URL for the tenant app.",
+      );
       return;
     }
 
@@ -282,7 +324,10 @@ export default function ShopifySettings({ onBack } = {}) {
   };
 
   const isConnected = connection.isConnected;
-  const shopHandle = (connection.shopName || "").replace(/\.myshopify\.com$/i, "");
+  const shopHandle = (connection.shopName || "").replace(
+    /\.myshopify\.com$/i,
+    "",
+  );
   const connectedShopDomain = shopHandle ? `${shopHandle}.myshopify.com` : "";
 
   if (loading) {
@@ -418,7 +463,7 @@ export default function ShopifySettings({ onBack } = {}) {
                 </p>
               </div>
 
-                           <form
+              <form
                 onSubmit={handleSaveCartRecovery}
                 className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4"
               >
@@ -429,7 +474,8 @@ export default function ShopifySettings({ onBack } = {}) {
                       Abandoned Cart Recovery
                     </h4>
                     <p className="mt-0.5 text-xs text-slate-500">
-                      Automatically send WhatsApp reminders for abandoned checkouts.
+                      Automatically send WhatsApp reminders for abandoned
+                      checkouts.
                     </p>
                   </div>
                   <label className="inline-flex items-center gap-2.5 cursor-pointer shrink-0">
@@ -441,7 +487,9 @@ export default function ShopifySettings({ onBack } = {}) {
                       role="switch"
                       aria-label="Enable Shopify abandoned cart recovery"
                       checked={cartRecoveryEnabled}
-                      onChange={(event) => setCartRecoveryEnabled(event.target.checked)}
+                      onChange={(event) =>
+                        setCartRecoveryEnabled(event.target.checked)
+                      }
                       className="sr-only peer"
                     />
                     <span className="relative h-5 w-9 rounded-full bg-slate-200 transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-transform peer-checked:bg-[#95BF47] peer-checked:after:translate-x-4 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[#95BF47]" />
@@ -451,19 +499,25 @@ export default function ShopifySettings({ onBack } = {}) {
                 {/* Compact Sub-Tier Options (Visible when Master is ON) */}
                 {cartRecoveryEnabled && (
                   <div className="pt-2 border-t border-slate-100 pl-3 border-l-2 border-[#95BF47]/40 ml-0.5 space-y-2">
-                     {/* Tier 1: 1 Hour */}
+                    {/* Tier 1: 1 Hour */}
                     <div className="flex items-center justify-between py-1 px-2 rounded-lg hover:bg-slate-50 transition">
                       <div className="flex items-center gap-2">
                         <span className="text-xs">⏱️</span>
                         <div>
-                          <p className="text-xs font-semibold text-slate-800">1-Hour Gentle Reminder</p>
-                          <p className="text-[10px] text-slate-400">Sends gentle cart reminder</p>
+                          <p className="text-xs font-semibold text-slate-800">
+                            1-Hour Gentle Reminder
+                          </p>
+                          <p className="text-[10px] text-slate-400">
+                            Sends gentle cart reminder
+                          </p>
                         </div>
                       </div>
                       <input
                         type="checkbox"
                         checked={cartReminder1Enabled}
-                        onChange={(e) => setCartReminder1Enabled(e.target.checked)}
+                        onChange={(e) =>
+                          setCartReminder1Enabled(e.target.checked)
+                        }
                         className="w-4 h-4 rounded border-slate-300 accent-[#95BF47] text-[#95BF47] focus:ring-[#95BF47] cursor-pointer"
                       />
                     </div>
@@ -473,14 +527,20 @@ export default function ShopifySettings({ onBack } = {}) {
                       <div className="flex items-center gap-2">
                         <span className="text-xs">⏰</span>
                         <div>
-                          <p className="text-xs font-semibold text-slate-800">24-Hour Urgency Alert</p>
-                          <p className="text-[10px] text-slate-400">Notifies that items are almost sold out</p>
+                          <p className="text-xs font-semibold text-slate-800">
+                            24-Hour Urgency Alert
+                          </p>
+                          <p className="text-[10px] text-slate-400">
+                            Notifies that items are almost sold out
+                          </p>
                         </div>
                       </div>
                       <input
                         type="checkbox"
                         checked={cartReminder24Enabled}
-                        onChange={(e) => setCartReminder24Enabled(e.target.checked)}
+                        onChange={(e) =>
+                          setCartReminder24Enabled(e.target.checked)
+                        }
                         className="w-4 h-4 rounded border-slate-300 accent-[#95BF47] text-[#95BF47] focus:ring-[#95BF47] cursor-pointer"
                       />
                     </div>
@@ -490,18 +550,23 @@ export default function ShopifySettings({ onBack } = {}) {
                       <div className="flex items-center gap-2">
                         <span className="text-xs">🎁</span>
                         <div>
-                          <p className="text-xs font-semibold text-slate-800">48-Hour Discount Offer</p>
-                          <p className="text-[10px] text-slate-400">Offers 10% off code (CART10)</p>
+                          <p className="text-xs font-semibold text-slate-800">
+                            48-Hour Discount Offer
+                          </p>
+                          <p className="text-[10px] text-slate-400">
+                            Offers 10% off code (CART10)
+                          </p>
                         </div>
                       </div>
                       <input
                         type="checkbox"
                         checked={cartReminder48Enabled}
-                        onChange={(e) => setCartReminder48Enabled(e.target.checked)}
+                        onChange={(e) =>
+                          setCartReminder48Enabled(e.target.checked)
+                        }
                         className="w-4 h-4 rounded border-slate-300 accent-[#95BF47] text-[#95BF47] focus:ring-[#95BF47] cursor-pointer"
                       />
                     </div>
-
                   </div>
                 )}
 
@@ -511,19 +576,24 @@ export default function ShopifySettings({ onBack } = {}) {
                     disabled={savingCartRecovery}
                     className="inline-flex items-center gap-2 rounded-xl bg-[#95BF47] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-60"
                   >
-                    {savingCartRecovery && <RefreshCw size={13} className="animate-spin" />}
-                    {savingCartRecovery ? "Saving..." : "Save Cart Recovery Settings"}
+                    {savingCartRecovery && (
+                      <RefreshCw size={13} className="animate-spin" />
+                    )}
+                    {savingCartRecovery
+                      ? "Saving..."
+                      : "Save Cart Recovery Settings"}
                   </button>
                 </div>
-
-                              </form>
+              </form>
 
               <form
                 onSubmit={handleSavePostPurchase}
                 className="rounded-2xl border border-slate-200 bg-white p-5 space-y-3"
               >
                 <div>
-                  <h4 className="text-sm font-bold text-slate-900">Post-Purchase Engagement</h4>
+                  <h4 className="text-sm font-bold text-slate-900">
+                    Post-Purchase Engagement
+                  </h4>
                   <p className="mt-0.5 text-xs text-slate-500">
                     Reviews, upsell, cross-sell, reorder, and win-back messages.
                   </p>
@@ -533,8 +603,12 @@ export default function ShopifySettings({ onBack } = {}) {
                   {/* Review */}
                   <div className="flex items-center justify-between py-1 px-2 rounded-lg hover:bg-slate-50">
                     <div>
-                      <p className="text-xs font-semibold text-slate-800">Review request</p>
-                      <p className="text-[10px] text-slate-400">After delivery</p>
+                      <p className="text-xs font-semibold text-slate-800">
+                        Review request
+                      </p>
+                      <p className="text-[10px] text-slate-400">
+                        After delivery
+                      </p>
                     </div>
                     <div className="flex items-center gap-2">
                       {postPurchaseReviewEnabled && (
@@ -544,16 +618,22 @@ export default function ShopifySettings({ onBack } = {}) {
                             min="0"
                             max="30"
                             value={postPurchaseReviewDelayDays}
-                            onChange={(e) => setPostPurchaseReviewDelayDays(e.target.value)}
+                            onChange={(e) =>
+                              setPostPurchaseReviewDelayDays(e.target.value)
+                            }
                             className="w-14 px-1.5 py-0.5 text-xs border border-slate-200 rounded-md"
                           />
-                          <span className="text-[10px] text-slate-400">days</span>
+                          <span className="text-[10px] text-slate-400">
+                            days
+                          </span>
                         </>
                       )}
                       <input
                         type="checkbox"
                         checked={postPurchaseReviewEnabled}
-                        onChange={(e) => setPostPurchaseReviewEnabled(e.target.checked)}
+                        onChange={(e) =>
+                          setPostPurchaseReviewEnabled(e.target.checked)
+                        }
                         className="w-4 h-4 rounded border-slate-300 accent-[#95BF47] cursor-pointer"
                       />
                     </div>
@@ -562,13 +642,19 @@ export default function ShopifySettings({ onBack } = {}) {
                   {/* Upsell */}
                   <div className="flex items-center justify-between py-1 px-2 rounded-lg hover:bg-slate-50">
                     <div>
-                      <p className="text-xs font-semibold text-slate-800">Upsell</p>
-                      <p className="text-[10px] text-slate-400">After order confirmed</p>
+                      <p className="text-xs font-semibold text-slate-800">
+                        Upsell
+                      </p>
+                      <p className="text-[10px] text-slate-400">
+                        After order confirmed
+                      </p>
                     </div>
                     <input
                       type="checkbox"
                       checked={postPurchaseUpsellEnabled}
-                      onChange={(e) => setPostPurchaseUpsellEnabled(e.target.checked)}
+                      onChange={(e) =>
+                        setPostPurchaseUpsellEnabled(e.target.checked)
+                      }
                       className="w-4 h-4 rounded border-slate-300 accent-[#95BF47] cursor-pointer"
                     />
                   </div>
@@ -576,13 +662,19 @@ export default function ShopifySettings({ onBack } = {}) {
                   {/* Cross-sell */}
                   <div className="flex items-center justify-between py-1 px-2 rounded-lg hover:bg-slate-50">
                     <div>
-                      <p className="text-xs font-semibold text-slate-800">Cross-sell</p>
-                      <p className="text-[10px] text-slate-400">After delivery</p>
+                      <p className="text-xs font-semibold text-slate-800">
+                        Cross-sell
+                      </p>
+                      <p className="text-[10px] text-slate-400">
+                        After delivery
+                      </p>
                     </div>
                     <input
                       type="checkbox"
                       checked={postPurchaseCrossSellEnabled}
-                      onChange={(e) => setPostPurchaseCrossSellEnabled(e.target.checked)}
+                      onChange={(e) =>
+                        setPostPurchaseCrossSellEnabled(e.target.checked)
+                      }
                       className="w-4 h-4 rounded border-slate-300 accent-[#95BF47] cursor-pointer"
                     />
                   </div>
@@ -590,8 +682,12 @@ export default function ShopifySettings({ onBack } = {}) {
                   {/* Reorder */}
                   <div className="flex items-center justify-between py-1 px-2 rounded-lg hover:bg-slate-50">
                     <div>
-                      <p className="text-xs font-semibold text-slate-800">Reorder reminder</p>
-                      <p className="text-[10px] text-slate-400">Days after delivery</p>
+                      <p className="text-xs font-semibold text-slate-800">
+                        Reorder reminder
+                      </p>
+                      <p className="text-[10px] text-slate-400">
+                        Days after delivery
+                      </p>
                     </div>
                     <div className="flex items-center gap-2">
                       {postPurchaseReorderEnabled && (
@@ -601,16 +697,22 @@ export default function ShopifySettings({ onBack } = {}) {
                             min="1"
                             max="365"
                             value={postPurchaseReorderDays}
-                            onChange={(e) => setPostPurchaseReorderDays(e.target.value)}
+                            onChange={(e) =>
+                              setPostPurchaseReorderDays(e.target.value)
+                            }
                             className="w-14 px-1.5 py-0.5 text-xs border border-slate-200 rounded-md"
                           />
-                          <span className="text-[10px] text-slate-400">days</span>
+                          <span className="text-[10px] text-slate-400">
+                            days
+                          </span>
                         </>
                       )}
                       <input
                         type="checkbox"
                         checked={postPurchaseReorderEnabled}
-                        onChange={(e) => setPostPurchaseReorderEnabled(e.target.checked)}
+                        onChange={(e) =>
+                          setPostPurchaseReorderEnabled(e.target.checked)
+                        }
                         className="w-4 h-4 rounded border-slate-300 accent-[#95BF47] cursor-pointer"
                       />
                     </div>
@@ -619,8 +721,12 @@ export default function ShopifySettings({ onBack } = {}) {
                   {/* Win-back */}
                   <div className="flex items-center justify-between py-1 px-2 rounded-lg hover:bg-slate-50">
                     <div>
-                      <p className="text-xs font-semibold text-slate-800">Win-back campaign</p>
-                      <p className="text-[10px] text-slate-400">Days inactive</p>
+                      <p className="text-xs font-semibold text-slate-800">
+                        Win-back campaign
+                      </p>
+                      <p className="text-[10px] text-slate-400">
+                        Days inactive
+                      </p>
                     </div>
                     <div className="flex items-center gap-2">
                       {postPurchaseWinBackEnabled && (
@@ -630,16 +736,22 @@ export default function ShopifySettings({ onBack } = {}) {
                             min="1"
                             max="365"
                             value={postPurchaseWinBackDays}
-                            onChange={(e) => setPostPurchaseWinBackDays(e.target.value)}
+                            onChange={(e) =>
+                              setPostPurchaseWinBackDays(e.target.value)
+                            }
                             className="w-14 px-1.5 py-0.5 text-xs border border-slate-200 rounded-md"
                           />
-                          <span className="text-[10px] text-slate-400">days</span>
+                          <span className="text-[10px] text-slate-400">
+                            days
+                          </span>
                         </>
                       )}
                       <input
                         type="checkbox"
                         checked={postPurchaseWinBackEnabled}
-                        onChange={(e) => setPostPurchaseWinBackEnabled(e.target.checked)}
+                        onChange={(e) =>
+                          setPostPurchaseWinBackEnabled(e.target.checked)
+                        }
                         className="w-4 h-4 rounded border-slate-300 accent-[#95BF47] cursor-pointer"
                       />
                     </div>
@@ -651,13 +763,17 @@ export default function ShopifySettings({ onBack } = {}) {
                   disabled={savingPostPurchase}
                   className="inline-flex items-center gap-2 rounded-xl bg-[#95BF47] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-60"
                 >
-                  {savingPostPurchase && <RefreshCw size={13} className="animate-spin" />}
-                  {savingPostPurchase ? "Saving..." : "Save Post-Purchase Settings"}
+                  {savingPostPurchase && (
+                    <RefreshCw size={13} className="animate-spin" />
+                  )}
+                  {savingPostPurchase
+                    ? "Saving..."
+                    : "Save Post-Purchase Settings"}
                 </button>
               </form>
 
               {/* Webhook Configuration Card */}
-            <div className="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-2xs space-y-5">
+              <div className="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-2xs space-y-5">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
                   <div>
                     <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
@@ -756,11 +872,17 @@ export default function ShopifySettings({ onBack } = {}) {
                   </p>
                 </div>
 
-                <form onSubmit={handleOneClickConnect} className="max-w-lg mx-auto p-5 rounded-xl border border-[#d5e7bd] bg-white space-y-3">
+                <form
+                  onSubmit={handleOneClickConnect}
+                  className="max-w-lg mx-auto p-5 rounded-xl border border-[#d5e7bd] bg-white space-y-3"
+                >
                   <div>
-                    <h4 className="text-sm font-bold text-slate-900">One-click connection</h4>
+                    <h4 className="text-sm font-bold text-slate-900">
+                      One-click connection
+                    </h4>
                     <p className="text-[11px] text-slate-500 mt-1">
-                      Authorize the app in Shopify without copying API credentials.
+                      Authorize the app in Shopify without copying API
+                      credentials.
                     </p>
                   </div>
                   <div className="flex items-center border border-slate-200 rounded-xl bg-white focus-within:ring-1 focus-within:ring-[#95BF47] focus-within:border-[#95BF47] transition">
@@ -777,7 +899,9 @@ export default function ShopifySettings({ onBack } = {}) {
                       disabled={connecting}
                       className="m-1 px-4 py-2.5 text-xs font-bold rounded-lg bg-[#95BF47] text-white hover:opacity-95 transition inline-flex items-center justify-center gap-2 disabled:opacity-60"
                     >
-                      {connecting && <RefreshCw size={13} className="animate-spin" />}
+                      {connecting && (
+                        <RefreshCw size={13} className="animate-spin" />
+                      )}
                       {connecting ? "Starting..." : "Continue to Shopify"}
                     </button>
                   </div>
@@ -790,7 +914,11 @@ export default function ShopifySettings({ onBack } = {}) {
                     aria-expanded={showAdvanced}
                     className="w-full flex items-center justify-center gap-1.5 text-[11px] font-semibold text-slate-500 hover:text-slate-800 transition py-2"
                   >
-                    {showAdvanced ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                    {showAdvanced ? (
+                      <ChevronUp size={14} />
+                    ) : (
+                      <ChevronDown size={14} />
+                    )}
                     <span>
                       {showAdvanced
                         ? "Hide manual API key setup"
@@ -800,116 +928,124 @@ export default function ShopifySettings({ onBack } = {}) {
                 </div>
 
                 {showAdvanced && (
-                <form onSubmit={handleConnect} className="space-y-4 max-w-lg mx-auto">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                      Shop Name *
-                    </label>
-                    <div className="flex items-center border border-slate-200 rounded-xl bg-white focus-within:ring-1 focus-within:ring-[#95BF47] focus-within:border-[#95BF47] transition">
-                      <input
-                        type="text"
-                        required
-                        placeholder="your-store-name"
-                        value={form.shopName}
-                        onChange={(e) =>
-                          setForm({ ...form, shopName: e.target.value })
-                        }
-                        className="flex-1 px-3 py-2.5 text-xs bg-transparent focus:outline-none rounded-l-xl"
-                      />
-                      <span className="px-3 py-2.5 text-xs text-slate-400 font-mono border-l border-slate-200">
-                        .myshopify.com
-                      </span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                      Admin API Access Token *
-                    </label>
-                    <div className="relative">
-                      <input
-                        type={showAccessToken ? "text" : "password"}
-                        required
-                        placeholder="shpat_••••••••••••••••••••••••••"
-                        value={form.accessToken}
-                        onChange={(e) =>
-                          setForm({ ...form, accessToken: e.target.value })
-                        }
-                        className="w-full px-3 py-2.5 pr-10 text-xs font-mono border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#95BF47] focus:border-[#95BF47]"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowAccessToken(!showAccessToken)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-slate-700 rounded-md"
-                      >
-                        {showAccessToken ? (
-                          <EyeOff size={13} />
-                        ) : (
-                          <Eye size={13} />
-                        )}
-                      </button>
-                    </div>
-                    <p className="text-[10px] text-slate-400 mt-1">
-                      Generate from Shopify Admin → Apps → Develop apps →
-                      Configure Admin API scopes.
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                      API Secret Key (Webhook Verification) *
-                    </label>
-                    <div className="relative">
-                      <input
-                        type={showWebhookSecret ? "text" : "password"}
-                        required
-                        placeholder="shpss_••••••••••••••••••••••••••"
-                        value={form.webhookSecret}
-                        onChange={(e) =>
-                          setForm({ ...form, webhookSecret: e.target.value })
-                        }
-                        className="w-full px-3 py-2.5 pr-10 text-xs font-mono border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#95BF47] focus:border-[#95BF47]"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowWebhookSecret(!showWebhookSecret)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-slate-700 rounded-md"
-                      >
-                        {showWebhookSecret ? (
-                          <EyeOff size={13} />
-                        ) : (
-                          <Eye size={13} />
-                        )}
-                      </button>
-                    </div>
-                    <p className="text-[10px] text-slate-400 mt-1">
-                      Required to verify webhook payload signatures via HMAC-SHA256.
-                    </p>
-                  </div>
-
-                  <div className="pt-2 text-center">
-                    <button
-                      type="submit"
-                      disabled={connecting}
-                      className="px-8 py-3.5 text-xs font-bold rounded-xl bg-gradient-to-r from-[#95BF47] to-[#7AB55C] text-white hover:opacity-95 transition inline-flex items-center gap-2.5 shadow-md hover:shadow-lg disabled:opacity-60"
-                    >
-                      {connecting ? (
-                        <RefreshCw
-                          size={16}
-                          className="animate-spin text-white"
+                  <form
+                    onSubmit={handleConnect}
+                    className="space-y-4 max-w-lg mx-auto"
+                  >
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                        Shop Name *
+                      </label>
+                      <div className="flex items-center border border-slate-200 rounded-xl bg-white focus-within:ring-1 focus-within:ring-[#95BF47] focus-within:border-[#95BF47] transition">
+                        <input
+                          type="text"
+                          required
+                          placeholder="your-store-name"
+                          value={form.shopName}
+                          onChange={(e) =>
+                            setForm({ ...form, shopName: e.target.value })
+                          }
+                          className="flex-1 px-3 py-2.5 text-xs bg-transparent focus:outline-none rounded-l-xl"
                         />
-                      ) : (
-                        <ShoppingBag size={16} />
-                      )}
-                      <span>
-                        {connecting ? "Connecting..." : "Connect Shopify Store"}
-                      </span>
-                    </button>
-                    <p className="text-[11px] text-slate-400 mt-2">
-                      Your credentials are encrypted at rest using AES-256.
-                    </p>
-                  </div>
-                </form>
+                        <span className="px-3 py-2.5 text-xs text-slate-400 font-mono border-l border-slate-200">
+                          .myshopify.com
+                        </span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                        Admin API Access Token *
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showAccessToken ? "text" : "password"}
+                          required
+                          placeholder="shpat_••••••••••••••••••••••••••"
+                          value={form.accessToken}
+                          onChange={(e) =>
+                            setForm({ ...form, accessToken: e.target.value })
+                          }
+                          className="w-full px-3 py-2.5 pr-10 text-xs font-mono border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#95BF47] focus:border-[#95BF47]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowAccessToken(!showAccessToken)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-slate-700 rounded-md"
+                        >
+                          {showAccessToken ? (
+                            <EyeOff size={13} />
+                          ) : (
+                            <Eye size={13} />
+                          )}
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        Generate from Shopify Admin → Apps → Develop apps →
+                        Configure Admin API scopes.
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                        API Secret Key (Webhook Verification) *
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showWebhookSecret ? "text" : "password"}
+                          required
+                          placeholder="shpss_••••••••••••••••••••••••••"
+                          value={form.webhookSecret}
+                          onChange={(e) =>
+                            setForm({ ...form, webhookSecret: e.target.value })
+                          }
+                          className="w-full px-3 py-2.5 pr-10 text-xs font-mono border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#95BF47] focus:border-[#95BF47]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setShowWebhookSecret(!showWebhookSecret)
+                          }
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-slate-700 rounded-md"
+                        >
+                          {showWebhookSecret ? (
+                            <EyeOff size={13} />
+                          ) : (
+                            <Eye size={13} />
+                          )}
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        Required to verify webhook payload signatures via
+                        HMAC-SHA256.
+                      </p>
+                    </div>
+
+                    <div className="pt-2 text-center">
+                      <button
+                        type="submit"
+                        disabled={connecting}
+                        className="px-8 py-3.5 text-xs font-bold rounded-xl bg-gradient-to-r from-[#95BF47] to-[#7AB55C] text-white hover:opacity-95 transition inline-flex items-center gap-2.5 shadow-md hover:shadow-lg disabled:opacity-60"
+                      >
+                        {connecting ? (
+                          <RefreshCw
+                            size={16}
+                            className="animate-spin text-white"
+                          />
+                        ) : (
+                          <ShoppingBag size={16} />
+                        )}
+                        <span>
+                          {connecting
+                            ? "Connecting..."
+                            : "Connect Shopify Store"}
+                        </span>
+                      </button>
+                      <p className="text-[11px] text-slate-400 mt-2">
+                        Your credentials are encrypted at rest using AES-256.
+                      </p>
+                    </div>
+                  </form>
                 )}
 
                 {/* 3 Key Benefits */}
@@ -922,7 +1058,8 @@ export default function ShopifySettings({ onBack } = {}) {
                       Real-Time Orders
                     </h4>
                     <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-                      Get order events streamed to WhatsApp automations instantly.
+                      Get order events streamed to WhatsApp automations
+                      instantly.
                     </p>
                   </div>
 
@@ -1101,7 +1238,9 @@ export default function ShopifySettings({ onBack } = {}) {
               </div>
               <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
                 <span className="text-slate-500">Signature</span>
-                <span className="font-semibold text-slate-800">HMAC-SHA256</span>
+                <span className="font-semibold text-slate-800">
+                  HMAC-SHA256
+                </span>
               </div>
               <div className="flex items-center justify-between py-1.5">
                 <span className="text-slate-500">Encryption</span>
@@ -1157,7 +1296,7 @@ export default function ShopifySettings({ onBack } = {}) {
               </div>
             </div>
           </div>,
-          document.body
+          document.body,
         )}
     </div>
   );

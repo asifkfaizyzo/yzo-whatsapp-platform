@@ -24,12 +24,12 @@ export const siteConfig = {
     },
   ],
 
-   // ── SOCIAL MEDIA LINKS ──────────────────────────────────────────────
+  // ── SOCIAL MEDIA LINKS ──────────────────────────────────────────────
   social: {
-    facebook:  "https://www.facebook.com/sudoreply",    // ← replace with your real URL
-    instagram: "https://www.instagram.com/sudoreply",   // ← replace with your real URL
-    youtube:   "https://www.youtube.com/@SudoReply",    // ← replace with your real URL
-    linkedin:  "https://www.linkedin.com/company/sudoreply", // ← replace with your real URL
+    facebook: "https://www.facebook.com/sudoreply", // ← replace with your real URL
+    instagram: "https://www.instagram.com/sudoreply", // ← replace with your real URL
+    youtube: "https://www.youtube.com/@SudoReply", // ← replace with your real URL
+    linkedin: "https://www.linkedin.com/company/sudoreply", // ← replace with your real URL
   },
   // ────────────────────────────────────────────────────────────────
 };

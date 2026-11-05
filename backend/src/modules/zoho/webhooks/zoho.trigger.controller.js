@@ -1,8 +1,8 @@
 // backend/src/modules/zoho/webhooks/zoho.trigger.controller.js (do not remove this comment)
 
-import prisma from '../../../config/prisma.js';
-import { sendMessageService } from '../../messages/message.service.js';
-import { emitToTenant } from '../../../lib/socket.js';
+import prisma from "../../../config/prisma.js";
+import { sendMessageService } from "../../messages/message.service.js";
+import { emitToTenant } from "../../../lib/socket.js";
 
 /**
  * POST /sradmin/zoho/trigger/message
@@ -23,24 +23,32 @@ export const triggerOutboundMessage = async (req, res) => {
     if (!tenantId || (!phone && !contactId) || !message) {
       return res.status(400).json({
         success: false,
-        message: 'tenantId, message, and either phone or contactId are required',
+        message:
+          "tenantId, message, and either phone or contactId are required",
       });
     }
 
     const tenant = await prisma.tenant.findUnique({
-      where: { id: tenantId, zoho: { zohoConnectionStatus: 'CONNECTED' } },
+      where: { id: tenantId, zoho: { zohoConnectionStatus: "CONNECTED" } },
       select: { id: true, tenantName: true },
     });
 
     if (!tenant) {
-      return res.status(404).json({ success: false, message: 'Active Zoho-connected tenant not found' });
+      return res
+        .status(404)
+        .json({
+          success: false,
+          message: "Active Zoho-connected tenant not found",
+        });
     }
 
     let targetContact;
     if (contactId) {
-      targetContact = await prisma.contact.findFirst({ where: { id: contactId, tenantId } });
+      targetContact = await prisma.contact.findFirst({
+        where: { id: contactId, tenantId },
+      });
     } else {
-      const cleanPhone = `+${phone.replace(/\D/g, '')}`;
+      const cleanPhone = `+${phone.replace(/\D/g, "")}`;
       targetContact = await prisma.contact.findFirst({
         where: { phone: cleanPhone, tenantId },
       });
@@ -61,18 +69,18 @@ export const triggerOutboundMessage = async (req, res) => {
       contactId: targetContact.id,
       tenantId: tenant.id,
       senderId: tenant.id,
-      senderType: 'SYSTEM',
+      senderType: "SYSTEM",
       text: message,
     });
 
-    emitToTenant(tenant.id, 'new_message', {
+    emitToTenant(tenant.id, "new_message", {
       conversationId: sentMessage.conversationId,
       message: {
         id: sentMessage.id,
-        type: 'TEXT',
+        type: "TEXT",
         text: sentMessage.text,
-        senderType: 'SYSTEM',
-        direction: 'OUTBOUND',
+        senderType: "SYSTEM",
+        direction: "OUTBOUND",
         isFromCustomer: false,
         createdAt: sentMessage.createdAt,
       },
@@ -80,11 +88,14 @@ export const triggerOutboundMessage = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'WhatsApp message triggered successfully from Zoho CRM',
-      data: { messageId: sentMessage.id, conversationId: sentMessage.conversationId },
+      message: "WhatsApp message triggered successfully from Zoho CRM",
+      data: {
+        messageId: sentMessage.id,
+        conversationId: sentMessage.conversationId,
+      },
     });
   } catch (error) {
-    console.error('❌ [ZohoTrigger] Error sending message:', error);
+    console.error("❌ [ZohoTrigger] Error sending message:", error);
     return res.status(500).json({ success: false, message: error.message });
   }
 };

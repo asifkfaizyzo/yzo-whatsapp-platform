@@ -1,19 +1,19 @@
 // backend/src/cron/jobs/zohoStaleTaskJob.js (do not remove this comment)
 
-import cron from 'node-cron';
-import { scanAndCreateStaleTasks } from '../../modules/zoho/crm/zoho.task.service.js';
+import cron from "node-cron";
+import { scanAndCreateStaleTasks } from "../../modules/zoho/crm/zoho.task.service.js";
 
 export const startZohoStaleTaskJob = () => {
   // Run every 6 hours
-  cron.schedule('0 */6 * * *', async () => {
-    console.log('🕐 [ZohoTaskJob] Scanning for stale conversations...');
+  cron.schedule("0 */6 * * *", async () => {
+    console.log("🕐 [ZohoTaskJob] Scanning for stale conversations...");
     try {
       await scanAndCreateStaleTasks();
-      console.log('✅ [ZohoTaskJob] Stale task scan completed');
+      console.log("✅ [ZohoTaskJob] Stale task scan completed");
     } catch (err) {
-      console.error('❌ [ZohoTaskJob] Scan failed:', err.message);
+      console.error("❌ [ZohoTaskJob] Scan failed:", err.message);
     }
   });
 
-  console.log('🕐 [ZohoTaskJob] Scheduled — runs every 6 hours');
+  console.log("🕐 [ZohoTaskJob] Scheduled — runs every 6 hours");
 };

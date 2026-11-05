@@ -8,7 +8,9 @@ const CONV_BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/tenant/conversations`
  */
 export const createConversation = async (contactId) => {
   try {
-    const response = await api.post(`${CONV_BASE_URL}/create-conversation`, { contactId });
+    const response = await api.post(`${CONV_BASE_URL}/create-conversation`, {
+      contactId,
+    });
     return {
       success: true,
       data: response.data.conversation,
@@ -24,7 +26,12 @@ export const createConversation = async (contactId) => {
 /**
  * Get all conversations assigned to the logged-in agent/user
  */
-export const getAssignedConversations = async (page = 1, limit = 20, filter = "all", channel = undefined) => {
+export const getAssignedConversations = async (
+  page = 1,
+  limit = 20,
+  filter = "all",
+  channel = undefined,
+) => {
   try {
     const params = { page, limit, filter };
     if (channel && channel !== "ALL") {
@@ -49,11 +56,18 @@ export const getAssignedConversations = async (page = 1, limit = 20, filter = "a
 /**
  * Get messages for a specific conversation
  */
-export const getConversationMessages = async (conversationId, limit = 30, before = null) => {
+export const getConversationMessages = async (
+  conversationId,
+  limit = 30,
+  before = null,
+) => {
   try {
-    const response = await api.get(`${CONV_BASE_URL}/getmessage/${conversationId}`, {
-      params: { limit, before },
-    });
+    const response = await api.get(
+      `${CONV_BASE_URL}/getmessage/${conversationId}`,
+      {
+        params: { limit, before },
+      },
+    );
     return {
       success: true,
       data: response.data,
@@ -71,7 +85,10 @@ export const getConversationMessages = async (conversationId, limit = 30, before
  */
 export const updateConversationStatus = async (conversationId, status) => {
   try {
-    const response = await api.patch(`${CONV_BASE_URL}/status/${conversationId}`, { status });
+    const response = await api.patch(
+      `${CONV_BASE_URL}/status/${conversationId}`,
+      { status },
+    );
     return {
       success: true,
       data: response.data.data,
@@ -79,7 +96,8 @@ export const updateConversationStatus = async (conversationId, status) => {
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || "Failed to update conversation status",
+      message:
+        error.response?.data?.message || "Failed to update conversation status",
     };
   }
 };
@@ -88,13 +106,14 @@ export const updateConversationStatus = async (conversationId, status) => {
 export const archiveConversation = async (conversationId) => {
   try {
     const response = await api.patch(
-      `${CONV_BASE_URL}/archive/${conversationId}`
+      `${CONV_BASE_URL}/archive/${conversationId}`,
     );
     return { success: true, data: response.data };
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || "Failed to archive conversation",
+      message:
+        error.response?.data?.message || "Failed to archive conversation",
     };
   }
 };
@@ -103,13 +122,14 @@ export const archiveConversation = async (conversationId) => {
 export const unarchiveConversation = async (conversationId) => {
   try {
     const response = await api.patch(
-      `${CONV_BASE_URL}/unarchive/${conversationId}`
+      `${CONV_BASE_URL}/unarchive/${conversationId}`,
     );
     return { success: true, data: response.data };
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || "Failed to unarchive conversation",
+      message:
+        error.response?.data?.message || "Failed to unarchive conversation",
     };
   }
 };
@@ -118,7 +138,7 @@ export const unarchiveConversation = async (conversationId) => {
 export const deleteConversation = async (conversationId) => {
   try {
     const response = await api.delete(
-      `${CONV_BASE_URL}/delete/${conversationId}`
+      `${CONV_BASE_URL}/delete/${conversationId}`,
     );
     return { success: true, data: response.data };
   } catch (error) {
@@ -139,7 +159,9 @@ export const getArchivedConversations = async (page = 1, limit = 20) => {
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || "Failed to fetch archived conversations",
+      message:
+        error.response?.data?.message ||
+        "Failed to fetch archived conversations",
     };
   }
 };
@@ -170,7 +192,7 @@ export const bulkReassignConversations = async (conversationIds, newUserId) => {
 export const markConversationAsRead = async (conversationId) => {
   try {
     const response = await api.patch(
-      `${CONV_BASE_URL}/mark-read/${conversationId}`
+      `${CONV_BASE_URL}/mark-read/${conversationId}`,
     );
     return { success: true, data: response.data };
   } catch (error) {
@@ -184,7 +206,12 @@ export const markConversationAsRead = async (conversationId) => {
 /**
  * Get media, links, or docs for a specific conversation
  */
-export const getConversationMedia = async (conversationId, type = "media", page = 1, limit = 50) => {
+export const getConversationMedia = async (
+  conversationId,
+  type = "media",
+  page = 1,
+  limit = 50,
+) => {
   try {
     const response = await api.get(`${CONV_BASE_URL}/media/${conversationId}`, {
       params: { type, page, limit },
@@ -215,7 +242,10 @@ export const togglePinConversation = async (conversationId) => {
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.error || error.response?.data?.message || "Failed to toggle pin state",
+      message:
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        "Failed to toggle pin state",
     };
   }
 };

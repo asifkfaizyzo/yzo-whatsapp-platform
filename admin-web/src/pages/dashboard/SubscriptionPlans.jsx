@@ -65,12 +65,49 @@ const INTEGRATION_ICON = {
 };
 
 const LIMIT_FIELDS = [
-  { name: "maxAgents", label: "Agents", placeholder: "Max Agents *", icon: Users, helper: "Seats for your team", required: true },
-  { name: "maxBroadcasts", label: "Broadcasts", placeholder: "Broadcasts / Month", icon: Send, helper: "Blank = unlimited" },
-  { name: "maxAutomations", label: "Automations", placeholder: "Automation Triggers", icon: Zap, helper: "Blank = unlimited" },
-  { name: "maxCampaigns", label: "Campaigns", placeholder: "Campaigns", icon: Megaphone, helper: "Blank = unlimited" },
-  { name: "maxApiCalls", label: "API Calls", placeholder: "API Calls", icon: Globe, helper: "Blank = unlimited" },
-  { name: "maxAiCredits", label: "AI Credits", placeholder: "AI Credits", icon: Sparkles, helper: "Blank = none" },
+  {
+    name: "maxAgents",
+    label: "Agents",
+    placeholder: "Max Agents *",
+    icon: Users,
+    helper: "Seats for your team",
+    required: true,
+  },
+  {
+    name: "maxBroadcasts",
+    label: "Broadcasts",
+    placeholder: "Broadcasts / Month",
+    icon: Send,
+    helper: "Blank = unlimited",
+  },
+  {
+    name: "maxAutomations",
+    label: "Automations",
+    placeholder: "Automation Triggers",
+    icon: Zap,
+    helper: "Blank = unlimited",
+  },
+  {
+    name: "maxCampaigns",
+    label: "Campaigns",
+    placeholder: "Campaigns",
+    icon: Megaphone,
+    helper: "Blank = unlimited",
+  },
+  {
+    name: "maxApiCalls",
+    label: "API Calls",
+    placeholder: "API Calls",
+    icon: Globe,
+    helper: "Blank = unlimited",
+  },
+  {
+    name: "maxAiCredits",
+    label: "AI Credits",
+    placeholder: "AI Credits",
+    icon: Sparkles,
+    helper: "Blank = none",
+  },
 ];
 
 const defaultForm = {
@@ -123,7 +160,9 @@ function StatCard({ icon: Icon, label, value, tone = "blue", hint }) {
           {value}
         </div>
       </div>
-      {hint && <p className="text-[11px] text-slate-400 font-medium mt-3">{hint}</p>}
+      {hint && (
+        <p className="text-[11px] text-slate-400 font-medium mt-3">{hint}</p>
+      )}
     </div>
   );
 }
@@ -159,7 +198,9 @@ function StatusPill({ status }) {
           : "bg-rose-50 text-rose-700 border-rose-200/60"
       }`}
     >
-      <span className={`w-1.5 h-1.5 rounded-full ${active ? "bg-emerald-500 animate-pulse" : "bg-rose-400"}`} />
+      <span
+        className={`w-1.5 h-1.5 rounded-full ${active ? "bg-emerald-500 animate-pulse" : "bg-rose-400"}`}
+      />
       {active ? "Active" : "Inactive"}
     </span>
   );
@@ -196,21 +237,35 @@ function ActionsMenu({ plan, onEdit, onToggle, onDelete }) {
             Plan Options
           </div>
           <button
-            onClick={() => { setOpen(false); onEdit(plan); }}
+            onClick={() => {
+              setOpen(false);
+              onEdit(plan);
+            }}
             className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
           >
             <Pencil size={14} className="text-indigo-600" /> Edit Plan Details
           </button>
           <button
-            onClick={() => { setOpen(false); onToggle(plan.id); }}
+            onClick={() => {
+              setOpen(false);
+              onToggle(plan.id);
+            }}
             className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
           >
-            <Power size={14} className={plan.status === "ACTIVE" ? "text-amber-500" : "text-emerald-500"} />
+            <Power
+              size={14}
+              className={
+                plan.status === "ACTIVE" ? "text-amber-500" : "text-emerald-500"
+              }
+            />
             {plan.status === "ACTIVE" ? "Deactivate Plan" : "Activate Plan"}
           </button>
           <div className="my-1 border-t border-slate-100" />
           <button
-            onClick={() => { setOpen(false); onDelete(plan.id, plan.name); }}
+            onClick={() => {
+              setOpen(false);
+              onDelete(plan.id, plan.name);
+            }}
             className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition"
           >
             <Trash2 size={14} /> Delete Plan
@@ -254,12 +309,19 @@ function PlanCard({ plan, popular, onEdit, onToggle, onDelete }) {
         <div>
           <h3 className="text-lg font-bold text-slate-800">{plan.name}</h3>
           {plan.description && (
-            <p className="text-xs text-slate-400 mt-1 line-clamp-2">{plan.description}</p>
+            <p className="text-xs text-slate-400 mt-1 line-clamp-2">
+              {plan.description}
+            </p>
           )}
         </div>
         <div className="flex items-center gap-1">
           <StatusPill status={plan.status} />
-          <ActionsMenu plan={plan} onEdit={onEdit} onToggle={onToggle} onDelete={onDelete} />
+          <ActionsMenu
+            plan={plan}
+            onEdit={onEdit}
+            onToggle={onToggle}
+            onDelete={onDelete}
+          />
         </div>
       </div>
 
@@ -288,9 +350,14 @@ function PlanCard({ plan, popular, onEdit, onToggle, onDelete }) {
       {/* Features checklist */}
       {featureNames.length > 0 && (
         <div className="mt-5 space-y-2 border-t border-slate-100 pt-5">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">Included Features</p>
+          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+            Included Features
+          </p>
           {visibleFeatures.map((name) => (
-            <div key={name} className="flex items-center gap-2 text-xs font-medium text-slate-700">
+            <div
+              key={name}
+              className="flex items-center gap-2 text-xs font-medium text-slate-700"
+            >
               <span className="w-4 h-4 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
                 <Check size={10} strokeWidth={3} />
               </span>
@@ -298,19 +365,45 @@ function PlanCard({ plan, popular, onEdit, onToggle, onDelete }) {
             </div>
           ))}
           {extraCount > 0 && (
-            <p className="text-xs text-slate-400 font-medium pl-6">+{extraCount} additional features</p>
+            <p className="text-xs text-slate-400 font-medium pl-6">
+              +{extraCount} additional features
+            </p>
           )}
         </div>
       )}
 
       {/* Limits Grid */}
       <div className="mt-5 pt-5 border-t border-slate-100 grid grid-cols-2 gap-y-2 gap-x-3 text-xs">
-        <LimitRow icon={Users} label="Agents" value={formatLimit(plan.maxAgents)} />
-        <LimitRow icon={Send} label="Broadcasts" value={formatLimit(plan.maxBroadcasts)} />
-        <LimitRow icon={Zap} label="Automations" value={formatLimit(plan.maxAutomations)} />
-        <LimitRow icon={Megaphone} label="Campaigns" value={formatLimit(plan.maxCampaigns)} />
-        <LimitRow icon={Globe} label="API Calls" value={formatLimit(plan.maxApiCalls)} />
-        <LimitRow icon={Sparkles} label="AI Credits" value={plan.maxAiCredits ? formatLimit(plan.maxAiCredits) : "None"} />
+        <LimitRow
+          icon={Users}
+          label="Agents"
+          value={formatLimit(plan.maxAgents)}
+        />
+        <LimitRow
+          icon={Send}
+          label="Broadcasts"
+          value={formatLimit(plan.maxBroadcasts)}
+        />
+        <LimitRow
+          icon={Zap}
+          label="Automations"
+          value={formatLimit(plan.maxAutomations)}
+        />
+        <LimitRow
+          icon={Megaphone}
+          label="Campaigns"
+          value={formatLimit(plan.maxCampaigns)}
+        />
+        <LimitRow
+          icon={Globe}
+          label="API Calls"
+          value={formatLimit(plan.maxApiCalls)}
+        />
+        <LimitRow
+          icon={Sparkles}
+          label="AI Credits"
+          value={plan.maxAiCredits ? formatLimit(plan.maxAiCredits) : "None"}
+        />
       </div>
 
       {/* Integrations */}
@@ -366,7 +459,9 @@ function PlanRow({ plan, popular, onEdit, onToggle, onDelete }) {
         <div>
           <div className="flex items-center gap-2">
             <p className="font-bold text-slate-800 text-sm">{plan.name}</p>
-            {popular && <Star size={13} className="text-indigo-600" fill="#4F46E5" />}
+            {popular && (
+              <Star size={13} className="text-indigo-600" fill="#4F46E5" />
+            )}
           </div>
           <StatusPill status={plan.status} />
         </div>
@@ -379,12 +474,17 @@ function PlanRow({ plan, popular, onEdit, onToggle, onDelete }) {
 
       <div className="hidden lg:flex items-center gap-1.5 text-xs text-slate-500 flex-1">
         {plan.features.slice(0, 4).map((pf) => (
-          <span key={pf.id} className="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full text-[11px] font-semibold border border-indigo-100">
+          <span
+            key={pf.id}
+            className="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full text-[11px] font-semibold border border-indigo-100"
+          >
             {pf.feature.name}
           </span>
         ))}
         {plan.features.length > 4 && (
-          <span className="text-xs text-slate-400 font-semibold">+{plan.features.length - 4} more</span>
+          <span className="text-xs text-slate-400 font-semibold">
+            +{plan.features.length - 4} more
+          </span>
         )}
       </div>
 
@@ -392,7 +492,12 @@ function PlanRow({ plan, popular, onEdit, onToggle, onDelete }) {
         {plan._count?.tenantSubscriptions ?? 0} Tenants
       </div>
 
-      <ActionsMenu plan={plan} onEdit={onEdit} onToggle={onToggle} onDelete={onDelete} />
+      <ActionsMenu
+        plan={plan}
+        onEdit={onEdit}
+        onToggle={onToggle}
+        onDelete={onDelete}
+      />
     </div>
   );
 }
@@ -430,9 +535,15 @@ export default function SubscriptionPlans() {
   const activePlans = plans.filter((p) => p.status === "ACTIVE").length;
   const inactivePlans = plans.filter((p) => p.status === "INACTIVE").length;
   const avgMonthly = plans.length
-    ? Math.round(plans.reduce((sum, p) => sum + Number(p.monthlyPrice || 0), 0) / plans.length)
+    ? Math.round(
+        plans.reduce((sum, p) => sum + Number(p.monthlyPrice || 0), 0) /
+          plans.length,
+      )
     : 0;
-  const totalTenants = plans.reduce((sum, p) => sum + (p._count?.tenantSubscriptions ?? 0), 0);
+  const totalTenants = plans.reduce(
+    (sum, p) => sum + (p._count?.tenantSubscriptions ?? 0),
+    0,
+  );
 
   // Load Data
   const loadData = async () => {
@@ -461,11 +572,13 @@ export default function SubscriptionPlans() {
       list = list.filter(
         (p) =>
           p.name.toLowerCase().includes(q) ||
-          (p.description || "").toLowerCase().includes(q)
+          (p.description || "").toLowerCase().includes(q),
       );
     }
-    if (sortBy === "price-asc") list.sort((a, b) => a.monthlyPrice - b.monthlyPrice);
-    else if (sortBy === "price-desc") list.sort((a, b) => b.monthlyPrice - a.monthlyPrice);
+    if (sortBy === "price-asc")
+      list.sort((a, b) => a.monthlyPrice - b.monthlyPrice);
+    else if (sortBy === "price-desc")
+      list.sort((a, b) => b.monthlyPrice - a.monthlyPrice);
     else list.sort((a, b) => a.name.localeCompare(b.name));
     return list;
   }, [plans, statusFilter, searchQuery, sortBy]);
@@ -560,7 +673,9 @@ export default function SubscriptionPlans() {
       annualPrice: form.annualPrice ? parseFloat(form.annualPrice) : null,
       maxAgents: parseInt(form.maxAgents),
       maxBroadcasts: form.maxBroadcasts ? parseInt(form.maxBroadcasts) : null,
-      maxAutomations: form.maxAutomations ? parseInt(form.maxAutomations) : null,
+      maxAutomations: form.maxAutomations
+        ? parseInt(form.maxAutomations)
+        : null,
       maxCampaigns: form.maxCampaigns ? parseInt(form.maxCampaigns) : null,
       maxApiCalls: form.maxApiCalls ? parseInt(form.maxApiCalls) : null,
       maxAiCredits: form.maxAiCredits ? parseInt(form.maxAiCredits) : null,
@@ -571,7 +686,11 @@ export default function SubscriptionPlans() {
       : await createPlan(payload);
 
     if (res.success) {
-      toast.success(editingPlan ? "Plan updated successfully!" : "Plan created successfully!");
+      toast.success(
+        editingPlan
+          ? "Plan updated successfully!"
+          : "Plan created successfully!",
+      );
       await loadData();
       setShowModal(false);
     } else {
@@ -594,7 +713,8 @@ export default function SubscriptionPlans() {
       type: "danger",
       title: "Delete Plan?",
       message: `Permanently delete "${name}"?`,
-      detail: "All tenants on this plan will need to be migrated. This cannot be undone.",
+      detail:
+        "All tenants on this plan will need to be migrated. This cannot be undone.",
       confirmLabel: "Delete Plan",
     });
     if (!ok) return;
@@ -631,7 +751,9 @@ export default function SubscriptionPlans() {
 
   const previewSavings =
     form.annualPrice && form.monthlyPrice
-      ? Math.round((1 - Number(form.annualPrice) / Number(form.monthlyPrice)) * 100)
+      ? Math.round(
+          (1 - Number(form.annualPrice) / Number(form.monthlyPrice)) * 100,
+        )
       : null;
 
   return (
@@ -648,7 +770,8 @@ export default function SubscriptionPlans() {
             Subscription Plans & Limits
           </h1>
           <p className="text-xs text-slate-300 max-w-xl">
-            Configure customer tier packages, feature flags, usage limits (Agents, Broadcasts, AI Credits), and annual discount pricing.
+            Configure customer tier packages, feature flags, usage limits
+            (Agents, Broadcasts, AI Credits), and annual discount pricing.
           </p>
         </div>
 
@@ -663,15 +786,34 @@ export default function SubscriptionPlans() {
 
       {/* Summary Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard icon={PackageOpen} label="Total Plan Tiers" value={plans.length} tone="blue" />
-        <StatCard icon={Power} label="Active Tiers" value={activePlans} tone="emerald" />
-        <StatCard icon={X} label="Inactive Tiers" value={inactivePlans} tone="rose" />
+        <StatCard
+          icon={PackageOpen}
+          label="Total Plan Tiers"
+          value={plans.length}
+          tone="blue"
+        />
+        <StatCard
+          icon={Power}
+          label="Active Tiers"
+          value={activePlans}
+          tone="emerald"
+        />
+        <StatCard
+          icon={X}
+          label="Inactive Tiers"
+          value={inactivePlans}
+          tone="rose"
+        />
         <StatCard
           icon={Users}
           label="Total Subscribers"
           value={totalTenants}
           tone="amber"
-          hint={plans.length ? `Avg. ${currency(avgMonthly)}/mo per plan` : undefined}
+          hint={
+            plans.length
+              ? `Avg. ${currency(avgMonthly)}/mo per plan`
+              : undefined
+          }
         />
       </div>
 
@@ -679,7 +821,10 @@ export default function SubscriptionPlans() {
       <div className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-col md:flex-row gap-4 justify-between items-center shadow-sm">
         {/* Search */}
         <div className="relative w-full md:w-80">
-          <Search size={15} className="absolute left-3.5 top-3.5 text-slate-400" />
+          <Search
+            size={15}
+            className="absolute left-3.5 top-3.5 text-slate-400"
+          />
           <input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -719,7 +864,9 @@ export default function SubscriptionPlans() {
             <button
               onClick={() => setViewMode("grid")}
               className={`p-2 rounded-lg transition ${
-                viewMode === "grid" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-400 hover:text-slate-700"
+                viewMode === "grid"
+                  ? "bg-white text-indigo-600 shadow-xs"
+                  : "text-slate-400 hover:text-slate-700"
               }`}
               title="Grid view"
             >
@@ -728,7 +875,9 @@ export default function SubscriptionPlans() {
             <button
               onClick={() => setViewMode("list")}
               className={`p-2 rounded-lg transition ${
-                viewMode === "list" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-400 hover:text-slate-700"
+                viewMode === "list"
+                  ? "bg-white text-indigo-600 shadow-xs"
+                  : "text-slate-400 hover:text-slate-700"
               }`}
               title="List view"
             >
@@ -741,16 +890,21 @@ export default function SubscriptionPlans() {
       {/* Plan Grid / List Display */}
       {loading ? (
         <div className="grid md:grid-cols-3 gap-6">
-          <SkeletonCard /><SkeletonCard /><SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
         </div>
       ) : plans.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-dashed border-slate-200 text-center space-y-3">
           <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto">
             <PackageOpen size={28} />
           </div>
-          <h3 className="text-base font-bold text-slate-800">No Subscription Plans Configured</h3>
+          <h3 className="text-base font-bold text-slate-800">
+            No Subscription Plans Configured
+          </h3>
           <p className="text-xs text-slate-400 max-w-sm mx-auto">
-            Set up pricing tiers, agent seats, and feature access flags for your customers.
+            Set up pricing tiers, agent seats, and feature access flags for your
+            customers.
           </p>
           <button
             onClick={openCreate}
@@ -761,7 +915,9 @@ export default function SubscriptionPlans() {
         </div>
       ) : visiblePlans.length === 0 ? (
         <div className="py-20 text-center bg-white rounded-2xl border border-slate-100">
-          <p className="text-slate-400 text-xs font-medium">No plans match your current search query or status filter.</p>
+          <p className="text-slate-400 text-xs font-medium">
+            No plans match your current search query or status filter.
+          </p>
         </div>
       ) : viewMode === "grid" ? (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -796,16 +952,20 @@ export default function SubscriptionPlans() {
         createPortal(
           <div className="fixed inset-0 z-[99999] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-150">
             <div className="bg-white rounded-3xl w-full max-w-5xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col border border-slate-100">
-
               {/* Modal Header */}
               <div className="border-b border-slate-100 px-6 py-4 flex justify-between items-center bg-slate-50/50 shrink-0">
                 <div>
                   <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                     <PackageOpen size={20} className="text-indigo-600" />
-                    <span>{editingPlan ? `Edit Tier — ${editingPlan.name}` : "Create Subscription Plan"}</span>
+                    <span>
+                      {editingPlan
+                        ? `Edit Tier — ${editingPlan.name}`
+                        : "Create Subscription Plan"}
+                    </span>
                   </h2>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    Configure pricing, limit quotas, feature flags, and integrations for this tier.
+                    Configure pricing, limit quotas, feature flags, and
+                    integrations for this tier.
                   </p>
                 </div>
                 <button
@@ -819,7 +979,6 @@ export default function SubscriptionPlans() {
               {/* Modal Body: Split Form + Live Preview */}
               <div className="flex-1 overflow-y-auto">
                 <div className="grid lg:grid-cols-[1fr_320px]">
-
                   {/* Left Column: Form Controls */}
                   <div className="p-6 space-y-7 border-r border-slate-100">
                     {error && (
@@ -860,17 +1019,26 @@ export default function SubscriptionPlans() {
                           rows={2}
                           className="border border-slate-200 rounded-xl p-3 text-xs sm:col-span-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                         />
-                        
+
                         {/* Manual Popularity Selector */}
                         <label className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-slate-200 cursor-pointer bg-slate-50/50 hover:bg-slate-100/50 transition text-xs font-semibold text-slate-700 sm:col-span-2">
                           <input
                             type="checkbox"
                             name="isPopular"
                             checked={form.isPopular}
-                            onChange={(e) => setForm((prev) => ({ ...prev, isPopular: e.target.checked }))}
+                            onChange={(e) =>
+                              setForm((prev) => ({
+                                ...prev,
+                                isPopular: e.target.checked,
+                              }))
+                            }
                             className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
                           />
-                          <Star size={14} className="text-amber-500" fill="#F59E0B" />
+                          <Star
+                            size={14}
+                            className="text-amber-500"
+                            fill="#F59E0B"
+                          />
                           <span>Mark as "Most Popular / Recommended" Tier</span>
                         </label>
                       </div>
@@ -900,7 +1068,7 @@ export default function SubscriptionPlans() {
                           className="border border-slate-200 rounded-xl p-3 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-bold text-slate-800"
                         />
                       </div>
-                      
+
                       {/* Free Trial Settings */}
                       <div className="grid sm:grid-cols-2 gap-3 pt-2">
                         <label className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-slate-200 cursor-pointer bg-slate-50/50 hover:bg-slate-100/50 transition text-xs font-semibold text-slate-700">
@@ -908,7 +1076,12 @@ export default function SubscriptionPlans() {
                             type="checkbox"
                             name="hasTrial"
                             checked={form.hasTrial !== false}
-                            onChange={(e) => setForm((prev) => ({ ...prev, hasTrial: e.target.checked }))}
+                            onChange={(e) =>
+                              setForm((prev) => ({
+                                ...prev,
+                                hasTrial: e.target.checked,
+                              }))
+                            }
                             className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
                           />
                           <Sparkles size={14} className="text-blue-500" />
@@ -917,7 +1090,9 @@ export default function SubscriptionPlans() {
 
                         {form.hasTrial !== false && (
                           <div className="flex items-center gap-2 border border-slate-200 rounded-xl px-3 py-2 bg-slate-50/50">
-                            <span className="text-[11px] font-bold text-slate-500 shrink-0">Trial Days:</span>
+                            <span className="text-[11px] font-bold text-slate-500 shrink-0">
+                              Trial Days:
+                            </span>
                             <input
                               name="trialDays"
                               value={form.trialDays ?? 14}
@@ -935,9 +1110,15 @@ export default function SubscriptionPlans() {
                         <div className="flex items-center gap-2 bg-indigo-50 text-indigo-700 text-xs font-semibold px-3.5 py-2.5 rounded-xl border border-indigo-100">
                           <Sparkles size={14} />
                           {previewSavings > 0 ? (
-                            <span>Annual billing saves clients <b>{previewSavings}%</b> compared to monthly.</span>
+                            <span>
+                              Annual billing saves clients{" "}
+                              <b>{previewSavings}%</b> compared to monthly.
+                            </span>
                           ) : (
-                            <span>Annual price must be lower than monthly to calculate savings.</span>
+                            <span>
+                              Annual price must be lower than monthly to
+                              calculate savings.
+                            </span>
                           )}
                         </div>
                       )}
@@ -950,29 +1131,37 @@ export default function SubscriptionPlans() {
                           <Zap size={14} />
                           <span>3. Quotas & Limits</span>
                         </div>
-                        <span className="text-[11px] text-slate-400 font-medium">Leave empty = Unlimited</span>
+                        <span className="text-[11px] text-slate-400 font-medium">
+                          Leave empty = Unlimited
+                        </span>
                       </div>
                       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {LIMIT_FIELDS.map(({ name, icon: Icon, placeholder, helper }) => (
-                          <div
-                            key={name}
-                            className="border border-slate-200 rounded-xl p-3 focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500 bg-slate-50/50"
-                          >
-                            <div className="flex items-center gap-1.5 text-slate-400 mb-1">
-                              <Icon size={13} />
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{placeholder.replace(" *", "")}</span>
+                        {LIMIT_FIELDS.map(
+                          ({ name, icon: Icon, placeholder, helper }) => (
+                            <div
+                              key={name}
+                              className="border border-slate-200 rounded-xl p-3 focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500 bg-slate-50/50"
+                            >
+                              <div className="flex items-center gap-1.5 text-slate-400 mb-1">
+                                <Icon size={13} />
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                                  {placeholder.replace(" *", "")}
+                                </span>
+                              </div>
+                              <input
+                                name={name}
+                                value={form[name]}
+                                onChange={handleChange}
+                                type="number"
+                                placeholder="Unlimited"
+                                className="w-full text-xs font-bold text-slate-800 focus:outline-none bg-transparent"
+                              />
+                              <p className="text-[10px] text-slate-400 mt-0.5">
+                                {helper}
+                              </p>
                             </div>
-                            <input
-                              name={name}
-                              value={form[name]}
-                              onChange={handleChange}
-                              type="number"
-                              placeholder="Unlimited"
-                              className="w-full text-xs font-bold text-slate-800 focus:outline-none bg-transparent"
-                            />
-                            <p className="text-[10px] text-slate-400 mt-0.5">{helper}</p>
-                          </div>
-                        ))}
+                          ),
+                        )}
                       </div>
                     </section>
 
@@ -981,12 +1170,18 @@ export default function SubscriptionPlans() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-600">
                           <ShieldCheck size={14} />
-                          <span>4. Included Features ({form.featureIds.length} Selected)</span>
+                          <span>
+                            4. Included Features ({form.featureIds.length}{" "}
+                            Selected)
+                          </span>
                         </div>
                       </div>
 
                       <div className="relative">
-                        <Search size={14} className="absolute left-3 top-3 text-slate-400" />
+                        <Search
+                          size={14}
+                          className="absolute left-3 top-3 text-slate-400"
+                        />
                         <input
                           value={featureSearch}
                           onChange={(e) => setFeatureSearch(e.target.value)}
@@ -1019,7 +1214,9 @@ export default function SubscriptionPlans() {
                           );
                         })}
                         {filteredFeatures.length === 0 && (
-                          <p className="text-xs text-slate-400 col-span-2 py-3 text-center">No matching features found.</p>
+                          <p className="text-xs text-slate-400 col-span-2 py-3 text-center">
+                            No matching features found.
+                          </p>
                         )}
                       </div>
 
@@ -1028,12 +1225,18 @@ export default function SubscriptionPlans() {
                         <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                           + Add Custom Feature Flag to Platform
                         </p>
-                        {featureError && <p className="text-rose-500 text-xs font-medium">{featureError}</p>}
+                        {featureError && (
+                          <p className="text-rose-500 text-xs font-medium">
+                            {featureError}
+                          </p>
+                        )}
                         <div className="flex gap-2">
                           <input
                             value={newFeatureName}
                             onChange={(e) => setNewFeatureName(e.target.value)}
-                            onKeyDown={(e) => e.key === "Enter" && handleAddFeature()}
+                            onKeyDown={(e) =>
+                              e.key === "Enter" && handleAddFeature()
+                            }
                             placeholder="e.g. Webhook API Triggers"
                             className="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 bg-white"
                           />
@@ -1070,10 +1273,14 @@ export default function SubscriptionPlans() {
                                   : "border-slate-200 hover:border-slate-300 text-slate-600"
                               }`}
                             >
-                              <span className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${checked ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-400"}`}>
+                              <span
+                                className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${checked ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-400"}`}
+                              >
                                 <Icon size={13} />
                               </span>
-                              <span className="text-xs font-semibold">{item}</span>
+                              <span className="text-xs font-semibold">
+                                {item}
+                              </span>
                             </button>
                           );
                         })}
@@ -1086,10 +1293,14 @@ export default function SubscriptionPlans() {
                     <div className="sticky top-6 space-y-4">
                       <div className="flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wider">
                         <span>Live Card Preview</span>
-                        <span className="text-[10px] text-indigo-600 font-semibold bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">Real-time</span>
+                        <span className="text-[10px] text-indigo-600 font-semibold bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+                          Real-time
+                        </span>
                       </div>
 
-                      <div className={`bg-white rounded-2xl border p-5 space-y-4 transition ${form.isPopular ? "border-indigo-300 shadow-lg ring-2 ring-indigo-500/20" : "border-slate-200 shadow-md"}`}>
+                      <div
+                        className={`bg-white rounded-2xl border p-5 space-y-4 transition ${form.isPopular ? "border-indigo-300 shadow-lg ring-2 ring-indigo-500/20" : "border-slate-200 shadow-md"}`}
+                      >
                         <div className="flex items-center justify-between">
                           <div>
                             {form.isPopular && (
@@ -1097,19 +1308,27 @@ export default function SubscriptionPlans() {
                                 <Star size={10} fill="white" /> Most Popular
                               </span>
                             )}
-                            <h4 className="font-bold text-slate-800 text-base">{form.name || "Plan Title"}</h4>
+                            <h4 className="font-bold text-slate-800 text-base">
+                              {form.name || "Plan Title"}
+                            </h4>
                           </div>
                           <StatusPill status={form.status} />
                         </div>
                         {form.description && (
-                          <p className="text-xs text-slate-400 line-clamp-2">{form.description}</p>
+                          <p className="text-xs text-slate-400 line-clamp-2">
+                            {form.description}
+                          </p>
                         )}
 
                         <div className="flex items-baseline gap-1">
                           <span className="text-2xl font-extrabold text-slate-900">
-                            {form.monthlyPrice ? currency(form.monthlyPrice) : "₹0"}
+                            {form.monthlyPrice
+                              ? currency(form.monthlyPrice)
+                              : "₹0"}
                           </span>
-                          <span className="text-slate-400 text-xs font-medium">/month</span>
+                          <span className="text-slate-400 text-xs font-medium">
+                            /month
+                          </span>
                         </div>
 
                         {form.annualPrice && (
@@ -1120,12 +1339,19 @@ export default function SubscriptionPlans() {
 
                         {form.featureIds.length > 0 && (
                           <div className="space-y-1.5 border-t border-slate-100 pt-3">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Included Features</p>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                              Included Features
+                            </p>
                             {form.featureIds.slice(0, 5).map((id) => {
-                              const feat = availableFeatures.find((f) => f.id === id);
+                              const feat = availableFeatures.find(
+                                (f) => f.id === id,
+                              );
                               if (!feat) return null;
                               return (
-                                <div key={id} className="flex items-center gap-2 text-xs font-medium text-slate-700">
+                                <div
+                                  key={id}
+                                  className="flex items-center gap-2 text-xs font-medium text-slate-700"
+                                >
                                   <span className="w-3.5 h-3.5 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
                                     <Check size={9} strokeWidth={3} />
                                   </span>
@@ -1134,7 +1360,9 @@ export default function SubscriptionPlans() {
                               );
                             })}
                             {form.featureIds.length > 5 && (
-                              <p className="text-[11px] text-slate-400 font-medium pl-5">+{form.featureIds.length - 5} more features</p>
+                              <p className="text-[11px] text-slate-400 font-medium pl-5">
+                                +{form.featureIds.length - 5} more features
+                              </p>
                             )}
                           </div>
                         )}
@@ -1142,7 +1370,10 @@ export default function SubscriptionPlans() {
                         {form.integrations.length > 0 && (
                           <div className="flex flex-wrap gap-1.5 border-t border-slate-100 pt-3">
                             {form.integrations.map((name) => (
-                              <span key={name} className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-semibold">
+                              <span
+                                key={name}
+                                className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-semibold"
+                              >
                                 {name}
                               </span>
                             ))}
@@ -1167,12 +1398,16 @@ export default function SubscriptionPlans() {
                   disabled={saving}
                   className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2.5 rounded-xl text-xs font-bold transition disabled:opacity-50 shadow-md shadow-indigo-600/20"
                 >
-                  {saving ? "Saving Tier..." : editingPlan ? "Save Tier Changes" : "Create Subscription Plan"}
+                  {saving
+                    ? "Saving Tier..."
+                    : editingPlan
+                      ? "Save Tier Changes"
+                      : "Create Subscription Plan"}
                 </button>
               </div>
             </div>
           </div>,
-          document.body
+          document.body,
         )}
     </div>
   );

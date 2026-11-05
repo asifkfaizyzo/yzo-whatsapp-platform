@@ -1,36 +1,35 @@
 // tenant-web/src/components/automation/NodeTypes/AssignAgentNode.jsx (do not remove this comment)
 
-import { Handle, Position } from 'reactflow'
-import { UserCheck, X } from 'lucide-react'
-import { useReactFlow } from 'reactflow'
+import { Handle, Position } from "reactflow";
+import { UserCheck, X } from "lucide-react";
+import { useReactFlow } from "reactflow";
 
 const handleStyle = {
-  width: 10, height: 10,
-  background: '#94a3b8',
-  border: '2px solid white',
-}
+  width: 10,
+  height: 10,
+  background: "#94a3b8",
+  border: "2px solid white",
+};
 
 export default function AssignAgentNode({ id, data, selected }) {
-  const { deleteElements } = useReactFlow()
+  const { deleteElements } = useReactFlow();
 
   const handleDelete = (e) => {
-    e.stopPropagation()
-    deleteElements({ nodes: [{ id }] })
-  }
+    e.stopPropagation();
+    deleteElements({ nodes: [{ id }] });
+  };
 
   return (
-    <div className={`bg-white rounded-xl border-2 p-3 w-56 shadow-sm transition
-      ${selected
-        ? 'border-emerald-400'
-        : 'border-slate-200 hover:border-emerald-300'
+    <div
+      className={`bg-white rounded-xl border-2 p-3 w-56 shadow-sm transition
+      ${
+        selected
+          ? "border-emerald-400"
+          : "border-slate-200 hover:border-emerald-300"
       }`}
     >
       {/* ✅ Input handle - LEFT (horizontal flow) */}
-      <Handle
-        type="target"
-        position={Position.Left}
-        style={handleStyle}
-      />
+      <Handle type="target" position={Position.Left} style={handleStyle} />
 
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
@@ -51,18 +50,13 @@ export default function AssignAgentNode({ id, data, selected }) {
       </div>
 
       <p className="text-xs text-slate-600 bg-slate-50 rounded-lg p-2">
-        {data.assign_type === 'specific'
-          ? `Agent: ${data.agent_name || 'Not set'}`
-          : '🔄 Auto (Round Robin)'
-        }
+        {data.assign_type === "specific"
+          ? `Agent: ${data.agent_name || "Not set"}`
+          : "🔄 Auto (Round Robin)"}
       </p>
 
       {/* ✅ NEW — Output handle - RIGHT (horizontal flow) */}
-      <Handle
-        type="source"
-        position={Position.Right}
-        style={handleStyle}
-      />
+      <Handle type="source" position={Position.Right} style={handleStyle} />
     </div>
-  )
+  );
 }

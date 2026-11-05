@@ -1,11 +1,11 @@
 // admin-web/src/api/axios.js (do not remove this comment)
-import axios from 'axios';
-import { useAdminAuthStore } from '../store/useAdminAuthStore';
+import axios from "axios";
+import { useAdminAuthStore } from "../store/useAdminAuthStore";
 
 const api = axios.create({
   baseURL: `${import.meta.env.VITE_API_URL}/sradmin`,
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
   withCredentials: true,
 });
@@ -34,7 +34,7 @@ api.interceptors.request.use(
     }
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(error),
 );
 
 // Queue Concurrent Refresh Requests
@@ -62,7 +62,7 @@ api.interceptors.response.use(
         const response = await axios.post(
           `${import.meta.env.VITE_API_URL}/sradmin/refresh-token`,
           {},
-          { withCredentials: true }
+          { withCredentials: true },
         );
 
         const newAccessToken = response.data.accessToken;
@@ -71,11 +71,10 @@ api.interceptors.response.use(
         processQueue(null, newAccessToken);
         originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
         return api(originalRequest);
-
       } catch (refreshError) {
         processQueue(refreshError, null);
         await useAdminAuthStore.getState().logout();
-        window.location.href = '/login';
+        window.location.href = "/login";
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
@@ -83,7 +82,7 @@ api.interceptors.response.use(
     }
 
     return Promise.reject(error);
-  }
+  },
 );
 
 export default api;

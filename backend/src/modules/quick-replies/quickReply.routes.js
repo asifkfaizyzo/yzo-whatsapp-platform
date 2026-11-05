@@ -1,9 +1,9 @@
 // backend/src/modules/quick-replies/quickReply.routes.js (do not remove this comment)
-import express from 'express';
-import * as quickReplyController from './quickReply.controller.js';
-import { verifyTenantOrUser } from '../../middlewares/auth.verifyTenantOrUser.js';
-import { checkSubscriptionAccess } from '../../middlewares/subscription.access.js';
-import uploadQuickReply from './quickReply.upload.js';
+import express from "express";
+import * as quickReplyController from "./quickReply.controller.js";
+import { verifyTenantOrUser } from "../../middlewares/auth.verifyTenantOrUser.js";
+import { checkSubscriptionAccess } from "../../middlewares/subscription.access.js";
+import uploadQuickReply from "./quickReply.upload.js";
 
 const router = express.Router();
 
@@ -11,16 +11,24 @@ const router = express.Router();
 router.use(verifyTenantOrUser, checkSubscriptionAccess);
 
 // 1. Static and custom endpoints FIRST (prevents clash with /:id)
-router.get('/categories', quickReplyController.listCategories);
-router.get('/by-shortcut/:shortcut', quickReplyController.getByShortcut);
+router.get("/categories", quickReplyController.listCategories);
+router.get("/by-shortcut/:shortcut", quickReplyController.getByShortcut);
 
 // 2. Collection endpoints
-router.get('/', quickReplyController.listQuickReplies);
-router.post('/', uploadQuickReply.single('attachment'), quickReplyController.createQuickReply);
+router.get("/", quickReplyController.listQuickReplies);
+router.post(
+  "/",
+  uploadQuickReply.single("attachment"),
+  quickReplyController.createQuickReply,
+);
 
 // 3. Parameterized /:id endpoints
-router.get('/:id', quickReplyController.getQuickReply);
-router.put('/:id', uploadQuickReply.single('attachment'), quickReplyController.updateQuickReply);
-router.delete('/:id', quickReplyController.deleteQuickReply);
+router.get("/:id", quickReplyController.getQuickReply);
+router.put(
+  "/:id",
+  uploadQuickReply.single("attachment"),
+  quickReplyController.updateQuickReply,
+);
+router.delete("/:id", quickReplyController.deleteQuickReply);
 
 export default router;

@@ -1,32 +1,34 @@
 <!doctype html>
 <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/sudo-4-rounded.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SudoReply</title>
 
-<head>
-  <meta charset="UTF-8" />
-  <link rel="icon" type="image/png" href="/sudo-4-rounded.png" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SudoReply</title>
+    <!-- Meta Facebook SDK -->
+    <script>
+      window.fbAsyncInit = function () {
+        FB.init({
+          appId: "1510944094144775",
+          cookie: true,
+          status: true,
+          autoLogAppEvents: true,
+          xfbml: true,
+          version: "v25.0",
+        });
+      };
+    </script>
+    <script
+      async
+      defer
+      crossorigin="anonymous"
+      src="https://connect.facebook.net/en_US/sdk.js"
+    ></script>
+  </head>
 
-  <!-- Meta Facebook SDK -->
-  <script>
-    window.fbAsyncInit = function () {
-      FB.init({
-        appId: "1510944094144775",
-        cookie: true,
-        status: true,
-        autoLogAppEvents: true,
-        xfbml: true,
-        version: "v25.0",
-      });
-    };
-  </script>
-  <script async defer crossorigin="anonymous" src="https://connect.facebook.net/en_US/sdk.js"></script>
-
-</head>
-
-<body>
-  <div id="root"></div>
-  <script type="module" src="/src/main.jsx"></script>
-</body>
-
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
 </html>

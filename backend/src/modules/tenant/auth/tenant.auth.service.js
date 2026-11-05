@@ -1,14 +1,25 @@
 // backend/src/modules/tenant/auth/tenant.auth.service.js (do not remove this comment)
-import bcrypt from 'bcrypt';
-import prisma from '../../../config/prisma.js';
-import { OAuth2Client } from 'google-auth-library';
-import axios from 'axios';
-import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../../auth/jwt.service.js';
-import { saveRefreshToken, deleteRefreshToken, findRefreshToken } from '../../auth/refreshToken.service.js';
-import { forgotPasswordService, resetPasswordService } from '../../auth/password.service.js';
-import { emitToSuperAdmin } from '../../../lib/socket.js';
-import { createSuperAdminNotification } from '../../superadmin-notifications/superadminNotification.service.js';
-import { createAuditLog } from '../../audit/audit.service.js';
+import bcrypt from "bcrypt";
+import prisma from "../../../config/prisma.js";
+import { OAuth2Client } from "google-auth-library";
+import axios from "axios";
+import {
+  generateAccessToken,
+  generateRefreshToken,
+  verifyRefreshToken,
+} from "../../auth/jwt.service.js";
+import {
+  saveRefreshToken,
+  deleteRefreshToken,
+  findRefreshToken,
+} from "../../auth/refreshToken.service.js";
+import {
+  forgotPasswordService,
+  resetPasswordService,
+} from "../../auth/password.service.js";
+import { emitToSuperAdmin } from "../../../lib/socket.js";
+import { createSuperAdminNotification } from "../../superadmin-notifications/superadminNotification.service.js";
+import { createAuditLog } from "../../audit/audit.service.js";
 
 // ===========Tenant Registration Service (with Auto-Login)===========
 export const registerTenantService = async (data) => {
@@ -23,22 +34,27 @@ export const registerTenantService = async (data) => {
     websiteUrl,
     industry,
     companySize,
-    country
+    country,
   } = data;
 
-  const resolvedTenantName = tenantName || (firstName ? `${firstName}'s Workspace` : (email ? email.split('@')[0] : 'My') + "'s Workspace");
+  const resolvedTenantName =
+    tenantName ||
+    (firstName
+      ? `${firstName}'s Workspace`
+      : (email ? email.split("@")[0] : "My") + "'s Workspace");
   if (!email || !password) {
-    throw new Error('Email and password are required');
+    throw new Error("Email and password are required");
   }
 
-  const [emailExistsInTenant, emailExistsInUser, emailExistsInSuperAdmin] = await Promise.all([
-    prisma.tenant.findUnique({ where: { email } }),
-    prisma.user.findUnique({ where: { email } }),
-    prisma.superAdmin.findUnique({ where: { email } }),
-  ]);
+  const [emailExistsInTenant, emailExistsInUser, emailExistsInSuperAdmin] =
+    await Promise.all([
+      prisma.tenant.findUnique({ where: { email } }),
+      prisma.user.findUnique({ where: { email } }),
+      prisma.superAdmin.findUnique({ where: { email } }),
+    ]);
 
   if (emailExistsInTenant || emailExistsInUser || emailExistsInSuperAdmin) {
-    throw new Error('Email is already registered on the platform');
+    throw new Error("Email is already registered on the platform");
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
@@ -56,7 +72,7 @@ export const registerTenantService = async (data) => {
       industry,
       companySize,
       country,
-      status: 'PENDING',
+      status: "PENDING",
     },
     include: { subscription: true },
   });
@@ -64,8 +80,8 @@ export const registerTenantService = async (data) => {
 
   try {
     const superAdminNotif = await createSuperAdminNotification({
-      type: 'tenant_registered',
-      title: '🆕 New Tenant Registered',
+      type: "tenant_registered",
+      title: "🆕 New Tenant Registered",
       message: `${resolvedTenantName} (${email}) just signed up`,
       metadata: {
         tenantId: tenant.id,
@@ -74,7 +90,7 @@ export const registerTenantService = async (data) => {
       },
     });
 
-    emitToSuperAdmin('superadmin_notification', {
+    emitToSuperAdmin("superadmin_notification", {
       notification: {
         id: superAdminNotif.id,
         type: superAdminNotif.type,
@@ -87,18 +103,18 @@ export const registerTenantService = async (data) => {
     });
     console.log(`📤 SuperAdmin notified: new tenant ${resolvedTenantName}`);
   } catch (err) {
-    console.error('❌ SuperAdmin notification failed:', err.message);
+    console.error("❌ SuperAdmin notification failed:", err.message);
   }
 
   const accessToken = generateAccessToken({
     id: tenant.id,
     email: tenant.email,
-    type: 'TENANT',
+    type: "TENANT",
   });
 
   const refreshToken = generateRefreshToken({
     id: tenant.id,
-    type: 'TENANT',
+    type: "TENANT",
   });
 
   await saveRefreshToken({
@@ -109,13 +125,13 @@ export const registerTenantService = async (data) => {
   const { password: _, ...safeTenant } = tenant;
 
   return {
-    message: 'Tenant registered successfully',
+    message: "Tenant registered successfully",
     data: {
       user: {
         id: safeTenant.id,
         name: safeTenant.tenantName,
         email: safeTenant.email,
-        type: 'TENANT',
+        type: "TENANT",
         status: safeTenant.status,
         planId: safeTenant.planId,
         planStatus: safeTenant.planStatus,
@@ -134,100 +150,141 @@ export const registerTenantService = async (data) => {
 
 // ===========Tenant Login Service===========
 export const loginTenantService = async (data, meta = {}) => {
-  const { email, password }      = data;
+  const { email, password } = data;
   const { ipAddress, userAgent } = meta;
 
   if (!email || !password) {
-    throw new Error('Email and password are required');
+    throw new Error("Email and password are required");
   }
 
-  const tenant = await prisma.tenant.findUnique({ where: { email }, include: { subscription: true } });
+  const tenant = await prisma.tenant.findUnique({
+    where: { email },
+    include: { subscription: true },
+  });
 
   if (!tenant) {
     await createAuditLog({
-      actorId: 'UNKNOWN', actorType: 'TENANT', actorName: 'Unknown',
-      actorEmail: email, action: 'LOGIN_FAILED', module: 'AUTH',
+      actorId: "UNKNOWN",
+      actorType: "TENANT",
+      actorName: "Unknown",
+      actorEmail: email,
+      action: "LOGIN_FAILED",
+      module: "AUTH",
       description: `Failed tenant login — email not found: ${email}`,
-      ipAddress, userAgent,
+      ipAddress,
+      userAgent,
     });
-    throw new Error('Invalid credentials');
+    throw new Error("Invalid credentials");
   }
 
-  if (tenant.status === 'BLOCKED') {
+  if (tenant.status === "BLOCKED") {
     await createAuditLog({
-      actorId: tenant.id, actorType: 'TENANT',
-      actorName: tenant.tenantName || tenant.email, actorEmail: tenant.email,
-      action: 'LOGIN_FAILED', module: 'AUTH',
+      actorId: tenant.id,
+      actorType: "TENANT",
+      actorName: tenant.tenantName || tenant.email,
+      actorEmail: tenant.email,
+      action: "LOGIN_FAILED",
+      module: "AUTH",
       description: `Blocked tenant tried to login`,
-      ipAddress, userAgent, tenantId: tenant.id,
+      ipAddress,
+      userAgent,
+      tenantId: tenant.id,
     });
-    throw new Error('Your account is blocked. Contact support.');
+    throw new Error("Your account is blocked. Contact support.");
   }
 
   if (!tenant.isActive) {
     await createAuditLog({
-      actorId: tenant.id, actorType: 'TENANT',
-      actorName: tenant.tenantName || tenant.email, actorEmail: tenant.email,
-      action: 'LOGIN_FAILED', module: 'AUTH',
+      actorId: tenant.id,
+      actorType: "TENANT",
+      actorName: tenant.tenantName || tenant.email,
+      actorEmail: tenant.email,
+      action: "LOGIN_FAILED",
+      module: "AUTH",
       description: `Deactivated tenant tried to login`,
-      ipAddress, userAgent, tenantId: tenant.id,
+      ipAddress,
+      userAgent,
+      tenantId: tenant.id,
     });
-    throw new Error('Your account has been deactivated');
+    throw new Error("Your account has been deactivated");
   }
 
   if (!tenant.password) {
-    throw new Error('This account uses Google Sign-In. Please log in with Google.');
+    throw new Error(
+      "This account uses Google Sign-In. Please log in with Google.",
+    );
   }
 
   const isPasswordMatch = await bcrypt.compare(password, tenant.password);
 
-  console.log('Password match result:', isPasswordMatch);
-  console.log('Password received:', password);
-  console.log('Tenant password hash:', tenant.password);
+  console.log("Password match result:", isPasswordMatch);
+  console.log("Password received:", password);
+  console.log("Tenant password hash:", tenant.password);
 
   if (!isPasswordMatch) {
     await createAuditLog({
-      actorId: tenant.id, actorType: 'TENANT',
-      actorName: tenant.tenantName || tenant.email, actorEmail: tenant.email,
-      action: 'LOGIN_FAILED', module: 'AUTH',
+      actorId: tenant.id,
+      actorType: "TENANT",
+      actorName: tenant.tenantName || tenant.email,
+      actorEmail: tenant.email,
+      action: "LOGIN_FAILED",
+      module: "AUTH",
       description: `Failed tenant login — wrong password`,
-      ipAddress, userAgent, tenantId: tenant.id,
+      ipAddress,
+      userAgent,
+      tenantId: tenant.id,
     });
-    throw new Error('Invalid credentials');
+    throw new Error("Invalid credentials");
   }
 
   const accessToken = generateAccessToken({
-    id: tenant.id, email: tenant.email, name: tenant.tenantName, type: 'TENANT',
+    id: tenant.id,
+    email: tenant.email,
+    name: tenant.tenantName,
+    type: "TENANT",
   });
 
   const refreshToken = generateRefreshToken({
-    id: tenant.id, type: 'TENANT',
+    id: tenant.id,
+    type: "TENANT",
   });
 
   await saveRefreshToken({ token: refreshToken, tenantId: tenant.id });
 
   await createAuditLog({
-    actorId: tenant.id, actorType: 'TENANT',
-    actorName: tenant.tenantName || tenant.email, actorEmail: tenant.email,
-    action: 'LOGIN', module: 'AUTH',
+    actorId: tenant.id,
+    actorType: "TENANT",
+    actorName: tenant.tenantName || tenant.email,
+    actorEmail: tenant.email,
+    action: "LOGIN",
+    module: "AUTH",
     description: `Tenant "${tenant.tenantName}" logged in successfully`,
-    ipAddress, userAgent, tenantId: tenant.id,
+    ipAddress,
+    userAgent,
+    tenantId: tenant.id,
   });
 
   Object.assign(tenant, tenant?.subscription);
   const { password: _, ...safeTenant } = tenant;
   return {
-    message: 'Login successful',
+    message: "Login successful",
     accessToken,
     refreshToken,
     user: {
-      id: safeTenant.id, name: safeTenant.tenantName, email: safeTenant.email,
-      phone: safeTenant.phone, address: safeTenant.address, type: 'TENANT',
-      status: safeTenant.status, planId: safeTenant.planId,
-      planStatus: safeTenant.planStatus, billingType: safeTenant.billingType,
+      id: safeTenant.id,
+      name: safeTenant.tenantName,
+      email: safeTenant.email,
+      phone: safeTenant.phone,
+      address: safeTenant.address,
+      type: "TENANT",
+      status: safeTenant.status,
+      planId: safeTenant.planId,
+      planStatus: safeTenant.planStatus,
+      billingType: safeTenant.billingType,
       onboardingStep: safeTenant.onboardingStep,
       onboardingCompleted: safeTenant.onboardingCompleted,
-      firstName: safeTenant.firstName, lastName: safeTenant.lastName,
+      firstName: safeTenant.firstName,
+      lastName: safeTenant.lastName,
     },
   };
 };
@@ -235,7 +292,7 @@ export const loginTenantService = async (data, meta = {}) => {
 //=========== Tenant Logout Service===========
 export const logoutTenantService = async (refreshToken, meta = {}) => {
   if (!refreshToken) {
-    throw new Error('Refresh token required');
+    throw new Error("Refresh token required");
   }
 
   const tokenRecord = await prisma.refreshToken.findFirst({
@@ -250,48 +307,55 @@ export const logoutTenantService = async (refreshToken, meta = {}) => {
 
   if (tokenRecord?.tenant) {
     await createAuditLog({
-      actorId: tokenRecord.tenant.id, actorType: 'TENANT',
+      actorId: tokenRecord.tenant.id,
+      actorType: "TENANT",
       actorName: tokenRecord.tenant.tenantName || tokenRecord.tenant.email,
       actorEmail: tokenRecord.tenant.email,
-      action: 'LOGOUT', module: 'AUTH',
+      action: "LOGOUT",
+      module: "AUTH",
       description: `Tenant "${tokenRecord.tenant.tenantName}" logged out`,
-      ipAddress: meta.ipAddress, userAgent: meta.userAgent,
+      ipAddress: meta.ipAddress,
+      userAgent: meta.userAgent,
       tenantId: tokenRecord.tenant.id,
     });
   } else if (tokenRecord?.user) {
     await createAuditLog({
-      actorId: tokenRecord.user.id, actorType: 'USER',
-      actorName: tokenRecord.user.name, actorEmail: tokenRecord.user.email,
-      action: 'LOGOUT', module: 'AUTH',
+      actorId: tokenRecord.user.id,
+      actorType: "USER",
+      actorName: tokenRecord.user.name,
+      actorEmail: tokenRecord.user.email,
+      action: "LOGOUT",
+      module: "AUTH",
       description: `User "${tokenRecord.user.name}" logged out`,
-      ipAddress: meta.ipAddress, userAgent: meta.userAgent,
+      ipAddress: meta.ipAddress,
+      userAgent: meta.userAgent,
       tenantId: tokenRecord.user.tenantId,
     });
   }
 
-  return { message: 'Logout successful' };
+  return { message: "Logout successful" };
 };
 
 //=========== Tenant Refresh Access Token Service===========
 export const refreshTenantAccessTokenService = async (refreshToken) => {
   if (!refreshToken) {
-    throw new Error('Refresh token required');
+    throw new Error("Refresh token required");
   }
 
-  const tokenRecord = await findRefreshToken(refreshToken, 'TENANT');
+  const tokenRecord = await findRefreshToken(refreshToken, "TENANT");
 
   if (!tokenRecord) {
-    throw new Error('Invalid refresh token');
+    throw new Error("Invalid refresh token");
   }
 
   if (tokenRecord.expiresAt < new Date()) {
-    throw new Error('Refresh token expired, please login again');
+    throw new Error("Refresh token expired, please login again");
   }
 
   try {
     verifyRefreshToken(refreshToken);
   } catch (error) {
-    throw new Error('Invalid refresh token');
+    throw new Error("Invalid refresh token");
   }
 
   const tenant = await prisma.tenant.findUnique({
@@ -300,37 +364,55 @@ export const refreshTenantAccessTokenService = async (refreshToken) => {
   });
 
   if (!tenant) {
-    throw new Error('Tenant not found');
+    throw new Error("Tenant not found");
   }
   Object.assign(tenant, tenant?.subscription);
 
   const newAccessToken = generateAccessToken({
-    id: tenant.id, email: tenant.email, type: 'TENANT',
+    id: tenant.id,
+    email: tenant.email,
+    type: "TENANT",
   });
 
   return {
-    message: 'Token refreshed successfully',
+    message: "Token refreshed successfully",
     accessToken: newAccessToken,
     user: {
-      id: tenant.id, name: tenant.tenantName, tenantName: tenant.tenantName,
-      firstName: tenant.firstName, lastName: tenant.lastName,
-      email: tenant.email, phone: tenant.phone, address: tenant.address,
+      id: tenant.id,
+      name: tenant.tenantName,
+      tenantName: tenant.tenantName,
+      firstName: tenant.firstName,
+      lastName: tenant.lastName,
+      email: tenant.email,
+      phone: tenant.phone,
+      address: tenant.address,
       onboardingStep: tenant.onboardingStep,
       onboardingCompleted: tenant.onboardingCompleted,
-      planId: tenant.planId, planStatus: tenant.planStatus,
-      isActive: tenant.isActive, type: 'TENANT'
-    }
+      planId: tenant.planId,
+      planStatus: tenant.planStatus,
+      isActive: tenant.isActive,
+      type: "TENANT",
+    },
   };
 };
 
 // ===================== FORGOT PASSWORD =====================
 export const forgotPasswordTenantService = async (email) => {
-  return await forgotPasswordService(email, 'TENANT');
+  return await forgotPasswordService(email, "TENANT");
 };
 
 // ===================== RESET PASSWORD =====================
-export const resetPasswordTenantService = async (token, newPassword, confirmPassword) => {
-  return await resetPasswordService(token, newPassword, confirmPassword, 'TENANT');
+export const resetPasswordTenantService = async (
+  token,
+  newPassword,
+  confirmPassword,
+) => {
+  return await resetPasswordService(
+    token,
+    newPassword,
+    confirmPassword,
+    "TENANT",
+  );
 };
 
 // =========== Google Sign-In & On-the-Fly Registration Service ===========
@@ -347,76 +429,118 @@ export const loginOrRegisterWithGoogleService = async (credential) => {
 
   const payload = ticket.getPayload();
   if (!payload) {
-    throw new Error('Invalid Google Token payload');
+    throw new Error("Invalid Google Token payload");
   }
 
-  const { email, name, given_name: firstName, family_name: lastName, sub: googleId } = payload;
+  const {
+    email,
+    name,
+    given_name: firstName,
+    family_name: lastName,
+    sub: googleId,
+  } = payload;
 
-  let tenant = await prisma.tenant.findUnique({ where: { email }, include: { auth: true, subscription: true } });
+  let tenant = await prisma.tenant.findUnique({
+    where: { email },
+    include: { auth: true, subscription: true },
+  });
   let user = await prisma.user.findUnique({ where: { email } });
 
   if (!tenant) {
-    tenant = await prisma.tenant.findUnique({ where: { auth: { googleId } }, include: { auth: true, subscription: true } });
+    tenant = await prisma.tenant.findUnique({
+      where: { auth: { googleId } },
+      include: { auth: true, subscription: true },
+    });
   }
   if (tenant) Object.assign(tenant, tenant?.auth, tenant?.subscription);
 
   if (user) {
-    const accessToken = generateAccessToken({ id: user.id, email: user.email, type: 'USER' });
-    const refreshToken = generateRefreshToken({ id: user.id, type: 'USER' });
+    const accessToken = generateAccessToken({
+      id: user.id,
+      email: user.email,
+      type: "USER",
+    });
+    const refreshToken = generateRefreshToken({ id: user.id, type: "USER" });
     await saveRefreshToken({ token: refreshToken, userId: user.id });
 
     return {
-      user: { id: user.id, name: user.name, email: user.email, type: 'USER', status: 'APPROVED' },
-      accessToken, refreshToken,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        type: "USER",
+        status: "APPROVED",
+      },
+      accessToken,
+      refreshToken,
     };
   }
 
   if (!tenant) {
     tenant = await prisma.tenant.create({
       data: {
-        tenantName: name ? `${name}'s Workspace` : 'Google Workspace',
-        email, firstName, lastName,
-        status: 'APPROVED',
-        onboardingStep: 5, onboardingCompleted: true,
+        tenantName: name ? `${name}'s Workspace` : "Google Workspace",
+        email,
+        firstName,
+        lastName,
+        status: "APPROVED",
+        onboardingStep: 5,
+        onboardingCompleted: true,
         auth: {
-          create: { googleId, authProvider: 'GOOGLE' },
+          create: { googleId, authProvider: "GOOGLE" },
         },
       },
       include: { auth: true, subscription: true },
     });
     tenant = { ...tenant, ...tenant.auth, ...tenant.subscription };
   } else {
-    if (tenant.authProvider !== 'GOOGLE' || !tenant.googleId) {
+    if (tenant.authProvider !== "GOOGLE" || !tenant.googleId) {
       await prisma.tenant.update({
         where: { id: tenant.id },
         data: {
           ...(tenant.email ? {} : { email }),
-          onboardingStep: 5, onboardingCompleted: true,
+          onboardingStep: 5,
+          onboardingCompleted: true,
         },
       });
       await prisma.tenantAuth.upsert({
         where: { tenantId: tenant.id },
-        update: { googleId, authProvider: 'GOOGLE' },
-        create: { tenantId: tenant.id, googleId, authProvider: 'GOOGLE' },
+        update: { googleId, authProvider: "GOOGLE" },
+        create: { tenantId: tenant.id, googleId, authProvider: "GOOGLE" },
       });
-      tenant = await prisma.tenant.findUnique({ where: { id: tenant.id }, include: { auth: true, subscription: true } });
+      tenant = await prisma.tenant.findUnique({
+        where: { id: tenant.id },
+        include: { auth: true, subscription: true },
+      });
       tenant = { ...tenant, ...tenant.auth, ...tenant.subscription };
     }
   }
 
-  const accessToken = generateAccessToken({ id: tenant.id, email: tenant.email, type: 'TENANT' });
-  const refreshToken = generateRefreshToken({ id: tenant.id, type: 'TENANT' });
+  const accessToken = generateAccessToken({
+    id: tenant.id,
+    email: tenant.email,
+    type: "TENANT",
+  });
+  const refreshToken = generateRefreshToken({ id: tenant.id, type: "TENANT" });
   await saveRefreshToken({ token: refreshToken, tenantId: tenant.id });
 
   return {
     user: {
-      id: tenant.id, name: tenant.tenantName, email: tenant.email, type: 'TENANT',
-      status: tenant.status, planId: tenant.planId, planStatus: tenant.planStatus,
-      billingType: tenant.billingType, onboardingStep: tenant.onboardingStep,
+      id: tenant.id,
+      name: tenant.tenantName,
+      email: tenant.email,
+      type: "TENANT",
+      status: tenant.status,
+      planId: tenant.planId,
+      planStatus: tenant.planStatus,
+      billingType: tenant.billingType,
+      onboardingStep: tenant.onboardingStep,
       onboardingCompleted: tenant.onboardingCompleted,
-      firstName: tenant.firstName, lastName: tenant.lastName,
+      firstName: tenant.firstName,
+      lastName: tenant.lastName,
     },
-    accessToken, refreshToken,
+    accessToken,
+    refreshToken,
   };
 };
 
@@ -424,79 +548,126 @@ export const loginOrRegisterWithGoogleService = async (credential) => {
 export const loginOrRegisterWithFacebookService = async (accessToken) => {
   let fbData;
   try {
-    const response = await axios.get(`https://graph.facebook.com/me?fields=id,name,email,first_name,last_name&access_token=${accessToken}`);
+    const response = await axios.get(
+      `https://graph.facebook.com/me?fields=id,name,email,first_name,last_name&access_token=${accessToken}`,
+    );
     fbData = response.data;
   } catch (error) {
-    throw new Error('Invalid Facebook Access Token or Meta API failure');
+    throw new Error("Invalid Facebook Access Token or Meta API failure");
   }
 
-  const { id: facebookId, name, email: fbEmail, first_name: firstName, last_name: lastName } = fbData;
+  const {
+    id: facebookId,
+    name,
+    email: fbEmail,
+    first_name: firstName,
+    last_name: lastName,
+  } = fbData;
   const email = fbEmail || `fb_${facebookId}@sudoreply.local`;
 
-  let tenant = await prisma.tenant.findUnique({ where: { email }, include: { auth: true, subscription: true } });
+  let tenant = await prisma.tenant.findUnique({
+    where: { email },
+    include: { auth: true, subscription: true },
+  });
   let user = await prisma.user.findUnique({ where: { email } });
 
   if (!tenant) {
-    tenant = await prisma.tenant.findUnique({ where: { auth: { facebookId } }, include: { auth: true, subscription: true } });
+    tenant = await prisma.tenant.findUnique({
+      where: { auth: { facebookId } },
+      include: { auth: true, subscription: true },
+    });
   }
   if (tenant) Object.assign(tenant, tenant?.auth, tenant?.subscription);
 
   if (user) {
-    const jwtAccessToken = generateAccessToken({ id: user.id, email: user.email, type: 'USER' });
-    const jwtRefreshToken = generateRefreshToken({ id: user.id, type: 'USER' });
+    const jwtAccessToken = generateAccessToken({
+      id: user.id,
+      email: user.email,
+      type: "USER",
+    });
+    const jwtRefreshToken = generateRefreshToken({ id: user.id, type: "USER" });
     await saveRefreshToken({ token: jwtRefreshToken, userId: user.id });
 
     return {
-      user: { id: user.id, name: user.name, email: user.email, type: 'USER', status: 'APPROVED' },
-      accessToken: jwtAccessToken, refreshToken: jwtRefreshToken,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        type: "USER",
+        status: "APPROVED",
+      },
+      accessToken: jwtAccessToken,
+      refreshToken: jwtRefreshToken,
     };
   }
 
   if (!tenant) {
     tenant = await prisma.tenant.create({
       data: {
-        tenantName: name ? `${name}'s Workspace` : 'Facebook Workspace',
-        email, firstName, lastName,
-        status: 'APPROVED',
-        onboardingStep: 5, onboardingCompleted: true,
+        tenantName: name ? `${name}'s Workspace` : "Facebook Workspace",
+        email,
+        firstName,
+        lastName,
+        status: "APPROVED",
+        onboardingStep: 5,
+        onboardingCompleted: true,
         auth: {
-          create: { facebookId, authProvider: 'FACEBOOK' },
+          create: { facebookId, authProvider: "FACEBOOK" },
         },
       },
       include: { auth: true, subscription: true },
     });
     tenant = { ...tenant, ...tenant.auth, ...tenant.subscription };
   } else {
-    if (tenant.authProvider !== 'FACEBOOK' || !tenant.facebookId) {
+    if (tenant.authProvider !== "FACEBOOK" || !tenant.facebookId) {
       await prisma.tenant.update({
         where: { id: tenant.id },
         data: {
           ...(tenant.email ? {} : { email }),
-          onboardingStep: 5, onboardingCompleted: true,
+          onboardingStep: 5,
+          onboardingCompleted: true,
         },
       });
       await prisma.tenantAuth.upsert({
         where: { tenantId: tenant.id },
-        update: { facebookId, authProvider: 'FACEBOOK' },
-        create: { tenantId: tenant.id, facebookId, authProvider: 'FACEBOOK' },
+        update: { facebookId, authProvider: "FACEBOOK" },
+        create: { tenantId: tenant.id, facebookId, authProvider: "FACEBOOK" },
       });
-      tenant = await prisma.tenant.findUnique({ where: { id: tenant.id }, include: { auth: true, subscription: true } });
+      tenant = await prisma.tenant.findUnique({
+        where: { id: tenant.id },
+        include: { auth: true, subscription: true },
+      });
       tenant = { ...tenant, ...tenant.auth, ...tenant.subscription };
     }
   }
 
-  const jwtAccessToken = generateAccessToken({ id: tenant.id, email: tenant.email, type: 'TENANT' });
-  const jwtRefreshToken = generateRefreshToken({ id: tenant.id, type: 'TENANT' });
+  const jwtAccessToken = generateAccessToken({
+    id: tenant.id,
+    email: tenant.email,
+    type: "TENANT",
+  });
+  const jwtRefreshToken = generateRefreshToken({
+    id: tenant.id,
+    type: "TENANT",
+  });
   await saveRefreshToken({ token: jwtRefreshToken, tenantId: tenant.id });
 
   return {
     user: {
-      id: tenant.id, name: tenant.tenantName, email: tenant.email, type: 'TENANT',
-      status: tenant.status, planId: tenant.planId, planStatus: tenant.planStatus,
-      billingType: tenant.billingType, onboardingStep: tenant.onboardingStep,
+      id: tenant.id,
+      name: tenant.tenantName,
+      email: tenant.email,
+      type: "TENANT",
+      status: tenant.status,
+      planId: tenant.planId,
+      planStatus: tenant.planStatus,
+      billingType: tenant.billingType,
+      onboardingStep: tenant.onboardingStep,
       onboardingCompleted: tenant.onboardingCompleted,
-      firstName: tenant.firstName, lastName: tenant.lastName,
+      firstName: tenant.firstName,
+      lastName: tenant.lastName,
     },
-    accessToken: jwtAccessToken, refreshToken: jwtRefreshToken,
+    accessToken: jwtAccessToken,
+    refreshToken: jwtRefreshToken,
   };
 };

@@ -1,9 +1,9 @@
 // tenant-web/src/App.jsx (do not remove this comment)
-import { useEffect } from 'react';
-import AppRoutes from './routes/appRoutes';
-import { useAuthStore } from './store/useAuthStore';
-import { ConfirmProvider } from './context/ConfirmContext';
-import { ToastProvider } from './context/ToastContext';
+import { useEffect } from "react";
+import AppRoutes from "./routes/appRoutes";
+import { useAuthStore } from "./store/useAuthStore";
+import { ConfirmProvider } from "./context/ConfirmContext";
+import { ToastProvider } from "./context/ToastContext";
 
 function App() {
   const checkAuth = useAuthStore((state) => state.checkAuth);

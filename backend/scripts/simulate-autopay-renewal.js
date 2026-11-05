@@ -23,7 +23,7 @@ async function main() {
       where: {
         razorpaySubscriptionId: { not: null },
       },
-       orderBy: [
+      orderBy: [
         { isPinned: "desc" },
         { pinnedAt: "desc" },
         { updatedAt: "desc" },
@@ -33,15 +33,21 @@ async function main() {
   }
 
   if (!tenant) {
-    console.error("❌ No tenant found with a razorpaySubscriptionId. Please subscribe or start a trial first.");
+    console.error(
+      "❌ No tenant found with a razorpaySubscriptionId. Please subscribe or start a trial first.",
+    );
     process.exit(1);
   }
 
   console.log(`\n🔍 Found Tenant: ${tenant.tenantName} (${tenant.email})`);
   console.log(`   Subscription ID : ${tenant.razorpaySubscriptionId}`);
-  console.log(`   Current Plan    : ${tenant.currentPlan || tenant.plan?.name || "N/A"}`);
+  console.log(
+    `   Current Plan    : ${tenant.currentPlan || tenant.plan?.name || "N/A"}`,
+  );
   console.log(`   Current Status  : ${tenant.subscriptionStatus}`);
-  console.log(`   Current End Date: ${tenant.planPeriodEnd ? tenant.planPeriodEnd.toISOString() : "N/A"}\n`);
+  console.log(
+    `   Current End Date: ${tenant.planPeriodEnd ? tenant.planPeriodEnd.toISOString() : "N/A"}\n`,
+  );
 
   // 2. Prepare simulated subscription.charged webhook payload
   const currentStart = Math.floor(Date.now() / 1000);
@@ -91,7 +97,9 @@ async function main() {
     .update(payloadString)
     .digest("hex");
 
-  console.log("🚀 Sending simulated subscription.charged webhook to http://localhost:5000/api/webhook/razorpay ...");
+  console.log(
+    "🚀 Sending simulated subscription.charged webhook to http://localhost:5000/api/webhook/razorpay ...",
+  );
 
   // 3. Send HTTP Request to local webhook endpoint
   const req = http.request(
@@ -118,13 +126,21 @@ async function main() {
         });
 
         console.log("\n✅ AUTO-PAY RENEWAL TEST RESULTS:");
-        console.log(`   New Subscription Status : ${updatedTenant.subscriptionStatus}`);
-        console.log(`   New Plan Period End Date: ${updatedTenant.planPeriodEnd?.toISOString()}`);
-        console.log(`   Autopay Enabled         : ${updatedTenant.autopayEnabled}`);
-        console.log("\n🎉 The recurring autopay flow is fully functional and verified!");
+        console.log(
+          `   New Subscription Status : ${updatedTenant.subscriptionStatus}`,
+        );
+        console.log(
+          `   New Plan Period End Date: ${updatedTenant.planPeriodEnd?.toISOString()}`,
+        );
+        console.log(
+          `   Autopay Enabled         : ${updatedTenant.autopayEnabled}`,
+        );
+        console.log(
+          "\n🎉 The recurring autopay flow is fully functional and verified!",
+        );
         process.exit(0);
       });
-    }
+    },
   );
 
   req.on("error", (err) => {

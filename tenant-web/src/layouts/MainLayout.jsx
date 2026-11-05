@@ -55,14 +55,17 @@ export default function MainLayout() {
       // Fetch fresh tenant status from database to sync
       if (user.type === "TENANT" && !fetchedMeRef.current) {
         fetchedMeRef.current = true;
-        api.get("/me")
+        api
+          .get("/me")
           .then((res) => {
             if (res.data?.success && res.data?.data) {
               const freshTenant = res.data.data;
 
               // If tenant status became BLOCKED or de-activated, force logout immediately
               if (freshTenant.status === "BLOCKED" || !freshTenant.isActive) {
-                console.warn("Tenant account is blocked or inactive. Logging out.");
+                console.warn(
+                  "Tenant account is blocked or inactive. Logging out.",
+                );
                 useAuthStore.getState().logout();
                 navigate("/login");
                 return;
@@ -77,7 +80,7 @@ export default function MainLayout() {
               }
               // Sync all fresh tenant and subscription state from DB
               useAuthStore.setState((state) => ({
-                user: { ...state.user, ...freshTenant }
+                user: { ...state.user, ...freshTenant },
               }));
               setTenantStatus(freshTenant.status);
             }
@@ -85,7 +88,9 @@ export default function MainLayout() {
           .catch((err) => {
             console.error("Failed to sync tenant status:", err);
             if (err.response?.status === 403 || err.response?.status === 401) {
-              console.warn("Unauthorized access or blocked account. Logging out.");
+              console.warn(
+                "Unauthorized access or blocked account. Logging out.",
+              );
               useAuthStore.getState().logout();
               navigate("/login");
             }
@@ -95,7 +100,8 @@ export default function MainLayout() {
       if (status === "PENDING") {
         const allowedPendingPaths = ["/dashboard", "/dashboard/settings"];
         const isAllowed = allowedPendingPaths.some(
-          (path) => location.pathname === path || location.pathname === path + "/"
+          (path) =>
+            location.pathname === path || location.pathname === path + "/",
         );
         if (!isAllowed) {
           console.warn("Restricted account: Redirecting to Dashboard.");
@@ -113,11 +119,13 @@ export default function MainLayout() {
       ];
 
       const isAdminPath = adminOnlyPaths.some((path) =>
-        location.pathname.startsWith(path)
+        location.pathname.startsWith(path),
       );
 
       if (role !== "admin" && isAdminPath) {
-        console.warn("Unauthorized access: Redirecting agent to Inbox console.");
+        console.warn(
+          "Unauthorized access: Redirecting agent to Inbox console.",
+        );
         navigate("/dashboard/inbox");
       }
     } catch (e) {
@@ -131,7 +139,9 @@ export default function MainLayout() {
       <div className="min-h-screen flex items-center justify-center bg-[#f8fafc]">
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 border-4 border-[#CFE0FD] border-t-emerald-600 rounded-full animate-spin"></div>
-          <p className="text-sm text-slate-500 font-medium">Verifying session...</p>
+          <p className="text-sm text-slate-500 font-medium">
+            Verifying session...
+          </p>
         </div>
       </div>
     );
@@ -165,4 +175,4 @@ export default function MainLayout() {
       <CallOverlay />
     </div>
   );
-}
+}

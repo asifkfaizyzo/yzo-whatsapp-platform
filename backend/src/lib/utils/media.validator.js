@@ -54,19 +54,22 @@ export function validateMedia(fileName, mimeType, fileSize, type) {
   if (!config.allowedTypes.includes(mimeType)) {
     return {
       valid: false,
-      error: "Invalid file type. Allowed: " + config.allowedExtensions.join(", "),
+      error:
+        "Invalid file type. Allowed: " + config.allowedExtensions.join(", "),
     };
   }
 
   const ext = getFileExtension(fileName);
-   if (ext && ext !== ".") {
-  if (!config.allowedExtensions.includes(ext)) {
-    return {
-      valid: false,
-      error: "Invalid file extension. Allowed: " + config.allowedExtensions.join(", "),
-    };
+  if (ext && ext !== ".") {
+    if (!config.allowedExtensions.includes(ext)) {
+      return {
+        valid: false,
+        error:
+          "Invalid file extension. Allowed: " +
+          config.allowedExtensions.join(", "),
+      };
+    }
   }
-}
 
   return { valid: true };
 }

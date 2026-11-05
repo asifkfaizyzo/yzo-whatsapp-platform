@@ -106,26 +106,98 @@ export default function LoginPage() {
       {/* Left panel */}
       <div
         className="hidden lg:flex w-5/12 min-h-screen p-12 text-white flex-col justify-between relative overflow-hidden"
-        style={{ background: "linear-gradient(160deg, #0c3aa6 0%, #125fe2 46%, #1547a8 100%)" }}
+        style={{
+          background:
+            "linear-gradient(160deg, #0c3aa6 0%, #125fe2 46%, #1547a8 100%)",
+        }}
       >
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:28px_28px] pointer-events-none" />
         <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-white/5 blur-[110px] pointer-events-none" />
         <div className="absolute -bottom-40 -right-24 w-96 h-96 rounded-full bg-[#0c3aa6]/40 blur-[110px] pointer-events-none" />
 
         {/* Message constellation — signature illustration */}
-        <div className="absolute inset-0 pointer-events-none select-none" aria-hidden="true">
-          <div className="absolute sr-bubble-a" style={{ top: "14%", left: "8%", width: 92, height: 34, background: "rgba(255,255,255,0.07)", borderRadius: "16px 16px 16px 4px" }} />
-          <div className="absolute sr-bubble-b" style={{ top: "22%", left: "62%", width: 70, height: 28, background: "rgba(255,255,255,0.10)", borderRadius: "16px 16px 4px 16px" }} />
-          <div className="absolute sr-bubble-c" style={{ top: "38%", left: "18%", width: 56, height: 24, background: "rgba(255,255,255,0.06)", borderRadius: "16px 16px 16px 4px" }} />
-          <div className="absolute sr-bubble-a" style={{ top: "46%", left: "70%", width: 84, height: 30, background: "rgba(255,255,255,0.08)", borderRadius: "16px 16px 4px 16px" }} />
-          <div className="absolute sr-bubble-b" style={{ top: "62%", left: "6%", width: 64, height: 26, background: "rgba(255,255,255,0.06)", borderRadius: "16px 16px 16px 4px" }} />
-          <div className="absolute rounded-full bg-emerald-400 sr-pulse-dot" style={{ top: "31%", left: "56%", width: 8, height: 8 }} />
-          <div className="absolute rounded-full bg-white/40 sr-pulse-dot" style={{ top: "57%", left: "24%", width: 6, height: 6, animationDelay: "0.8s" }} />
+        <div
+          className="absolute inset-0 pointer-events-none select-none"
+          aria-hidden="true"
+        >
+          <div
+            className="absolute sr-bubble-a"
+            style={{
+              top: "14%",
+              left: "8%",
+              width: 92,
+              height: 34,
+              background: "rgba(255,255,255,0.07)",
+              borderRadius: "16px 16px 16px 4px",
+            }}
+          />
+          <div
+            className="absolute sr-bubble-b"
+            style={{
+              top: "22%",
+              left: "62%",
+              width: 70,
+              height: 28,
+              background: "rgba(255,255,255,0.10)",
+              borderRadius: "16px 16px 4px 16px",
+            }}
+          />
+          <div
+            className="absolute sr-bubble-c"
+            style={{
+              top: "38%",
+              left: "18%",
+              width: 56,
+              height: 24,
+              background: "rgba(255,255,255,0.06)",
+              borderRadius: "16px 16px 16px 4px",
+            }}
+          />
+          <div
+            className="absolute sr-bubble-a"
+            style={{
+              top: "46%",
+              left: "70%",
+              width: 84,
+              height: 30,
+              background: "rgba(255,255,255,0.08)",
+              borderRadius: "16px 16px 4px 16px",
+            }}
+          />
+          <div
+            className="absolute sr-bubble-b"
+            style={{
+              top: "62%",
+              left: "6%",
+              width: 64,
+              height: 26,
+              background: "rgba(255,255,255,0.06)",
+              borderRadius: "16px 16px 16px 4px",
+            }}
+          />
+          <div
+            className="absolute rounded-full bg-emerald-400 sr-pulse-dot"
+            style={{ top: "31%", left: "56%", width: 8, height: 8 }}
+          />
+          <div
+            className="absolute rounded-full bg-white/40 sr-pulse-dot"
+            style={{
+              top: "57%",
+              left: "24%",
+              width: 6,
+              height: 6,
+              animationDelay: "0.8s",
+            }}
+          />
         </div>
 
         <div className="relative z-10">
           <Link to="/" className="inline-flex items-center">
-            <img src="/sudo2.png" alt="SudoReply Logo" className="w-14 h-14 object-contain filter drop-shadow-md brightness-110" />
+            <img
+              src="/sudo2.png"
+              alt="SudoReply Logo"
+              className="w-14 h-14 object-contain filter drop-shadow-md brightness-110"
+            />
           </Link>
         </div>
 
@@ -137,18 +209,25 @@ export default function LoginPage() {
             Scale your customer relationships on WhatsApp.
           </h1>
           <p className="mt-6 max-w-md text-[15px] leading-relaxed text-blue-100/70">
-            Enterprises rely on SudoReply to orchestrate bulk campaigns, maintain shared team inboxes, and process customer interactions on Meta's official WhatsApp Cloud API.
+            Enterprises rely on SudoReply to orchestrate bulk campaigns,
+            maintain shared team inboxes, and process customer interactions on
+            Meta's official WhatsApp Cloud API.
           </p>
         </div>
 
         <div className="relative z-10 space-y-3">
           {benefits.map((item) => (
-            <div key={item.title} className="rounded-2xl border border-white/10 bg-white/[0.06] p-4 backdrop-blur-md transition-colors duration-200 hover:bg-white/[0.09]">
+            <div
+              key={item.title}
+              className="rounded-2xl border border-white/10 bg-white/[0.06] p-4 backdrop-blur-md transition-colors duration-200 hover:bg-white/[0.09]"
+            >
               <h3 className="font-semibold text-white text-sm flex items-center gap-2">
                 <CheckIcon />
                 {item.title}
               </h3>
-              <p className="mt-1 text-[13px] text-blue-100/60 leading-relaxed pl-6">{item.text}</p>
+              <p className="mt-1 text-[13px] text-blue-100/60 leading-relaxed pl-6">
+                {item.text}
+              </p>
             </div>
           ))}
         </div>
@@ -159,17 +238,26 @@ export default function LoginPage() {
         {/* Mobile Logo Branding */}
         <div className="flex flex-col items-center text-center lg:hidden mb-8">
           <Link to="/" className="inline-flex items-center mb-4">
-            <img src="/sudo2.png" alt="SudoReply Logo" className="w-14 h-14 object-contain" />
+            <img
+              src="/sudo2.png"
+              alt="SudoReply Logo"
+              className="w-14 h-14 object-contain"
+            />
           </Link>
-          <h1 className="text-[1.75rem] font-bold text-slate-900 tracking-tight">Welcome back</h1>
+          <h1 className="text-[1.75rem] font-bold text-slate-900 tracking-tight">
+            Welcome back
+          </h1>
           <p className="mt-2 text-sm text-slate-500 max-w-sm">
-            Access your WhatsApp broadcasting dashboard, view analytics, and manage campaigns.
+            Access your WhatsApp broadcasting dashboard, view analytics, and
+            manage campaigns.
           </p>
         </div>
 
         <div className="w-full max-w-[440px]">
           <div className="bg-white rounded-3xl border border-slate-100 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_24px_48px_-16px_rgba(15,23,42,0.08)] p-8 sm:p-10 sr-animate-fade-in-slide">
-            <h2 className="text-[1.6rem] font-bold text-slate-900 tracking-tight mb-6 text-center">Login to your account</h2>
+            <h2 className="text-[1.6rem] font-bold text-slate-900 tracking-tight mb-6 text-center">
+              Login to your account
+            </h2>
 
             {/* Social login */}
             {googleError && (
@@ -209,11 +297,15 @@ export default function LoginPage() {
                 <div className="w-full border-t border-slate-200"></div>
               </div>
               <div className="relative flex justify-center">
-                <span className="bg-white px-3 text-xs font-medium text-slate-400 tracking-wide">Or sign up with email</span>
+                <span className="bg-white px-3 text-xs font-medium text-slate-400 tracking-wide">
+                  Or sign up with email
+                </span>
               </div>
             </div>
 
-            <p className="text-sm text-slate-500 text-center">Use your email and password to continue.</p>
+            <p className="text-sm text-slate-500 text-center">
+              Use your email and password to continue.
+            </p>
 
             {generalError && (
               <div className="mt-6 rounded-xl bg-red-50 border border-red-100 px-4 py-3.5 text-sm text-red-600 font-medium">
@@ -224,7 +316,9 @@ export default function LoginPage() {
             <form className="mt-7 space-y-5" onSubmit={onSubmit}>
               {/* Email */}
               <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1.5">Work email</label>
+                <label className="block text-sm font-medium text-slate-600 mb-1.5">
+                  Work email
+                </label>
                 <div className="relative">
                   <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
                     <Mail className="h-4 w-4" />
@@ -241,7 +335,9 @@ export default function LoginPage() {
 
               {/* Password */}
               <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1.5">Password</label>
+                <label className="block text-sm font-medium text-slate-600 mb-1.5">
+                  Password
+                </label>
                 <div className="relative">
                   <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
                     <Lock className="h-4 w-4" />
@@ -256,10 +352,16 @@ export default function LoginPage() {
                     type="button"
                     onClick={() => setShowPassword((v) => !v)}
                     tabIndex={-1}
-                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-label={
+                      showPassword ? "Hide password" : "Show password"
+                    }
                     className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
                   >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
                   </button>
                 </div>
                 <FormError message={errors.password?.message} />
@@ -268,10 +370,16 @@ export default function LoginPage() {
               {/* Remember me / Forgot password */}
               <div className="flex items-center justify-between text-sm pt-1">
                 <label className="inline-flex items-center gap-2 text-slate-500 font-medium cursor-pointer select-none">
-                  <input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-[#125fe2] focus:ring-2 focus:ring-[rgba(18,95,226,0.16)]" />
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-slate-300 text-[#125fe2] focus:ring-2 focus:ring-[rgba(18,95,226,0.16)]"
+                  />
                   Remember me
                 </label>
-                <Link to="/forgot-password" className="font-semibold text-[#125fe2] hover:text-[#0e4bc0] hover:underline underline-offset-2">
+                <Link
+                  to="/forgot-password"
+                  className="font-semibold text-[#125fe2] hover:text-[#0e4bc0] hover:underline underline-offset-2"
+                >
                   Forgot password?
                 </Link>
               </div>
@@ -296,7 +404,10 @@ export default function LoginPage() {
             {/* Switch Mode */}
             <p className="mt-8 text-center text-sm text-slate-500">
               Don't have an account?{" "}
-              <Link to="/register" className="font-semibold text-[#125fe2] hover:text-[#0e4bc0] hover:underline underline-offset-2">
+              <Link
+                to="/register"
+                className="font-semibold text-[#125fe2] hover:text-[#0e4bc0] hover:underline underline-offset-2"
+              >
                 Sign up
               </Link>
             </p>
@@ -309,8 +420,18 @@ export default function LoginPage() {
 
 function CheckIcon() {
   return (
-    <svg className="h-4 w-4 text-emerald-300 stroke-[3px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+    <svg
+      className="h-4 w-4 text-emerald-300 stroke-[3px] shrink-0"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={3}
+        d="M5 13l4 4L19 7"
+      />
     </svg>
   );
 }

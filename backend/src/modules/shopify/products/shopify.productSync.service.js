@@ -1,21 +1,24 @@
 // backend/src/modules/shopify/products/shopify.productSync.service.js (do not remove this comment)
-import axios from 'axios';
-import prisma from '../../../config/prisma.js';
-import { decrypt } from '../../../lib/crypto.js';
+import axios from "axios";
+import prisma from "../../../config/prisma.js";
+import { decrypt } from "../../../lib/crypto.js";
 
 /**
  * Fetch shop-level currency from Shopify
  */
 const getShopCurrency = async (shopName, accessToken) => {
-  const apiVersion = process.env.SHOPIFY_API_VERSION || '2026-07';
+  const apiVersion = process.env.SHOPIFY_API_VERSION || "2026-07";
   try {
-    const res = await axios.get(`https://${shopName}/admin/api/${apiVersion}/shop.json`, {
-      headers: { 'X-Shopify-Access-Token': accessToken },
-      timeout: 10000,
-    });
-    return res.data?.shop?.currency || 'INR';
+    const res = await axios.get(
+      `https://${shopName}/admin/api/${apiVersion}/shop.json`,
+      {
+        headers: { "X-Shopify-Access-Token": accessToken },
+        timeout: 10000,
+      },
+    );
+    return res.data?.shop?.currency || "INR";
   } catch {
-    return 'INR';
+    return "INR";
   }
 };
 
@@ -23,28 +26,33 @@ const getShopCurrency = async (shopName, accessToken) => {
  * Derive availability string from variant data
  */
 const deriveAvailability = (variant) => {
-  if (variant.inventory_policy === 'continue') return 'in_stock';
-  return (variant.inventory_quantity || 0) > 0 ? 'in_stock' : 'out_of_stock';
+  if (variant.inventory_policy === "continue") return "in_stock";
+  return (variant.inventory_quantity || 0) > 0 ? "in_stock" : "out_of_stock";
 };
 
 /**
  * Map Shopify status string to our enum
  */
 const mapStatus = (status) => {
-  const s = String(status || '').toUpperCase();
-  if (s === 'ACTIVE') return 'ACTIVE';
-  if (s === 'DRAFT') return 'DRAFT';
-  if (s === 'ARCHIVED') return 'ARCHIVED';
-  return 'ACTIVE';
+  const s = String(status || "").toUpperCase();
+  if (s === "ACTIVE") return "ACTIVE";
+  if (s === "DRAFT") return "DRAFT";
+  if (s === "ARCHIVED") return "ARCHIVED";
+  return "ACTIVE";
 };
 
 /**
  * Upsert a single product with its variants and images.
  * Used by both full sync and webhook handlers.
  */
-export const upsertProduct = async (tenantId, shopifyProduct, shopDomain, currency) => {
+export const upsertProduct = async (
+  tenantId,
+  shopifyProduct,
+  shopDomain,
+  currency,
+) => {
   const shopifyProductId = String(shopifyProduct.id);
-  const handle = shopifyProduct.handle || '';
+  const handle = shopifyProduct.handle || "";
   const productUrl = `https://${shopDomain}/products/${handle}`;
 
   // 1. Upsert the product record
@@ -56,17 +64,17 @@ export const upsertProduct = async (tenantId, shopifyProduct, shopDomain, curren
       },
     },
     update: {
-      title: shopifyProduct.title || 'Untitled',
+      title: shopifyProduct.title || "Untitled",
       bodyHtml: shopifyProduct.body_html || null,
       handle,
       productUrl,
       vendor: shopifyProduct.vendor || null,
       productType: shopifyProduct.product_type || null,
       tags: Array.isArray(shopifyProduct.tags)
-        ? shopifyProduct.tags.join(', ')
+        ? shopifyProduct.tags.join(", ")
         : shopifyProduct.tags || null,
       status: mapStatus(shopifyProduct.status),
-      syncStatus: 'SYNCED',
+      syncStatus: "SYNCED",
       syncError: null,
       lastSyncedAt: new Date(),
       shopifyUpdatedAt: shopifyProduct.updated_at
@@ -76,17 +84,17 @@ export const upsertProduct = async (tenantId, shopifyProduct, shopDomain, curren
     create: {
       tenantId,
       shopifyProductId,
-      title: shopifyProduct.title || 'Untitled',
+      title: shopifyProduct.title || "Untitled",
       bodyHtml: shopifyProduct.body_html || null,
       handle,
       productUrl,
       vendor: shopifyProduct.vendor || null,
       productType: shopifyProduct.product_type || null,
       tags: Array.isArray(shopifyProduct.tags)
-        ? shopifyProduct.tags.join(', ')
+        ? shopifyProduct.tags.join(", ")
         : shopifyProduct.tags || null,
       status: mapStatus(shopifyProduct.status),
-      syncStatus: 'SYNCED',
+      syncStatus: "SYNCED",
       lastSyncedAt: new Date(),
       shopifyUpdatedAt: shopifyProduct.updated_at
         ? new Date(shopifyProduct.updated_at)
@@ -108,7 +116,9 @@ export const upsertProduct = async (tenantId, shopifyProduct, shopDomain, curren
         title: v.title || null,
         sku: v.sku || null,
         price: parseFloat(v.price) || 0,
-        compareAtPrice: v.compare_at_price ? parseFloat(v.compare_at_price) : null,
+        compareAtPrice: v.compare_at_price
+          ? parseFloat(v.compare_at_price)
+          : null,
         currency,
         inventoryQuantity: v.inventory_quantity || 0,
         inventoryPolicy: v.inventory_policy || null,
@@ -137,7 +147,7 @@ export const upsertProduct = async (tenantId, shopifyProduct, shopDomain, curren
       data: images.map((img) => ({
         productId: product.id,
         shopifyImageId: String(img.id),
-        src: img.src || '',
+        src: img.src || "",
         alt: img.alt || null,
         position: img.position || 1,
         width: img.width || null,
@@ -160,12 +170,14 @@ export const markProductDeleted = async (tenantId, shopifyProductId) => {
         shopifyProductId: String(shopifyProductId),
       },
       data: {
-        status: 'ARCHIVED',
-        syncStatus: 'DELETED',
+        status: "ARCHIVED",
+        syncStatus: "DELETED",
         lastSyncedAt: new Date(),
       },
     });
-    console.log(`🗑️ [Shopify Product] Marked product ${shopifyProductId} as deleted`);
+    console.log(
+      `🗑️ [Shopify Product] Marked product ${shopifyProductId} as deleted`,
+    );
   } catch (err) {
     console.error(`❌ [Shopify Product] Failed to mark deleted:`, err.message);
   }
@@ -180,13 +192,13 @@ export const syncAllProducts = async (tenantId) => {
     where: { tenantId },
   });
 
-  if (!connection || connection.status !== 'active') {
-    throw new Error('No active Shopify connection found for this tenant');
+  if (!connection || connection.status !== "active") {
+    throw new Error("No active Shopify connection found for this tenant");
   }
 
   const shopName = connection.shopName;
   const accessToken = decrypt(connection.accessToken);
-  const apiVersion = process.env.SHOPIFY_API_VERSION || '2026-07';
+  const apiVersion = process.env.SHOPIFY_API_VERSION || "2026-07";
 
   // 1. Get shop currency once
   const currency = await getShopCurrency(shopName, accessToken);
@@ -197,7 +209,9 @@ export const syncAllProducts = async (tenantId) => {
   let totalSynced = 0;
   let totalErrors = 0;
 
-  console.log(`🚀 [Shopify Product Sync] Starting full sync for ${shopName}...`);
+  console.log(
+    `🚀 [Shopify Product Sync] Starting full sync for ${shopName}...`,
+  );
 
   while (hasNextPage) {
     let url = `https://${shopName}/admin/api/${apiVersion}/products.json?limit=250`;
@@ -207,7 +221,7 @@ export const syncAllProducts = async (tenantId) => {
 
     try {
       const response = await axios.get(url, {
-        headers: { 'X-Shopify-Access-Token': accessToken },
+        headers: { "X-Shopify-Access-Token": accessToken },
         timeout: 30000,
       });
 
@@ -221,13 +235,13 @@ export const syncAllProducts = async (tenantId) => {
           totalErrors++;
           console.error(
             `❌ [Shopify Product Sync] Error syncing product ${shopifyProduct.id}:`,
-            err.message
+            err.message,
           );
         }
       }
 
       // Parse Link header for cursor pagination
-      const linkHeader = response.headers['link'] || response.headers['Link'];
+      const linkHeader = response.headers["link"] || response.headers["Link"];
       if (linkHeader && linkHeader.includes('rel="next"')) {
         const match = linkHeader.match(/page_info=([^>&]+)>;\s*rel="next"/);
         pageInfo = match ? match[1] : null;
@@ -242,7 +256,7 @@ export const syncAllProducts = async (tenantId) => {
   }
 
   console.log(
-    `🎉 [Shopify Product Sync] Completed. Synced: ${totalSynced}, Errors: ${totalErrors}`
+    `🎉 [Shopify Product Sync] Completed. Synced: ${totalSynced}, Errors: ${totalErrors}`,
   );
 
   return { totalSynced, totalErrors, currency };
@@ -251,20 +265,23 @@ export const syncAllProducts = async (tenantId) => {
 /**
  * Get products for a tenant (for dashboard listing)
  */
-export const getProducts = async (tenantId, { page = 1, limit = 20, status, search } = {}) => {
+export const getProducts = async (
+  tenantId,
+  { page = 1, limit = 20, status, search } = {},
+) => {
   const where = { tenantId };
 
   if (status) {
     where.status = status;
   } else {
-    where.syncStatus = { not: 'DELETED' };
+    where.syncStatus = { not: "DELETED" };
   }
 
   if (search) {
     where.OR = [
-      { title: { contains: search, mode: 'insensitive' } },
-      { handle: { contains: search, mode: 'insensitive' } },
-      { vendor: { contains: search, mode: 'insensitive' } },
+      { title: { contains: search, mode: "insensitive" } },
+      { handle: { contains: search, mode: "insensitive" } },
+      { vendor: { contains: search, mode: "insensitive" } },
     ];
   }
 
@@ -275,14 +292,14 @@ export const getProducts = async (tenantId, { page = 1, limit = 20, status, sear
       where,
       include: {
         variants: {
-          orderBy: { price: 'asc' },
+          orderBy: { price: "asc" },
         },
         images: {
-          orderBy: { position: 'asc' },
+          orderBy: { position: "asc" },
           take: 3,
         },
       },
-      orderBy: { lastSyncedAt: 'desc' },
+      orderBy: { lastSyncedAt: "desc" },
       skip,
       take: limit,
     }),
@@ -310,10 +327,10 @@ export const getProductDetail = async (tenantId, shopifyProductId) => {
     },
     include: {
       variants: {
-        orderBy: { price: 'asc' },
+        orderBy: { price: "asc" },
       },
       images: {
-        orderBy: { position: 'asc' },
+        orderBy: { position: "asc" },
       },
     },
   });

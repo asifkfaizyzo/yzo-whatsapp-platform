@@ -1,15 +1,14 @@
 // tenant-web/src/pages/Payment.jsx (do not remove this comment)
 
 import { useState, useEffect } from "react";
-import { useNavigate, useSearchParams,Link } from "react-router-dom";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useAuthStore } from "../store/useAuthStore";
 import { useToast } from "../context/ToastContext";
+import { getPublicPlans, createPaymentOrder, verifyPayment } from "../api/plan";
 import {
-  getPublicPlans,
-  createPaymentOrder,
-  verifyPayment,
-} from "../api/plan";
-import { PaymentVerifyingLoader, PaymentSuccessScreen } from "../components/CustomLoader";
+  PaymentVerifyingLoader,
+  PaymentSuccessScreen,
+} from "../components/CustomLoader";
 
 // Dynamically load Razorpay checkout.js only when needed
 let razorpayScriptPromise = null;
@@ -110,9 +109,9 @@ export default function Payment() {
           setProcessing(false);
           setVerifying(true);
           const verifyRes = await verifyPayment({
-            razorpay_order_id:  response.razorpay_order_id,
+            razorpay_order_id: response.razorpay_order_id,
             razorpay_payment_id: response.razorpay_payment_id,
-            razorpay_signature:  response.razorpay_signature,
+            razorpay_signature: response.razorpay_signature,
             planId,
             billingType,
           });
@@ -135,7 +134,6 @@ export default function Payment() {
             setTimeout(() => {
               navigate("/dashboard");
             }, 2000);
-
           } else {
             setVerifying(false);
             toast.error("Payment verification failed: " + verifyRes.message);
@@ -145,8 +143,8 @@ export default function Payment() {
 
         // Prefill tenant details
         prefill: {
-          name:    user?.tenantName || user?.name || "",
-          email:   user?.email || "",
+          name: user?.tenantName || user?.name || "",
+          email: user?.email || "",
           contact: user?.phone || "",
         },
 
@@ -167,11 +165,13 @@ export default function Payment() {
       const razorpayInstance = new window.Razorpay(options);
       razorpayInstance.on("payment.failed", function (response) {
         console.error("Razorpay payment failed:", response.error);
-        toast.error(response.error?.description || "Payment failed at bank. Please try again.");
+        toast.error(
+          response.error?.description ||
+            "Payment failed at bank. Please try again.",
+        );
         setProcessing(false);
       });
       razorpayInstance.open();
-
     } catch (err) {
       console.error("Payment error:", err);
       toast.error("Something went wrong. Please try again.");
@@ -198,24 +198,20 @@ export default function Payment() {
       {/* Payment Verifying Overlay */}
       <PaymentVerifyingLoader visible={verifying} />
 
-
       {/* Header */}
       <div className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <img
-           src="/sudo_bg.png"
-        alt="SudoReply Logo"
-        className="w-12 h-12 object-contain"
+            src="/sudo_bg.png"
+            alt="SudoReply Logo"
+            className="w-12 h-12 object-contain"
           />
           {/* <span className="font-bold text-gray-900">SudoReply</span> */}
         </div>
-        <span className="text-sm text-gray-500">
-          Step 2 of 2 — Payment
-        </span>
+        <span className="text-sm text-gray-500">Step 2 of 2 — Payment</span>
       </div>
 
       <div className="max-w-lg mx-auto px-6 py-12">
-
         {/* Title */}
         <div className="text-center mb-8">
           <span className="text-[#125EF2] font-semibold text-sm uppercase tracking-wider">
@@ -283,10 +279,7 @@ export default function Payment() {
           </h3>
           <ul className="space-y-2">
             {plan?.features?.map((pf) => (
-              <li
-                key={pf.id}
-                className="flex gap-2 text-sm text-gray-600"
-              >
+              <li key={pf.id} className="flex gap-2 text-sm text-gray-600">
                 <span className="text-[#125EF2] font-bold shrink-0">✓</span>
                 {pf.feature?.name || pf.name}
               </li>
@@ -301,9 +294,10 @@ export default function Payment() {
           className={`
             w-full py-4 rounded-xl font-bold text-sm
             transition-all duration-300
-            ${processing
-              ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-              : "bg-[#125EF2] text-white hover:bg-[#0F4FCC] shadow-lg hover:shadow-xl hover:-translate-y-0.5"
+            ${
+              processing
+                ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                : "bg-[#125EF2] text-white hover:bg-[#0F4FCC] shadow-lg hover:shadow-xl hover:-translate-y-0.5"
             }
           `}
         >

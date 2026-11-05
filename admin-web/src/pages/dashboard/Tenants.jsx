@@ -73,7 +73,8 @@ function getRelativeTime(dateStr) {
   const diffHours = Math.floor(diffMins / 60);
   const diffDays = Math.floor(diffHours / 24);
   if (diffDays === 0) {
-    if (diffHours === 0) return diffMins === 0 ? "Just now" : `${diffMins}m ago`;
+    if (diffHours === 0)
+      return diffMins === 0 ? "Just now" : `${diffMins}m ago`;
     return `${diffHours}h ago`;
   }
   if (diffDays === 1) return "Yesterday";
@@ -103,32 +104,64 @@ function getSubscriptionStatus(tenant) {
   const planStatus = (tenant?.planStatus || "").toLowerCase();
 
   if (subStatus === "trialing" || planStatus === "trialing") return "trialing";
-  if (subStatus === "cancel_at_period_end" || subStatus === "cancelling") return "cancelling";
+  if (subStatus === "cancel_at_period_end" || subStatus === "cancelling")
+    return "cancelling";
   if (subStatus === "paused") return "paused";
   if (subStatus === "expired" || planStatus === "expired") return "expired";
-  if (subStatus === "active" || planStatus === "active" || planStatus === "enterprise_active") return "active";
+  if (
+    subStatus === "active" ||
+    planStatus === "active" ||
+    planStatus === "enterprise_active"
+  )
+    return "active";
   if (planStatus === "enterprise_pending") return "pending";
   return subStatus || planStatus || "inactive";
 }
 
 function getPlanLabel(tenant) {
   if (tenant?.planStatus === "enterprise_active") return "Enterprise";
-  if (tenant?.planStatus === "enterprise_pending") return "Enterprise (Pending)";
+  if (tenant?.planStatus === "enterprise_pending")
+    return "Enterprise (Pending)";
   return tenant?.plan?.name || tenant?.currentPlan || "Free";
 }
 
 function getInitials(name, fallback) {
   const str = name || fallback || "??";
-  return str.split(" ").map((w) => w.charAt(0)).join("").substring(0, 2).toUpperCase();
+  return str
+    .split(" ")
+    .map((w) => w.charAt(0))
+    .join("")
+    .substring(0, 2)
+    .toUpperCase();
 }
 
 // ─── Config maps ─────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG = {
-  Active: { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200", dot: "bg-emerald-500" },
-  Pending: { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200", dot: "bg-amber-500" },
-  Suspended: { bg: "bg-slate-100", text: "text-slate-600", border: "border-slate-200", dot: "bg-slate-400" },
-  Blocked: { bg: "bg-rose-50", text: "text-rose-700", border: "border-rose-200", dot: "bg-rose-500" },
+  Active: {
+    bg: "bg-emerald-50",
+    text: "text-emerald-700",
+    border: "border-emerald-200",
+    dot: "bg-emerald-500",
+  },
+  Pending: {
+    bg: "bg-amber-50",
+    text: "text-amber-700",
+    border: "border-amber-200",
+    dot: "bg-amber-500",
+  },
+  Suspended: {
+    bg: "bg-slate-100",
+    text: "text-slate-600",
+    border: "border-slate-200",
+    dot: "bg-slate-400",
+  },
+  Blocked: {
+    bg: "bg-rose-50",
+    text: "text-rose-700",
+    border: "border-rose-200",
+    dot: "bg-rose-500",
+  },
 };
 
 const PLAN_CONFIG = {
@@ -194,7 +227,8 @@ const PLAN_CONFIG = {
     border: "border-amber-200",
     icon: Crown,
     iconColor: "text-amber-600",
-    badge: "bg-gradient-to-r from-amber-50 to-yellow-50 text-amber-800 border-amber-300 shadow-xs",
+    badge:
+      "bg-gradient-to-r from-amber-50 to-yellow-50 text-amber-800 border-amber-300 shadow-xs",
   },
 };
 
@@ -207,27 +241,49 @@ function resolvePlanConfig(planName) {
 
 // ─── Reusable Components ──────────────────────────────────────────────────────
 
-function StatCard({ icon: Icon, title, value, subtitle, iconColor, iconBg, growth }) {
+function StatCard({
+  icon: Icon,
+  title,
+  value,
+  subtitle,
+  iconColor,
+  iconBg,
+  growth,
+}) {
   return (
     <div
       className="relative bg-white rounded-2xl border border-slate-100 p-4 flex flex-col justify-between transition-all duration-200 overflow-hidden hover:shadow-md hover:-translate-y-0.5 hover:border-slate-200 cursor-default group"
-      style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(18,95,226,0.04)" }}
+      style={{
+        boxShadow:
+          "0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(18,95,226,0.04)",
+      }}
     >
       <div className="flex items-center justify-between relative mb-2">
-        <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-transform duration-200 group-hover:scale-105 ${iconBg}`}>
+        <div
+          className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-transform duration-200 group-hover:scale-105 ${iconBg}`}
+        >
           <Icon size={18} className={iconColor} />
         </div>
         {growth !== undefined && (
-          <span className={`inline-flex items-center gap-0.5 text-[11px] font-semibold px-2 py-0.5 rounded-full ${growth >= 0 ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"}`}>
+          <span
+            className={`inline-flex items-center gap-0.5 text-[11px] font-semibold px-2 py-0.5 rounded-full ${growth >= 0 ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"}`}
+          >
             <TrendingUp size={10} />
-            {growth >= 0 ? "+" : ""}{growth}%
+            {growth >= 0 ? "+" : ""}
+            {growth}%
           </span>
         )}
       </div>
       <div>
-        <p className="text-2xl font-extrabold text-slate-900 leading-none">{value}</p>
+        <p className="text-2xl font-extrabold text-slate-900 leading-none">
+          {value}
+        </p>
         <p className="text-xs font-semibold text-slate-600 mt-1">{title}</p>
-        {subtitle && <p className="text-[10px] text-slate-400 mt-0.5 truncate">{subtitle}</p>}
+        {subtitle && (
+          <p className="text-[10px] text-slate-400 mt-0.5 truncate">
+            {subtitle}
+          </p>
+        )}
       </div>
     </div>
   );
@@ -236,8 +292,12 @@ function StatCard({ icon: Icon, title, value, subtitle, iconColor, iconBg, growt
 function AccountStatusBadge({ status }) {
   const cfg = STATUS_CONFIG[status] || STATUS_CONFIG["Pending"];
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${cfg.bg} ${cfg.text} ${cfg.border}`}>
-      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 animate-pulse ${cfg.dot}`} />
+    <span
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${cfg.bg} ${cfg.text} ${cfg.border}`}
+    >
+      <span
+        className={`w-1.5 h-1.5 rounded-full flex-shrink-0 animate-pulse ${cfg.dot}`}
+      />
       {status}
     </span>
   );
@@ -296,7 +356,9 @@ function PlanBadge({ planName }) {
   const cfg = resolvePlanConfig(label);
   const PlanIcon = cfg.icon;
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border ${cfg.badge}`}>
+    <span
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border ${cfg.badge}`}
+    >
       <PlanIcon size={11} className={cfg.iconColor} />
       {label}
     </span>
@@ -382,7 +444,7 @@ function ActionMenu({
         calculatePosition();
       }
     },
-    [calculatePosition]
+    [calculatePosition],
   );
 
   const handleToggle = () => {
@@ -424,7 +486,14 @@ function ActionMenu({
     };
   }, [open, calculatePosition]);
 
-  const MenuItem = ({ icon: Icon, label, onClick, danger, accent, iconCls }) => (
+  const MenuItem = ({
+    icon: Icon,
+    label,
+    onClick,
+    danger,
+    accent,
+    iconCls,
+  }) => (
     <button
       onClick={() => {
         onClick();
@@ -434,11 +503,21 @@ function ActionMenu({
         danger
           ? "text-rose-600 hover:bg-rose-50"
           : accent
-          ? "text-indigo-600 hover:bg-indigo-50 font-semibold"
-          : "text-slate-700 hover:bg-slate-50"
+            ? "text-indigo-600 hover:bg-indigo-50 font-semibold"
+            : "text-slate-700 hover:bg-slate-50"
       }`}
     >
-      <Icon size={14} className={iconCls || (danger ? "text-rose-500" : accent ? "text-indigo-500" : "text-slate-400")} />
+      <Icon
+        size={14}
+        className={
+          iconCls ||
+          (danger
+            ? "text-rose-500"
+            : accent
+              ? "text-indigo-500"
+              : "text-slate-400")
+        }
+      />
       <span>{label}</span>
     </button>
   );
@@ -454,7 +533,9 @@ function ActionMenu({
       <button
         onClick={handleToggle}
         className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-150 ${
-          open ? "bg-[#125fe2] text-white shadow-md shadow-blue-200" : "text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+          open
+            ? "bg-[#125fe2] text-white shadow-md shadow-blue-200"
+            : "text-slate-400 hover:text-slate-700 hover:bg-slate-100"
         }`}
         title="More Actions"
       >
@@ -469,21 +550,36 @@ function ActionMenu({
             style={{
               top: coords.top,
               left: coords.left,
-              maxHeight: coords.maxHeight ? `${coords.maxHeight}px` : "calc(100vh - 24px)",
-              boxShadow: "0 10px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.06)",
+              maxHeight: coords.maxHeight
+                ? `${coords.maxHeight}px`
+                : "calc(100vh - 24px)",
+              boxShadow:
+                "0 10px 40px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.06)",
             }}
           >
             {/* Header */}
             <div className="px-3 py-1.5">
-              <p className="text-[11px] font-bold text-slate-800 truncate">{tenant.tenantName || tenant.email}</p>
-              <p className="text-[9px] text-slate-400 font-mono truncate">{tenant.id}</p>
+              <p className="text-[11px] font-bold text-slate-800 truncate">
+                {tenant.tenantName || tenant.email}
+              </p>
+              <p className="text-[9px] text-slate-400 font-mono truncate">
+                {tenant.id}
+              </p>
             </div>
 
             {/* General Section */}
             <div className="py-1">
-              <MenuItem icon={Eye} label="View Full Profile" onClick={onViewDetails} />
+              <MenuItem
+                icon={Eye}
+                label="View Full Profile"
+                onClick={onViewDetails}
+              />
               <MenuItem icon={Edit} label="Edit Tenant Info" onClick={onEdit} />
-              <MenuItem icon={Users2} label="View Team Users" onClick={onViewUsers} />
+              <MenuItem
+                icon={Users2}
+                label="View Team Users"
+                onClick={onViewUsers}
+              />
             </div>
 
             {/* Subscription Lifecycle Controls */}
@@ -496,7 +592,11 @@ function ActionMenu({
                 accent
                 iconCls="text-indigo-600 font-bold"
               />
-              <MenuItem icon={Settings2} label="Manage / Switch Plan" onClick={onManageSub} />
+              <MenuItem
+                icon={Settings2}
+                label="Manage / Switch Plan"
+                onClick={onManageSub}
+              />
               <MenuItem
                 icon={Clock}
                 label="Extend Trial / Period"
@@ -530,28 +630,58 @@ function ActionMenu({
             <div className="py-1">
               <SectionHeader title="Account Access" />
               {accountStatus === "Pending" && (
-                <MenuItem icon={UserCheck} label="Approve Tenant" onClick={onApprove} iconCls="text-emerald-500" />
+                <MenuItem
+                  icon={UserCheck}
+                  label="Approve Tenant"
+                  onClick={onApprove}
+                  iconCls="text-emerald-500"
+                />
               )}
               {accountStatus === "Active" && (
-                <MenuItem icon={Ban} label="Suspend Access" onClick={onSuspend} iconCls="text-amber-500" />
+                <MenuItem
+                  icon={Ban}
+                  label="Suspend Access"
+                  onClick={onSuspend}
+                  iconCls="text-amber-500"
+                />
               )}
               {accountStatus === "Suspended" && (
-                <MenuItem icon={ShieldCheck} label="Activate Access" onClick={onActivate} iconCls="text-emerald-500" />
+                <MenuItem
+                  icon={ShieldCheck}
+                  label="Activate Access"
+                  onClick={onActivate}
+                  iconCls="text-emerald-500"
+                />
               )}
               {accountStatus !== "Blocked" && (
-                <MenuItem icon={ShieldBan} label="Block Account" onClick={onBlock} danger />
+                <MenuItem
+                  icon={ShieldBan}
+                  label="Block Account"
+                  onClick={onBlock}
+                  danger
+                />
               )}
               {accountStatus === "Blocked" && (
-                <MenuItem icon={Unlock} label="Unblock Account" onClick={onUnblock} iconCls="text-emerald-500" />
+                <MenuItem
+                  icon={Unlock}
+                  label="Unblock Account"
+                  onClick={onUnblock}
+                  iconCls="text-emerald-500"
+                />
               )}
             </div>
 
             {/* Danger Zone */}
             <div className="py-1">
-              <MenuItem icon={Trash2} label="Delete Tenant" onClick={onDelete} danger />
+              <MenuItem
+                icon={Trash2}
+                label="Delete Tenant"
+                onClick={onDelete}
+                danger
+              />
             </div>
           </div>,
-          document.body
+          document.body,
         )}
     </div>
   );
@@ -559,12 +689,18 @@ function ActionMenu({
 
 // ─── Manage Subscription Modal ────────────────────────────────────────────────
 
-function ManageSubscriptionModal({ tenant, initialMode = "manual_activate", plans, onClose, onSave }) {
+function ManageSubscriptionModal({
+  tenant,
+  initialMode = "manual_activate",
+  plans,
+  onClose,
+  onSave,
+}) {
   const toast = useToast();
   const [loading, setLoading] = useState(false);
   const [actionType, setActionType] = useState(initialMode); // 'manual_activate', 'extend', 'change_plan', 'pause', 'reactivate'
 
-  const defaultPlan = plans.find(p => p.id === tenant?.planId) || plans[0];
+  const defaultPlan = plans.find((p) => p.id === tenant?.planId) || plans[0];
   const [manualForm, setManualForm] = useState({
     planId: defaultPlan?.id || "",
     durationDays: "30",
@@ -574,7 +710,9 @@ function ManageSubscriptionModal({ tenant, initialMode = "manual_activate", plan
     notes: "",
   });
 
-  const [selectedPlanId, setSelectedPlanId] = useState(tenant?.planId || defaultPlan?.id || "");
+  const [selectedPlanId, setSelectedPlanId] = useState(
+    tenant?.planId || defaultPlan?.id || "",
+  );
   const [extendDays, setExtendDays] = useState("30");
 
   const currentPlanName = getPlanLabel(tenant);
@@ -638,20 +776,30 @@ function ManageSubscriptionModal({ tenant, initialMode = "manual_activate", plan
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-150" style={{ zIndex: 99999 }}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-150"
+      style={{ zIndex: 99999 }}
+    >
       <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl max-w-lg w-full overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
         <div
           className="px-6 py-5 border-b border-slate-100 flex items-center justify-between"
-          style={{ background: "linear-gradient(135deg, rgba(18,95,226,0.06) 0%, #fff 100%)" }}
+          style={{
+            background:
+              "linear-gradient(135deg, rgba(18,95,226,0.06) 0%, #fff 100%)",
+          }}
         >
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#125fe2] to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-200">
               <CreditCard size={18} />
             </div>
             <div>
-              <h3 className="font-bold text-slate-900 text-sm">Manage Subscription & License</h3>
-              <p className="text-xs text-slate-400 mt-0.5 font-medium">{tenant.tenantName || tenant.email}</p>
+              <h3 className="font-bold text-slate-900 text-sm">
+                Manage Subscription & License
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5 font-medium">
+                {tenant.tenantName || tenant.email}
+              </p>
             </div>
           </div>
           <button
@@ -673,7 +821,11 @@ function ManageSubscriptionModal({ tenant, initialMode = "manual_activate", plan
             {currentDaysLeft !== null && (
               <span
                 className={`text-[11px] font-semibold ${
-                  currentDaysLeft > 5 ? "text-slate-500" : currentDaysLeft > 0 ? "text-amber-600" : "text-rose-600"
+                  currentDaysLeft > 5
+                    ? "text-slate-500"
+                    : currentDaysLeft > 0
+                      ? "text-amber-600"
+                      : "text-rose-600"
                 }`}
               >
                 ({currentDaysLeft > 0 ? `${currentDaysLeft}d left` : "Expired"})
@@ -683,7 +835,10 @@ function ManageSubscriptionModal({ tenant, initialMode = "manual_activate", plan
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto flex-1">
+        <form
+          onSubmit={handleSubmit}
+          className="p-6 space-y-5 overflow-y-auto flex-1"
+        >
           {/* Action Selector */}
           <div>
             <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block mb-2">
@@ -691,13 +846,18 @@ function ManageSubscriptionModal({ tenant, initialMode = "manual_activate", plan
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {[
-                { id: "manual_activate", label: "Manual Offline", icon: PlusCircle },
+                {
+                  id: "manual_activate",
+                  label: "Manual Offline",
+                  icon: PlusCircle,
+                },
                 { id: "extend", label: "Extend Period", icon: Clock },
                 { id: "change_plan", label: "Switch Plan", icon: Sparkles },
                 {
                   id: currentSubStatus === "paused" ? "reactivate" : "pause",
                   label: currentSubStatus === "paused" ? "Reactivate" : "Pause",
-                  icon: currentSubStatus === "paused" ? CheckCircle2 : PauseCircle,
+                  icon:
+                    currentSubStatus === "paused" ? CheckCircle2 : PauseCircle,
                 },
               ].map((act) => {
                 const Icon = act.icon;
@@ -729,15 +889,17 @@ function ManageSubscriptionModal({ tenant, initialMode = "manual_activate", plan
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">Select Subscription Plan</label>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Select Subscription Plan
+                </label>
                 <select
                   value={manualForm.planId}
                   onChange={(e) => {
-                    const sel = plans.find(p => p.id === e.target.value);
+                    const sel = plans.find((p) => p.id === e.target.value);
                     setManualForm({
                       ...manualForm,
                       planId: e.target.value,
-                      amount: sel ? sel.monthlyPrice : manualForm.amount
+                      amount: sel ? sel.monthlyPrice : manualForm.amount,
                     });
                   }}
                   required
@@ -746,7 +908,8 @@ function ManageSubscriptionModal({ tenant, initialMode = "manual_activate", plan
                   <option value="">-- Choose Subscription Plan --</option>
                   {plans.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.name} — ₹{p.monthlyPrice?.toLocaleString()}/mo ({p.maxAgents || "∞"} agents)
+                      {p.name} — ₹{p.monthlyPrice?.toLocaleString()}/mo (
+                      {p.maxAgents || "∞"} agents)
                     </option>
                   ))}
                 </select>
@@ -754,24 +917,35 @@ function ManageSubscriptionModal({ tenant, initialMode = "manual_activate", plan
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">Duration (Days)</label>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Duration (Days)
+                  </label>
                   <input
                     type="number"
                     min="1"
                     max="3650"
                     value={manualForm.durationDays}
-                    onChange={(e) => setManualForm({ ...manualForm, durationDays: e.target.value })}
+                    onChange={(e) =>
+                      setManualForm({
+                        ...manualForm,
+                        durationDays: e.target.value,
+                      })
+                    }
                     required
                     className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-[#125fe2]"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">Base Amount (₹)</label>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Base Amount (₹)
+                  </label>
                   <input
                     type="number"
                     step="0.01"
                     value={manualForm.amount}
-                    onChange={(e) => setManualForm({ ...manualForm, amount: e.target.value })}
+                    onChange={(e) =>
+                      setManualForm({ ...manualForm, amount: e.target.value })
+                    }
                     required
                     placeholder="e.g. 4999"
                     className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-[#125fe2]"
@@ -781,24 +955,40 @@ function ManageSubscriptionModal({ tenant, initialMode = "manual_activate", plan
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">Payment Method</label>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Payment Method
+                  </label>
                   <select
                     value={manualForm.paymentMethod}
-                    onChange={(e) => setManualForm({ ...manualForm, paymentMethod: e.target.value })}
+                    onChange={(e) =>
+                      setManualForm({
+                        ...manualForm,
+                        paymentMethod: e.target.value,
+                      })
+                    }
                     className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-[#125fe2]"
                   >
-                    <option value="offline_bank_transfer">Bank Transfer (IMPS/NEFT)</option>
+                    <option value="offline_bank_transfer">
+                      Bank Transfer (IMPS/NEFT)
+                    </option>
                     <option value="direct_upi">Direct UPI</option>
                     <option value="cash">Cash Payment</option>
                     <option value="cheque">Cheque</option>
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">Bank Ref / Txn ID</label>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Bank Ref / Txn ID
+                  </label>
                   <input
                     type="text"
                     value={manualForm.paymentRef}
-                    onChange={(e) => setManualForm({ ...manualForm, paymentRef: e.target.value })}
+                    onChange={(e) =>
+                      setManualForm({
+                        ...manualForm,
+                        paymentRef: e.target.value,
+                      })
+                    }
                     placeholder="e.g. IMPS 987654321"
                     className="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-[#125fe2]"
                   />
@@ -806,11 +996,15 @@ function ManageSubscriptionModal({ tenant, initialMode = "manual_activate", plan
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">Admin Internal Note</label>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Admin Internal Note
+                </label>
                 <input
                   type="text"
                   value={manualForm.notes}
-                  onChange={(e) => setManualForm({ ...manualForm, notes: e.target.value })}
+                  onChange={(e) =>
+                    setManualForm({ ...manualForm, notes: e.target.value })
+                  }
                   placeholder="e.g. Payment verified by Admin."
                   className="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-[#125fe2]"
                 />
@@ -818,7 +1012,10 @@ function ManageSubscriptionModal({ tenant, initialMode = "manual_activate", plan
 
               <div className="p-3 bg-emerald-50 text-emerald-800 rounded-xl text-xs flex items-center gap-2">
                 <Receipt size={15} className="text-emerald-600 shrink-0" />
-                <span>Generates an official invoice and immediately syncs to the Revenue Hub.</span>
+                <span>
+                  Generates an official invoice and immediately syncs to the
+                  Revenue Hub.
+                </span>
               </div>
             </div>
           )}
@@ -828,7 +1025,9 @@ function ManageSubscriptionModal({ tenant, initialMode = "manual_activate", plan
             <div className="space-y-3 bg-slate-50/70 p-4 rounded-2xl border border-slate-100 animate-in fade-in duration-150">
               <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
                 <span>Extend Validity Period (Days)</span>
-                <span className="text-indigo-600 font-semibold">{extendDays} Days</span>
+                <span className="text-indigo-600 font-semibold">
+                  {extendDays} Days
+                </span>
               </label>
 
               <div className="flex flex-wrap gap-2">
@@ -883,7 +1082,8 @@ function ManageSubscriptionModal({ tenant, initialMode = "manual_activate", plan
                 <option value="">-- Choose a Plan Tier --</option>
                 {plans.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.name} (₹{p.monthlyPrice?.toLocaleString() || 0}/mo) · {p.maxAgents || "∞"} agents
+                    {p.name} (₹{p.monthlyPrice?.toLocaleString() || 0}/mo) ·{" "}
+                    {p.maxAgents || "∞"} agents
                   </option>
                 ))}
               </select>
@@ -909,7 +1109,9 @@ function ManageSubscriptionModal({ tenant, initialMode = "manual_activate", plan
               <p className="font-bold flex items-center gap-1.5">
                 <AlertCircle size={14} />
                 <span>
-                  {actionType === "pause" ? "Pause Tenant Subscription" : "Reactivate Tenant Subscription"}
+                  {actionType === "pause"
+                    ? "Pause Tenant Subscription"
+                    : "Reactivate Tenant Subscription"}
                 </span>
               </p>
               <p className="text-[11px] text-amber-700">
@@ -943,7 +1145,11 @@ function ManageSubscriptionModal({ tenant, initialMode = "manual_activate", plan
               ) : (
                 <>
                   <Check size={14} />
-                  <span>{actionType === "manual_activate" ? "Activate Plan & Sync Revenue" : "Apply Changes"}</span>
+                  <span>
+                    {actionType === "manual_activate"
+                      ? "Activate Plan & Sync Revenue"
+                      : "Apply Changes"}
+                  </span>
                 </>
               )}
             </button>
@@ -951,7 +1157,7 @@ function ManageSubscriptionModal({ tenant, initialMode = "manual_activate", plan
         </form>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }
 
@@ -989,38 +1195,54 @@ function TenantDrawer({
     const endMs = new Date(periodEnd).getTime();
     const nowMs = Date.now();
     if (endMs > startMs) {
-      progressPercent = Math.min(100, Math.max(0, Math.round(((nowMs - startMs) / (endMs - startMs)) * 100)));
+      progressPercent = Math.min(
+        100,
+        Math.max(0, Math.round(((nowMs - startMs) / (endMs - startMs)) * 100)),
+      );
     }
   }
 
   const Section = ({ title, children }) => (
     <div className="border-b border-slate-100 pb-5 mb-5 last:border-0 last:mb-0 last:pb-0">
-      <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">{title}</h4>
+      <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
+        {title}
+      </h4>
       {children}
     </div>
   );
 
   const Field = ({ label, value, mono }) => (
     <div className="flex flex-col gap-0.5 mb-3">
-      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</span>
+      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+        {label}
+      </span>
       <span
-        className={`text-sm font-medium ${mono
+        className={`text-sm font-medium ${
+          mono
             ? "font-mono text-xs text-slate-600 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-100 inline-block"
             : "text-slate-800"
-          }`}
+        }`}
       >
-        {value || <span className="text-slate-300 italic text-xs">Not set</span>}
+        {value || (
+          <span className="text-slate-300 italic text-xs">Not set</span>
+        )}
       </span>
     </div>
   );
 
   const UsageCard = ({ icon: Icon, label, value, max, bg, iconCls }) => (
-    <div className={`rounded-xl p-3 border ${bg || "bg-slate-50 border-slate-100"}`}>
+    <div
+      className={`rounded-xl p-3 border ${bg || "bg-slate-50 border-slate-100"}`}
+    >
       <div className="flex items-center gap-2 mb-1.5">
         <Icon size={12} className={iconCls || "text-slate-400"} />
-        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">{label}</span>
+        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+          {label}
+        </span>
       </div>
-      <p className="text-xl font-bold text-slate-900">{value !== undefined && value !== null ? value : "—"}</p>
+      <p className="text-xl font-bold text-slate-900">
+        {value !== undefined && value !== null ? value : "—"}
+      </p>
       {max !== undefined && typeof value === "number" && (
         <div className="mt-2">
           <div className="h-1 rounded-full bg-slate-200 overflow-hidden">
@@ -1039,7 +1261,9 @@ function TenantDrawer({
 
   const TLEvent = ({ icon: Icon, label, time, iconBg, iconColor }) => (
     <div className="flex gap-3 items-start">
-      <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${iconBg || "bg-blue-50"}`}>
+      <div
+        className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${iconBg || "bg-blue-50"}`}
+      >
         <Icon size={12} className={iconColor || "text-blue-500"} />
       </div>
       <div>
@@ -1051,15 +1275,25 @@ function TenantDrawer({
 
   return createPortal(
     <>
-      <div className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-[2px]" onClick={onClose} />
+      <div
+        className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-[2px]"
+        onClick={onClose}
+      />
       <div
         className="fixed right-0 top-0 bottom-0 z-50 flex flex-col bg-white"
-        style={{ width: 540, maxWidth: "100vw", boxShadow: "-4px 0 60px rgba(0,0,0,0.14)" }}
+        style={{
+          width: 540,
+          maxWidth: "100vw",
+          boxShadow: "-4px 0 60px rgba(0,0,0,0.14)",
+        }}
       >
         {/* Header — glassmorphism */}
         <div
           className="px-6 py-5 border-b border-slate-100 flex-shrink-0 relative overflow-hidden"
-          style={{ background: "linear-gradient(135deg, rgba(18,95,226,0.08) 0%, rgba(255,255,255,1) 75%)" }}
+          style={{
+            background:
+              "linear-gradient(135deg, rgba(18,95,226,0.08) 0%, rgba(255,255,255,1) 75%)",
+          }}
         >
           <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full bg-[#125fe2]/5 pointer-events-none" />
           <div className="flex items-start justify-between gap-4 relative">
@@ -1068,8 +1302,12 @@ function TenantDrawer({
                 {getInitials(tenant.tenantName, tenant.email)}
               </div>
               <div>
-                <h3 className="text-base font-bold text-slate-900">{tenant.tenantName || tenant.email || "Unknown"}</h3>
-                <p className="text-[10px] text-slate-400 font-mono mt-0.5 truncate max-w-56">{tenant.id}</p>
+                <h3 className="text-base font-bold text-slate-900">
+                  {tenant.tenantName || tenant.email || "Unknown"}
+                </h3>
+                <p className="text-[10px] text-slate-400 font-mono mt-0.5 truncate max-w-56">
+                  {tenant.id}
+                </p>
                 <div className="flex items-center gap-2 mt-2">
                   <AccountStatusBadge status={accountStatus} />
                   <PlanBadge planName={planName} />
@@ -1090,17 +1328,23 @@ function TenantDrawer({
         <div className="flex-1 overflow-y-auto px-6 py-5">
           {/* Subscription & Licensing Hero Section */}
           <Section title="Subscription & License Health">
-            <div className={`rounded-2xl border p-4 mb-3 bg-gradient-to-br ${planCfg.gradient} ${planCfg.border}`}>
+            <div
+              className={`rounded-2xl border p-4 mb-3 bg-gradient-to-br ${planCfg.gradient} ${planCfg.border}`}
+            >
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2.5">
                   <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center shadow-xs">
                     <PlanIcon size={18} className={planCfg.iconColor} />
                   </div>
                   <div>
-                    <p className={`text-sm font-bold ${planCfg.text}`}>{planName} Plan</p>
+                    <p className={`text-sm font-bold ${planCfg.text}`}>
+                      {planName} Plan
+                    </p>
                     <p className="text-[11px] text-slate-500">
-                      {tenant.plan ? `₹${tenant.plan.monthlyPrice?.toLocaleString() || 0}/mo` : "Standard Tier"} ·{" "}
-                      {tenant.billingType || "Monthly billing"}
+                      {tenant.plan
+                        ? `₹${tenant.plan.monthlyPrice?.toLocaleString() || 0}/mo`
+                        : "Standard Tier"}{" "}
+                      · {tenant.billingType || "Monthly billing"}
                     </p>
                   </div>
                 </div>
@@ -1110,12 +1354,22 @@ function TenantDrawer({
               {/* Validity Progress Bar */}
               <div className="bg-white/80 rounded-xl p-3 border border-white mb-3">
                 <div className="flex items-center justify-between text-xs mb-1.5">
-                  <span className="text-slate-500 font-medium">Validity Period</span>
+                  <span className="text-slate-500 font-medium">
+                    Validity Period
+                  </span>
                   <span className="font-bold text-slate-800">
-                    {periodEnd ? new Date(periodEnd).toLocaleDateString() : "Lifetime / No end date"}
+                    {periodEnd
+                      ? new Date(periodEnd).toLocaleDateString()
+                      : "Lifetime / No end date"}
                     {daysLeft !== null && (
-                      <span className={`ml-1 text-[11px] ${daysLeft > 0 ? "text-emerald-600" : "text-rose-600"}`}>
-                        ({daysLeft > 0 ? `${daysLeft} days remaining` : "Expired"})
+                      <span
+                        className={`ml-1 text-[11px] ${daysLeft > 0 ? "text-emerald-600" : "text-rose-600"}`}
+                      >
+                        (
+                        {daysLeft > 0
+                          ? `${daysLeft} days remaining`
+                          : "Expired"}
+                        )
                       </span>
                     )}
                   </span>
@@ -1123,9 +1377,16 @@ function TenantDrawer({
                 {periodEnd && (
                   <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
                     <div
-                      className={`h-full rounded-full transition-all duration-700 ${daysLeft && daysLeft <= 3 ? "bg-rose-500" : daysLeft && daysLeft <= 7 ? "bg-amber-500" : "bg-emerald-500"
-                        }`}
-                      style={{ width: `${Math.min(100, Math.max(5, 100 - progressPercent))}%` }}
+                      className={`h-full rounded-full transition-all duration-700 ${
+                        daysLeft && daysLeft <= 3
+                          ? "bg-rose-500"
+                          : daysLeft && daysLeft <= 7
+                            ? "bg-amber-500"
+                            : "bg-emerald-500"
+                      }`}
+                      style={{
+                        width: `${Math.min(100, Math.max(5, 100 - progressPercent))}%`,
+                      }}
                     />
                   </div>
                 )}
@@ -1136,11 +1397,19 @@ function TenantDrawer({
                 {[
                   { label: "Max Agents", val: tenant.plan?.maxAgents ?? "∞" },
                   { label: "Campaigns", val: tenant.plan?.maxCampaigns ?? "∞" },
-                  { label: "Automations", val: tenant.plan?.maxAutomations ?? "∞" },
+                  {
+                    label: "Automations",
+                    val: tenant.plan?.maxAutomations ?? "∞",
+                  },
                 ].map(({ label, val }) => (
-                  <div key={label} className="bg-white/70 rounded-xl px-2.5 py-2 text-center border border-white">
+                  <div
+                    key={label}
+                    className="bg-white/70 rounded-xl px-2.5 py-2 text-center border border-white"
+                  >
                     <p className="text-sm font-bold text-slate-800">{val}</p>
-                    <p className="text-[9px] text-slate-500 font-semibold uppercase tracking-wide mt-0.5">{label}</p>
+                    <p className="text-[9px] text-slate-500 font-semibold uppercase tracking-wide mt-0.5">
+                      {label}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -1171,7 +1440,8 @@ function TenantDrawer({
                     onClick={() => onToggleSubPause("reactivate")}
                     className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-semibold transition shadow-xs"
                   >
-                    <CheckCircle2 size={13} className="text-emerald-500" /> Reactivate
+                    <CheckCircle2 size={13} className="text-emerald-500" />{" "}
+                    Reactivate
                   </button>
                 )}
               </div>
@@ -1189,7 +1459,13 @@ function TenantDrawer({
           <Section title="Company Profile">
             <div className="grid grid-cols-2 gap-x-5">
               <Field label="Company Name" value={tenant.tenantName} />
-              <Field label="Subdomain" value={tenant.subdomain ? `${tenant.subdomain}.sudoreply.com` : "—"} mono />
+              <Field
+                label="Subdomain"
+                value={
+                  tenant.subdomain ? `${tenant.subdomain}.sudoreply.com` : "—"
+                }
+                mono
+              />
               <Field label="Tenant ID" value={tenant.id} mono />
               <Field label="Industry" value={tenant.industry} />
               <Field label="Timezone" value={tenant.timezone} />
@@ -1201,7 +1477,10 @@ function TenantDrawer({
           {/* Owner Information */}
           <Section title="Owner & Primary Contact">
             <div className="grid grid-cols-2 gap-x-5">
-              <Field label="Owner Name" value={tenant.ownerName || tenant.tenantName} />
+              <Field
+                label="Owner Name"
+                value={tenant.ownerName || tenant.tenantName}
+              />
               <Field label="Email" value={tenant.email} />
               <Field label="Phone" value={tenant.phone} />
               <Field label="Role" value="Tenant Admin" />
@@ -1276,8 +1555,16 @@ function TenantDrawer({
           {/* WhatsApp Status */}
           <Section title="WhatsApp Cloud API Integration">
             <div className="grid grid-cols-2 gap-x-5">
-              <Field label="Phone Number ID" value={tenant.whatsappPhoneId || "Not Connected"} mono />
-              <Field label="WABA ID" value={tenant.whatsappWabaId || "Not Connected"} mono />
+              <Field
+                label="Phone Number ID"
+                value={tenant.whatsappPhoneId || "Not Connected"}
+                mono
+              />
+              <Field
+                label="WABA ID"
+                value={tenant.whatsappWabaId || "Not Connected"}
+                mono
+              />
             </div>
           </Section>
 
@@ -1287,7 +1574,11 @@ function TenantDrawer({
               <TLEvent
                 icon={Building2}
                 label="Tenant Onboarded"
-                time={tenant.createdAt ? new Date(tenant.createdAt).toLocaleString() : "—"}
+                time={
+                  tenant.createdAt
+                    ? new Date(tenant.createdAt).toLocaleString()
+                    : "—"
+                }
                 iconBg="bg-blue-50"
                 iconColor="text-blue-500"
               />
@@ -1295,7 +1586,11 @@ function TenantDrawer({
                 <TLEvent
                   icon={CheckCircle}
                   label="Account Approved"
-                  time={tenant.approvedAt ? new Date(tenant.approvedAt).toLocaleString() : "Active"}
+                  time={
+                    tenant.approvedAt
+                      ? new Date(tenant.approvedAt).toLocaleString()
+                      : "Active"
+                  }
                   iconBg="bg-emerald-50"
                   iconColor="text-emerald-500"
                 />
@@ -1315,7 +1610,9 @@ function TenantDrawer({
           {/* Danger Zone */}
           <Section title="Account Restrictions & Deletion">
             <div className="rounded-2xl border border-rose-100 bg-rose-50/40 p-4">
-              <p className="text-xs text-rose-500 font-medium mb-3">Irreversible actions on this organization:</p>
+              <p className="text-xs text-rose-500 font-medium mb-3">
+                Irreversible actions on this organization:
+              </p>
               <div className="flex flex-wrap gap-2">
                 {accountStatus === "Active" && (
                   <button
@@ -1367,7 +1664,10 @@ function TenantDrawer({
         {/* Drawer Footer */}
         <div className="flex-shrink-0 border-t border-slate-100 px-6 py-4 flex items-center justify-between bg-slate-50/60">
           <p className="text-[11px] text-slate-400">
-            Registered on {tenant.createdAt ? new Date(tenant.createdAt).toLocaleDateString() : "—"}
+            Registered on{" "}
+            {tenant.createdAt
+              ? new Date(tenant.createdAt).toLocaleDateString()
+              : "—"}
           </p>
           <div className="flex gap-2">
             <button
@@ -1386,7 +1686,7 @@ function TenantDrawer({
         </div>
       </div>
     </>,
-    document.body
+    document.body,
   );
 }
 
@@ -1419,7 +1719,8 @@ export default function Tenants() {
   const [selectedTenantForUsers, setSelectedTenantForUsers] = useState(null);
 
   const [subModalTenant, setSubModalTenant] = useState(null);
-  const [subModalInitialMode, setSubModalInitialMode] = useState("manual_activate");
+  const [subModalInitialMode, setSubModalInitialMode] =
+    useState("manual_activate");
   const [drawerTenant, setDrawerTenant] = useState(null);
 
   // New Tenant Form State
@@ -1480,11 +1781,22 @@ export default function Tenants() {
     }
     try {
       const registerBaseURL = `${import.meta.env.VITE_API_URL}/tenant`;
-      const response = await axios.post(`${registerBaseURL}/register`, newTenant);
+      const response = await axios.post(
+        `${registerBaseURL}/register`,
+        newTenant,
+      );
       if (response.data?.success) {
-        toast.success(`Tenant "${newTenant.tenantName}" registered successfully!`);
+        toast.success(
+          `Tenant "${newTenant.tenantName}" registered successfully!`,
+        );
         setIsModalOpen(false);
-        setNewTenant({ tenantName: "", email: "", password: "", phone: "", address: "" });
+        setNewTenant({
+          tenantName: "",
+          email: "",
+          password: "",
+          phone: "",
+          address: "",
+        });
         fetchTenants();
       } else {
         setModalError(response.data?.message || "Failed to register tenant.");
@@ -1519,7 +1831,9 @@ export default function Tenants() {
         address: editingTenant.address,
       });
       if (response.data?.success) {
-        toast.success(`Tenant "${editingTenant.tenantName}" updated successfully!`);
+        toast.success(
+          `Tenant "${editingTenant.tenantName}" updated successfully!`,
+        );
         setIsEditModalOpen(false);
         setEditingTenant(null);
         fetchTenants();
@@ -1551,20 +1865,31 @@ export default function Tenants() {
       try {
         const response = await api.patch(`/users/${userId}/${action}`);
         if (response.data?.success) {
-          toast.success(`User "${userName}" has been ${isActive ? "deactivated" : "activated"}.`);
-          const updatedUsers = selectedTenantForUsers.users.map((u) =>
-            u.id === userId ? { ...u, isActive: !isActive } : u
+          toast.success(
+            `User "${userName}" has been ${isActive ? "deactivated" : "activated"}.`,
           );
-          setSelectedTenantForUsers({ ...selectedTenantForUsers, users: updatedUsers });
+          const updatedUsers = selectedTenantForUsers.users.map((u) =>
+            u.id === userId ? { ...u, isActive: !isActive } : u,
+          );
+          setSelectedTenantForUsers({
+            ...selectedTenantForUsers,
+            users: updatedUsers,
+          });
           setTenants(
-            tenants.map((t) => (t.id === selectedTenantForUsers.id ? { ...t, users: updatedUsers } : t))
+            tenants.map((t) =>
+              t.id === selectedTenantForUsers.id
+                ? { ...t, users: updatedUsers }
+                : t,
+            ),
           );
         } else {
           toast.error(response.data?.message || `Failed to ${action} user.`);
         }
       } catch (err) {
         console.error(err);
-        toast.error(err.response?.data?.message || `Error executing user ${action}.`);
+        toast.error(
+          err.response?.data?.message || `Error executing user ${action}.`,
+        );
       }
     }
   };
@@ -1581,14 +1906,18 @@ export default function Tenants() {
       try {
         const response = await api.patch(`/${action}-tenant/${tenantId}`);
         if (response.data?.success) {
-          toast.success(`Tenant "${tenantName}" has been ${isActive ? "suspended" : "activated"}.`);
+          toast.success(
+            `Tenant "${tenantName}" has been ${isActive ? "suspended" : "activated"}.`,
+          );
           fetchTenants();
         } else {
           toast.error(response.data?.message || `Failed to ${action} tenant.`);
         }
       } catch (err) {
         console.error(err);
-        toast.error(err.response?.data?.message || `Error executing tenant ${action}.`);
+        toast.error(
+          err.response?.data?.message || `Error executing tenant ${action}.`,
+        );
       }
     }
   };
@@ -1598,7 +1927,11 @@ export default function Tenants() {
     const isUnblock = action === "unblock";
     const ok = await confirm({
       type: isBlock ? "danger" : isUnblock ? "info" : "default",
-      title: isBlock ? `Block Tenant?` : isUnblock ? `Unblock Tenant?` : `Approve Tenant?`,
+      title: isBlock
+        ? `Block Tenant?`
+        : isUnblock
+          ? `Unblock Tenant?`
+          : `Approve Tenant?`,
       message: isBlock
         ? `This will permanently block "${tenantName}" and terminate all active user sessions.`
         : isUnblock
@@ -1617,7 +1950,9 @@ export default function Tenants() {
         }
       } catch (err) {
         console.error(err);
-        toast.error(err.response?.data?.message || `Error executing ${action} action.`);
+        toast.error(
+          err.response?.data?.message || `Error executing ${action} action.`,
+        );
       }
     }
   };
@@ -1627,14 +1962,17 @@ export default function Tenants() {
       type: "danger",
       title: "Delete Tenant?",
       message: `Permanently delete "${tenantName}"? This cannot be undone.`,
-      detail: "All tenant data, users, contacts, templates, and configurations will be permanently erased.",
+      detail:
+        "All tenant data, users, contacts, templates, and configurations will be permanently erased.",
       confirmLabel: "Delete Permanently",
     });
     if (ok) {
       try {
         const response = await api.delete(`/delete-tenant/${tenantId}`);
         if (response.data?.success) {
-          toast.success(`Tenant "${tenantName}" and all associated data deleted.`);
+          toast.success(
+            `Tenant "${tenantName}" and all associated data deleted.`,
+          );
           fetchTenants();
         } else {
           toast.error(response.data?.message || "Failed to delete tenant.");
@@ -1651,9 +1989,14 @@ export default function Tenants() {
   const handleSubscriptionAction = async (tenantId, payload) => {
     try {
       if (payload.action === "manual_activate") {
-        const res = await api.post(`/admin/subscriptions/${tenantId}/manual-activate`, payload);
+        const res = await api.post(
+          `/admin/subscriptions/${tenantId}/manual-activate`,
+          payload,
+        );
         if (res.data?.success) {
-          toast.success(res.data?.message || "Plan manually activated and revenue synced!");
+          toast.success(
+            res.data?.message || "Plan manually activated and revenue synced!",
+          );
           fetchTenants();
         } else {
           toast.error(res.data?.message || "Manual activation failed");
@@ -1674,7 +2017,9 @@ export default function Tenants() {
       }
     } catch (err) {
       console.error(err);
-      toast.error(err.response?.data?.message || "Error updating subscription.");
+      toast.error(
+        err.response?.data?.message || "Error updating subscription.",
+      );
       throw err;
     }
   };
@@ -1688,7 +2033,10 @@ export default function Tenants() {
       confirmLabel: `Extend +${days} Days`,
     });
     if (ok) {
-      await handleSubscriptionAction(tenant.id, { action: "extend", extendDays: days });
+      await handleSubscriptionAction(tenant.id, {
+        action: "extend",
+        extendDays: days,
+      });
     }
   };
 
@@ -1726,14 +2074,18 @@ export default function Tenants() {
   const stats = {
     total: tenants.length,
     active: tenants.filter((t) => t.status === "APPROVED" && t.isActive).length,
-    activeSub: tenants.filter((t) => getSubscriptionStatus(t) === "active").length,
-    trialing: tenants.filter((t) => getSubscriptionStatus(t) === "trialing").length,
+    activeSub: tenants.filter((t) => getSubscriptionStatus(t) === "active")
+      .length,
+    trialing: tenants.filter((t) => getSubscriptionStatus(t) === "trialing")
+      .length,
     pending: tenants.filter((t) => t.status === "PENDING").length,
     cancelling: tenants.filter((t) => {
       const s = getSubscriptionStatus(t);
       return s === "cancelling" || s === "expired";
     }).length,
-    paused: tenants.filter((t) => !t.isActive || getSubscriptionStatus(t) === "paused").length,
+    paused: tenants.filter(
+      (t) => !t.isActive || getSubscriptionStatus(t) === "paused",
+    ).length,
     blocked: tenants.filter((t) => t.status === "BLOCKED").length,
     totalUsers: tenants.reduce((acc, t) => acc + (t.users?.length || 0), 0),
   };
@@ -1757,11 +2109,23 @@ export default function Tenants() {
     const accStatus = getTenantAccountStatus(tenant);
     const subStatus = getSubscriptionStatus(tenant);
 
-    if (statusFilter === "Active" && !(accStatus === "Active" || subStatus === "active")) return false;
+    if (
+      statusFilter === "Active" &&
+      !(accStatus === "Active" || subStatus === "active")
+    )
+      return false;
     if (statusFilter === "Trialing" && subStatus !== "trialing") return false;
     if (statusFilter === "Pending" && accStatus !== "Pending") return false;
-    if (statusFilter === "Cancelling" && !(subStatus === "cancelling" || subStatus === "expired")) return false;
-    if (statusFilter === "Paused" && !(accStatus === "Suspended" || subStatus === "paused")) return false;
+    if (
+      statusFilter === "Cancelling" &&
+      !(subStatus === "cancelling" || subStatus === "expired")
+    )
+      return false;
+    if (
+      statusFilter === "Paused" &&
+      !(accStatus === "Suspended" || subStatus === "paused")
+    )
+      return false;
     if (statusFilter === "Blocked" && accStatus !== "Blocked") return false;
 
     // Plan dropdown filter
@@ -1792,7 +2156,8 @@ export default function Tenants() {
     setIsEditModalOpen(true);
   };
 
-  const hasActiveFilters = searchQuery || statusFilter !== "All" || planFilter || subStatusFilter;
+  const hasActiveFilters =
+    searchQuery || statusFilter !== "All" || planFilter || subStatusFilter;
 
   const resetFilters = () => {
     setSearchQuery("");
@@ -1870,7 +2235,8 @@ export default function Tenants() {
             <span>Tenant & Subscription Management</span>
           </h1>
           <p className="text-xs text-slate-500 mt-1 ml-10">
-            Unified control center to manage tenant organizations, monitor subscription health, extend licenses, and configure plan access.
+            Unified control center to manage tenant organizations, monitor
+            subscription health, extend licenses, and configure plan access.
           </p>
         </div>
 
@@ -1886,7 +2252,9 @@ export default function Tenants() {
           <button
             onClick={() => setIsModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold text-white shadow-lg shadow-blue-200 transition"
-            style={{ background: "linear-gradient(135deg, #125fe2 0%, #2563eb 100%)" }}
+            style={{
+              background: "linear-gradient(135deg, #125fe2 0%, #2563eb 100%)",
+            }}
           >
             <Plus size={15} />
             <span>Onboard Tenant</span>
@@ -1897,7 +2265,10 @@ export default function Tenants() {
       {/* ── Main Data & Table Card ── */}
       <div
         className="bg-white rounded-2xl border border-slate-100 overflow-hidden"
-        style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 6px 24px rgba(18,95,226,0.05)" }}
+        style={{
+          boxShadow:
+            "0 1px 3px rgba(0,0,0,0.04), 0 6px 24px rgba(18,95,226,0.05)",
+        }}
       >
         {/* Filter Tabs Bar */}
         <div className="px-5 pt-4 pb-3 border-b border-slate-100 flex items-center justify-between overflow-x-auto gap-3">
@@ -1907,22 +2278,30 @@ export default function Tenants() {
               { id: "Active", label: "Active", count: stats.activeSub },
               { id: "Trialing", label: "Trialing", count: stats.trialing },
               { id: "Pending", label: "Pending", count: stats.pending },
-              { id: "Cancelling", label: "Cancelling / Expired", count: stats.cancelling },
+              {
+                id: "Cancelling",
+                label: "Cancelling / Expired",
+                count: stats.cancelling,
+              },
               { id: "Paused", label: "Paused", count: stats.paused },
               { id: "Blocked", label: "Blocked", count: stats.blocked },
             ].map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setStatusFilter(tab.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 flex items-center gap-1.5 ${statusFilter === tab.id
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 flex items-center gap-1.5 ${
+                  statusFilter === tab.id
                     ? "bg-white text-slate-900 shadow-xs"
                     : "text-slate-500 hover:text-slate-800"
-                  }`}
+                }`}
               >
                 <span>{tab.label}</span>
                 <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${statusFilter === tab.id ? "bg-slate-100 text-slate-700" : "bg-slate-200/70 text-slate-500"
-                    }`}
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                    statusFilter === tab.id
+                      ? "bg-slate-100 text-slate-700"
+                      : "bg-slate-200/70 text-slate-500"
+                  }`}
                 >
                   {tab.count}
                 </span>
@@ -1932,7 +2311,8 @@ export default function Tenants() {
 
           <div className="flex items-center gap-2 ml-auto shrink-0">
             <span className="text-xs text-slate-400 font-medium">
-              {filteredTenants.length} matching result{filteredTenants.length !== 1 ? "s" : ""}
+              {filteredTenants.length} matching result
+              {filteredTenants.length !== 1 ? "s" : ""}
             </span>
           </div>
         </div>
@@ -2007,15 +2387,21 @@ export default function Tenants() {
               <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center mb-4">
                 <RefreshCw className="w-6 h-6 text-[#125fe2] animate-spin" />
               </div>
-              <p className="text-slate-700 font-semibold text-sm">Loading tenants & subscriptions...</p>
-              <p className="text-slate-400 text-xs mt-1">Retrieving live records from database</p>
+              <p className="text-slate-700 font-semibold text-sm">
+                Loading tenants & subscriptions...
+              </p>
+              <p className="text-slate-400 text-xs mt-1">
+                Retrieving live records from database
+              </p>
             </div>
           ) : error ? (
             <div className="p-16 text-center">
               <div className="w-12 h-12 rounded-2xl bg-rose-50 flex items-center justify-center mx-auto mb-4">
                 <AlertCircle className="w-6 h-6 text-rose-500" />
               </div>
-              <p className="text-slate-800 font-semibold text-sm">Failed to load tenant data</p>
+              <p className="text-slate-800 font-semibold text-sm">
+                Failed to load tenant data
+              </p>
               <p className="text-rose-500 text-xs mt-1">{error}</p>
               <button
                 onClick={fetchTenants}
@@ -2029,9 +2415,12 @@ export default function Tenants() {
               <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3 text-slate-400">
                 <Building2 size={24} />
               </div>
-              <p className="text-slate-700 font-semibold text-sm">No tenants match your filters</p>
+              <p className="text-slate-700 font-semibold text-sm">
+                No tenants match your filters
+              </p>
               <p className="text-slate-400 text-xs mt-1 max-w-sm mx-auto">
-                Try clearing your search query or selecting a different status filter tab above.
+                Try clearing your search query or selecting a different status
+                filter tab above.
               </p>
               {hasActiveFilters && (
                 <button
@@ -2066,8 +2455,9 @@ export default function Tenants() {
                   return (
                     <tr
                       key={tenant.id}
-                      className={`hover:bg-blue-50/20 transition-colors duration-100 group ${idx % 2 === 1 ? "bg-slate-50/20" : "bg-white"
-                        }`}
+                      className={`hover:bg-blue-50/20 transition-colors duration-100 group ${
+                        idx % 2 === 1 ? "bg-slate-50/20" : "bg-white"
+                      }`}
                     >
                       {/* Organization info */}
                       <td className="py-4 px-5">
@@ -2082,7 +2472,9 @@ export default function Tenants() {
                               </p>
                             </div>
                             <p className="text-[10px] text-slate-400 font-mono mt-0.5">
-                              {tenant.subdomain ? `${tenant.subdomain}.sudoreply.com` : tenant.id?.substring(0, 14) + "…"}
+                              {tenant.subdomain
+                                ? `${tenant.subdomain}.sudoreply.com`
+                                : tenant.id?.substring(0, 14) + "…"}
                             </p>
                           </div>
                         </div>
@@ -2119,26 +2511,38 @@ export default function Tenants() {
                           <div>
                             <p className="text-xs font-semibold text-slate-700 flex items-center gap-1">
                               <Calendar size={11} className="text-slate-400" />
-                              <span>{new Date(tenant.planPeriodEnd).toLocaleDateString()}</span>
+                              <span>
+                                {new Date(
+                                  tenant.planPeriodEnd,
+                                ).toLocaleDateString()}
+                              </span>
                             </p>
                             {daysLeft !== null && (
                               <p
-                                className={`text-[10px] font-semibold mt-0.5 ${daysLeft > 10
+                                className={`text-[10px] font-semibold mt-0.5 ${
+                                  daysLeft > 10
                                     ? "text-emerald-600"
                                     : daysLeft > 0
                                       ? "text-amber-600 font-bold"
                                       : "text-rose-600 font-bold"
-                                  }`}
+                                }`}
                               >
-                                {daysLeft > 0 ? `${daysLeft} days left` : `Expired ${Math.abs(daysLeft)}d ago`}
+                                {daysLeft > 0
+                                  ? `${daysLeft} days left`
+                                  : `Expired ${Math.abs(daysLeft)}d ago`}
                               </p>
                             )}
                           </div>
                         ) : (
-                          <span className="text-[11px] text-slate-400 italic">No end date set</span>
+                          <span className="text-[11px] text-slate-400 italic">
+                            No end date set
+                          </span>
                         )}
                         {tenant.cancellationReason && (
-                          <p className="text-[9px] text-rose-500 truncate max-w-[150px] mt-0.5" title={tenant.cancellationReason}>
+                          <p
+                            className="text-[9px] text-rose-500 truncate max-w-[150px] mt-0.5"
+                            title={tenant.cancellationReason}
+                          >
                             Reason: {tenant.cancellationReason}
                           </p>
                         )}
@@ -2150,16 +2554,24 @@ export default function Tenants() {
                           <div className="flex items-center gap-1.5">
                             <Users2 size={10} className="text-slate-400" />
                             <span className="text-slate-700 font-semibold">
-                              {userCount} / {tenant.plan?.maxAgents || "∞"} users
+                              {userCount} / {tenant.plan?.maxAgents || "∞"}{" "}
+                              users
                             </span>
                           </div>
                           <div className="flex items-center gap-1.5 text-slate-500">
-                            <MessageSquare size={10} className="text-slate-400" />
-                            <span>{tenant._count?.contacts ?? "0"} contacts</span>
+                            <MessageSquare
+                              size={10}
+                              className="text-slate-400"
+                            />
+                            <span>
+                              {tenant._count?.contacts ?? "0"} contacts
+                            </span>
                           </div>
                           <div className="flex items-center gap-1.5 text-slate-500">
                             <Zap size={10} className="text-slate-400" />
-                            <span>{tenant._count?.broadcasts ?? "0"} broadcasts</span>
+                            <span>
+                              {tenant._count?.broadcasts ?? "0"} broadcasts
+                            </span>
                           </div>
                         </div>
                       </td>
@@ -2168,7 +2580,9 @@ export default function Tenants() {
                       <td className="py-4 px-5">
                         <AccountStatusBadge status={accountStatus} />
                         <p className="text-[10px] text-slate-400 mt-1">
-                          {tenant.lastLogin ? `Active ${getRelativeTime(tenant.lastLogin)}` : "No login"}
+                          {tenant.lastLogin
+                            ? `Active ${getRelativeTime(tenant.lastLogin)}`
+                            : "No login"}
                         </p>
                       </td>
 
@@ -2215,15 +2629,51 @@ export default function Tenants() {
                               setSelectedTenantForUsers(tenant);
                               setIsUsersModalOpen(true);
                             }}
-                            onExtendSub={(days) => handleQuickExtend(tenant, days)}
-                            onToggleSubPause={(action) => handleToggleSubPause(tenant, action)}
+                            onExtendSub={(days) =>
+                              handleQuickExtend(tenant, days)
+                            }
+                            onToggleSubPause={(action) =>
+                              handleToggleSubPause(tenant, action)
+                            }
                             onExpireSub={() => handleForceExpireSub(tenant)}
-                            onSuspend={() => handleToggleActivation(tenant.id, true, getName(tenant))}
-                            onActivate={() => handleToggleActivation(tenant.id, false, getName(tenant))}
-                            onApprove={() => handleStatusChange(tenant.id, "approve", getName(tenant))}
-                            onBlock={() => handleStatusChange(tenant.id, "block", getName(tenant))}
-                            onUnblock={() => handleStatusChange(tenant.id, "unblock", getName(tenant))}
-                            onDelete={() => handleDeleteTenant(tenant.id, getName(tenant))}
+                            onSuspend={() =>
+                              handleToggleActivation(
+                                tenant.id,
+                                true,
+                                getName(tenant),
+                              )
+                            }
+                            onActivate={() =>
+                              handleToggleActivation(
+                                tenant.id,
+                                false,
+                                getName(tenant),
+                              )
+                            }
+                            onApprove={() =>
+                              handleStatusChange(
+                                tenant.id,
+                                "approve",
+                                getName(tenant),
+                              )
+                            }
+                            onBlock={() =>
+                              handleStatusChange(
+                                tenant.id,
+                                "block",
+                                getName(tenant),
+                              )
+                            }
+                            onUnblock={() =>
+                              handleStatusChange(
+                                tenant.id,
+                                "unblock",
+                                getName(tenant),
+                              )
+                            }
+                            onDelete={() =>
+                              handleDeleteTenant(tenant.id, getName(tenant))
+                            }
                           />
                         </div>
                       </td>
@@ -2239,11 +2689,19 @@ export default function Tenants() {
         {filteredTenants.length > 0 && (
           <div className="px-5 py-3 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between text-xs text-slate-400">
             <p>
-              Showing <span className="font-semibold text-slate-700">{filteredTenants.length}</span> of{" "}
-              <span className="font-semibold text-slate-700">{tenants.length}</span> tenants
+              Showing{" "}
+              <span className="font-semibold text-slate-700">
+                {filteredTenants.length}
+              </span>{" "}
+              of{" "}
+              <span className="font-semibold text-slate-700">
+                {tenants.length}
+              </span>{" "}
+              tenants
             </p>
             <p>
-              Synchronized <span className="font-medium text-slate-600">just now</span>
+              Synchronized{" "}
+              <span className="font-medium text-slate-600">just now</span>
             </p>
           </div>
         )}
@@ -2274,12 +2732,26 @@ export default function Tenants() {
             setSubModalTenant(t);
           }}
           onExtendSub={(days) => handleQuickExtend(drawerTenant, days)}
-          onToggleSubPause={(action) => handleToggleSubPause(drawerTenant, action)}
+          onToggleSubPause={(action) =>
+            handleToggleSubPause(drawerTenant, action)
+          }
           onExpireSub={() => handleForceExpireSub(drawerTenant)}
-          onSuspend={() => handleToggleActivation(drawerTenant.id, true, getName(drawerTenant))}
-          onActivate={() => handleToggleActivation(drawerTenant.id, false, getName(drawerTenant))}
-          onBlock={() => handleStatusChange(drawerTenant.id, "block", getName(drawerTenant))}
-          onDelete={() => handleDeleteTenant(drawerTenant.id, getName(drawerTenant))}
+          onSuspend={() =>
+            handleToggleActivation(drawerTenant.id, true, getName(drawerTenant))
+          }
+          onActivate={() =>
+            handleToggleActivation(
+              drawerTenant.id,
+              false,
+              getName(drawerTenant),
+            )
+          }
+          onBlock={() =>
+            handleStatusChange(drawerTenant.id, "block", getName(drawerTenant))
+          }
+          onDelete={() =>
+            handleDeleteTenant(drawerTenant.id, getName(drawerTenant))
+          }
         />
       )}
 
@@ -2290,15 +2762,22 @@ export default function Tenants() {
             <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl max-w-md w-full overflow-hidden">
               <div
                 className="px-6 py-5 border-b border-slate-100 flex items-center justify-between"
-                style={{ background: "linear-gradient(135deg, rgba(18,95,226,0.06) 0%, #fff 100%)" }}
+                style={{
+                  background:
+                    "linear-gradient(135deg, rgba(18,95,226,0.06) 0%, #fff 100%)",
+                }}
               >
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#125fe2] to-blue-500 flex items-center justify-center shadow-md shadow-blue-200 text-white">
                     <Building2 size={16} />
                   </div>
                   <div>
-                    <h3 className="font-bold text-slate-900 text-sm">Onboard New Tenant</h3>
-                    <p className="text-xs text-slate-400 mt-0.5">Register a company on SudoReply</p>
+                    <h3 className="font-bold text-slate-900 text-sm">
+                      Onboard New Tenant
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Register a company on SudoReply
+                    </p>
                   </div>
                 </div>
                 <button
@@ -2360,12 +2839,17 @@ export default function Tenants() {
                       onChange={handleInputChange}
                       className="w-full text-xs px-3 py-2.5 pr-9 rounded-xl border border-slate-200 focus:outline-none focus:border-[#125fe2]"
                     />
-                    <Lock size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <Lock
+                      size={14}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+                    />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-semibold text-slate-700 block mb-1">Phone</label>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1">
+                      Phone
+                    </label>
                     <input
                       type="text"
                       name="phone"
@@ -2376,7 +2860,9 @@ export default function Tenants() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-slate-700 block mb-1">Address</label>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1">
+                      Address
+                    </label>
                     <input
                       type="text"
                       name="address"
@@ -2420,7 +2906,7 @@ export default function Tenants() {
               </form>
             </div>
           </div>,
-          document.body
+          document.body,
         )}
 
       {/* ── Edit Tenant Modal ── */}
@@ -2431,15 +2917,22 @@ export default function Tenants() {
             <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl max-w-md w-full overflow-hidden">
               <div
                 className="px-6 py-5 border-b border-slate-100 flex items-center justify-between"
-                style={{ background: "linear-gradient(135deg, rgba(18,95,226,0.06) 0%, #fff 100%)" }}
+                style={{
+                  background:
+                    "linear-gradient(135deg, rgba(18,95,226,0.06) 0%, #fff 100%)",
+                }}
               >
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-xl bg-slate-800 text-white flex items-center justify-center">
                     <Edit size={15} />
                   </div>
                   <div>
-                    <h3 className="font-bold text-slate-900 text-sm">Edit Tenant Profile</h3>
-                    <p className="text-xs text-slate-400 mt-0.5 truncate max-w-52">{editingTenant.tenantName}</p>
+                    <h3 className="font-bold text-slate-900 text-sm">
+                      Edit Tenant Profile
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5 truncate max-w-52">
+                      {editingTenant.tenantName}
+                    </p>
                   </div>
                 </div>
                 <button
@@ -2469,7 +2962,12 @@ export default function Tenants() {
                     required
                     placeholder="e.g. Acme Corp"
                     value={editingTenant.tenantName}
-                    onChange={(e) => setEditingTenant({ ...editingTenant, tenantName: e.target.value })}
+                    onChange={(e) =>
+                      setEditingTenant({
+                        ...editingTenant,
+                        tenantName: e.target.value,
+                      })
+                    }
                     className="w-full text-xs px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-[#125fe2]"
                   />
                 </div>
@@ -2482,28 +2980,47 @@ export default function Tenants() {
                     required
                     placeholder="admin@company.com"
                     value={editingTenant.email}
-                    onChange={(e) => setEditingTenant({ ...editingTenant, email: e.target.value })}
+                    onChange={(e) =>
+                      setEditingTenant({
+                        ...editingTenant,
+                        email: e.target.value,
+                      })
+                    }
                     className="w-full text-xs px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-[#125fe2]"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-semibold text-slate-700 block mb-1">Phone</label>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1">
+                      Phone
+                    </label>
                     <input
                       type="text"
                       placeholder="+91 98765 43210"
                       value={editingTenant.phone}
-                      onChange={(e) => setEditingTenant({ ...editingTenant, phone: e.target.value })}
+                      onChange={(e) =>
+                        setEditingTenant({
+                          ...editingTenant,
+                          phone: e.target.value,
+                        })
+                      }
                       className="w-full text-xs px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-[#125fe2]"
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-slate-700 block mb-1">Address</label>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1">
+                      Address
+                    </label>
                     <input
                       type="text"
                       placeholder="City, Country"
                       value={editingTenant.address}
-                      onChange={(e) => setEditingTenant({ ...editingTenant, address: e.target.value })}
+                      onChange={(e) =>
+                        setEditingTenant({
+                          ...editingTenant,
+                          address: e.target.value,
+                        })
+                      }
                       className="w-full text-xs px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-[#125fe2]"
                     />
                   </div>
@@ -2542,7 +3059,7 @@ export default function Tenants() {
               </form>
             </div>
           </div>,
-          document.body
+          document.body,
         )}
 
       {/* ── View Team Users Modal ── */}
@@ -2553,16 +3070,22 @@ export default function Tenants() {
             <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl max-w-lg w-full overflow-hidden">
               <div
                 className="px-6 py-5 border-b border-slate-100 flex items-center justify-between"
-                style={{ background: "linear-gradient(135deg, rgba(18,95,226,0.06) 0%, #fff 100%)" }}
+                style={{
+                  background:
+                    "linear-gradient(135deg, rgba(18,95,226,0.06) 0%, #fff 100%)",
+                }}
               >
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-100">
                     <Users2 size={15} />
                   </div>
                   <div>
-                    <h3 className="font-bold text-slate-900 text-sm">Tenant Team Members</h3>
+                    <h3 className="font-bold text-slate-900 text-sm">
+                      Tenant Team Members
+                    </h3>
                     <p className="text-xs text-slate-400 mt-0.5">
-                      {selectedTenantForUsers.tenantName || selectedTenantForUsers.email}
+                      {selectedTenantForUsers.tenantName ||
+                        selectedTenantForUsers.email}
                     </p>
                   </div>
                 </div>
@@ -2577,18 +3100,24 @@ export default function Tenants() {
                 </button>
               </div>
               <div className="p-5 max-h-[440px] overflow-y-auto">
-                {!selectedTenantForUsers.users || selectedTenantForUsers.users.length === 0 ? (
+                {!selectedTenantForUsers.users ||
+                selectedTenantForUsers.users.length === 0 ? (
                   <div className="py-10 text-center">
                     <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3 text-slate-300">
                       <Users2 className="w-6 h-6" />
                     </div>
-                    <p className="text-slate-700 font-semibold text-sm">No users yet</p>
-                    <p className="text-slate-400 text-xs mt-1">No additional team members registered.</p>
+                    <p className="text-slate-700 font-semibold text-sm">
+                      No users yet
+                    </p>
+                    <p className="text-slate-400 text-xs mt-1">
+                      No additional team members registered.
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-2">
                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-3">
-                      {selectedTenantForUsers.users.length} registered team members
+                      {selectedTenantForUsers.users.length} registered team
+                      members
                     </p>
                     {selectedTenantForUsers.users.map((usr) => (
                       <div
@@ -2600,16 +3129,21 @@ export default function Tenants() {
                             {getInitials(usr.name)}
                           </div>
                           <div>
-                            <p className="text-xs font-semibold text-slate-900">{usr.name}</p>
-                            <p className="text-[10px] text-slate-400">{usr.email}</p>
+                            <p className="text-xs font-semibold text-slate-900">
+                              {usr.name}
+                            </p>
+                            <p className="text-[10px] text-slate-400">
+                              {usr.email}
+                            </p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <span
-                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${usr.isActive
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                              usr.isActive
                                 ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                                 : "bg-slate-100 text-slate-600 border-slate-200"
-                              }`}
+                            }`}
                           >
                             <span
                               className={`w-1.5 h-1.5 rounded-full ${usr.isActive ? "bg-emerald-500" : "bg-slate-400"}`}
@@ -2617,11 +3151,18 @@ export default function Tenants() {
                             {usr.isActive ? "Active" : "Inactive"}
                           </span>
                           <button
-                            onClick={() => handleToggleUserActivation(usr.id, usr.isActive, usr.name)}
-                            className={`px-2.5 py-1.5 rounded-xl border text-[10px] font-semibold transition ${usr.isActive
+                            onClick={() =>
+                              handleToggleUserActivation(
+                                usr.id,
+                                usr.isActive,
+                                usr.name,
+                              )
+                            }
+                            className={`px-2.5 py-1.5 rounded-xl border text-[10px] font-semibold transition ${
+                              usr.isActive
                                 ? "bg-white hover:bg-amber-50 border-slate-200 text-amber-600 hover:border-amber-200"
                                 : "bg-white hover:bg-blue-50 border-slate-200 text-[#125fe2] hover:border-blue-200"
-                              }`}
+                            }`}
                           >
                             {usr.isActive ? "Deactivate" : "Reactivate"}
                           </button>
@@ -2644,7 +3185,7 @@ export default function Tenants() {
               </div>
             </div>
           </div>,
-          document.body
+          document.body,
         )}
     </div>
   );

@@ -1,22 +1,32 @@
 // tenant-web/src/components/calls/CallOverlay.jsx (do not remove this comment)
-import React, { useEffect, useState } from 'react';
-import { useCallStore } from '../../store/useCallStore';
-import { useWebRTC } from '../../hooks/useWebRTC';
-import api from '../../api/axios';
-import { Phone, PhoneOff, Mic, MicOff, User, Lock } from 'lucide-react';
-import { useWhatsAppStore } from '../../store/useWhatsAppStore';
-import { startRingtone, stopRingtone } from '../../lib/ringtoneService';
+import React, { useEffect, useState } from "react";
+import { useCallStore } from "../../store/useCallStore";
+import { useWebRTC } from "../../hooks/useWebRTC";
+import api from "../../api/axios";
+import { Phone, PhoneOff, Mic, MicOff, User, Lock } from "lucide-react";
+import { useWhatsAppStore } from "../../store/useWhatsAppStore";
+import { startRingtone, stopRingtone } from "../../lib/ringtoneService";
 
 export default function CallOverlay() {
   const { activeCall, updateCallStatus, clearCall } = useCallStore();
   const [isMuted, setIsMuted] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
-  
-  const { acceptIncomingCall, handleRemoteAnswer, muteMic, endCall, remoteAudioRef } = useWebRTC();
-  const phoneId = useWhatsAppStore(s => s.wabaData?.phone_numbers?.data?.[0]?.id);
 
-  const isInboundRinging = activeCall?.status === 'RINGING' && activeCall?.direction === 'USER_INITIATED';
+  const {
+    acceptIncomingCall,
+    handleRemoteAnswer,
+    muteMic,
+    endCall,
+    remoteAudioRef,
+  } = useWebRTC();
+  const phoneId = useWhatsAppStore(
+    (s) => s.wabaData?.phone_numbers?.data?.[0]?.id,
+  );
+
+  const isInboundRinging =
+    activeCall?.status === "RINGING" &&
+    activeCall?.direction === "USER_INITIATED";
 
   // Ringtone for incoming WhatsApp calls
   useEffect(() => {
@@ -40,7 +50,7 @@ export default function CallOverlay() {
   // Duration timer when call is active
   useEffect(() => {
     let interval;
-    if (activeCall?.status === 'ACCEPTED') {
+    if (activeCall?.status === "ACCEPTED") {
       interval = setInterval(() => {
         setCallDuration((prev) => prev + 1);
       }, 1000);
@@ -53,20 +63,20 @@ export default function CallOverlay() {
   const handleAccept = async () => {
     stopRingtone();
     try {
-      updateCallStatus('ACCEPTING...');
+      updateCallStatus("ACCEPTING...");
       let sdpAnswer = null;
       if (activeCall.sdpOffer) {
         sdpAnswer = await acceptIncomingCall(activeCall.sdpOffer);
       }
-      await api.post('/whatsapp/calls/accept', {
+      await api.post("/whatsapp/calls/accept", {
         wacid: activeCall.wacid,
         phoneId: phoneId,
-        ...(sdpAnswer && { sdpAnswer })
+        ...(sdpAnswer && { sdpAnswer }),
       });
-      updateCallStatus('ACCEPTED');
+      updateCallStatus("ACCEPTED");
     } catch (err) {
-      console.error('Accept error:', err);
-      updateCallStatus('FAILED');
+      console.error("Accept error:", err);
+      updateCallStatus("FAILED");
       setTimeout(clearCall, 2000);
     }
   };
@@ -74,12 +84,12 @@ export default function CallOverlay() {
   const handleReject = async () => {
     stopRingtone();
     try {
-      await api.post('/whatsapp/calls/reject', {
+      await api.post("/whatsapp/calls/reject", {
         wacid: activeCall.wacid,
-        phoneId: phoneId
+        phoneId: phoneId,
       });
     } catch (err) {
-      console.warn('Reject error:', err);
+      console.warn("Reject error:", err);
     } finally {
       clearCall();
     }
@@ -88,12 +98,12 @@ export default function CallOverlay() {
   const handleTerminate = async () => {
     stopRingtone();
     try {
-      await api.post('/whatsapp/calls/terminate', {
+      await api.post("/whatsapp/calls/terminate", {
         wacid: activeCall.wacid,
-        phoneId: phoneId
+        phoneId: phoneId,
       });
     } catch (err) {
-      console.warn('Terminate error:', err);
+      console.warn("Terminate error:", err);
     } finally {
       endCall();
       clearCall();
@@ -107,25 +117,35 @@ export default function CallOverlay() {
   };
 
   const formatDuration = (seconds) => {
-    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
-    const s = (seconds % 60).toString().padStart(2, '0');
+    const m = Math.floor(seconds / 60)
+      .toString()
+      .padStart(2, "0");
+    const s = (seconds % 60).toString().padStart(2, "0");
     return `${m}:${s}`;
   };
 
   if (!activeCall) return null;
 
-  const isOutboundDialing = ['DIALING', 'RINGING', 'CONNECTING'].includes(activeCall.status) && activeCall.direction === 'BUSINESS_INITIATED';
-  const isDeclined = activeCall.status === 'REJECTED';
-  const isEnded = ['COMPLETED', 'TERMINATED', 'ENDED'].includes(activeCall.status);
-  const isFailed = activeCall.status === 'FAILED';
-  const isAccepted = activeCall.status === 'ACCEPTED';
+  const isOutboundDialing =
+    ["DIALING", "RINGING", "CONNECTING"].includes(activeCall.status) &&
+    activeCall.direction === "BUSINESS_INITIATED";
+  const isDeclined = activeCall.status === "REJECTED";
+  const isEnded = ["COMPLETED", "TERMINATED", "ENDED"].includes(
+    activeCall.status,
+  );
+  const isFailed = activeCall.status === "FAILED";
+  const isAccepted = activeCall.status === "ACCEPTED";
 
-  const displayName = activeCall.name || activeCall.fromNumber || activeCall.contactId || 'WhatsApp User';
-  const displaySubtitle = activeCall.name && activeCall.fromNumber ? activeCall.fromNumber : null;
+  const displayName =
+    activeCall.name ||
+    activeCall.fromNumber ||
+    activeCall.contactId ||
+    "WhatsApp User";
+  const displaySubtitle =
+    activeCall.name && activeCall.fromNumber ? activeCall.fromNumber : null;
 
   return (
     <div className="fixed bottom-6 right-6 w-[340px] bg-[#111b21] rounded-2xl shadow-2xl overflow-hidden z-[9999] border border-[#222e35] text-[#e9edef] animate-in slide-in-from-bottom-6 duration-300 font-sans select-none">
-      
       {/* Hidden WebRTC Audio Output Element */}
       <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
 
@@ -147,7 +167,11 @@ export default function CallOverlay() {
           )}
           <div className="w-20 h-20 rounded-full bg-[#202c33] border-2 border-[#2a3942] flex items-center justify-center shadow-lg relative z-10 overflow-hidden">
             {activeCall.avatar ? (
-              <img src={activeCall.avatar} alt={displayName} className="w-full h-full object-cover" />
+              <img
+                src={activeCall.avatar}
+                alt={displayName}
+                className="w-full h-full object-cover"
+              />
             ) : (
               <User className="w-10 h-10 text-[#8696a0]" />
             )}
@@ -196,9 +220,7 @@ export default function CallOverlay() {
           )}
 
           {isEnded && (
-            <span className="text-xs text-[#8696a0]">
-              Call Ended
-            </span>
+            <span className="text-xs text-[#8696a0]">Call Ended</span>
           )}
 
           {isFailed && (
@@ -239,12 +261,16 @@ export default function CallOverlay() {
               disabled={!isAccepted}
               className={`w-12 h-12 rounded-full transition-all flex items-center justify-center cursor-pointer ${
                 isMuted
-                  ? 'bg-[#ea4335] text-white shadow-md'
-                  : 'bg-[#202c33] hover:bg-[#2a3942] text-[#e9edef]'
-              } ${!isAccepted ? 'opacity-40 cursor-not-allowed' : ''}`}
-              title={isMuted ? 'Unmute' : 'Mute'}
+                  ? "bg-[#ea4335] text-white shadow-md"
+                  : "bg-[#202c33] hover:bg-[#2a3942] text-[#e9edef]"
+              } ${!isAccepted ? "opacity-40 cursor-not-allowed" : ""}`}
+              title={isMuted ? "Unmute" : "Mute"}
             >
-              {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+              {isMuted ? (
+                <MicOff className="w-5 h-5" />
+              ) : (
+                <Mic className="w-5 h-5" />
+              )}
             </button>
 
             {/* End Call Button */}
@@ -258,7 +284,6 @@ export default function CallOverlay() {
           </>
         )}
       </div>
-
     </div>
   );
 }

@@ -1,6 +1,6 @@
 // backend/src/modules/public/public.routes.js (do not remove this comment)
-import express from 'express';
-import { getPublicGSTSettings } from '../superadmin/superadmin.controller.js';
+import express from "express";
+import { getPublicGSTSettings } from "../superadmin/superadmin.controller.js";
 
 const router = express.Router();
 
@@ -10,7 +10,7 @@ const router = express.Router();
 // ══════════════════════════════════════════
 
 // ── GST / Tax Settings (for checkout) ──
-router.get('/settings/tax/public', getPublicGSTSettings);
+router.get("/settings/tax/public", getPublicGSTSettings);
 
 // ── Add more public routes here in future ──
 // router.get('/company-info', getCompanyInfo);
