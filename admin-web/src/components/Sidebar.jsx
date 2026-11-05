@@ -118,14 +118,19 @@ export default function Sidebar({ userRole = "Super Admin" }) {
       end={item.end}
       className={({ isActive }) =>
         `group relative flex items-center gap-3 rounded-[10px] px-4 py-3 text-sm font-medium transition-all duration-200
-        ${isActive
-          ? "bg-[#125EF2] text-white font-semibold shadow-md shadow-blue-500/20"
-          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+        ${
+          isActive
+            ? "bg-[#125EF2] text-white font-semibold shadow-md shadow-blue-500/20"
+            : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
         } ${collapsed ? "justify-center px-3" : ""}`
       }
     >
-      <span className="flex items-center justify-center w-5 min-w-[20px] h-5">{item.icon}</span>
-      <span className={`transition-all duration-200 ${collapsed ? "opacity-0 w-0 overflow-hidden absolute" : "opacity-100"}`}>
+      <span className="flex items-center justify-center w-5 min-w-[20px] h-5">
+        {item.icon}
+      </span>
+      <span
+        className={`transition-all duration-200 ${collapsed ? "opacity-0 w-0 overflow-hidden absolute" : "opacity-100"}`}
+      >
         {item.label}
       </span>
       {/* Tooltip when collapsed */}
@@ -178,14 +183,18 @@ export default function Sidebar({ userRole = "Super Admin" }) {
         </button>
 
         {/* ── Brand / Logo Area ── */}
-        <div className={`flex items-center justify-between px-4 py-5 min-h-[64px] ${collapsed ? "justify-center px-2" : ""}`}>
+        <div
+          className={`flex items-center justify-between px-4 py-5 min-h-[64px] ${collapsed ? "justify-center px-2" : ""}`}
+        >
           <div className="flex items-center gap-2.5 overflow-hidden whitespace-nowrap">
             <img
               src="/sudo_bg.png"
               alt="SudoReply Logo"
               className="h-8 w-8 min-w-[32px] rounded-lg object-contain"
             />
-            <span className={`text-lg font-bold text-slate-800 tracking-tight transition-all duration-200 ${collapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"}`}>
+            <span
+              className={`text-lg font-bold text-slate-800 tracking-tight transition-all duration-200 ${collapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"}`}
+            >
               SudoReply
             </span>
           </div>
@@ -208,9 +217,13 @@ export default function Sidebar({ userRole = "Super Admin" }) {
           {/* ── Other Section ── */}
           {otherMenu.length > 0 && (
             <>
-              <div className={`my-2 h-px bg-slate-200 ${collapsed ? "mx-2" : "mx-4"}`} />
+              <div
+                className={`my-2 h-px bg-slate-200 ${collapsed ? "mx-2" : "mx-4"}`}
+              />
               {!collapsed ? (
-                <p className="text-[11px] font-semibold uppercase text-slate-400 tracking-[0.5px] px-4 pt-1 pb-2">System</p>
+                <p className="text-[11px] font-semibold uppercase text-slate-400 tracking-[0.5px] px-4 pt-1 pb-2">
+                  System
+                </p>
               ) : (
                 <div className="hidden md:block mx-auto my-2 w-5 h-px bg-slate-200" />
               )}
@@ -223,7 +236,9 @@ export default function Sidebar({ userRole = "Super Admin" }) {
 
         {/* ── Footer ── */}
         <div className="border-t border-slate-100 py-3 px-4 text-center">
-          <p className={`text-[11px] text-slate-400 font-medium transition-all duration-200 ${collapsed ? "text-[9px]" : ""}`}>
+          <p
+            className={`text-[11px] text-slate-400 font-medium transition-all duration-200 ${collapsed ? "text-[9px]" : ""}`}
+          >
             {collapsed ? "v1.0" : "sudoreply v1.0.0"}
           </p>
         </div>

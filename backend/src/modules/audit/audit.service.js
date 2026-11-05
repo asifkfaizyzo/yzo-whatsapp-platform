@@ -1,11 +1,10 @@
 // backend/src/modules/audit/audit.service.js (do not remove this comment)
-import prisma from '../../config/prisma.js';
+import prisma from "../../config/prisma.js";
 
 // ─────────────────────────────────────────
 // HOW MANY DAYS TO KEEP LOGS
 // ─────────────────────────────────────────
 const RETENTION_DAYS = 90;
-
 
 // ─────────────────────────────────────────
 // CREATE AUDIT LOG
@@ -19,16 +18,17 @@ export const createAuditLog = async ({
   action,
   module,
   description,
-  targetId   = null,
+  targetId = null,
   targetType = null,
   targetName = null,
-  ipAddress  = null,
-  userAgent  = null,
-  metadata   = null,
-  tenantId   = null,
+  ipAddress = null,
+  userAgent = null,
+  metadata = null,
+  tenantId = null,
 }) => {
   try {
-    const log = await prisma.auditLog.create({  // ← added return
+    const log = await prisma.auditLog.create({
+      // ← added return
       data: {
         actorId,
         actorType,
@@ -48,15 +48,13 @@ export const createAuditLog = async ({
     });
 
     return log; // ← return so callers can confirm it was saved
-
   } catch (error) {
     // ⚠️ Never crash the main flow because of audit log failure
-    console.error('[AuditLog] Failed to write log:', error.message);
-    console.error('[AuditLog] Action:', action, '| Actor:', actorId); // ← better debug info
+    console.error("[AuditLog] Failed to write log:", error.message);
+    console.error("[AuditLog] Action:", action, "| Actor:", actorId); // ← better debug info
     return null; // ← explicit null so callers can check if needed
   }
 };
-
 
 // ─────────────────────────────────────────
 // GET AUDIT LOGS
@@ -71,17 +69,17 @@ export const getAuditLogsService = async (filters = {}) => {
     search,
     dateFrom,
     dateTo,
-    page  = 1,
+    page = 1,
     limit = 20,
   } = filters;
 
   // ── Build filter conditions ──
   const where = {};
 
-  if (actorType && actorType !== 'ALL') where.actorType = actorType;
-  if (action    && action    !== 'ALL') where.action    = action;
-  if (module    && module    !== 'ALL') where.module    = module;
-  if (tenantId)                         where.tenantId  = tenantId;
+  if (actorType && actorType !== "ALL") where.actorType = actorType;
+  if (action && action !== "ALL") where.action = action;
+  if (module && module !== "ALL") where.module = module;
+  if (tenantId) where.tenantId = tenantId;
 
   // Date range filter
   if (dateFrom || dateTo) {
@@ -97,10 +95,10 @@ export const getAuditLogsService = async (filters = {}) => {
   // Search filter
   if (search) {
     where.OR = [
-      { actorName:   { contains: search, mode: 'insensitive' } },
-      { actorEmail:  { contains: search, mode: 'insensitive' } },
-      { description: { contains: search, mode: 'insensitive' } },
-      { targetName:  { contains: search, mode: 'insensitive' } },
+      { actorName: { contains: search, mode: "insensitive" } },
+      { actorEmail: { contains: search, mode: "insensitive" } },
+      { description: { contains: search, mode: "insensitive" } },
+      { targetName: { contains: search, mode: "insensitive" } },
     ];
   }
 
@@ -110,15 +108,15 @@ export const getAuditLogsService = async (filters = {}) => {
   const [logs, total] = await Promise.all([
     prisma.auditLog.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       skip,
       take: Number(limit),
       include: {
         tenant: {
           select: {
-            id:         true,
+            id: true,
             tenantName: true,
-            email:      true,
+            email: true,
           },
         },
       },
@@ -130,73 +128,64 @@ export const getAuditLogsService = async (filters = {}) => {
     logs,
     pagination: {
       total,
-      page:       Number(page),
-      limit:      Number(limit),
+      page: Number(page),
+      limit: Number(limit),
       totalPages: Math.ceil(total / Number(limit)),
     },
   };
 };
-
 
 // ─────────────────────────────────────────
 // GET AUDIT LOG STATS
 // For the stats strip on top of the page
 // ─────────────────────────────────────────
 export const getAuditLogStatsService = async () => {
-  const now       = new Date();
-  const last24h   = new Date(now - 24 * 60 * 60 * 1000);
+  const now = new Date();
+  const last24h = new Date(now - 24 * 60 * 60 * 1000);
   const last7days = new Date(now - 7 * 24 * 60 * 60 * 1000);
 
-  const [
-    total,
-    last24hCount,
-    last7daysCount,
-    failedLogins24h,
-    byModule,
-  ] = await Promise.all([
+  const [total, last24hCount, last7daysCount, failedLogins24h, byModule] =
+    await Promise.all([
+      // Total logs
+      prisma.auditLog.count(),
 
-    // Total logs
-    prisma.auditLog.count(),
+      // Last 24 hours
+      prisma.auditLog.count({
+        where: { createdAt: { gte: last24h } },
+      }),
 
-    // Last 24 hours
-    prisma.auditLog.count({
-      where: { createdAt: { gte: last24h } },
-    }),
+      // Last 7 days
+      prisma.auditLog.count({
+        where: { createdAt: { gte: last7days } },
+      }),
 
-    // Last 7 days
-    prisma.auditLog.count({
-      where: { createdAt: { gte: last7days } },
-    }),
+      // Failed logins in last 24h (security alert)
+      prisma.auditLog.count({
+        where: {
+          action: "LOGIN_FAILED",
+          createdAt: { gte: last24h },
+        },
+      }),
 
-    // Failed logins in last 24h (security alert)
-    prisma.auditLog.count({
-      where: {
-        action:    'LOGIN_FAILED',
-        createdAt: { gte: last24h },
-      },
-    }),
-
-    // Count by module
-    prisma.auditLog.groupBy({
-      by:      ['module'],
-      _count:  { module: true },
-      orderBy: { _count: { module: 'desc' } },
-    }),
-
-  ]);
+      // Count by module
+      prisma.auditLog.groupBy({
+        by: ["module"],
+        _count: { module: true },
+        orderBy: { _count: { module: "desc" } },
+      }),
+    ]);
 
   return {
     total,
     last24hCount,
     last7daysCount,
     failedLogins24h,
-    byModule: byModule.map(m => ({
+    byModule: byModule.map((m) => ({
       module: m.module,
-      count:  m._count.module,
+      count: m._count.module,
     })),
   };
 };
-
 
 // ─────────────────────────────────────────
 // CLEANUP OLD AUDIT LOGS
@@ -210,36 +199,38 @@ export const cleanupOldAuditLogsService = async () => {
   const result = await prisma.auditLog.deleteMany({
     where: {
       createdAt: { lt: cutoffDate },
-      action:    { not: 'SYSTEM_CLEANUP' },
+      action: { not: "SYSTEM_CLEANUP" },
     },
   });
 
-  console.log(`[AuditCleanup] Deleted ${result.count} logs older than ${RETENTION_DAYS} days`);
+  console.log(
+    `[AuditCleanup] Deleted ${result.count} logs older than ${RETENTION_DAYS} days`,
+  );
 
   // 2️⃣ Write SYSTEM_CLEANUP audit log — only if something was deleted
   if (result.count > 0) {
     await createAuditLog({
-      actorId:     'SYSTEM',
-      actorType:   'SUPER_ADMIN', // fallback until SYSTEM added to enum
-      actorName:   'Automated System',
-      actorEmail:  'system@platform.internal',
-      action:      'SYSTEM_CLEANUP',
-      module:      'SYSTEM',
+      actorId: "SYSTEM",
+      actorType: "SUPER_ADMIN", // fallback until SYSTEM added to enum
+      actorName: "Automated System",
+      actorEmail: "system@platform.internal",
+      action: "SYSTEM_CLEANUP",
+      module: "SYSTEM",
       description: `Automated cleanup deleted ${result.count} audit logs older than ${RETENTION_DAYS} days`,
-      tenantId:    null,
+      tenantId: null,
       metadata: {
-        deletedCount:  result.count,
+        deletedCount: result.count,
         retentionDays: RETENTION_DAYS,
-        cutoffDate:    cutoffDate.toISOString(),
-        runAt:         new Date().toISOString(),
+        cutoffDate: cutoffDate.toISOString(),
+        runAt: new Date().toISOString(),
       },
     });
   } else {
-    console.log('[AuditCleanup] No old logs to delete — skipping audit entry');
+    console.log("[AuditCleanup] No old logs to delete — skipping audit entry");
   }
 
   return {
-    deletedCount:  result.count,
+    deletedCount: result.count,
     cutoffDate,
     retentionDays: RETENTION_DAYS,
   };

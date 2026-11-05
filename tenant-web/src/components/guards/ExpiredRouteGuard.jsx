@@ -8,11 +8,11 @@ import { useConfirm } from "../../context/ConfirmContext";
 import { useToast } from "../../context/ToastContext";
 
 const ALLOWED_ROUTES = [
-  '/settings/billing',
-  '/dashboard/billing',
-  '/plans',
-  '/account',
-  '/support'
+  "/settings/billing",
+  "/dashboard/billing",
+  "/plans",
+  "/account",
+  "/support",
 ];
 
 export default function ExpiredRouteGuard({ children }) {
@@ -27,7 +27,8 @@ export default function ExpiredRouteGuard({ children }) {
   const fetchStatus = async () => {
     try {
       const res = await api.get("/billing");
-      const { subscriptionStatus, planPeriodEnd, dataDeletionDate } = res.data.data;
+      const { subscriptionStatus, planPeriodEnd, dataDeletionDate } =
+        res.data.data;
       setSubStatus(subscriptionStatus);
       setPlanEnd(planPeriodEnd);
       setDeletionDate(dataDeletionDate);
@@ -46,7 +47,8 @@ export default function ExpiredRouteGuard({ children }) {
     const ok = await confirm({
       type: "info",
       title: "Reactivate Subscription?",
-      message: "This will cancel your scheduled termination and keep your plan active.",
+      message:
+        "This will cancel your scheduled termination and keep your plan active.",
       confirmLabel: "Reactivate",
     });
     if (!ok) return;
@@ -72,19 +74,23 @@ export default function ExpiredRouteGuard({ children }) {
 
   // Paused tenants are allowed to browse their dashboard in read-only/paused state without hard redirect
 
-  if (subStatus === 'payment_failed') {
-    const isAllowed = ALLOWED_ROUTES.some(route => currentPath.startsWith(route));
+  if (subStatus === "payment_failed") {
+    const isAllowed = ALLOWED_ROUTES.some((route) =>
+      currentPath.startsWith(route),
+    );
     if (!isAllowed) {
       return <Navigate to="/dashboard/billing?reason=payment_failed" replace />;
     }
   }
 
-  if (subStatus === 'expired') {
-    const isAllowed = ALLOWED_ROUTES.some(route => currentPath.startsWith(route));
+  if (subStatus === "expired") {
+    const isAllowed = ALLOWED_ROUTES.some((route) =>
+      currentPath.startsWith(route),
+    );
     if (!isAllowed) {
       return <Navigate to="/plans" replace />;
     }
   }
 
   return children;
-}
+}

@@ -1,7 +1,11 @@
 // backend/src/modules/orders/order.controller.js (do not remove this comment)
-import prisma from '../../config/prisma.js';
-import { resendOrderPaymentLink, initiateRefund, cancelOrderPaymentLink } from './order.payment.service.js';
-import flowEngine from '../automation/flowEngine.service.js';
+import prisma from "../../config/prisma.js";
+import {
+  resendOrderPaymentLink,
+  initiateRefund,
+  cancelOrderPaymentLink,
+} from "./order.payment.service.js";
+import flowEngine from "../automation/flowEngine.service.js";
 
 export const getOrders = async (req, res) => {
   try {
@@ -16,9 +20,9 @@ export const getOrders = async (req, res) => {
     if (paymentStatus) where.paymentStatus = paymentStatus;
     if (search) {
       where.OR = [
-        { orderNumber: { contains: search, mode: 'insensitive' } },
-        { contact: { name: { contains: search, mode: 'insensitive' } } },
-        { contact: { phone: { contains: search, mode: 'insensitive' } } },
+        { orderNumber: { contains: search, mode: "insensitive" } },
+        { contact: { name: { contains: search, mode: "insensitive" } } },
+        { contact: { phone: { contains: search, mode: "insensitive" } } },
       ];
     }
 
@@ -27,13 +31,13 @@ export const getOrders = async (req, res) => {
         where,
         skip,
         take,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         include: {
           contact: {
-            select: { id: true, name: true, phone: true }
+            select: { id: true, name: true, phone: true },
           },
           items: true,
-        }
+        },
       }),
       prisma.order.count({ where }),
     ]);
@@ -47,8 +51,8 @@ export const getOrders = async (req, res) => {
           page: Number(page),
           limit: Number(limit),
           pages: Math.ceil(total / Number(limit)),
-        }
-      }
+        },
+      },
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
@@ -66,11 +70,13 @@ export const getOrderById = async (req, res) => {
         contact: true,
         items: true,
         conversation: true,
-      }
+      },
     });
 
     if (!order) {
-      return res.status(404).json({ success: false, message: 'Order not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Order not found" });
     }
 
     return res.status(200).json({ success: true, data: order });
@@ -89,25 +95,35 @@ export const resendPaymentLinkHandler = async (req, res) => {
     // Send WhatsApp interactive payment CTA to customer if contact phone exists
     if (result.order?.contact?.phone) {
       const payBody = `💳 *Payment Link for Order #${result.order.orderNumber}*\n\n💰 Total Amount: *${result.order.currency} ${Number(result.order.totalAmount).toFixed(2)}*\n\nPlease tap the button below to complete your payment:`;
-      await flowEngine.sendWhatsAppPaymentCTA(tenantId, result.order.contact.phone, {
-        headerText: '💳 Complete Payment',
-        bodyText: payBody,
-        buttonText: 'Pay Now',
-        url: result.paymentLink.short_url,
-      });
+      await flowEngine.sendWhatsAppPaymentCTA(
+        tenantId,
+        result.order.contact.phone,
+        {
+          headerText: "💳 Complete Payment",
+          bodyText: payBody,
+          buttonText: "Pay Now",
+          url: result.paymentLink.short_url,
+        },
+      );
 
       if (result.order.conversationId) {
         await flowEngine.saveBotMessage(result.order.conversationId, payBody, {
-          type: 'TEXT',
-          buttons: [{ id: 'pay_now', title: 'Pay Now', url: result.paymentLink.short_url }]
+          type: "TEXT",
+          buttons: [
+            {
+              id: "pay_now",
+              title: "Pay Now",
+              url: result.paymentLink.short_url,
+            },
+          ],
         });
       }
     }
 
     return res.status(200).json({
       success: true,
-      message: 'Payment link generated and sent to customer',
-      data: result
+      message: "Payment link generated and sent to customer",
+      data: result,
     });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
@@ -124,8 +140,8 @@ export const refundOrderHandler = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Refund initiated successfully',
-      data: result
+      message: "Refund initiated successfully",
+      data: result,
     });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
@@ -141,8 +157,8 @@ export const cancelOrderPaymentLinkHandler = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Payment link cancelled successfully',
-      data: result
+      message: "Payment link cancelled successfully",
+      data: result,
     });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });

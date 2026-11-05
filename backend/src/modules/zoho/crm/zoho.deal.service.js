@@ -1,10 +1,10 @@
 // backend/src/modules/zoho/crm/zoho.deal.service.js (do not remove this comment)
 
-import prisma from '../../../config/prisma.js';
-import { zohoRequest } from '../zoho.client.js';
-import { hasZohoFeature } from '../zoho.plan.service.js';
-import { getTenantZohoPreferences } from './zoho.contact.service.js';
-import { redisConnection } from '../../../config/redis.js';
+import prisma from "../../../config/prisma.js";
+import { zohoRequest } from "../zoho.client.js";
+import { hasZohoFeature } from "../zoho.plan.service.js";
+import { getTenantZohoPreferences } from "./zoho.contact.service.js";
+import { redisConnection } from "../../../config/redis.js";
 
 const SYNC_LOCK_TTL = 30;
 
@@ -18,19 +18,20 @@ export async function createZohoDealFromOrder(tenantId, order, contact) {
       select: { zoho: { select: { zohoConnectionStatus: true } } },
     });
 
-    if (!tenant || tenant.zoho?.zohoConnectionStatus !== 'CONNECTED') {      return;
+    if (!tenant || tenant.zoho?.zohoConnectionStatus !== "CONNECTED") {
+      return;
     }
 
     const prefs = await getTenantZohoPreferences(tenantId);
     if (!prefs.createDealsOnOrders) return;
 
-    const canCreate = await hasZohoFeature(tenantId, 'deals');
+    const canCreate = await hasZohoFeature(tenantId, "deals");
     if (!canCreate) return;
 
     const mapping = await prisma.contactProviderMapping.findFirst({
       where: {
         contactId: contact.id,
-        provider: { in: ['ZOHO', 'ZOHO_LEAD'] },
+        provider: { in: ["ZOHO", "ZOHO_LEAD"] },
       },
     });
 
@@ -42,13 +43,13 @@ export async function createZohoDealFromOrder(tenantId, order, contact) {
     const dealPayload = {
       Deal_Name: dealName,
       Amount: amount,
-      Stage: 'Qualification',
-      Lead_Source: 'WhatsApp',
+      Stage: "Qualification",
+      Lead_Source: "WhatsApp",
       Description: buildDealDescription(order),
       Closing_Date: getClosingDate(7),
     };
 
-    if (mapping.provider === 'ZOHO_LEAD') {
+    if (mapping.provider === "ZOHO_LEAD") {
       dealPayload.Contact_Name = mapping.providerContactId;
     } else {
       dealPayload.Contact_Name = mapping.providerContactId;
@@ -56,11 +57,11 @@ export async function createZohoDealFromOrder(tenantId, order, contact) {
 
     // Lock key for deals
     const lockKeyDeal = `zoho_sync_lock_deal:${order.id}`;
-    await redisConnection.set(lockKeyDeal, '1', 'EX', SYNC_LOCK_TTL);
+    await redisConnection.set(lockKeyDeal, "1", "EX", SYNC_LOCK_TTL);
 
     const response = await zohoRequest(tenantId, {
-      method: 'POST',
-      url: '/crm/v7/Deals',
+      method: "POST",
+      url: "/crm/v7/Deals",
       data: {
         data: [dealPayload],
       },
@@ -68,14 +69,16 @@ export async function createZohoDealFromOrder(tenantId, order, contact) {
 
     const result = response?.data?.[0];
 
-    if (result && result.code === 'SUCCESS' && result.details?.id) {
-      console.log(`💰 [ZohoDeal] Created Deal "${dealName}" (${result.details.id})`);
+    if (result && result.code === "SUCCESS" && result.details?.id) {
+      console.log(
+        `💰 [ZohoDeal] Created Deal "${dealName}" (${result.details.id})`,
+      );
 
       await prisma.contactProviderMapping.upsert({
         where: {
           contactId_provider: {
             contactId: contact.id,
-            provider: 'ZOHO_DEAL',
+            provider: "ZOHO_DEAL",
           },
         },
         update: {
@@ -86,7 +89,7 @@ export async function createZohoDealFromOrder(tenantId, order, contact) {
         create: {
           tenantId,
           contactId: contact.id,
-          provider: 'ZOHO_DEAL',
+          provider: "ZOHO_DEAL",
           providerContactId: result.details.id,
           lastSyncedAt: new Date(),
           metadata: { orderNumber: order.orderNumber, orderId: order.id },
@@ -94,7 +97,10 @@ export async function createZohoDealFromOrder(tenantId, order, contact) {
       });
     }
   } catch (error) {
-    console.error(`❌ [ZohoDeal] Failed for order ${order.orderNumber}:`, error.response?.data || error.message);
+    console.error(
+      `❌ [ZohoDeal] Failed for order ${order.orderNumber}:`,
+      error.response?.data || error.message,
+    );
   }
 }
 
@@ -108,57 +114,59 @@ export async function updateZohoDealStage(tenantId, orderId, paymentStatus) {
       select: { zoho: { select: { zohoConnectionStatus: true } } },
     });
 
-    if (!tenant || tenant.zoho?.zohoConnectionStatus !== 'CONNECTED') {
+    if (!tenant || tenant.zoho?.zohoConnectionStatus !== "CONNECTED") {
       return;
     }
 
     const prefs = await getTenantZohoPreferences(tenantId);
     if (!prefs.createDealsOnOrders) return;
 
-    const canUpdate = await hasZohoFeature(tenantId, 'deals');
+    const canUpdate = await hasZohoFeature(tenantId, "deals");
     if (!canUpdate) return;
 
     const mapping = await prisma.contactProviderMapping.findFirst({
       where: {
         tenantId,
-        provider: 'ZOHO_DEAL',
-        metadata: { path: ['orderId'], equals: orderId },
+        provider: "ZOHO_DEAL",
+        metadata: { path: ["orderId"], equals: orderId },
       },
     });
 
     if (!mapping) return;
 
     const stageMap = {
-      PAID: 'Closed Won',
-      UNPAID: 'Qualification',
-      PROCESSING: 'Negotiation',
-      FAILED: 'Closed Lost',
-      REFUNDED: 'Closed Lost',
-      CANCELLED: 'Closed Lost',
-      EXPIRED: 'Closed Lost',
+      PAID: "Closed Won",
+      UNPAID: "Qualification",
+      PROCESSING: "Negotiation",
+      FAILED: "Closed Lost",
+      REFUNDED: "Closed Lost",
+      CANCELLED: "Closed Lost",
+      EXPIRED: "Closed Lost",
     };
 
     const newStage = stageMap[paymentStatus];
     if (!newStage) return;
 
     await zohoRequest(tenantId, {
-      method: 'PUT',
+      method: "PUT",
       url: `/crm/v7/Deals/${mapping.providerContactId}`,
       data: {
         data: [{ Stage: newStage }],
       },
     });
 
-    console.log(`💰 [ZohoDeal] Updated Deal stage to "${newStage}" for order ${orderId}`);
+    console.log(
+      `💰 [ZohoDeal] Updated Deal stage to "${newStage}" for order ${orderId}`,
+    );
   } catch (error) {
     console.error(`❌ [ZohoDeal] Stage update failed:`, error.message);
   }
 }
 
 function buildDealDescription(order) {
-  let desc = `Order placed via WhatsApp on ${new Date().toLocaleDateString('en-IN')}\n\n`;
+  let desc = `Order placed via WhatsApp on ${new Date().toLocaleDateString("en-IN")}\n\n`;
   desc += `Order Number: ${order.orderNumber}\n`;
-  desc += `Total Amount: ${order.currency || 'INR'} ${Number(order.totalAmount).toFixed(2)}\n`;
+  desc += `Total Amount: ${order.currency || "INR"} ${Number(order.totalAmount).toFixed(2)}\n`;
   if (order.customerNote) desc += `Customer Note: ${order.customerNote}\n`;
   if (order.items && order.items.length > 0) {
     desc += `\nItems:\n`;
@@ -172,5 +180,5 @@ function buildDealDescription(order) {
 function getClosingDate(daysFromNow) {
   const d = new Date();
   d.setDate(d.getDate() + daysFromNow);
-  return d.toISOString().split('T')[0];
+  return d.toISOString().split("T")[0];
 }

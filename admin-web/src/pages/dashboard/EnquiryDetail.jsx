@@ -1,7 +1,16 @@
 // admin-web/src/pages/dashboard/EnquiryDetail.jsx (do not remove this comment)
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { ArrowLeft, Mail, Trash2, Calendar, User, Tag, FileText, Check } from "lucide-react";
+import {
+  ArrowLeft,
+  Mail,
+  Trash2,
+  Calendar,
+  User,
+  Tag,
+  FileText,
+  Check,
+} from "lucide-react";
 import api from "../../api/axios";
 
 export default function EnquiryDetail() {
@@ -26,7 +35,9 @@ export default function EnquiryDetail() {
       }
     } catch (err) {
       console.error("Error loading enquiry details:", err);
-      setError(err.response?.data?.message || "Failed to load enquiry details.");
+      setError(
+        err.response?.data?.message || "Failed to load enquiry details.",
+      );
     } finally {
       setLoading(false);
     }
@@ -39,7 +50,9 @@ export default function EnquiryDetail() {
   const handleStatusChange = async (newStatus) => {
     setUpdating(true);
     try {
-      const response = await api.patch(`/admin/enquiries/${id}/status`, { status: newStatus });
+      const response = await api.patch(`/admin/enquiries/${id}/status`, {
+        status: newStatus,
+      });
       if (response.data.success) {
         setEnquiry(response.data.data);
       }
@@ -77,8 +90,13 @@ export default function EnquiryDetail() {
       <div className="max-w-md mx-auto text-center py-20 space-y-4">
         <span className="text-4xl">⚠️</span>
         <h3 className="text-lg font-bold text-slate-700">Failed to load</h3>
-        <p className="text-sm text-slate-500">{error || "Enquiry not found."}</p>
-        <Link to="/dashboard/enquiries" className="inline-block bg-[#125EF2] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-blue-600 transition">
+        <p className="text-sm text-slate-500">
+          {error || "Enquiry not found."}
+        </p>
+        <Link
+          to="/dashboard/enquiries"
+          className="inline-block bg-[#125EF2] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-blue-600 transition"
+        >
           Back to Enquiries
         </Link>
       </div>
@@ -89,7 +107,10 @@ export default function EnquiryDetail() {
     <div className="space-y-6 max-w-4xl mx-auto animate-in fade-in duration-200">
       {/* Back link */}
       <div>
-        <Link to="/dashboard/enquiries" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 font-medium">
+        <Link
+          to="/dashboard/enquiries"
+          className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 font-medium"
+        >
           <ArrowLeft size={16} />
           <span>Back to Enquiries</span>
         </Link>
@@ -97,11 +118,12 @@ export default function EnquiryDetail() {
 
       {/* Detail Card */}
       <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden grid md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-slate-100">
-        
         {/* Left Side: Summary & Actions */}
         <div className="p-6 md:p-8 space-y-6 md:col-span-1">
           <div>
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Enquiry Meta</span>
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
+              Enquiry Meta
+            </span>
             <div className="mt-4 space-y-4">
               {/* Date */}
               <div className="flex gap-3 text-sm">
@@ -144,7 +166,9 @@ export default function EnquiryDetail() {
             {/* Reply Button */}
             <a
               href={`mailto:${enquiry.email}?subject=${encodeURIComponent(
-                enquiry.subject ? `Re: ${enquiry.subject}` : "Response from SudoReply"
+                enquiry.subject
+                  ? `Re: ${enquiry.subject}`
+                  : "Response from SudoReply",
               )}`}
               className="inline-flex items-center justify-center gap-2 w-full px-4 py-3 bg-[#125EF2] hover:bg-blue-600 text-white font-bold rounded-xl text-sm transition shadow-md hover:shadow-lg"
             >
@@ -172,9 +196,16 @@ export default function EnquiryDetail() {
                 {enquiry.name.charAt(0).toUpperCase()}
               </div>
               <div>
-                <h2 className="text-xl font-bold text-slate-900">{enquiry.name}</h2>
+                <h2 className="text-xl font-bold text-slate-900">
+                  {enquiry.name}
+                </h2>
                 <p className="text-sm text-slate-500 mt-0.5">
-                  <a href={`mailto:${enquiry.email}`} className="hover:underline text-blue-600">{enquiry.email}</a>
+                  <a
+                    href={`mailto:${enquiry.email}`}
+                    className="hover:underline text-blue-600"
+                  >
+                    {enquiry.email}
+                  </a>
                 </p>
               </div>
             </div>
@@ -182,15 +213,23 @@ export default function EnquiryDetail() {
 
           {/* Subject */}
           <div className="space-y-1.5">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Subject</span>
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
+              Subject
+            </span>
             <p className="text-base font-bold text-slate-800">
-              {enquiry.subject || <span className="text-slate-400 italic font-normal">No subject provided</span>}
+              {enquiry.subject || (
+                <span className="text-slate-400 italic font-normal">
+                  No subject provided
+                </span>
+              )}
             </p>
           </div>
 
           {/* Message */}
           <div className="space-y-1.5">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Message</span>
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
+              Message
+            </span>
             <div className="bg-white border border-slate-100 rounded-xl p-5 text-sm text-slate-700 leading-relaxed min-h-[180px] shadow-sm whitespace-pre-wrap">
               {enquiry.message}
             </div>
@@ -206,9 +245,12 @@ export default function EnquiryDetail() {
               <Trash2 size={24} />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-slate-900">Delete Enquiry?</h3>
+              <h3 className="text-lg font-bold text-slate-900">
+                Delete Enquiry?
+              </h3>
               <p className="text-sm text-slate-500 mt-2">
-                Are you sure you want to delete this enquiry from <strong>{enquiry.name}</strong>? This action cannot be undone.
+                Are you sure you want to delete this enquiry from{" "}
+                <strong>{enquiry.name}</strong>? This action cannot be undone.
               </p>
             </div>
             <div className="flex gap-4">

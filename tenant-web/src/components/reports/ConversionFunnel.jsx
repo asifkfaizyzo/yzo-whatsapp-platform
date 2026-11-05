@@ -22,14 +22,18 @@ export default function ConversionFunnel({ steps = [] }) {
             <div className="flex justify-between text-xs font-semibold text-slate-700">
               <span>{step.phase}</span>
               <div className="flex items-center gap-2">
-                <span className="text-slate-500 font-normal text-[11px]">{step.dropoff}</span>
-                <span className="font-bold text-slate-800">{step.count} ({step.percent}%)</span>
+                <span className="text-slate-500 font-normal text-[11px]">
+                  {step.dropoff}
+                </span>
+                <span className="font-bold text-slate-800">
+                  {step.count} ({step.percent}%)
+                </span>
               </div>
             </div>
 
             <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
               <div
-                className={`${step.color || 'bg-[#125EF2]'} h-full rounded-full transition-all duration-500`}
+                className={`${step.color || "bg-[#125EF2]"} h-full rounded-full transition-all duration-500`}
                 style={{ width: `${Math.min(step.percent, 100)}%` }}
               ></div>
             </div>

@@ -27,37 +27,128 @@ export default function Pricing() {
 
   // ── Hardcoded sections (update later from DB if needed) ──
   const annualBilling = [
-    { plan: "Starter", monthly: "₹2,999", annual: "₹2,249", savings: "₹9,000/year" },
-    { plan: "Growth",  monthly: "₹4,999", annual: "₹3,749", savings: "₹15,000/year" },
-    { plan: "Scale",   monthly: "₹9,999", annual: "₹7,499", savings: "₹30,000/year" },
-    { plan: "Enterprise", monthly: "Custom Sizing", annual: "Custom Sizing", savings: "Volume Discount" },
+    {
+      plan: "Starter",
+      monthly: "₹2,999",
+      annual: "₹2,249",
+      savings: "₹9,000/year",
+    },
+    {
+      plan: "Growth",
+      monthly: "₹4,999",
+      annual: "₹3,749",
+      savings: "₹15,000/year",
+    },
+    {
+      plan: "Scale",
+      monthly: "₹9,999",
+      annual: "₹7,499",
+      savings: "₹30,000/year",
+    },
+    {
+      plan: "Enterprise",
+      monthly: "Custom Sizing",
+      annual: "Custom Sizing",
+      savings: "Volume Discount",
+    },
   ];
 
   const addons = [
-    { name: "Extra Agent",               price: "₹500/agent/month" },
-    { name: "Green Tick Verification",   price: "₹2,999 one-time" },
-    { name: "Extra AI Copilot Credits",  price: "₹299 per 500 credits" },
-    { name: "Extra Organization",        price: "₹999/month" },
-    { name: "Priority Onboarding",       price: "₹4,999 one-time" },
+    { name: "Extra Agent", price: "₹500/agent/month" },
+    { name: "Green Tick Verification", price: "₹2,999 one-time" },
+    { name: "Extra AI Copilot Credits", price: "₹299 per 500 credits" },
+    { name: "Extra Organization", price: "₹999/month" },
+    { name: "Priority Onboarding", price: "₹4,999 one-time" },
   ];
 
   const competitors = [
-    { platform: "Our Platform", plan1: "₹1,999", plan2: "₹4,999", plan3: "₹9,999",  markup: "0%" },
-    { platform: "Wati",         plan1: "₹2,199", plan2: "₹4,899", plan3: "₹14,799", markup: "~20%" },
-    { platform: "Interakt",     plan1: "₹3,499", plan2: "₹7,699", plan3: "₹10,499", markup: "Low" },
-    { platform: "Mark360.ai",   plan1: "₹1,999", plan2: "₹3,500", plan3: "₹8,500",  markup: "Low" },
-    { platform: "AiSensy",      plan1: "₹1,395", plan2: "₹2,999", plan3: "-",        markup: "0%" },
-    { platform: "Gallabox",     plan1: "₹2,399", plan2: "₹5,599", plan3: "₹13,599", markup: "Varies" },
+    {
+      platform: "Our Platform",
+      plan1: "₹1,999",
+      plan2: "₹4,999",
+      plan3: "₹9,999",
+      markup: "0%",
+    },
+    {
+      platform: "Wati",
+      plan1: "₹2,199",
+      plan2: "₹4,899",
+      plan3: "₹14,799",
+      markup: "~20%",
+    },
+    {
+      platform: "Interakt",
+      plan1: "₹3,499",
+      plan2: "₹7,699",
+      plan3: "₹10,499",
+      markup: "Low",
+    },
+    {
+      platform: "Mark360.ai",
+      plan1: "₹1,999",
+      plan2: "₹3,500",
+      plan3: "₹8,500",
+      markup: "Low",
+    },
+    {
+      platform: "AiSensy",
+      plan1: "₹1,395",
+      plan2: "₹2,999",
+      plan3: "-",
+      markup: "0%",
+    },
+    {
+      platform: "Gallabox",
+      plan1: "₹2,399",
+      plan2: "₹5,599",
+      plan3: "₹13,599",
+      markup: "Varies",
+    },
   ];
 
   const advantages = [
-    { competitor: "AiSensy Basic",      theirPrice: "₹1,395",  plan: "Starter", advantage: "More features + omnichannel inbox" },
-    { competitor: "Mark360 Scale",      theirPrice: "₹1,999",  plan: "Starter", advantage: "Better automation + integrations" },
-    { competitor: "Wati Pro",           theirPrice: "₹4,899",  plan: "Growth",  advantage: "AI copilot + drip campaigns + 0% markup" },
-    { competitor: "Gallabox Essential", theirPrice: "₹5,599",  plan: "Growth",  advantage: "Cheaper + more features" },
-    { competitor: "Wati Business",      theirPrice: "₹14,799", plan: "Scale",   advantage: "Same features — 33% cheaper" },
-    { competitor: "Gallabox Advanced",  theirPrice: "₹13,599", plan: "Scale",   advantage: "AI voice + cheaper + 0% markup" },
-    { competitor: "Interakt Advanced",  theirPrice: "₹10,499", plan: "Scale",   advantage: "Better AI + more integrations" },
+    {
+      competitor: "AiSensy Basic",
+      theirPrice: "₹1,395",
+      plan: "Starter",
+      advantage: "More features + omnichannel inbox",
+    },
+    {
+      competitor: "Mark360 Scale",
+      theirPrice: "₹1,999",
+      plan: "Starter",
+      advantage: "Better automation + integrations",
+    },
+    {
+      competitor: "Wati Pro",
+      theirPrice: "₹4,899",
+      plan: "Growth",
+      advantage: "AI copilot + drip campaigns + 0% markup",
+    },
+    {
+      competitor: "Gallabox Essential",
+      theirPrice: "₹5,599",
+      plan: "Growth",
+      advantage: "Cheaper + more features",
+    },
+    {
+      competitor: "Wati Business",
+      theirPrice: "₹14,799",
+      plan: "Scale",
+      advantage: "Same features — 33% cheaper",
+    },
+    {
+      competitor: "Gallabox Advanced",
+      theirPrice: "₹13,599",
+      plan: "Scale",
+      advantage: "AI voice + cheaper + 0% markup",
+    },
+    {
+      competitor: "Interakt Advanced",
+      theirPrice: "₹10,499",
+      plan: "Scale",
+      advantage: "Better AI + more integrations",
+    },
   ];
 
   return (
@@ -66,15 +157,14 @@ export default function Pricing() {
 
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-6">
-
           {/* Header */}
           <div className="text-center mb-14">
             <span className="text-[#125EF2] font-semibold text-sm uppercase tracking-wider">
               Pricing
             </span>
             <h1 className="text-4xl font-bold text-gray-900 mt-3 mb-4">
-              Simple,{" "}
-              <span className="text-[#125EF2]">Transparent</span> Pricing
+              Simple, <span className="text-[#125EF2]">Transparent</span>{" "}
+              Pricing
             </h1>
             <p className="text-gray-500">
               0% Meta Markup • Free 14-Day Trial • No Credit Card Required
@@ -94,7 +184,9 @@ export default function Pricing() {
                 >
                   <circle
                     className="opacity-25"
-                    cx="12" cy="12" r="10"
+                    cx="12"
+                    cy="12"
+                    r="10"
                     stroke="currentColor"
                     strokeWidth="4"
                   />
@@ -124,19 +216,32 @@ export default function Pricing() {
                 {
                   id: "enterprise",
                   name: "Enterprise",
-                  description: "Dedicated resources, custom API volume, and priority enterprise channels.",
+                  description:
+                    "Dedicated resources, custom API volume, and priority enterprise channels.",
                   monthlyPrice: 0,
                   isEnterprise: true,
                   features: [
                     { id: "e1", feature: { name: "Unlimited Agents" } },
                     { id: "e2", feature: { name: "Unlimited Broadcasts" } },
-                    { id: "e3", feature: { name: "Official WhatsApp Green Tick" } },
-                    { id: "e4", feature: { name: "Custom API & Webhook limits" } },
-                    { id: "e5", feature: { name: "Dedicated Account Manager" } },
-                    { id: "e6", feature: { name: "24/7 SLA Priority Support" } },
-                    { id: "e7", feature: { name: "Custom integrations" } }
-                  ]
-                }
+                    {
+                      id: "e3",
+                      feature: { name: "Official WhatsApp Green Tick" },
+                    },
+                    {
+                      id: "e4",
+                      feature: { name: "Custom API & Webhook limits" },
+                    },
+                    {
+                      id: "e5",
+                      feature: { name: "Dedicated Account Manager" },
+                    },
+                    {
+                      id: "e6",
+                      feature: { name: "24/7 SLA Priority Support" },
+                    },
+                    { id: "e7", feature: { name: "Custom integrations" } },
+                  ],
+                },
               ].map((plan, index) => {
                 const isPopular = index === 1; // middle plan = most popular
                 return (
@@ -146,8 +251,8 @@ export default function Pricing() {
                       isPopular
                         ? "rounded-2xl p-6 bg-gray-900 text-white ring-2 ring-[#125EF2] flex flex-col justify-between"
                         : plan.isEnterprise
-                        ? "rounded-2xl p-6 bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 flex flex-col justify-between"
-                        : "rounded-2xl p-6 bg-gray-50 border border-gray-100 flex flex-col justify-between"
+                          ? "rounded-2xl p-6 bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 flex flex-col justify-between"
+                          : "rounded-2xl p-6 bg-gray-50 border border-gray-100 flex flex-col justify-between"
                     }
                   >
                     <div>
@@ -161,7 +266,7 @@ export default function Pricing() {
                           Most Popular
                         </span>
                       )}
-                      
+
                       {/* Enterprise Badge */}
                       {plan.isEnterprise && (
                         <span className="inline-block bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-bold px-3 py-1 rounded-full mb-4 uppercase tracking-wide">
@@ -175,7 +280,9 @@ export default function Pricing() {
                       {/* Price */}
                       <div className="mt-2 mb-2">
                         {plan.isEnterprise ? (
-                          <span className="text-3xl font-extrabold text-blue-700">Custom Sizing</span>
+                          <span className="text-3xl font-extrabold text-blue-700">
+                            Custom Sizing
+                          </span>
                         ) : (
                           <>
                             <span className="text-4xl font-bold">
@@ -197,7 +304,8 @@ export default function Pricing() {
                       {/* Annual */}
                       {!plan.isEnterprise && plan.annualPrice && (
                         <p className="text-xs text-[#125EF2] font-medium mb-1">
-                          ₹{plan.annualPrice.toLocaleString()}/mo billed annually
+                          ₹{plan.annualPrice.toLocaleString()}/mo billed
+                          annually
                         </p>
                       )}
 
@@ -237,8 +345,8 @@ export default function Pricing() {
                         isPopular
                           ? "block text-center py-3 rounded-lg bg-[#125EF2] text-white hover:bg-[#0F4FCC] font-medium text-sm transition-all duration-300 hover:-translate-y-0.5"
                           : plan.isEnterprise
-                          ? "block text-center py-3 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium text-sm transition-all duration-300 hover:-translate-y-0.5"
-                          : "block text-center py-3 rounded-lg bg-white border border-gray-200 hover:shadow-sm font-medium text-sm transition-all duration-300 hover:-translate-y-0.5"
+                            ? "block text-center py-3 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium text-sm transition-all duration-300 hover:-translate-y-0.5"
+                            : "block text-center py-3 rounded-lg bg-white border border-gray-200 hover:shadow-sm font-medium text-sm transition-all duration-300 hover:-translate-y-0.5"
                       }
                     >
                       {plan.isEnterprise ? "Contact Sales" : "Start Free Trial"}
@@ -359,17 +467,24 @@ export default function Pricing() {
                           rounded-2xl px-8 py-6 text-center text-white"
             >
               <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-8">
-                <span className="font-semibold">&#10003; 0% Meta Markup on All Plans</span>
+                <span className="font-semibold">
+                  &#10003; 0% Meta Markup on All Plans
+                </span>
                 <span className="hidden md:block opacity-50">|</span>
-                <span className="font-semibold">&#10003; Free 14-Day Trial</span>
+                <span className="font-semibold">
+                  &#10003; Free 14-Day Trial
+                </span>
                 <span className="hidden md:block opacity-50">|</span>
-                <span className="font-semibold">&#10003; No Credit Card Required</span>
+                <span className="font-semibold">
+                  &#10003; No Credit Card Required
+                </span>
                 <span className="hidden md:block opacity-50">|</span>
-                <span className="font-semibold">&#10003; Annual Billing Saves Up To 25%</span>
+                <span className="font-semibold">
+                  &#10003; Annual Billing Saves Up To 25%
+                </span>
               </div>
             </div>
           </div>
-
         </div>
       </section>
 

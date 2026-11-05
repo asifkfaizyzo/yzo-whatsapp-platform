@@ -5,11 +5,12 @@ export default function CTABanner() {
   return (
     <section className="py-20 bg-gray-50">
       <div className="max-w-3xl mx-auto px-6 text-center">
-
         {/* Small Icon */}
-        <div className="w-14 h-14 bg-[#CFE0FD] rounded-2xl 
+        <div
+          className="w-14 h-14 bg-[#CFE0FD] rounded-2xl 
                         flex items-center justify-center 
-                        text-2xl mx-auto mb-6">
+                        text-2xl mx-auto mb-6"
+        >
           🚀
         </div>
 
@@ -27,7 +28,7 @@ export default function CTABanner() {
         <div className="flex flex-wrap justify-center gap-4">
           <Link
             to="/register"
-             className="bg-[#125EF2] text-white px-7 py-3
+            className="bg-[#125EF2] text-white px-7 py-3
                          rounded-lg font-medium text-sm
                          hover:bg-[#0F4FCC] transition
                          shadow-sm hover:shadow-md
@@ -47,7 +48,6 @@ export default function CTABanner() {
             Talk to Sales
           </Link>
         </div>
-
       </div>
     </section>
   );

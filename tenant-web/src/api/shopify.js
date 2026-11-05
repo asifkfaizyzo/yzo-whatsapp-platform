@@ -12,7 +12,9 @@ export const connectShopify = async (data) => {
 };
 
 export const getShopifyOAuthUrl = async (shop) => {
-  const response = await api.get(`/shopify/oauth/url?shop=${encodeURIComponent(shop)}`);
+  const response = await api.get(
+    `/shopify/oauth/url?shop=${encodeURIComponent(shop)}`,
+  );
   return response.data;
 };
 

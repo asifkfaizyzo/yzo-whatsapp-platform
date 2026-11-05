@@ -258,7 +258,12 @@ export async function handleOAuthCallback(queryParams, req) {
 
     const existingRow = await prisma.tenant.findUnique({
       where: { id: tenantId },
-      select: { id: true, tenantName: true, email: true, zoho: { select: { zohoAccountId: true } } },
+      select: {
+        id: true,
+        tenantName: true,
+        email: true,
+        zoho: { select: { zohoAccountId: true } },
+      },
     });
     const existingTenant = { ...existingRow, ...existingRow?.zoho };
 
@@ -508,7 +513,7 @@ export async function disconnectZoho(tenantId, meta = {}) {
     }
   }
 
-await prisma.tenantZoho.update({
+  await prisma.tenantZoho.update({
     where: { tenantId },
     data: {
       zohoAccessToken: null,

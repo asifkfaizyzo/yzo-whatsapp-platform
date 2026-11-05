@@ -6,7 +6,7 @@ import * as notificationService from "./notification.service.js";
 export const getNotifications = async (req, res) => {
   try {
     const tenantId = req.tenantId;
-    const userId   = req.userId || req.user?.id || null;
+    const userId = req.userId || req.user?.id || null;
     const userType = req.userType; // "TENANT" or "USER"
 
     console.log("📋 getNotifications:", { tenantId, userId, userType });
@@ -14,13 +14,13 @@ export const getNotifications = async (req, res) => {
     const notifications = await notificationService.getNotifications(
       tenantId,
       userId,
-      userType
+      userType,
     );
 
     const unreadCount = await notificationService.getUnreadCount(
       tenantId,
       userId,
-      userType
+      userType,
     );
 
     return res.status(200).json({
@@ -56,7 +56,7 @@ export const markAsRead = async (req, res) => {
 export const markAllAsRead = async (req, res) => {
   try {
     const tenantId = req.tenantId;
-    const userId   = req.userId || req.user?.id || null;
+    const userId = req.userId || req.user?.id || null;
     const userType = req.userType;
 
     await notificationService.markAllAsRead(tenantId, userId, userType);
@@ -74,7 +74,7 @@ export const markAllAsRead = async (req, res) => {
 export const clearAll = async (req, res) => {
   try {
     const tenantId = req.tenantId;
-    const userId   = req.userId || req.user?.id || null;
+    const userId = req.userId || req.user?.id || null;
     const userType = req.userType;
 
     await notificationService.clearAllNotifications(tenantId, userId, userType);
@@ -87,9 +87,6 @@ export const clearAll = async (req, res) => {
     });
   }
 };
-
-
-
 
 // ── 🆕 Get paginated notifications ──
 export const getPaginatedNotifications = async (req, res) => {
@@ -104,7 +101,7 @@ export const getPaginatedNotifications = async (req, res) => {
       tenantId,
       userId,
       userType,
-      { page, limit, filter, type }
+      { page, limit, filter, type },
     );
 
     return res.status(200).json({
@@ -127,12 +124,21 @@ export const deleteNotification = async (req, res) => {
     const userId = req.userId || req.user?.id || null;
     const userType = req.userType;
 
-    await notificationService.deleteNotification(id, tenantId, userId, userType);
+    await notificationService.deleteNotification(
+      id,
+      tenantId,
+      userId,
+      userType,
+    );
 
     return res.status(200).json({ success: true });
   } catch (error) {
-    const status = error.message === "Unauthorized" ? 403 :
-                   error.message === "Notification not found" ? 404 : 500;
+    const status =
+      error.message === "Unauthorized"
+        ? 403
+        : error.message === "Notification not found"
+          ? 404
+          : 500;
     return res.status(status).json({
       success: false,
       message: error.message,

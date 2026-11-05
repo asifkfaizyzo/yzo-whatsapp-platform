@@ -26,7 +26,10 @@ export const getTenantUsers = async () => {
  */
 export const assignContact = async (contactId, userId) => {
   try {
-    const response = await api.patch(`${TENANT_BASE_URL}/assign-contact/${contactId}`, { userId });
+    const response = await api.patch(
+      `${TENANT_BASE_URL}/assign-contact/${contactId}`,
+      { userId },
+    );
     return {
       success: true,
       data: response.data,
@@ -44,7 +47,10 @@ export const assignContact = async (contactId, userId) => {
  */
 export const reassignContact = async (contactId, newUserId) => {
   try {
-    const response = await api.patch(`${TENANT_BASE_URL}/re-assign-contacts/${contactId}`, { newUserId });
+    const response = await api.patch(
+      `${TENANT_BASE_URL}/re-assign-contacts/${contactId}`,
+      { newUserId },
+    );
     return {
       success: true,
       data: response.data,
@@ -62,7 +68,9 @@ export const reassignContact = async (contactId, newUserId) => {
  */
 export const unassignContact = async (contactId) => {
   try {
-    const response = await api.patch(`${TENANT_BASE_URL}/unassign-contact/${contactId}`);
+    const response = await api.patch(
+      `${TENANT_BASE_URL}/unassign-contact/${contactId}`,
+    );
     return {
       success: true,
       data: response.data,
@@ -91,7 +99,8 @@ export const assignMultipleContacts = async (contactIds, userId) => {
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || "Failed to assign contacts in bulk",
+      message:
+        error.response?.data?.message || "Failed to assign contacts in bulk",
     };
   }
 };
@@ -109,7 +118,8 @@ export const getAutoReopenConfig = async () => {
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || "Failed to fetch auto-reopen rules",
+      message:
+        error.response?.data?.message || "Failed to fetch auto-reopen rules",
     };
   }
 };
@@ -119,7 +129,10 @@ export const getAutoReopenConfig = async () => {
  */
 export const updateAutoReopenConfig = async (data) => {
   try {
-    const response = await api.put(`${TENANT_BASE_URL}/auto-reopen-config`, data);
+    const response = await api.put(
+      `${TENANT_BASE_URL}/auto-reopen-config`,
+      data,
+    );
     return {
       success: true,
       data: response.data.data,
@@ -127,7 +140,8 @@ export const updateAutoReopenConfig = async (data) => {
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || "Failed to update auto-reopen rules",
+      message:
+        error.response?.data?.message || "Failed to update auto-reopen rules",
     };
   }
 };
@@ -145,7 +159,8 @@ export const getTenantProfile = async () => {
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || "Failed to fetch tenant profile",
+      message:
+        error.response?.data?.message || "Failed to fetch tenant profile",
     };
   }
 };
@@ -156,7 +171,10 @@ export const getTenantProfile = async () => {
 export const updateTenantProfile = async (profileData) => {
   try {
     console.log("📤 Sending to backend:", profileData);
-    const response = await api.put(`${TENANT_BASE_URL}/update-profile`, profileData);
+    const response = await api.put(
+      `${TENANT_BASE_URL}/update-profile`,
+      profileData,
+    );
     return {
       success: true,
       data: response.data.data,
@@ -164,7 +182,8 @@ export const updateTenantProfile = async (profileData) => {
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || "Failed to update tenant profile",
+      message:
+        error.response?.data?.message || "Failed to update tenant profile",
     };
   }
 };
@@ -174,7 +193,10 @@ export const updateTenantProfile = async (profileData) => {
  */
 export const updateTenantPassword = async (passwordData) => {
   try {
-    const response = await api.put(`${TENANT_BASE_URL}/change-password`, passwordData);
+    const response = await api.put(
+      `${TENANT_BASE_URL}/change-password`,
+      passwordData,
+    );
     return {
       success: true,
       message: response.data.message,
@@ -200,7 +222,9 @@ export const getWhatsappConfig = async () => {
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || "Failed to fetch WhatsApp configuration",
+      message:
+        error.response?.data?.message ||
+        "Failed to fetch WhatsApp configuration",
     };
   }
 };
@@ -210,7 +234,10 @@ export const getWhatsappConfig = async () => {
  */
 export const updateWhatsappConfig = async (data) => {
   try {
-    const response = await api.put(`${TENANT_BASE_URL}/whatsapp-credentials`, data);
+    const response = await api.put(
+      `${TENANT_BASE_URL}/whatsapp-credentials`,
+      data,
+    );
     return {
       success: true,
       data: response.data.data,
@@ -218,7 +245,9 @@ export const updateWhatsappConfig = async (data) => {
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || "Failed to update WhatsApp configuration",
+      message:
+        error.response?.data?.message ||
+        "Failed to update WhatsApp configuration",
     };
   }
 };
@@ -236,7 +265,8 @@ export const getWhatsappStatus = async () => {
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || "Failed to fetch WhatsApp status",
+      message:
+        error.response?.data?.message || "Failed to fetch WhatsApp status",
     };
   }
 };
@@ -262,7 +292,11 @@ export const disconnectWhatsapp = async () => {
 /**
  * Setup WhatsApp manually with credentials (Phone ID, WABA ID, optional Access Token)
  */
-export const setupWhatsappManual = async ({ phoneNumberId, wabaId, accessToken }) => {
+export const setupWhatsappManual = async ({
+  phoneNumberId,
+  wabaId,
+  accessToken,
+}) => {
   try {
     const response = await api.post(`${TENANT_BASE_URL}/whatsapp/setup`, {
       phoneNumberId,
@@ -277,7 +311,9 @@ export const setupWhatsappManual = async ({ phoneNumberId, wabaId, accessToken }
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || "Failed to setup WhatsApp with provided credentials",
+      message:
+        error.response?.data?.message ||
+        "Failed to setup WhatsApp with provided credentials",
     };
   }
 };
@@ -294,7 +330,7 @@ export const uploadTenantLogo = async (formData) => {
         headers: {
           "Content-Type": "multipart/form-data",
         },
-      }
+      },
     );
 
     console.log("🟢 Service: Response received:", res.data);
@@ -316,7 +352,7 @@ export const uploadTenantLogo = async (formData) => {
 export const deleteTenantLogo = async () => {
   try {
     const res = await api.delete(
-      `${import.meta.env.VITE_BACKEND_URL}/tenant/delete-logo`
+      `${import.meta.env.VITE_BACKEND_URL}/tenant/delete-logo`,
     );
     return { success: true, message: res.data.message };
   } catch (err) {
@@ -338,14 +374,18 @@ export const getMetaChannelsStatus = async () => {
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || "Failed to fetch Meta channels status",
+      message:
+        error.response?.data?.message || "Failed to fetch Meta channels status",
     };
   }
 };
 
 export const connectMetaChannels = async (data) => {
   try {
-    const response = await api.post(`${TENANT_BASE_URL}/meta-channels/connect`, data);
+    const response = await api.post(
+      `${TENANT_BASE_URL}/meta-channels/connect`,
+      data,
+    );
     return {
       success: true,
       message: response.data.message || "Meta channels connected successfully",
@@ -354,16 +394,20 @@ export const connectMetaChannels = async (data) => {
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || "Failed to connect Meta channels",
+      message:
+        error.response?.data?.message || "Failed to connect Meta channels",
     };
   }
 };
 
 export const disconnectMetaChannels = async (channel) => {
   try {
-    const response = await api.delete(`${TENANT_BASE_URL}/meta-channels/disconnect`, {
-      data: { channel },
-    });
+    const response = await api.delete(
+      `${TENANT_BASE_URL}/meta-channels/disconnect`,
+      {
+        data: { channel },
+      },
+    );
     return {
       success: true,
       message: response.data.message || "Meta channels disconnected",
@@ -371,7 +415,8 @@ export const disconnectMetaChannels = async (channel) => {
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || "Failed to disconnect Meta channels",
+      message:
+        error.response?.data?.message || "Failed to disconnect Meta channels",
     };
   }
 };
@@ -389,7 +434,9 @@ export const getPaymentGatewayConfig = async () => {
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || "Failed to fetch payment gateway settings",
+      message:
+        error.response?.data?.message ||
+        "Failed to fetch payment gateway settings",
     };
   }
 };
@@ -405,14 +452,19 @@ export const updatePaymentGatewayConfig = async (data) => {
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || "Failed to update payment gateway settings",
+      message:
+        error.response?.data?.message ||
+        "Failed to update payment gateway settings",
     };
   }
 };
 
 export const testPaymentGatewayConnection = async (data = {}) => {
   try {
-    const response = await api.post(`${TENANT_BASE_URL}/payment-gateway/test`, data);
+    const response = await api.post(
+      `${TENANT_BASE_URL}/payment-gateway/test`,
+      data,
+    );
     return {
       success: true,
       message: response.data.message || "Connection successful!",
@@ -430,7 +482,9 @@ export const testPaymentGatewayConnection = async (data = {}) => {
  */
 export const getRazorpayOAuthUrl = async () => {
   try {
-    const response = await api.get(`${TENANT_BASE_URL}/payment-gateway/oauth/url`);
+    const response = await api.get(
+      `${TENANT_BASE_URL}/payment-gateway/oauth/url`,
+    );
     return {
       success: true,
       url: response.data?.url,
@@ -438,14 +492,19 @@ export const getRazorpayOAuthUrl = async () => {
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.error || error.response?.data?.message || "Failed to generate authorization URL",
+      message:
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        "Failed to generate authorization URL",
     };
   }
 };
 
 export const getRazorpayOAuthStatus = async () => {
   try {
-    const response = await api.get(`${TENANT_BASE_URL}/payment-gateway/oauth/status`);
+    const response = await api.get(
+      `${TENANT_BASE_URL}/payment-gateway/oauth/status`,
+    );
     return {
       success: true,
       data: response.data?.data,
@@ -460,7 +519,9 @@ export const getRazorpayOAuthStatus = async () => {
 
 export const disconnectRazorpayOAuth = async () => {
   try {
-    const response = await api.post(`${TENANT_BASE_URL}/payment-gateway/oauth/disconnect`);
+    const response = await api.post(
+      `${TENANT_BASE_URL}/payment-gateway/oauth/disconnect`,
+    );
     return {
       success: true,
       message: response.data?.message || "Disconnected successfully",
@@ -468,7 +529,10 @@ export const disconnectRazorpayOAuth = async () => {
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.error || error.response?.data?.message || "Failed to disconnect Razorpay",
+      message:
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        "Failed to disconnect Razorpay",
     };
   }
 };

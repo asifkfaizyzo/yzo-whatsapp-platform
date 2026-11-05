@@ -10,13 +10,13 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-  ResponsiveContainer
+  ResponsiveContainer,
 } from "recharts";
 
 export default function MessageVolumeChart({
   data = [],
   granularity,
-  setGranularity
+  setGranularity,
 }) {
   return (
     <div className="card border border-slate-200 bg-white rounded-xl p-6 shadow-xs flex flex-col justify-between">
@@ -64,17 +64,47 @@ export default function MessageVolumeChart({
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-              <XAxis dataKey="period" tickLine={false} tick={{ fontSize: 11, fill: '#64748B' }} />
-              <YAxis tickLine={false} tick={{ fontSize: 11, fill: '#64748B' }} />
-              <Tooltip
-                contentStyle={{ backgroundColor: '#1E293B', borderRadius: '8px', border: 'none', color: '#fff', fontSize: '12px' }}
-                itemStyle={{ color: '#fff' }}
+            <BarChart
+              data={data}
+              margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+            >
+              <CartesianGrid
+                strokeDasharray="3 3"
+                vertical={false}
+                stroke="#E2E8F0"
               />
-              <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
-              <Bar dataKey="outgoing" name="Outgoing" fill="#10B981" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="incoming" name="Incoming" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+              <XAxis
+                dataKey="period"
+                tickLine={false}
+                tick={{ fontSize: 11, fill: "#64748B" }}
+              />
+              <YAxis
+                tickLine={false}
+                tick={{ fontSize: 11, fill: "#64748B" }}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "#1E293B",
+                  borderRadius: "8px",
+                  border: "none",
+                  color: "#fff",
+                  fontSize: "12px",
+                }}
+                itemStyle={{ color: "#fff" }}
+              />
+              <Legend wrapperStyle={{ fontSize: "12px", paddingTop: "10px" }} />
+              <Bar
+                dataKey="outgoing"
+                name="Outgoing"
+                fill="#10B981"
+                radius={[4, 4, 0, 0]}
+              />
+              <Bar
+                dataKey="incoming"
+                name="Incoming"
+                fill="#3B82F6"
+                radius={[4, 4, 0, 0]}
+              />
             </BarChart>
           </ResponsiveContainer>
         )}

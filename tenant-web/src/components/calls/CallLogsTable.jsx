@@ -1,12 +1,26 @@
 // tenant-web/src/components/calls/CallLogsTable.jsx (do not remove this comment)
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  PhoneCall, PhoneIncoming, PhoneOutgoing, PhoneMissed, 
-  Clock, CheckCircle2, XCircle, Search, RefreshCw, 
-  Play, Pause, Download, Volume2, FileText, ChevronLeft, ChevronRight,
-  Filter, AlertCircle
-} from 'lucide-react';
-import api from '../../api/axios';
+import React, { useState, useEffect, useRef } from "react";
+import {
+  PhoneCall,
+  PhoneIncoming,
+  PhoneOutgoing,
+  PhoneMissed,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  Search,
+  RefreshCw,
+  Play,
+  Pause,
+  Download,
+  Volume2,
+  FileText,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  AlertCircle,
+} from "lucide-react";
+import api from "../../api/axios";
 
 export default function CallLogsTable() {
   const [calls, setCalls] = useState([]);
@@ -14,7 +28,7 @@ export default function CallLogsTable() {
     totalCalls: 0,
     answered: 0,
     missed: 0,
-    totalDurationSeconds: 0
+    totalDurationSeconds: 0,
   });
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -22,9 +36,9 @@ export default function CallLogsTable() {
   const [totalCount, setTotalCount] = useState(0);
 
   // Filters
-  const [search, setSearch] = useState('');
-  const [direction, setDirection] = useState('');
-  const [status, setStatus] = useState('ALL');
+  const [search, setSearch] = useState("");
+  const [direction, setDirection] = useState("");
+  const [status, setStatus] = useState("ALL");
 
   // Audio playback state
   const [currentlyPlayingWacid, setCurrentlyPlayingWacid] = useState(null);
@@ -43,10 +57,10 @@ export default function CallLogsTable() {
         limit: 15,
         ...(search && { search }),
         ...(direction && { direction }),
-        ...(status && status !== 'ALL' && { status })
+        ...(status && status !== "ALL" && { status }),
       };
 
-      const res = await api.get('/whatsapp/calls/history', { params });
+      const res = await api.get("/whatsapp/calls/history", { params });
       if (res.data?.success && res.data?.data) {
         setCalls(res.data.data.calls || []);
         if (res.data.data.pagination) {
@@ -58,7 +72,7 @@ export default function CallLogsTable() {
         }
       }
     } catch (err) {
-      console.error('Failed to fetch call history:', err);
+      console.error("Failed to fetch call history:", err);
     } finally {
       setLoading(false);
     }
@@ -82,13 +96,13 @@ export default function CallLogsTable() {
       setAudioProgress(0);
     };
 
-    audio.addEventListener('timeupdate', onTimeUpdate);
-    audio.addEventListener('ended', onEnded);
+    audio.addEventListener("timeupdate", onTimeUpdate);
+    audio.addEventListener("ended", onEnded);
 
     return () => {
       audio.pause();
-      audio.removeEventListener('timeupdate', onTimeUpdate);
-      audio.removeEventListener('ended', onEnded);
+      audio.removeEventListener("timeupdate", onTimeUpdate);
+      audio.removeEventListener("ended", onEnded);
     };
   }, []);
 
@@ -100,24 +114,29 @@ export default function CallLogsTable() {
       return;
     }
 
-    const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
-    const fullAudioUrl = mediaUrl.startsWith('http') ? mediaUrl : `${backendUrl}${mediaUrl}`;
-    
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || "";
+    const fullAudioUrl = mediaUrl.startsWith("http")
+      ? mediaUrl
+      : `${backendUrl}${mediaUrl}`;
+
     audio.src = fullAudioUrl;
-    audio.play()
+    audio
+      .play()
       .then(() => setCurrentlyPlayingWacid(wacid))
-      .catch((err) => console.warn('Audio playback error:', err));
+      .catch((err) => console.warn("Audio playback error:", err));
   };
 
   const formatDuration = (seconds) => {
-    if (!seconds || isNaN(seconds)) return '0:00';
+    if (!seconds || isNaN(seconds)) return "0:00";
     const m = Math.floor(seconds / 60);
-    const s = Math.floor(seconds % 60).toString().padStart(2, '0');
+    const s = Math.floor(seconds % 60)
+      .toString()
+      .padStart(2, "0");
     return `${m}:${s}`;
   };
 
   const formatTotalTime = (totalSeconds) => {
-    if (!totalSeconds) return '0m';
+    if (!totalSeconds) return "0m";
     const h = Math.floor(totalSeconds / 3600);
     const m = Math.floor((totalSeconds % 3600) / 60);
     const s = totalSeconds % 60;
@@ -127,15 +146,15 @@ export default function CallLogsTable() {
   };
 
   const formatDate = (dateString) => {
-    if (!dateString) return '-';
+    if (!dateString) return "-";
     const date = new Date(dateString);
-    return date.toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
+    return date.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
     });
   };
 
@@ -146,8 +165,12 @@ export default function CallLogsTable() {
         {/* Total Calls */}
         <div className="bg-slate-50/70 border border-slate-100 rounded-2xl p-4 flex items-center justify-between">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Total Calls</p>
-            <h3 className="text-2xl font-black text-slate-800 mt-1">{kpis.totalCalls}</h3>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              Total Calls
+            </p>
+            <h3 className="text-2xl font-black text-slate-800 mt-1">
+              {kpis.totalCalls}
+            </h3>
           </div>
           <div className="w-11 h-11 rounded-xl bg-blue-50 text-[#125EF2] flex items-center justify-center shadow-xs">
             <PhoneCall className="w-5 h-5" />
@@ -157,11 +180,17 @@ export default function CallLogsTable() {
         {/* Answered */}
         <div className="bg-slate-50/70 border border-slate-100 rounded-2xl p-4 flex items-center justify-between">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Answered</p>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              Answered
+            </p>
             <h3 className="text-2xl font-black text-emerald-600 mt-1">
               {kpis.answered}
               <span className="text-xs font-semibold text-slate-400 ml-1.5 font-sans">
-                ({kpis.totalCalls > 0 ? Math.round((kpis.answered / kpis.totalCalls) * 100) : 0}%)
+                (
+                {kpis.totalCalls > 0
+                  ? Math.round((kpis.answered / kpis.totalCalls) * 100)
+                  : 0}
+                %)
               </span>
             </h3>
           </div>
@@ -173,8 +202,12 @@ export default function CallLogsTable() {
         {/* Missed / Failed */}
         <div className="bg-slate-50/70 border border-slate-100 rounded-2xl p-4 flex items-center justify-between">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Missed / Failed</p>
-            <h3 className="text-2xl font-black text-rose-500 mt-1">{kpis.missed}</h3>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              Missed / Failed
+            </p>
+            <h3 className="text-2xl font-black text-rose-500 mt-1">
+              {kpis.missed}
+            </h3>
           </div>
           <div className="w-11 h-11 rounded-xl bg-rose-50 text-rose-500 flex items-center justify-center shadow-xs">
             <PhoneMissed className="w-5 h-5" />
@@ -184,8 +217,12 @@ export default function CallLogsTable() {
         {/* Total Talk Time */}
         <div className="bg-slate-50/70 border border-slate-100 rounded-2xl p-4 flex items-center justify-between">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Total Talk Time</p>
-            <h3 className="text-2xl font-black text-slate-800 mt-1">{formatTotalTime(kpis.totalDurationSeconds)}</h3>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              Total Talk Time
+            </p>
+            <h3 className="text-2xl font-black text-slate-800 mt-1">
+              {formatTotalTime(kpis.totalDurationSeconds)}
+            </h3>
           </div>
           <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-xs">
             <Clock className="w-5 h-5" />
@@ -199,20 +236,23 @@ export default function CallLogsTable() {
           {/* Search Box */}
           <div className="relative flex-1 max-w-sm">
             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input 
-              type="text" 
-              placeholder="Search by phone number..." 
+            <input
+              type="text"
+              placeholder="Search by phone number..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && fetchCalls()}
+              onKeyDown={(e) => e.key === "Enter" && fetchCalls()}
               className="w-full text-xs font-semibold pl-9 pr-3 py-2 bg-slate-50/50 border border-slate-200/80 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#125EF2]/20 focus:border-[#125EF2] outline-none transition"
             />
           </div>
 
           {/* Direction Filter */}
-          <select 
+          <select
             value={direction}
-            onChange={(e) => { setDirection(e.target.value); setPage(1); }}
+            onChange={(e) => {
+              setDirection(e.target.value);
+              setPage(1);
+            }}
             className="text-xs font-semibold text-slate-600 bg-white border border-slate-200/80 rounded-xl px-3 py-2 outline-none cursor-pointer focus:ring-2 focus:ring-[#125EF2]/20"
           >
             <option value="">All Directions</option>
@@ -221,9 +261,12 @@ export default function CallLogsTable() {
           </select>
 
           {/* Status Filter */}
-          <select 
+          <select
             value={status}
-            onChange={(e) => { setStatus(e.target.value); setPage(1); }}
+            onChange={(e) => {
+              setStatus(e.target.value);
+              setPage(1);
+            }}
             className="text-xs font-semibold text-slate-600 bg-white border border-slate-200/80 rounded-xl px-3 py-2 outline-none cursor-pointer focus:ring-2 focus:ring-[#125EF2]/20"
           >
             <option value="ALL">All Statuses</option>
@@ -235,12 +278,14 @@ export default function CallLogsTable() {
         </div>
 
         {/* Refresh Button */}
-        <button 
+        <button
           onClick={fetchCalls}
           disabled={loading}
           className="btn-secondary py-2 px-3 text-xs flex items-center gap-1.5 self-end sm:self-auto shadow-xs"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-[#125EF2]' : 'text-slate-500'}`} />
+          <RefreshCw
+            className={`w-3.5 h-3.5 ${loading ? "animate-spin text-[#125EF2]" : "text-slate-500"}`}
+          />
           <span>Refresh</span>
         </button>
       </div>
@@ -271,56 +316,83 @@ export default function CallLogsTable() {
               <tr>
                 <td colSpan="7" className="py-12 text-center text-slate-400">
                   <PhoneCall className="w-8 h-8 text-slate-300 mx-auto mb-2 opacity-50" />
-                  <p className="font-semibold text-slate-600">No call records found</p>
-                  <p className="text-[11px] text-slate-400 mt-0.5">Calls placed or received will appear here with recordings.</p>
+                  <p className="font-semibold text-slate-600">
+                    No call records found
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Calls placed or received will appear here with recordings.
+                  </p>
                 </td>
               </tr>
             ) : (
               calls.map((call) => {
-                const isInbound = call.direction === 'USER_INITIATED';
+                const isInbound = call.direction === "USER_INITIATED";
                 const phoneNumber = isInbound ? call.fromNumber : call.toNumber;
-                const isSuccess = ['ACCEPTED', 'COMPLETED'].includes(call.status);
-                const isMissed = ['FAILED', 'REJECTED'].includes(call.status);
+                const isSuccess = ["ACCEPTED", "COMPLETED"].includes(
+                  call.status,
+                );
+                const isMissed = ["FAILED", "REJECTED"].includes(call.status);
                 const recording = call.recordings?.[0];
                 const hasRecording = Boolean(recording?.mediaUrl);
                 const isPlaying = currentlyPlayingWacid === call.wacid;
                 const transcript = call.transcripts?.[0]?.fullText;
 
                 return (
-                  <tr key={call.wacid || call.id} className="hover:bg-slate-50/60 transition group">
+                  <tr
+                    key={call.wacid || call.id}
+                    className="hover:bg-slate-50/60 transition group"
+                  >
                     {/* Contact Number */}
                     <td className="py-3.5 px-4 font-semibold text-slate-800">
                       <div className="flex items-center gap-2">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${
-                          isInbound ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-[#125EF2]'
-                        }`}>
-                          {isInbound ? <PhoneIncoming className="w-3.5 h-3.5" /> : <PhoneOutgoing className="w-3.5 h-3.5" />}
+                        <div
+                          className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${
+                            isInbound
+                              ? "bg-emerald-50 text-emerald-600"
+                              : "bg-blue-50 text-[#125EF2]"
+                          }`}
+                        >
+                          {isInbound ? (
+                            <PhoneIncoming className="w-3.5 h-3.5" />
+                          ) : (
+                            <PhoneOutgoing className="w-3.5 h-3.5" />
+                          )}
                         </div>
                         <div>
-                          <p className="font-mono text-slate-900 leading-tight">+{phoneNumber || 'Unknown'}</p>
-                          <p className="text-[10px] text-slate-400 font-normal">WhatsApp Voice</p>
+                          <p className="font-mono text-slate-900 leading-tight">
+                            +{phoneNumber || "Unknown"}
+                          </p>
+                          <p className="text-[10px] text-slate-400 font-normal">
+                            WhatsApp Voice
+                          </p>
                         </div>
                       </div>
                     </td>
 
                     {/* Type Badge */}
                     <td className="py-3.5 px-3">
-                      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
-                        isInbound ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-[#125EF2]'
-                      }`}>
-                        {isInbound ? 'Inbound' : 'Outbound'}
+                      <span
+                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
+                          isInbound
+                            ? "bg-emerald-50 text-emerald-700"
+                            : "bg-blue-50 text-[#125EF2]"
+                        }`}
+                      >
+                        {isInbound ? "Inbound" : "Outbound"}
                       </span>
                     </td>
 
                     {/* Status Badge */}
                     <td className="py-3.5 px-3">
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide ${
-                        isSuccess 
-                          ? 'bg-emerald-50 text-emerald-700' 
-                          : isMissed 
-                            ? 'bg-rose-50 text-rose-600' 
-                            : 'bg-amber-50 text-amber-700'
-                      }`}>
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide ${
+                          isSuccess
+                            ? "bg-emerald-50 text-emerald-700"
+                            : isMissed
+                              ? "bg-rose-50 text-rose-600"
+                              : "bg-amber-50 text-amber-700"
+                        }`}
+                      >
                         {call.status}
                       </span>
                     </td>
@@ -340,27 +412,35 @@ export default function CallLogsTable() {
                       {hasRecording ? (
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => handlePlayAudio(call.wacid, recording.mediaUrl)}
+                            onClick={() =>
+                              handlePlayAudio(call.wacid, recording.mediaUrl)
+                            }
                             className={`w-7 h-7 rounded-full flex items-center justify-center transition shadow-xs ${
-                              isPlaying 
-                                ? 'bg-emerald-600 text-white' 
-                                : 'bg-[#125EF2] text-white hover:bg-blue-700'
+                              isPlaying
+                                ? "bg-emerald-600 text-white"
+                                : "bg-[#125EF2] text-white hover:bg-blue-700"
                             }`}
                             title={isPlaying ? "Pause" : "Play Recording"}
                           >
-                            {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 ml-0.5" />}
+                            {isPlaying ? (
+                              <Pause className="w-3.5 h-3.5" />
+                            ) : (
+                              <Play className="w-3.5 h-3.5 ml-0.5" />
+                            )}
                           </button>
 
                           {/* Audio Progress / Info */}
                           <div className="flex flex-col">
                             <span className="text-[11px] font-mono font-bold text-slate-700">
-                              {isPlaying ? formatDuration(audioProgress) : formatDuration(call.duration)}
+                              {isPlaying
+                                ? formatDuration(audioProgress)
+                                : formatDuration(call.duration)}
                             </span>
                           </div>
 
                           {/* Download Button */}
-                          <a 
-                            href={recording.mediaUrl} 
+                          <a
+                            href={recording.mediaUrl}
                             download={`${call.wacid}_recording.ogg`}
                             target="_blank"
                             rel="noreferrer"
@@ -371,7 +451,9 @@ export default function CallLogsTable() {
                           </a>
                         </div>
                       ) : (
-                        <span className="text-[11px] text-slate-400 italic">No recording</span>
+                        <span className="text-[11px] text-slate-400 italic">
+                          No recording
+                        </span>
                       )}
                     </td>
 
@@ -400,7 +482,9 @@ export default function CallLogsTable() {
       {/* ── Pagination ── */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between text-xs text-slate-500 pt-2 px-1">
-          <p>Showing page {page} of {totalPages} ({totalCount} total calls)</p>
+          <p>
+            Showing page {page} of {totalPages} ({totalCount} total calls)
+          </p>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
@@ -429,7 +513,7 @@ export default function CallLogsTable() {
                 <FileText className="w-4 h-4 text-[#125EF2]" />
                 Call Transcription
               </h3>
-              <button 
+              <button
                 onClick={() => setSelectedTranscript(null)}
                 className="text-slate-400 hover:text-slate-600 p-1"
               >

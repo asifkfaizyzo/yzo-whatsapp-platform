@@ -7,7 +7,7 @@ import api from "./axios";
  */
 export const getQuickReplies = async (params = {}) => {
   try {
-    const response = await api.get('/quick-replies', { params });
+    const response = await api.get("/quick-replies", { params });
     return {
       success: true,
       data: response.data.data,
@@ -16,7 +16,7 @@ export const getQuickReplies = async (params = {}) => {
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || 'Failed to fetch quick replies',
+      message: error.response?.data?.message || "Failed to fetch quick replies",
       data: [],
     };
   }
@@ -28,8 +28,10 @@ export const getQuickReplies = async (params = {}) => {
  */
 export const getQuickReplyByShortcut = async (shortcut) => {
   try {
-    const cleanShortcut = shortcut.replace(/^\/+/, '');
-    const response = await api.get(`/quick-replies/by-shortcut/${encodeURIComponent(cleanShortcut)}`);
+    const cleanShortcut = shortcut.replace(/^\/+/, "");
+    const response = await api.get(
+      `/quick-replies/by-shortcut/${encodeURIComponent(cleanShortcut)}`,
+    );
     return {
       success: true,
       data: response.data.data,
@@ -37,7 +39,7 @@ export const getQuickReplyByShortcut = async (shortcut) => {
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || 'Quick reply not found',
+      message: error.response?.data?.message || "Quick reply not found",
       data: null,
     };
   }
@@ -57,7 +59,7 @@ export const getQuickReplyById = async (id) => {
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || 'Failed to fetch quick reply',
+      message: error.response?.data?.message || "Failed to fetch quick reply",
       data: null,
     };
   }
@@ -69,20 +71,20 @@ export const getQuickReplyById = async (id) => {
  */
 export const createQuickReply = async (formData) => {
   try {
-    const response = await api.post('/quick-replies', formData, {
+    const response = await api.post("/quick-replies", formData, {
       headers: {
-        'Content-Type': 'multipart/form-data',
+        "Content-Type": "multipart/form-data",
       },
     });
     return {
       success: true,
       data: response.data.data,
-      message: response.data.message || 'Quick reply created successfully',
+      message: response.data.message || "Quick reply created successfully",
     };
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || 'Failed to create quick reply',
+      message: error.response?.data?.message || "Failed to create quick reply",
     };
   }
 };
@@ -96,18 +98,18 @@ export const updateQuickReply = async (id, formData) => {
   try {
     const response = await api.put(`/quick-replies/${id}`, formData, {
       headers: {
-        'Content-Type': 'multipart/form-data',
+        "Content-Type": "multipart/form-data",
       },
     });
     return {
       success: true,
       data: response.data.data,
-      message: response.data.message || 'Quick reply updated successfully',
+      message: response.data.message || "Quick reply updated successfully",
     };
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || 'Failed to update quick reply',
+      message: error.response?.data?.message || "Failed to update quick reply",
     };
   }
 };
@@ -122,12 +124,12 @@ export const deleteQuickReply = async (id) => {
     return {
       success: true,
       data: response.data.data,
-      message: response.data.message || 'Quick reply deleted successfully',
+      message: response.data.message || "Quick reply deleted successfully",
     };
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || 'Failed to delete quick reply',
+      message: error.response?.data?.message || "Failed to delete quick reply",
     };
   }
 };
@@ -137,7 +139,7 @@ export const deleteQuickReply = async (id) => {
  */
 export const getQuickReplyCategories = async () => {
   try {
-    const response = await api.get('/quick-replies/categories');
+    const response = await api.get("/quick-replies/categories");
     return {
       success: true,
       data: response.data.data || [],
@@ -146,7 +148,7 @@ export const getQuickReplyCategories = async () => {
     return {
       success: false,
       data: [],
-      message: error.response?.data?.message || 'Failed to fetch categories',
+      message: error.response?.data?.message || "Failed to fetch categories",
     };
   }
 };

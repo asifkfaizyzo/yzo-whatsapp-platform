@@ -1,20 +1,24 @@
 // backend/src/modules/zoho/crm/zoho.product.service.js (do not remove this comment)
 
-import prisma from '../../../config/prisma.js';
-import { zohoRequest } from '../zoho.client.js';
-import { hasZohoFeature } from '../zoho.plan.service.js';
+import prisma from "../../../config/prisma.js";
+import { zohoRequest } from "../zoho.client.js";
+import { hasZohoFeature } from "../zoho.plan.service.js";
 
 /**
  * Fetch active products from Zoho CRM.
  * Supports searching and pagination.
  */
 export async function getZohoProducts(tenantId, options = {}) {
-  const { search = '', page = 1, limit = 20 } = options;
+  const { search = "", page = 1, limit = 20 } = options;
 
   try {
-    const canRead = await hasZohoFeature(tenantId, 'deals'); // Available on Standard+
+    const canRead = await hasZohoFeature(tenantId, "deals"); // Available on Standard+
     if (!canRead) {
-      return { products: [], total: 0, message: 'Products module not available on this plan' };
+      return {
+        products: [],
+        total: 0,
+        message: "Products module not available on this plan",
+      };
     }
 
     let url = `/crm/v7/Products?page=${page}&per_page=${limit}`;
@@ -23,7 +27,7 @@ export async function getZohoProducts(tenantId, options = {}) {
     }
 
     const response = await zohoRequest(tenantId, {
-      method: 'GET',
+      method: "GET",
       url,
     });
 
@@ -32,7 +36,7 @@ export async function getZohoProducts(tenantId, options = {}) {
     const products = items.map((p) => ({
       id: p.id,
       productCode: p.Product_Code || null,
-      productName: p.Product_Name || 'Unnamed Product',
+      productName: p.Product_Name || "Unnamed Product",
       unitPrice: Number(p.Unit_Price) || 0,
       qtyInStock: Number(p.Qty_in_Stock) || 0,
       description: p.Description || null,
@@ -47,7 +51,10 @@ export async function getZohoProducts(tenantId, options = {}) {
       limit,
     };
   } catch (error) {
-    console.error(`❌ [ZohoProduct] Failed to fetch products for tenant ${tenantId}:`, error.response?.data || error.message);
+    console.error(
+      `❌ [ZohoProduct] Failed to fetch products for tenant ${tenantId}:`,
+      error.response?.data || error.message,
+    );
     return { products: [], count: 0, error: error.message };
   }
 }

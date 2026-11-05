@@ -1,7 +1,7 @@
 // backend/src/modules/shopify/products/shopify.backInStock.service.js (do not remove this comment)
-import prisma from '../../../config/prisma.js';
-import { processBroadcastCampaign } from '../../broadcasts/broadcast.service.js';
-import { emitToTenant } from '../../../lib/socket.js';
+import prisma from "../../../config/prisma.js";
+import { processBroadcastCampaign } from "../../broadcasts/broadcast.service.js";
+import { emitToTenant } from "../../../lib/socket.js";
 
 /**
  * Handle products/update webhook for Back-in-Stock detection.
@@ -12,11 +12,15 @@ import { emitToTenant } from '../../../lib/socket.js';
  * 3. Find BackInStockSubscription records for this product
  * 4. Auto-create a broadcast campaign and send via existing queue/worker
  */
-export const handleProductUpdateForBackInStock = async (tenantId, payload, shopDomain) => {
+export const handleProductUpdateForBackInStock = async (
+  tenantId,
+  payload,
+  shopDomain,
+) => {
   try {
     const productId = String(payload.id);
-    const productTitle = payload.title || 'Product';
-    const productHandle = payload.handle || '';
+    const productTitle = payload.title || "Product";
+    const productHandle = payload.handle || "";
 
     // 1. Check current inventory levels across all variants
     const variants = payload.variants || [];
@@ -31,7 +35,7 @@ export const handleProductUpdateForBackInStock = async (tenantId, payload, shopD
     }
 
     if (!hasStockNow) {
-      return { triggered: false, reason: 'still_out_of_stock' };
+      return { triggered: false, reason: "still_out_of_stock" };
     }
 
     // 2. Find unnotified subscriptions for this product
@@ -44,18 +48,20 @@ export const handleProductUpdateForBackInStock = async (tenantId, payload, shopD
     });
 
     if (subscriptions.length === 0) {
-      return { triggered: false, reason: 'no_subscribers' };
+      return { triggered: false, reason: "no_subscribers" };
     }
 
-    console.log(`🔔 [BackInStock] "${productTitle}" (ID: ${productId}) is back in stock! ${subscriptions.length} subscribers.`);
+    console.log(
+      `🔔 [BackInStock] "${productTitle}" (ID: ${productId}) is back in stock! ${subscriptions.length} subscribers.`,
+    );
 
     // 3. Get or create contacts for subscribers
-    const phones = subscriptions.map(s => s.contactPhone);
+    const phones = subscriptions.map((s) => s.contactPhone);
     const existingContacts = await prisma.contact.findMany({
       where: { tenantId, phone: { in: phones } },
     });
 
-    const existingMap = new Map(existingContacts.map(c => [c.phone, c]));
+    const existingMap = new Map(existingContacts.map((c) => [c.phone, c]));
     const contacts = [];
 
     for (const sub of subscriptions) {
@@ -67,19 +73,22 @@ export const handleProductUpdateForBackInStock = async (tenantId, payload, shopD
             data: {
               tenantId,
               phone: sub.contactPhone,
-              name: 'Back-in-Stock Subscriber',
+              name: "Back-in-Stock Subscriber",
               isActive: true,
             },
           });
           contacts.push(created);
         } catch (err) {
-          console.warn(`🔔 [BackInStock] Contact creation failed for ${sub.contactPhone}:`, err.message);
+          console.warn(
+            `🔔 [BackInStock] Contact creation failed for ${sub.contactPhone}:`,
+            err.message,
+          );
         }
       }
     }
 
     if (contacts.length === 0) {
-      return { triggered: false, reason: 'no_valid_contacts' };
+      return { triggered: false, reason: "no_valid_contacts" };
     }
 
     // 4. Get tenant WhatsApp config
@@ -88,20 +97,22 @@ export const handleProductUpdateForBackInStock = async (tenantId, payload, shopD
     });
 
     if (!tenant?.whatsappPhoneId || !tenant?.whatsappAccessToken) {
-      console.warn(`🔔 [BackInStock] Tenant ${tenantId} has no WhatsApp config. Skipping.`);
-      return { triggered: false, reason: 'no_whatsapp_config' };
+      console.warn(
+        `🔔 [BackInStock] Tenant ${tenantId} has no WhatsApp config. Skipping.`,
+      );
+      return { triggered: false, reason: "no_whatsapp_config" };
     }
 
     // 5. Find a usable template (works in both DEV and PROD)
-    const isDev = process.env.NODE_ENV !== 'production';
+    const isDev = process.env.NODE_ENV !== "production";
     const validStatuses = isDev
-      ? ['DRAFT', 'PENDING', 'APPROVED']
-      : ['APPROVED'];
+      ? ["DRAFT", "PENDING", "APPROVED"]
+      : ["APPROVED"];
 
     let template = await prisma.template.findFirst({
       where: {
         tenantId,
-        name: { contains: 'back_in_stock', mode: 'insensitive' },
+        name: { contains: "back_in_stock", mode: "insensitive" },
         status: { in: validStatuses },
       },
     });
@@ -111,9 +122,9 @@ export const handleProductUpdateForBackInStock = async (tenantId, payload, shopD
         where: {
           tenantId,
           status: { in: validStatuses },
-          category: 'MARKETING',
+          category: "MARKETING",
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
       });
     }
 
@@ -121,18 +132,22 @@ export const handleProductUpdateForBackInStock = async (tenantId, payload, shopD
       template = await prisma.template.findFirst({
         where: {
           tenantId,
-          status: { not: 'DELETED' },
+          status: { not: "DELETED" },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
       });
     }
 
     if (!template) {
-      console.warn(`🔔 [BackInStock] No usable template found for tenant ${tenantId}. Create a template first.`);
-      return { triggered: false, reason: 'no_template' };
+      console.warn(
+        `🔔 [BackInStock] No usable template found for tenant ${tenantId}. Create a template first.`,
+      );
+      return { triggered: false, reason: "no_template" };
     }
 
-    console.log(`🔔 [BackInStock] Using template "${template.name}" (status: ${template.status}, mode: ${isDev ? 'DEV' : 'PROD'})`);
+    console.log(
+      `🔔 [BackInStock] Using template "${template.name}" (status: ${template.status}, mode: ${isDev ? "DEV" : "PROD"})`,
+    );
 
     // 6. Build product URL
     const productUrl = productHandle
@@ -145,32 +160,32 @@ export const handleProductUpdateForBackInStock = async (tenantId, payload, shopD
         tenantId,
         name: `Back in Stock: ${productTitle}`,
         templateId: template.id,
-        targetType: 'SHOPIFY_SEGMENT',
-        campaignType: 'BACK_IN_STOCK',
+        targetType: "SHOPIFY_SEGMENT",
+        campaignType: "BACK_IN_STOCK",
         shopifyProductId: productId,
         shopifyProductTitle: productTitle,
         shopifyProductUrl: productUrl,
         defaultParams: {
           body: [productTitle, productUrl],
         },
-        status: 'PROCESSING',
+        status: "PROCESSING",
         totalRecipients: contacts.length,
       },
     });
 
     // 8. Create recipient records
     await prisma.broadcastRecipient.createMany({
-      data: contacts.map(c => ({
+      data: contacts.map((c) => ({
         broadcastId: campaign.id,
         contactId: c.id,
-        status: 'PENDING',
+        status: "PENDING",
         params: { body: [productTitle, productUrl] },
       })),
     });
 
     // 9. Mark subscriptions as notified
     await prisma.backInStockSubscription.updateMany({
-      where: { id: { in: subscriptions.map(s => s.id) } },
+      where: { id: { in: subscriptions.map((s) => s.id) } },
       data: {
         notified: true,
         notifiedAt: new Date(),
@@ -185,21 +200,23 @@ export const handleProductUpdateForBackInStock = async (tenantId, payload, shopD
       contacts,
       template,
       { body: [productTitle, productUrl] },
-      0
+      0,
     );
 
-    emitToTenant(tenantId, 'broadcast_update', {
+    emitToTenant(tenantId, "broadcast_update", {
       broadcastId: campaign.id,
       sent: 0,
       delivered: 0,
       read: 0,
       failed: 0,
-      status: 'PROCESSING',
-      campaignType: 'BACK_IN_STOCK',
+      status: "PROCESSING",
+      campaignType: "BACK_IN_STOCK",
       productTitle,
     });
 
-    console.log(`🎉 [BackInStock] Auto-broadcast launched for "${productTitle}" to ${contacts.length} subscribers!`);
+    console.log(
+      `🎉 [BackInStock] Auto-broadcast launched for "${productTitle}" to ${contacts.length} subscribers!`,
+    );
 
     return {
       triggered: true,
@@ -208,21 +225,26 @@ export const handleProductUpdateForBackInStock = async (tenantId, payload, shopD
       productTitle,
     };
   } catch (error) {
-    console.error('💥 [BackInStock] Error handling product update:', error);
-    return { triggered: false, reason: 'error', error: error.message };
+    console.error("💥 [BackInStock] Error handling product update:", error);
+    return { triggered: false, reason: "error", error: error.message };
   }
 };
 
 /**
  * Subscribe a customer to back-in-stock notifications
  */
-export const subscribeToBackInStock = async (tenantId, { phone, productId, variantId, productTitle, productHandle }) => {
+export const subscribeToBackInStock = async (
+  tenantId,
+  { phone, productId, variantId, productTitle, productHandle },
+) => {
   if (!phone || !productId || !productTitle) {
-    throw new Error('phone, productId, and productTitle are required');
+    throw new Error("phone, productId, and productTitle are required");
   }
 
-  const cleanPhone = phone.replace(/[^\d+]/g, '');
-  const formattedPhone = cleanPhone.startsWith('+') ? cleanPhone : `+${cleanPhone}`;
+  const cleanPhone = phone.replace(/[^\d+]/g, "");
+  const formattedPhone = cleanPhone.startsWith("+")
+    ? cleanPhone
+    : `+${cleanPhone}`;
 
   const subscription = await prisma.backInStockSubscription.upsert({
     where: {
@@ -256,9 +278,14 @@ export const subscribeToBackInStock = async (tenantId, { phone, productId, varia
 /**
  * Unsubscribe a customer from back-in-stock notifications
  */
-export const unsubscribeFromBackInStock = async (tenantId, { phone, productId }) => {
-  const cleanPhone = phone.replace(/[^\d+]/g, '');
-  const formattedPhone = cleanPhone.startsWith('+') ? cleanPhone : `+${cleanPhone}`;
+export const unsubscribeFromBackInStock = async (
+  tenantId,
+  { phone, productId },
+) => {
+  const cleanPhone = phone.replace(/[^\d+]/g, "");
+  const formattedPhone = cleanPhone.startsWith("+")
+    ? cleanPhone
+    : `+${cleanPhone}`;
 
   await prisma.backInStockSubscription.deleteMany({
     where: {
@@ -274,13 +301,16 @@ export const unsubscribeFromBackInStock = async (tenantId, { phone, productId })
 /**
  * Get all back-in-stock subscriptions for a tenant (admin view)
  */
-export const getBackInStockSubscriptions = async (tenantId, { page = 1, limit = 50 } = {}) => {
+export const getBackInStockSubscriptions = async (
+  tenantId,
+  { page = 1, limit = 50 } = {},
+) => {
   const skip = (page - 1) * limit;
 
   const [subscriptions, total] = await Promise.all([
     prisma.backInStockSubscription.findMany({
       where: { tenantId },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       skip,
       take: limit,
     }),

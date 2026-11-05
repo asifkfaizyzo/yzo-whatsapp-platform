@@ -31,7 +31,8 @@ import api from "../../api/axios";
 
 export default function Enquiries() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get("tab") === "enterprise" ? "enterprise" : "marketing";
+  const activeTab =
+    searchParams.get("tab") === "enterprise" ? "enterprise" : "marketing";
 
   const handleTabChange = (tabKey) => {
     if (tabKey === "enterprise") {
@@ -71,11 +72,16 @@ export default function Enquiries() {
         setEnquiryTotalPages(response.data.pagination?.totalPages || 1);
         setEnquiryTotal(response.data.pagination?.total || 0);
       } else {
-        setEnquiriesError(response.data?.message || "Failed to load marketing enquiries.");
+        setEnquiriesError(
+          response.data?.message || "Failed to load marketing enquiries.",
+        );
       }
     } catch (err) {
       console.error("Error loading enquiries:", err);
-      setEnquiriesError(err.response?.data?.message || "Failed to load enquiries. Please make sure the server is running.");
+      setEnquiriesError(
+        err.response?.data?.message ||
+          "Failed to load enquiries. Please make sure the server is running.",
+      );
     } finally {
       setEnquiriesLoading(false);
     }
@@ -127,11 +133,16 @@ export default function Enquiries() {
         setLeadTotalPages(response.data.pagination?.totalPages || 1);
         setLeadTotal(response.data.pagination?.total || 0);
       } else {
-        setLeadsError(response.data?.message || "Failed to load enterprise leads.");
+        setLeadsError(
+          response.data?.message || "Failed to load enterprise leads.",
+        );
       }
     } catch (err) {
       console.error("Error loading leads:", err);
-      setLeadsError(err.response?.data?.message || "Failed to load enterprise leads. Please make sure the server is running.");
+      setLeadsError(
+        err.response?.data?.message ||
+          "Failed to load enterprise leads. Please make sure the server is running.",
+      );
     } finally {
       setLeadsLoading(false);
     }
@@ -246,24 +257,37 @@ export default function Enquiries() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#125fe2] to-indigo-600 flex items-center justify-center flex-shrink-0 shadow-md shadow-blue-200 text-white">
-              {activeTab === "enterprise" ? <Sparkles size={18} /> : <HelpCircle size={18} />}
+              {activeTab === "enterprise" ? (
+                <Sparkles size={18} />
+              ) : (
+                <HelpCircle size={18} />
+              )}
             </div>
             <span>Enquiries & Enterprise Leads</span>
           </h1>
           <p className="text-xs text-slate-500 mt-1 ml-11">
-            Centralized hub for handling general public marketing contact requests and high-intent enterprise plan leads.
+            Centralized hub for handling general public marketing contact
+            requests and high-intent enterprise plan leads.
           </p>
         </div>
 
         <div className="flex gap-2 flex-shrink-0">
           <button
-            onClick={() => (activeTab === "enterprise" ? fetchLeads() : fetchEnquiries())}
-            disabled={activeTab === "enterprise" ? leadsLoading : enquiriesLoading}
+            onClick={() =>
+              activeTab === "enterprise" ? fetchLeads() : fetchEnquiries()
+            }
+            disabled={
+              activeTab === "enterprise" ? leadsLoading : enquiriesLoading
+            }
             className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-white hover:border-slate-300 transition shadow-xs"
           >
             <RefreshCw
               size={13}
-              className={(activeTab === "enterprise" ? leadsLoading : enquiriesLoading) ? "animate-spin" : ""}
+              className={
+                (activeTab === "enterprise" ? leadsLoading : enquiriesLoading)
+                  ? "animate-spin"
+                  : ""
+              }
             />
             <span>Refresh</span>
           </button>
@@ -280,12 +304,19 @@ export default function Enquiries() {
               : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
           }`}
         >
-          <Inbox size={16} className={activeTab === "marketing" ? "text-[#125fe2]" : "text-slate-400"} />
+          <Inbox
+            size={16}
+            className={
+              activeTab === "marketing" ? "text-[#125fe2]" : "text-slate-400"
+            }
+          />
           <span>Marketing Enquiries</span>
           {enquiryTotal > 0 && (
             <span
               className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
-                activeTab === "marketing" ? "bg-blue-50 text-[#125fe2]" : "bg-slate-200/80 text-slate-600"
+                activeTab === "marketing"
+                  ? "bg-blue-50 text-[#125fe2]"
+                  : "bg-slate-200/80 text-slate-600"
               }`}
             >
               {enquiryTotal}
@@ -301,12 +332,19 @@ export default function Enquiries() {
               : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
           }`}
         >
-          <Briefcase size={16} className={activeTab === "enterprise" ? "text-indigo-600" : "text-slate-400"} />
+          <Briefcase
+            size={16}
+            className={
+              activeTab === "enterprise" ? "text-indigo-600" : "text-slate-400"
+            }
+          />
           <span>Enterprise Leads</span>
           {leadTotal > 0 && (
             <span
               className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
-                activeTab === "enterprise" ? "bg-indigo-50 text-indigo-600" : "bg-slate-200/80 text-slate-600"
+                activeTab === "enterprise"
+                  ? "bg-indigo-50 text-indigo-600"
+                  : "bg-slate-200/80 text-slate-600"
               }`}
             >
               {leadTotal}
@@ -323,8 +361,14 @@ export default function Enquiries() {
           {/* Search & Filter Toolbar */}
           <div className="card border border-slate-100 p-4 bg-white rounded-2xl flex flex-col md:flex-row gap-3 items-center justify-between shadow-xs">
             {/* Search */}
-            <form onSubmit={handleEnquirySearchSubmit} className="relative w-full md:w-80">
-              <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <form
+              onSubmit={handleEnquirySearchSubmit}
+              className="relative w-full md:w-80"
+            >
+              <Search
+                size={15}
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+              />
               <input
                 type="text"
                 placeholder="Search sender name, email, subject..."
@@ -385,7 +429,10 @@ export default function Enquiries() {
           {/* Table Card */}
           <div
             className="bg-white rounded-2xl border border-slate-100 overflow-hidden"
-            style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 6px 24px rgba(18,95,226,0.05)" }}
+            style={{
+              boxShadow:
+                "0 1px 3px rgba(0,0,0,0.04), 0 6px 24px rgba(18,95,226,0.05)",
+            }}
           >
             {enquiriesError && (
               <div className="p-4 bg-rose-50 border-b border-rose-100 text-xs text-rose-600 font-medium flex items-center gap-2">
@@ -400,15 +447,21 @@ export default function Enquiries() {
                   <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center mb-4">
                     <RefreshCw className="w-6 h-6 text-[#125fe2] animate-spin" />
                   </div>
-                  <p className="text-slate-700 font-semibold text-sm">Loading marketing enquiries...</p>
+                  <p className="text-slate-700 font-semibold text-sm">
+                    Loading marketing enquiries...
+                  </p>
                 </div>
               ) : enquiries.length === 0 ? (
                 <div className="p-20 text-center">
                   <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3 text-slate-400">
                     <Inbox size={24} />
                   </div>
-                  <p className="text-slate-700 font-semibold text-sm">No enquiries found</p>
-                  <p className="text-slate-400 text-xs mt-1">No contact requests match your active filters.</p>
+                  <p className="text-slate-700 font-semibold text-sm">
+                    No enquiries found
+                  </p>
+                  <p className="text-slate-400 text-xs mt-1">
+                    No contact requests match your active filters.
+                  </p>
                 </div>
               ) : (
                 <table className="w-full text-left border-collapse min-w-[850px]">
@@ -450,7 +503,11 @@ export default function Enquiries() {
                         {/* Subject & Message Preview */}
                         <td className="py-4 px-5 max-w-sm">
                           <p className="text-xs font-semibold text-slate-800 leading-snug">
-                            {enquiry.subject || <span className="text-slate-400 italic font-normal">No subject</span>}
+                            {enquiry.subject || (
+                              <span className="text-slate-400 italic font-normal">
+                                No subject
+                              </span>
+                            )}
                           </p>
                           <p className="text-[11px] text-slate-500 truncate mt-0.5">
                             {enquiry.message || "—"}
@@ -466,10 +523,15 @@ export default function Enquiries() {
                         <td className="py-4 px-5 text-xs text-slate-500">
                           <div className="flex items-center gap-1">
                             <Calendar size={12} className="text-slate-400" />
-                            <span>{new Date(enquiry.createdAt).toLocaleDateString()}</span>
+                            <span>
+                              {new Date(enquiry.createdAt).toLocaleDateString()}
+                            </span>
                           </div>
                           <span className="text-[10px] text-slate-400 block mt-0.5">
-                            {new Date(enquiry.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            {new Date(enquiry.createdAt).toLocaleTimeString(
+                              [],
+                              { hour: "2-digit", minute: "2-digit" },
+                            )}
                           </span>
                         </td>
 
@@ -494,20 +556,35 @@ export default function Enquiries() {
             {enquiryTotalPages > 1 && (
               <div className="px-5 py-3.5 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between text-xs text-slate-500">
                 <p>
-                  Showing page <span className="font-semibold text-slate-700">{enquiryPage}</span> of{" "}
-                  <span className="font-semibold text-slate-700">{enquiryTotalPages}</span> ({enquiryTotal} total)
+                  Showing page{" "}
+                  <span className="font-semibold text-slate-700">
+                    {enquiryPage}
+                  </span>{" "}
+                  of{" "}
+                  <span className="font-semibold text-slate-700">
+                    {enquiryTotalPages}
+                  </span>{" "}
+                  ({enquiryTotal} total)
                 </p>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => setEnquiryPage((prev) => Math.max(prev - 1, 1))}
+                    onClick={() =>
+                      setEnquiryPage((prev) => Math.max(prev - 1, 1))
+                    }
                     disabled={enquiryPage === 1 || enquiriesLoading}
                     className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white font-semibold disabled:opacity-40 hover:bg-slate-50 flex items-center gap-1"
                   >
                     <ChevronLeft size={14} /> Previous
                   </button>
                   <button
-                    onClick={() => setEnquiryPage((prev) => Math.min(prev + 1, enquiryTotalPages))}
-                    disabled={enquiryPage === enquiryTotalPages || enquiriesLoading}
+                    onClick={() =>
+                      setEnquiryPage((prev) =>
+                        Math.min(prev + 1, enquiryTotalPages),
+                      )
+                    }
+                    disabled={
+                      enquiryPage === enquiryTotalPages || enquiriesLoading
+                    }
                     className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white font-semibold disabled:opacity-40 hover:bg-slate-50 flex items-center gap-1"
                   >
                     Next <ChevronRight size={14} />
@@ -528,8 +605,14 @@ export default function Enquiries() {
           <div className="card border border-slate-100 p-4 bg-white rounded-2xl flex flex-col gap-3.5 shadow-xs">
             <div className="flex flex-col md:flex-row gap-3 items-center justify-between">
               {/* Search */}
-              <form onSubmit={handleLeadSearchSubmit} className="relative w-full md:w-80">
-                <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <form
+                onSubmit={handleLeadSearchSubmit}
+                className="relative w-full md:w-80"
+              >
+                <Search
+                  size={15}
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+                />
                 <input
                   type="text"
                   placeholder="Search company, contact name, email..."
@@ -627,7 +710,10 @@ export default function Enquiries() {
           {/* Table Card */}
           <div
             className="bg-white rounded-2xl border border-slate-100 overflow-hidden"
-            style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 6px 24px rgba(99,102,241,0.05)" }}
+            style={{
+              boxShadow:
+                "0 1px 3px rgba(0,0,0,0.04), 0 6px 24px rgba(99,102,241,0.05)",
+            }}
           >
             {leadsError && (
               <div className="p-4 bg-rose-50 border-b border-rose-100 text-xs text-rose-600 font-medium flex items-center gap-2">
@@ -642,15 +728,21 @@ export default function Enquiries() {
                   <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center mb-4">
                     <RefreshCw className="w-6 h-6 text-indigo-600 animate-spin" />
                   </div>
-                  <p className="text-slate-700 font-semibold text-sm">Loading enterprise leads...</p>
+                  <p className="text-slate-700 font-semibold text-sm">
+                    Loading enterprise leads...
+                  </p>
                 </div>
               ) : leads.length === 0 ? (
                 <div className="p-20 text-center">
                   <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3 text-slate-400">
                     <Briefcase size={24} />
                   </div>
-                  <p className="text-slate-700 font-semibold text-sm">No enterprise leads found</p>
-                  <p className="text-slate-400 text-xs mt-1">No custom enterprise inquiries match your current filters.</p>
+                  <p className="text-slate-700 font-semibold text-sm">
+                    No enterprise leads found
+                  </p>
+                  <p className="text-slate-400 text-xs mt-1">
+                    No custom enterprise inquiries match your current filters.
+                  </p>
                 </div>
               ) : (
                 <table className="w-full text-left border-collapse min-w-[950px]">
@@ -676,14 +768,19 @@ export default function Enquiries() {
                         <td className="py-4 px-5">
                           <div className="flex items-center gap-3">
                             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs flex-shrink-0 shadow-sm shadow-indigo-100">
-                              {(lead.companyName || lead.name || "E").charAt(0).toUpperCase()}
+                              {(lead.companyName || lead.name || "E")
+                                .charAt(0)
+                                .toUpperCase()}
                             </div>
                             <div>
                               <p className="font-bold text-slate-900 text-xs leading-tight group-hover:text-indigo-600 transition-colors">
                                 {lead.companyName || "Enterprise Lead"}
                               </p>
                               <p className="text-[10px] text-slate-500 mt-0.5">
-                                Contact: <span className="font-medium text-slate-700">{lead.name}</span>
+                                Contact:{" "}
+                                <span className="font-medium text-slate-700">
+                                  {lead.name}
+                                </span>
                               </p>
                             </div>
                           </div>
@@ -707,7 +804,11 @@ export default function Enquiries() {
                         <td className="py-4 px-5">
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
                             <Users2 size={11} className="text-slate-400" />
-                            <span>{lead.companySize ? `${lead.companySize} employees` : "Size not set"}</span>
+                            <span>
+                              {lead.companySize
+                                ? `${lead.companySize} employees`
+                                : "Size not set"}
+                            </span>
                           </span>
                           <span className="text-[10px] text-slate-500 block mt-1">
                             {getTimelineLabel(lead.timeline)}
@@ -723,10 +824,15 @@ export default function Enquiries() {
                         <td className="py-4 px-5 text-xs text-slate-500">
                           <div className="flex items-center gap-1">
                             <Calendar size={12} className="text-slate-400" />
-                            <span>{new Date(lead.createdAt).toLocaleDateString()}</span>
+                            <span>
+                              {new Date(lead.createdAt).toLocaleDateString()}
+                            </span>
                           </div>
                           <span className="text-[10px] text-slate-400 block mt-0.5">
-                            {new Date(lead.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            {new Date(lead.createdAt).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
                           </span>
                         </td>
 
@@ -751,8 +857,15 @@ export default function Enquiries() {
             {leadTotalPages > 1 && (
               <div className="px-5 py-3.5 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between text-xs text-slate-500">
                 <p>
-                  Showing page <span className="font-semibold text-slate-700">{leadPage}</span> of{" "}
-                  <span className="font-semibold text-slate-700">{leadTotalPages}</span> ({leadTotal} total)
+                  Showing page{" "}
+                  <span className="font-semibold text-slate-700">
+                    {leadPage}
+                  </span>{" "}
+                  of{" "}
+                  <span className="font-semibold text-slate-700">
+                    {leadTotalPages}
+                  </span>{" "}
+                  ({leadTotal} total)
                 </p>
                 <div className="flex gap-2">
                   <button
@@ -763,7 +876,9 @@ export default function Enquiries() {
                     <ChevronLeft size={14} /> Previous
                   </button>
                   <button
-                    onClick={() => setLeadPage((prev) => Math.min(prev + 1, leadTotalPages))}
+                    onClick={() =>
+                      setLeadPage((prev) => Math.min(prev + 1, leadTotalPages))
+                    }
                     disabled={leadPage === leadTotalPages || leadsLoading}
                     className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white font-semibold disabled:opacity-40 hover:bg-slate-50 flex items-center gap-1"
                   >

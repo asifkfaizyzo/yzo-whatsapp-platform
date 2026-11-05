@@ -7,10 +7,14 @@ import { emitToTenant } from "../../lib/socket.js";
 import { createNotification } from "../notifications/notification.service.js";
 import { generateSignedUrl } from "../../lib/utils/signed.url.js";
 import { createAuditLog } from "../audit/audit.service.js";
-import pushService from '../../modules/notifications/push.service.js';
+import pushService from "../../modules/notifications/push.service.js";
 
 //AUTO / MANUAL: Get or create conversation
-export const getOrCreateConversation = async (contactId, tenantId, channel = 'WHATSAPP') => {
+export const getOrCreateConversation = async (
+  contactId,
+  tenantId,
+  channel = "WHATSAPP",
+) => {
   // 1️⃣ Check if conversation exists
   let conversation = await prisma.conversation.findUnique({
     where: { contactId },
@@ -132,7 +136,7 @@ export const getAssignedConversations = async ({
             },
           },
         },
-       messages: {
+        messages: {
           orderBy: { createdAt: "desc" },
           take: 1,
           select: {
@@ -148,20 +152,22 @@ export const getAssignedConversations = async ({
       orderBy: [
         { isPinned: "desc" },
         { pinnedAt: "desc" },
-        { updatedAt: "desc" }
+        { updatedAt: "desc" },
       ],
       skip,
       take: limit,
     });
 
-    const convIds = conversations.map(c => c.id);
+    const convIds = conversations.map((c) => c.id);
     if (convIds.length > 0) {
       const allCalls = await prisma.waCall.findMany({
         where: { conversationId: { in: convIds } },
-        orderBy: { createdAt: "desc" }
+        orderBy: { createdAt: "desc" },
       });
-      conversations.forEach(conv => {
-        conv.waCalls = allCalls.filter(c => c.conversationId === conv.id).slice(0, 1);
+      conversations.forEach((conv) => {
+        conv.waCalls = allCalls
+          .filter((c) => c.conversationId === conv.id)
+          .slice(0, 1);
       });
     }
 
@@ -185,7 +191,7 @@ export const getAssignedConversations = async ({
       where: {
         tenantId,
         isArchived: false,
-        status: 'OPEN',
+        status: "OPEN",
       },
     });
 
@@ -193,17 +199,19 @@ export const getAssignedConversations = async ({
       where: {
         tenantId,
         isArchived: false,
-        status: { in: ['CLOSED', 'RESOLVED'] },
+        status: { in: ["CLOSED", "RESOLVED"] },
       },
     });
 
     // ✅ Get omnichannel platform counts (All, WhatsApp, Messenger, Instagram)
     const rawChannelCounts = await prisma.conversation.groupBy({
-      by: ['channel'],
+      by: ["channel"],
       where: {
         tenantId,
         isArchived: false,
-        ...(assignType === "my" && userId ? { contact: { assignedTo: userId } } : {}),
+        ...(assignType === "my" && userId
+          ? { contact: { assignedTo: userId } }
+          : {}),
       },
       _count: { id: true },
     });
@@ -605,36 +613,38 @@ export const getArchivedConversations = async ({
           },
         },
       },
-             messages: {
-          where: {
-            isDeleted: false,
-          },
-          orderBy: { createdAt: "desc" },
-          take: 1,
-          select: {
-            id: true,
-            text: true,
-            type: true,
-            createdAt: true,
-            isDeleted: true,
-            direction: true,
-            status: true,
-          },
+      messages: {
+        where: {
+          isDeleted: false,
         },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: {
+          id: true,
+          text: true,
+          type: true,
+          createdAt: true,
+          isDeleted: true,
+          direction: true,
+          status: true,
+        },
+      },
     },
     orderBy: { archivedAt: "desc" },
     skip,
     take: limit,
   });
 
-  const convIds = conversations.map(c => c.id);
+  const convIds = conversations.map((c) => c.id);
   if (convIds.length > 0) {
     const allCalls = await prisma.waCall.findMany({
       where: { conversationId: { in: convIds } },
-      orderBy: { createdAt: "desc" }
+      orderBy: { createdAt: "desc" },
     });
-    conversations.forEach(conv => {
-      conv.waCalls = allCalls.filter(c => c.conversationId === conv.id).slice(0, 1);
+    conversations.forEach((conv) => {
+      conv.waCalls = allCalls
+        .filter((c) => c.conversationId === conv.id)
+        .slice(0, 1);
     });
   }
 
@@ -788,7 +798,7 @@ export const bulkReassignConversations = async ({
   // userId = newUserId → user sees it in their
   // notification list (not tenant-wide)
   // ──────────────────────────────────────────
-    if (newUserId) {
+  if (newUserId) {
     await createNotification({
       tenantId: tenantId,
       userId: newUserId,
@@ -806,24 +816,29 @@ export const bulkReassignConversations = async ({
     });
 
     // ── Push notification to reassigned agent (fire-and-forget) ──
-    prisma.user.findUnique({
-      where: { id: newUserId },
-      select: { pushToken: true },
-    }).then((agent) => {
-      if (!agent?.pushToken) return;
-      pushService.sendToDevice({
-        token: agent.pushToken,
-        title: 'New Conversations Assigned',
-        body: `${conversations.length} conversation(s) assigned to you by ${performedByName || 'Admin'}`,
-        data: {
-          type: 'reassigned',
-          count: conversations.length,
-          channelId: 'default',
-        },
-      }).catch((err) => {
-        console.error('[BulkReassign] Push failed:', err.message);
-      });
-    }).catch(() => {});
+    prisma.user
+      .findUnique({
+        where: { id: newUserId },
+        select: { pushToken: true },
+      })
+      .then((agent) => {
+        if (!agent?.pushToken) return;
+        pushService
+          .sendToDevice({
+            token: agent.pushToken,
+            title: "New Conversations Assigned",
+            body: `${conversations.length} conversation(s) assigned to you by ${performedByName || "Admin"}`,
+            data: {
+              type: "reassigned",
+              count: conversations.length,
+              channelId: "default",
+            },
+          })
+          .catch((err) => {
+            console.error("[BulkReassign] Push failed:", err.message);
+          });
+      })
+      .catch(() => {});
   }
 
   // ──────────────────────────────────────────
@@ -882,17 +897,12 @@ export const bulkReassignConversations = async ({
   };
 };
 
-
-
-export const markConversationAsRead = async ({
-  conversationId,
-  tenantId,
-}) => {
+export const markConversationAsRead = async ({ conversationId, tenantId }) => {
   const conversation = await prisma.conversation.findFirst({
     where: { id: conversationId, tenantId },
   });
 
-  if (!conversation) throw new Error('Conversation not found');
+  if (!conversation) throw new Error("Conversation not found");
 
   // ⭐ Only update if unread > 0 (skip unnecessary DB writes)
   if (conversation.unreadCount > 0) {
@@ -900,29 +910,28 @@ export const markConversationAsRead = async ({
       where: { id: conversationId },
       data: {
         unreadCount: 0,
-        updatedAt: conversation.updatedAt,  // ⭐ Keep original timestamp — prevents chat jump
+        updatedAt: conversation.updatedAt, // ⭐ Keep original timestamp — prevents chat jump
       },
     });
 
     await prisma.message.updateMany({
       where: {
         conversationId,
-        direction: 'INBOUND',
-        isRead:    false,
+        direction: "INBOUND",
+        isRead: false,
       },
       data: { isRead: true },
     });
   }
 
-  emitToTenant(tenantId, 'unread_count_update', {
+  emitToTenant(tenantId, "unread_count_update", {
     conversationId,
     unreadCount: 0,
-    contactId:   conversation.contactId,
+    contactId: conversation.contactId,
   });
 
   return { success: true };
 };
-
 
 // ── Get Conversation Media, Links, and Docs ──────────────
 export const getConversationMedia = async ({
@@ -970,18 +979,31 @@ export const getConversationMedia = async ({
 
   // Get total counts for all 3 categories (for badges)
   const mediaCount = await prisma.message.count({
-    where: { conversationId, isDeleted: false, type: { in: ["IMAGE", "VIDEO", "AUDIO"] }, mediaUrl: { not: null } },
+    where: {
+      conversationId,
+      isDeleted: false,
+      type: { in: ["IMAGE", "VIDEO", "AUDIO"] },
+      mediaUrl: { not: null },
+    },
   });
 
   const docsCount = await prisma.message.count({
-    where: { conversationId, isDeleted: false, type: "FILE", mediaUrl: { not: null } },
+    where: {
+      conversationId,
+      isDeleted: false,
+      type: "FILE",
+      mediaUrl: { not: null },
+    },
   });
 
   const linksCount = await prisma.message.count({
     where: {
       conversationId,
       isDeleted: false,
-      OR: [{ text: { contains: "http://" } }, { text: { contains: "https://" } }],
+      OR: [
+        { text: { contains: "http://" } },
+        { text: { contains: "https://" } },
+      ],
     },
   });
 
@@ -1040,7 +1062,7 @@ export const getConversationMedia = async ({
       direction: msg.direction,
       links: extractedLinks,
     };
-  }); 
+  });
 
   return {
     items,
@@ -1055,7 +1077,6 @@ export const getConversationMedia = async ({
     },
   };
 };
-
 
 // ── Toggle Pin / Unpin Conversation (Max 3 pinned per tenant) ──────────────
 export const togglePinConversation = async (conversationId, tenantId) => {
@@ -1935,8 +1956,6 @@ export const togglePinConversation = async (conversationId, tenantId) => {
 //   };
 // };
 
-
-
 // export const markConversationAsRead = async ({
 //   conversationId,
 //   tenantId,
@@ -1975,7 +1994,6 @@ export const togglePinConversation = async (conversationId, tenantId) => {
 
 //   return { success: true };
 // };
-
 
 // // ── Get Conversation Media, Links, and Docs ──────────────
 // export const getConversationMedia = async ({
@@ -2093,7 +2111,7 @@ export const togglePinConversation = async (conversationId, tenantId) => {
 //       direction: msg.direction,
 //       links: extractedLinks,
 //     };
-//   }); 
+//   });
 
 //   return {
 //     items,
@@ -2108,7 +2126,6 @@ export const togglePinConversation = async (conversationId, tenantId) => {
 //     },
 //   };
 // };
-
 
 // // ── Toggle Pin / Unpin Conversation (Max 3 pinned per tenant) ──────────────
 // export const togglePinConversation = async (conversationId, tenantId) => {

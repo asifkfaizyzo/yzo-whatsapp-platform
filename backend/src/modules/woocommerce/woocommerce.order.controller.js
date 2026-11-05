@@ -1,5 +1,5 @@
 // backend/src/modules/woocommerce/woocommerce.order.controller.js (do not remove this comment)
-import prisma from '../../config/prisma.js';
+import prisma from "../../config/prisma.js";
 
 // GET /tenant/woocommerce/orders?phone=+91xxxxxxxxx
 export const getCustomerOrders = async (req, res) => {
@@ -8,22 +8,26 @@ export const getCustomerOrders = async (req, res) => {
     const { phone } = req.query;
 
     if (!phone) {
-      return res.status(400).json({ success: false, message: 'Phone number is required' });
+      return res
+        .status(400)
+        .json({ success: false, message: "Phone number is required" });
     }
 
     const orders = await prisma.ecommerceOrder.findMany({
       where: {
         tenantId,
         customerPhone: phone,
-        source: 'WOOCOMMERCE'
+        source: "WOOCOMMERCE",
       },
-      orderBy: { createdAt: 'desc' },
-      take: 10 // Show last 10 orders in the inbox sidebar
+      orderBy: { createdAt: "desc" },
+      take: 10, // Show last 10 orders in the inbox sidebar
     });
 
     return res.json({ success: true, data: orders });
   } catch (error) {
-    console.error('Error fetching customer orders:', error);
-    return res.status(500).json({ success: false, message: 'Internal server error' });
+    console.error("Error fetching customer orders:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "Internal server error" });
   }
 };

@@ -1,20 +1,20 @@
 // backend/prisma/scripts/fixCorruptMediaUrls.js (do not remove this comment)
 
-import prisma from '../../src/config/prisma.js';
-import fs from 'fs';
-import path from 'path';
+import prisma from "../../src/config/prisma.js";
+import fs from "fs";
+import path from "path";
 
 const fixMediaUrls = async () => {
-  console.log('🔧 Starting mediaUrl cleanup migration...\n');
+  console.log("🔧 Starting mediaUrl cleanup migration...\n");
 
   const messages = await prisma.message.findMany({
     where: {
-      mediaUrl:  { not: null },
+      mediaUrl: { not: null },
       isDeleted: false,
     },
     select: {
-      id:        true,
-      mediaUrl:  true,
+      id: true,
+      mediaUrl: true,
       mediaName: true,
     },
   });
@@ -22,12 +22,12 @@ const fixMediaUrls = async () => {
   console.log(`📊 Total messages with mediaUrl: ${messages.length}\n`);
 
   let stats = {
-    total:        messages.length,
-    fixed:        0,
+    total: messages.length,
+    fixed: 0,
     alreadyValid: 0,
     fileNotFound: 0,
-    invalid:      0,
-    errors:       0,
+    invalid: 0,
+    errors: 0,
   };
 
   const brokenIds = [];
@@ -35,10 +35,10 @@ const fixMediaUrls = async () => {
   for (const msg of messages) {
     try {
       let originalUrl = msg.mediaUrl;
-      let cleanPath   = originalUrl;
+      let cleanPath = originalUrl;
 
       // 1. Convert full URL to relative
-      if (cleanPath.startsWith('http')) {
+      if (cleanPath.startsWith("http")) {
         try {
           const url = new URL(cleanPath);
           cleanPath = url.pathname.substring(1);
@@ -51,17 +51,17 @@ const fixMediaUrls = async () => {
       }
 
       // 2. Remove "undefined/" prefix
-      if (cleanPath.includes('undefined/')) {
-        cleanPath = cleanPath.replace('undefined/', '');
+      if (cleanPath.includes("undefined/")) {
+        cleanPath = cleanPath.replace("undefined/", "");
       }
 
       // 3. Remove leading slash
-      if (cleanPath.startsWith('/')) {
+      if (cleanPath.startsWith("/")) {
         cleanPath = cleanPath.substring(1);
       }
 
       // 4. Check valid format
-      if (!cleanPath.startsWith('uploads/')) {
+      if (!cleanPath.startsWith("uploads/")) {
         console.warn(`⚠️ Invalid format: ${originalUrl}`);
         stats.invalid++;
         brokenIds.push(msg.id);
@@ -81,7 +81,7 @@ const fixMediaUrls = async () => {
       if (cleanPath !== originalUrl) {
         await prisma.message.update({
           where: { id: msg.id },
-          data:  { mediaUrl: cleanPath },
+          data: { mediaUrl: cleanPath },
         });
         stats.fixed++;
         console.log(`✅ Fixed: ${originalUrl}`);
@@ -89,7 +89,6 @@ const fixMediaUrls = async () => {
       } else {
         stats.alreadyValid++;
       }
-
     } catch (err) {
       console.error(`❌ Error processing ${msg.id}:`, err.message);
       stats.errors++;
@@ -97,16 +96,16 @@ const fixMediaUrls = async () => {
   }
 
   // Print summary
-  console.log('\n═══════════════════════════════════════');
-  console.log('📊 MIGRATION SUMMARY');
-  console.log('═══════════════════════════════════════');
+  console.log("\n═══════════════════════════════════════");
+  console.log("📊 MIGRATION SUMMARY");
+  console.log("═══════════════════════════════════════");
   console.log(`Total processed: ${stats.total}`);
   console.log(`✅ Fixed:        ${stats.fixed}`);
   console.log(`✓  Already OK:   ${stats.alreadyValid}`);
   console.log(`⚠️  Invalid:      ${stats.invalid}`);
   console.log(`📁 Missing file: ${stats.fileNotFound}`);
   console.log(`❌ Errors:       ${stats.errors}`);
-  console.log('═══════════════════════════════════════\n');
+  console.log("═══════════════════════════════════════\n");
 
   // Clean up broken records
   if (brokenIds.length > 0) {
@@ -114,21 +113,21 @@ const fixMediaUrls = async () => {
     await prisma.message.updateMany({
       where: { id: { in: brokenIds } },
       data: {
-        mediaUrl:      null,
-        mediaName:     null,
-        mediaSize:     null,
+        mediaUrl: null,
+        mediaName: null,
+        mediaSize: null,
         mediaMimeType: null,
-        text:          '[Media unavailable]',
+        text: "[Media unavailable]",
       },
     });
     console.log(`✅ Cleared ${brokenIds.length} broken records\n`);
   }
 
   await prisma.$disconnect();
-  console.log('✨ Migration complete!');
+  console.log("✨ Migration complete!");
 };
 
 fixMediaUrls().catch((err) => {
-  console.error('Migration failed:', err);
+  console.error("Migration failed:", err);
   process.exit(1);
 });

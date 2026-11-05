@@ -28,7 +28,7 @@ export const useNotificationStore = create((set, get) => ({
   },
 
   // ── Add incoming real-time notification (from socket) ──
-   addNotification: (notification) => {
+  addNotification: (notification) => {
     set((state) => {
       // ✅ Prevent duplicate notifications with the same ID
       const exists = state.notifications.some((n) => n.id === notification.id);
@@ -47,7 +47,7 @@ export const useNotificationStore = create((set, get) => ({
     if (res.success) {
       set((state) => ({
         notifications: state.notifications.map((n) =>
-          n.id === id ? { ...n, isRead: true } : n
+          n.id === id ? { ...n, isRead: true } : n,
         ),
         unreadCount: Math.max(0, state.unreadCount - 1),
       }));

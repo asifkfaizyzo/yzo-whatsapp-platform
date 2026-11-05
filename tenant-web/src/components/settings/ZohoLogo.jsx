@@ -8,44 +8,65 @@ export default function ZohoOutlineLogo({ className = "w-64 h-auto" }) {
       className={className}
       xmlns="http://www.w3.org/2000/svg"
     >
-      <g fill="none" strokeWidth="14" strokeLinecap="round" strokeLinejoin="round">
+      <g
+        fill="none"
+        strokeWidth="14"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
         {/* Red Square (Back left, slightly tilted) */}
-        <rect 
-          x="30" y="40" width="100" height="100" rx="20" 
-          stroke="#E2231A" 
-          transform="rotate(-10 80 90)" 
+        <rect
+          x="30"
+          y="40"
+          width="100"
+          height="100"
+          rx="20"
+          stroke="#E2231A"
+          transform="rotate(-10 80 90)"
         />
 
         {/* Green Square (Overlaps Red, tilted right) */}
-        <rect 
-          x="110" y="30" width="100" height="100" rx="20" 
-          stroke="#009A44" 
-          transform="rotate(15 160 80)" 
+        <rect
+          x="110"
+          y="30"
+          width="100"
+          height="100"
+          rx="20"
+          stroke="#009A44"
+          transform="rotate(15 160 80)"
         />
 
         {/* Blue Square (Overlaps Green, tilted left) */}
-        <rect 
-          x="190" y="40" width="100" height="100" rx="20" 
-          stroke="#0072C6" 
-          transform="rotate(-8 240 90)" 
+        <rect
+          x="190"
+          y="40"
+          width="100"
+          height="100"
+          rx="20"
+          stroke="#0072C6"
+          transform="rotate(-8 240 90)"
         />
 
         {/* Yellow Square (Overlaps Blue, straight) */}
-        <rect 
-          x="270" y="40" width="100" height="100" rx="20" 
-          stroke="#F8B100" 
+        <rect
+          x="270"
+          y="40"
+          width="100"
+          height="100"
+          rx="20"
+          stroke="#F8B100"
         />
       </g>
- 
+
       {/* Text positioned below the shapes */}
-      <text 
-        x="200" 
-        y="180" 
-        textAnchor="middle" 
-        fill="#000000" 
-        fontFamily="Arial, Helvetica, sans-serif" 
-        fontWeight="bold" 
-        fontSize="28" 
+      <text
+        x="200"
+        y="180"
+        textAnchor="middle"
+        fill="#000000"
+        fontFamily="Arial, Helvetica, sans-serif"
+        fontWeight="bold"
+        fontSize="28"
         letterSpacing="12"
       >
         ZOHO

@@ -1,20 +1,21 @@
 // backend/src/cron/jobs/auditCleanupJob.js (do not remove this comment)
-import cron from 'node-cron';
-import { cleanupOldAuditLogsService } from '../../modules/audit/audit.service.js';
+import cron from "node-cron";
+import { cleanupOldAuditLogsService } from "../../modules/audit/audit.service.js";
 
 export const startAuditCleanupJob = () => {
-
   // Runs every day at 2:00 AM
-  cron.schedule('0 2 * * *', async () => {
-    console.log('[AuditCleanup] Starting scheduled cleanup...');
+  cron.schedule("0 2 * * *", async () => {
+    console.log("[AuditCleanup] Starting scheduled cleanup...");
 
     try {
       const result = await cleanupOldAuditLogsService();
-      console.log(`[AuditCleanup] Done. Removed ${result.deletedCount} old logs.`);
+      console.log(
+        `[AuditCleanup] Done. Removed ${result.deletedCount} old logs.`,
+      );
     } catch (error) {
-      console.error('[AuditCleanup] Cleanup failed:', error.message);
+      console.error("[AuditCleanup] Cleanup failed:", error.message);
     }
   });
 
-  console.log('[AuditCleanup] Job scheduled — runs daily at 2:00 AM');
+  console.log("[AuditCleanup] Job scheduled — runs daily at 2:00 AM");
 };

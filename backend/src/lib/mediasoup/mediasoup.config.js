@@ -6,22 +6,21 @@ export const setAnnouncedIp = (ip) => {
 };
 
 export const getAnnouncedIp = () => {
-  return process.env.MEDIASOUP_ANNOUNCED_IP || detectedPublicIp || '72.61.241.109';
+  return (
+    process.env.MEDIASOUP_ANNOUNCED_IP || detectedPublicIp || "72.61.241.109"
+  );
 };
 
 export const mediasoupConfig = {
   worker: {
-    rtcMinPort: process.env.MEDIASOUP_MIN_PORT ? parseInt(process.env.MEDIASOUP_MIN_PORT) : 40000,
-    rtcMaxPort: process.env.MEDIASOUP_MAX_PORT ? parseInt(process.env.MEDIASOUP_MAX_PORT) : 40200,
-    logLevel: 'warn',
-    logTags: [
-      'info',
-      'ice',
-      'dtls',
-      'rtp',
-      'srtp',
-      'rtcp'
-    ],
+    rtcMinPort: process.env.MEDIASOUP_MIN_PORT
+      ? parseInt(process.env.MEDIASOUP_MIN_PORT)
+      : 40000,
+    rtcMaxPort: process.env.MEDIASOUP_MAX_PORT
+      ? parseInt(process.env.MEDIASOUP_MAX_PORT)
+      : 40200,
+    logLevel: "warn",
+    logTags: ["info", "ice", "dtls", "rtp", "srtp", "rtcp"],
   },
   router: {
     // ═══════════════════════════════════════════════════════════
@@ -29,34 +28,34 @@ export const mediasoupConfig = {
     // ═══════════════════════════════════════════════════════════
     mediaCodecs: [
       {
-        kind: 'audio',
-        mimeType: 'audio/opus',
+        kind: "audio",
+        mimeType: "audio/opus",
         clockRate: 48000,
         channels: 2,
         preferredPayloadType: 111,
         parameters: {
           useinbandfec: 1,
           minptime: 10,
-          ptime: 20
-        }
+          ptime: 20,
+        },
       },
       {
-        kind: 'audio',
-        mimeType: 'audio/telephone-event',
-        clockRate: 8000
-      }
-    ]
+        kind: "audio",
+        mimeType: "audio/telephone-event",
+        clockRate: 8000,
+      },
+    ],
   },
   webRtcTransport: {
-    // Meta requires our gateway to be controlling/ice-full, but Mediasoup's PlainTransport 
-    // or WebRtcTransport will handle the negotiation. 
+    // Meta requires our gateway to be controlling/ice-full, but Mediasoup's PlainTransport
+    // or WebRtcTransport will handle the negotiation.
     // Listen IPs must be public if deployed, local for dev.
     get listenIps() {
       return [
         {
-          ip: process.env.MEDIASOUP_LISTEN_IP || '0.0.0.0',
-          announcedIp: getAnnouncedIp()
-        }
+          ip: process.env.MEDIASOUP_LISTEN_IP || "0.0.0.0",
+          announcedIp: getAnnouncedIp(),
+        },
       ];
     },
     initialAvailableOutgoingBitrate: 800000,
@@ -64,5 +63,5 @@ export const mediasoupConfig = {
     enableUdp: true,
     enableTcp: true,
     preferUdp: true,
-  }
+  },
 };

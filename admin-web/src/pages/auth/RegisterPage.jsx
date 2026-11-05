@@ -7,7 +7,6 @@ import { useFormHandler } from "../../hooks/useFormHandler";
 import { createSuperAdminSchema } from "../../validations/superAdmin.validation";
 import FormError from "../../components/FormError";
 
-
 const benefits = [
   {
     title: "Tenant Operations",
@@ -26,12 +25,11 @@ const benefits = [
 export default function RegisterPage() {
   const navigate = useNavigate();
 
-
   const {
     register,
     onSubmit,
     generalError,
-    formState: { errors, isSubmitting }
+    formState: { errors, isSubmitting },
   } = useFormHandler({
     schema: createSuperAdminSchema,
     defaultValues: { name: "", email: "", password: "" },
@@ -70,7 +68,8 @@ export default function RegisterPage() {
               Create Admin Account
             </h1>
             <p className="mt-4 max-w-md text-base text-white/80">
-              Access the administration panel to manage tenant subscriptions, configure system settings, and monitor usage statistics.
+              Access the administration panel to manage tenant subscriptions,
+              configure system settings, and monitor usage statistics.
             </p>
           </div>
 
@@ -106,7 +105,8 @@ export default function RegisterPage() {
               Create Admin Account
             </h1>
             <p className="mt-2 text-sm text-[color:var(--muted)] max-w-md">
-              Access the administration panel to manage tenant subscriptions, configure system settings, and monitor usage statistics.
+              Access the administration panel to manage tenant subscriptions,
+              configure system settings, and monitor usage statistics.
             </p>
           </div>
 
@@ -224,7 +224,9 @@ export default function RegisterPage() {
                   key={item.title}
                   className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"
                 >
-                  <p className="font-semibold text-slate-800 text-sm">{item.title}</p>
+                  <p className="font-semibold text-slate-800 text-sm">
+                    {item.title}
+                  </p>
                   <p className="mt-1 text-xs text-slate-500">{item.text}</p>
                 </div>
               ))}

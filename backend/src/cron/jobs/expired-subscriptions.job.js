@@ -1,14 +1,14 @@
 // backend/src/cron/jobs/checkExpiredSubscriptions.js (do not remove this comment)
-import cron from 'node-cron';
-import prisma from '../../config/prisma.js';
+import cron from "node-cron";
+import prisma from "../../config/prisma.js";
 import {
   sendSubscriptionExpiredEmail,
-  sendDataDeletionWarningEmail
-} from '../../modules/auth/email.service.js';
-import nodemailer from 'nodemailer';
+  sendDataDeletionWarningEmail,
+} from "../../modules/auth/email.service.js";
+import nodemailer from "nodemailer";
 
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  service: "gmail",
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
@@ -21,7 +21,7 @@ const sendSystemDeletionConfirmation = async (email, companyName) => {
     await transporter.sendMail({
       from: `"SudoReply System" <${process.env.EMAIL_USER}>`,
       to: email,
-      subject: 'Data Deletion Confirmed - SudoReply',
+      subject: "Data Deletion Confirmed - SudoReply",
       html: `
         <div style="font-family: Arial, sans-serif; padding: 20px;">
           <h2>Workspace Data Deleted</h2>
@@ -38,7 +38,9 @@ const sendSystemDeletionConfirmation = async (email, companyName) => {
 
 export const checkExpiredSubscriptions = async () => {
   const timestamp = new Date().toISOString();
-  console.log(`[${timestamp}] ── CRON: Starting Subscription & Trial Expiry checks ──`);
+  console.log(
+    `[${timestamp}] ── CRON: Starting Subscription & Trial Expiry checks ──`,
+  );
   const now = new Date();
 
   // Task 0: Cleanup abandoned PENDING orders (> 48 hours old)
@@ -46,15 +48,17 @@ export const checkExpiredSubscriptions = async () => {
     const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
     const staleResult = await prisma.payment.updateMany({
       where: {
-        status: 'PENDING',
+        status: "PENDING",
         createdAt: { lte: twoDaysAgo },
       },
       data: {
-        status: 'FAILED',
+        status: "FAILED",
       },
     });
     if (staleResult.count > 0) {
-      console.log(`[${timestamp}] Cleaned up ${staleResult.count} abandoned PENDING payments`);
+      console.log(
+        `[${timestamp}] Cleaned up ${staleResult.count} abandoned PENDING payments`,
+      );
     }
   } catch (err) {
     console.error(`[${timestamp}] Task 0 (Stale cleanup) failed:`, err);
@@ -69,7 +73,9 @@ export const checkExpiredSubscriptions = async () => {
     const expiredTenants = await prisma.tenant.findMany({
       where: {
         subscription: {
-          subscriptionStatus: { in: ['trialing', 'active', 'cancel_at_period_end'] },
+          subscriptionStatus: {
+            in: ["trialing", "active", "cancel_at_period_end"],
+          },
           OR: [
             // A. Non-autopay tenants whose period has ended
             {
@@ -81,26 +87,30 @@ export const checkExpiredSubscriptions = async () => {
               razorpaySubscriptionId: { not: null },
               planPeriodEnd: { lte: twentyFourHoursAgo },
             },
-          ]
-        }
+          ],
+        },
       },
       include: { subscription: true },
       take: 100,
     });
     if (expiredTenants.length > 0) {
-      console.log(`[${timestamp}] Processing ${expiredTenants.length} expired tenants...`);
-      const expiredIds = expiredTenants.map(t => t.id);
+      console.log(
+        `[${timestamp}] Processing ${expiredTenants.length} expired tenants...`,
+      );
+      const expiredIds = expiredTenants.map((t) => t.id);
 
       await prisma.tenantSubscription.updateMany({
         where: { tenantId: { in: expiredIds } },
         data: {
-          subscriptionStatus: 'expired',
-          planStatus: 'inactive',
+          subscriptionStatus: "expired",
+          planStatus: "inactive",
           dataDeletionDate: deletionDate,
-        }
+        },
       });
 
-      const frontendUrl = process.env.FRONTEND_URLS ? process.env.FRONTEND_URLS.split(',')[1] : 'http://localhost:5174';
+      const frontendUrl = process.env.FRONTEND_URLS
+        ? process.env.FRONTEND_URLS.split(",")[1]
+        : "http://localhost:5174";
 
       for (const tenant of expiredTenants) {
         try {
@@ -112,7 +122,10 @@ export const checkExpiredSubscriptions = async () => {
             billingLink: `${frontendUrl}/settings/billing`,
           });
         } catch (emailErr) {
-          console.warn(`[${timestamp}] Expiry email failed for ${tenant.email}:`, emailErr.message);
+          console.warn(
+            `[${timestamp}] Expiry email failed for ${tenant.email}:`,
+            emailErr.message,
+          );
         }
       }
     }
@@ -126,7 +139,7 @@ export const checkExpiredSubscriptions = async () => {
     const warningTenants = await prisma.tenant.findMany({
       where: {
         subscription: {
-          subscriptionStatus: 'expired',
+          subscriptionStatus: "expired",
           dataDeletionDate: {
             lte: sevenDaysFromNow,
             gt: new Date(),
@@ -137,20 +150,30 @@ export const checkExpiredSubscriptions = async () => {
       take: 100,
     });
 
-    const frontendUrl = process.env.FRONTEND_URLS ? process.env.FRONTEND_URLS.split(',')[1] : 'http://localhost:5174';
+    const frontendUrl = process.env.FRONTEND_URLS
+      ? process.env.FRONTEND_URLS.split(",")[1]
+      : "http://localhost:5174";
 
     for (const raw of warningTenants) {
       const tenant = { ...raw, ...raw.subscription };
       try {
-        const daysLeft = Math.ceil((new Date(tenant.dataDeletionDate).getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+        const daysLeft = Math.ceil(
+          (new Date(tenant.dataDeletionDate).getTime() - Date.now()) /
+            (24 * 60 * 60 * 1000),
+        );
         sendDataDeletionWarningEmail(tenant.email, {
           tenantName: tenant.tenantName || tenant.email,
           daysLeft: Math.max(1, daysLeft),
-          dataDeletionDate: new Date(tenant.dataDeletionDate).toLocaleDateString(),
+          dataDeletionDate: new Date(
+            tenant.dataDeletionDate,
+          ).toLocaleDateString(),
           reactivateLink: `${frontendUrl}/settings/billing`,
         });
       } catch (innerErr) {
-        console.error(`[${timestamp}] Error sending deletion warning to ${tenant.id}:`, innerErr);
+        console.error(
+          `[${timestamp}] Error sending deletion warning to ${tenant.id}:`,
+          innerErr,
+        );
       }
     }
   } catch (err) {
@@ -159,7 +182,7 @@ export const checkExpiredSubscriptions = async () => {
 };
 
 // Schedule cron to run daily at 00:05 AM
-cron.schedule('5 0 * * *', () => {
+cron.schedule("5 0 * * *", () => {
   checkExpiredSubscriptions();
 });
 

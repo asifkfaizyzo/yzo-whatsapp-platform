@@ -1,6 +1,6 @@
 // backend/src/modules/templates/template.controller.js (do not remove this comment)
-import prisma from '../../config/prisma.js';
-import fs from 'fs/promises';
+import prisma from "../../config/prisma.js";
+import fs from "fs/promises";
 import {
   fetchMetaTemplates,
   submitMetaTemplate,
@@ -8,17 +8,24 @@ import {
   uploadMediaToMeta,
   buildTemplateComponents,
   inferHeaderTypeFromComponents,
-} from './template.service.js';
-import { validateTemplateMediaSize } from '../../middlewares/upload.template.js';
-import { sendTemplateStatusEmail } from '../auth/email.service.js';
+} from "./template.service.js";
+import { validateTemplateMediaSize } from "../../middlewares/upload.template.js";
+import { sendTemplateStatusEmail } from "../auth/email.service.js";
 
 // ── Valid values ────────────────────────────────────────────────────────────
-const VALID_HEADER_TYPES = ['NONE', 'TEXT', 'IMAGE', 'VIDEO', 'DOCUMENT', 'LOCATION'];
-const VALID_CATEGORIES   = ['MARKETING', 'UTILITY', 'AUTHENTICATION'];
-const MEDIA_HEADER_TYPES = ['IMAGE', 'VIDEO', 'DOCUMENT'];
+const VALID_HEADER_TYPES = [
+  "NONE",
+  "TEXT",
+  "IMAGE",
+  "VIDEO",
+  "DOCUMENT",
+  "LOCATION",
+];
+const VALID_CATEGORIES = ["MARKETING", "UTILITY", "AUTHENTICATION"];
+const MEDIA_HEADER_TYPES = ["IMAGE", "VIDEO", "DOCUMENT"];
 
 // Meta LOCATION header only valid for MARKETING and UTILITY (not AUTHENTICATION)
-const LOCATION_INCOMPATIBLE_CATEGORIES = ['AUTHENTICATION'];
+const LOCATION_INCOMPATIBLE_CATEGORIES = ["AUTHENTICATION"];
 
 // ── Count unique {{n}} variables in a text block ─────────────────────────────
 const countPlaceholders = (text) => {
@@ -46,21 +53,28 @@ export const getTemplates = async (req, res) => {
     const tenantId = req.tenantId;
 
     const templates = await prisma.template.findMany({
-      where: { tenantId, status: { not: 'DELETED' } },
-      orderBy: { createdAt: 'desc' }
+      where: { tenantId, status: { not: "DELETED" } },
+      orderBy: { createdAt: "desc" },
     });
 
     const latestSync = templates.reduce((latest, t) => {
-      if (t.lastSyncedAt && (!latest || new Date(t.lastSyncedAt) > new Date(latest))) {
+      if (
+        t.lastSyncedAt &&
+        (!latest || new Date(t.lastSyncedAt) > new Date(latest))
+      ) {
         return t.lastSyncedAt;
       }
       return latest;
     }, null);
 
-    return res.status(200).json({ success: true, data: templates, lastSyncedAt: latestSync });
+    return res
+      .status(200)
+      .json({ success: true, data: templates, lastSyncedAt: latestSync });
   } catch (error) {
-    console.error('Error fetching templates:', error);
-    return res.status(500).json({ success: false, message: 'Failed to fetch templates' });
+    console.error("Error fetching templates:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to fetch templates" });
   }
 };
 
@@ -72,14 +86,14 @@ export const createTemplate = async (req, res) => {
 
   try {
     const tenantId = req.tenantId;
-    const tenant   = req.tenant;
+    const tenant = req.tenant;
 
     // Parse form fields — multipart/form-data sends everything as strings
     const {
       name,
       category,
-      language    = 'en_US',
-      headerType  = 'NONE',
+      language = "en_US",
+      headerType = "NONE",
       headerText,
       // Location fields
       headerLocationName,
@@ -103,66 +117,123 @@ export const createTemplate = async (req, res) => {
       }
     } catch {
       if (uploadedFile) await safeDeleteFile(uploadedFile.path);
-      return res.status(400).json({ success: false, message: 'Invalid JSON in bodyExampleValues or buttons field.' });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "Invalid JSON in bodyExampleValues or buttons field.",
+        });
     }
 
     // ── Field validation ──────────────────────────────────────
     if (!name || !category || !bodyText) {
       if (uploadedFile) await safeDeleteFile(uploadedFile.path);
-      return res.status(400).json({ success: false, message: 'name, category, and bodyText are required.' });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "name, category, and bodyText are required.",
+        });
     }
 
     if (!VALID_CATEGORIES.includes(category)) {
       if (uploadedFile) await safeDeleteFile(uploadedFile.path);
-      return res.status(400).json({ success: false, message: `Invalid category. Must be one of: ${VALID_CATEGORIES.join(', ')}.` });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: `Invalid category. Must be one of: ${VALID_CATEGORIES.join(", ")}.`,
+        });
     }
 
     if (!VALID_HEADER_TYPES.includes(headerType)) {
       if (uploadedFile) await safeDeleteFile(uploadedFile.path);
-      return res.status(400).json({ success: false, message: `Invalid headerType. Must be one of: ${VALID_HEADER_TYPES.join(', ')}.` });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: `Invalid headerType. Must be one of: ${VALID_HEADER_TYPES.join(", ")}.`,
+        });
     }
 
     if (bodyText.length > 1024) {
       if (uploadedFile) await safeDeleteFile(uploadedFile.path);
-      return res.status(400).json({ success: false, message: 'Body text must not exceed 1024 characters.' });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "Body text must not exceed 1024 characters.",
+        });
     }
 
     if (footerText && footerText.length > 60) {
       if (uploadedFile) await safeDeleteFile(uploadedFile.path);
-      return res.status(400).json({ success: false, message: 'Footer text must not exceed 60 characters.' });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "Footer text must not exceed 60 characters.",
+        });
     }
 
     // Header-type specific validation
-    if (headerType === 'TEXT') {
+    if (headerType === "TEXT") {
       if (!headerText || !headerText.trim()) {
         if (uploadedFile) await safeDeleteFile(uploadedFile.path);
-        return res.status(400).json({ success: false, message: 'headerText is required when headerType is TEXT.' });
+        return res
+          .status(400)
+          .json({
+            success: false,
+            message: "headerText is required when headerType is TEXT.",
+          });
       }
       if (headerText.length > 60) {
         if (uploadedFile) await safeDeleteFile(uploadedFile.path);
-        return res.status(400).json({ success: false, message: 'Header text must not exceed 60 characters.' });
+        return res
+          .status(400)
+          .json({
+            success: false,
+            message: "Header text must not exceed 60 characters.",
+          });
       }
     }
 
     if (MEDIA_HEADER_TYPES.includes(headerType) && !uploadedFile) {
-      return res.status(400).json({ success: false, message: `A media file is required when headerType is ${headerType}.` });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: `A media file is required when headerType is ${headerType}.`,
+        });
     }
 
-    if (headerType === 'LOCATION') {
+    if (headerType === "LOCATION") {
       if (LOCATION_INCOMPATIBLE_CATEGORIES.includes(category)) {
         if (uploadedFile) await safeDeleteFile(uploadedFile.path);
         return res.status(400).json({
           success: false,
-          message: 'LOCATION header type is not compatible with the AUTHENTICATION category.',
+          message:
+            "LOCATION header type is not compatible with the AUTHENTICATION category.",
         });
       }
       const lat = parseFloat(headerLocationLat);
       const lng = parseFloat(headerLocationLng);
       if (isNaN(lat) || lat < -90 || lat > 90) {
-        return res.status(400).json({ success: false, message: 'Invalid latitude. Must be a number between -90 and 90.' });
+        return res
+          .status(400)
+          .json({
+            success: false,
+            message: "Invalid latitude. Must be a number between -90 and 90.",
+          });
       }
       if (isNaN(lng) || lng < -180 || lng > 180) {
-        return res.status(400).json({ success: false, message: 'Invalid longitude. Must be a number between -180 and 180.' });
+        return res
+          .status(400)
+          .json({
+            success: false,
+            message:
+              "Invalid longitude. Must be a number between -180 and 180.",
+          });
       }
     }
 
@@ -182,12 +253,13 @@ export const createTemplate = async (req, res) => {
       return res.status(400).json({
         success: false,
         requiresWhatsApp: true,
-        message: 'Please connect your WhatsApp Business Account in Settings before creating message templates.',
+        message:
+          "Please connect your WhatsApp Business Account in Settings before creating message templates.",
       });
     }
 
     // ── Clean template name ────────────────────────────────────
-    const cleanName = name.toLowerCase().replace(/[^a-z0-9_]/g, '_');
+    const cleanName = name.toLowerCase().replace(/[^a-z0-9_]/g, "_");
 
     // ── Check if a template with the same name + language already exists ──
     const existingTemplate = await prisma.template.findUnique({
@@ -200,7 +272,7 @@ export const createTemplate = async (req, res) => {
       },
     });
 
-    if (existingTemplate && existingTemplate.status !== 'DELETED') {
+    if (existingTemplate && existingTemplate.status !== "DELETED") {
       if (uploadedFile) await safeDeleteFile(uploadedFile.path);
       return res.status(409).json({
         success: false,
@@ -210,40 +282,49 @@ export const createTemplate = async (req, res) => {
 
     // ── Upload media to Meta (if needed) ─────────────────────
     let headerMediaHandle = null;
-    let headerMediaUrl    = null;
+    let headerMediaUrl = null;
 
     if (MEDIA_HEADER_TYPES.includes(headerType)) {
-      if (process.env.MOCK_WHATSAPP === 'true') {
-        console.log('⚠️  MOCK_WHATSAPP=true → skipping Meta media upload, using mock handle');
+      if (process.env.MOCK_WHATSAPP === "true") {
+        console.log(
+          "⚠️  MOCK_WHATSAPP=true → skipping Meta media upload, using mock handle",
+        );
         headerMediaHandle = `mock_handle_${Date.now()}`;
       } else {
         try {
-          headerMediaHandle = await uploadMediaToMeta(tenant, uploadedFile.path, uploadedFile.mimetype);
+          headerMediaHandle = await uploadMediaToMeta(
+            tenant,
+            uploadedFile.path,
+            uploadedFile.mimetype,
+          );
         } catch (uploadErr) {
           await safeDeleteFile(uploadedFile.path);
           return res.status(502).json({
             success: false,
-            code: uploadErr.code || 'META_MEDIA_UPLOAD_FAILED',
+            code: uploadErr.code || "META_MEDIA_UPLOAD_FAILED",
             message: `Failed to upload media to Meta: ${uploadErr.message}`,
           });
         }
       }
 
       // Store the local file path for preview/download purposes
-      headerMediaUrl = uploadedFile.path.replace(/\\/g, '/');
+      headerMediaUrl = uploadedFile.path.replace(/\\/g, "/");
     }
 
     // Sanitize bodyText (convert literal \n if copy-pasted into real line breaks)
-    const sanitizedBodyText = (bodyText || '').replace(/\\n/g, '\n').replace(/\\r/g, '').trim();
+    const sanitizedBodyText = (bodyText || "")
+      .replace(/\\n/g, "\n")
+      .replace(/\\r/g, "")
+      .trim();
 
     // ── Build Meta components array ───────────────────────────
     const { components, validationError } = buildTemplateComponents({
       headerType,
-      headerText:          headerType === 'TEXT'     ? headerText     : null,
-      headerHandle:        headerMediaHandle,
-      bodyText:            sanitizedBodyText,
+      headerText: headerType === "TEXT" ? headerText : null,
+      headerHandle: headerMediaHandle,
+      bodyText: sanitizedBodyText,
       bodyExampleValues,
-      footerText:          footerText?.trim() || null,
+      footerText: footerText?.trim() || null,
       buttons,
     });
 
@@ -254,12 +335,14 @@ export const createTemplate = async (req, res) => {
 
     // ── Submit to Meta ────────────────────────────────────────
     let metaTemplateId = null;
-    let initialStatus  = 'PENDING';
+    let initialStatus = "PENDING";
 
-    if (process.env.MOCK_WHATSAPP === 'true') {
-      console.log('⚠️  MOCK_WHATSAPP=true → creating mock template without Meta API call');
+    if (process.env.MOCK_WHATSAPP === "true") {
+      console.log(
+        "⚠️  MOCK_WHATSAPP=true → creating mock template without Meta API call",
+      );
       metaTemplateId = `mock_tpl_${Date.now()}`;
-      initialStatus  = 'APPROVED';
+      initialStatus = "APPROVED";
     } else {
       try {
         const metaRes = await submitMetaTemplate(tenant, {
@@ -280,40 +363,48 @@ export const createTemplate = async (req, res) => {
     }
 
     // ── Derive param counts for UI ────────────────────────────
-    const headerParams = headerType === 'TEXT' ? countPlaceholders(headerText) : 0;
-    const bodyParams   = countPlaceholders(bodyText);
+    const headerParams =
+      headerType === "TEXT" ? countPlaceholders(headerText) : 0;
+    const bodyParams = countPlaceholders(bodyText);
 
     // ── Persist to local DB (create or update soft-deleted record) ─
     const templateData = {
       tenantId,
       metaTemplateId,
-      name:           cleanName,
+      name: cleanName,
       language,
       category,
-      status:         initialStatus,
+      status: initialStatus,
       components,
       headerParams,
       bodyParams,
 
       // Header fields
       headerType,
-      headerText:            headerType === 'TEXT'     ? headerText                     : null,
+      headerText: headerType === "TEXT" ? headerText : null,
       headerMediaUrl,
       headerMediaHandle,
-      headerLocationName:    headerType === 'LOCATION' ? (headerLocationName    || null) : null,
-      headerLocationAddress: headerType === 'LOCATION' ? (headerLocationAddress || null) : null,
-      headerLocationLat:     headerType === 'LOCATION' ? parseFloat(headerLocationLat)  : null,
-      headerLocationLng:     headerType === 'LOCATION' ? parseFloat(headerLocationLng)  : null,
-      footerText:            footerText || null,
-      buttons:               buttons.length > 0 ? buttons : null,
+      headerLocationName:
+        headerType === "LOCATION" ? headerLocationName || null : null,
+      headerLocationAddress:
+        headerType === "LOCATION" ? headerLocationAddress || null : null,
+      headerLocationLat:
+        headerType === "LOCATION" ? parseFloat(headerLocationLat) : null,
+      headerLocationLng:
+        headerType === "LOCATION" ? parseFloat(headerLocationLng) : null,
+      footerText: footerText || null,
+      buttons: buttons.length > 0 ? buttons : null,
 
       createdById: null,
     };
 
     let template;
-    if (existingTemplate && existingTemplate.status === 'DELETED') {
+    if (existingTemplate && existingTemplate.status === "DELETED") {
       // Clean up previous media file if any
-      if (existingTemplate.headerMediaUrl && existingTemplate.headerMediaUrl !== headerMediaUrl) {
+      if (
+        existingTemplate.headerMediaUrl &&
+        existingTemplate.headerMediaUrl !== headerMediaUrl
+      ) {
         await safeDeleteFile(existingTemplate.headerMediaUrl);
       }
       template = await prisma.template.update({
@@ -327,36 +418,41 @@ export const createTemplate = async (req, res) => {
     }
 
     // ── If MOCK_WHATSAPP=true, simulate instant Meta approval webhook email ──
-    if (process.env.MOCK_WHATSAPP === 'true' && tenant?.email) {
-      console.log(`📧 [Mock WhatsApp] Triggering instant template approval email for ${tenant.email}...`);
+    if (process.env.MOCK_WHATSAPP === "true" && tenant?.email) {
+      console.log(
+        `📧 [Mock WhatsApp] Triggering instant template approval email for ${tenant.email}...`,
+      );
       sendTemplateStatusEmail({
         toEmail: tenant.email,
-        tenantName: tenant.tenantName || tenant.firstName || 'Valued Partner',
+        tenantName: tenant.tenantName || tenant.firstName || "Valued Partner",
         templateName: template.name,
         language: template.language,
         category: template.category,
         headerType: template.headerType,
-        status: 'APPROVED',
+        status: "APPROVED",
         reason: null,
-      }).catch((err) => console.error('❌ Mock template email error:', err.message));
+      }).catch((err) =>
+        console.error("❌ Mock template email error:", err.message),
+      );
     }
 
     return res.status(201).json({ success: true, data: template });
   } catch (error) {
     // P2002 = Prisma unique constraint violation fallback
-    if (error.code === 'P2002') {
+    if (error.code === "P2002") {
       if (uploadedFile) await safeDeleteFile(uploadedFile.path);
       return res.status(409).json({
         success: false,
-        message: `A template named "${req.body.name?.toLowerCase().replace(/[^a-z0-9_]/g, '_')}" already exists for language "${req.body.language || 'en_US'}". Please use a different template name.`,
+        message: `A template named "${req.body.name?.toLowerCase().replace(/[^a-z0-9_]/g, "_")}" already exists for language "${req.body.language || "en_US"}". Please use a different template name.`,
       });
     }
-    console.error('Error creating template:', error);
+    console.error("Error creating template:", error);
     if (uploadedFile) await safeDeleteFile(uploadedFile.path);
-    return res.status(500).json({ success: false, message: 'Failed to create template.' });
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to create template." });
   }
 };
-
 
 // ─────────────────────────────────────────────────────────────
 // 3. POST: Sync Templates from Meta Business Account (WABA)
@@ -366,12 +462,18 @@ export const createTemplate = async (req, res) => {
 // ─────────────────────────────────────────────────────────────
 export const performTemplateSync = async (tenant) => {
   if (!tenant.whatsappWabaId || !tenant.whatsappAccessToken) {
-    throw new Error('WhatsApp Business Credentials are not configured in settings.');
+    throw new Error(
+      "WhatsApp Business Credentials are not configured in settings.",
+    );
   }
 
-  if (process.env.MOCK_WHATSAPP === 'true') {
-    console.log('⚠️  MOCK_WHATSAPP=true → skipping Meta template sync, returning local templates');
-    const localTemplates = await prisma.template.findMany({ where: { tenantId: tenant.id, status: { not: 'DELETED' } } });
+  if (process.env.MOCK_WHATSAPP === "true") {
+    console.log(
+      "⚠️  MOCK_WHATSAPP=true → skipping Meta template sync, returning local templates",
+    );
+    const localTemplates = await prisma.template.findMany({
+      where: { tenantId: tenant.id, status: { not: "DELETED" } },
+    });
     return localTemplates;
   }
 
@@ -385,27 +487,31 @@ export const performTemplateSync = async (tenant) => {
     // Infer typed header values from components
     const derivedHeaderType = inferHeaderTypeFromComponents(components);
 
-    const headerComp   = components.find(c => c.type === 'HEADER');
-    const footerComp   = components.find(c => c.type === 'FOOTER');
-    const buttonsComp  = components.find(c => c.type === 'BUTTONS');
-    const bodyComp     = components.find(c => c.type === 'BODY');
+    const headerComp = components.find((c) => c.type === "HEADER");
+    const footerComp = components.find((c) => c.type === "FOOTER");
+    const buttonsComp = components.find((c) => c.type === "BUTTONS");
+    const bodyComp = components.find((c) => c.type === "BODY");
 
-    const derivedHeaderText         = derivedHeaderType === 'TEXT' ? (headerComp?.text || null) : null;
-    const derivedHeaderMediaHandle  = MEDIA_HEADER_TYPES.includes(derivedHeaderType)
-      ? (headerComp?.example?.header_handle?.[0] || null)
+    const derivedHeaderText =
+      derivedHeaderType === "TEXT" ? headerComp?.text || null : null;
+    const derivedHeaderMediaHandle = MEDIA_HEADER_TYPES.includes(
+      derivedHeaderType,
+    )
+      ? headerComp?.example?.header_handle?.[0] || null
       : null;
     const derivedFooterText = footerComp?.text || null;
-    const derivedButtons    = buttonsComp?.buttons || null;
+    const derivedButtons = buttonsComp?.buttons || null;
 
-    const headerParams = derivedHeaderType === 'TEXT' ? countPlaceholders(derivedHeaderText) : 0;
-    const bodyParams   = countPlaceholders(bodyComp?.text);
+    const headerParams =
+      derivedHeaderType === "TEXT" ? countPlaceholders(derivedHeaderText) : 0;
+    const bodyParams = countPlaceholders(bodyComp?.text);
 
     // Map Meta status to Prisma enum
-    let localStatus = 'APPROVED';
-    if (mt.status === 'PENDING')  localStatus = 'PENDING';
-    if (mt.status === 'REJECTED') localStatus = 'REJECTED';
-    if (mt.status === 'PAUSED')   localStatus = 'PAUSED';
-    if (mt.status === 'DISABLED') localStatus = 'DISABLED';
+    let localStatus = "APPROVED";
+    if (mt.status === "PENDING") localStatus = "PENDING";
+    if (mt.status === "REJECTED") localStatus = "REJECTED";
+    if (mt.status === "PAUSED") localStatus = "PAUSED";
+    if (mt.status === "DISABLED") localStatus = "DISABLED";
 
     try {
       let dbTemp;
@@ -418,79 +524,83 @@ export const performTemplateSync = async (tenant) => {
           name_language_tenantId: {
             name: mt.name,
             language: mt.language,
-            tenantId: tenant.id
-          }
-        }
+            tenantId: tenant.id,
+          },
+        },
       });
 
       if (existingByMetaId) {
         // If a separate placeholder row exists with this name/language for this tenant, reassign any broadcasts & clean it up
         if (existingByName && existingByName.id !== existingByMetaId.id) {
-          await prisma.broadcast.updateMany({
-            where: { templateId: existingByName.id },
-            data: { templateId: existingByMetaId.id },
-          }).catch(() => {});
-          await prisma.template.delete({ where: { id: existingByName.id } }).catch(() => {});
+          await prisma.broadcast
+            .updateMany({
+              where: { templateId: existingByName.id },
+              data: { templateId: existingByMetaId.id },
+            })
+            .catch(() => {});
+          await prisma.template
+            .delete({ where: { id: existingByName.id } })
+            .catch(() => {});
         }
 
         dbTemp = await prisma.template.update({
           where: { id: existingByMetaId.id },
           data: {
-            tenantId:             tenant.id,
-            metaTemplateId:       mt.id,
-            name:                 mt.name,
-            language:             mt.language,
-            category:             mt.category,
-            status:               localStatus,
+            tenantId: tenant.id,
+            metaTemplateId: mt.id,
+            name: mt.name,
+            language: mt.language,
+            category: mt.category,
+            status: localStatus,
             components,
             headerParams,
             bodyParams,
-            headerType:           derivedHeaderType,
-            headerText:           derivedHeaderText,
-            headerMediaHandle:    derivedHeaderMediaHandle,
-            footerText:           derivedFooterText,
-            buttons:              derivedButtons,
-            lastSyncedAt:         now,
-          }
+            headerType: derivedHeaderType,
+            headerText: derivedHeaderText,
+            headerMediaHandle: derivedHeaderMediaHandle,
+            footerText: derivedFooterText,
+            buttons: derivedButtons,
+            lastSyncedAt: now,
+          },
         });
       } else if (existingByName) {
         dbTemp = await prisma.template.update({
           where: { id: existingByName.id },
           data: {
-            metaTemplateId:       mt.id,
-            category:             mt.category,
-            status:               localStatus,
+            metaTemplateId: mt.id,
+            category: mt.category,
+            status: localStatus,
             components,
             headerParams,
             bodyParams,
-            headerType:           derivedHeaderType,
-            headerText:           derivedHeaderText,
-            headerMediaHandle:    derivedHeaderMediaHandle,
-            footerText:           derivedFooterText,
-            buttons:              derivedButtons,
-            lastSyncedAt:         now,
-          }
+            headerType: derivedHeaderType,
+            headerText: derivedHeaderText,
+            headerMediaHandle: derivedHeaderMediaHandle,
+            footerText: derivedFooterText,
+            buttons: derivedButtons,
+            lastSyncedAt: now,
+          },
         });
       } else {
         dbTemp = await prisma.template.create({
           data: {
-            tenantId:             tenant.id,
-            metaTemplateId:       mt.id,
-            name:                 mt.name,
-            language:             mt.language,
-            category:             mt.category,
-            status:               localStatus,
+            tenantId: tenant.id,
+            metaTemplateId: mt.id,
+            name: mt.name,
+            language: mt.language,
+            category: mt.category,
+            status: localStatus,
             components,
             headerParams,
             bodyParams,
-            headerType:           derivedHeaderType,
-            headerText:           derivedHeaderText,
-            headerMediaHandle:    derivedHeaderMediaHandle,
-            footerText:           derivedFooterText,
-            buttons:              derivedButtons,
-            createdById:          null,
-            lastSyncedAt:         now,
-          }
+            headerType: derivedHeaderType,
+            headerText: derivedHeaderText,
+            headerMediaHandle: derivedHeaderMediaHandle,
+            footerText: derivedFooterText,
+            buttons: derivedButtons,
+            createdById: null,
+            lastSyncedAt: now,
+          },
         });
       }
 
@@ -498,7 +608,10 @@ export const performTemplateSync = async (tenant) => {
         synced.push(dbTemp);
       }
     } catch (itemErr) {
-      console.error(`[Templates] Error syncing template "${mt.name}" (${mt.id}):`, itemErr.message);
+      console.error(
+        `[Templates] Error syncing template "${mt.name}" (${mt.id}):`,
+        itemErr.message,
+      );
     }
   }
 
@@ -513,14 +626,29 @@ export const syncTemplates = async (req, res) => {
     const tenant = req.tenant;
 
     if (!tenant.whatsappWabaId || !tenant.whatsappAccessToken) {
-      return res.status(400).json({ success: false, message: 'WhatsApp Business Credentials are not configured in settings.' });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message:
+            "WhatsApp Business Credentials are not configured in settings.",
+        });
     }
 
     const synced = await performTemplateSync(tenant);
-    return res.status(200).json({ success: true, count: synced.length, data: synced, lastSyncedAt: new Date() });
+    return res
+      .status(200)
+      .json({
+        success: true,
+        count: synced.length,
+        data: synced,
+        lastSyncedAt: new Date(),
+      });
   } catch (error) {
-    console.error('Error syncing templates:', error);
-    return res.status(500).json({ success: false, message: `Sync failed: ${error.message}` });
+    console.error("Error syncing templates:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: `Sync failed: ${error.message}` });
   }
 };
 
@@ -530,20 +658,22 @@ export const syncTemplates = async (req, res) => {
 export const deleteTemplate = async (req, res) => {
   try {
     const tenantId = req.tenantId;
-    const { id }   = req.params;
+    const { id } = req.params;
 
     const template = await prisma.template.findFirst({
-      where: { id, tenantId }
+      where: { id, tenantId },
     });
 
     if (!template) {
-      return res.status(404).json({ success: false, message: 'Template not found.' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Template not found." });
     }
 
     // Attempt to delete on Meta
     const tenant = req.tenant;
     if (
-      process.env.MOCK_WHATSAPP !== 'true' &&
+      process.env.MOCK_WHATSAPP !== "true" &&
       template.metaTemplateId &&
       tenant.whatsappWabaId &&
       tenant.whatsappAccessToken
@@ -551,7 +681,10 @@ export const deleteTemplate = async (req, res) => {
       try {
         await deleteMetaTemplate(tenant, template.name);
       } catch (err) {
-        console.warn('Meta API deletion failed (may already be deleted on Meta):', err.message);
+        console.warn(
+          "Meta API deletion failed (may already be deleted on Meta):",
+          err.message,
+        );
       }
     }
 
@@ -563,13 +696,16 @@ export const deleteTemplate = async (req, res) => {
     // Soft delete locally
     await prisma.template.update({
       where: { id },
-      data: { status: 'DELETED' }
+      data: { status: "DELETED" },
     });
 
-    return res.status(200).json({ success: true, message: 'Template deleted successfully.' });
+    return res
+      .status(200)
+      .json({ success: true, message: "Template deleted successfully." });
   } catch (error) {
-    console.error('Error deleting template:', error);
-    return res.status(500).json({ success: false, message: 'Failed to delete template.' });
+    console.error("Error deleting template:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to delete template." });
   }
 };
-

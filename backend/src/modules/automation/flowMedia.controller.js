@@ -1,18 +1,21 @@
 // backend/src/modules/automation/flowMedia.controller.js (do not remove this comment)
 
-import fs from 'fs';
-import path from 'path';
-import { detectMediaType, validateMedia } from '../../lib/utils/media.validator.js';
+import fs from "fs";
+import path from "path";
+import {
+  detectMediaType,
+  validateMedia,
+} from "../../lib/utils/media.validator.js";
 
 export const uploadFlowMedia = async (req, res) => {
   try {
-    const file     = req.file;
+    const file = req.file;
     const tenantId = req.tenantId;
 
     if (!file) {
       return res.status(400).json({
         success: false,
-        message: 'No file uploaded',
+        message: "No file uploaded",
       });
     }
 
@@ -23,25 +26,26 @@ export const uploadFlowMedia = async (req, res) => {
       if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
       return res.status(400).json({
         success: false,
-        message: 'Unsupported file type',
+        message: "Unsupported file type",
       });
     }
 
     // Allow IMAGE, VIDEO, and FILE (Documents)
-if (!['IMAGE', 'VIDEO', 'FILE'].includes(mediaType)) {
-  if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
-  return res.status(400).json({
-    success: false,
-    message: 'Unsupported media type. Only image, video, and document files are allowed.',
-  });
-}
+    if (!["IMAGE", "VIDEO", "FILE"].includes(mediaType)) {
+      if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      return res.status(400).json({
+        success: false,
+        message:
+          "Unsupported media type. Only image, video, and document files are allowed.",
+      });
+    }
 
     // Validate size + type
     const validation = validateMedia(
       file.originalname,
       file.mimetype,
       file.size,
-      mediaType
+      mediaType,
     );
 
     if (!validation.valid) {
@@ -52,25 +56,24 @@ if (!['IMAGE', 'VIDEO', 'FILE'].includes(mediaType)) {
       });
     }
 
-    const mediaUrl = file.path.replace(/\\/g, '/');
+    const mediaUrl = file.path.replace(/\\/g, "/");
 
     return res.status(200).json({
       success: true,
-      message: 'Media uploaded successfully',
+      message: "Media uploaded successfully",
       data: {
         mediaType,
         mediaUrl,
-        mediaName:     file.originalname,
-        mediaSize:     file.size,
+        mediaName: file.originalname,
+        mediaSize: file.size,
         mediaMimeType: file.mimetype,
       },
     });
-
   } catch (error) {
-    console.error('❌ uploadFlowMedia error:', error);
+    console.error("❌ uploadFlowMedia error:", error);
     return res.status(500).json({
       success: false,
-      message: 'Failed to upload media',
+      message: "Failed to upload media",
     });
   }
 };

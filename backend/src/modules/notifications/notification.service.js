@@ -1,6 +1,6 @@
 // backend/src/modules/notifications/notification.service.js (do not remove this comment)
 
-import prisma from '../../config/prisma.js';
+import prisma from "../../config/prisma.js";
 
 // ── Create notification ── ✅ ADDED BACK
 export const createNotification = async ({
@@ -14,12 +14,12 @@ export const createNotification = async ({
   const notification = await prisma.notification.create({
     data: {
       tenantId,
-      userId:   userId || null,
+      userId: userId || null,
       type,
       title,
       message,
       metadata: metadata || {},
-      isRead:   false,
+      isRead: false,
     },
   });
   return notification;
@@ -27,7 +27,6 @@ export const createNotification = async ({
 
 // ── Get notifications ──
 export const getNotifications = async (tenantId, userId, userType) => {
-
   let where = { tenantId };
 
   if (userType === "TENANT") {
@@ -57,7 +56,6 @@ export const getNotifications = async (tenantId, userId, userType) => {
 
 // ── Get unread count ──
 export const getUnreadCount = async (tenantId, userId, userType) => {
-
   let where = { tenantId, isRead: false };
 
   if (userType === "TENANT") {
@@ -114,13 +112,12 @@ export const clearAllNotifications = async (tenantId, userId, userType) => {
   return await prisma.notification.deleteMany({ where });
 };
 
-
 // ── 🆕 Get paginated notifications with filters ──
 export const getPaginatedNotifications = async (
   tenantId,
   userId,
   userType,
-  { page = 1, limit = 20, filter = "all", type = "all" }
+  { page = 1, limit = 20, filter = "all", type = "all" },
 ) => {
   // Base where clause: apply role-based filtering (same as getNotifications)
   let where = { tenantId };

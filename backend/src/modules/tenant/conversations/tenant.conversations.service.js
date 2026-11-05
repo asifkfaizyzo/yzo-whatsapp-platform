@@ -1,5 +1,5 @@
 // backend/src/modules/tenant/conversations/tenant.conversations.service.js (do not remove this comment)
-import prisma from '../../../config/prisma.js';
+import prisma from "../../../config/prisma.js";
 
 export const listConversations = async (tenantId, options = {}) => {
   const page = options.page || 1;
@@ -34,7 +34,7 @@ export const listConversations = async (tenantId, options = {}) => {
 };
 
 export const getAutoReopenConfigService = async (tenantId) => {
-  if (!tenantId) throw new Error('Tenant ID is required');
+  if (!tenantId) throw new Error("Tenant ID is required");
 
   let config = await prisma.autoReopenConfig.findUnique({
     where: { tenantId },
@@ -43,9 +43,12 @@ export const getAutoReopenConfigService = async (tenantId) => {
   if (!config) {
     config = await prisma.autoReopenConfig.create({
       data: {
-        tenantId, enabled: true, reopenWindowHours: 72,
-        maxReopenCount: 5, smartFilterEnabled: true,
-        assignmentStrategy: 'original_agent',
+        tenantId,
+        enabled: true,
+        reopenWindowHours: 72,
+        maxReopenCount: 5,
+        smartFilterEnabled: true,
+        assignmentStrategy: "original_agent",
       },
     });
   }
@@ -54,7 +57,7 @@ export const getAutoReopenConfigService = async (tenantId) => {
 };
 
 export const updateAutoReopenConfigService = async (tenantId, data) => {
-  if (!tenantId) throw new Error('Tenant ID is required');
+  if (!tenantId) throw new Error("Tenant ID is required");
 
   return await prisma.autoReopenConfig.upsert({
     where: { tenantId },
@@ -71,7 +74,7 @@ export const updateAutoReopenConfigService = async (tenantId, data) => {
       reopenWindowHours: data.reopenWindowHours ?? 72,
       maxReopenCount: data.maxReopenCount ?? 5,
       smartFilterEnabled: data.smartFilterEnabled ?? true,
-      assignmentStrategy: data.assignmentStrategy ?? 'original_agent',
+      assignmentStrategy: data.assignmentStrategy ?? "original_agent",
     },
   });
 };

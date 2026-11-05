@@ -15,8 +15,8 @@ import { sendInvoiceEmail } from "../auth/email.service.js";
 
 import { createSuperAdminNotification } from "../superadmin-notifications/superadminNotification.service.js";
 import { emitToSuperAdmin } from "../../lib/socket.js";
-import { createAuditLog } from '../audit/audit.service.js';
-import { extractRequestMeta } from '../../lib/utils/request.meta.js';
+import { createAuditLog } from "../audit/audit.service.js";
+import { extractRequestMeta } from "../../lib/utils/request.meta.js";
 import { calculateGST } from "../superadmin/superadmin.service.js";
 import { razorpay, getRazorpay } from "../../config/razorpay.js";
 
@@ -167,7 +167,6 @@ export const deleteFeature = async (req, res) => {
   }
 };
 
-
 // Create Razorpay Order & Lock DB Record
 export const createPaymentOrder = async (req, res) => {
   try {
@@ -218,9 +217,9 @@ export const createPaymentOrder = async (req, res) => {
         ? plan.annualPrice
         : plan.monthlyPrice;
 
-    const gstCalc     = await calculateGST(baseAmount);
-    const gstPercent  = gstCalc.gstPercent;
-    const gstAmount   = gstCalc.gstAmount;
+    const gstCalc = await calculateGST(baseAmount);
+    const gstPercent = gstCalc.gstPercent;
+    const gstAmount = gstCalc.gstAmount;
     const totalAmount = gstCalc.totalAmount;
 
     // Razorpay amount is in PAISE (₹1 = 100 paise)
@@ -275,12 +274,10 @@ export const createPaymentOrder = async (req, res) => {
   }
 };
 
-
-
 // ✅ Verify Payment & Activate Plan
 export const verifyPaymentAndActivate = async (req, res) => {
   try {
-      const meta = extractRequestMeta(req);
+    const meta = extractRequestMeta(req);
     const {
       razorpay_order_id,
       razorpay_payment_id,
@@ -292,7 +289,12 @@ export const verifyPaymentAndActivate = async (req, res) => {
     const tenantId = req.tenantId;
 
     // Validate required fields
-    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !planId) {
+    if (
+      !razorpay_order_id ||
+      !razorpay_payment_id ||
+      !razorpay_signature ||
+      !planId
+    ) {
       return res.status(400).json({
         success: false,
         message: "Missing required payment fields",
@@ -337,9 +339,9 @@ export const verifyPaymentAndActivate = async (req, res) => {
         ? plan.annualPrice
         : plan.monthlyPrice;
 
-    const gstCalc     = await calculateGST(baseAmount);
-    const gstPercent  = gstCalc.gstPercent;
-    const gstAmount   = gstCalc.gstAmount;
+    const gstCalc = await calculateGST(baseAmount);
+    const gstPercent = gstCalc.gstPercent;
+    const gstAmount = gstCalc.gstAmount;
     const totalAmount = gstCalc.totalAmount;
 
     // 4. Verify signature FIRST
@@ -349,10 +351,13 @@ export const verifyPaymentAndActivate = async (req, res) => {
       .update(sigBody.toString())
       .digest("hex");
 
-    const expectedBuf = Buffer.from(expectedSignature, 'utf8');
-    const sigBuf = Buffer.from(razorpay_signature, 'utf8');
+    const expectedBuf = Buffer.from(expectedSignature, "utf8");
+    const sigBuf = Buffer.from(razorpay_signature, "utf8");
 
-    if (expectedBuf.length !== sigBuf.length || !crypto.timingSafeEqual(expectedBuf, sigBuf)) {
+    if (
+      expectedBuf.length !== sigBuf.length ||
+      !crypto.timingSafeEqual(expectedBuf, sigBuf)
+    ) {
       try {
         await prisma.payment.create({
           data: {
@@ -372,26 +377,25 @@ export const verifyPaymentAndActivate = async (req, res) => {
           },
         });
 
-    await createAuditLog({
-      actorId:     tenantId,
-      actorType:   'TENANT',
-      actorName:   tenant.tenantName || tenant.email,
-      actorEmail:  tenant.email,
-      action:      'PAYMENT_FAILED',
-      module:      'BILLING',
-      description: `Payment verification failed for tenant "${tenant.tenantName}" — invalid signature`,
-      ipAddress:   meta.ipAddress,
-      userAgent:   meta.userAgent,
-      tenantId:    tenantId,
-      metadata: {
-        planName:        plan.name,
-        billingType:     validBillingType,
-        totalAmount,
-        razorpayOrderId: razorpay_order_id,
-        reason:          'invalid_signature',
-      },
-    });
-
+        await createAuditLog({
+          actorId: tenantId,
+          actorType: "TENANT",
+          actorName: tenant.tenantName || tenant.email,
+          actorEmail: tenant.email,
+          action: "PAYMENT_FAILED",
+          module: "BILLING",
+          description: `Payment verification failed for tenant "${tenant.tenantName}" — invalid signature`,
+          ipAddress: meta.ipAddress,
+          userAgent: meta.userAgent,
+          tenantId: tenantId,
+          metadata: {
+            planName: plan.name,
+            billingType: validBillingType,
+            totalAmount,
+            razorpayOrderId: razorpay_order_id,
+            reason: "invalid_signature",
+          },
+        });
       } catch (logErr) {
         console.error("Failed to log failed payment:", logErr);
       }
@@ -416,17 +420,18 @@ export const verifyPaymentAndActivate = async (req, res) => {
 
     if (pendingPayment.tenantId !== tenantId) {
       console.error(
-        `[SECURITY ALERT] Tenant ID mismatch for order ${razorpay_order_id}. Expected: ${pendingPayment.tenantId}, Attempted by: ${tenantId}`
+        `[SECURITY ALERT] Tenant ID mismatch for order ${razorpay_order_id}. Expected: ${pendingPayment.tenantId}, Attempted by: ${tenantId}`,
       );
       return res.status(403).json({
         success: false,
-        message: "Security Error: You are not authorized to verify this payment order.",
+        message:
+          "Security Error: You are not authorized to verify this payment order.",
       });
     }
 
     if (pendingPayment.planId !== planId) {
       console.error(
-        `[SECURITY ALERT] Plan ID mismatch for tenant ${tenantId}. Expected: ${pendingPayment.planId}, Got: ${planId}`
+        `[SECURITY ALERT] Plan ID mismatch for tenant ${tenantId}. Expected: ${pendingPayment.planId}, Got: ${planId}`,
       );
       return res.status(400).json({
         success: false,
@@ -511,61 +516,75 @@ export const verifyPaymentAndActivate = async (req, res) => {
 
       console.log(
         `[planController] Cumulative extension for tenant ${tenantId}: ` +
-        `${tenant.planPeriodEnd.toISOString()} → ${periodEnd.toISOString()}`
+          `${tenant.planPeriodEnd.toISOString()} → ${periodEnd.toISOString()}`,
       );
     }
 
     // 7. Atomic transaction
-    const { payment, updatedTenant, alreadyProcessed } = await prisma.$transaction(async (tx) => {
-      const currentP = await tx.payment.findUnique({
-        where: { id: pendingPayment.id },
-      });
+    const { payment, updatedTenant, alreadyProcessed } =
+      await prisma.$transaction(async (tx) => {
+        const currentP = await tx.payment.findUnique({
+          where: { id: pendingPayment.id },
+        });
 
-      if (currentP && currentP.status === "SUCCESS") {
-        const currentTRow = await tx.tenant.findUnique({ where: { id: tenantId }, include: { subscription: true } });
-        const currentT = { ...currentTRow, ...currentTRow?.subscription };
-        return { payment: currentP, updatedTenant: currentT, alreadyProcessed: true };
-      }
+        if (currentP && currentP.status === "SUCCESS") {
+          const currentTRow = await tx.tenant.findUnique({
+            where: { id: tenantId },
+            include: { subscription: true },
+          });
+          const currentT = { ...currentTRow, ...currentTRow?.subscription };
+          return {
+            payment: currentP,
+            updatedTenant: currentT,
+            alreadyProcessed: true,
+          };
+        }
 
-      const createdPayment = await tx.payment.update({
-        where: { id: pendingPayment.id },
-        data: {
-          razorpayPaymentId: razorpay_payment_id,
-          razorpaySignature: razorpay_signature,
-          status: "SUCCESS",
-          paidAt: new Date(),
-        },
-      });
+        const createdPayment = await tx.payment.update({
+          where: { id: pendingPayment.id },
+          data: {
+            razorpayPaymentId: razorpay_payment_id,
+            razorpaySignature: razorpay_signature,
+            status: "SUCCESS",
+            paidAt: new Date(),
+          },
+        });
 
-      await tx.tenant.update({
-        where: { id: tenantId },
-        data: {
-          status: "APPROVED",
-          ...(req.body.address ? { address: req.body.address } : {}),
-          ...(req.body.phone ? { phone: req.body.phone } : {}),
-        },
-      });
-      const subRow = await tx.tenantSubscription.update({
-        where: { tenantId },
-        data: {
-          planId,
-          planStatus: "active",
-          billingType: validBillingType,
-          planActivatedAt: periodStart,
-          subscriptionStatus: "active",
-          currentPlan: plan.name,
-          planPeriodStart: periodStart,
-          planPeriodEnd: periodEnd,
-          cancelRequestedAt: null,
-          cancellationReason: null,
-          dataDeletionDate: null,
-        },
-      });
-      const tenantRow = await tx.tenant.findUnique({ where: { id: tenantId } });
-      const updated = { ...tenantRow, ...subRow };
+        await tx.tenant.update({
+          where: { id: tenantId },
+          data: {
+            status: "APPROVED",
+            ...(req.body.address ? { address: req.body.address } : {}),
+            ...(req.body.phone ? { phone: req.body.phone } : {}),
+          },
+        });
+        const subRow = await tx.tenantSubscription.update({
+          where: { tenantId },
+          data: {
+            planId,
+            planStatus: "active",
+            billingType: validBillingType,
+            planActivatedAt: periodStart,
+            subscriptionStatus: "active",
+            currentPlan: plan.name,
+            planPeriodStart: periodStart,
+            planPeriodEnd: periodEnd,
+            cancelRequestedAt: null,
+            cancellationReason: null,
+            dataDeletionDate: null,
+          },
+        });
+        const tenantRow = await tx.tenant.findUnique({
+          where: { id: tenantId },
+        });
+        const updated = { ...tenantRow, ...subRow };
 
-      return { payment: createdPayment, updatedTenant: updated, alreadyProcessed: false };
-    });
+        return {
+          payment: createdPayment,
+          updatedTenant: updated,
+          alreadyProcessed: false,
+        };
+      });
 
     if (alreadyProcessed) {
       return res.status(200).json({
@@ -587,54 +606,53 @@ export const verifyPaymentAndActivate = async (req, res) => {
 
     // ✅ PAYMENT_SUCCESS audit log
     const auditResult1 = await createAuditLog({
-      actorId:     tenantId,
-      actorType:   'TENANT',
-      actorName:   tenant.tenantName || tenant.email,
-      actorEmail:  tenant.email,
-      action:      'PAYMENT_SUCCESS',
-      module:      'BILLING',
+      actorId: tenantId,
+      actorType: "TENANT",
+      actorName: tenant.tenantName || tenant.email,
+      actorEmail: tenant.email,
+      action: "PAYMENT_SUCCESS",
+      module: "BILLING",
       description: `Tenant "${tenant.tenantName}" paid ₹${totalAmount} for ${plan.name} (${validBillingType})`,
-      tenantId:    tenantId,
-      ipAddress:   meta.ipAddress ?? null,
-      userAgent:   meta.userAgent ?? null, 
+      tenantId: tenantId,
+      ipAddress: meta.ipAddress ?? null,
+      userAgent: meta.userAgent ?? null,
       metadata: {
-        planName:          plan.name,
-        billingType:       validBillingType,
+        planName: plan.name,
+        billingType: validBillingType,
         baseAmount,
         gstAmount,
         totalAmount,
-        razorpayOrderId:   razorpay_order_id,
+        razorpayOrderId: razorpay_order_id,
         razorpayPaymentId: razorpay_payment_id,
         wasExtended,
-        planPeriodStart:   updatedTenant.planPeriodStart,
-        planPeriodEnd:     updatedTenant.planPeriodEnd,
+        planPeriodStart: updatedTenant.planPeriodStart,
+        planPeriodEnd: updatedTenant.planPeriodEnd,
       },
     });
 
     // ✅ PLAN_ACTIVATED audit log
     const auditResult2 = await createAuditLog({
-      actorId:     tenantId,
-      actorType:   'TENANT',
-      actorName:   tenant.tenantName || tenant.email,
-      actorEmail:  tenant.email,
-      action:      'PLAN_ACTIVATED',
-      module:      'BILLING',
+      actorId: tenantId,
+      actorType: "TENANT",
+      actorName: tenant.tenantName || tenant.email,
+      actorEmail: tenant.email,
+      action: "PLAN_ACTIVATED",
+      module: "BILLING",
       description: wasExtended
         ? `Tenant "${tenant.tenantName}" extended ${plan.name} plan (${validBillingType})`
         : `Tenant "${tenant.tenantName}" activated ${plan.name} plan (${validBillingType})`,
-      tenantId:    tenantId,
-      ipAddress:   meta.ipAddress ?? null,
-      userAgent:   meta.userAgent ?? null, 
+      tenantId: tenantId,
+      ipAddress: meta.ipAddress ?? null,
+      userAgent: meta.userAgent ?? null,
       metadata: {
-        planName:        plan.name,
-        billingType:     validBillingType,
+        planName: plan.name,
+        billingType: validBillingType,
         totalAmount,
         wasExtended,
         planPeriodStart: updatedTenant.planPeriodStart,
-        planPeriodEnd:   updatedTenant.planPeriodEnd,
+        planPeriodEnd: updatedTenant.planPeriodEnd,
       },
     });
-
 
     // 8. Fetch payment method in background (non-blocking)
     razorpay.payments
@@ -650,7 +668,6 @@ export const verifyPaymentAndActivate = async (req, res) => {
       .catch((e) => {
         console.warn("⚠️ Could not fetch payment method:", e.message);
       });
-
 
     // 9. SuperAdmin notification (non-blocking)
     try {
@@ -689,7 +706,7 @@ export const verifyPaymentAndActivate = async (req, res) => {
           tenant.email,
           tenant.tenantName,
           invoiceNumber,
-          filePath
+          filePath,
         );
       })
       .catch((err) => {
@@ -725,11 +742,21 @@ export const verifyPaymentAndActivate = async (req, res) => {
 };
 
 // Helper to fetch or dynamically create/recreate Razorpay Plan ID
-const getOrCreateRazorpayPlan = async (plan, billingType, forceRecreate = false) => {
-  let rzpPlanId = billingType === "annual" ? plan.razorpayAnnualPlanId : plan.razorpayMonthlyPlanId;
+const getOrCreateRazorpayPlan = async (
+  plan,
+  billingType,
+  forceRecreate = false,
+) => {
+  let rzpPlanId =
+    billingType === "annual"
+      ? plan.razorpayAnnualPlanId
+      : plan.razorpayMonthlyPlanId;
 
   if (!rzpPlanId || forceRecreate) {
-    const amount = billingType === "annual" && plan.annualPrice ? plan.annualPrice : plan.monthlyPrice;
+    const amount =
+      billingType === "annual" && plan.annualPrice
+        ? plan.annualPrice
+        : plan.monthlyPrice;
     const gstCalc = await calculateGST(amount);
     const totalAmountInPaise = Math.round(gstCalc.totalAmount * 100);
 
@@ -748,9 +775,10 @@ const getOrCreateRazorpayPlan = async (plan, billingType, forceRecreate = false)
     // Persist generated plan ID in database
     await prisma.subscriptionPlan.update({
       where: { id: plan.id },
-      data: billingType === "annual"
-        ? { razorpayAnnualPlanId: rzpPlanId }
-        : { razorpayMonthlyPlanId: rzpPlanId },
+      data:
+        billingType === "annual"
+          ? { razorpayAnnualPlanId: rzpPlanId }
+          : { razorpayMonthlyPlanId: rzpPlanId },
     });
   }
 
@@ -759,7 +787,7 @@ const getOrCreateRazorpayPlan = async (plan, billingType, forceRecreate = false)
 
 // ── Create Recurring Subscription with Free Trial ──
 export const createSubscriptionTrial = async (req, res) => {
-  const { planId, billingType = 'monthly' } = req.body;
+  const { planId, billingType = "monthly" } = req.body;
   const tenantId = req.tenantId;
 
   if (!planId) {
@@ -771,20 +799,30 @@ export const createSubscriptionTrial = async (req, res) => {
 
   try {
     const [tenantRaw, plan] = await Promise.all([
-      prisma.tenant.findUnique({ where: { id: tenantId }, include: { subscription: true } }),
-      prisma.subscriptionPlan.findUnique({ where: { id: planId } })
+      prisma.tenant.findUnique({
+        where: { id: tenantId },
+        include: { subscription: true },
+      }),
+      prisma.subscriptionPlan.findUnique({ where: { id: planId } }),
     ]);
     const tenant = { ...tenantRaw, ...tenantRaw?.subscription };
 
-    if (!tenant) return res.status(404).json({ success: false, message: "Tenant not found" });
-    if (!plan) return res.status(404).json({ success: false, message: "Plan not found" });
+    if (!tenant)
+      return res
+        .status(404)
+        .json({ success: false, message: "Tenant not found" });
+    if (!plan)
+      return res
+        .status(404)
+        .json({ success: false, message: "Plan not found" });
 
     // Anti-Abuse Check: Has tenant already used free trial?
     if (tenant.hasUsedTrial) {
       return res.status(403).json({
         success: false,
-        code: 'TRIAL_ALREADY_USED',
-        message: 'You have already used your free trial on this account. Please select a paid subscription plan.'
+        code: "TRIAL_ALREADY_USED",
+        message:
+          "You have already used your free trial on this account. Please select a paid subscription plan.",
       });
     }
 
@@ -792,16 +830,19 @@ export const createSubscriptionTrial = async (req, res) => {
     if (!plan.hasTrial) {
       return res.status(400).json({
         success: false,
-        code: 'PLAN_NO_TRIAL',
-        message: 'This plan does not offer a free trial. Please proceed to direct checkout.'
+        code: "PLAN_NO_TRIAL",
+        message:
+          "This plan does not offer a free trial. Please proceed to direct checkout.",
       });
     }
 
     // Reuse existing subscription if in created/authenticated state (prevents orphan accumulation)
     if (tenant.razorpaySubscriptionId) {
       try {
-        const existingSub = await razorpay.subscriptions.fetch(tenant.razorpaySubscriptionId);
-        if (['created', 'authenticated'].includes(existingSub.status)) {
+        const existingSub = await razorpay.subscriptions.fetch(
+          tenant.razorpaySubscriptionId,
+        );
+        if (["created", "authenticated"].includes(existingSub.status)) {
           return res.status(200).json({
             success: true,
             subscriptionId: existingSub.id,
@@ -810,7 +851,9 @@ export const createSubscriptionTrial = async (req, res) => {
           });
         }
       } catch (fetchErr) {
-        console.warn("Stale subscription ID in DB, creating fresh subscription");
+        console.warn(
+          "Stale subscription ID in DB, creating fresh subscription",
+        );
       }
     }
 
@@ -824,27 +867,29 @@ export const createSubscriptionTrial = async (req, res) => {
     try {
       subscription = await razorpay.subscriptions.create({
         plan_id: rzpPlanId,
-        total_count: billingType === 'annual' ? 5 : 12,
+        total_count: billingType === "annual" ? 5 : 12,
         quantity: 1,
         start_at: startAt,
         customer_notify: 1,
-        notes: { tenantId: tenant.id, planId: plan.id, billingType }
+        notes: { tenantId: tenant.id, planId: plan.id, billingType },
       });
     } catch (subErr) {
       if (
-        subErr?.error?.description?.includes('invalid or could not be found') ||
-        subErr?.error?.code === 'BAD_REQUEST_ERROR' ||
+        subErr?.error?.description?.includes("invalid or could not be found") ||
+        subErr?.error?.code === "BAD_REQUEST_ERROR" ||
         subErr?.statusCode === 400
       ) {
-        console.warn("⚠️ Razorpay Plan ID not found in current environment. Re-creating plan on Razorpay...");
+        console.warn(
+          "⚠️ Razorpay Plan ID not found in current environment. Re-creating plan on Razorpay...",
+        );
         rzpPlanId = await getOrCreateRazorpayPlan(plan, billingType, true);
         subscription = await razorpay.subscriptions.create({
           plan_id: rzpPlanId,
-          total_count: billingType === 'annual' ? 5 : 12,
+          total_count: billingType === "annual" ? 5 : 12,
           quantity: 1,
           start_at: startAt,
           customer_notify: 1,
-          notes: { tenantId: tenant.id, planId: plan.id, billingType }
+          notes: { tenantId: tenant.id, planId: plan.id, billingType },
         });
       } else {
         throw subErr;
@@ -852,13 +897,13 @@ export const createSubscriptionTrial = async (req, res) => {
     }
 
     // Save ID immediately to link to tenant
-await prisma.tenantSubscription.upsert({
+    await prisma.tenantSubscription.upsert({
       where: { tenantId: tenant.id },
       create: {
         tenantId: tenant.id,
         razorpaySubscriptionId: subscription.id,
       },
-      update: { razorpaySubscriptionId: subscription.id }
+      update: { razorpaySubscriptionId: subscription.id },
     });
 
     return res.status(200).json({
@@ -878,60 +923,66 @@ await prisma.tenantSubscription.upsert({
 
 // ── Verify Mandate Signature & Formally Activate Trial ──
 export const verifySubscriptionTrial = async (req, res) => {
-  const { 
-    razorpay_payment_id, 
-    razorpay_subscription_id, 
-    razorpay_signature 
-  } = req.body;
+  const { razorpay_payment_id, razorpay_subscription_id, razorpay_signature } =
+    req.body;
   const tenantId = req.tenantId;
 
   if (!razorpay_subscription_id || !razorpay_signature) {
     return res.status(400).json({
       success: false,
-      code: 'MISSING_VERIFICATION_FIELDS',
-      message: 'Subscription ID and signature are required'
+      code: "MISSING_VERIFICATION_FIELDS",
+      message: "Subscription ID and signature are required",
     });
   }
 
   try {
     // 1. Verify Razorpay signature
     const generatedSignature = crypto
-      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-      .update(`${razorpay_payment_id || ''}|${razorpay_subscription_id}`)
-      .digest('hex');
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(`${razorpay_payment_id || ""}|${razorpay_subscription_id}`)
+      .digest("hex");
 
     if (generatedSignature !== razorpay_signature) {
       return res.status(400).json({
         success: false,
-        code: 'INVALID_SIGNATURE',
-        message: 'Payment verification failed. Invalid signature.'
+        code: "INVALID_SIGNATURE",
+        message: "Payment verification failed. Invalid signature.",
       });
     }
 
     // 2. Fetch subscription from Razorpay to confirm status
-    const rzpSubscription = await razorpay.subscriptions.fetch(razorpay_subscription_id);
+    const rzpSubscription = await razorpay.subscriptions.fetch(
+      razorpay_subscription_id,
+    );
 
-    if (!['authenticated', 'active', 'created'].includes(rzpSubscription.status)) {
+    if (
+      !["authenticated", "active", "created"].includes(rzpSubscription.status)
+    ) {
       return res.status(400).json({
         success: false,
-        code: 'MANDATE_NOT_AUTHENTICATED',
-        message: 'Mandate authorization is pending or failed.'
+        code: "MANDATE_NOT_AUTHENTICATED",
+        message: "Mandate authorization is pending or failed.",
       });
     }
 
     // 3. Atomically activate trial
-    const tenant = await prisma.tenant.findUnique({ 
+    const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
-      include: { subscription: { include: { plan: true } } }
+      include: { subscription: { include: { plan: true } } },
     });
     Object.assign(tenant, tenant?.subscription);
 
-    if (!tenant) return res.status(404).json({ success: false, message: "Tenant not found" });
+    if (!tenant)
+      return res
+        .status(404)
+        .json({ success: false, message: "Tenant not found" });
 
     const planId = tenant.planId || rzpSubscription.notes?.planId;
     let chosenPlan = tenant.plan;
     if (!chosenPlan && planId) {
-      chosenPlan = await prisma.subscriptionPlan.findUnique({ where: { id: planId } });
+      chosenPlan = await prisma.subscriptionPlan.findUnique({
+        where: { id: planId },
+      });
     }
 
     const trialDays = chosenPlan?.trialDays || 14;
@@ -941,8 +992,8 @@ export const verifySubscriptionTrial = async (req, res) => {
     await prisma.tenant.update({
       where: { id: tenantId },
       data: {
-        status: 'APPROVED',
-      }
+        status: "APPROVED",
+      },
     });
     const subRow = await prisma.tenantSubscription.upsert({
       where: { tenantId },
@@ -950,12 +1001,12 @@ export const verifySubscriptionTrial = async (req, res) => {
         tenantId,
         planId: chosenPlan ? chosenPlan.id : tenant.planId,
         currentPlan: chosenPlan ? chosenPlan.name : tenant.currentPlan,
-        subscriptionStatus: 'trialing',
-        planStatus: 'active',
+        subscriptionStatus: "trialing",
+        planStatus: "active",
         hasUsedTrial: true,
         trialPlanId: chosenPlan ? chosenPlan.id : null,
         autopayEnabled: true,
-        autopayMethod: rzpSubscription.payment_method || 'card',
+        autopayMethod: rzpSubscription.payment_method || "card",
         razorpaySubscriptionId: razorpay_subscription_id,
         planPeriodStart: periodStart,
         planPeriodEnd: periodEnd,
@@ -963,19 +1014,21 @@ export const verifySubscriptionTrial = async (req, res) => {
       update: {
         planId: chosenPlan ? chosenPlan.id : tenant.planId,
         currentPlan: chosenPlan ? chosenPlan.name : tenant.currentPlan,
-        subscriptionStatus: 'trialing',
-        planStatus: 'active',
+        subscriptionStatus: "trialing",
+        planStatus: "active",
         hasUsedTrial: true,
         trialPlanId: chosenPlan ? chosenPlan.id : null,
         autopayEnabled: true,
-        autopayMethod: rzpSubscription.payment_method || 'card',
+        autopayMethod: rzpSubscription.payment_method || "card",
         razorpaySubscriptionId: razorpay_subscription_id,
         planPeriodStart: periodStart,
         planPeriodEnd: periodEnd,
         dataDeletionDate: null,
-      }
+      },
     });
-    const tenantRow = await prisma.tenant.findUnique({ where: { id: tenantId } });
+    const tenantRow = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+    });
     const updated = { ...tenantRow, ...subRow };
 
     return res.status(200).json({
@@ -988,7 +1041,7 @@ export const verifySubscriptionTrial = async (req, res) => {
         subscriptionStatus: updated.subscriptionStatus,
         planStatus: updated.planStatus,
         planPeriodEnd: updated.planPeriodEnd,
-      }
+      },
     });
   } catch (error) {
     console.error("Verify subscription trial error:", error);
@@ -1007,7 +1060,9 @@ export const createPaidSubscription = async (req, res) => {
     });
 
     if (!tenant) {
-      return res.status(404).json({ success: false, message: "Tenant not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Tenant not found" });
     }
 
     const plan = await prisma.subscriptionPlan.findUnique({
@@ -1015,18 +1070,28 @@ export const createPaidSubscription = async (req, res) => {
     });
 
     if (!plan) {
-      return res.status(404).json({ success: false, message: "Plan not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Plan not found" });
     }
 
     if (plan.status !== "ACTIVE") {
-      return res.status(400).json({ success: false, message: "This plan is no longer available for purchase." });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "This plan is no longer available for purchase.",
+        });
     }
 
     // Ensure Razorpay Plan ID exists, or create dynamically on Razorpay
     let rzpPlanId = await getOrCreateRazorpayPlan(plan, billingType);
 
     // Calculate upfront amount for client info
-    const amount = billingType === "annual" && plan.annualPrice ? plan.annualPrice : plan.monthlyPrice;
+    const amount =
+      billingType === "annual" && plan.annualPrice
+        ? plan.annualPrice
+        : plan.monthlyPrice;
     const gstCalc = await calculateGST(amount);
 
     // Create Subscription without start_at => Cycle 1 is charged upfront immediately
@@ -1046,11 +1111,13 @@ export const createPaidSubscription = async (req, res) => {
     } catch (subErr) {
       // If plan ID in DB was from Test mode or invalid on Razorpay, recreate on Razorpay and retry
       if (
-        subErr?.error?.description?.includes('invalid or could not be found') ||
-        subErr?.error?.code === 'BAD_REQUEST_ERROR' ||
+        subErr?.error?.description?.includes("invalid or could not be found") ||
+        subErr?.error?.code === "BAD_REQUEST_ERROR" ||
         subErr?.statusCode === 400
       ) {
-        console.warn("⚠️ Razorpay Plan ID not found in current environment. Re-creating plan on Razorpay...");
+        console.warn(
+          "⚠️ Razorpay Plan ID not found in current environment. Re-creating plan on Razorpay...",
+        );
         rzpPlanId = await getOrCreateRazorpayPlan(plan, billingType, true);
         subscription = await razorpay.subscriptions.create({
           plan_id: rzpPlanId,
@@ -1094,7 +1161,11 @@ export const verifyPaidSubscription = async (req, res) => {
   } = req.body;
   const tenantId = req.tenantId;
 
-  if (!razorpay_subscription_id || !razorpay_signature || !razorpay_payment_id) {
+  if (
+    !razorpay_subscription_id ||
+    !razorpay_signature ||
+    !razorpay_payment_id
+  ) {
     return res.status(400).json({
       success: false,
       code: "MISSING_VERIFICATION_FIELDS",
@@ -1122,7 +1193,10 @@ export const verifyPaidSubscription = async (req, res) => {
     try {
       paymentDetails = await razorpay.payments.fetch(razorpay_payment_id);
     } catch (payFetchErr) {
-      console.warn("Failed to fetch payment details directly from Razorpay:", payFetchErr.message);
+      console.warn(
+        "Failed to fetch payment details directly from Razorpay:",
+        payFetchErr.message,
+      );
     }
 
     // 3. Find tenant and chosen plan
@@ -1133,7 +1207,9 @@ export const verifyPaidSubscription = async (req, res) => {
     Object.assign(tenant, tenant?.subscription);
 
     if (!tenant) {
-      return res.status(404).json({ success: false, message: "Tenant not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Tenant not found" });
     }
 
     const targetPlanId = planId || tenant.planId;
@@ -1142,27 +1218,47 @@ export const verifyPaidSubscription = async (req, res) => {
     });
 
     if (!plan) {
-      return res.status(404).json({ success: false, message: "Plan not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Plan not found" });
     }
 
     // Cancel previous Razorpay mandate if upgrading/changing plans to prevent duplicate autopays
     const previousSubscriptionId = tenant.razorpaySubscriptionId;
-    if (previousSubscriptionId && previousSubscriptionId !== razorpay_subscription_id) {
+    if (
+      previousSubscriptionId &&
+      previousSubscriptionId !== razorpay_subscription_id
+    ) {
       try {
-        const oldSub = await razorpay.subscriptions.fetch(previousSubscriptionId);
-        if (oldSub && !["cancelled", "completed", "expired"].includes(oldSub.status)) {
+        const oldSub = await razorpay.subscriptions.fetch(
+          previousSubscriptionId,
+        );
+        if (
+          oldSub &&
+          !["cancelled", "completed", "expired"].includes(oldSub.status)
+        ) {
           await razorpay.subscriptions.cancel(previousSubscriptionId, false);
-          console.log(`✅ Automatically cancelled previous Razorpay mandate ${previousSubscriptionId} upon plan upgrade`);
+          console.log(
+            `✅ Automatically cancelled previous Razorpay mandate ${previousSubscriptionId} upon plan upgrade`,
+          );
         }
       } catch (oldSubErr) {
-        console.warn(`⚠️ Notice cancelling previous Razorpay mandate ${previousSubscriptionId}:`, oldSubErr?.error?.description || oldSubErr?.message);
+        console.warn(
+          `⚠️ Notice cancelling previous Razorpay mandate ${previousSubscriptionId}:`,
+          oldSubErr?.error?.description || oldSubErr?.message,
+        );
       }
     }
 
     const validBillingType = billingType === "annual" ? "annual" : "monthly";
-    const basePrice = validBillingType === "annual" && plan.annualPrice ? plan.annualPrice : plan.monthlyPrice;
+    const basePrice =
+      validBillingType === "annual" && plan.annualPrice
+        ? plan.annualPrice
+        : plan.monthlyPrice;
     const gstCalc = await calculateGST(basePrice);
-    const totalAmount = paymentDetails?.amount ? paymentDetails.amount / 100 : gstCalc.totalAmount;
+    const totalAmount = paymentDetails?.amount
+      ? paymentDetails.amount / 100
+      : gstCalc.totalAmount;
 
     // 4. Calculate cumulative billing period dates
     const isCurrentPlanActive =
@@ -1233,7 +1329,8 @@ export const verifyPaidSubscription = async (req, res) => {
           currency: paymentDetails?.currency || "INR",
           billingPeriodStart: periodStart,
           billingPeriodEnd: periodEnd,
-          paymentMethodBrand: paymentDetails?.method?.toUpperCase() || "AUTOPAY",
+          paymentMethodBrand:
+            paymentDetails?.method?.toUpperCase() || "AUTOPAY",
           paymentMethodLast4: paymentDetails?.card?.last4 || null,
         },
       });
@@ -1288,7 +1385,10 @@ export const verifyPaidSubscription = async (req, res) => {
 
     // 6. Generate GST Invoice PDF & Send Email
     try {
-      const { filePath, fileUrl } = await generateInvoicePDF(payment, updatedTenant);
+      const { filePath, fileUrl } = await generateInvoicePDF(
+        payment,
+        updatedTenant,
+      );
       await prisma.payment.update({
         where: { id: payment.id },
         data: { invoiceUrl: fileUrl },
@@ -1387,20 +1487,24 @@ export const getBillingDetails = async (req, res) => {
     let dataDeletionDate = tenant.dataDeletionDate;
 
     // Self-healing: if cancelled plan has reached its period end, expire it immediately
-    if (status === 'cancel_at_period_end' && tenant.planPeriodEnd && new Date(tenant.planPeriodEnd) < new Date()) {
+    if (
+      status === "cancel_at_period_end" &&
+      tenant.planPeriodEnd &&
+      new Date(tenant.planPeriodEnd) < new Date()
+    ) {
       const computedDeletionDate = new Date();
       computedDeletionDate.setDate(computedDeletionDate.getDate() + 90);
 
       await prisma.tenantSubscription.update({
         where: { tenantId },
         data: {
-          subscriptionStatus: 'expired',
-          planStatus: 'inactive',
-          dataDeletionDate: computedDeletionDate
-        }
+          subscriptionStatus: "expired",
+          planStatus: "inactive",
+          dataDeletionDate: computedDeletionDate,
+        },
       });
-      status = 'expired';
-      planStatus = 'inactive';
+      status = "expired";
+      planStatus = "inactive";
       dataDeletionDate = computedDeletionDate;
     }
 
@@ -1446,14 +1550,14 @@ export const getBillingDetails = async (req, res) => {
         tenant.billingType === "annual" && tenant.plan.annualPrice
           ? tenant.plan.annualPrice
           : tenant.plan.monthlyPrice;
-    const gstCalc = await calculateGST(baseAmount);
-    currentPrice = {
-    base:       baseAmount,
-    gst:        gstCalc.gstAmount,
-    total:      gstCalc.totalAmount,
-    gstEnabled: gstCalc.gstEnabled,
-    gstPercent: gstCalc.gstPercent,
-    };
+      const gstCalc = await calculateGST(baseAmount);
+      currentPrice = {
+        base: baseAmount,
+        gst: gstCalc.gstAmount,
+        total: gstCalc.totalAmount,
+        gstEnabled: gstCalc.gstEnabled,
+        gstPercent: gstCalc.gstPercent,
+      };
     }
 
     let currentPlanResponse = null;
@@ -1474,11 +1578,12 @@ export const getBillingDetails = async (req, res) => {
         cancelRequestedAt: tenant.cancelRequestedAt,
         dataDeletionDate: dataDeletionDate,
       };
-    } else if (planStatus === 'enterprise_active') {
+    } else if (planStatus === "enterprise_active") {
       currentPlanResponse = {
         id: "enterprise",
         name: "Enterprise Plan",
-        description: "Dedicated resources, custom API volume, and priority enterprise channels.",
+        description:
+          "Dedicated resources, custom API volume, and priority enterprise channels.",
         billingType: "custom",
         planStatus: "active",
         activatedAt: tenant.planActivatedAt || tenant.createdAt,
@@ -1515,8 +1620,6 @@ export const getBillingDetails = async (req, res) => {
   }
 };
 
-
-
 // ✅ Download Invoice
 export const downloadInvoice = async (req, res) => {
   try {
@@ -1527,7 +1630,7 @@ export const downloadInvoice = async (req, res) => {
     const payment = await prisma.payment.findFirst({
       where: {
         id: paymentId,
-        tenantId,           // ← Security: only own payments
+        tenantId, // ← Security: only own payments
         status: "SUCCESS",
       },
     });
@@ -1548,10 +1651,7 @@ export const downloadInvoice = async (req, res) => {
       const tenant = await prisma.tenant.findUnique({
         where: { id: tenantId },
       });
-      const generated = await generateInvoicePDF(
-        payment,
-        tenant
-      );
+      const generated = await generateInvoicePDF(payment, tenant);
       filePath = generated.filePath;
       fileName = `${generated.invoiceNumber}.pdf`;
 

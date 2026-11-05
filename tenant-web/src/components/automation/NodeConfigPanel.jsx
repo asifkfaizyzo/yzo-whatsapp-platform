@@ -61,7 +61,10 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
     }
 
     if (node.type === "PAYMENT") {
-      setContent(node.data?.content || "Please complete your payment using the button below:");
+      setContent(
+        node.data?.content ||
+          "Please complete your payment using the button below:",
+      );
     }
 
     if (node.type === "SEND_LOCATION") {
@@ -72,14 +75,14 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
     }
 
     // ✅ NEW: Load existing media for SEND_MESSAGE nodes
-        // ✅ Load existing media for SEND_MESSAGE, ASK_QUESTION, and INTERACTIVE_BUTTONS
+    // ✅ Load existing media for SEND_MESSAGE, ASK_QUESTION, and INTERACTIVE_BUTTONS
     if (
       node.type === "SEND_MESSAGE" ||
       node.type === "ASK_QUESTION" ||
       node.type === "INTERACTIVE_BUTTONS"
     ) {
       let opts = node.data?.options;
-      
+
       // For buttons, media can be in node.data.media or node.data.options.media
       if (node.type === "INTERACTIVE_BUTTONS") {
         opts = node.data?.media || node.data?.options?.media || null;
@@ -89,7 +92,12 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
         setButtons(rawBtns);
       }
 
-      if (opts && typeof opts === "object" && !Array.isArray(opts) && opts.mediaUrl) {
+      if (
+        opts &&
+        typeof opts === "object" &&
+        !Array.isArray(opts) &&
+        opts.mediaUrl
+      ) {
         let type = "image";
         if (opts.mediaType === "VIDEO") type = "video";
         if (opts.mediaType === "FILE") type = "document";
@@ -223,7 +231,6 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
     return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   };
 
-
   const handleUpdate = () => {
     if (!node) return;
 
@@ -232,7 +239,9 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
     if (mediaNodes.includes(node.type)) {
       if (mediaType === "text" && !content.trim()) {
         toast.warning(
-          node.type === "ASK_QUESTION" ? "Please enter a question" : "Please enter a message"
+          node.type === "ASK_QUESTION"
+            ? "Please enter a question"
+            : "Please enter a message",
         );
         return;
       }
@@ -311,7 +320,9 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
     }
 
     if (node.type === "ASK_LOCATION") {
-      newData.content = content || "Please share your delivery location so we can deliver your order accurately 🚚";
+      newData.content =
+        content ||
+        "Please share your delivery location so we can deliver your order accurately 🚚";
       newData.options = {};
     }
 
@@ -326,7 +337,8 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
     }
 
     if (node.type === "PAYMENT") {
-      newData.content = content || "Please complete your payment using the button below:";
+      newData.content =
+        content || "Please complete your payment using the button below:";
       newData.options = {};
     }
 
@@ -344,7 +356,6 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
     toast.success("Node updated successfully");
     onClose();
   };
-
 
   // Delete node from config panel
   // Delete node from config panel
@@ -368,7 +379,7 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
     setOptions(updated);
   };
 
-    // ── Render Reusable Vertical Media Selector ──
+  // ── Render Reusable Vertical Media Selector ──
   const renderVerticalMediaSelector = () => (
     <div className="space-y-2">
       <label className="text-xs font-semibold text-slate-600 block">
@@ -452,9 +463,7 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
 
       {/* Config Content */}
       <div className="p-4 flex-1 overflow-y-auto space-y-4">
-        
-        
-              {/* SEND_MESSAGE */}
+        {/* SEND_MESSAGE */}
         {node.type === "SEND_MESSAGE" && (
           <div className="space-y-3">
             {/* Vertical Media Selector */}
@@ -582,8 +591,7 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
           </div>
         )}
 
-
-                {/* ASK_QUESTION */}
+        {/* ASK_QUESTION */}
         {node.type === "ASK_QUESTION" && (
           <div className="space-y-3">
             {/* Vertical Media Selector */}
@@ -716,28 +724,28 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
                   p-2.5 focus:outline-none focus:border-amber-400 transition"
               />
               <p className="text-[10px] text-slate-400 mt-1.5">
-                Use an order-number key (for example, <code>orderNumber</code>, <code>order_number</code>, or{" "}
-                <code>order_Number</code>) to look up an order automatically. Letter case and underscores are ignored.
-                Use these placeholders in later messages: <code>{"{{order_number}}"}</code>,{" "}
-                <code>{"{{order_status}}"}</code>, <code>{"{{order_status_raw}}"}</code>,{" "}
-                <code>{"{{payment_status}}"}</code>, <code>{"{{payment_status_raw}}"}</code>,{" "}
-                <code>{"{{tracking_url}}"}</code>, <code>{"{{tracking_number}}"}</code>,{" "}
-                <code>{"{{tracking_provider}}"}</code>, <code>{"{{has_tracking}}"}</code>,{" "}
+                Use an order-number key (for example, <code>orderNumber</code>,{" "}
+                <code>order_number</code>, or <code>order_Number</code>) to look
+                up an order automatically. Letter case and underscores are
+                ignored. Use these placeholders in later messages:{" "}
+                <code>{"{{order_number}}"}</code>,{" "}
+                <code>{"{{order_status}}"}</code>,{" "}
+                <code>{"{{order_status_raw}}"}</code>,{" "}
+                <code>{"{{payment_status}}"}</code>,{" "}
+                <code>{"{{payment_status_raw}}"}</code>,{" "}
+                <code>{"{{tracking_url}}"}</code>,{" "}
+                <code>{"{{tracking_number}}"}</code>,{" "}
+                <code>{"{{tracking_provider}}"}</code>,{" "}
+                <code>{"{{has_tracking}}"}</code>,{" "}
                 <code>{"{{order_date}}"}</code>,{" "}
-                <code>{"{{items_summary}}"}</code>, <code>{"{{total_amount}}"}</code>,{" "}
-                <code>{"{{currency}}"}</code>, <code>{"{{item_count}}"}</code>,{" "}
+                <code>{"{{items_summary}}"}</code>,{" "}
+                <code>{"{{total_amount}}"}</code>, <code>{"{{currency}}"}</code>
+                , <code>{"{{item_count}}"}</code>,{" "}
                 <code>{"{{customer_name}}"}</code>.
               </p>
             </div>
           </div>
         )}
-
-
-
-
-
-
-    
 
         {/* CONDITION */}
         {/* CONDITION Config */}
@@ -834,8 +842,7 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
           </div>
         )}
 
-
-              {/* ⭐ INTERACTIVE_BUTTONS */}
+        {/* ⭐ INTERACTIVE_BUTTONS */}
         {node.type === "INTERACTIVE_BUTTONS" && (
           <div className="space-y-3">
             {/* Vertical Media Selector */}
@@ -973,7 +980,9 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
               {/* Info box */}
               <div className="bg-green-50 border border-green-100 rounded-lg p-2 mb-2">
                 <p className="text-[10px] text-green-700 leading-relaxed">
-                  💡 Max 10 buttons. 1–3 buttons are sent as Quick Reply buttons; 4–10 are automatically sent as an Interactive List menu. Drag from each handle to connect the next node.
+                  💡 Max 10 buttons. 1–3 buttons are sent as Quick Reply
+                  buttons; 4–10 are automatically sent as an Interactive List
+                  menu. Drag from each handle to connect the next node.
                 </p>
               </div>
 
@@ -1062,9 +1071,12 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
         {node.type === "SEND_CATALOG" && (
           <div className="space-y-3">
             <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3">
-              <p className="text-xs font-bold text-indigo-800">🛍️ WhatsApp Catalog</p>
+              <p className="text-xs font-bold text-indigo-800">
+                🛍️ WhatsApp Catalog
+              </p>
               <p className="text-[11px] text-indigo-600 mt-0.5">
-                Displays your Meta Commerce Catalog with a "View Catalog" button directly in chat.
+                Displays your Meta Commerce Catalog with a "View Catalog" button
+                directly in chat.
               </p>
             </div>
 
@@ -1114,9 +1126,13 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
         {node.type === "ASK_LOCATION" && (
           <div className="space-y-3">
             <div className="bg-teal-50 border border-teal-100 rounded-xl p-3">
-              <p className="text-xs font-bold text-teal-800">📍 Home Delivery GPS Request</p>
+              <p className="text-xs font-bold text-teal-800">
+                📍 Home Delivery GPS Request
+              </p>
               <p className="text-[11px] text-teal-600 mt-0.5">
-                Sends a native WhatsApp "Send location" button. Automatically extracts GPS coordinates or text address and updates the active order.
+                Sends a native WhatsApp "Send location" button. Automatically
+                extracts GPS coordinates or text address and updates the active
+                order.
               </p>
             </div>
 
@@ -1139,9 +1155,12 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
         {node.type === "SEND_LOCATION" && (
           <div className="space-y-3">
             <div className="bg-orange-50 border border-orange-100 rounded-xl p-3">
-              <p className="text-xs font-bold text-orange-800">🏬 Store Pickup Google Maps Pin</p>
+              <p className="text-xs font-bold text-orange-800">
+                🏬 Store Pickup Google Maps Pin
+              </p>
               <p className="text-[11px] text-orange-600 mt-0.5">
-                Sends your store's exact GPS location and address pin on WhatsApp for pickup orders.
+                Sends your store's exact GPS location and address pin on
+                WhatsApp for pickup orders.
               </p>
             </div>
 
@@ -1201,9 +1220,13 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
         {node.type === "PAYMENT" && (
           <div className="space-y-3">
             <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
-              <p className="text-xs font-bold text-emerald-800">💳 Razorpay Online Payment</p>
+              <p className="text-xs font-bold text-emerald-800">
+                💳 Razorpay Online Payment
+              </p>
               <p className="text-[11px] text-emerald-700 mt-1 leading-relaxed">
-                Generates a secure Razorpay Payment Link and delivers an interactive "Pay Now" button on WhatsApp. Pauses the flow until the customer completes payment.
+                Generates a secure Razorpay Payment Link and delivers an
+                interactive "Pay Now" button on WhatsApp. Pauses the flow until
+                the customer completes payment.
               </p>
             </div>
 
@@ -1219,13 +1242,17 @@ export default function NodeConfigPanel({ node, onUpdate, onClose }) {
                 className="w-full text-xs border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-emerald-500 transition resize-none"
               />
               <p className="text-[10px] text-slate-400 mt-1">
-                Amount and currency will be automatically populated from the order.
+                Amount and currency will be automatically populated from the
+                order.
               </p>
             </div>
 
             <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-[11px] text-slate-600">
-              <p className="font-semibold text-slate-700 mb-0.5">ℹ️ Flow Automation</p>
-              When payment succeeds, the flow automatically resumes along the connected output handle.
+              <p className="font-semibold text-slate-700 mb-0.5">
+                ℹ️ Flow Automation
+              </p>
+              When payment succeeds, the flow automatically resumes along the
+              connected output handle.
             </div>
           </div>
         )}

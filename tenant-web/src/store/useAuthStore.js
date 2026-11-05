@@ -1,15 +1,15 @@
 // tenant-web/src/store/useAuthStore.js (do not remove this comment)
-import { create } from 'zustand';
-import axios from 'axios';
+import { create } from "zustand";
+import axios from "axios";
 
 const getAuthConfig = (userType) => {
-  const isUser = userType === 'USER';
+  const isUser = userType === "USER";
   return {
     baseUrl: isUser
       ? `${import.meta.env.VITE_BACKEND_URL}/tenant/user`
       : `${import.meta.env.VITE_BACKEND_URL}/tenant`,
-    refreshEndpoint: isUser ? '/refresh-user-access' : '/refresh-token',
-    logoutEndpoint: isUser ? '/logout-user' : '/logout',
+    refreshEndpoint: isUser ? "/refresh-user-access" : "/refresh-token",
+    logoutEndpoint: isUser ? "/logout-user" : "/logout",
   };
 };
 
@@ -24,19 +24,19 @@ export const useAuthStore = create((set) => ({
     set({ isLoading: true });
 
     try {
-      const userType = localStorage.getItem('user_type');
+      const userType = localStorage.getItem("user_type");
 
       // No session stored
       if (!userType) {
         try {
           const onboardingRes = await axios.get(
             `${import.meta.env.VITE_BACKEND_URL}/tenant/register/status`,
-            { withCredentials: true }
+            { withCredentials: true },
           );
           if (onboardingRes.data?.success && onboardingRes.data?.data?.user) {
             const onboardingUser = onboardingRes.data.data.user;
-            localStorage.setItem('user', JSON.stringify(onboardingUser));
-            localStorage.setItem('user_type', 'TENANT');
+            localStorage.setItem("user", JSON.stringify(onboardingUser));
+            localStorage.setItem("user_type", "TENANT");
             set({
               user: onboardingUser,
               accessToken: null,
@@ -47,7 +47,10 @@ export const useAuthStore = create((set) => ({
             return;
           }
         } catch (onboardingError) {
-          console.log('No onboarding session on startup:', onboardingError.message);
+          console.log(
+            "No onboarding session on startup:",
+            onboardingError.message,
+          );
         }
 
         set({
@@ -68,33 +71,30 @@ export const useAuthStore = create((set) => ({
       const response = await axios.post(
         `${baseUrl}${refreshEndpoint}`,
         {},
-        { withCredentials: true }
+        { withCredentials: true },
       );
 
-      const isUser = userType === 'USER';
+      const isUser = userType === "USER";
 
       const accessToken = isUser
         ? response.data.data.accessToken
         : response.data.accessToken;
 
-      const serverUser = isUser
-        ? response.data.data.user
-        : response.data.user;
+      const serverUser = isUser ? response.data.data.user : response.data.user;
 
       const userData =
-        serverUser ||
-        JSON.parse(localStorage.getItem('user') || 'null');
+        serverUser || JSON.parse(localStorage.getItem("user") || "null");
 
       if (!userData) {
-        throw new Error('User metadata not found');
+        throw new Error("User metadata not found");
       }
 
       // ✅ Verify the returned type matches what we expected
       if (userData.type !== userType) {
-        throw new Error('User type mismatch — clearing session');
+        throw new Error("User type mismatch — clearing session");
       }
 
-      localStorage.setItem('user', JSON.stringify(userData));
+      localStorage.setItem("user", JSON.stringify(userData));
 
       set({
         user: userData,
@@ -103,20 +103,19 @@ export const useAuthStore = create((set) => ({
         isLoading: false,
         isHydrated: true,
       });
-
     } catch (error) {
-      console.log('Refresh Failed:', error.response?.data || error.message);
+      console.log("Refresh Failed:", error.response?.data || error.message);
 
       // Check if there is an active onboarding session
       try {
         const onboardingRes = await axios.get(
           `${import.meta.env.VITE_BACKEND_URL}/tenant/register/status`,
-          { withCredentials: true }
+          { withCredentials: true },
         );
         if (onboardingRes.data?.success && onboardingRes.data?.data?.user) {
           const onboardingUser = onboardingRes.data.data.user;
-          localStorage.setItem('user', JSON.stringify(onboardingUser));
-          localStorage.setItem('user_type', 'TENANT');
+          localStorage.setItem("user", JSON.stringify(onboardingUser));
+          localStorage.setItem("user_type", "TENANT");
           set({
             user: onboardingUser,
             accessToken: null,
@@ -127,14 +126,14 @@ export const useAuthStore = create((set) => ({
           return;
         }
       } catch (onboardingError) {
-        console.log('Onboarding status check failed:', onboardingError.message);
+        console.log("Onboarding status check failed:", onboardingError.message);
       }
 
       const status = error.response?.status;
 
       if (!status || status === 401 || status === 403) {
-        localStorage.removeItem('user');
-        localStorage.removeItem('user_type');
+        localStorage.removeItem("user");
+        localStorage.removeItem("user_type");
         set({
           user: null,
           accessToken: null,
@@ -149,8 +148,8 @@ export const useAuthStore = create((set) => ({
   },
 
   login: (userData, token) => {
-    localStorage.setItem('user', JSON.stringify(userData));
-    localStorage.setItem('user_type', userData.type);
+    localStorage.setItem("user", JSON.stringify(userData));
+    localStorage.setItem("user_type", userData.type);
     set({
       user: userData,
       accessToken: token,
@@ -163,18 +162,18 @@ export const useAuthStore = create((set) => ({
   logout: async () => {
     set({ isLoading: true });
     try {
-      const userType = localStorage.getItem('user_type');
+      const userType = localStorage.getItem("user_type");
       const { baseUrl, logoutEndpoint } = getAuthConfig(userType);
       await axios.post(
         `${baseUrl}${logoutEndpoint}`,
         {},
-        { withCredentials: true }
+        { withCredentials: true },
       );
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error("Logout error:", error);
     } finally {
-      localStorage.removeItem('user');
-      localStorage.removeItem('user_type');
+      localStorage.removeItem("user");
+      localStorage.removeItem("user_type");
       set({
         user: null,
         accessToken: null,

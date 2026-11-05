@@ -3,10 +3,9 @@ import {
   getAuditLogsService,
   getAuditLogStatsService,
   cleanupOldAuditLogsService,
-} from './audit.service.js';
+} from "./audit.service.js";
 
-import { extractRequestMeta } from '../../lib/utils/request.meta.js';
-
+import { extractRequestMeta } from "../../lib/utils/request.meta.js";
 
 // GET /superadmin/audit-logs
 export const getAuditLogs = async (req, res) => {
@@ -18,7 +17,6 @@ export const getAuditLogs = async (req, res) => {
   }
 };
 
-
 // GET /superadmin/audit-logs/stats
 export const getAuditLogStats = async (req, res) => {
   try {
@@ -29,7 +27,6 @@ export const getAuditLogStats = async (req, res) => {
   }
 };
 
-
 // POST /superadmin/audit-logs/cleanup  (manual trigger)
 export const manualCleanup = async (req, res) => {
   try {
@@ -37,7 +34,7 @@ export const manualCleanup = async (req, res) => {
     res.json({
       success: true,
       message: `Cleaned up ${result.deletedCount} old logs`,
-      data:    result,
+      data: result,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

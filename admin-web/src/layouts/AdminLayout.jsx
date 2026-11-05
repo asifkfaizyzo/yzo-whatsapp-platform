@@ -20,7 +20,8 @@ export default function AdminLayout() {
     return <Navigate to="/login" replace />;
   }
 
-  const userRole = user?.type === "SUPERADMIN" ? "Super Admin" : (user?.name || "Admin");
+  const userRole =
+    user?.type === "SUPERADMIN" ? "Super Admin" : user?.name || "Admin";
 
   return (
     <div className="min-h-screen flex bg-[#f8fafc] overflow-hidden">

@@ -1,7 +1,7 @@
 // backend/src/modules/whatsapp/whatsapp.service.js (do not remove this comment)
 
-import prisma  from '../../config/prisma.js';
-import { decrypt } from '../../lib/crypto.js';
+import prisma from "../../config/prisma.js";
+import { decrypt } from "../../lib/crypto.js";
 
 // ─────────────────────────────────────────────────────────────
 // SEND LOCATION  (Agent/Tenant → Contact via WhatsApp)
@@ -35,12 +35,13 @@ export const sendLocationService = async ({
   senderId,
   senderType,
 }) => {
-
   // ── Step 1: Get tenant WhatsApp credentials ───────────────
   const tenantRow = await prisma.tenant.findUnique({
     where: { id: tenantId },
     select: {
-      whatsapp: { select: { whatsappPhoneId: true, whatsappAccessToken: true } },
+      whatsapp: {
+        select: { whatsappPhoneId: true, whatsappAccessToken: true },
+      },
     },
   });
   const tenant = tenantRow?.whatsapp || {};
@@ -49,60 +50,64 @@ export const sendLocationService = async ({
   let waMessageId = null;
 
   // ── MOCK MODE: skip real API call ─────────────────────────
-  if (process.env.MOCK_WHATSAPP === 'true') {
-    console.log('⚠️  MOCK_WHATSAPP=true → skipping real WhatsApp API call');
-    console.log('📍 Mock location send:', { to, latitude, longitude, name, address });
+  if (process.env.MOCK_WHATSAPP === "true") {
+    console.log("⚠️  MOCK_WHATSAPP=true → skipping real WhatsApp API call");
+    console.log("📍 Mock location send:", {
+      to,
+      latitude,
+      longitude,
+      name,
+      address,
+    });
     waMessageId = `mock_wamid_${Date.now()}`;
-
   } else {
     // ── REAL MODE: check credentials ────────────────────────
     if (!tenant?.whatsappPhoneId || !tenant?.whatsappAccessToken) {
-      const err = new Error('WhatsApp is not configured for this account');
+      const err = new Error("WhatsApp is not configured for this account");
       err.statusCode = 400;
       throw err;
     }
 
     // ── Build payload ────────────────────────────────────────
     const waPayload = {
-      messaging_product: 'whatsapp',
-      recipient_type:    'individual',
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
       to,
-      type:              'location',
+      type: "location",
       location: {
-        latitude:  parseFloat(latitude),
+        latitude: parseFloat(latitude),
         longitude: parseFloat(longitude),
-        ...(name    && { name }),
+        ...(name && { name }),
         ...(address && { address }),
       },
     };
 
     try {
       const accessToken = decrypt(tenant.whatsappAccessToken);
-      const phoneId     = tenant.whatsappPhoneId;
+      const phoneId = tenant.whatsappPhoneId;
 
       const response = await fetch(
         `https://graph.facebook.com/v23.0/${phoneId}/messages`,
         {
-          method:  'POST',
+          method: "POST",
           headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type':  'application/json',
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
           },
           body: JSON.stringify(waPayload),
-        }
+        },
       );
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('⚠️ WhatsApp location send error:', errorData);
+        console.error("⚠️ WhatsApp location send error:", errorData);
       } else {
         const responseData = await response.json();
         waMessageId = responseData?.messages?.[0]?.id || null;
-        console.log('✅ Location sent via WhatsApp, wamid:', waMessageId);
+        console.log("✅ Location sent via WhatsApp, wamid:", waMessageId);
       }
-
     } catch (waError) {
-      console.error('⚠️ WhatsApp location send failed:', waError.message);
+      console.error("⚠️ WhatsApp location send failed:", waError.message);
     }
   }
 
@@ -115,13 +120,15 @@ export const sendLocationService = async ({
     });
 
     if (!conversation) {
-      const err = new Error('Conversation not found');
+      const err = new Error("Conversation not found");
       err.statusCode = 404;
       throw err;
     }
 
     if (conversation.tenantId !== tenantId) {
-      const err = new Error('Unauthorized: Conversation does not belong to this tenant');
+      const err = new Error(
+        "Unauthorized: Conversation does not belong to this tenant",
+      );
       err.statusCode = 403;
       throw err;
     }
@@ -130,24 +137,24 @@ export const sendLocationService = async ({
     savedMessage = await prisma.message.create({
       data: {
         conversationId,
-        senderId:     senderId   || null,
-        senderType:   senderType || 'TENANT',
-        direction:    'OUTBOUND',
-        type:         'LOCATION',
-        status:       'sent',
-        isRead:       false,
-        locLatitude:  parseFloat(latitude),
+        senderId: senderId || null,
+        senderType: senderType || "TENANT",
+        direction: "OUTBOUND",
+        type: "LOCATION",
+        status: "sent",
+        isRead: false,
+        locLatitude: parseFloat(latitude),
         locLongitude: parseFloat(longitude),
-        locName:      name    || null,
-        locAddress:   address || null,
-        text:         null,
-        mediaUrl:     null,
+        locName: name || null,
+        locAddress: address || null,
+        text: null,
+        mediaUrl: null,
       },
     });
 
     await prisma.conversation.update({
       where: { id: conversationId },
-      data:  { lastMessageAt: new Date() },
+      data: { lastMessageAt: new Date() },
     });
 
     console.log(`✅ Location message saved to DB: ${savedMessage.id}`);

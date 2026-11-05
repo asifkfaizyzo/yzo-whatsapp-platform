@@ -1,5 +1,5 @@
 // backend/src/modules/auth/refreshToken.service.js (do not remove this comment)
-import prisma from '../../config/prisma.js';
+import prisma from "../../config/prisma.js";
 
 // ===================== SAVE REFRESH TOKEN =====================
 export const saveRefreshToken = async ({
@@ -8,8 +8,7 @@ export const saveRefreshToken = async ({
   tenantId = null,
   userId = null,
 }) => {
-
-// Delete old tokens first (Choice 1: single session)
+  // Delete old tokens first (Choice 1: single session)
   if (superAdminId) {
     await prisma.refreshToken.deleteMany({
       where: { superAdminId },
@@ -41,17 +40,14 @@ export const saveRefreshToken = async ({
   });
 };
 
-
-
 // ===================== DELETE REFRESH TOKEN (Logout) =====================
 export const deleteRefreshToken = async (token) => {
-
   const foundToken = await prisma.refreshToken.findFirst({
     where: { token },
   });
 
   if (!foundToken) {
-    throw new Error('Invalid refresh token');
+    throw new Error("Invalid refresh token");
   }
 
   await prisma.refreshToken.delete({
@@ -59,18 +55,15 @@ export const deleteRefreshToken = async (token) => {
   });
 };
 
-
-
 // ===================== FIND REFRESH TOKEN =====================
 export const findRefreshToken = async (token, type) => {
-
   let whereClause = { token };
 
-  if (type === 'SUPERADMIN') {
+  if (type === "SUPERADMIN") {
     whereClause.superAdminId = { not: null };
-  } else if (type === 'TENANT') {
+  } else if (type === "TENANT") {
     whereClause.tenantId = { not: null };
-  } else if (type === 'USER') {
+  } else if (type === "USER") {
     whereClause.userId = { not: null };
   }
 

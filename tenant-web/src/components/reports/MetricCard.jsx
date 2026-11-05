@@ -3,9 +3,15 @@
 import React from "react";
 import { TrendingUp, TrendingDown } from "lucide-react";
 
-export default function MetricCard({ label, value, change, type, isNegativeGood = false }) {
+export default function MetricCard({
+  label,
+  value,
+  change,
+  type,
+  isNegativeGood = false,
+}) {
   const isPositive = type === "positive";
-  
+
   // Color coding logic: For Failure Rate, a decrease is good (green)
   let badgeColorClass = "bg-emerald-50 text-emerald-700 border-emerald-200";
   if ((isPositive && isNegativeGood) || (!isPositive && !isNegativeGood)) {

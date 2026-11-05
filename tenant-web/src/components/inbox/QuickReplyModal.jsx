@@ -1,5 +1,5 @@
 // tenant-web/src/components/inbox/QuickReplyModal.jsx (do not remove this comment)
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo } from "react";
 import {
   Zap,
   Search,
@@ -9,8 +9,8 @@ import {
   ArrowRight,
   ExternalLink,
   Plus,
-} from 'lucide-react';
-import { Link } from 'react-router-dom';
+} from "lucide-react";
+import { Link } from "react-router-dom";
 
 export default function QuickReplyModal({
   isOpen,
@@ -20,17 +20,17 @@ export default function QuickReplyModal({
   contact,
   user,
 }) {
-  const [search, setSearch] = useState('');
-  const [category, setCategory] = useState('All');
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("All");
 
   const categories = useMemo(() => {
     const set = new Set(quickReplies.map((q) => q.category).filter(Boolean));
-    return ['All', ...Array.from(set)];
+    return ["All", ...Array.from(set)];
   }, [quickReplies]);
 
   const filteredReplies = useMemo(() => {
     return quickReplies.filter((qr) => {
-      const matchesCategory = category === 'All' || qr.category === category;
+      const matchesCategory = category === "All" || qr.category === category;
       const q = search.toLowerCase().trim();
       const matchesSearch =
         !q ||
@@ -45,16 +45,19 @@ export default function QuickReplyModal({
 
   // Helper to preview interpolated text
   const previewInterpolated = (raw) => {
-    if (!raw) return '';
+    if (!raw) return "";
     return raw
-      .replace(/{{contactName}}/gi, contact?.name || 'Customer')
-      .replace(/{{contactPhone}}/gi, contact?.phone || '')
-      .replace(/{{agentName}}/gi, user?.name || 'Agent')
-      .replace(/{{companyName}}/gi, user?.tenantName || 'Our Company')
+      .replace(/{{contactName}}/gi, contact?.name || "Customer")
+      .replace(/{{contactPhone}}/gi, contact?.phone || "")
+      .replace(/{{agentName}}/gi, user?.name || "Agent")
+      .replace(/{{companyName}}/gi, user?.tenantName || "Our Company")
       .replace(/{{date}}/gi, new Date().toLocaleDateString())
       .replace(
         /{{time}}/gi,
-        new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
       );
   };
 
@@ -120,8 +123,8 @@ export default function QuickReplyModal({
                 onClick={() => setCategory(cat)}
                 className={`shrink-0 rounded-lg px-2.5 py-1 text-xs font-medium transition ${
                   category === cat
-                    ? 'bg-[#075E54] text-white'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    ? "bg-[#075E54] text-white"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                 }`}
               >
                 {cat}
@@ -172,12 +175,12 @@ export default function QuickReplyModal({
 
                       {hasMedia && (
                         <div className="mt-2 flex items-center gap-1.5 text-[11px] text-[#075E54] font-medium">
-                          {reply.mediaType === 'IMAGE' ? (
+                          {reply.mediaType === "IMAGE" ? (
                             <ImageIcon size={13} />
                           ) : (
                             <FileText size={13} />
                           )}
-                          <span>Attachment: {reply.mediaName || 'Media'}</span>
+                          <span>Attachment: {reply.mediaName || "Media"}</span>
                         </div>
                       )}
                     </div>

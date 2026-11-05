@@ -68,10 +68,10 @@ export default function Dashboard() {
   // ── Aggregated Stats ──
   const totalTenantsCount = tenants.length;
   const activeTenantsCount = tenants.filter(
-    (t) => t.status === "APPROVED" && t.isActive
+    (t) => t.status === "APPROVED" && t.isActive,
   ).length;
   const pendingTenantsCount = tenants.filter(
-    (t) => t.status === "PENDING"
+    (t) => t.status === "PENDING",
   ).length;
 
   // ── Format Currency ──
@@ -100,12 +100,16 @@ export default function Dashboard() {
       colorClass = "bg-[#125EF2]";
     }
 
-    return { id: tenant.id, text: actionText, time: timeText, color: colorClass };
+    return {
+      id: tenant.id,
+      text: actionText,
+      time: timeText,
+      color: colorClass,
+    };
   });
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
-
       {/* ── Header ── */}
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div>
@@ -118,7 +122,10 @@ export default function Dashboard() {
           </p>
         </div>
         <button
-          onClick={() => { fetchStats(); fetchRevenueStats(); }}
+          onClick={() => {
+            fetchStats();
+            fetchRevenueStats();
+          }}
           className="btn-secondary flex items-center justify-center gap-2 px-4 py-2.5
                      rounded-xl shadow-sm hover:shadow transition duration-150
                      self-start md:self-auto"
@@ -130,7 +137,6 @@ export default function Dashboard() {
 
       {/* ── Stats Grid ── */}
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-
         {/* Stat 1: Total Tenants */}
         <div className="card p-6 flex items-start justify-between">
           <div className="space-y-2">
@@ -140,7 +146,9 @@ export default function Dashboard() {
             {loading ? (
               <div className="h-9 w-12 bg-slate-100 animate-pulse rounded-lg mt-1" />
             ) : (
-              <p className="text-3xl font-bold text-gray-900">{totalTenantsCount}</p>
+              <p className="text-3xl font-bold text-gray-900">
+                {totalTenantsCount}
+              </p>
             )}
             <div className="flex items-center gap-1 text-xs text-[#125EF2] font-medium">
               <TrendingUp size={14} />
@@ -161,13 +169,16 @@ export default function Dashboard() {
             {loading ? (
               <div className="h-9 w-12 bg-slate-100 animate-pulse rounded-lg mt-1" />
             ) : (
-              <p className="text-3xl font-bold text-gray-900">{activeTenantsCount}</p>
+              <p className="text-3xl font-bold text-gray-900">
+                {activeTenantsCount}
+              </p>
             )}
             <div className="flex items-center gap-1 text-xs text-gray-500 font-medium">
               <span>
                 {totalTenantsCount
                   ? Math.round((activeTenantsCount / totalTenantsCount) * 100)
-                  : 0}% active rate
+                  : 0}
+                % active rate
               </span>
             </div>
           </div>
@@ -185,7 +196,9 @@ export default function Dashboard() {
             {loading ? (
               <div className="h-9 w-12 bg-slate-100 animate-pulse rounded-lg mt-1" />
             ) : (
-              <p className="text-3xl font-bold text-gray-900">{pendingTenantsCount}</p>
+              <p className="text-3xl font-bold text-gray-900">
+                {pendingTenantsCount}
+              </p>
             )}
             <div className="flex items-center gap-1 text-xs text-amber-600 font-medium">
               {pendingTenantsCount > 0 ? (
@@ -222,10 +235,10 @@ export default function Dashboard() {
               <div
                 className={`inline-flex items-center gap-1 text-xs font-semibold
                   px-2 py-0.5 rounded-full ${
-                  (revenueStats?.growthPercent ?? 0) >= 0
-                    ? "text-emerald-700 bg-emerald-50"
-                    : "text-rose-700 bg-rose-50"
-                }`}
+                    (revenueStats?.growthPercent ?? 0) >= 0
+                      ? "text-emerald-700 bg-emerald-50"
+                      : "text-rose-700 bg-rose-50"
+                  }`}
               >
                 {(revenueStats?.growthPercent ?? 0) >= 0 ? (
                   <ArrowUpRight size={13} />
@@ -243,12 +256,10 @@ export default function Dashboard() {
             <IndianRupee size={24} />
           </div>
         </div>
-
       </div>
 
       {/* ── Info & Logs Dashboard Section ── */}
       <div className="grid gap-6 lg:grid-cols-3">
-
         {/* Left Column: Recent Activity Logs */}
         <div className="card p-6 lg:col-span-2 space-y-5 bg-white">
           <div className="flex items-center justify-between pb-2 border-b border-gray-100">
@@ -278,7 +289,9 @@ export default function Dashboard() {
           ) : recentActivities.length === 0 ? (
             <div className="py-12 text-center">
               <Activity className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-              <p className="text-sm font-semibold text-gray-500">No activity yet</p>
+              <p className="text-sm font-semibold text-gray-500">
+                No activity yet
+              </p>
               <p className="text-xs text-gray-400 mt-1">
                 Tenant accounts will show up here as they register.
               </p>
@@ -291,7 +304,9 @@ export default function Dashboard() {
                     className={`h-2.5 w-2.5 mt-1.5 rounded-full ${act.color} flex-shrink-0`}
                   />
                   <div className="flex-1">
-                    <p className="text-sm font-semibold text-gray-800">{act.text}</p>
+                    <p className="text-sm font-semibold text-gray-800">
+                      {act.text}
+                    </p>
                     <p className="text-xs text-gray-400 mt-0.5">
                       Date: {act.time} • System Onboard
                     </p>
@@ -304,8 +319,10 @@ export default function Dashboard() {
 
         {/* Right Column: Quick Guide + Navigation */}
         <div className="space-y-6">
-          <div className="card p-6 space-y-4 bg-gradient-to-br from-[#125EF2]
-                          to-[#125EF2] text-white border-transparent shadow-md">
+          <div
+            className="card p-6 space-y-4 bg-gradient-to-br from-[#125EF2]
+                          to-[#125EF2] text-white border-transparent shadow-md"
+          >
             <h3 className="font-bold text-base flex items-center gap-2">
               <Shield size={18} />
               <span>Super Admin Access</span>

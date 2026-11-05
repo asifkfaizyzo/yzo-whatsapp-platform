@@ -18,7 +18,7 @@ import {
   PlusCircle,
   Receipt,
   BadgePercent,
-  X
+  X,
 } from "lucide-react";
 import api from "../../api/axios";
 import { useConfirm } from "../../context/ConfirmContext";
@@ -54,7 +54,7 @@ export default function SubscriptionManagement() {
     amount: "",
     paymentMethod: "offline_bank_transfer",
     paymentRef: "",
-    notes: ""
+    notes: "",
   });
 
   // Extend Period Form
@@ -85,8 +85,8 @@ export default function SubscriptionManagement() {
     try {
       const res = await api.get(
         `/admin/subscriptions?page=${page}&limit=10&search=${encodeURIComponent(
-          search
-        )}&status=${statusFilter}&plan=${planFilter}`
+          search,
+        )}&status=${statusFilter}&plan=${planFilter}`,
       );
       if (res.data.success) {
         const fetchedTenants = res.data.data.tenants || [];
@@ -94,12 +94,19 @@ export default function SubscriptionManagement() {
         setTotalPages(res.data.data.totalPages || 1);
         setTotalCount(res.data.data.total || 0);
 
-        const stats = { active: 0, trialing: 0, cancelling: 0, expired: 0, paused: 0 };
+        const stats = {
+          active: 0,
+          trialing: 0,
+          cancelling: 0,
+          expired: 0,
+          paused: 0,
+        };
         fetchedTenants.forEach((t) => {
           const st = (t.subscriptionStatus || "").toLowerCase();
           if (st === "active") stats.active++;
           else if (st === "trialing") stats.trialing++;
-          else if (st === "cancel_at_period_end" || st === "cancelling") stats.cancelling++;
+          else if (st === "cancel_at_period_end" || st === "cancelling")
+            stats.cancelling++;
           else if (st === "expired") stats.expired++;
           else if (st === "paused") stats.paused++;
         });
@@ -132,7 +139,8 @@ export default function SubscriptionManagement() {
       const ok = await confirm({
         type: "danger",
         title: "Force Expire Subscription?",
-        message: "This tenant will lose access immediately and revert to restricted status.",
+        message:
+          "This tenant will lose access immediately and revert to restricted status.",
         confirmLabel: "Force Expire Access",
       });
       if (!ok) return;
@@ -144,7 +152,9 @@ export default function SubscriptionManagement() {
 
       const res = await api.patch(`/admin/subscriptions/${tenantId}`, payload);
       if (res.data.success) {
-        toast.success(`Subscription action "${action}" completed successfully.`);
+        toast.success(
+          `Subscription action "${action}" completed successfully.`,
+        );
         fetchTenants();
       } else {
         toast.error(res.data.message || "Action failed.");
@@ -156,7 +166,8 @@ export default function SubscriptionManagement() {
 
   const handleOpenManualModal = (tenant) => {
     setActiveDropdown(null);
-    const defaultPlan = availablePlans.find(p => p.id === tenant.planId) || availablePlans[0];
+    const defaultPlan =
+      availablePlans.find((p) => p.id === tenant.planId) || availablePlans[0];
     setManualModalTenant(tenant);
     setManualForm({
       planId: defaultPlan?.id || "",
@@ -164,7 +175,7 @@ export default function SubscriptionManagement() {
       amount: defaultPlan?.monthlyPrice || "",
       paymentMethod: "offline_bank_transfer",
       paymentRef: "",
-      notes: ""
+      notes: "",
     });
   };
 
@@ -177,16 +188,24 @@ export default function SubscriptionManagement() {
 
     setModalLoading(true);
     try {
-      const res = await api.post(`/admin/subscriptions/${manualModalTenant.id}/manual-activate`, manualForm);
+      const res = await api.post(
+        `/admin/subscriptions/${manualModalTenant.id}/manual-activate`,
+        manualForm,
+      );
       if (res.data.success) {
-        toast.success(res.data.message || "Plan manually activated and revenue synced!");
+        toast.success(
+          res.data.message || "Plan manually activated and revenue synced!",
+        );
         setManualModalTenant(null);
         fetchTenants();
       } else {
         toast.error(res.data.message || "Manual activation failed");
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || "An error occurred during manual activation");
+      toast.error(
+        err.response?.data?.message ||
+          "An error occurred during manual activation",
+      );
     } finally {
       setModalLoading(false);
     }
@@ -202,10 +221,13 @@ export default function SubscriptionManagement() {
 
     setModalLoading(true);
     try {
-      const res = await api.patch(`/admin/subscriptions/${extendModalTenant.id}`, {
-        action: "extend",
-        extendDays: days,
-      });
+      const res = await api.patch(
+        `/admin/subscriptions/${extendModalTenant.id}`,
+        {
+          action: "extend",
+          extendDays: days,
+        },
+      );
       if (res.data.success) {
         toast.success(`Period extended by +${days} days!`);
         setExtendModalTenant(null);
@@ -225,7 +247,12 @@ export default function SubscriptionManagement() {
     if (p.includes("enterprise") || p.includes("custom")) {
       return "bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-sm shadow-purple-500/20";
     }
-    if (p.includes("pro") || p.includes("business") || p.includes("growth") || p.includes("scale")) {
+    if (
+      p.includes("pro") ||
+      p.includes("business") ||
+      p.includes("growth") ||
+      p.includes("scale")
+    ) {
       return "bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-sm shadow-blue-500/20";
     }
     return "bg-slate-100 text-slate-700 border border-slate-200";
@@ -308,7 +335,8 @@ export default function SubscriptionManagement() {
             Active Tenant Subscriptions
           </h1>
           <p className="text-xs text-slate-300 max-w-xl">
-            Control center to monitor tenant subscription health, handle manual offline activations, extend trial days, or pause access.
+            Control center to monitor tenant subscription health, handle manual
+            offline activations, extend trial days, or pause access.
           </p>
         </div>
 
@@ -419,7 +447,10 @@ export default function SubscriptionManagement() {
             onChange={(e) => setSearch(e.target.value)}
             className="w-full text-xs rounded-xl border border-slate-200 pl-10 pr-10 py-3 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition bg-slate-50/50 focus:bg-white"
           />
-          <Search className="absolute left-3.5 top-3.5 text-slate-400" size={16} />
+          <Search
+            className="absolute left-3.5 top-3.5 text-slate-400"
+            size={16}
+          />
           {search && (
             <button
               type="button"
@@ -467,8 +498,10 @@ export default function SubscriptionManagement() {
             className="text-xs font-semibold rounded-xl border border-slate-200 px-3.5 py-2.5 outline-none bg-white text-slate-700 focus:border-indigo-500 transition shadow-sm"
           >
             <option value="">All Plan Tiers</option>
-            {availablePlans.map(p => (
-              <option key={p.id} value={p.name}>{p.name}</option>
+            {availablePlans.map((p) => (
+              <option key={p.id} value={p.name}>
+                {p.name}
+              </option>
             ))}
           </select>
         </div>
@@ -512,7 +545,8 @@ export default function SubscriptionManagement() {
                 {tenants.map((tenant, index) => {
                   const companyName = tenant.tenantName || "Unnamed Tenant";
                   const initial = companyName.charAt(0).toUpperCase();
-                  const isLastRows = index >= tenants.length - 2 && tenants.length > 2;
+                  const isLastRows =
+                    index >= tenants.length - 2 && tenants.length > 2;
 
                   return (
                     <tr
@@ -540,7 +574,7 @@ export default function SubscriptionManagement() {
                       <td className="py-4 px-6">
                         <span
                           className={`inline-block px-2.5 py-1 rounded-lg text-[11px] font-bold capitalize ${getPlanBadge(
-                            tenant.currentPlan
+                            tenant.currentPlan,
                           )}`}
                         >
                           {tenant.currentPlan || "Starter"}
@@ -560,7 +594,9 @@ export default function SubscriptionManagement() {
                             <span>Active</span>
                           </span>
                         ) : (
-                          <span className="text-[11px] text-slate-400 font-medium">Off</span>
+                          <span className="text-[11px] text-slate-400 font-medium">
+                            Off
+                          </span>
                         )}
                       </td>
 
@@ -570,7 +606,9 @@ export default function SubscriptionManagement() {
                           <Calendar size={13} className="text-slate-400" />
                           <span>
                             {tenant.planPeriodEnd
-                              ? new Date(tenant.planPeriodEnd).toLocaleDateString(undefined, {
+                              ? new Date(
+                                  tenant.planPeriodEnd,
+                                ).toLocaleDateString(undefined, {
                                   year: "numeric",
                                   month: "short",
                                   day: "numeric",
@@ -590,7 +628,7 @@ export default function SubscriptionManagement() {
                         <button
                           onClick={() =>
                             setActiveDropdown(
-                              activeDropdown === tenant.id ? null : tenant.id
+                              activeDropdown === tenant.id ? null : tenant.id,
                             )
                           }
                           className={`p-2 rounded-xl transition ${
@@ -619,7 +657,10 @@ export default function SubscriptionManagement() {
                                 onClick={() => handleOpenManualModal(tenant)}
                                 className="w-full px-4 py-2 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 flex items-center gap-2 transition"
                               >
-                                <PlusCircle size={14} className="text-indigo-600" />
+                                <PlusCircle
+                                  size={14}
+                                  className="text-indigo-600"
+                                />
                                 <span>Manual Plan Activation</span>
                               </button>
 
@@ -640,18 +681,28 @@ export default function SubscriptionManagement() {
                             <div className="py-1">
                               {tenant.subscriptionStatus !== "paused" ? (
                                 <button
-                                  onClick={() => handleAction(tenant.id, "pause")}
+                                  onClick={() =>
+                                    handleAction(tenant.id, "pause")
+                                  }
                                   className="w-full px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition"
                                 >
-                                  <PauseCircle size={14} className="text-amber-500" />
+                                  <PauseCircle
+                                    size={14}
+                                    className="text-amber-500"
+                                  />
                                   <span>Pause Account</span>
                                 </button>
                               ) : (
                                 <button
-                                  onClick={() => handleAction(tenant.id, "reactivate")}
+                                  onClick={() =>
+                                    handleAction(tenant.id, "reactivate")
+                                  }
                                   className="w-full px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition"
                                 >
-                                  <CheckCircle2 size={14} className="text-emerald-500" />
+                                  <CheckCircle2
+                                    size={14}
+                                    className="text-emerald-500"
+                                  />
                                   <span>Reactivate Account</span>
                                 </button>
                               )}
@@ -659,7 +710,9 @@ export default function SubscriptionManagement() {
 
                             <div className="py-1">
                               <button
-                                onClick={() => handleAction(tenant.id, "expire")}
+                                onClick={() =>
+                                  handleAction(tenant.id, "expire")
+                                }
                                 className="w-full px-4 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-2 transition"
                               >
                                 <ShieldAlert size={14} />
@@ -706,215 +759,270 @@ export default function SubscriptionManagement() {
       </div>
 
       {/* ── Modal 1: Manual Plan Activation (Offline Payment) ── */}
-      {manualModalTenant && createPortal(
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-lg rounded-3xl bg-white shadow-2xl border border-slate-100 overflow-hidden flex flex-col animate-in scale-in-95 duration-200">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 bg-slate-50/50">
-              <div>
-                <span className="text-[10px] font-extrabold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full uppercase tracking-wider">
-                  Offline Payment Entry
-                </span>
-                <h3 className="text-lg font-extrabold text-slate-900 mt-1">Manual Plan Activation</h3>
-                <p className="text-xs text-slate-500 font-medium">Tenant: <strong>{manualModalTenant.tenantName}</strong> ({manualModalTenant.email})</p>
-              </div>
-              <button
-                onClick={() => setManualModalTenant(null)}
-                className="w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:text-slate-600 flex items-center justify-center transition"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleManualActivateSubmit} className="p-6 space-y-4">
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1.5">Select Plan</label>
-                <select
-                  value={manualForm.planId}
-                  onChange={(e) => {
-                    const sel = availablePlans.find(p => p.id === e.target.value);
-                    setManualForm({
-                      ...manualForm,
-                      planId: e.target.value,
-                      amount: sel ? sel.monthlyPrice : manualForm.amount
-                    });
-                  }}
-                  required
-                  className="w-full text-xs font-semibold rounded-xl border border-slate-200 p-3 bg-slate-50 focus:bg-white focus:border-indigo-500 outline-none transition"
-                >
-                  <option value="">-- Choose Subscription Plan --</option>
-                  {availablePlans.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} — ₹{p.monthlyPrice?.toLocaleString()}/mo
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
+      {manualModalTenant &&
+        createPortal(
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+            <div className="w-full max-w-lg rounded-3xl bg-white shadow-2xl border border-slate-100 overflow-hidden flex flex-col animate-in scale-in-95 duration-200">
+              <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 bg-slate-50/50">
                 <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1.5">Duration (Days)</label>
+                  <span className="text-[10px] font-extrabold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full uppercase tracking-wider">
+                    Offline Payment Entry
+                  </span>
+                  <h3 className="text-lg font-extrabold text-slate-900 mt-1">
+                    Manual Plan Activation
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium">
+                    Tenant: <strong>{manualModalTenant.tenantName}</strong> (
+                    {manualModalTenant.email})
+                  </p>
+                </div>
+                <button
+                  onClick={() => setManualModalTenant(null)}
+                  className="w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:text-slate-600 flex items-center justify-center transition"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <form
+                onSubmit={handleManualActivateSubmit}
+                className="p-6 space-y-4"
+              >
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                    Select Plan
+                  </label>
+                  <select
+                    value={manualForm.planId}
+                    onChange={(e) => {
+                      const sel = availablePlans.find(
+                        (p) => p.id === e.target.value,
+                      );
+                      setManualForm({
+                        ...manualForm,
+                        planId: e.target.value,
+                        amount: sel ? sel.monthlyPrice : manualForm.amount,
+                      });
+                    }}
+                    required
+                    className="w-full text-xs font-semibold rounded-xl border border-slate-200 p-3 bg-slate-50 focus:bg-white focus:border-indigo-500 outline-none transition"
+                  >
+                    <option value="">-- Choose Subscription Plan --</option>
+                    {availablePlans.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} — ₹{p.monthlyPrice?.toLocaleString()}/mo
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                      Duration (Days)
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="3650"
+                      value={manualForm.durationDays}
+                      onChange={(e) =>
+                        setManualForm({
+                          ...manualForm,
+                          durationDays: e.target.value,
+                        })
+                      }
+                      required
+                      className="w-full text-xs font-semibold rounded-xl border border-slate-200 p-3 bg-slate-50 focus:bg-white focus:border-indigo-500 outline-none transition"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                      Base Amount (₹)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={manualForm.amount}
+                      onChange={(e) =>
+                        setManualForm({ ...manualForm, amount: e.target.value })
+                      }
+                      required
+                      placeholder="e.g. 4999"
+                      className="w-full text-xs font-semibold rounded-xl border border-slate-200 p-3 bg-slate-50 focus:bg-white focus:border-indigo-500 outline-none transition"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                      Payment Method
+                    </label>
+                    <select
+                      value={manualForm.paymentMethod}
+                      onChange={(e) =>
+                        setManualForm({
+                          ...manualForm,
+                          paymentMethod: e.target.value,
+                        })
+                      }
+                      className="w-full text-xs font-semibold rounded-xl border border-slate-200 p-3 bg-slate-50 focus:bg-white focus:border-indigo-500 outline-none transition"
+                    >
+                      <option value="offline_bank_transfer">
+                        Bank Transfer (IMPS/NEFT)
+                      </option>
+                      <option value="direct_upi">Direct UPI Transfer</option>
+                      <option value="cash">Cash Payment</option>
+                      <option value="cheque">Cheque</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                      Bank Ref / Transaction #
+                    </label>
+                    <input
+                      type="text"
+                      value={manualForm.paymentRef}
+                      onChange={(e) =>
+                        setManualForm({
+                          ...manualForm,
+                          paymentRef: e.target.value,
+                        })
+                      }
+                      placeholder="e.g. IMPS 987654321"
+                      className="w-full text-xs font-semibold rounded-xl border border-slate-200 p-3 bg-slate-50 focus:bg-white focus:border-indigo-500 outline-none transition"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                    Admin Note (Internal)
+                  </label>
+                  <textarea
+                    value={manualForm.notes}
+                    onChange={(e) =>
+                      setManualForm({ ...manualForm, notes: e.target.value })
+                    }
+                    placeholder="e.g. Offline bank transfer verified by Finance."
+                    rows="2"
+                    className="w-full text-xs rounded-xl border border-slate-200 p-3 bg-slate-50 focus:bg-white focus:border-indigo-500 outline-none transition"
+                  />
+                </div>
+
+                <div className="p-3 bg-emerald-50 text-emerald-800 rounded-xl text-xs flex items-center gap-2">
+                  <Receipt size={16} className="text-emerald-600 shrink-0" />
+                  <span>
+                    This will create an official invoice and automatically sync
+                    to the Super Admin Revenue Hub.
+                  </span>
+                </div>
+
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setManualModalTenant(null)}
+                    className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={modalLoading}
+                    className="px-6 py-2.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition shadow-sm disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {modalLoading ? "Activating..." : "Confirm & Activate Plan"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {/* ── Modal 2: Extend Trial / Period ── */}
+      {extendModalTenant &&
+        createPortal(
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+            <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl border border-slate-100 overflow-hidden flex flex-col animate-in scale-in-95 duration-200">
+              <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 bg-slate-50/50">
+                <div>
+                  <span className="text-[10px] font-extrabold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full uppercase tracking-wider">
+                    Extend Period
+                  </span>
+                  <h3 className="text-lg font-extrabold text-slate-900 mt-1">
+                    Extend Access / Trial Days
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium">
+                    Tenant: <strong>{extendModalTenant.tenantName}</strong>
+                  </p>
+                </div>
+                <button
+                  onClick={() => setExtendModalTenant(null)}
+                  className="w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:text-slate-600 flex items-center justify-center transition"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <form onSubmit={handleExtendSubmit} className="p-6 space-y-4">
+                <label className="text-xs font-bold text-slate-700 block">
+                  Quick Selection
+                </label>
+                <div className="flex items-center gap-2">
+                  {[7, 14, 30].map((days) => (
+                    <button
+                      key={days}
+                      type="button"
+                      onClick={() => setExtendDaysInput(days)}
+                      className={`flex-1 py-2 rounded-xl text-xs font-bold transition border ${
+                        extendDaysInput === days
+                          ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                          : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                      }`}
+                    >
+                      +{days} Days
+                    </button>
+                  ))}
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                    Custom Days
+                  </label>
                   <input
                     type="number"
                     min="1"
-                    max="3650"
-                    value={manualForm.durationDays}
-                    onChange={(e) => setManualForm({ ...manualForm, durationDays: e.target.value })}
+                    max="365"
+                    value={extendDaysInput}
+                    onChange={(e) => setExtendDaysInput(e.target.value)}
                     required
-                    className="w-full text-xs font-semibold rounded-xl border border-slate-200 p-3 bg-slate-50 focus:bg-white focus:border-indigo-500 outline-none transition"
+                    className="w-full text-xs font-semibold rounded-xl border border-slate-200 p-3 bg-slate-50 focus:bg-white focus:border-blue-500 outline-none transition"
                   />
                 </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1.5">Base Amount (₹)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={manualForm.amount}
-                    onChange={(e) => setManualForm({ ...manualForm, amount: e.target.value })}
-                    required
-                    placeholder="e.g. 4999"
-                    className="w-full text-xs font-semibold rounded-xl border border-slate-200 p-3 bg-slate-50 focus:bg-white focus:border-indigo-500 outline-none transition"
-                  />
-                </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1.5">Payment Method</label>
-                  <select
-                    value={manualForm.paymentMethod}
-                    onChange={(e) => setManualForm({ ...manualForm, paymentMethod: e.target.value })}
-                    className="w-full text-xs font-semibold rounded-xl border border-slate-200 p-3 bg-slate-50 focus:bg-white focus:border-indigo-500 outline-none transition"
-                  >
-                    <option value="offline_bank_transfer">Bank Transfer (IMPS/NEFT)</option>
-                    <option value="direct_upi">Direct UPI Transfer</option>
-                    <option value="cash">Cash Payment</option>
-                    <option value="cheque">Cheque</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1.5">Bank Ref / Transaction #</label>
-                  <input
-                    type="text"
-                    value={manualForm.paymentRef}
-                    onChange={(e) => setManualForm({ ...manualForm, paymentRef: e.target.value })}
-                    placeholder="e.g. IMPS 987654321"
-                    className="w-full text-xs font-semibold rounded-xl border border-slate-200 p-3 bg-slate-50 focus:bg-white focus:border-indigo-500 outline-none transition"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1.5">Admin Note (Internal)</label>
-                <textarea
-                  value={manualForm.notes}
-                  onChange={(e) => setManualForm({ ...manualForm, notes: e.target.value })}
-                  placeholder="e.g. Offline bank transfer verified by Finance."
-                  rows="2"
-                  className="w-full text-xs rounded-xl border border-slate-200 p-3 bg-slate-50 focus:bg-white focus:border-indigo-500 outline-none transition"
-                />
-              </div>
-
-              <div className="p-3 bg-emerald-50 text-emerald-800 rounded-xl text-xs flex items-center gap-2">
-                <Receipt size={16} className="text-emerald-600 shrink-0" />
-                <span>This will create an official invoice and automatically sync to the Super Admin Revenue Hub.</span>
-              </div>
-
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setManualModalTenant(null)}
-                  className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={modalLoading}
-                  className="px-6 py-2.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition shadow-sm disabled:opacity-50 flex items-center gap-2"
-                >
-                  {modalLoading ? "Activating..." : "Confirm & Activate Plan"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {/* ── Modal 2: Extend Trial / Period ── */}
-      {extendModalTenant && createPortal(
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl border border-slate-100 overflow-hidden flex flex-col animate-in scale-in-95 duration-200">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 bg-slate-50/50">
-              <div>
-                <span className="text-[10px] font-extrabold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full uppercase tracking-wider">
-                  Extend Period
-                </span>
-                <h3 className="text-lg font-extrabold text-slate-900 mt-1">Extend Access / Trial Days</h3>
-                <p className="text-xs text-slate-500 font-medium">Tenant: <strong>{extendModalTenant.tenantName}</strong></p>
-              </div>
-              <button
-                onClick={() => setExtendModalTenant(null)}
-                className="w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:text-slate-600 flex items-center justify-center transition"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleExtendSubmit} className="p-6 space-y-4">
-              <label className="text-xs font-bold text-slate-700 block">Quick Selection</label>
-              <div className="flex items-center gap-2">
-                {[7, 14, 30].map(days => (
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-3">
                   <button
-                    key={days}
                     type="button"
-                    onClick={() => setExtendDaysInput(days)}
-                    className={`flex-1 py-2 rounded-xl text-xs font-bold transition border ${
-                      extendDaysInput === days
-                        ? "bg-blue-600 text-white border-blue-600 shadow-sm"
-                        : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
-                    }`}
+                    onClick={() => setExtendModalTenant(null)}
+                    className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition"
                   >
-                    +{days} Days
+                    Cancel
                   </button>
-                ))}
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1.5">Custom Days</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="365"
-                  value={extendDaysInput}
-                  onChange={(e) => setExtendDaysInput(e.target.value)}
-                  required
-                  className="w-full text-xs font-semibold rounded-xl border border-slate-200 p-3 bg-slate-50 focus:bg-white focus:border-blue-500 outline-none transition"
-                />
-              </div>
-
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setExtendModalTenant(null)}
-                  className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={modalLoading}
-                  className="px-6 py-2.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition shadow-sm disabled:opacity-50"
-                >
-                  {modalLoading ? "Extending..." : "Apply Extension"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>,
-        document.body
-      )}
-
+                  <button
+                    type="submit"
+                    disabled={modalLoading}
+                    className="px-6 py-2.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition shadow-sm disabled:opacity-50"
+                  >
+                    {modalLoading ? "Extending..." : "Apply Extension"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

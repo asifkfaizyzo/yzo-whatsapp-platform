@@ -14,9 +14,14 @@ export const sendMessage = async (contactId, text, options = {}) => {
     const payload = {
       text,
       ...(options.quickReplyId ? { quickReplyId: options.quickReplyId } : {}),
-      ...(options.detachMedia !== undefined ? { detachMedia: options.detachMedia } : {}),
+      ...(options.detachMedia !== undefined
+        ? { detachMedia: options.detachMedia }
+        : {}),
     };
-    const response = await api.post(`${MSG_BASE_URL}/contacts/${contactId}/messages`, payload);
+    const response = await api.post(
+      `${MSG_BASE_URL}/contacts/${contactId}/messages`,
+      payload,
+    );
     return {
       success: true,
       data: response.data.data,
@@ -43,7 +48,7 @@ export const sendMediaMessage = async (contactId, formData) => {
         headers: {
           "Content-Type": "multipart/form-data",
         },
-      }
+      },
     );
     return {
       success: true,
@@ -92,8 +97,8 @@ export const sendLocation = async ({
       to,
       latitude,
       longitude,
-      ...(name           && { name }),
-      ...(address        && { address }),
+      ...(name && { name }),
+      ...(address && { address }),
       ...(conversationId && { conversationId }),
     });
     return {

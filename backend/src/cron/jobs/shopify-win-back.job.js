@@ -1,28 +1,28 @@
 // backend/src/cron/jobs/shopifyWinBackJob.js (do not remove this comment)
 
-import prisma from '../../config/prisma.js';
-import { orderWebhookQueue } from '../queues/order-webhook.queue.js';
+import prisma from "../../config/prisma.js";
+import { orderWebhookQueue } from "../queues/order-webhook.queue.js";
 
 /**
  * Runs daily. Finds inactive Shopify customers and enqueues win-back messages.
  */
 export const runShopifyWinBackCampaign = async () => {
-  console.log('\n💜 [WinBack] Starting daily win-back scan...');
+  console.log("\n💜 [WinBack] Starting daily win-back scan...");
 
   try {
     const shopifyTenants = await prisma.shopifyConnection.findMany({
       where: {
-        status: 'active',
-        postPurchaseWinBackEnabled: true
+        status: "active",
+        postPurchaseWinBackEnabled: true,
       },
       select: {
         tenantId: true,
-        postPurchaseWinBackDays: true
-      }
+        postPurchaseWinBackDays: true,
+      },
     });
 
     if (shopifyTenants.length === 0) {
-      console.log('⏭️ [WinBack] No tenants with win-back enabled.');
+      console.log("⏭️ [WinBack] No tenants with win-back enabled.");
       return;
     }
 
@@ -38,25 +38,29 @@ export const runShopifyWinBackCampaign = async () => {
       // Find customers whose most recent Shopify order is older than cutoff
       // and who haven't received a win-back message recently
       const inactiveCustomers = await prisma.ecommerceOrder.findMany({
-          where: {
+        where: {
           tenantId,
-          source: 'SHOPIFY',
-          customerPhone: { not: '' },
+          source: "SHOPIFY",
+          customerPhone: { not: "" },
           createdAt: { lt: cutoffDate },
           OR: [
             { winBackSentAt: null },
-            { winBackSentAt: { lt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } }
-          ]
+            {
+              winBackSentAt: {
+                lt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+              },
+            },
+          ],
         },
         select: {
           id: true,
           customerPhone: true,
           customerName: true,
           customerEmail: true,
-          createdAt: true
+          createdAt: true,
         },
-        orderBy: { createdAt: 'desc' },
-        take: 100
+        orderBy: { createdAt: "desc" },
+        take: 100,
       });
 
       // Deduplicate by customerPhone (keep only the most recent order per customer)
@@ -64,17 +68,17 @@ export const runShopifyWinBackCampaign = async () => {
       const uniqueCustomers = [];
 
       for (const order of inactiveCustomers) {
-        if (!order.customerPhone || order.customerPhone === '+') continue;
+        if (!order.customerPhone || order.customerPhone === "+") continue;
         if (seenPhones.has(order.customerPhone)) continue;
 
         // Verify this customer has NO orders after the cutoff
         const recentOrder = await prisma.ecommerceOrder.findFirst({
           where: {
             tenantId,
-            source: 'SHOPIFY',
+            source: "SHOPIFY",
             customerPhone: order.customerPhone,
-            createdAt: { gte: cutoffDate }
-          }
+            createdAt: { gte: cutoffDate },
+          },
         });
 
         if (recentOrder) continue; // Customer is active, skip
@@ -85,14 +89,14 @@ export const runShopifyWinBackCampaign = async () => {
 
       for (const customer of uniqueCustomers) {
         await orderWebhookQueue.add(
-          'shopify-win-back',
+          "shopify-win-back",
           {
             tenantId,
             ecommerceOrderId: customer.id,
             customerPhone: customer.customerPhone,
-            customerName: customer.customerName || 'Customer'
+            customerName: customer.customerName || "Customer",
           },
-          { delay: 0 }
+          { delay: 0 },
         );
 
         totalEnqueued++;
@@ -101,6 +105,6 @@ export const runShopifyWinBackCampaign = async () => {
 
     console.log(`✅ [WinBack] Enqueued ${totalEnqueued} win-back messages.`);
   } catch (err) {
-    console.error('❌ [WinBack] Error:', err.message);
+    console.error("❌ [WinBack] Error:", err.message);
   }
 };

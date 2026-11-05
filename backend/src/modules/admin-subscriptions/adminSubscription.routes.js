@@ -1,8 +1,8 @@
 // backend/src/modules/admin-subscriptions/adminSubscription.routes.js (do not remove this comment)
-import { Router } from 'express';
-import { verifySuperAdmin } from '../../middlewares/auth.superAdmin.js';
-import * as adminSubscriptionsController from './adminSubscription.controller.js';
-import rateLimit from 'express-rate-limit';
+import { Router } from "express";
+import { verifySuperAdmin } from "../../middlewares/auth.superAdmin.js";
+import * as adminSubscriptionsController from "./adminSubscription.controller.js";
+import rateLimit from "express-rate-limit";
 
 const router = Router();
 
@@ -11,12 +11,26 @@ const adminActionLimiter = rateLimit({
   max: 20,
   message: {
     success: false,
-    message: "Too many admin requests. Please wait a minute before trying again."
-  }
+    message:
+      "Too many admin requests. Please wait a minute before trying again.",
+  },
 });
 
-router.get('/', verifySuperAdmin, adminSubscriptionsController.getSubscriptions);
-router.patch('/:tenantId', verifySuperAdmin, adminSubscriptionsController.updateSubscription);
-router.post('/:tenantId/manual-activate', verifySuperAdmin, adminActionLimiter, adminSubscriptionsController.manualPlanActivation);
+router.get(
+  "/",
+  verifySuperAdmin,
+  adminSubscriptionsController.getSubscriptions,
+);
+router.patch(
+  "/:tenantId",
+  verifySuperAdmin,
+  adminSubscriptionsController.updateSubscription,
+);
+router.post(
+  "/:tenantId/manual-activate",
+  verifySuperAdmin,
+  adminActionLimiter,
+  adminSubscriptionsController.manualPlanActivation,
+);
 
 export default router;

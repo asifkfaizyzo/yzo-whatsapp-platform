@@ -10,10 +10,9 @@ import {
 } from "./message.service.js";
 import upload from "../../middlewares/upload.middleware.js";
 import { emitToTenant } from "../../lib/socket.js";
-import { generateSignedUrl } from '../../lib/utils/signed.url.js';
+import { generateSignedUrl } from "../../lib/utils/signed.url.js";
 import fs from "fs";
 import path from "path";
-
 
 // ─────────────────────────────────────────────────────────────
 // INCOMING MESSAGE  (Contact → Platform)
@@ -30,15 +29,10 @@ export const incomingMessageController = async (req, res) => {
       text,
       type,
       caption,
-      wamid,        //Extract wamid if provided
+      wamid, //Extract wamid if provided
     } = req.body;
 
-    let {
-      mediaUrl,
-      mediaName,
-      mediaSize,
-      mediaMimeType,
-    } = req.body;
+    let { mediaUrl, mediaName, mediaSize, mediaMimeType } = req.body;
 
     // ── Validate required ─────────────────────────────────────
     if (!contactId || !tenantId) {
@@ -50,48 +44,49 @@ export const incomingMessageController = async (req, res) => {
 
     // ── Handle uploaded file (inbound media via simulator) ────
     // If file was uploaded directly (not via WhatsApp webhook)
-//     if (req.file) {
-//   const relativePath = req.file.path.replace(/\\/g, "/");
-//   mediaUrl      = relativePath;              // ✅ store relative path only
-//   mediaName     = req.file.originalname;
-//   mediaSize     = req.file.size;
-//   mediaMimeType = req.file.mimetype;
+    //     if (req.file) {
+    //   const relativePath = req.file.path.replace(/\\/g, "/");
+    //   mediaUrl      = relativePath;              // ✅ store relative path only
+    //   mediaName     = req.file.originalname;
+    //   mediaSize     = req.file.size;
+    //   mediaMimeType = req.file.mimetype;
 
-//   console.log("✅ Inbound file saved:", relativePath);
-// }
-
+    //   console.log("✅ Inbound file saved:", relativePath);
+    // }
 
     if (req.file) {
-  let filePath = req.file.path.replace(/\\/g, "/");
+      let filePath = req.file.path.replace(/\\/g, "/");
 
-  // ✅ If file went to temp folder, move it to proper inbound path
-  if (filePath.includes('uploads/temp/')) {
-    const correctDir = path.join(
-      'uploads',
-      'tenants',
-      tenantId,
-      'contacts',
-      contactId,
-      'inbound'
-    );
-    fs.mkdirSync(correctDir, { recursive: true });
+      // ✅ If file went to temp folder, move it to proper inbound path
+      if (filePath.includes("uploads/temp/")) {
+        const correctDir = path.join(
+          "uploads",
+          "tenants",
+          tenantId,
+          "contacts",
+          contactId,
+          "inbound",
+        );
+        fs.mkdirSync(correctDir, { recursive: true });
 
-    const newPath = path.join(correctDir, req.file.filename).replace(/\\/g, "/");
-    
-    // Move file from temp → inbound
-    fs.renameSync(req.file.path, newPath);
-    filePath = newPath;
+        const newPath = path
+          .join(correctDir, req.file.filename)
+          .replace(/\\/g, "/");
 
-    console.log(`📦 Moved file from temp → ${newPath}`);
-  }
+        // Move file from temp → inbound
+        fs.renameSync(req.file.path, newPath);
+        filePath = newPath;
 
-  mediaUrl      = filePath;
-  mediaName     = req.file.originalname;
-  mediaSize     = req.file.size;
-  mediaMimeType = req.file.mimetype;
+        console.log(`📦 Moved file from temp → ${newPath}`);
+      }
 
-  console.log("✅ Inbound file saved:", filePath);
-}
+      mediaUrl = filePath;
+      mediaName = req.file.originalname;
+      mediaSize = req.file.size;
+      mediaMimeType = req.file.mimetype;
+
+      console.log("✅ Inbound file saved:", filePath);
+    }
 
     // ── Validate message content ──────────────────────────────
     const resolvedType = type || "TEXT";
@@ -111,17 +106,17 @@ export const incomingMessageController = async (req, res) => {
     }
 
     // ── Process ───────────────────────────────────────────────
-     const result = await handleIncomingMessage({
+    const result = await handleIncomingMessage({
       contactId,
       tenantId,
       text,
-      type:          resolvedType,
+      type: resolvedType,
       mediaUrl,
       mediaName,
       mediaSize,
       mediaMimeType,
       caption,
-      wamid:         wamid || `mock_wamid_inbound_${Date.now()}`, // ← Fallback mock WAMID for simulator
+      wamid: wamid || `mock_wamid_inbound_${Date.now()}`, // ← Fallback mock WAMID for simulator
     });
 
     // ── Socket emit ───────────────────────────────────────────
@@ -129,37 +124,39 @@ export const incomingMessageController = async (req, res) => {
 
     let socketMediaUrl = null;
     if (result.message.mediaUrl) {
-      socketMediaUrl = generateSignedUrl(result.message.mediaUrl, targetTenantId);
+      socketMediaUrl = generateSignedUrl(
+        result.message.mediaUrl,
+        targetTenantId,
+      );
     }
 
     emitToTenant(targetTenantId, "new_message", {
       conversationId: result.conversation.id,
       message: {
-        id:             result.message.id,
-        type:           result.message.type,
-        text:           result.message.text,
-        senderId:       result.message.senderId,
-        senderType:     "CONTACT",
-        direction:      "INBOUND",
+        id: result.message.id,
+        type: result.message.type,
+        text: result.message.text,
+        senderId: result.message.senderId,
+        senderType: "CONTACT",
+        direction: "INBOUND",
         isFromCustomer: true,
-        mediaUrl:       socketMediaUrl,        // ✅ signed URL
-        mediaName:      result.message.mediaName,
-        mediaSize:      result.message.mediaSize,
-        mediaMimeType:  result.message.mediaMimeType,
-        caption:        result.message.caption,
-        createdAt:      result.message.createdAt,
+        mediaUrl: socketMediaUrl, // ✅ signed URL
+        mediaName: result.message.mediaName,
+        mediaSize: result.message.mediaSize,
+        mediaMimeType: result.message.mediaMimeType,
+        caption: result.message.caption,
+        createdAt: result.message.createdAt,
       },
     });
 
     return res.status(200).json({
-      success:            true,
-      action:             result.action,
-      reason:             result.reason,
-      conversationId:     result.conversation.id,
+      success: true,
+      action: result.action,
+      reason: result.reason,
+      conversationId: result.conversation.id,
       conversationStatus: result.conversation.status,
-      messageId:          result.message.id,
+      messageId: result.message.id,
     });
-
   } catch (error) {
     console.error("❌ incomingMessageController error:", error);
 
@@ -179,7 +176,6 @@ export const incomingMessageController = async (req, res) => {
   }
 };
 
-
 // ─────────────────────────────────────────────────────────────
 // SEND TEXT MESSAGE  (Tenant / Agent → Contact)
 // ─────────────────────────────────────────────────────────────
@@ -187,13 +183,10 @@ export const sendMessage = async (req, res) => {
   try {
     const { contactId } = req.params;
     const { text, quickReplyId, detachMedia } = req.body;
-    const tenantId   = req.tenantId;
+    const tenantId = req.tenantId;
     const senderType = req.userType;
 
-    const senderId =
-      senderType === "TENANT"
-        ? req.tenant?.id
-        : req.user?.id;
+    const senderId = senderType === "TENANT" ? req.tenant?.id : req.user?.id;
 
     if (!senderId) {
       return res.status(401).json({
@@ -226,26 +219,26 @@ export const sendMessage = async (req, res) => {
         emitToTenant(tenantId, "new_message", {
           conversationId: message.conversationId,
           message: {
-            id:             message.id,
-            type:           message.type,
-            text:           message.text,
-            senderId:       message.senderId,
-            senderType:     message.senderType,
-            direction:      "OUTBOUND",
+            id: message.id,
+            type: message.type,
+            text: message.text,
+            senderId: message.senderId,
+            senderType: message.senderType,
+            direction: "OUTBOUND",
             isFromCustomer: false,
-            mediaUrl:       signedUrl,
-            mediaName:      message.mediaName,
-            mediaSize:      message.mediaSize,
-            mediaMimeType:  message.mediaMimeType,
-            caption:        message.caption,
-            status:         message.status,
-            createdAt:      message.createdAt,
+            mediaUrl: signedUrl,
+            mediaName: message.mediaName,
+            mediaSize: message.mediaSize,
+            mediaMimeType: message.mediaMimeType,
+            caption: message.caption,
+            status: message.status,
+            createdAt: message.createdAt,
           },
         });
 
         return res.status(201).json({
           success: true,
-          data:    message,
+          data: message,
         });
       }
 
@@ -253,20 +246,20 @@ export const sendMessage = async (req, res) => {
       emitToTenant(tenantId, "new_message", {
         conversationId: message.conversationId,
         message: {
-          id:             message.id,
-          type:           "TEXT",
-          text:           message.text,
-          senderId:       message.senderId,
-          senderType:     message.senderType,
-          direction:      "OUTBOUND",
+          id: message.id,
+          type: "TEXT",
+          text: message.text,
+          senderId: message.senderId,
+          senderType: message.senderType,
+          direction: "OUTBOUND",
           isFromCustomer: false,
-          createdAt:      message.createdAt,
+          createdAt: message.createdAt,
         },
       });
 
       return res.status(201).json({
         success: true,
-        data:    message,
+        data: message,
       });
     }
 
@@ -283,22 +276,21 @@ export const sendMessage = async (req, res) => {
     emitToTenant(tenantId, "new_message", {
       conversationId: message.conversationId,
       message: {
-        id:             message.id,
-        type:           "TEXT",
-        text:           message.text,
-        senderId:       message.senderId,
-        senderType:     message.senderType,
-        direction:      "OUTBOUND",
+        id: message.id,
+        type: "TEXT",
+        text: message.text,
+        senderId: message.senderId,
+        senderType: message.senderType,
+        direction: "OUTBOUND",
         isFromCustomer: false,
-        createdAt:      message.createdAt,
+        createdAt: message.createdAt,
       },
     });
 
     return res.status(201).json({
       success: true,
-      data:    message,
+      data: message,
     });
-
   } catch (error) {
     if (error.message.includes("blocked contact")) {
       return res.status(400).json({
@@ -314,7 +306,6 @@ export const sendMessage = async (req, res) => {
   }
 };
 
-
 // ─────────────────────────────────────────────────────────────
 // SEND MEDIA MESSAGE  (Tenant / Agent → Contact)
 // ─────────────────────────────────────────────────────────────
@@ -323,7 +314,6 @@ export const sendMediaMessage = [
 
   async (req, res) => {
     try {
-
       console.log("=== MEDIA UPLOAD HIT ===");
       console.log("req.body:", req.body);
       console.log("req.file:", req.file);
@@ -331,10 +321,10 @@ export const sendMediaMessage = [
       console.log("req.tenantId:", req.tenantId);
       console.log("req.userType:", req.userType);
 
-      const { contactId }               = req.params;
+      const { contactId } = req.params;
       const { caption, conversationId } = req.body;
-      const file                        = req.file;
-      const tenantId                    = req.tenantId;
+      const file = req.file;
+      const tenantId = req.tenantId;
 
       // ── Validate ──────────────────────────────────────────
       if (!file) {
@@ -361,14 +351,14 @@ export const sendMediaMessage = [
       }
 
       // ── Identify sender ───────────────────────────────────
-      let senderId   = null;
+      let senderId = null;
       let senderType = null;
 
       if (req.userType === "TENANT" && req.tenant) {
-        senderId   = req.tenant.id;
+        senderId = req.tenant.id;
         senderType = "TENANT";
       } else if (req.userType === "USER" && req.user) {
-        senderId   = req.user.id;
+        senderId = req.user.id;
         senderType = "USER";
       }
 
@@ -399,24 +389,24 @@ export const sendMediaMessage = [
       emitToTenant(tenantId, "new_message", {
         conversationId: message.conversationId,
         message: {
-          id:             message.id,
-          type:           message.type,
-          text:           message.text,
-          senderId:       message.senderId,
-          senderType:     message.senderType,
-          direction:      "OUTBOUND",
+          id: message.id,
+          type: message.type,
+          text: message.text,
+          senderId: message.senderId,
+          senderType: message.senderType,
+          direction: "OUTBOUND",
           isFromCustomer: false,
-          mediaUrl:       signedUrl,        // ✅ signed URL
-          mediaName:      message.mediaName,
-          mediaSize:      message.mediaSize,
-          mediaMimeType:  message.mediaMimeType,
-          caption:        message.caption,
-          status:         message.status,
-          createdAt:      message.createdAt,
+          mediaUrl: signedUrl, // ✅ signed URL
+          mediaName: message.mediaName,
+          mediaSize: message.mediaSize,
+          mediaMimeType: message.mediaMimeType,
+          caption: message.caption,
+          status: message.status,
+          createdAt: message.createdAt,
         },
       });
 
-      if (message.status === 'failed') {
+      if (message.status === "failed") {
         return res.status(400).json({
           success: false,
           error: message.failureReason || "Failed to deliver media message",
@@ -428,10 +418,9 @@ export const sendMediaMessage = [
         success: true,
         message: {
           ...message,
-          mediaUrl: signedUrl,   // ✅ signed URL to frontend
+          mediaUrl: signedUrl, // ✅ signed URL to frontend
         },
       });
-
     } catch (error) {
       console.error("sendMediaMessage error:", error);
 
@@ -454,7 +443,6 @@ export const sendMediaMessage = [
   },
 ];
 
-
 // ─────────────────────────────────────────────────────────────
 // DELETE MESSAGE
 // ─────────────────────────────────────────────────────────────
@@ -469,20 +457,18 @@ export const deleteMessageController = async (req, res) => {
       });
     }
 
-    let requesterId   = null;
+    let requesterId = null;
     let requesterRole = null;
-    let tenantId      = null;
+    let tenantId = null;
 
     if (req.userType === "TENANT") {
-      requesterId   = req.tenant.id;
+      requesterId = req.tenant.id;
       requesterRole = "TENANT";
-      tenantId      = req.tenant.id;
-
+      tenantId = req.tenant.id;
     } else if (req.userType === "USER") {
-      requesterId   = req.user.id;
-      requesterRole = "USER";     // ✅ matches deleteMessageService check
-      tenantId      = req.tenantId;
-
+      requesterId = req.user.id;
+      requesterRole = "USER"; // ✅ matches deleteMessageService check
+      tenantId = req.tenantId;
     } else {
       return res.status(401).json({
         success: false,
@@ -490,31 +476,33 @@ export const deleteMessageController = async (req, res) => {
       });
     }
 
-    const { deletedMessage, conversationId, tenantId: msgTenantId } =
-      await deleteMessageService({
-        messageId,
-        requesterId,
-        requesterRole,
-        tenantId,
-      });
+    const {
+      deletedMessage,
+      conversationId,
+      tenantId: msgTenantId,
+    } = await deleteMessageService({
+      messageId,
+      requesterId,
+      requesterRole,
+      tenantId,
+    });
 
     emitToTenant(msgTenantId, "message_deleted", {
-      messageId:      deletedMessage.id,
+      messageId: deletedMessage.id,
       conversationId: conversationId,
-      deletedAt:      deletedMessage.deletedAt,
+      deletedAt: deletedMessage.deletedAt,
     });
 
     return res.status(200).json({
       success: true,
       message: "Message deleted successfully",
       data: {
-        messageId:      deletedMessage.id,
+        messageId: deletedMessage.id,
         conversationId: conversationId,
-        isDeleted:      true,
-        deletedAt:      deletedMessage.deletedAt,
+        isDeleted: true,
+        deletedAt: deletedMessage.deletedAt,
       },
     });
-
   } catch (error) {
     console.error("❌ deleteMessageController error:", error.message);
 
@@ -536,7 +524,6 @@ export const deleteMessageController = async (req, res) => {
   }
 };
 
-
 // ─────────────────────────────────────────────────────────────
 // SEND TEMPLATE MESSAGE  (Tenant / Agent → Contact)
 // ─────────────────────────────────────────────────────────────
@@ -547,8 +534,7 @@ export const sendTemplateMessage = async (req, res) => {
     const tenantId = req.tenantId;
     const senderType = req.userType;
 
-    const senderId =
-      senderType === "TENANT" ? req.tenant?.id : req.user?.id;
+    const senderId = senderType === "TENANT" ? req.tenant?.id : req.user?.id;
 
     if (!senderId) {
       return res.status(401).json({

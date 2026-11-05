@@ -94,7 +94,6 @@ const TopNavbar = () => {
     };
   }, []);
 
-
   // ── Notification sound ──
   const playNotificationSound = () => {
     try {

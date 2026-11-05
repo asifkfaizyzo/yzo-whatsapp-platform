@@ -1,65 +1,68 @@
 // backend/src/modules/users/user.controller.js (do not remove this comment)
-import bcrypt from 'bcrypt';
-import pkg from '@prisma/client';
+import bcrypt from "bcrypt";
+import pkg from "@prisma/client";
 
-import { generateAccessToken, generateRefreshToken } from '../auth/jwt.service.js';
 import {
-         loginUserService, logoutUserService, refreshUserAccessTokenService,
-         getAssignedContacts,forgotPasswordUserService, resetPasswordUserService, 
-         getUserProfileService, updateUserPasswordService,
-         updateAvailabilityService, getDashboardStatsService, getUnreadBadgeCountService,
-         loginUserWithGoogleService,
-       } from './user.service.js';
+  generateAccessToken,
+  generateRefreshToken,
+} from "../auth/jwt.service.js";
+import {
+  loginUserService,
+  logoutUserService,
+  refreshUserAccessTokenService,
+  getAssignedContacts,
+  forgotPasswordUserService,
+  resetPasswordUserService,
+  getUserProfileService,
+  updateUserPasswordService,
+  updateAvailabilityService,
+  getDashboardStatsService,
+  getUnreadBadgeCountService,
+  loginUserWithGoogleService,
+} from "./user.service.js";
 
-import { extractRequestMeta } from '../../lib/utils/request.meta.js';
-
+import { extractRequestMeta } from "../../lib/utils/request.meta.js";
 
 // ===============User Login Controller===============
 export const loginUser = async (req, res) => {
-    try {
-     const meta   = extractRequestMeta(req);               
+  try {
+    const meta = extractRequestMeta(req);
     const result = await loginUserService(req.body, meta);
     const { accessToken, refreshToken, user } = result;
 
     // 🔍 DIAGNOSTIC — remove after confirming
-console.log('🔑 Login tokens:', {
-  hasAccess: !!accessToken,
-  accessLen: accessToken?.length,
-  hasRefresh: !!refreshToken,
-  refreshLen: refreshToken?.length,
-});
+    console.log("🔑 Login tokens:", {
+      hasAccess: !!accessToken,
+      accessLen: accessToken?.length,
+      hasRefresh: !!refreshToken,
+      refreshLen: refreshToken?.length,
+    });
 
-      // Set HTTP-Only Cookie for the refresh token
-      res.cookie('user_refreshToken', refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-        path: '/',
-      });
+    // Set HTTP-Only Cookie for the refresh token
+    res.cookie("user_refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: "/",
+    });
 
-      return res.status(200).json({
-        success: true,
-        message:
-          'User logged in successfully',
-        data: {
-  user,
-  accessToken,
-  refreshToken,  
-},
-      });
-
-    } catch (error) {
-
-      return res.status(400).json({
-        success: false,
-        message: error.message,
-      });
-
-    }
-  };
-
-
+    return res.status(200).json({
+      success: true,
+      message: "User logged in successfully",
+      data: {
+        user,
+        accessToken,
+        refreshToken,
+      },
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
 
 // ===============User Logout Controller===============
 export const logoutUser = async (req, res) => {
@@ -71,16 +74,16 @@ export const logoutUser = async (req, res) => {
     }
 
     // Clear cookie
-    res.clearCookie('user_refreshToken', {
+    res.clearCookie("user_refreshToken", {
       httpOnly: true,
-      secure:   process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-      path:     '/',
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      path: "/",
     });
 
     return res.status(200).json({
       success: true,
-      message: 'Logout successful',
+      message: "Logout successful",
     });
   } catch (error) {
     return res.status(400).json({
@@ -90,7 +93,6 @@ export const logoutUser = async (req, res) => {
   }
 };
 
-
 //===========user access token refresh controller===========
 export const refreshUserAccessToken = async (req, res) => {
   try {
@@ -99,7 +101,7 @@ export const refreshUserAccessToken = async (req, res) => {
     if (!refreshToken) {
       return res.status(401).json({
         success: false,
-        message: 'Refresh token not found in cookies or body',
+        message: "Refresh token not found in cookies or body",
       });
     }
 
@@ -116,8 +118,6 @@ export const refreshUserAccessToken = async (req, res) => {
     });
   }
 };
-
-
 
 // ===================== FORGOT PASSWORD =====================
 export const forgotPasswordUser = async (req, res) => {
@@ -143,7 +143,7 @@ export const resetPasswordUser = async (req, res) => {
     const result = await resetPasswordUserService(
       token,
       newPassword,
-      confirmPassword
+      confirmPassword,
     );
     return res.status(200).json({
       success: true,
@@ -156,12 +156,6 @@ export const resetPasswordUser = async (req, res) => {
     });
   }
 };
-
-
-
-
-
-
 
 // ===================== ASSIGNED CONTACTS =====================
 export const getMyAssignedContacts = async (req, res) => {
@@ -180,7 +174,8 @@ export const getMyAssignedContacts = async (req, res) => {
     const limit = parseInt(req.query.limit) || 20;
 
     const result = await getAssignedContacts(userId, tenantId, {
-      page, limit,
+      page,
+      limit,
     });
 
     return res.status(200).json({
@@ -198,7 +193,6 @@ export const getMyAssignedContacts = async (req, res) => {
   }
 };
 
-
 // ============================================================
 // GET LOGGED-IN USER PROFILE
 // ============================================================
@@ -207,7 +201,7 @@ export const getUserProfile = async (req, res) => {
     if (!req.user || !req.user.id) {
       return res.status(401).json({
         success: false,
-        message: 'Unauthorized: User not authenticated',
+        message: "Unauthorized: User not authenticated",
       });
     }
 
@@ -215,18 +209,17 @@ export const getUserProfile = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Profile fetched successfully',
+      message: "Profile fetched successfully",
       data: user,
     });
   } catch (error) {
-    console.error('❌ Error in getUserProfile:', error);
+    console.error("❌ Error in getUserProfile:", error);
     return res.status(400).json({
       success: false,
       message: error.message,
     });
   }
 };
-
 
 // ============================================================
 // UPDATE USER PASSWORD
@@ -236,7 +229,7 @@ export const updateUserPassword = async (req, res) => {
     if (!req.user || !req.user.id) {
       return res.status(401).json({
         success: false,
-        message: 'Unauthorized: User not authenticated',
+        message: "Unauthorized: User not authenticated",
       });
     }
 
@@ -247,7 +240,7 @@ export const updateUserPassword = async (req, res) => {
       ...result,
     });
   } catch (error) {
-    console.error('❌ Error in updateUserPassword:', error);
+    console.error("❌ Error in updateUserPassword:", error);
     return res.status(400).json({
       success: false,
       message: error.message,
@@ -263,17 +256,17 @@ export const updateAvailability = async (req, res) => {
     if (!req.user || !req.user.id) {
       return res.status(401).json({
         success: false,
-        message: 'Unauthorized: User not authenticated',
+        message: "Unauthorized: User not authenticated",
       });
     }
 
     const { status } = req.body;
-    const validStatuses = ['AVAILABLE', 'AWAY', 'OFFLINE'];
+    const validStatuses = ["AVAILABLE", "AWAY", "OFFLINE"];
 
     if (!status || !validStatuses.includes(status)) {
       return res.status(400).json({
         success: false,
-        message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`,
+        message: `Invalid status. Must be one of: ${validStatuses.join(", ")}`,
       });
     }
 
@@ -285,14 +278,13 @@ export const updateAvailability = async (req, res) => {
       data: result,
     });
   } catch (error) {
-    console.error('❌ Error in updateAvailability:', error);
+    console.error("❌ Error in updateAvailability:", error);
     return res.status(400).json({
       success: false,
       message: error.message,
     });
   }
 };
-
 
 // ============================================================
 // 🆕 AGENT DASHBOARD STATS
@@ -302,7 +294,7 @@ export const getDashboardStats = async (req, res) => {
     if (!req.user || !req.user.id || !req.tenantId) {
       return res.status(401).json({
         success: false,
-        message: 'Unauthorized: User not authenticated',
+        message: "Unauthorized: User not authenticated",
       });
     }
 
@@ -313,14 +305,13 @@ export const getDashboardStats = async (req, res) => {
       data: result,
     });
   } catch (error) {
-    console.error('❌ Error in getDashboardStats:', error);
+    console.error("❌ Error in getDashboardStats:", error);
     return res.status(500).json({
       success: false,
-      message: 'Failed to fetch dashboard stats',
+      message: "Failed to fetch dashboard stats",
     });
   }
 };
-
 
 // ============================================================
 // 🆕 GLOBAL UNREAD BADGE COUNT
@@ -330,7 +321,7 @@ export const getUnreadBadgeCount = async (req, res) => {
     if (!req.user || !req.user.id || !req.tenantId) {
       return res.status(401).json({
         success: false,
-        message: 'Unauthorized: User not authenticated',
+        message: "Unauthorized: User not authenticated",
       });
     }
 
@@ -341,10 +332,10 @@ export const getUnreadBadgeCount = async (req, res) => {
       data: result,
     });
   } catch (error) {
-    console.error('❌ Error in getUnreadBadgeCount:', error);
+    console.error("❌ Error in getUnreadBadgeCount:", error);
     return res.status(500).json({
       success: false,
-      message: 'Failed to fetch unread count',
+      message: "Failed to fetch unread count",
     });
   }
 };
@@ -359,33 +350,37 @@ export const googleLoginUser = async (req, res) => {
     const { accessToken, refreshToken, user } = result;
 
     // 🔍 ADD THIS ONE LINE
-    console.log('🔑 GOOGLE LOGIN RESULT:', { hasAccess: !!accessToken, hasRefresh: !!refreshToken, refreshLen: refreshToken?.length });
+    console.log("🔑 GOOGLE LOGIN RESULT:", {
+      hasAccess: !!accessToken,
+      hasRefresh: !!refreshToken,
+      refreshLen: refreshToken?.length,
+    });
 
     // 🔍 DIAGNOSTIC — remove after confirming
-console.log('🔑 Login tokens:', {
-  hasAccess: !!accessToken,
-  accessLen: accessToken?.length,
-  hasRefresh: !!refreshToken,
-  refreshLen: refreshToken?.length,
-});
+    console.log("🔑 Login tokens:", {
+      hasAccess: !!accessToken,
+      accessLen: accessToken?.length,
+      hasRefresh: !!refreshToken,
+      refreshLen: refreshToken?.length,
+    });
 
-    res.cookie('user_refreshToken', refreshToken, {
+    res.cookie("user_refreshToken", refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000,
-      path: '/',
+      path: "/",
     });
 
     return res.status(200).json({
       success: true,
-      message: 'Google login successful',
+      message: "Google login successful",
       data: { user, accessToken, refreshToken },
     });
   } catch (error) {
     return res.status(400).json({
       success: false,
-      message: error.message || 'Google Auth failed',
+      message: error.message || "Google Auth failed",
     });
   }
 };
@@ -399,18 +394,22 @@ export const registerPushToken = async (req, res) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      return res.status(401).json({ success: false, message: 'Unauthorized' });
+      return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
-    if (!pushToken || typeof pushToken !== 'string') {
-      return res.status(400).json({ success: false, message: 'pushToken is required' });
+    if (!pushToken || typeof pushToken !== "string") {
+      return res
+        .status(400)
+        .json({ success: false, message: "pushToken is required" });
     }
 
-    if (!pushToken.startsWith('ExponentPushToken[')) {
-      return res.status(400).json({ success: false, message: 'Invalid push token format' });
+    if (!pushToken.startsWith("ExponentPushToken[")) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid push token format" });
     }
 
-    const prisma = (await import('../../config/prisma.js')).default;
+    const prisma = (await import("../../config/prisma.js")).default;
 
     await prisma.user.update({
       where: { id: userId },
@@ -420,15 +419,19 @@ export const registerPushToken = async (req, res) => {
       },
     });
 
-    console.log(`🔔 Push token saved for agent ${userId}: ${pushToken.substring(0, 30)}...`);
+    console.log(
+      `🔔 Push token saved for agent ${userId}: ${pushToken.substring(0, 30)}...`,
+    );
 
     return res.status(200).json({
       success: true,
-      message: 'Push token registered',
+      message: "Push token registered",
     });
   } catch (error) {
-    console.error('❌ registerPushToken error:', error.message);
-    return res.status(500).json({ success: false, message: 'Failed to register push token' });
+    console.error("❌ registerPushToken error:", error.message);
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to register push token" });
   }
 };
 
@@ -437,10 +440,10 @@ export const clearPushToken = async (req, res) => {
     const userId = req.user?.id;
 
     if (!userId) {
-      return res.status(401).json({ success: false, message: 'Unauthorized' });
+      return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
-    const prisma = (await import('../../config/prisma.js')).default;
+    const prisma = (await import("../../config/prisma.js")).default;
 
     await prisma.user.update({
       where: { id: userId },
@@ -454,11 +457,13 @@ export const clearPushToken = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Push token cleared',
+      message: "Push token cleared",
     });
   } catch (error) {
-    console.error('❌ clearPushToken error:', error.message);
-    return res.status(500).json({ success: false, message: 'Failed to clear push token' });
+    console.error("❌ clearPushToken error:", error.message);
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to clear push token" });
   }
 };
 
@@ -466,7 +471,8 @@ export const clearPushToken = async (req, res) => {
 export const getNotificationPreferences = async (req, res) => {
   try {
     const userId = req.userId || req.user?.id;
-    if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
+    if (!userId)
+      return res.status(401).json({ success: false, message: "Unauthorized" });
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -497,7 +503,8 @@ export const getNotificationPreferences = async (req, res) => {
 export const updateNotificationPreferences = async (req, res) => {
   try {
     const userId = req.userId || req.user?.id;
-    if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
+    if (!userId)
+      return res.status(401).json({ success: false, message: "Unauthorized" });
 
     const { pushEnabled, types } = req.body;
 

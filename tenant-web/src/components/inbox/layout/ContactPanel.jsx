@@ -92,7 +92,7 @@ export default function ContactPanel({
             ) : (
               <div
                 className={`w-20 h-20 rounded-full flex items-center justify-center font-bold text-xl ring-4 ring-white/20 shadow-lg mb-3 ${getAvatarStyle(
-                  activeChat.contact?.name
+                  activeChat.contact?.name,
                 )}`}
               >
                 {(activeChat.contact?.name || "C").charAt(0)}
@@ -132,7 +132,9 @@ export default function ContactPanel({
                 </span>
                 <div className="flex items-center gap-1 text-[#667781] group-hover:text-[#075E54] transition">
                   <span className="text-[11px] font-bold">
-                    {mediaCategoryCounts.media + mediaCategoryCounts.docs + mediaCategoryCounts.links}
+                    {mediaCategoryCounts.media +
+                      mediaCategoryCounts.docs +
+                      mediaCategoryCounts.links}
                   </span>
                   <ChevronRight size={13} />
                 </div>
@@ -140,22 +142,39 @@ export default function ContactPanel({
 
               {/* Thumbnail Row */}
               <div className="flex items-center gap-1.5 pt-1 overflow-x-auto scrollbar-none">
-                {mediaCategoryCounts.media + mediaCategoryCounts.docs + mediaCategoryCounts.links === 0 ? (
-                  <p className="text-[10px] text-[#667781] italic">No media shared yet</p>
+                {mediaCategoryCounts.media +
+                  mediaCategoryCounts.docs +
+                  mediaCategoryCounts.links ===
+                0 ? (
+                  <p className="text-[10px] text-[#667781] italic">
+                    No media shared yet
+                  </p>
                 ) : (
                   mediaItems.slice(0, 4).map((item, idx) => (
                     <div
                       key={item.id || idx}
                       onClick={() => {
                         setRightPanelSubView("media");
-                        setMediaActiveTab(item.type === "FILE" ? "docs" : item.links?.length > 0 ? "links" : "media");
+                        setMediaActiveTab(
+                          item.type === "FILE"
+                            ? "docs"
+                            : item.links?.length > 0
+                              ? "links"
+                              : "media",
+                        );
                       }}
                       className="w-12 h-12 rounded-xl bg-white border border-slate-200 shrink-0 overflow-hidden flex items-center justify-center cursor-pointer hover:opacity-80 transition shadow-2xs"
                     >
                       {item.type === "IMAGE" && item.mediaUrl ? (
-                        <img src={getMediaUrl(item.mediaUrl)} alt="" className="w-full h-full object-cover" />
+                        <img
+                          src={getMediaUrl(item.mediaUrl)}
+                          alt=""
+                          className="w-full h-full object-cover"
+                        />
                       ) : item.type === "VIDEO" ? (
-                        <div className="text-[#075E54] text-[10px] font-bold">🎥 Video</div>
+                        <div className="text-[#075E54] text-[10px] font-bold">
+                          🎥 Video
+                        </div>
                       ) : item.type === "FILE" ? (
                         <FileText size={16} className="text-[#075E54]" />
                       ) : (
@@ -185,17 +204,23 @@ export default function ContactPanel({
               </button>
 
               {activeChatCalls.length === 0 ? (
-                <p className="text-[10px] text-[#667781] italic">No calls yet</p>
+                <p className="text-[10px] text-[#667781] italic">
+                  No calls yet
+                </p>
               ) : (
                 <div className="flex items-center justify-between pt-1">
                   <div className="flex items-center gap-1.5 text-xs text-[#111B21]">
-                    {activeChatCalls[activeChatCalls.length - 1].direction === "BUSINESS_INITIATED" ? (
+                    {activeChatCalls[activeChatCalls.length - 1].direction ===
+                    "BUSINESS_INITIATED" ? (
                       <PhoneOutgoing size={13} className="text-[#075E54]" />
                     ) : (
                       <PhoneIncoming size={13} className="text-[#075E54]" />
                     )}
                     <span className="text-[11px] font-medium text-[#111B21]">
-                      Latest: {activeChatCalls[activeChatCalls.length - 1].duration ? `${activeChatCalls[activeChatCalls.length - 1].duration}s` : activeChatCalls[activeChatCalls.length - 1].status}
+                      Latest:{" "}
+                      {activeChatCalls[activeChatCalls.length - 1].duration
+                        ? `${activeChatCalls[activeChatCalls.length - 1].duration}s`
+                        : activeChatCalls[activeChatCalls.length - 1].status}
                     </span>
                   </div>
                   <button
@@ -248,7 +273,13 @@ export default function ContactPanel({
             <div className="bg-[#F0F2F5] rounded-2xl p-3.5">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-bold text-[#075E54] uppercase tracking-wider flex items-center gap-1.5">
-                  <Pin size={11} className={activeChat?.isPinned ? "rotate-45 fill-[#075E54]" : ""} /> Chat Pin
+                  <Pin
+                    size={11}
+                    className={
+                      activeChat?.isPinned ? "rotate-45 fill-[#075E54]" : ""
+                    }
+                  />{" "}
+                  Chat Pin
                 </span>
                 <button
                   type="button"
@@ -273,7 +304,7 @@ export default function ContactPanel({
                 <span className="text-[10px] font-semibold text-[#111B21]">
                   {activeChat.contact?.assignedTo ? (
                     allAgents.find(
-                      (a) => a.id === activeChat.contact?.assignedTo
+                      (a) => a.id === activeChat.contact?.assignedTo,
                     )?.name || "Assigned"
                   ) : (
                     <span className="text-[#667781] font-normal italic">
@@ -321,7 +352,7 @@ export default function ContactPanel({
                   <span
                     key={ct.tag?.id || i}
                     className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[9px] font-semibold border ${getAvatarStyle(
-                      ct.tag?.name // Reusing getAvatarStyle for tags (might need a dedicated getTagColor but passing getAvatarStyle for now or replace with getTagColor)
+                      ct.tag?.name, // Reusing getAvatarStyle for tags (might need a dedicated getTagColor but passing getAvatarStyle for now or replace with getTagColor)
                     )}`}
                   >
                     {ct.tag?.name}
@@ -472,7 +503,9 @@ export default function ContactPanel({
             ) : mediaItems.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <FileText size={28} className="text-slate-300 mb-2" />
-                <p className="text-xs font-semibold text-slate-600">No {mediaActiveTab} shared</p>
+                <p className="text-xs font-semibold text-slate-600">
+                  No {mediaActiveTab} shared
+                </p>
                 <p className="text-[10px] text-slate-400 mt-0.5">
                   Attachments shared in this chat will appear here
                 </p>
@@ -542,12 +575,20 @@ export default function ContactPanel({
                             {item.mediaSize
                               ? item.mediaSize < 1024 * 1024
                                 ? (item.mediaSize / 1024).toFixed(1) + " KB"
-                                : (item.mediaSize / (1024 * 1024)).toFixed(1) + " MB"
+                                : (item.mediaSize / (1024 * 1024)).toFixed(1) +
+                                  " MB"
                               : "Document"}{" "}
-                            • {formatDate(item.createdAt, { month: "short", day: "numeric" })}
+                            •{" "}
+                            {formatDate(item.createdAt, {
+                              month: "short",
+                              day: "numeric",
+                            })}
                           </p>
                         </div>
-                        <Eye size={15} className="text-[#075E54] shrink-0 opacity-70 group-hover:opacity-100" />
+                        <Eye
+                          size={15}
+                          className="text-[#075E54] shrink-0 opacity-70 group-hover:opacity-100"
+                        />
                       </div>
                     ))}
                   </div>
@@ -557,7 +598,10 @@ export default function ContactPanel({
                 {mediaActiveTab === "links" && (
                   <div className="space-y-2">
                     {mediaItems.map((item) => {
-                      const links = item.links && item.links.length > 0 ? item.links : [item.text];
+                      const links =
+                        item.links && item.links.length > 0
+                          ? item.links
+                          : [item.text];
                       return links.map((linkUrl, idx) => (
                         <a
                           key={`${item.id}-${idx}`}
@@ -567,7 +611,10 @@ export default function ContactPanel({
                           className="p-2.5 rounded-xl border border-slate-200 bg-[#F0F2F5] hover:bg-emerald-50 transition block group"
                         >
                           <div className="flex items-center gap-2 mb-1">
-                            <ExternalLink size={13} className="text-[#075E54] shrink-0" />
+                            <ExternalLink
+                              size={13}
+                              className="text-[#075E54] shrink-0"
+                            />
                             <span className="text-[11px] font-bold text-[#075E54] truncate group-hover:underline">
                               {linkUrl}
                             </span>
@@ -576,7 +623,10 @@ export default function ContactPanel({
                             {item.text}
                           </p>
                           <p className="text-[8px] text-[#667781] mt-1">
-                            {formatDate(item.createdAt, { month: "short", day: "numeric" })}
+                            {formatDate(item.createdAt, {
+                              month: "short",
+                              day: "numeric",
+                            })}
                           </p>
                         </a>
                       ));

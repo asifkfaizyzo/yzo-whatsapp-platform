@@ -82,7 +82,9 @@ export default function Contacts() {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const filter = searchParams.get("filter") || "all";
-  const selectedChannel = (searchParams.get("channel") || "WHATSAPP").toUpperCase();
+  const selectedChannel = (
+    searchParams.get("channel") || "WHATSAPP"
+  ).toUpperCase();
 
   const [channelCounts, setChannelCounts] = useState({
     ALL: 0,
@@ -93,10 +95,34 @@ export default function Contacts() {
 
   // Filter tabs config (Wati.io style)
   const filterTabs = [
-    { key: "all", label: "All Contacts", icon: <UsersRound size={14} />, activeColor: "text-[#125EF2] border-[#125EF2]", badge: "bg-blue-50 text-blue-600" },
-    { key: "assigned", label: "Assigned", icon: <UserCheck2 size={14} />, activeColor: "text-green-600 border-green-600", badge: "bg-green-50 text-green-600" },
-    { key: "unassigned", label: "Unassigned", icon: <UserX size={14} />, activeColor: "text-amber-600 border-amber-600", badge: "bg-amber-50 text-amber-600" },
-    { key: "blocked", label: "Blocked", icon: <ShieldOff size={14} />, activeColor: "text-red-600 border-red-600", badge: "bg-red-50 text-red-500" },
+    {
+      key: "all",
+      label: "All Contacts",
+      icon: <UsersRound size={14} />,
+      activeColor: "text-[#125EF2] border-[#125EF2]",
+      badge: "bg-blue-50 text-blue-600",
+    },
+    {
+      key: "assigned",
+      label: "Assigned",
+      icon: <UserCheck2 size={14} />,
+      activeColor: "text-green-600 border-green-600",
+      badge: "bg-green-50 text-green-600",
+    },
+    {
+      key: "unassigned",
+      label: "Unassigned",
+      icon: <UserX size={14} />,
+      activeColor: "text-amber-600 border-amber-600",
+      badge: "bg-amber-50 text-amber-600",
+    },
+    {
+      key: "blocked",
+      label: "Blocked",
+      icon: <ShieldOff size={14} />,
+      activeColor: "text-red-600 border-red-600",
+      badge: "bg-red-50 text-red-500",
+    },
   ];
 
   const handleFilterChange = (key) => {
@@ -112,7 +138,7 @@ export default function Contacts() {
     setSearchParams(next);
     setPage(1);
   };
-  
+
   // Dynamic tags list
   const [systemTags, setSystemTags] = useState([]);
 
@@ -125,7 +151,7 @@ export default function Contacts() {
     };
     fetchTags();
   }, []);
-  
+
   // Setup hook for adding/editing contacts
   const contactForm = useFormHandler({
     schema: contactFormSchema,
@@ -160,7 +186,11 @@ export default function Contacts() {
     onSuccess: () => {
       fetchContacts();
       handleCloseModal();
-      toast.success(editingContact ? "Contact updated successfully!" : "Contact created successfully!");
+      toast.success(
+        editingContact
+          ? "Contact updated successfully!"
+          : "Contact created successfully!",
+      );
     },
   });
 
@@ -189,7 +219,7 @@ export default function Contacts() {
     return () => clearTimeout(handler);
   }, [search]);
 
-   useEffect(() => {
+  useEffect(() => {
     fetchContacts();
     // ✅ Reset cross-page selection when filters change
     setSelectAllAcrossPages(false);
@@ -198,7 +228,13 @@ export default function Contacts() {
 
   const fetchContacts = async () => {
     setLoading(true);
-    const res = await getContacts(page, limit, debouncedSearch, filter, selectedChannel);
+    const res = await getContacts(
+      page,
+      limit,
+      debouncedSearch,
+      filter,
+      selectedChannel,
+    );
     if (res.success) {
       setContacts(res.data.contacts || []);
       setTotalPages(res.data.totalPages || 1);
@@ -213,80 +249,79 @@ export default function Contacts() {
     setLoading(false);
   };
 
-  
   const openFilePicker = () => {
-  const input = document.getElementById("csv-file-input-modal");
-  if (input) input.click();
-};
+    const input = document.getElementById("csv-file-input-modal");
+    if (input) input.click();
+  };
 
-const validateCsvFile = (file) => {
-  if (!file) return "Please select a file.";
-  const name = (file.name || "").toLowerCase();
-  if (!name.endsWith(".csv")) return "Only .csv files are allowed.";
-  const maxSize = 5 * 1024 * 1024; // 5MB
-  if (file.size > maxSize) return "File too large. Maximum size is 5MB.";
-  return null;
-};
+  const validateCsvFile = (file) => {
+    if (!file) return "Please select a file.";
+    const name = (file.name || "").toLowerCase();
+    if (!name.endsWith(".csv")) return "Only .csv files are allowed.";
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) return "File too large. Maximum size is 5MB.";
+    return null;
+  };
 
-const handleFileChosen = (file) => {
-  const error = validateCsvFile(file);
-  if (error) {
-    toast.error(error);
-    setSelectedImportFile(null);
-    return;
-  }
-  setSelectedImportFile(file);
-};
+  const handleFileChosen = (file) => {
+    const error = validateCsvFile(file);
+    if (error) {
+      toast.error(error);
+      setSelectedImportFile(null);
+      return;
+    }
+    setSelectedImportFile(file);
+  };
 
-const handleImportFileInputChange = (e) => {
-  const file = e.target.files?.[0];
-  e.target.value = "";
-  if (!file) return;
-  handleFileChosen(file);
-};
+  const handleImportFileInputChange = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    handleFileChosen(file);
+  };
 
-const handleDrop = (e) => {
-  e.preventDefault();
-  e.stopPropagation();
-  setIsDragging(false);
-  const file = e.dataTransfer.files?.[0];
-  if (!file) return;
-  handleFileChosen(file);
-};
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    handleFileChosen(file);
+  };
 
-const handleDownloadSample = async () => {
-  const res = await downloadSampleCSV();
-  if (!res.success) {
-    toast.error(res.message || "Failed to download sample CSV");
-    return;
-  }
-  toast.success("Sample CSV downloaded");
-};
+  const handleDownloadSample = async () => {
+    const res = await downloadSampleCSV();
+    if (!res.success) {
+      toast.error(res.message || "Failed to download sample CSV");
+      return;
+    }
+    toast.success("Sample CSV downloaded");
+  };
 
-const handleConfirmImport = async () => {
-  if (!isWhatsAppConnected) {
-    setShowConnectModal(true);
-    return;
-  }
-  if (!selectedImportFile) {
-    toast.warning("Please select a CSV file first.");
-    return;
-  }
+  const handleConfirmImport = async () => {
+    if (!isWhatsAppConnected) {
+      setShowConnectModal(true);
+      return;
+    }
+    if (!selectedImportFile) {
+      toast.warning("Please select a CSV file first.");
+      return;
+    }
 
-  setImporting(true);
-  const res = await importContacts(selectedImportFile);
-  setImporting(false);
+    setImporting(true);
+    const res = await importContacts(selectedImportFile);
+    setImporting(false);
 
-  if (res.success) {
-    setShowImportModal(false);
-    setSelectedImportFile(null);
-    setImportSummary(res.data.summary || res.data);
-    toast.success("CSV imported successfully!");
-    fetchContacts();
-  } else {
-    toast.error(res.message || "Failed to import contacts");
-  }
-};
+    if (res.success) {
+      setShowImportModal(false);
+      setSelectedImportFile(null);
+      setImportSummary(res.data.summary || res.data);
+      toast.success("CSV imported successfully!");
+      fetchContacts();
+    } else {
+      toast.error(res.message || "Failed to import contacts");
+    }
+  };
 
   const handleCloseModal = () => {
     setShowModal(false);
@@ -312,7 +347,10 @@ const handleConfirmImport = async () => {
       name: contact.name,
       phone: local,
       email: contact.email || "",
-      tag: contact.contactTags && contact.contactTags.length > 0 ? contact.contactTags[0].tag.name : "",
+      tag:
+        contact.contactTags && contact.contactTags.length > 0
+          ? contact.contactTags[0].tag.name
+          : "",
       company: contact.company || "",
       countryCode: contact.countryCode || "+91",
     });
@@ -343,7 +381,11 @@ const handleConfirmImport = async () => {
           c.id === contact.id ? { ...c, isBlocked: !c.isBlocked } : c,
         ),
       );
-      toast.success(contact.isBlocked ? "Contact unblocked successfully." : "Contact blocked successfully.");
+      toast.success(
+        contact.isBlocked
+          ? "Contact unblocked successfully."
+          : "Contact blocked successfully.",
+      );
     } else {
       toast.error(res.message);
     }
@@ -391,7 +433,11 @@ const handleConfirmImport = async () => {
     return "bg-blue-50 text-blue-700 border-blue-100";
   };
 
-  const handleAssignmentChange = async (contactId, currentUserId, newUserId) => {
+  const handleAssignmentChange = async (
+    contactId,
+    currentUserId,
+    newUserId,
+  ) => {
     if (!isWhatsAppConnected) {
       setShowConnectModal(true);
       return;
@@ -412,14 +458,21 @@ const handleConfirmImport = async () => {
           c.id === contactId ? { ...c, assignedTo: newUserId || null } : c,
         ),
       );
-      toast.success(newUserId ? "Agent assigned successfully!" : "Contact unassigned successfully!");
+      toast.success(
+        newUserId
+          ? "Agent assigned successfully!"
+          : "Contact unassigned successfully!",
+      );
     } else {
       toast.error(res.message);
     }
   };
 
   const handleStartChat = async (contact) => {
-    if ((!contact.channel || contact.channel === "WHATSAPP") && !isWhatsAppConnected) {
+    if (
+      (!contact.channel || contact.channel === "WHATSAPP") &&
+      !isWhatsAppConnected
+    ) {
       setShowConnectModal(true);
       return;
     }
@@ -451,7 +504,7 @@ const handleConfirmImport = async () => {
     }
 
     const res = await assignMultipleContacts(selectedContactIds, bulkAgentId);
-    
+
     if (res.success) {
       toast.success(res.message || "Contacts assigned successfully!");
       setSelectedContactIds([]);
@@ -462,16 +515,17 @@ const handleConfirmImport = async () => {
     }
   };
 
-
   // ✅ UPGRADED BULK DELETE HANDLER (WATI STYLE)
   const handleBulkDelete = async () => {
     if (!isWhatsAppConnected) {
       setShowConnectModal(true);
       return;
     }
-    
-    const count = selectAllAcrossPages ? totalContacts : selectedContactIds.length;
-    
+
+    const count = selectAllAcrossPages
+      ? totalContacts
+      : selectedContactIds.length;
+
     if (count === 0) {
       toast.warning("Please select at least one contact to delete.");
       return;
@@ -486,17 +540,22 @@ const handleConfirmImport = async () => {
     if (!ok) return;
 
     let res;
-    
+
     if (selectAllAcrossPages) {
       // 🚀 Send filters to backend to delete across all 162 pages
       const activeFilters = {
         search: debouncedSearch,
-        assignedFilter: filter === 'assigned' ? 'assigned' : filter === 'unassigned' ? 'unassigned' : 'all'
+        assignedFilter:
+          filter === "assigned"
+            ? "assigned"
+            : filter === "unassigned"
+              ? "unassigned"
+              : "all",
       };
-      res = await bulkDeleteContacts([], 'filter', activeFilters);
+      res = await bulkDeleteContacts([], "filter", activeFilters);
     } else {
       // 🗑️ Delete only the checked boxes on current page
-      res = await bulkDeleteContacts(selectedContactIds, 'selected');
+      res = await bulkDeleteContacts(selectedContactIds, "selected");
     }
 
     if (res.success) {
@@ -509,7 +568,6 @@ const handleConfirmImport = async () => {
       toast.error(res.message);
     }
   };
-
 
   useEffect(() => {
     const fetchAgents = async () => {
@@ -547,10 +605,10 @@ const handleConfirmImport = async () => {
             {selectedChannel === "WHATSAPP"
               ? "Build your WhatsApp subscriber database and segment them using tags."
               : selectedChannel === "INSTAGRAM"
-              ? "Instagram users who have engaged with your connected professional account via DMs."
-              : selectedChannel === "MESSENGER"
-              ? "Facebook users who have messaged your connected Facebook Page."
-              : "Manage your omnichannel customer database across WhatsApp, Instagram, and Messenger."}
+                ? "Instagram users who have engaged with your connected professional account via DMs."
+                : selectedChannel === "MESSENGER"
+                  ? "Facebook users who have messaged your connected Facebook Page."
+                  : "Manage your omnichannel customer database across WhatsApp, Instagram, and Messenger."}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -589,7 +647,10 @@ const handleConfirmImport = async () => {
                   className="btn-secondary flex items-center justify-center gap-2 text-sm shadow-sm"
                   disabled={importing}
                 >
-                  <Upload size={16} className={importing ? "animate-spin" : ""} />
+                  <Upload
+                    size={16}
+                    className={importing ? "animate-spin" : ""}
+                  />
                   <span>{importing ? "Importing..." : "Import CSV"}</span>
                 </button>
               )}
@@ -626,9 +687,13 @@ const handleConfirmImport = async () => {
         >
           <FaWhatsapp size={14} className="text-[#25D366]" />
           <span>WhatsApp</span>
-          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-            selectedChannel === "WHATSAPP" ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"
-          }`}>
+          <span
+            className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+              selectedChannel === "WHATSAPP"
+                ? "bg-emerald-100 text-emerald-700"
+                : "bg-slate-200 text-slate-600"
+            }`}
+          >
             {channelCounts.WHATSAPP || 0}
           </span>
         </button>
@@ -644,9 +709,13 @@ const handleConfirmImport = async () => {
         >
           <FaInstagram size={14} className="text-[#E1306C]" />
           <span>Instagram</span>
-          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-            selectedChannel === "INSTAGRAM" ? "bg-pink-100 text-pink-700" : "bg-slate-200 text-slate-600"
-          }`}>
+          <span
+            className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+              selectedChannel === "INSTAGRAM"
+                ? "bg-pink-100 text-pink-700"
+                : "bg-slate-200 text-slate-600"
+            }`}
+          >
             {channelCounts.INSTAGRAM || 0}
           </span>
         </button>
@@ -662,9 +731,13 @@ const handleConfirmImport = async () => {
         >
           <FaFacebookMessenger size={14} className="text-[#0084FF]" />
           <span>Messenger</span>
-          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-            selectedChannel === "MESSENGER" ? "bg-blue-100 text-[#0084FF]" : "bg-slate-200 text-slate-600"
-          }`}>
+          <span
+            className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+              selectedChannel === "MESSENGER"
+                ? "bg-blue-100 text-[#0084FF]"
+                : "bg-slate-200 text-slate-600"
+            }`}
+          >
             {channelCounts.MESSENGER || 0}
           </span>
         </button>
@@ -678,43 +751,55 @@ const handleConfirmImport = async () => {
               : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
           }`}
         >
-          <Layers size={14} className={selectedChannel === "ALL" ? "text-[#125EF2]" : "text-slate-400"} />
+          <Layers
+            size={14}
+            className={
+              selectedChannel === "ALL" ? "text-[#125EF2]" : "text-slate-400"
+            }
+          />
           <span>All Channels</span>
-          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-            selectedChannel === "ALL" ? "bg-blue-100 text-[#125EF2]" : "bg-slate-200 text-slate-600"
-          }`}>
+          <span
+            className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+              selectedChannel === "ALL"
+                ? "bg-blue-100 text-[#125EF2]"
+                : "bg-slate-200 text-slate-600"
+            }`}
+          >
             {channelCounts.ALL || 0}
           </span>
         </button>
       </div>
 
       {/* WhatsApp Disconnected Warning Banner */}
-      {!isWhatsAppConnected && (selectedChannel === "WHATSAPP" || selectedChannel === "ALL") && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50/90 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
-          <div className="flex items-start gap-3.5">
-            <div className="p-2.5 rounded-xl bg-amber-100 text-amber-700 shrink-0">
-              <AlertCircle size={20} />
+      {!isWhatsAppConnected &&
+        (selectedChannel === "WHATSAPP" || selectedChannel === "ALL") && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50/90 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+            <div className="flex items-start gap-3.5">
+              <div className="p-2.5 rounded-xl bg-amber-100 text-amber-700 shrink-0">
+                <AlertCircle size={20} />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-amber-900">
+                  WhatsApp Account Not Connected
+                </h4>
+                <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
+                  Connect your WhatsApp Business Number in Settings to add
+                  contacts, import CSV, and start conversations.
+                </p>
+              </div>
             </div>
-            <div>
-              <h4 className="text-sm font-bold text-amber-900">WhatsApp Account Not Connected</h4>
-              <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
-                Connect your WhatsApp Business Number in Settings to add contacts, import CSV, and start conversations.
-              </p>
-            </div>
+            <button
+              type="button"
+              onClick={() => setShowWhatsAppSetup(true)}
+              className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 text-white text-xs font-bold rounded-xl transition shadow-sm whitespace-nowrap self-start sm:self-auto shrink-0"
+            >
+              Connect WhatsApp
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowWhatsAppSetup(true)}
-            className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 text-white text-xs font-bold rounded-xl transition shadow-sm whitespace-nowrap self-start sm:self-auto shrink-0"
-          >
-            Connect WhatsApp
-          </button>
-        </div>
-      )}
+        )}
 
       {/* Directory Grid */}
       <div className="card border border-slate-100 overflow-hidden">
-        
         {/* Filter Tabs */}
         {isAdmin && (
           <div className="flex items-center gap-1 px-4 pt-3 border-b border-slate-100 bg-white overflow-x-auto">
@@ -725,17 +810,22 @@ const handleConfirmImport = async () => {
                   key={tab.key}
                   onClick={() => handleFilterChange(tab.key)}
                   className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold border-b-2 transition-all whitespace-nowrap
-                    ${isActive
-                      ? tab.activeColor
-                      : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+                    ${
+                      isActive
+                        ? tab.activeColor
+                        : "border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50"
                     }`}
                 >
-                  <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full ${isActive ? tab.badge : "bg-slate-100 text-slate-500"}`}>
+                  <span
+                    className={`inline-flex items-center justify-center w-5 h-5 rounded-full ${isActive ? tab.badge : "bg-slate-100 text-slate-500"}`}
+                  >
                     {tab.icon}
                   </span>
                   {tab.label}
                   {isActive && totalContacts > 0 && (
-                    <span className={`ml-1 inline-flex items-center justify-center min-w-[20px] h-[18px] px-1.5 rounded-full text-[10px] font-bold ${tab.badge}`}>
+                    <span
+                      className={`ml-1 inline-flex items-center justify-center min-w-[20px] h-[18px] px-1.5 rounded-full text-[10px] font-bold ${tab.badge}`}
+                    >
                       {totalContacts}
                     </span>
                   )}
@@ -748,17 +838,20 @@ const handleConfirmImport = async () => {
         {/* Search Bar */}
         <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="relative max-w-xs w-full">
-            <Search className="absolute left-3 top-2.5 text-slate-400" size={15} />
+            <Search
+              className="absolute left-3 top-2.5 text-slate-400"
+              size={15}
+            />
             <input
               type="text"
               placeholder={
                 selectedChannel === "WHATSAPP"
                   ? "Search by name or number..."
                   : selectedChannel === "INSTAGRAM"
-                  ? "Search by name or @handle..."
-                  : selectedChannel === "MESSENGER"
-                  ? "Search by name or profile..."
-                  : "Search by name, handle, or number..."
+                    ? "Search by name or @handle..."
+                    : selectedChannel === "MESSENGER"
+                      ? "Search by name or profile..."
+                      : "Search by name, handle, or number..."
               }
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -767,8 +860,7 @@ const handleConfirmImport = async () => {
           </div>
         </div>
 
-
-                {/* Bulk Actions Panel */}
+        {/* Bulk Actions Panel */}
         {isAdmin && selectedContactIds.length > 0 && (
           <div className="p-4 bg-[#EAF2FE]/60 border-b border-slate-100 flex items-center justify-between animate-in slide-in-from-top-2 duration-200">
             <span className="text-xs font-semibold text-[#0D47A1]">
@@ -817,37 +909,41 @@ const handleConfirmImport = async () => {
           </div>
         )}
 
-
         {/* Contacts Table */}
-        
-                {/* ✅ WATI-STYLE CROSS-PAGE SELECTION BANNER */}
-        {isAdmin && activeContacts.length > 0 && selectedContactIds.length === activeContacts.length && totalContacts > activeContacts.length && !selectAllAcrossPages && (
-          <div className="bg-[#EAF2FE] border-b border-[#CFE0FD] px-4 py-2.5 text-center text-xs text-[#0D47A1] animate-in fade-in slide-in-from-top-1">
-            All <strong>{selectedContactIds.length}</strong> contacts on this page are selected.
-            <button 
-              onClick={() => setSelectAllAcrossPages(true)} 
-              className="ml-2 font-bold text-[#125EF2] hover:underline"
-            >
-              Select all {totalContacts} contacts matching this filter
-            </button>
-          </div>
-        )}
+
+        {/* ✅ WATI-STYLE CROSS-PAGE SELECTION BANNER */}
+        {isAdmin &&
+          activeContacts.length > 0 &&
+          selectedContactIds.length === activeContacts.length &&
+          totalContacts > activeContacts.length &&
+          !selectAllAcrossPages && (
+            <div className="bg-[#EAF2FE] border-b border-[#CFE0FD] px-4 py-2.5 text-center text-xs text-[#0D47A1] animate-in fade-in slide-in-from-top-1">
+              All <strong>{selectedContactIds.length}</strong> contacts on this
+              page are selected.
+              <button
+                onClick={() => setSelectAllAcrossPages(true)}
+                className="ml-2 font-bold text-[#125EF2] hover:underline"
+              >
+                Select all {totalContacts} contacts matching this filter
+              </button>
+            </div>
+          )}
 
         {isAdmin && selectAllAcrossPages && (
           <div className="bg-blue-100 border-b border-blue-200 px-4 py-2.5 text-center text-xs text-blue-900 font-medium animate-in fade-in">
-            ✅ All <strong>{totalContacts}</strong> contacts matching this filter are selected.
-            <button 
+            ✅ All <strong>{totalContacts}</strong> contacts matching this
+            filter are selected.
+            <button
               onClick={() => {
                 setSelectAllAcrossPages(false);
                 setSelectedContactIds([]);
-              }} 
+              }}
               className="ml-2 font-bold text-blue-600 hover:underline"
             >
               Clear selection
             </button>
           </div>
         )}
-
 
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -857,10 +953,17 @@ const handleConfirmImport = async () => {
                   <th className="p-4 w-12 text-center">
                     <input
                       type="checkbox"
-                      checked={activeContacts.length > 0 && activeContacts.every((c) => selectedContactIds.includes(c.id))}
+                      checked={
+                        activeContacts.length > 0 &&
+                        activeContacts.every((c) =>
+                          selectedContactIds.includes(c.id),
+                        )
+                      }
                       onChange={(e) => {
                         if (e.target.checked) {
-                          setSelectedContactIds(activeContacts.map((c) => c.id));
+                          setSelectedContactIds(
+                            activeContacts.map((c) => c.id),
+                          );
                         } else {
                           setSelectedContactIds([]);
                         }
@@ -874,10 +977,10 @@ const handleConfirmImport = async () => {
                   {selectedChannel === "WHATSAPP"
                     ? "Phone Number"
                     : selectedChannel === "INSTAGRAM"
-                    ? "Instagram Handle"
-                    : selectedChannel === "MESSENGER"
-                    ? "Messenger Profile"
-                    : "Channel / Identifier"}
+                      ? "Instagram Handle"
+                      : selectedChannel === "MESSENGER"
+                        ? "Messenger Profile"
+                        : "Channel / Identifier"}
                 </th>
                 <th className="p-4 font-semibold">Email</th>
                 <th className="p-4 font-semibold">Subscribed Date</th>
@@ -936,37 +1039,51 @@ const handleConfirmImport = async () => {
                       {selectedChannel === "INSTAGRAM" ? (
                         <FaInstagram size={36} className="text-[#E1306C]/40" />
                       ) : selectedChannel === "MESSENGER" ? (
-                        <FaFacebookMessenger size={36} className="text-[#0084FF]/40" />
+                        <FaFacebookMessenger
+                          size={36}
+                          className="text-[#0084FF]/40"
+                        />
                       ) : selectedChannel === "WHATSAPP" ? (
                         <FaWhatsapp size={36} className="text-[#25D366]/40" />
                       ) : (
-                        <Users size={36} className="text-slate-300 stroke-[1.5]" />
+                        <Users
+                          size={36}
+                          className="text-slate-300 stroke-[1.5]"
+                        />
                       )}
                       <p className="text-sm font-semibold text-slate-700">
-                        No {selectedChannel === "ALL" ? "" : selectedChannel.toLowerCase()} contacts found
+                        No{" "}
+                        {selectedChannel === "ALL"
+                          ? ""
+                          : selectedChannel.toLowerCase()}{" "}
+                        contacts found
                       </p>
                       <p className="text-xs text-slate-400 max-w-sm">
                         {selectedChannel === "INSTAGRAM"
                           ? "When customers send Direct Messages to your Instagram account, they will automatically appear here."
                           : selectedChannel === "MESSENGER"
-                          ? "When customers message your connected Facebook Page, they will automatically appear here."
-                          : "Try adjusting your search terms or add a new contact."}
+                            ? "When customers message your connected Facebook Page, they will automatically appear here."
+                            : "Try adjusting your search terms or add a new contact."}
                       </p>
                     </div>
                   </td>
                 </tr>
               ) : (
                 contacts.map((c) => {
-                  const contactTagsList = c.contactTags ? c.contactTags.map(ct => ct.tag) : [];
+                  const contactTagsList = c.contactTags
+                    ? c.contactTags.map((ct) => ct.tag)
+                    : [];
                   const displayPhone = c.phone
-                    ? (c.phone.startsWith("+")
-                        ? c.phone
-                        : `${c.countryCode || ""} ${c.phone}`.trim())
-                    : (c.channel === "INSTAGRAM"
-                        ? (c.username ? `@${c.username}` : "Instagram User")
-                        : (c.channel === "MESSENGER"
-                            ? "Facebook User"
-                            : "N/A"));
+                    ? c.phone.startsWith("+")
+                      ? c.phone
+                      : `${c.countryCode || ""} ${c.phone}`.trim()
+                    : c.channel === "INSTAGRAM"
+                      ? c.username
+                        ? `@${c.username}`
+                        : "Instagram User"
+                      : c.channel === "MESSENGER"
+                        ? "Facebook User"
+                        : "N/A";
                   const displayDate = new Date(c.createdAt).toLocaleDateString(
                     "en-US",
                     {
@@ -989,13 +1106,22 @@ const handleConfirmImport = async () => {
                             checked={selectedContactIds.includes(c.id)}
                             onChange={(e) => {
                               if (e.target.checked) {
-                                setSelectedContactIds((prev) => [...prev, c.id]);
+                                setSelectedContactIds((prev) => [
+                                  ...prev,
+                                  c.id,
+                                ]);
                               } else {
-                                setSelectedContactIds((prev) => prev.filter((id) => id !== c.id));
+                                setSelectedContactIds((prev) =>
+                                  prev.filter((id) => id !== c.id),
+                                );
                               }
                             }}
                             className="rounded border-slate-350 text-[#125EF2] focus:ring-[#125EF2] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                            title={c.isBlocked ? "Blocked contacts cannot be assigned" : ""}
+                            title={
+                              c.isBlocked
+                                ? "Blocked contacts cannot be assigned"
+                                : ""
+                            }
                           />
                         </td>
                       )}
@@ -1006,12 +1132,20 @@ const handleConfirmImport = async () => {
                           </p>
                           {c.channel === "INSTAGRAM" && (
                             <span className="inline-flex items-center gap-1 rounded-full bg-pink-50 px-2 py-0.5 text-[10px] font-bold text-pink-700 border border-pink-200">
-                              <FaInstagram size={10} className="text-[#E1306C]" /> IG
+                              <FaInstagram
+                                size={10}
+                                className="text-[#E1306C]"
+                              />{" "}
+                              IG
                             </span>
                           )}
                           {c.channel === "MESSENGER" && (
                             <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-200">
-                              <FaFacebookMessenger size={10} className="text-[#0084FF]" /> Messenger
+                              <FaFacebookMessenger
+                                size={10}
+                                className="text-[#0084FF]"
+                              />{" "}
+                              Messenger
                             </span>
                           )}
                           {c.isBlocked && (
@@ -1023,11 +1157,20 @@ const handleConfirmImport = async () => {
                       </td>
                       <td className="p-4 font-mono text-slate-600 flex items-center gap-1.5">
                         {c.channel === "INSTAGRAM" ? (
-                          <FaInstagram size={13} className="text-[#E1306C] shrink-0" />
+                          <FaInstagram
+                            size={13}
+                            className="text-[#E1306C] shrink-0"
+                          />
                         ) : c.channel === "MESSENGER" ? (
-                          <FaFacebookMessenger size={13} className="text-[#0084FF] shrink-0" />
+                          <FaFacebookMessenger
+                            size={13}
+                            className="text-[#0084FF] shrink-0"
+                          />
                         ) : (
-                          <Phone size={12} className="text-slate-400 shrink-0" />
+                          <Phone
+                            size={12}
+                            className="text-slate-400 shrink-0"
+                          />
                         )}
                         <span>{displayPhone}</span>
                       </td>
@@ -1035,7 +1178,7 @@ const handleConfirmImport = async () => {
                       <td className="p-4 text-slate-500">{displayDate}</td>
                       <td className="p-4">
                         <div className="flex flex-wrap gap-1">
-                          {contactTagsList.map(tag => (
+                          {contactTagsList.map((tag) => (
                             <span
                               key={tag.id}
                               className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${getTagColor(tag.name)}`}
@@ -1063,7 +1206,11 @@ const handleConfirmImport = async () => {
                               )
                             }
                             className="input text-xs py-1 px-2 border border-slate-200 rounded-lg bg-white w-40 disabled:opacity-40 disabled:cursor-not-allowed"
-                            title={c.isBlocked ? "Blocked contacts cannot be assigned" : ""}
+                            title={
+                              c.isBlocked
+                                ? "Blocked contacts cannot be assigned"
+                                : ""
+                            }
                           >
                             <option value="">-- Unassigned --</option>
                             {agents.map((agent) => (
@@ -1095,7 +1242,9 @@ const handleConfirmImport = async () => {
                                   : "text-amber-500 hover:text-amber-600 hover:bg-amber-50"
                               }`}
                               title={
-                                c.isBlocked ? "Unblock Contact" : "Block Contact"
+                                c.isBlocked
+                                  ? "Unblock Contact"
+                                  : "Block Contact"
                               }
                             >
                               {c.isBlocked ? (
@@ -1154,408 +1303,455 @@ const handleConfirmImport = async () => {
       </div>
 
       {/* New Contact Modal */}
-      {showModal && createPortal(
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-150">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-              <h2 className="text-base font-bold text-slate-800">
-                {editingContact
-                  ? "Edit WhatsApp Contact"
-                  : "Add New WhatsApp Contact"}
-              </h2>
-              <button
-                onClick={() => setShowModal(false)}
-                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-50 transition"
-              >
-                <X size={18} />
-              </button>
+      {showModal &&
+        createPortal(
+          <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-150">
+              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <h2 className="text-base font-bold text-slate-800">
+                  {editingContact
+                    ? "Edit WhatsApp Contact"
+                    : "Add New WhatsApp Contact"}
+                </h2>
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-50 transition"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <form onSubmit={contactForm.onSubmit} className="p-6 space-y-4">
+                {contactForm.generalError && (
+                  <div className="rounded-xl bg-rose-50 border border-rose-200 px-4 py-2.5 text-xs text-rose-650 font-semibold">
+                    {contactForm.generalError}
+                  </div>
+                )}
+
+                <div>
+                  <label className="label text-xs">Contact Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. John Doe"
+                    className={`input text-xs ${contactForm.formState.errors.name ? "border-red-500" : ""}`}
+                    {...contactForm.register("name")}
+                  />
+                  <FormError
+                    message={contactForm.formState.errors.name?.message}
+                  />
+                </div>
+
+                <div>
+                  <label className="label text-xs">WhatsApp Number</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="+91"
+                      className={`input text-xs w-20 text-center ${contactForm.formState.errors.countryCode ? "border-red-500" : ""}`}
+                      {...contactForm.register("countryCode")}
+                    />
+                    <input
+                      type="text"
+                      placeholder="e.g. 9876543210"
+                      className={`input text-xs flex-1 ${contactForm.formState.errors.phone ? "border-red-500" : ""}`}
+                      {...contactForm.register("phone")}
+                    />
+                  </div>
+                  <FormError
+                    message={
+                      contactForm.formState.errors.countryCode?.message ||
+                      contactForm.formState.errors.phone?.message
+                    }
+                  />
+                </div>
+
+                <div>
+                  <label className="label text-xs">
+                    Email Address (Optional)
+                  </label>
+                  <input
+                    type="email"
+                    placeholder="e.g. john@example.com"
+                    className={`input text-xs ${contactForm.formState.errors.email ? "border-red-500" : ""}`}
+                    {...contactForm.register("email")}
+                  />
+                  <FormError
+                    message={contactForm.formState.errors.email?.message}
+                  />
+                </div>
+
+                <div>
+                  <label className="label text-xs">Company Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Acme Corp"
+                    className={`input text-xs ${contactForm.formState.errors.company ? "border-red-500" : ""}`}
+                    {...contactForm.register("company")}
+                  />
+                  <FormError
+                    message={contactForm.formState.errors.company?.message}
+                  />
+                </div>
+
+                <div>
+                  <label className="label text-xs">Segment Tag</label>
+                  <select
+                    className="input text-xs"
+                    {...contactForm.register("tag")}
+                  >
+                    <option value="">-- No Tag --</option>
+                    {systemTags.map((tag) => (
+                      <option key={tag.id} value={tag.name}>
+                        {tag.name} (Priority {tag.priority})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => handleCloseModal()}
+                    className="btn-secondary py-2 px-3 text-[11px] font-semibold"
+                    disabled={contactForm.formState.isSubmitting}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn-primary py-2 px-4 text-[11px] font-bold"
+                    disabled={contactForm.formState.isSubmitting}
+                  >
+                    {contactForm.formState.isSubmitting
+                      ? "Saving..."
+                      : "Save Contact"}
+                  </button>
+                </div>
+              </form>
             </div>
+          </div>,
+          document.body,
+        )}
 
-            <form onSubmit={contactForm.onSubmit} className="p-6 space-y-4">
-              {contactForm.generalError && (
-                <div className="rounded-xl bg-rose-50 border border-rose-200 px-4 py-2.5 text-xs text-rose-650 font-semibold">
-                  {contactForm.generalError}
+      {/* CSV Import Summary Modal */}
+      {importSummary &&
+        createPortal(
+          <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-150">
+              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <h2 className="text-base font-bold text-slate-800">
+                  CSV Import Summary
+                </h2>
+                <button
+                  onClick={() => setImportSummary(null)}
+                  className="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-50 transition"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-6">
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="bg-[#EAF2FE] border border-[#CFE0FD] rounded-2xl p-3 text-center">
+                    <p className="text-[10px] uppercase font-bold text-[#0D47A1] tracking-wider">
+                      Created
+                    </p>
+                    <p className="text-2xl font-black text-[#125EF2] mt-1">
+                      {importSummary.created || 0}
+                    </p>
+                  </div>
+                  <div className="bg-amber-50 border border-amber-100 rounded-2xl p-3 text-center">
+                    <p className="text-[10px] uppercase font-bold text-amber-800 tracking-wider">
+                      Duplicates
+                    </p>
+                    <p className="text-2xl font-black text-amber-700 mt-1">
+                      {importSummary.duplicates || 0}
+                    </p>
+                  </div>
+                  <div className="bg-rose-50 border border-rose-100 rounded-2xl p-3 text-center">
+                    <p className="text-[10px] uppercase font-bold text-rose-800 tracking-wider">
+                      Errors
+                    </p>
+                    <p className="text-2xl font-black text-rose-700 mt-1">
+                      {importSummary.errors || 0}
+                    </p>
+                  </div>
                 </div>
-              )}
 
-              <div>
-                <label className="label text-xs">Contact Name</label>
-                <input
-                  type="text"
-                  placeholder="e.g. John Doe"
-                  className={`input text-xs ${contactForm.formState.errors.name ? "border-red-500" : ""}`}
-                  {...contactForm.register("name")}
-                />
-                <FormError message={contactForm.formState.errors.name?.message} />
-              </div>
-
-              <div>
-                <label className="label text-xs">WhatsApp Number</label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="+91"
-                    className={`input text-xs w-20 text-center ${contactForm.formState.errors.countryCode ? "border-red-500" : ""}`}
-                    {...contactForm.register("countryCode")}
-                  />
-                  <input
-                    type="text"
-                    placeholder="e.g. 9876543210"
-                    className={`input text-xs flex-1 ${contactForm.formState.errors.phone ? "border-red-500" : ""}`}
-                    {...contactForm.register("phone")}
-                  />
+                <div className="bg-slate-50 rounded-2xl px-4 py-3 flex justify-between items-center text-xs">
+                  <span className="font-semibold text-slate-500">
+                    Total Rows Processed
+                  </span>
+                  <span className="font-bold text-slate-800">
+                    {importSummary.total || 0}
+                  </span>
                 </div>
-                <FormError
-                  message={
-                    contactForm.formState.errors.countryCode?.message ||
-                    contactForm.formState.errors.phone?.message
-                  }
-                />
+
+                {importSummary.errorDetails &&
+                  importSummary.errorDetails.length > 0 && (
+                    <div className="space-y-2">
+                      <h3 className="text-xs font-bold text-slate-700">
+                        Error Details
+                      </h3>
+                      <div className="max-h-40 overflow-y-auto border border-slate-100 rounded-2xl divide-y divide-slate-50">
+                        {importSummary.errorDetails.map((err, i) => (
+                          <div
+                            key={i}
+                            className="p-3 text-[11px] bg-slate-50/50"
+                          >
+                            <div className="flex justify-between items-center font-bold text-slate-700">
+                              <span>{err.name || "Unknown"}</span>
+                              <span className="font-mono text-slate-500">
+                                {err.phone || "No Phone"}
+                              </span>
+                            </div>
+                            <p className="text-rose-600 mt-1">{err.reason}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                <div className="pt-4 flex items-center justify-end border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setImportSummary(null)}
+                    className="btn-primary py-2 px-5 text-[11px] font-bold rounded-xl"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {/* ===================== CSV IMPORT GUIDELINES MODAL ===================== */}
+      {showImportModal &&
+        createPortal(
+          <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-150">
+              {/* Header */}
+              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-xl bg-[#EAF2FE] text-[#125EF2]">
+                    <FileSpreadsheet size={18} />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-bold text-slate-800">
+                      Import Contacts
+                    </h2>
+                    <p className="text-[11px] text-slate-500 font-medium">
+                      Follow the format below for a successful import
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    if (importing) return;
+                    setShowImportModal(false);
+                    setSelectedImportFile(null);
+                  }}
+                  className="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-50 transition"
+                >
+                  <X size={18} />
+                </button>
               </div>
 
-              <div>
-                <label className="label text-xs">Email Address (Optional)</label>
-                <input
-                  type="email"
-                  placeholder="e.g. john@example.com"
-                  className={`input text-xs ${contactForm.formState.errors.email ? "border-red-500" : ""}`}
-                  {...contactForm.register("email")}
-                />
-                <FormError message={contactForm.formState.errors.email?.message} />
+              <div className="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
+                {loadingGuidelines ? (
+                  <div className="py-10 text-center text-sm text-slate-500 font-medium">
+                    Loading guidelines...
+                  </div>
+                ) : (
+                  <>
+                    {/* Required */}
+                    <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Info size={14} className="text-[#125EF2]" />
+                        <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+                          Required Columns
+                        </h3>
+                      </div>
+                      <ul className="space-y-1.5 text-xs text-slate-600">
+                        <li>
+                          <span className="font-bold text-slate-800">name</span>{" "}
+                          — Contact full name
+                          <span className="text-slate-400"> (e.g. Nair)</span>
+                        </li>
+                        <li>
+                          <span className="font-bold text-slate-800">
+                            phone
+                          </span>{" "}
+                          — Digits only, with country code
+                          <span className="text-slate-400">
+                            {" "}
+                            (e.g. 919876543210)
+                          </span>
+                        </li>
+                      </ul>
+                    </div>
+
+                    {/* Optional */}
+                    <div className="rounded-2xl border border-slate-100 bg-white p-4">
+                      <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wide mb-2">
+                        Optional Columns
+                      </h3>
+                      <ul className="space-y-1.5 text-xs text-slate-600">
+                        <li>
+                          <span className="font-semibold">email</span> — valid
+                          email
+                        </li>
+                        <li>
+                          <span className="font-semibold">company</span> —
+                          company name
+                        </li>
+                        <li>
+                          <span className="font-semibold">countryCode</span> —
+                          e.g. +91 (defaults to +91)
+                        </li>
+                        <li>
+                          <span className="font-semibold">tags</span> —
+                          comma-separated, must already exist
+                        </li>
+                      </ul>
+                    </div>
+
+                    {/* Rules */}
+                    <div className="rounded-2xl border border-amber-100 bg-amber-50/80 p-4">
+                      <h3 className="text-xs font-bold text-amber-900 uppercase tracking-wide mb-2">
+                        Important Rules
+                      </h3>
+                      <ul className="space-y-1.5 text-xs text-amber-900/90 list-disc pl-4">
+                        <li>First row must be headers.</li>
+                        <li>
+                          Recommended headers:{" "}
+                          <span className="font-mono font-semibold">
+                            name,phone,email,company,countryCode,tags
+                          </span>
+                        </li>
+                        <li>
+                          In Excel, set phone column as <strong>Text</strong>{" "}
+                          before export to avoid{" "}
+                          <span className="font-mono">9.18E+11</span>.
+                        </li>
+                        <li>Phone must not contain letters.</li>
+                        <li>
+                          Invalid rows are skipped and shown in the import
+                          summary.
+                        </li>
+                        <li>Duplicate phone numbers are skipped.</li>
+                      </ul>
+                    </div>
+
+                    {/* Sample download */}
+                    <button
+                      type="button"
+                      onClick={handleDownloadSample}
+                      className="w-full btn-secondary flex items-center justify-center gap-2 text-xs font-semibold py-2.5"
+                    >
+                      <Download size={15} />
+                      Download Sample CSV Template
+                    </button>
+
+                    {/* Upload zone */}
+                    <div
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setIsDragging(true);
+                      }}
+                      onDragLeave={(e) => {
+                        e.preventDefault();
+                        setIsDragging(false);
+                      }}
+                      onDrop={handleDrop}
+                      className={`rounded-2xl border-2 border-dashed p-6 text-center transition ${
+                        isDragging
+                          ? "border-[#125EF2] bg-[#EAF2FE]/60"
+                          : "border-slate-200 bg-slate-50/40"
+                      }`}
+                    >
+                      <Upload
+                        className="mx-auto text-slate-400 mb-2"
+                        size={22}
+                      />
+                      <p className="text-xs font-semibold text-slate-700">
+                        Drag & drop your .csv file here
+                      </p>
+                      <p className="text-[11px] text-slate-500 mt-1 mb-3">
+                        or browse from your computer (Max 5MB)
+                      </p>
+
+                      <input
+                        id="csv-file-input-modal"
+                        type="file"
+                        accept=".csv,text/csv"
+                        className="hidden"
+                        onChange={handleImportFileInputChange}
+                        disabled={importing}
+                      />
+
+                      <button
+                        type="button"
+                        onClick={openFilePicker}
+                        disabled={importing}
+                        className="btn-primary text-xs py-2 px-4"
+                      >
+                        Browse CSV File
+                      </button>
+
+                      {selectedImportFile && (
+                        <div className="mt-4 inline-flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-3 py-2 text-xs text-slate-700">
+                          <CheckCircle2
+                            size={14}
+                            className="text-emerald-500"
+                          />
+                          <span className="font-semibold truncate max-w-[220px]">
+                            {selectedImportFile.name}
+                          </span>
+                          <button
+                            type="button"
+                            className="text-slate-400 hover:text-rose-500 ml-1"
+                            onClick={() => setSelectedImportFile(null)}
+                            title="Remove file"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
 
-              <div>
-                <label className="label text-xs">Company Name</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Acme Corp"
-                  className={`input text-xs ${contactForm.formState.errors.company ? "border-red-500" : ""}`}
-                  {...contactForm.register("company")}
-                />
-                <FormError message={contactForm.formState.errors.company?.message} />
-              </div>
-
-              <div>
-                <label className="label text-xs">Segment Tag</label>
-                <select className="input text-xs" {...contactForm.register("tag")}>
-                  <option value="">-- No Tag --</option>
-                  {systemTags.map((tag) => (
-                    <option key={tag.id} value={tag.name}>
-                      {tag.name} (Priority {tag.priority})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-100">
+              {/* Footer actions */}
+              <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-2 bg-slate-50/40">
                 <button
                   type="button"
-                  onClick={() => handleCloseModal()}
+                  onClick={() => {
+                    if (importing) return;
+                    setShowImportModal(false);
+                    setSelectedImportFile(null);
+                  }}
                   className="btn-secondary py-2 px-3 text-[11px] font-semibold"
-                  disabled={contactForm.formState.isSubmitting}
+                  disabled={importing}
                 >
                   Cancel
                 </button>
                 <button
-                  type="submit"
-                  className="btn-primary py-2 px-4 text-[11px] font-bold"
-                  disabled={contactForm.formState.isSubmitting}
-                >
-                  {contactForm.formState.isSubmitting ? "Saving..." : "Save Contact"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {/* CSV Import Summary Modal */}
-      {importSummary && createPortal(
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-150">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-              <h2 className="text-base font-bold text-slate-800">
-                CSV Import Summary
-              </h2>
-              <button
-                onClick={() => setImportSummary(null)}
-                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-50 transition"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-6">
-              <div className="grid grid-cols-3 gap-3">
-                <div className="bg-[#EAF2FE] border border-[#CFE0FD] rounded-2xl p-3 text-center">
-                  <p className="text-[10px] uppercase font-bold text-[#0D47A1] tracking-wider">
-                    Created
-                  </p>
-                  <p className="text-2xl font-black text-[#125EF2] mt-1">
-                    {importSummary.created || 0}
-                  </p>
-                </div>
-                <div className="bg-amber-50 border border-amber-100 rounded-2xl p-3 text-center">
-                  <p className="text-[10px] uppercase font-bold text-amber-800 tracking-wider">
-                    Duplicates
-                  </p>
-                  <p className="text-2xl font-black text-amber-700 mt-1">
-                    {importSummary.duplicates || 0}
-                  </p>
-                </div>
-                <div className="bg-rose-50 border border-rose-100 rounded-2xl p-3 text-center">
-                  <p className="text-[10px] uppercase font-bold text-rose-800 tracking-wider">
-                    Errors
-                  </p>
-                  <p className="text-2xl font-black text-rose-700 mt-1">
-                    {importSummary.errors || 0}
-                  </p>
-                </div>
-              </div>
-
-              <div className="bg-slate-50 rounded-2xl px-4 py-3 flex justify-between items-center text-xs">
-                <span className="font-semibold text-slate-500">
-                  Total Rows Processed
-                </span>
-                <span className="font-bold text-slate-800">
-                  {importSummary.total || 0}
-                </span>
-              </div>
-
-              {importSummary.errorDetails && importSummary.errorDetails.length > 0 && (
-                <div className="space-y-2">
-                  <h3 className="text-xs font-bold text-slate-700">
-                    Error Details
-                  </h3>
-                  <div className="max-h-40 overflow-y-auto border border-slate-100 rounded-2xl divide-y divide-slate-50">
-                    {importSummary.errorDetails.map((err, i) => (
-                      <div key={i} className="p-3 text-[11px] bg-slate-50/50">
-                        <div className="flex justify-between items-center font-bold text-slate-700">
-                          <span>{err.name || "Unknown"}</span>
-                          <span className="font-mono text-slate-500">
-                            {err.phone || "No Phone"}
-                          </span>
-                        </div>
-                        <p className="text-rose-600 mt-1">{err.reason}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="pt-4 flex items-center justify-end border-t border-slate-100">
-                <button
                   type="button"
-                  onClick={() => setImportSummary(null)}
-                  className="btn-primary py-2 px-5 text-[11px] font-bold rounded-xl"
+                  onClick={handleConfirmImport}
+                  disabled={importing || !selectedImportFile}
+                  className="btn-primary py-2 px-4 text-[11px] font-bold disabled:opacity-50"
                 >
-                  Close
+                  {importing ? "Importing..." : "Confirm Import"}
                 </button>
               </div>
             </div>
-          </div>
-        </div>,
-        document.body
-      )}
-
-
-            {/* ===================== CSV IMPORT GUIDELINES MODAL ===================== */}
-      {showImportModal && createPortal(
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-150">
-            
-            {/* Header */}
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-[#EAF2FE] text-[#125EF2]">
-                  <FileSpreadsheet size={18} />
-                </div>
-                <div>
-                  <h2 className="text-base font-bold text-slate-800">Import Contacts</h2>
-                  <p className="text-[11px] text-slate-500 font-medium">
-                    Follow the format below for a successful import
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  if (importing) return;
-                  setShowImportModal(false);
-                  setSelectedImportFile(null);
-                }}
-                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-50 transition"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
-              {loadingGuidelines ? (
-                <div className="py-10 text-center text-sm text-slate-500 font-medium">
-                  Loading guidelines...
-                </div>
-              ) : (
-                <>
-                  {/* Required */}
-                  <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Info size={14} className="text-[#125EF2]" />
-                      <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
-                        Required Columns
-                      </h3>
-                    </div>
-                    <ul className="space-y-1.5 text-xs text-slate-600">
-                      <li>
-                        <span className="font-bold text-slate-800">name</span> — Contact full name
-                        <span className="text-slate-400"> (e.g. Nair)</span>
-                      </li>
-                      <li>
-                        <span className="font-bold text-slate-800">phone</span> — Digits only, with country code
-                        <span className="text-slate-400"> (e.g. 919876543210)</span>
-                      </li>
-                    </ul>
-                  </div>
-
-                  {/* Optional */}
-                  <div className="rounded-2xl border border-slate-100 bg-white p-4">
-                    <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wide mb-2">
-                      Optional Columns
-                    </h3>
-                    <ul className="space-y-1.5 text-xs text-slate-600">
-                      <li><span className="font-semibold">email</span> — valid email</li>
-                      <li><span className="font-semibold">company</span> — company name</li>
-                      <li><span className="font-semibold">countryCode</span> — e.g. +91 (defaults to +91)</li>
-                      <li><span className="font-semibold">tags</span> — comma-separated, must already exist</li>
-                    </ul>
-                  </div>
-
-                  {/* Rules */}
-                  <div className="rounded-2xl border border-amber-100 bg-amber-50/80 p-4">
-                    <h3 className="text-xs font-bold text-amber-900 uppercase tracking-wide mb-2">
-                      Important Rules
-                    </h3>
-                    <ul className="space-y-1.5 text-xs text-amber-900/90 list-disc pl-4">
-                      <li>First row must be headers.</li>
-                      <li>
-                        Recommended headers:{" "}
-                        <span className="font-mono font-semibold">
-                          name,phone,email,company,countryCode,tags
-                        </span>
-                      </li>
-                      <li>
-                        In Excel, set phone column as <strong>Text</strong> before export to avoid{" "}
-                        <span className="font-mono">9.18E+11</span>.
-                      </li>
-                      <li>Phone must not contain letters.</li>
-                      <li>Invalid rows are skipped and shown in the import summary.</li>
-                      <li>Duplicate phone numbers are skipped.</li>
-                    </ul>
-                  </div>
-
-                  {/* Sample download */}
-                  <button
-                    type="button"
-                    onClick={handleDownloadSample}
-                    className="w-full btn-secondary flex items-center justify-center gap-2 text-xs font-semibold py-2.5"
-                  >
-                    <Download size={15} />
-                    Download Sample CSV Template
-                  </button>
-
-                  {/* Upload zone */}
-                  <div
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      setIsDragging(true);
-                    }}
-                    onDragLeave={(e) => {
-                      e.preventDefault();
-                      setIsDragging(false);
-                    }}
-                    onDrop={handleDrop}
-                    className={`rounded-2xl border-2 border-dashed p-6 text-center transition ${
-                      isDragging
-                        ? "border-[#125EF2] bg-[#EAF2FE]/60"
-                        : "border-slate-200 bg-slate-50/40"
-                    }`}
-                  >
-                    <Upload className="mx-auto text-slate-400 mb-2" size={22} />
-                    <p className="text-xs font-semibold text-slate-700">
-                      Drag & drop your .csv file here
-                    </p>
-                    <p className="text-[11px] text-slate-500 mt-1 mb-3">
-                      or browse from your computer (Max 5MB)
-                    </p>
-
-                    <input
-                      id="csv-file-input-modal"
-                      type="file"
-                      accept=".csv,text/csv"
-                      className="hidden"
-                      onChange={handleImportFileInputChange}
-                      disabled={importing}
-                    />
-
-                    <button
-                      type="button"
-                      onClick={openFilePicker}
-                      disabled={importing}
-                      className="btn-primary text-xs py-2 px-4"
-                    >
-                      Browse CSV File
-                    </button>
-
-                    {selectedImportFile && (
-                      <div className="mt-4 inline-flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-3 py-2 text-xs text-slate-700">
-                        <CheckCircle2 size={14} className="text-emerald-500" />
-                        <span className="font-semibold truncate max-w-[220px]">
-                          {selectedImportFile.name}
-                        </span>
-                        <button
-                          type="button"
-                          className="text-slate-400 hover:text-rose-500 ml-1"
-                          onClick={() => setSelectedImportFile(null)}
-                          title="Remove file"
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Footer actions */}
-            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-2 bg-slate-50/40">
-              <button
-                type="button"
-                onClick={() => {
-                  if (importing) return;
-                  setShowImportModal(false);
-                  setSelectedImportFile(null);
-                }}
-                className="btn-secondary py-2 px-3 text-[11px] font-semibold"
-                disabled={importing}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmImport}
-                disabled={importing || !selectedImportFile}
-                className="btn-primary py-2 px-4 text-[11px] font-bold disabled:opacity-50"
-              >
-                {importing ? "Importing..." : "Confirm Import"}
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
-
-
+          </div>,
+          document.body,
+        )}
 
       {/* WhatsApp Connection Required Modal */}
       <WhatsAppRequiredModal
@@ -1578,7 +1774,6 @@ const handleConfirmImport = async () => {
           onClose={() => setShowWhatsAppSetup(false)}
         />
       )}
-
     </div>
   );
 }

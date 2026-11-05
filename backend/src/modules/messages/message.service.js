@@ -1,29 +1,42 @@
 // backend/src/modules/messages/message.service.js (do not remove this comment)
-import prisma from '../../config/prisma.js';
-import { decrypt } from '../../lib/crypto.js';
-import { getOrCreateConversation } from '../conversations/conversation.service.js';
-import { evaluateReopen } from '../auto-reopen/autoReopen.service.js';
-import { logActivity } from '../activity/activity.service.js';
-import { validateMedia, detectMediaType } from '../../lib/utils/media.validator.js';
-import { createNotification } from '../notifications/notification.service.js';
-import flowEngine from '../automation/flowEngine.service.js';
-import { emitToTenant, emitToUser } from '../../lib/socket.js';
-import fs from 'fs';
-import path from 'path';
-import { trackUsage } from '../quick-replies/quickReply.service.js';
-import pushService, { shouldSendPush } from '../../modules/notifications/push.service.js';
+import prisma from "../../config/prisma.js";
+import { decrypt } from "../../lib/crypto.js";
+import { getOrCreateConversation } from "../conversations/conversation.service.js";
+import { evaluateReopen } from "../auto-reopen/autoReopen.service.js";
+import { logActivity } from "../activity/activity.service.js";
+import {
+  validateMedia,
+  detectMediaType,
+} from "../../lib/utils/media.validator.js";
+import { createNotification } from "../notifications/notification.service.js";
+import flowEngine from "../automation/flowEngine.service.js";
+import { emitToTenant, emitToUser } from "../../lib/socket.js";
+import fs from "fs";
+import path from "path";
+import { trackUsage } from "../quick-replies/quickReply.service.js";
+import pushService, {
+  shouldSendPush,
+} from "../../modules/notifications/push.service.js";
 
-const CLOSED_STATUSES = ['RESOLVED', 'CLOSED'];
+const CLOSED_STATUSES = ["RESOLVED", "CLOSED"];
 
 // ─────────────────────────────────────────────────────────────
 // PUSH NOTIFICATION TO ASSIGNED AGENT
 // ─────────────────────────────────────────────────────────────
-const sendPushToAssignedAgent = async (assignedUserId, contact, messageText, conversationId, messageType) => {
+const sendPushToAssignedAgent = async (
+  assignedUserId,
+  contact,
+  messageText,
+  conversationId,
+  messageType,
+) => {
   try {
     console.log(`🔔 sendPushToAssignedAgent: checking user ${assignedUserId}`);
-    const allowed = await shouldSendPush(assignedUserId, 'new_message');
+    const allowed = await shouldSendPush(assignedUserId, "new_message");
     if (!allowed) {
-      console.log(`🔔 sendPushToAssignedAgent: skipped (prefs/token) for ${assignedUserId}`);
+      console.log(
+        `🔔 sendPushToAssignedAgent: skipped (prefs/token) for ${assignedUserId}`,
+      );
       return;
     }
 
@@ -33,29 +46,39 @@ const sendPushToAssignedAgent = async (assignedUserId, contact, messageText, con
     });
 
     if (!agent?.pushToken) {
-      console.log(`🔔 sendPushToAssignedAgent: no pushToken for ${assignedUserId}`);
+      console.log(
+        `🔔 sendPushToAssignedAgent: no pushToken for ${assignedUserId}`,
+      );
       return;
     }
 
-    const previewText = messageText?.substring(0, 200)
-      || (messageType && messageType !== 'TEXT' ? `📷 ${messageType.toLowerCase()} message` : 'New message');
+    const previewText =
+      messageText?.substring(0, 200) ||
+      (messageType && messageType !== "TEXT"
+        ? `📷 ${messageType.toLowerCase()} message`
+        : "New message");
 
-    console.log(`🔔 sendPushToAssignedAgent: sending to ${agent.pushToken.substring(0, 30)}...`);
+    console.log(
+      `🔔 sendPushToAssignedAgent: sending to ${agent.pushToken.substring(0, 30)}...`,
+    );
     const result = await pushService.sendToDevice({
       token: agent.pushToken,
-      title: contact.name || contact.phone || 'New Message',
+      title: contact.name || contact.phone || "New Message",
       body: previewText,
       data: {
-        type: 'new_message',
+        type: "new_message",
         contactId: contact.id,
         conversationId,
-        contactName: contact.name || contact.phone || 'Unknown',
-        channelId: 'messages',
+        contactName: contact.name || contact.phone || "Unknown",
+        channelId: "messages",
       },
     });
-    console.log(`🔔 sendPushToAssignedAgent: result =`, result.success ? '✅ sent' : `❌ ${result.message}`);
+    console.log(
+      `🔔 sendPushToAssignedAgent: result =`,
+      result.success ? "✅ sent" : `❌ ${result.message}`,
+    );
   } catch (err) {
-    console.error('❌ Push to agent failed:', err.message);
+    console.error("❌ Push to agent failed:", err.message);
   }
 };
 
@@ -66,7 +89,7 @@ export const handleIncomingMessage = async ({
   contactId,
   tenantId,
   text,
-  type = 'TEXT',
+  type = "TEXT",
   mediaUrl,
   mediaName,
   mediaSize,
@@ -85,123 +108,129 @@ export const handleIncomingMessage = async ({
     where: { id: contactId },
   });
 
-  if (!contact) throw new Error('Contact not found');
+  if (!contact) throw new Error("Contact not found");
   if (contact.tenantId !== tenantId) {
-    throw new Error('Unauthorized: Contact does not belong to this tenant');
+    throw new Error("Unauthorized: Contact does not belong to this tenant");
   }
   if (contact.isBlocked) {
-    throw new Error('Cannot receive message from a blocked contact');
+    throw new Error("Cannot receive message from a blocked contact");
   }
 
   // ── 2. Get or create conversation ────────────────────────────
-  const contactChannel = channel || contact.channel || 'WHATSAPP';
-  let conversation = await getOrCreateConversation(contactId, tenantId, contactChannel);
+  const contactChannel = channel || contact.channel || "WHATSAPP";
+  let conversation = await getOrCreateConversation(
+    contactId,
+    tenantId,
+    contactChannel,
+  );
 
-  let action = 'message_saved';
+  let action = "message_saved";
   let reason = null;
 
   // ── 3 & 4. Atomic Transaction: Update Conversation + Create Message ──
-  const { updatedConversation, message } = await prisma.$transaction(async (tx) => {
-    let updatedConv;
+  const { updatedConversation, message } = await prisma.$transaction(
+    async (tx) => {
+      let updatedConv;
 
-    if (CLOSED_STATUSES.includes(conversation.status)) {
-      const decision = await evaluateReopen(conversation, text);
+      if (CLOSED_STATUSES.includes(conversation.status)) {
+        const decision = await evaluateReopen(conversation, text);
 
-      if (decision.shouldReopen) {
-        updatedConv = await tx.conversation.update({
-          where: { id: conversation.id },
-          data: {
-            status: 'OPEN',
-            reopenCount: { increment: 1 },
-            reopenedAt: new Date(),
-            resolvedAt: null,
-            closedAt: null,
-            lastMessageAt: new Date(),
-            assignedTo: decision.assignToAgentId,
-            incomingAt: new Date(),
-            unreadCount: { increment: 1 },
-          },
-        });
+        if (decision.shouldReopen) {
+          updatedConv = await tx.conversation.update({
+            where: { id: conversation.id },
+            data: {
+              status: "OPEN",
+              reopenCount: { increment: 1 },
+              reopenedAt: new Date(),
+              resolvedAt: null,
+              closedAt: null,
+              lastMessageAt: new Date(),
+              assignedTo: decision.assignToAgentId,
+              incomingAt: new Date(),
+              unreadCount: { increment: 1 },
+            },
+          });
 
-        await tx.contact.update({
-          where: { id: contact.id },
-          data: {
-            assignedTo: decision.assignToAgentId,
-            assignedAt: decision.assignToAgentId ? new Date() : null,
-          },
-        });
+          await tx.contact.update({
+            where: { id: contact.id },
+            data: {
+              assignedTo: decision.assignToAgentId,
+              assignedAt: decision.assignToAgentId ? new Date() : null,
+            },
+          });
 
-        await tx.conversationActivity.create({
-          data: {
-            conversationId: conversation.id,
-            action: 'auto_reopened',
-            performedByType: 'system',
-            reason: decision.reason,
-          },
-        });
+          await tx.conversationActivity.create({
+            data: {
+              conversationId: conversation.id,
+              action: "auto_reopened",
+              performedByType: "system",
+              reason: decision.reason,
+            },
+          });
 
-        action = 'auto_reopened';
-        reason = decision.reason;
+          action = "auto_reopened";
+          reason = decision.reason;
+        } else {
+          updatedConv = await tx.conversation.update({
+            where: { id: conversation.id },
+            data: {
+              lastMessageAt: new Date(),
+              unreadCount: { increment: 1 },
+            },
+          });
+
+          action = "saved_without_reopen";
+          reason = decision.reason;
+        }
       } else {
         updatedConv = await tx.conversation.update({
           where: { id: conversation.id },
           data: {
             lastMessageAt: new Date(),
+            incomingAt: new Date(),
             unreadCount: { increment: 1 },
           },
         });
 
-        action = 'saved_without_reopen';
-        reason = decision.reason;
+        action = "saved_to_active_conversation";
       }
-    } else {
-      updatedConv = await tx.conversation.update({
-        where: { id: conversation.id },
+
+      const createdMsg = await tx.message.create({
         data: {
-          lastMessageAt: new Date(),
-          incomingAt: new Date(),
-          unreadCount: { increment: 1 },
+          conversationId: conversation.id,
+          senderId: null,
+          senderType: "CONTACT",
+          direction: "INBOUND",
+          type,
+          text: text || caption || null,
+          isRead: false,
+          mediaUrl: mediaUrl || null,
+          mediaName: mediaName || null,
+          mediaSize: mediaSize ? Number(mediaSize) : null,
+          mediaMimeType: mediaMimeType || null,
+          caption: caption || null,
+          locLatitude: locLatitude ? Number(locLatitude) : null,
+          locLongitude: locLongitude ? Number(locLongitude) : null,
+          locName: locName || null,
+          locAddress: locAddress || null,
+          status: "sent",
+          wamid,
         },
       });
 
-      action = 'saved_to_active_conversation';
-    }
-
-    const createdMsg = await tx.message.create({
-      data: {
-        conversationId: conversation.id,
-        senderId: null,
-        senderType: 'CONTACT',
-        direction: 'INBOUND',
-        type,
-        text: text || caption || null,
-        isRead: false,
-        mediaUrl: mediaUrl || null,
-        mediaName: mediaName || null,
-        mediaSize: mediaSize ? Number(mediaSize) : null,
-        mediaMimeType: mediaMimeType || null,
-        caption: caption || null,
-        locLatitude: locLatitude ? Number(locLatitude) : null,
-        locLongitude: locLongitude ? Number(locLongitude) : null,
-        locName: locName || null,
-        locAddress: locAddress || null,
-        status: 'sent',
-        wamid,
-      },
-    });
-
-    return {
-      updatedConversation: updatedConv,
-      message: createdMsg,
-    };
-  });
+      return {
+        updatedConversation: updatedConv,
+        message: createdMsg,
+      };
+    },
+  );
 
   // ── 5. Create notification ────────────────────────────────────
   await createNotification({
     tenantId,
     userId: null,
-    type: 'new_message',
-    title: 'New Message',
+    type: "new_message",
+    title: "New Message",
     message: `New message from ${contact.name || contact.phone}`,
     metadata: {
       conversationId: updatedConversation.id,
@@ -211,7 +240,7 @@ export const handleIncomingMessage = async ({
   });
 
   // ── Emit unread count to tenant room (for admin) ──────────────
-  emitToTenant(tenantId, 'unread_count_update', {
+  emitToTenant(tenantId, "unread_count_update", {
     conversationId: updatedConversation.id,
     unreadCount: updatedConversation.unreadCount,
     contactId: contact.id,
@@ -222,21 +251,21 @@ export const handleIncomingMessage = async ({
   const assignedUserId = contact.assignedTo || updatedConversation.assignedTo;
 
   if (assignedUserId) {
-    emitToUser(assignedUserId, 'unread_count_update', {
+    emitToUser(assignedUserId, "unread_count_update", {
       conversationId: updatedConversation.id,
       unreadCount: updatedConversation.unreadCount,
       contactId: contact.id,
       contactName: contact.name || contact.phone,
     });
 
-        emitToUser(assignedUserId, 'new_message', {
+    emitToUser(assignedUserId, "new_message", {
       conversationId: updatedConversation.id,
       message: {
         id: message.id,
         type: message.type,
         text: message.text,
-        senderType: 'CONTACT',
-        direction: 'INBOUND',
+        senderType: "CONTACT",
+        direction: "INBOUND",
         isFromCustomer: true,
         mediaUrl: message.mediaUrl,
         mediaName: message.mediaName,
@@ -257,9 +286,9 @@ export const handleIncomingMessage = async ({
       contact,
       text || caption,
       updatedConversation.id,
-      type
+      type,
     ).catch((err) => {
-      console.error('❌ Push notification error:', err.message);
+      console.error("❌ Push notification error:", err.message);
     });
   }
 
@@ -273,7 +302,7 @@ export const handleIncomingMessage = async ({
       },
     });
 
-    emitToTenant(tenantId, 'unassigned_contact_update', {
+    emitToTenant(tenantId, "unassigned_contact_update", {
       unassignedCount,
       isNew: isNewContact,
       contact: {
@@ -285,11 +314,11 @@ export const handleIncomingMessage = async ({
     });
 
     if (isNewContact) {
-      emitToTenant(tenantId, 'new_notification', {
+      emitToTenant(tenantId, "new_notification", {
         notification: {
           id: `unassigned_${contact.id}_${Date.now()}`,
-          type: 'contact_waiting_assignment',
-          title: '👤 New contact needs assignment',
+          type: "contact_waiting_assignment",
+          title: "👤 New contact needs assignment",
           message: `${contact.name} is waiting to be assigned to an agent`,
           isRead: false,
           createdAt: new Date(),
@@ -305,31 +334,37 @@ export const handleIncomingMessage = async ({
     // ── Push to ALL tenant agents for unassigned messages ──
     prisma.user
       .findMany({
-        where: { tenantId, userType: 'USER' },
+        where: { tenantId, userType: "USER" },
         select: { id: true },
       })
       .then((agents) => {
-        console.log(`🔔 Unassigned message — pushing to ${agents.length} agent(s)`);
+        console.log(
+          `🔔 Unassigned message — pushing to ${agents.length} agent(s)`,
+        );
         agents.forEach((agent) => {
           sendPushToAssignedAgent(
             agent.id,
             contact,
             text || caption,
             updatedConversation.id,
-            type
-          ).catch((err) => console.error('❌ Push to unassigned agent failed:', err.message));
+            type,
+          ).catch((err) =>
+            console.error("❌ Push to unassigned agent failed:", err.message),
+          );
         });
       })
-      .catch((err) => console.error('❌ Failed to fetch agents for push:', err.message));
+      .catch((err) =>
+        console.error("❌ Failed to fetch agents for push:", err.message),
+      );
   }
 
   // ── Trigger flow engine (text or location) ───────────────────
-  if ((text || type === 'LOCATION') && type !== 'ORDER') {
+  if ((text || type === "LOCATION") && type !== "ORDER") {
     flowEngine
       .processIncomingMessage(
         updatedConversation,
         contact,
-        text || 'LOCATION_RECEIVED',
+        text || "LOCATION_RECEIVED",
         isNewContact,
         {
           locLatitude,
@@ -337,10 +372,10 @@ export const handleIncomingMessage = async ({
           locName,
           locAddress,
           messageType: type,
-        }
+        },
       )
       .catch((err) => {
-        console.error('❌ Flow Engine error:', err);
+        console.error("❌ Flow Engine error:", err);
       });
   }
 
@@ -352,7 +387,7 @@ export const handleIncomingMessage = async ({
   };
 };
 
-import { GRAPH_BASE_URL } from '../../config/meta.js';
+import { GRAPH_BASE_URL } from "../../config/meta.js";
 
 // ─────────────────────────────────────────────────────────────
 // SHARED META SENDER (Messenger & Instagram)
@@ -365,15 +400,19 @@ export const sendMetaMessage = async ({
   channel,
 }) => {
   if (!tenant?.facebookPageAccessToken) {
-    throw new Error('Facebook/Instagram Page Access Token not configured for tenant');
+    throw new Error(
+      "Facebook/Instagram Page Access Token not configured for tenant",
+    );
   }
 
   const token = decrypt(tenant.facebookPageAccessToken);
 
   // Enforce Instagram 1000-byte limit
-  if (channel === 'INSTAGRAM' && typeof messagePayload === 'string') {
-    if (Buffer.byteLength(messagePayload, 'utf8') > 1000) {
-      throw new Error('Instagram messages are limited to 1,000 bytes. Please shorten your message.');
+  if (channel === "INSTAGRAM" && typeof messagePayload === "string") {
+    if (Buffer.byteLength(messagePayload, "utf8") > 1000) {
+      throw new Error(
+        "Instagram messages are limited to 1,000 bytes. Please shorten your message.",
+      );
     }
   }
 
@@ -381,27 +420,33 @@ export const sendMetaMessage = async ({
   let isOutside24h = false;
   if (conversationId) {
     const lastInbound = await prisma.message.findFirst({
-      where: { conversationId, direction: 'INBOUND' },
-      orderBy: { createdAt: 'desc' },
-      select: { createdAt: true }
+      where: { conversationId, direction: "INBOUND" },
+      orderBy: { createdAt: "desc" },
+      select: { createdAt: true },
     });
-    isOutside24h = lastInbound ? (Date.now() - new Date(lastInbound.createdAt).getTime() > 24 * 60 * 60 * 1000) : false;
+    isOutside24h = lastInbound
+      ? Date.now() - new Date(lastInbound.createdAt).getTime() >
+        24 * 60 * 60 * 1000
+      : false;
   }
 
   const payload = {
     recipient: { id: channelId },
-    message: typeof messagePayload === 'string' ? { text: messagePayload } : messagePayload,
-    messaging_type: 'RESPONSE',
-    ...(isOutside24h ? { tag: 'HUMAN_AGENT' } : {})
+    message:
+      typeof messagePayload === "string"
+        ? { text: messagePayload }
+        : messagePayload,
+    messaging_type: "RESPONSE",
+    ...(isOutside24h ? { tag: "HUMAN_AGENT" } : {}),
   };
 
   const response = await fetch(`${GRAPH_BASE_URL}/me/messages`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(payload),
   });
 
   const data = await response.json();
@@ -413,30 +458,39 @@ export const sendMetaMessage = async ({
     if (errorCode === 190 || response.status === 401) {
       await prisma.tenantSocial.update({
         where: { tenantId: tenant.id },
-        data: { facebookPageAccessToken: null }
+        data: { facebookPageAccessToken: null },
       });
-      emitToTenant(tenant.id, 'channel_error', {
+      emitToTenant(tenant.id, "channel_error", {
         channel,
-        error: 'Page Access Token has expired. Please reconnect in Settings.'
+        error: "Page Access Token has expired. Please reconnect in Settings.",
       });
-      throw new Error('Page Access Token expired (code 190). Please reconnect in Settings.');    }
+      throw new Error(
+        "Page Access Token expired (code 190). Please reconnect in Settings.",
+      );
+    }
 
     // 2. HUMAN_AGENT tag rejected if permission not yet approved by Meta App Review
     if (errorCode === 10) {
-      throw new Error('24-hour messaging window expired. The HUMAN_AGENT tag requires Meta App Review approval.');
+      throw new Error(
+        "24-hour messaging window expired. The HUMAN_AGENT tag requires Meta App Review approval.",
+      );
     }
 
     // 3. Messaging window closed (no tag available or expired beyond 7 days)
     if (errorCode === 1545041) {
-      throw new Error('Messaging window closed. Cannot send message outside window.');
+      throw new Error(
+        "Messaging window closed. Cannot send message outside window.",
+      );
     }
 
     // 4. Recipient unavailable (blocked or deactivated)
     if (errorCode === 551) {
-      throw new Error('Recipient is unavailable (account blocked or deactivated).');
+      throw new Error(
+        "Recipient is unavailable (account blocked or deactivated).",
+      );
     }
 
-    throw new Error(data.error?.message || 'Failed to send Meta message');
+    throw new Error(data.error?.message || "Failed to send Meta message");
   }
 
   return { messageId: data.message_id || data.recipient_id };
@@ -454,7 +508,9 @@ export const sendMetaMediaMessage = async ({
   channel,
 }) => {
   if (!tenant?.facebookPageAccessToken) {
-    throw new Error('Facebook/Instagram Page Access Token not configured for tenant');
+    throw new Error(
+      "Facebook/Instagram Page Access Token not configured for tenant",
+    );
   }
 
   const token = decrypt(tenant.facebookPageAccessToken);
@@ -463,32 +519,42 @@ export const sendMetaMediaMessage = async ({
   let isOutside24h = false;
   if (conversationId) {
     const lastInbound = await prisma.message.findFirst({
-      where: { conversationId, direction: 'INBOUND' },
-      orderBy: { createdAt: 'desc' },
-      select: { createdAt: true }
+      where: { conversationId, direction: "INBOUND" },
+      orderBy: { createdAt: "desc" },
+      select: { createdAt: true },
     });
-    isOutside24h = lastInbound ? (Date.now() - new Date(lastInbound.createdAt).getTime() > 24 * 60 * 60 * 1000) : false;
+    isOutside24h = lastInbound
+      ? Date.now() - new Date(lastInbound.createdAt).getTime() >
+        24 * 60 * 60 * 1000
+      : false;
   }
 
   const metaAttachmentType =
-    mediaType === 'IMAGE' ? 'image' :
-    mediaType === 'VIDEO' ? 'video' :
-    mediaType === 'AUDIO' ? 'audio' : 'file';
+    mediaType === "IMAGE"
+      ? "image"
+      : mediaType === "VIDEO"
+        ? "video"
+        : mediaType === "AUDIO"
+          ? "audio"
+          : "file";
 
   const formData = new FormData();
-  formData.append('recipient', JSON.stringify({ id: channelId }));
-  formData.append('message', JSON.stringify({
-    attachment: {
-      type: metaAttachmentType,
-      payload: { is_reusable: true }
-    }
-  }));
+  formData.append("recipient", JSON.stringify({ id: channelId }));
+  formData.append(
+    "message",
+    JSON.stringify({
+      attachment: {
+        type: metaAttachmentType,
+        payload: { is_reusable: true },
+      },
+    }),
+  );
 
   if (isOutside24h) {
-    formData.append('messaging_type', 'MESSAGE_TAG');
-    formData.append('tag', 'HUMAN_AGENT');
+    formData.append("messaging_type", "MESSAGE_TAG");
+    formData.append("tag", "HUMAN_AGENT");
   } else {
-    formData.append('messaging_type', 'RESPONSE');
+    formData.append("messaging_type", "RESPONSE");
   }
 
   const resolvedFilePath = path.isAbsolute(file.path)
@@ -496,14 +562,14 @@ export const sendMetaMediaMessage = async ({
     : path.resolve(process.cwd(), file.path);
   const fileBuffer = await fs.promises.readFile(resolvedFilePath);
   const blob = new Blob([fileBuffer], { type: file.mimetype });
-  formData.append('filedata', blob, file.originalname || 'attachment');
+  formData.append("filedata", blob, file.originalname || "attachment");
 
   const response = await fetch(`${GRAPH_BASE_URL}/me/messages`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      Authorization: `Bearer ${token}`
+      Authorization: `Bearer ${token}`,
     },
-    body: formData
+    body: formData,
   });
 
   const data = await response.json();
@@ -515,33 +581,44 @@ export const sendMetaMediaMessage = async ({
     if (errorCode === 190 || response.status === 401) {
       await prisma.tenantSocial.update({
         where: { tenantId: tenant.id },
-        data: { facebookPageAccessToken: null }
+        data: { facebookPageAccessToken: null },
       });
-      emitToTenant(tenant.id, 'channel_error', {
+      emitToTenant(tenant.id, "channel_error", {
         channel,
-        error: 'Page Access Token has expired. Please reconnect in Settings.'
+        error: "Page Access Token has expired. Please reconnect in Settings.",
       });
-      throw new Error('Page Access Token expired (code 190). Please reconnect in Settings.');    }
+      throw new Error(
+        "Page Access Token expired (code 190). Please reconnect in Settings.",
+      );
+    }
 
     // 2. HUMAN_AGENT tag rejected if permission not yet approved by Meta App Review
     if (errorCode === 10) {
-      throw new Error('24-hour messaging window expired. The HUMAN_AGENT tag requires Meta App Review approval.');
+      throw new Error(
+        "24-hour messaging window expired. The HUMAN_AGENT tag requires Meta App Review approval.",
+      );
     }
 
     // 3. Messaging window closed (no tag available or expired beyond 7 days)
     if (errorCode === 1545041) {
-      throw new Error('Messaging window closed. Cannot send message outside window.');
+      throw new Error(
+        "Messaging window closed. Cannot send message outside window.",
+      );
     }
 
     // 4. Recipient unavailable (blocked or deactivated)
     if (errorCode === 551) {
-      throw new Error('Recipient is unavailable (account blocked or deactivated).');
+      throw new Error(
+        "Recipient is unavailable (account blocked or deactivated).",
+      );
     }
 
-    throw new Error(data.error?.message || 'Failed to send Meta media message');
+    throw new Error(data.error?.message || "Failed to send Meta media message");
   }
 
-  return { messageId: data.message_id || data.attachment_id || data.recipient_id };
+  return {
+    messageId: data.message_id || data.attachment_id || data.recipient_id,
+  };
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -559,12 +636,12 @@ export const sendMessageService = async ({
     where: { id: contactId },
   });
 
-  if (!contact) throw new Error('Contact not found');
+  if (!contact) throw new Error("Contact not found");
   if (contact.tenantId !== tenantId) {
-    throw new Error('Unauthorized: Contact does not belong to this tenant');
+    throw new Error("Unauthorized: Contact does not belong to this tenant");
   }
   if (contact.isBlocked) {
-    throw new Error('Cannot send message to a blocked contact');
+    throw new Error("Cannot send message to a blocked contact");
   }
 
   const tenant = await prisma.tenant.findUnique({
@@ -574,15 +651,22 @@ export const sendMessageService = async ({
   Object.assign(tenant, tenant?.whatsapp, tenant?.social);
 
   // ── 2. Get or create conversation early for channel context ──
-  const conversation = await getOrCreateConversation(contactId, tenantId, contact.channel || 'WHATSAPP');
+  const conversation = await getOrCreateConversation(
+    contactId,
+    tenantId,
+    contact.channel || "WHATSAPP",
+  );
 
   let waMessageId = null;
-  let msgStatus = 'sent';
+  let msgStatus = "sent";
   let failureCode = null;
   let failureReason = null;
 
   // ── 3. Branch by Channel: MESSENGER / INSTAGRAM vs WHATSAPP ──
-  if (conversation.channel === 'MESSENGER' || conversation.channel === 'INSTAGRAM') {
+  if (
+    conversation.channel === "MESSENGER" ||
+    conversation.channel === "INSTAGRAM"
+  ) {
     try {
       const metaRes = await sendMetaMessage({
         tenant,
@@ -592,31 +676,34 @@ export const sendMessageService = async ({
         channel: conversation.channel,
       });
       waMessageId = metaRes.messageId;
-      msgStatus = 'sent';
+      msgStatus = "sent";
     } catch (metaErr) {
-      console.error(`⚠️ Meta ${conversation.channel} send failed:`, metaErr.message);
-      msgStatus = 'failed';
+      console.error(
+        `⚠️ Meta ${conversation.channel} send failed:`,
+        metaErr.message,
+      );
+      msgStatus = "failed";
       failureReason = metaErr.message;
     }
-  } else if (process.env.MOCK_WHATSAPP === 'true') {
+  } else if (process.env.MOCK_WHATSAPP === "true") {
     waMessageId = `mock_wamid_${Date.now()}`;
-    msgStatus = 'sent';
+    msgStatus = "sent";
   } else if (tenant?.whatsappPhoneId && tenant?.whatsappAccessToken) {
     try {
-      const cleanPhone = (contact.phone || '').replace('+', '');
+      const cleanPhone = (contact.phone || "").replace("+", "");
       const url = `${GRAPH_BASE_URL}/${tenant.whatsappPhoneId}/messages`;
 
       const response = await fetch(url, {
-        method: 'POST',
+        method: "POST",
         headers: {
           Authorization: `Bearer ${decrypt(tenant.whatsappAccessToken)}`,
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          messaging_product: 'whatsapp',
-          recipient_type: 'individual',
+          messaging_product: "whatsapp",
+          recipient_type: "individual",
           to: cleanPhone,
-          type: 'text',
+          type: "text",
           text: { body: text },
         }),
       });
@@ -624,29 +711,32 @@ export const sendMessageService = async ({
       const responseData = await response.json();
 
       if (!response.ok) {
-        console.error('⚠️ WhatsApp API Error:', responseData);
-        msgStatus = 'failed';
+        console.error("⚠️ WhatsApp API Error:", responseData);
+        msgStatus = "failed";
         failureCode = responseData?.error?.code || null;
-        failureReason = responseData?.error?.message || 'Meta API Error';
+        failureReason = responseData?.error?.message || "Meta API Error";
       } else {
         waMessageId = responseData?.messages?.[0]?.id || null;
 
         if (!waMessageId) {
-          msgStatus = 'failed';
-          failureReason = 'Meta accepted the request but returned no WAMID';
-          console.error('WhatsApp API response did not include a WAMID:', responseData);
+          msgStatus = "failed";
+          failureReason = "Meta accepted the request but returned no WAMID";
+          console.error(
+            "WhatsApp API response did not include a WAMID:",
+            responseData,
+          );
         } else {
-          console.log('✅ WhatsApp message sent, wamid:', waMessageId);
+          console.log("✅ WhatsApp message sent, wamid:", waMessageId);
         }
       }
     } catch (waError) {
-      console.error('⚠️ WhatsApp send failed:', waError.message);
-      msgStatus = 'failed';
+      console.error("⚠️ WhatsApp send failed:", waError.message);
+      msgStatus = "failed";
       failureReason = waError.message;
     }
   } else {
-    msgStatus = 'failed';
-    failureReason = 'WhatsApp credentials not configured for tenant';
+    msgStatus = "failed";
+    failureReason = "WhatsApp credentials not configured for tenant";
   }
 
   const isClosed = CLOSED_STATUSES.includes(conversation.status);
@@ -655,7 +745,7 @@ export const sendMessageService = async ({
     await prisma.conversation.update({
       where: { id: conversation.id },
       data: {
-        status: 'OPEN',
+        status: "OPEN",
         reopenCount: { increment: 1 },
         reopenedAt: new Date(),
         resolvedAt: null,
@@ -666,9 +756,9 @@ export const sendMessageService = async ({
 
     await logActivity({
       conversationId: conversation.id,
-      action: 'opened',
+      action: "opened",
       performedBy: senderId || null,
-      performedByType: senderType === 'TENANT' ? 'tenant' : 'agent',
+      performedByType: senderType === "TENANT" ? "tenant" : "agent",
     });
   } else {
     await prisma.conversation.update({
@@ -683,8 +773,8 @@ export const sendMessageService = async ({
       conversationId: conversation.id,
       senderId,
       senderType,
-      direction: 'OUTBOUND',
-      type: 'TEXT',
+      direction: "OUTBOUND",
+      type: "TEXT",
       text,
       status: msgStatus,
       isRead: false,
@@ -696,11 +786,12 @@ export const sendMessageService = async ({
 
   // ── Phase 4: Log outbound message as Zoho Note ──
   try {
-    const { logMessageAsZohoNote } = await import('../zoho/crm/zoho.note.service.js');
+    const { logMessageAsZohoNote } =
+      await import("../zoho/crm/zoho.note.service.js");
     logMessageAsZohoNote(tenantId, contactId, {
-      direction: 'OUTBOUND',
+      direction: "OUTBOUND",
       senderType,
-      type: 'TEXT',
+      type: "TEXT",
       text,
       createdAt: new Date(),
     }).catch(() => {});
@@ -725,14 +816,14 @@ export const sendMediaMessageService = async ({
 
   if (!mediaType) {
     if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
-    throw new Error('Unsupported file type');
+    throw new Error("Unsupported file type");
   }
 
   const validation = validateMedia(
     file.originalname,
     file.mimetype,
     file.size,
-    mediaType
+    mediaType,
   );
 
   if (!validation.valid) {
@@ -747,17 +838,17 @@ export const sendMediaMessageService = async ({
 
   if (!contact) {
     if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
-    throw new Error('Contact not found');
+    throw new Error("Contact not found");
   }
 
   if (contact.tenantId !== tenantId) {
     if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
-    throw new Error('Unauthorized: Contact does not belong to this tenant');
+    throw new Error("Unauthorized: Contact does not belong to this tenant");
   }
 
   if (contact.isBlocked) {
     if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
-    throw new Error('Cannot send to blocked contact');
+    throw new Error("Cannot send to blocked contact");
   }
 
   // ── Verify Conversation & Tenant Security ─────────────────────
@@ -771,7 +862,7 @@ export const sendMediaMessageService = async ({
     conversation.contactId !== contactId
   ) {
     if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
-    throw new Error('Conversation not found or unauthorized');
+    throw new Error("Conversation not found or unauthorized");
   }
 
   const tenant = await prisma.tenant.findUnique({
@@ -781,11 +872,14 @@ export const sendMediaMessageService = async ({
   Object.assign(tenant, tenant?.whatsapp, tenant?.social);
 
   let waMessageId = null;
-  let msgStatus = 'sent';
+  let msgStatus = "sent";
   let failureReason = null;
 
   // ── Branch by Channel: MESSENGER / INSTAGRAM vs WHATSAPP ────
-  if (conversation.channel === 'MESSENGER' || conversation.channel === 'INSTAGRAM') {
+  if (
+    conversation.channel === "MESSENGER" ||
+    conversation.channel === "INSTAGRAM"
+  ) {
     try {
       const metaRes = await sendMetaMediaMessage({
         tenant,
@@ -797,7 +891,7 @@ export const sendMediaMessageService = async ({
       });
 
       waMessageId = metaRes.messageId;
-      msgStatus = 'sent';
+      msgStatus = "sent";
 
       // Meta Graph API does not support text and attachment in the same message.
       // If a caption is provided, send it as an immediate follow-up text message.
@@ -811,17 +905,23 @@ export const sendMediaMessageService = async ({
             channel: conversation.channel,
           });
         } catch (captionErr) {
-          console.error(`⚠️ Failed to send caption follow-up for Meta ${conversation.channel}:`, captionErr.message);
+          console.error(
+            `⚠️ Failed to send caption follow-up for Meta ${conversation.channel}:`,
+            captionErr.message,
+          );
         }
       }
     } catch (metaErr) {
-      console.error(`⚠️ Meta ${conversation.channel} media send failed:`, metaErr.message);
-      msgStatus = 'failed';
+      console.error(
+        `⚠️ Meta ${conversation.channel} media send failed:`,
+        metaErr.message,
+      );
+      msgStatus = "failed";
       failureReason = metaErr.message;
     }
-  } else if (process.env.MOCK_WHATSAPP === 'true') {
+  } else if (process.env.MOCK_WHATSAPP === "true") {
     waMessageId = `mock_wamid_${Date.now()}`;
-    msgStatus = 'sent';
+    msgStatus = "sent";
   } else if (tenant?.whatsappPhoneId && tenant?.whatsappAccessToken) {
     try {
       const result = await sendWhatsAppMedia({
@@ -835,27 +935,28 @@ export const sendMediaMessageService = async ({
       waMessageId = result?.messages?.[0]?.id || null;
 
       if (!waMessageId) {
-        msgStatus = 'failed';
-        failureReason = 'Meta accepted the request but returned no WAMID';
-        console.error('WhatsApp API response did not include a WAMID:', result);
+        msgStatus = "failed";
+        failureReason = "Meta accepted the request but returned no WAMID";
+        console.error("WhatsApp API response did not include a WAMID:", result);
       }
     } catch (waError) {
-      console.error('⚠️ WhatsApp API media send failed:', waError.message);
-      msgStatus = 'failed';
+      console.error("⚠️ WhatsApp API media send failed:", waError.message);
+      msgStatus = "failed";
       failureReason = waError.message;
     }
   } else {
-    msgStatus = 'failed';
-    failureReason = 'WhatsApp credentials not configured for tenant';
+    msgStatus = "failed";
+    failureReason = "WhatsApp credentials not configured for tenant";
   }
 
-  const normalizedPath = file.path.replace(/\\/g, '/');
-  const uploadsIdx = normalizedPath.indexOf('uploads/');
-  const mediaUrl = uploadsIdx !== -1 ? normalizedPath.substring(uploadsIdx) : normalizedPath;
+  const normalizedPath = file.path.replace(/\\/g, "/");
+  const uploadsIdx = normalizedPath.indexOf("uploads/");
+  const mediaUrl =
+    uploadsIdx !== -1 ? normalizedPath.substring(uploadsIdx) : normalizedPath;
 
-  if (!mediaUrl.startsWith('uploads/') || mediaUrl.includes('undefined')) {
+  if (!mediaUrl.startsWith("uploads/") || mediaUrl.includes("undefined")) {
     if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
-    throw new Error('Invalid file path generated');
+    throw new Error("Invalid file path generated");
   }
 
   const message = await prisma.message.create({
@@ -863,7 +964,7 @@ export const sendMediaMessageService = async ({
       conversationId,
       senderId,
       senderType,
-      direction: 'OUTBOUND',
+      direction: "OUTBOUND",
       type: mediaType,
       text: caption || null,
       caption: caption || null,
@@ -896,35 +997,35 @@ const sendWhatsAppMedia = async ({
 }) => {
   const accessToken = decrypt(tenant.whatsappAccessToken);
   const phoneId = tenant.whatsappPhoneId;
-  const cleanPhone = contactPhone.replace('+', '');
+  const cleanPhone = contactPhone.replace("+", "");
 
   const resolvedFilePath = path.isAbsolute(file.path)
     ? file.path
     : path.resolve(process.cwd(), file.path);
   const fileBuffer = fs.readFileSync(resolvedFilePath);
 
-  let uploadMimeType = file.mimetype || 'application/octet-stream';
+  let uploadMimeType = file.mimetype || "application/octet-stream";
 
   const metaAllowedTypes = [
-    'audio/aac',
-    'audio/mp4',
-    'audio/mpeg',
-    'audio/amr',
-    'audio/ogg',
-    'audio/opus',
-    'image/jpeg',
-    'image/png',
-    'image/webp',
-    'video/mp4',
-    'video/3gpp',
-    'application/pdf',
-    'text/plain',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'application/vnd.ms-excel',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'application/vnd.ms-powerpoint',
-    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    "audio/aac",
+    "audio/mp4",
+    "audio/mpeg",
+    "audio/amr",
+    "audio/ogg",
+    "audio/opus",
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "video/mp4",
+    "video/3gpp",
+    "application/pdf",
+    "text/plain",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-powerpoint",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   ];
 
   if (!metaAllowedTypes.includes(uploadMimeType)) {
@@ -934,78 +1035,80 @@ const sendWhatsAppMedia = async ({
   const blob = new Blob([fileBuffer], { type: uploadMimeType });
   const formData = new globalThis.FormData();
 
-  formData.append('file', blob, file.originalname);
-  formData.append('messaging_product', 'whatsapp');
+  formData.append("file", blob, file.originalname);
+  formData.append("messaging_product", "whatsapp");
 
   const uploadRes = await fetch(
     `https://graph.facebook.com/v18.0/${phoneId}/media`,
     {
-      method: 'POST',
+      method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
       body: formData,
-    }
+    },
   );
 
   if (!uploadRes.ok) {
     const err = await uploadRes.json();
-    throw new Error(`Media upload failed: ${err.error?.message || JSON.stringify(err)}`);
+    throw new Error(
+      `Media upload failed: ${err.error?.message || JSON.stringify(err)}`,
+    );
   }
 
   const { id: mediaId } = await uploadRes.json();
 
   const typeMap = {
-    IMAGE: 'image',
-    VIDEO: 'video',
-    AUDIO: 'audio',
-    FILE: 'document',
+    IMAGE: "image",
+    VIDEO: "video",
+    AUDIO: "audio",
+    FILE: "document",
   };
 
-  let waType = typeMap[mediaType] || 'document';
+  let waType = typeMap[mediaType] || "document";
 
   const supportedAudioMimeTypes = [
-    'audio/aac',
-    'audio/mp4',
-    'audio/mpeg',
-    'audio/amr',
-    'audio/ogg',
+    "audio/aac",
+    "audio/mp4",
+    "audio/mpeg",
+    "audio/amr",
+    "audio/ogg",
   ];
 
   if (
-    waType === 'audio' &&
+    waType === "audio" &&
     file.mimetype &&
     !supportedAudioMimeTypes.some((mime) => file.mimetype.includes(mime))
   ) {
-    waType = 'document';
+    waType = "document";
   }
 
   const mediaPayload = { id: mediaId };
 
-  if (waType === 'document' && file.originalname) {
+  if (waType === "document" && file.originalname) {
     mediaPayload.filename = file.originalname;
   }
 
-  if (['image', 'video', 'document'].includes(waType) && caption) {
+  if (["image", "video", "document"].includes(waType) && caption) {
     mediaPayload.caption = caption;
   }
 
   const sendRes = await fetch(
     `https://graph.facebook.com/v18.0/${phoneId}/messages`,
     {
-      method: 'POST',
+      method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        messaging_product: 'whatsapp',
-        recipient_type: 'individual',
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
         to: cleanPhone,
         type: waType,
         [waType]: mediaPayload,
       }),
-    }
+    },
   );
 
   if (!sendRes.ok) {
@@ -1030,29 +1133,33 @@ export const deleteMessageService = async ({
     include: { conversation: true },
   });
 
-  if (!message) throw new Error('Message not found');
-  if (message.isDeleted) throw new Error('Message already deleted');
+  if (!message) throw new Error("Message not found");
+  if (message.isDeleted) throw new Error("Message already deleted");
 
   const messageTenantId = message.conversation.tenantId;
 
-  if (requesterRole === 'TENANT') {
+  if (requesterRole === "TENANT") {
     if (messageTenantId !== tenantId) {
-      throw new Error('Unauthorized: This message does not belong to your tenant');
+      throw new Error(
+        "Unauthorized: This message does not belong to your tenant",
+      );
     }
-  } else if (requesterRole === 'USER') {
+  } else if (requesterRole === "USER") {
     if (messageTenantId !== tenantId) {
-      throw new Error('Unauthorized: This message does not belong to your tenant');
+      throw new Error(
+        "Unauthorized: This message does not belong to your tenant",
+      );
     }
 
-    if (message.senderType === 'CONTACT') {
+    if (message.senderType === "CONTACT") {
       throw new Error("Unauthorized: You cannot delete a contact's message");
     }
 
     if (message.senderId !== requesterId) {
-      throw new Error('Unauthorized: You can only delete your own messages');
+      throw new Error("Unauthorized: You can only delete your own messages");
     }
   } else {
-    throw new Error('Unauthorized: Unknown role');
+    throw new Error("Unauthorized: Unknown role");
   }
 
   const deletedMessage = await prisma.message.update({
@@ -1088,7 +1195,7 @@ export const markConversationAsReadService = async ({
   });
 
   if (!conversation) {
-    throw new Error('Conversation not found');
+    throw new Error("Conversation not found");
   }
 
   await prisma.conversation.update({
@@ -1099,7 +1206,7 @@ export const markConversationAsReadService = async ({
   const unreadMessages = await prisma.message.findMany({
     where: {
       conversationId,
-      direction: 'INBOUND',
+      direction: "INBOUND",
       isRead: false,
       wamid: { not: null },
     },
@@ -1126,7 +1233,7 @@ export const markConversationAsReadService = async ({
   Object.assign(tenant, tenant?.whatsapp);
 
   if (
-    process.env.MOCK_WHATSAPP !== 'true' &&
+    process.env.MOCK_WHATSAPP !== "true" &&
     tenant?.whatsappPhoneId &&
     tenant?.whatsappAccessToken
   ) {
@@ -1138,37 +1245,37 @@ export const markConversationAsReadService = async ({
           const response = await fetch(
             `https://graph.facebook.com/v18.0/${tenant.whatsappPhoneId}/messages`,
             {
-              method: 'POST',
+              method: "POST",
               headers: {
                 Authorization: `Bearer ${accessToken}`,
-                'Content-Type': 'application/json',
+                "Content-Type": "application/json",
               },
               body: JSON.stringify({
-                messaging_product: 'whatsapp',
-                status: 'read',
+                messaging_product: "whatsapp",
+                status: "read",
                 message_id: msg.wamid,
               }),
-            }
+            },
           );
 
           if (!response.ok) {
             const errorData = await response.json();
             console.warn(
               `⚠️ Meta rejected read receipt for WAMID ${msg.wamid}:`,
-              errorData
+              errorData,
             );
           }
         } catch (error) {
           console.error(
             `⚠️ Meta read receipt failed for WAMID ${msg.wamid}:`,
-            error.message
+            error.message,
           );
         }
-      })
+      }),
     );
   }
 
-  emitToTenant(tenantId, 'unread_count_update', {
+  emitToTenant(tenantId, "unread_count_update", {
     conversationId,
     unreadCount: 0,
   });
@@ -1196,7 +1303,7 @@ export const sendQuickReplyMessageService = async ({
   });
 
   if (!quickReply) {
-    throw new Error('Quick reply not found or inactive');
+    throw new Error("Quick reply not found or inactive");
   }
 
   const messageText = text?.trim() ? text : quickReply.content;
@@ -1205,7 +1312,7 @@ export const sendQuickReplyMessageService = async ({
   if (quickReply.mediaUrl && !detachMedia) {
     const filePath = path.resolve(process.cwd(), quickReply.mediaUrl);
     if (!fs.existsSync(filePath)) {
-      throw new Error('Attached media file not found on server');
+      throw new Error("Attached media file not found on server");
     }
 
     let fileSize = quickReply.mediaSize;
@@ -1220,32 +1327,40 @@ export const sendQuickReplyMessageService = async ({
 
     // Copy to contact outbound folder to preserve independent chat history
     const relativeOutboundDir = path.join(
-      'uploads',
-      'tenants',
+      "uploads",
+      "tenants",
       tenantId,
-      'contacts',
+      "contacts",
       contactId,
-      'outbound'
+      "outbound",
     );
     const absoluteOutboundDir = path.join(process.cwd(), relativeOutboundDir);
     await fs.promises.mkdir(absoluteOutboundDir, { recursive: true });
 
-    const ext = path.extname(quickReply.mediaUrl) || '';
+    const ext = path.extname(quickReply.mediaUrl) || "";
     const uniqueName = `${Date.now()}_qr_${path.basename(quickReply.mediaUrl)}`;
     const destinationPath = path.join(absoluteOutboundDir, uniqueName);
-    const relativeDest = path.join(relativeOutboundDir, uniqueName).replace(/\\/g, '/');
+    const relativeDest = path
+      .join(relativeOutboundDir, uniqueName)
+      .replace(/\\/g, "/");
     await fs.promises.copyFile(filePath, destinationPath);
 
     const fileDescriptor = {
       path: relativeDest,
-      mimetype: quickReply.mediaMimeType || 'application/octet-stream',
+      mimetype: quickReply.mediaMimeType || "application/octet-stream",
       originalname: quickReply.mediaName || path.basename(filePath),
       size: fileSize,
     };
 
-    const contact = await prisma.contact.findUnique({ where: { id: contactId } });
-    if (!contact) throw new Error('Contact not found');
-    const conversation = await getOrCreateConversation(contactId, tenantId, contact.channel || 'WHATSAPP');
+    const contact = await prisma.contact.findUnique({
+      where: { id: contactId },
+    });
+    if (!contact) throw new Error("Contact not found");
+    const conversation = await getOrCreateConversation(
+      contactId,
+      tenantId,
+      contact.channel || "WHATSAPP",
+    );
 
     const result = await sendMediaMessageService({
       contactId,
@@ -1294,21 +1409,21 @@ export const sendTemplateMessageService = async ({
     where: { id: contactId },
   });
 
-  if (!contact) throw new Error('Contact not found');
+  if (!contact) throw new Error("Contact not found");
   if (contact.tenantId !== tenantId) {
-    throw new Error('Unauthorized: Contact does not belong to this tenant');
+    throw new Error("Unauthorized: Contact does not belong to this tenant");
   }
   if (contact.isBlocked) {
-    throw new Error('Cannot send message to a blocked contact');
+    throw new Error("Cannot send message to a blocked contact");
   }
 
   // ── 2. Load approved template ──────────────────────────────
   const template = await prisma.template.findFirst({
-    where: { id: templateId, tenantId, status: 'APPROVED' },
+    where: { id: templateId, tenantId, status: "APPROVED" },
   });
 
   if (!template) {
-    throw new Error('Template not found or not approved');
+    throw new Error("Template not found or not approved");
   }
 
   // ── 3. Load tenant credentials ─────────────────────────────
@@ -1322,46 +1437,46 @@ export const sendTemplateMessageService = async ({
   const conversation = await getOrCreateConversation(
     contactId,
     tenantId,
-    contact.channel || 'WHATSAPP'
+    contact.channel || "WHATSAPP",
   );
 
   let waMessageId = null;
-  let msgStatus = 'sent';
+  let msgStatus = "sent";
   let failureReason = null;
 
   // ── 5. Send via Meta Cloud API ─────────────────────────────
-  if (process.env.MOCK_WHATSAPP === 'true') {
+  if (process.env.MOCK_WHATSAPP === "true") {
     waMessageId = `mock_wamid_template_${Date.now()}`;
   } else if (tenant?.whatsappPhoneId && tenant?.whatsappAccessToken) {
     try {
-      const cleanPhone = (contact.phone || '').replace('+', '');
+      const cleanPhone = (contact.phone || "").replace("+", "");
       const url = `${GRAPH_BASE_URL}/${tenant.whatsappPhoneId}/messages`;
 
       const bodyParameters = params.map((val) => ({
-        type: 'text',
+        type: "text",
         text: String(val),
       }));
 
       const payload = {
-        messaging_product: 'whatsapp',
-        recipient_type: 'individual',
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
         to: cleanPhone,
-        type: 'template',
+        type: "template",
         template: {
           name: template.name,
-          language: { code: template.language || 'en_US' },
+          language: { code: template.language || "en_US" },
           components:
             bodyParameters.length > 0
-              ? [{ type: 'body', parameters: bodyParameters }]
+              ? [{ type: "body", parameters: bodyParameters }]
               : [],
         },
       };
 
       const response = await fetch(url, {
-        method: 'POST',
+        method: "POST",
         headers: {
           Authorization: `Bearer ${decrypt(tenant.whatsappAccessToken)}`,
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
       });
@@ -1369,45 +1484,45 @@ export const sendTemplateMessageService = async ({
       const responseData = await response.json();
 
       if (!response.ok) {
-        console.error('⚠️ WhatsApp Template API Error:', responseData);
-        msgStatus = 'failed';
+        console.error("⚠️ WhatsApp Template API Error:", responseData);
+        msgStatus = "failed";
         failureReason =
-          responseData?.error?.message || 'Meta template send failed';
+          responseData?.error?.message || "Meta template send failed";
       } else {
         waMessageId = responseData?.messages?.[0]?.id || null;
         if (!waMessageId) {
-          msgStatus = 'failed';
-          failureReason = 'Meta accepted but returned no WAMID';
+          msgStatus = "failed";
+          failureReason = "Meta accepted but returned no WAMID";
         } else {
-          console.log('✅ WhatsApp template sent, wamid:', waMessageId);
+          console.log("✅ WhatsApp template sent, wamid:", waMessageId);
         }
       }
     } catch (err) {
-      console.error('⚠️ WhatsApp template send failed:', err.message);
-      msgStatus = 'failed';
+      console.error("⚠️ WhatsApp template send failed:", err.message);
+      msgStatus = "failed";
       failureReason = err.message;
     }
   } else {
-    msgStatus = 'failed';
-    failureReason = 'WhatsApp credentials not configured for tenant';
+    msgStatus = "failed";
+    failureReason = "WhatsApp credentials not configured for tenant";
   }
 
   // ── 6. Build preview text from template body ───────────────
   let previewText = `[Template: ${template.name}]`;
   try {
     const components =
-      typeof template.components === 'string'
+      typeof template.components === "string"
         ? JSON.parse(template.components)
         : template.components;
 
     if (Array.isArray(components)) {
-      const bodyComp = components.find((c) => c.type === 'BODY');
+      const bodyComp = components.find((c) => c.type === "BODY");
       if (bodyComp?.text) {
         let formatted = bodyComp.text;
         params.forEach((val, idx) => {
           formatted = formatted.replace(
-            new RegExp(`\\{\\{${idx + 1}\\}\\}`, 'g'),
-            String(val)
+            new RegExp(`\\{\\{${idx + 1}\\}\\}`, "g"),
+            String(val),
           );
         });
         previewText = formatted;
@@ -1424,7 +1539,7 @@ export const sendTemplateMessageService = async ({
     await prisma.conversation.update({
       where: { id: conversation.id },
       data: {
-        status: 'OPEN',
+        status: "OPEN",
         reopenCount: { increment: 1 },
         reopenedAt: new Date(),
         resolvedAt: null,
@@ -1435,9 +1550,9 @@ export const sendTemplateMessageService = async ({
 
     await logActivity({
       conversationId: conversation.id,
-      action: 'opened',
+      action: "opened",
       performedBy: senderId || null,
-      performedByType: senderType === 'TENANT' ? 'tenant' : 'agent',
+      performedByType: senderType === "TENANT" ? "tenant" : "agent",
     });
   } else {
     await prisma.conversation.update({
@@ -1452,8 +1567,8 @@ export const sendTemplateMessageService = async ({
       conversationId: conversation.id,
       senderId,
       senderType,
-      direction: 'OUTBOUND',
-      type: 'TEXT',
+      direction: "OUTBOUND",
+      type: "TEXT",
       text: previewText,
       status: msgStatus,
       isRead: false,

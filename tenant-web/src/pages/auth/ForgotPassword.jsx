@@ -36,7 +36,7 @@ export default function ForgotPassword() {
     onSubmit,
     generalError,
     getValues, // Required to read email value for resend functionality
-    formState: { errors, isSubmitting }
+    formState: { errors, isSubmitting },
   } = useFormHandler({
     schema: forgotPasswordSchema,
     defaultValues: { email: "" },
@@ -94,7 +94,8 @@ export default function ForgotPassword() {
               Reset Password
             </h1>
             <p className="mt-4 max-w-md text-base text-white/80">
-              Recover your access by verifying your registered business or user email address.
+              Recover your access by verifying your registered business or user
+              email address.
             </p>
           </div>
 
@@ -124,9 +125,12 @@ export default function ForgotPassword() {
             {!success ? (
               <>
                 <div>
-                  <h2 className="text-2xl font-semibold text-slate-800">Forgot Password?</h2>
+                  <h2 className="text-2xl font-semibold text-slate-800">
+                    Forgot Password?
+                  </h2>
                   <p className="mt-2 text-sm text-[color:var(--muted)]">
-                    No worries. Enter your email and we'll send you a link to reset your password.
+                    No worries. Enter your email and we'll send you a link to
+                    reset your password.
                   </p>
                 </div>
 
@@ -142,7 +146,10 @@ export default function ForgotPassword() {
                   <div>
                     <label className="label text-xs">Email Address</label>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-3.5 text-slate-400" size={16} />
+                      <Mail
+                        className="absolute left-3 top-3.5 text-slate-400"
+                        size={16}
+                      />
                       <input
                         className={`input pl-10 text-xs ${errors.email ? "border-red-500 focus:ring-red-200" : ""}`}
                         type="email"
@@ -187,9 +194,15 @@ export default function ForgotPassword() {
                   <CheckCircle2 size={24} />
                 </div>
                 <div className="space-y-2">
-                  <h3 className="text-xl font-bold text-slate-800">Check your email</h3>
+                  <h3 className="text-xl font-bold text-slate-800">
+                    Check your email
+                  </h3>
                   <p className="text-sm text-[color:var(--muted)] leading-relaxed">
-                    We have sent a secure password reset link to <strong className="text-slate-700">{getValues("email")}</strong>.
+                    We have sent a secure password reset link to{" "}
+                    <strong className="text-slate-700">
+                      {getValues("email")}
+                    </strong>
+                    .
                   </p>
                 </div>
                 <div className="pt-2">
@@ -200,7 +213,8 @@ export default function ForgotPassword() {
                   >
                     {resending ? (
                       <span className="flex items-center justify-center gap-1.5">
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Resending...
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />{" "}
+                        Resending...
                       </span>
                     ) : resendTimer > 0 ? (
                       `Resend email in ${resendTimer}s`
@@ -209,10 +223,14 @@ export default function ForgotPassword() {
                     )}
                   </button>
                   {resendMessage && (
-                    <p className="mt-2 text-xs text-[#125EF2] font-medium">{resendMessage}</p>
+                    <p className="mt-2 text-xs text-[#125EF2] font-medium">
+                      {resendMessage}
+                    </p>
                   )}
                   {generalError && (
-                    <p className="mt-2 text-xs text-red-600 font-medium">{generalError}</p>
+                    <p className="mt-2 text-xs text-red-600 font-medium">
+                      {generalError}
+                    </p>
                   )}
                 </div>
                 <div className="pt-4 border-t border-slate-50">

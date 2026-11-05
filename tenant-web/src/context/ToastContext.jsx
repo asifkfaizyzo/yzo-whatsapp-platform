@@ -7,7 +7,14 @@ import React, {
   useEffect,
 } from "react";
 import { createPortal } from "react-dom";
-import { CheckCircle2, XCircle, AlertTriangle, Info, X, Loader2 } from "lucide-react";
+import {
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  Info,
+  X,
+  Loader2,
+} from "lucide-react";
 
 // ─── Context ─────────────────────────────────────────────────────────────────
 
@@ -102,8 +109,8 @@ function ToastItem({ id, variant = "success", message, onRemove, persistent }) {
         transform: exiting
           ? "translateX(110%) scale(0.95)"
           : entered
-          ? "translateX(0) scale(1)"
-          : "translateX(100%) scale(0.95)",
+            ? "translateX(0) scale(1)"
+            : "translateX(100%) scale(0.95)",
       }}
       className={`flex items-start w-80 rounded-2xl border ${cfg.border} bg-white shadow-xl shadow-slate-200/60 overflow-hidden`}
     >
@@ -154,7 +161,7 @@ function ToastContainer({ toasts, onRemove }) {
         </div>
       ))}
     </div>,
-    document.body
+    document.body,
   );
 }
 
@@ -178,8 +185,8 @@ export function ToastProvider({ children }) {
   const updateToast = useCallback((id, variant, message) => {
     setToasts((prev) =>
       prev.map((t) =>
-        t.id === id ? { ...t, variant, message, persistent: false } : t
-      )
+        t.id === id ? { ...t, variant, message, persistent: false } : t,
+      ),
     );
   }, []);
 
@@ -210,14 +217,14 @@ export function ToastProvider({ children }) {
 
       return promise;
     },
-    [addToast, updateToast]
+    [addToast, updateToast],
   );
 
   const toast = {
     success: (msg) => addToast("success", msg),
-    error:   (msg) => addToast("error",   msg),
+    error: (msg) => addToast("error", msg),
     warning: (msg) => addToast("warning", msg),
-    info:    (msg) => addToast("info",    msg),
+    info: (msg) => addToast("info", msg),
     promise: toastPromise,
   };
 

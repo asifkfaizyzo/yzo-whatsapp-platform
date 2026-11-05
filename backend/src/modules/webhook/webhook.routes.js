@@ -1,11 +1,18 @@
 // backend/src/modules/webhook/webhook.routes.js (do not remove this comment)
-import express from 'express';
-import rateLimit from 'express-rate-limit';
-import { verifyMetaWebhook, receiveMetaWebhookEvent, verifyMetaSignature } from './webhook.controller.js';
-import { handleRazorpayWebhook } from './razorpay/razorpay.webhook.controller.js';
-import { handleTenantOrderWebhook, handlePartnerWebhook } from './order.webhook.controller.js';
-import { handleShopifyWebhook } from '../shopify/webhooks/shopify.webhook.controller.js';        
-import { handleWooCommerceWebhook } from './woocommerce/woocommerce.webhook.controller.js';
+import express from "express";
+import rateLimit from "express-rate-limit";
+import {
+  verifyMetaWebhook,
+  receiveMetaWebhookEvent,
+  verifyMetaSignature,
+} from "./webhook.controller.js";
+import { handleRazorpayWebhook } from "./razorpay/razorpay.webhook.controller.js";
+import {
+  handleTenantOrderWebhook,
+  handlePartnerWebhook,
+} from "./order.webhook.controller.js";
+import { handleShopifyWebhook } from "../shopify/webhooks/shopify.webhook.controller.js";
+import { handleWooCommerceWebhook } from "./woocommerce/woocommerce.webhook.controller.js";
 
 const router = express.Router();
 
@@ -15,22 +22,26 @@ const webhookRateLimiter = rateLimit({
   max: 300,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Too many webhook requests from this IP' }
+  message: { error: "Too many webhook requests from this IP" },
 });
 
 // Meta verification endpoint (GET)
-router.get('/whatsapp', verifyMetaWebhook);
-router.get('/meta', verifyMetaWebhook);
+router.get("/whatsapp", verifyMetaWebhook);
+router.get("/meta", verifyMetaWebhook);
 
 // Meta message event receiver (POST)
-router.post('/whatsapp', verifyMetaSignature, receiveMetaWebhookEvent);
-router.post('/meta', verifyMetaSignature, receiveMetaWebhookEvent);
+router.post("/whatsapp", verifyMetaSignature, receiveMetaWebhookEvent);
+router.post("/meta", verifyMetaSignature, receiveMetaWebhookEvent);
 
 // Platform SaaS billing Razorpay webhook endpoint
 router.post("/razorpay", handleRazorpayWebhook);
 
 // Multi-tenant Commerce Razorpay webhook endpoint (Direct Keys per-tenant webhook)
-router.post("/razorpay/order/:tenantId", webhookRateLimiter, handleTenantOrderWebhook);
+router.post(
+  "/razorpay/order/:tenantId",
+  webhookRateLimiter,
+  handleTenantOrderWebhook,
+);
 
 // Programmatic Partner & Sub-Merchant Commerce Razorpay webhook endpoint (OAuth Mode)
 router.post("/razorpay/partner", webhookRateLimiter, handlePartnerWebhook);

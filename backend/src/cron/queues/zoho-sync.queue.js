@@ -1,16 +1,16 @@
 // backend/src/cron/queues/zoho-sync.queue.js (do not remove this comment)
 
-import { Queue } from 'bullmq';
-import { redisConnection } from '../../config/redis.js';
+import { Queue } from "bullmq";
+import { redisConnection } from "../../config/redis.js";
 
-export const QUEUE_NAME_ZOHO_SYNC = 'zoho-sync';
+export const QUEUE_NAME_ZOHO_SYNC = "zoho-sync";
 
 export const zohoSyncQueue = new Queue(QUEUE_NAME_ZOHO_SYNC, {
   connection: redisConnection,
   defaultJobOptions: {
     attempts: 3,
     backoff: {
-      type: 'exponential',
+      type: "exponential",
       delay: 5000,
     },
     removeOnComplete: { count: 100 },

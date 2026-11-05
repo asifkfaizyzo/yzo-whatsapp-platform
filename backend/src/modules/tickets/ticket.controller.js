@@ -26,11 +26,14 @@ import {
 
 export const createTenantTicket = async (req, res) => {
   try {
-      const attachmentUrl = req.file
+    const attachmentUrl = req.file
       ? `/uploads/tickets/${req.file.filename}`
       : null;
-      
-    const ticket = await createTenantTicketService(req.tenantId, { ...req.body, attachmentUrl });
+
+    const ticket = await createTenantTicketService(req.tenantId, {
+      ...req.body,
+      attachmentUrl,
+    });
     return res.status(201).json({ success: true, data: ticket });
   } catch (error) {
     console.error("Create tenant ticket error:", error);
@@ -51,7 +54,7 @@ export const getTenantTicketDetail = async (req, res) => {
   try {
     const ticket = await getTenantTicketDetailService(
       req.params.ticketId,
-      req.tenantId
+      req.tenantId,
     );
     if (!ticket) {
       return res
@@ -69,7 +72,7 @@ export const tenantReplyTicket = async (req, res) => {
     const message = await tenantReplyTicketService(
       req.params.ticketId,
       req.tenantId,
-      req.body.message
+      req.body.message,
     );
     if (!message) {
       return res
@@ -105,7 +108,7 @@ export const tenantReplyUserTicket = async (req, res) => {
     const message = await tenantReplyUserTicketService(
       req.params.ticketId,
       req.tenantId,
-      req.body.message
+      req.body.message,
     );
     if (!message) {
       return res
@@ -122,7 +125,7 @@ export const escalateTicket = async (req, res) => {
   try {
     const ticket = await escalateTicketService(
       req.params.ticketId,
-      req.tenantId
+      req.tenantId,
     );
     if (!ticket) {
       return res
@@ -139,7 +142,7 @@ export const resolveTenantUserTicket = async (req, res) => {
   try {
     const ticket = await resolveTenantUserTicketService(
       req.params.ticketId,
-      req.tenantId
+      req.tenantId,
     );
     if (!ticket) {
       return res
@@ -152,7 +155,6 @@ export const resolveTenantUserTicket = async (req, res) => {
   }
 };
 
-
 // ══════════════════════════════════════════
 // USER CONTROLLERS
 // ══════════════════════════════════════════
@@ -162,19 +164,17 @@ export const createUserTicket = async (req, res) => {
     // ✅ FIXED - use resolved userId variable
     const userId = req.userId || req.user?.id;
 
-    
     const attachmentUrl = req.file
       ? `/uploads/tickets/${req.file.filename}`
       : null;
-      
+
     console.log("req.user:", req.user);
     console.log("req.userId:", req.userId);
 
-    const ticket = await createUserTicketService(
-      userId,
-      req.tenantId,
-      { ...req.body, attachmentUrl }
-    );
+    const ticket = await createUserTicketService(userId, req.tenantId, {
+      ...req.body,
+      attachmentUrl,
+    });
     return res.status(201).json({ success: true, data: ticket });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
@@ -198,7 +198,7 @@ export const getUserTicketDetail = async (req, res) => {
     const userId = req.userId || req.user?.id;
     const ticket = await getUserTicketDetailService(
       req.params.ticketId,
-      userId
+      userId,
     );
     if (!ticket) {
       return res
@@ -219,7 +219,7 @@ export const userReplyTicket = async (req, res) => {
       req.params.ticketId,
       userId,
       req.tenantId,
-      req.body.message
+      req.body.message,
     );
     if (!message) {
       return res
@@ -231,7 +231,6 @@ export const userReplyTicket = async (req, res) => {
     return res.status(500).json({ success: false, message: error.message });
   }
 };
-
 
 // ══════════════════════════════════════════
 // SUPERADMIN CONTROLLERS
@@ -267,7 +266,7 @@ export const adminReplyTicket = async (req, res) => {
       req.params.ticketId,
       req.superAdminId,
       message,
-      isInternal || false
+      isInternal || false,
     );
     if (!reply) {
       return res
@@ -284,7 +283,7 @@ export const updateTicketStatus = async (req, res) => {
   try {
     const ticket = await updateTicketStatusService(
       req.params.ticketId,
-      req.body.status
+      req.body.status,
     );
     if (!ticket) {
       return res
@@ -301,7 +300,7 @@ export const updateTicketPriority = async (req, res) => {
   try {
     const ticket = await updateTicketPriorityService(
       req.params.ticketId,
-      req.body.priority
+      req.body.priority,
     );
     return res.status(200).json({ success: true, data: ticket });
   } catch (error) {

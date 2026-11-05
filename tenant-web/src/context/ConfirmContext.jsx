@@ -1,13 +1,13 @@
 // tenant-web/src/context/ConfirmContext.jsx (do not remove this comment)
-import React, { createContext, useContext, useCallback, useRef, useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  useCallback,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
-import {
-  AlertTriangle,
-  Trash2,
-  ShieldBan,
-  Info,
-  X,
-} from "lucide-react";
+import { AlertTriangle, Trash2, ShieldBan, Info, X } from "lucide-react";
 
 // ─── Context ─────────────────────────────────────────────────────────────────
 
@@ -28,8 +28,7 @@ const TYPE_CONFIG = {
     iconBg: "bg-rose-50",
     iconColor: "text-rose-500",
     Icon: Trash2,
-    confirmClass:
-      "bg-rose-600 hover:bg-rose-700 text-white shadow-rose-200/60",
+    confirmClass: "bg-rose-600 hover:bg-rose-700 text-white shadow-rose-200/60",
   },
   warning: {
     iconBg: "bg-amber-50",
@@ -74,7 +73,9 @@ function ConfirmModal({ state, onConfirm, onCancel }) {
       {/* Card */}
       <div
         className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-100"
-        style={{ animation: "cmCardIn 0.2s cubic-bezier(0.34,1.56,0.64,1) forwards" }}
+        style={{
+          animation: "cmCardIn 0.2s cubic-bezier(0.34,1.56,0.64,1) forwards",
+        }}
       >
         {/* Top accent bar */}
         <div
@@ -82,8 +83,8 @@ function ConfirmModal({ state, onConfirm, onCancel }) {
             state.type === "danger"
               ? "bg-gradient-to-r from-rose-400 to-rose-600"
               : state.type === "warning"
-              ? "bg-gradient-to-r from-amber-400 to-amber-500"
-              : "bg-gradient-to-r from-[#125fe2] to-blue-400"
+                ? "bg-gradient-to-r from-amber-400 to-amber-500"
+                : "bg-gradient-to-r from-[#125fe2] to-blue-400"
           }`}
         />
 
@@ -99,7 +100,10 @@ function ConfirmModal({ state, onConfirm, onCancel }) {
           {/* Icon */}
           <div
             className={`w-12 h-12 rounded-2xl ${cfg.iconBg} flex items-center justify-center mb-4`}
-            style={{ animation: "cmIconPop 0.3s cubic-bezier(0.34,1.56,0.64,1) 0.1s both" }}
+            style={{
+              animation:
+                "cmIconPop 0.3s cubic-bezier(0.34,1.56,0.64,1) 0.1s both",
+            }}
           >
             <Icon size={22} className={cfg.iconColor} />
           </div>
@@ -156,7 +160,7 @@ function ConfirmModal({ state, onConfirm, onCancel }) {
         }
       `}</style>
     </div>,
-    document.body
+    document.body,
   );
 }
 
@@ -204,7 +208,11 @@ export function ConfirmProvider({ children }) {
   return (
     <ConfirmContext.Provider value={{ confirm }}>
       {children}
-      <ConfirmModal state={state} onConfirm={handleConfirm} onCancel={handleCancel} />
+      <ConfirmModal
+        state={state}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+      />
     </ConfirmContext.Provider>
   );
 }

@@ -3,7 +3,10 @@ import React from "react";
 import { AlertOctagon, ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-export default function ExpiredSubscriptionBanner({ expiredDate, dataDeletionDate }) {
+export default function ExpiredSubscriptionBanner({
+  expiredDate,
+  dataDeletionDate,
+}) {
   const navigate = useNavigate();
 
   if (!expiredDate) return null;
@@ -32,7 +35,9 @@ export default function ExpiredSubscriptionBanner({ expiredDate, dataDeletionDat
           </p>
           {dataDeletionDate && (
             <p className="text-[11px] text-red-100 font-medium mt-0.5">
-              ⚠️ Warning: Complete resubscription before {formatDate(dataDeletionDate)} to retain your configured bots and data.
+              ⚠️ Warning: Complete resubscription before{" "}
+              {formatDate(dataDeletionDate)} to retain your configured bots and
+              data.
             </p>
           )}
         </div>
@@ -46,4 +51,4 @@ export default function ExpiredSubscriptionBanner({ expiredDate, dataDeletionDat
       </button>
     </div>
   );
-}
+}

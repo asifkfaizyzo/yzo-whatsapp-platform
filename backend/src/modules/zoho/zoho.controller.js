@@ -1,29 +1,29 @@
 // backend/src/modules/zoho/zoho.controller.js (do not remove this comment)
 
-import { extractRequestMeta } from '../../lib/utils/request.meta.js';
+import { extractRequestMeta } from "../../lib/utils/request.meta.js";
 import {
   getOAuthAuthorizeUrl,
   handleOAuthCallback,
   getZohoConnectionStatus,
   testZohoConnection,
   disconnectZoho,
-} from './zoho.service.js';
+} from "./zoho.service.js";
 import {
   getTenantSyncStats,
-  pullContactsFromZoho, 
-} from './crm/zoho.contact.service.js';
-import { zohoSyncQueue } from '../../cron/queues/zoho-sync.queue.js';
-import { detectZohoPlan } from './zoho.plan.service.js';
-import { redisConnection } from '../../config/redis.js';
+  pullContactsFromZoho,
+} from "./crm/zoho.contact.service.js";
+import { zohoSyncQueue } from "../../cron/queues/zoho-sync.queue.js";
+import { detectZohoPlan } from "./zoho.plan.service.js";
+import { redisConnection } from "../../config/redis.js";
 
 // New service imports for Cases, Products, Events, and Invoices
-import { getZohoProducts } from './crm/zoho.product.service.js';
-import { createZohoCalendarEvent } from './crm/zoho.event.service.js';
-import { syncTicketToZohoCase } from './crm/zoho.case.service.js';
-import { sendZohoInvoiceToWhatsApp } from './crm/zoho.invoice.service.js';
+import { getZohoProducts } from "./crm/zoho.product.service.js";
+import { createZohoCalendarEvent } from "./crm/zoho.event.service.js";
+import { syncTicketToZohoCase } from "./crm/zoho.case.service.js";
+import { sendZohoInvoiceToWhatsApp } from "./crm/zoho.invoice.service.js";
 
 const DEFAULT_PREFERENCES = {
-  syncDestination: 'CONTACTS', // 'CONTACTS' | 'LEADS'
+  syncDestination: "CONTACTS", // 'CONTACTS' | 'LEADS'
   logConversationNotes: true,
   createDealsOnOrders: true,
   createFollowUpTasks: true,
@@ -34,7 +34,9 @@ export const getConnectUrl = async (req, res) => {
   try {
     const tenantId = req.tenant?.id || req.tenantId;
     if (!tenantId) {
-      return res.status(401).json({ success: false, message: 'Tenant not authenticated' });
+      return res
+        .status(401)
+        .json({ success: false, message: "Tenant not authenticated" });
     }
 
     const result = await getOAuthAuthorizeUrl(tenantId, req);
@@ -49,8 +51,10 @@ export const zohoCallbackHandler = async (req, res) => {
     const { redirectUrl } = await handleOAuthCallback(req.query, req);
     return res.redirect(redirectUrl);
   } catch (error) {
-    console.error('❌ [ZohoController] Callback handler error:', error);
-    return res.redirect('/dashboard/integrations?app=zoho&error=Internal+server+error');
+    console.error("❌ [ZohoController] Callback handler error:", error);
+    return res.redirect(
+      "/dashboard/integrations?app=zoho&error=Internal+server+error",
+    );
   }
 };
 
@@ -58,7 +62,9 @@ export const getStatus = async (req, res) => {
   try {
     const tenantId = req.tenant?.id || req.tenantId;
     if (!tenantId) {
-      return res.status(401).json({ success: false, message: 'Tenant not authenticated' });
+      return res
+        .status(401)
+        .json({ success: false, message: "Tenant not authenticated" });
     }
 
     const status = await getZohoConnectionStatus(tenantId);
@@ -72,7 +78,9 @@ export const testConnection = async (req, res) => {
   try {
     const tenantId = req.tenant?.id || req.tenantId;
     if (!tenantId) {
-      return res.status(401).json({ success: false, message: 'Tenant not authenticated' });
+      return res
+        .status(401)
+        .json({ success: false, message: "Tenant not authenticated" });
     }
 
     const result = await testZohoConnection(tenantId);
@@ -86,7 +94,9 @@ export const disconnect = async (req, res) => {
   try {
     const tenantId = req.tenant?.id || req.tenantId;
     if (!tenantId) {
-      return res.status(401).json({ success: false, message: 'Tenant not authenticated' });
+      return res
+        .status(401)
+        .json({ success: false, message: "Tenant not authenticated" });
     }
 
     const meta = extractRequestMeta(req);
@@ -105,16 +115,18 @@ export const triggerContactSync = async (req, res) => {
   try {
     const tenantId = req.tenant?.id || req.tenantId;
     if (!tenantId) {
-      return res.status(401).json({ success: false, message: 'Tenant not authenticated' });
+      return res
+        .status(401)
+        .json({ success: false, message: "Tenant not authenticated" });
     }
 
-    const { syncType = 'FULL' } = req.body || {};
+    const { syncType = "FULL" } = req.body || {};
 
     // Deduplication jobId per tenant to prevent parallel full sync stampedes
     const jobId = `zoho_sync_${tenantId}_${Date.now()}`;
 
     const job = await zohoSyncQueue.add(
-      'sync-contacts',
+      "sync-contacts",
       {
         tenantId,
         syncType,
@@ -122,12 +134,12 @@ export const triggerContactSync = async (req, res) => {
       },
       {
         jobId,
-      }
+      },
     );
 
     return res.status(202).json({
       success: true,
-      message: 'Contact sync job enqueued successfully',
+      message: "Contact sync job enqueued successfully",
       data: {
         jobId: job.id,
         syncType,
@@ -146,7 +158,9 @@ export const getSyncStatus = async (req, res) => {
   try {
     const tenantId = req.tenant?.id || req.tenantId;
     if (!tenantId) {
-      return res.status(401).json({ success: false, message: 'Tenant not authenticated' });
+      return res
+        .status(401)
+        .json({ success: false, message: "Tenant not authenticated" });
     }
 
     const stats = await getTenantSyncStats(tenantId);
@@ -164,25 +178,27 @@ export const triggerIncrementalSync = async (req, res) => {
   try {
     const tenantId = req.tenant?.id || req.tenantId;
     if (!tenantId) {
-      return res.status(401).json({ success: false, message: 'Tenant not authenticated' });
+      return res
+        .status(401)
+        .json({ success: false, message: "Tenant not authenticated" });
     }
 
     const jobId = `zoho_sync_${tenantId}_incremental_${Date.now()}`;
 
     const job = await zohoSyncQueue.add(
-      'sync-contacts-incremental',
+      "sync-contacts-incremental",
       {
         tenantId,
-        syncType: 'INCREMENTAL',
+        syncType: "INCREMENTAL",
         enqueuedAt: new Date().toISOString(),
       },
-      { jobId }
+      { jobId },
     );
 
     return res.status(202).json({
       success: true,
-      message: 'Incremental sync job enqueued',
-      data: { jobId: job.id, syncType: 'INCREMENTAL' },
+      message: "Incremental sync job enqueued",
+      data: { jobId: job.id, syncType: "INCREMENTAL" },
     });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
@@ -198,10 +214,13 @@ export const getPlanInfo = async (req, res) => {
   try {
     const tenantId = req.tenant?.id || req.tenantId;
     if (!tenantId) {
-      return res.status(401).json({ success: false, message: 'Tenant not authenticated' });
+      return res
+        .status(401)
+        .json({ success: false, message: "Tenant not authenticated" });
     }
 
-    const forceRefresh = req.query.refresh === 'true' || req.query.force === 'true';
+    const forceRefresh =
+      req.query.refresh === "true" || req.query.force === "true";
     const plan = await detectZohoPlan(tenantId, forceRefresh);
     return res.status(200).json({ success: true, data: plan });
   } catch (error) {
@@ -216,12 +235,14 @@ export const getPreferences = async (req, res) => {
   try {
     const tenantId = req.tenant?.id || req.tenantId;
     if (!tenantId) {
-      return res.status(401).json({ success: false, message: 'Unauthorized' });
+      return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
     const key = `zoho_prefs:${tenantId}`;
     const raw = await redisConnection.get(key);
-    const prefs = raw ? { ...DEFAULT_PREFERENCES, ...JSON.parse(raw) } : DEFAULT_PREFERENCES;
+    const prefs = raw
+      ? { ...DEFAULT_PREFERENCES, ...JSON.parse(raw) }
+      : DEFAULT_PREFERENCES;
 
     return res.status(200).json({ success: true, data: prefs });
   } catch (error) {
@@ -237,7 +258,7 @@ export const updatePreferences = async (req, res) => {
   try {
     const tenantId = req.tenant?.id || req.tenantId;
     if (!tenantId) {
-      return res.status(401).json({ success: false, message: 'Unauthorized' });
+      return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
     const key = `zoho_prefs:${tenantId}`;
@@ -253,7 +274,7 @@ export const updatePreferences = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Zoho integration preferences updated',
+      message: "Zoho integration preferences updated",
       data: updated,
     });
   } catch (error) {
@@ -287,10 +308,20 @@ export const bookEvent = async (req, res) => {
     const { contactId, title, startTime, endTime, venue } = req.body;
 
     if (!contactId || !startTime) {
-      return res.status(400).json({ success: false, message: 'contactId and startTime are required' });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "contactId and startTime are required",
+        });
     }
 
-    const result = await createZohoCalendarEvent(tenantId, contactId, { title, startTime, endTime, venue });
+    const result = await createZohoCalendarEvent(tenantId, contactId, {
+      title,
+      startTime,
+      endTime,
+      venue,
+    });
     return res.status(200).json({ success: result.success, data: result });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
@@ -324,16 +355,21 @@ export const dispatchInvoice = async (req, res) => {
     const { contactId } = req.body;
 
     if (!contactId) {
-      return res.status(400).json({ success: false, message: 'contactId is required' });
+      return res
+        .status(400)
+        .json({ success: false, message: "contactId is required" });
     }
 
-    const result = await sendZohoInvoiceToWhatsApp(tenantId, contactId, invoiceId);
+    const result = await sendZohoInvoiceToWhatsApp(
+      tenantId,
+      contactId,
+      invoiceId,
+    );
     return res.status(200).json({ success: result.success, data: result });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
   }
 };
-
 
 export const triggerPullSync = async (req, res) => {
   try {

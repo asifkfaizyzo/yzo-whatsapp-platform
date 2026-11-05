@@ -9,7 +9,7 @@ export default function Pagination({
   limit,
   onPageChange,
   onLimitChange,
-  itemName = "items"
+  itemName = "items",
 }) {
   if (totalItems === 0) return null;
 
@@ -59,11 +59,13 @@ export default function Pagination({
       {/* Show record scale text */}
       <div className="flex items-center gap-4">
         <span>
-          Showing <span className="font-semibold text-slate-800">{startItem}</span> to{" "}
+          Showing{" "}
+          <span className="font-semibold text-slate-800">{startItem}</span> to{" "}
           <span className="font-semibold text-slate-800">{endItem}</span> of{" "}
-          <span className="font-semibold text-slate-800">{totalItems}</span> {itemName}
+          <span className="font-semibold text-slate-800">{totalItems}</span>{" "}
+          {itemName}
         </span>
-        
+
         {/* Limit Dropdown selector */}
         {onLimitChange && (
           <div className="flex items-center gap-1.5">
@@ -96,7 +98,11 @@ export default function Pagination({
 
         {getPageNumbers().map((p, idx) => {
           if (p === "...") {
-            return <span key={`ell-${idx}`} className="px-2 py-1 text-slate-400">...</span>;
+            return (
+              <span key={`ell-${idx}`} className="px-2 py-1 text-slate-400">
+                ...
+              </span>
+            );
           }
           return (
             <button
@@ -116,7 +122,9 @@ export default function Pagination({
 
         <button
           type="button"
-          onClick={() => currentPage < totalPages && onPageChange(currentPage + 1)}
+          onClick={() =>
+            currentPage < totalPages && onPageChange(currentPage + 1)
+          }
           disabled={currentPage === totalPages}
           className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed transition"
           title="Next Page"

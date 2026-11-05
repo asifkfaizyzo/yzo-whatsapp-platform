@@ -222,7 +222,10 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
   // ── Success Screen ───────────────────────────────────────────────────
   if (isConnected) {
     return createPortal(
-      <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200" style={{ zIndex: 99999 }}>
+      <div
+        className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+        style={{ zIndex: 99999 }}
+      >
         <div className="bg-white rounded-2xl p-8 max-w-md w-full text-center shadow-2xl">
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg
@@ -254,14 +257,17 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
           </button>
         </div>
       </div>,
-      document.body
+      document.body,
     );
   }
 
   // ── WABA Selector ────────────────────────────────────────────────────
   if (showSelector && availableWabas.length > 0) {
     return createPortal(
-      <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200" style={{ zIndex: 99999 }}>
+      <div
+        className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+        style={{ zIndex: 99999 }}
+      >
         <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold text-gray-900">
@@ -330,7 +336,7 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
           </button>
         </div>
       </div>,
-      document.body
+      document.body,
     );
   }
 
@@ -341,7 +347,10 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
 
   // ── Main UI ──────────────────────────────────────────────────────────
   return createPortal(
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" style={{ zIndex: 99999 }}>
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      style={{ zIndex: 99999 }}
+    >
       <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="sticky top-0 bg-white z-10 flex items-center justify-between p-6 border-b border-gray-100 shrink-0">
@@ -375,7 +384,8 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
 
         <div className="p-6">
           <p className="text-gray-600 mb-6 font-medium">
-            Please read Meta's official guidelines before connecting a phone number:
+            Please read Meta's official guidelines before connecting a phone
+            number:
           </p>
 
           <div className="space-y-4 mb-6">
@@ -388,7 +398,10 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
               </div>
               <ul className="text-sm text-green-800 space-y-2 ml-9 list-disc">
                 <li>Best for a clean, fast setup.</li>
-                <li>The number must not be currently registered on any personal or business WhatsApp app.</li>
+                <li>
+                  The number must not be currently registered on any personal or
+                  business WhatsApp app.
+                </li>
               </ul>
             </div>
 
@@ -400,9 +413,19 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
                 </h3>
               </div>
               <ul className="text-sm text-orange-800 space-y-2 ml-9 list-disc">
-                <li>Meta does not allow a number to be on the mobile app and the Cloud API at the same time.</li>
-                <li>You <span className="font-bold">MUST</span> delete the WhatsApp account from your mobile app (Settings &gt; Account &gt; Delete Account) before proceeding.</li>
-                <li>You will no longer be able to use the WhatsApp mobile app. All messages will be handled exclusively inside Sudo Reply.</li>
+                <li>
+                  Meta does not allow a number to be on the mobile app and the
+                  Cloud API at the same time.
+                </li>
+                <li>
+                  You <span className="font-bold">MUST</span> delete the
+                  WhatsApp account from your mobile app (Settings &gt; Account
+                  &gt; Delete Account) before proceeding.
+                </li>
+                <li>
+                  You will no longer be able to use the WhatsApp mobile app. All
+                  messages will be handled exclusively inside Sudo Reply.
+                </li>
               </ul>
             </div>
           </div>
@@ -423,11 +446,12 @@ export default function WhatsAppConnect({ onSuccess, onClose }) {
             Continue with Facebook / Meta
           </button>
           <p className="text-center text-xs text-gray-400 mt-4">
-            🔒 Secured by Meta — Sudoreply never stores your Facebook credentials
+            🔒 Secured by Meta — Sudoreply never stores your Facebook
+            credentials
           </p>
         </div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }

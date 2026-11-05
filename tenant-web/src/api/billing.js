@@ -9,7 +9,8 @@ export const getBillingDetails = async () => {
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || "Failed to fetch billing details",
+      message:
+        error.response?.data?.message || "Failed to fetch billing details",
     };
   }
 };

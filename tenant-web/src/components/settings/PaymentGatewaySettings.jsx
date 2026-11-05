@@ -113,7 +113,9 @@ export default function PaymentGatewaySettings({ onBack } = {}) {
       toast.success("🎉 Razorpay account connected successfully!");
       cleanUrlParams();
     } else if (params.get("error")) {
-      toast.error(`Connection failed: ${decodeURIComponent(params.get("error"))}`);
+      toast.error(
+        `Connection failed: ${decodeURIComponent(params.get("error"))}`,
+      );
       cleanUrlParams();
     }
   }, []);
@@ -123,7 +125,11 @@ export default function PaymentGatewaySettings({ onBack } = {}) {
     url.searchParams.delete("connected");
     url.searchParams.delete("error");
     url.searchParams.delete("error_description");
-    window.history.replaceState({}, "", url.pathname + (url.search ? url.search : ""));
+    window.history.replaceState(
+      {},
+      "",
+      url.pathname + (url.search ? url.search : ""),
+    );
   };
 
   const handleConnect = async () => {
@@ -133,7 +139,10 @@ export default function PaymentGatewaySettings({ onBack } = {}) {
       if (res.success && res.url) {
         window.location.href = res.url;
       } else {
-        toast.error(res.message || "Unable to initiate Razorpay connection. Please try again.");
+        toast.error(
+          res.message ||
+            "Unable to initiate Razorpay connection. Please try again.",
+        );
         setConnecting(false);
       }
     } catch (err) {
@@ -202,7 +211,8 @@ export default function PaymentGatewaySettings({ onBack } = {}) {
     try {
       const payload = {};
       if (form.razorpayKeyId) payload.razorpayKeyId = form.razorpayKeyId;
-      if (form.razorpayKeySecret) payload.razorpayKeySecret = form.razorpayKeySecret;
+      if (form.razorpayKeySecret)
+        payload.razorpayKeySecret = form.razorpayKeySecret;
 
       const res = await testPaymentGatewayConnection(payload);
       if (res.success) {
@@ -228,8 +238,10 @@ export default function PaymentGatewaySettings({ onBack } = {}) {
         paymentLinkExpiryMins: Number(form.paymentLinkExpiryMins),
         defaultCurrency: form.defaultCurrency,
       };
-      if (form.razorpayKeySecret) payload.razorpayKeySecret = form.razorpayKeySecret;
-      if (form.razorpayWebhookSecret) payload.razorpayWebhookSecret = form.razorpayWebhookSecret;
+      if (form.razorpayKeySecret)
+        payload.razorpayKeySecret = form.razorpayKeySecret;
+      if (form.razorpayWebhookSecret)
+        payload.razorpayWebhookSecret = form.razorpayWebhookSecret;
 
       const res = await updatePaymentGatewayConfig(payload);
       if (res.success) {
@@ -247,13 +259,17 @@ export default function PaymentGatewaySettings({ onBack } = {}) {
   const isConnected =
     form.authType === "OAUTH"
       ? Boolean(form.accountId)
-      : Boolean(form.razorpayKeyId && (form.hasKeySecret || form.razorpayKeySecret));
+      : Boolean(
+          form.razorpayKeyId && (form.hasKeySecret || form.razorpayKeySecret),
+        );
 
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center p-16 space-y-3">
         <RefreshCw className="animate-spin text-[#0C83FD]" size={24} />
-        <p className="text-xs text-slate-500 font-medium">Loading Razorpay integration...</p>
+        <p className="text-xs text-slate-500 font-medium">
+          Loading Razorpay integration...
+        </p>
       </div>
     );
   }
@@ -280,7 +296,9 @@ export default function PaymentGatewaySettings({ onBack } = {}) {
           </div>
           <div>
             <div className="flex flex-wrap items-center gap-2.5">
-              <h2 className="text-lg font-bold text-slate-900">Razorpay Payments</h2>
+              <h2 className="text-lg font-bold text-slate-900">
+                Razorpay Payments
+              </h2>
               {isConnected ? (
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -293,12 +311,13 @@ export default function PaymentGatewaySettings({ onBack } = {}) {
               )}
             </div>
             <p className="text-xs text-slate-500 mt-1 max-w-2xl leading-relaxed">
-              Accept UPI, Credit/Debit cards, and NetBanking payments from your customers directly inside WhatsApp chat.
+              Accept UPI, Credit/Debit cards, and NetBanking payments from your
+              customers directly inside WhatsApp chat.
             </p>
           </div>
         </div>
 
-                {/* Top Header Action - Show Disconnect ONLY when connected */}
+        {/* Top Header Action - Show Disconnect ONLY when connected */}
         {isConnected && (
           <div className="shrink-0">
             <button
@@ -311,7 +330,7 @@ export default function PaymentGatewaySettings({ onBack } = {}) {
             </button>
           </div>
         )}
-        </div>
+      </div>
 
       {/* ────────────────────────────────────────────── */}
       {/* 2-COLUMN BALANCED DESKTOP GRID */}
@@ -328,9 +347,13 @@ export default function PaymentGatewaySettings({ onBack } = {}) {
                     <CheckCircle2 size={20} />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-slate-900">Your Razorpay Account is Linked</h3>
+                    <h3 className="text-sm font-bold text-slate-900">
+                      Your Razorpay Account is Linked
+                    </h3>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs text-slate-500">Merchant Account ID:</span>
+                      <span className="text-xs text-slate-500">
+                        Merchant Account ID:
+                      </span>
                       <button
                         type="button"
                         onClick={handleCopyAccountId}
@@ -338,7 +361,11 @@ export default function PaymentGatewaySettings({ onBack } = {}) {
                         title="Click to copy"
                       >
                         <span>{form.accountId || form.razorpayKeyId}</span>
-                        {copiedAccountId ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
+                        {copiedAccountId ? (
+                          <Check size={12} className="text-emerald-600" />
+                        ) : (
+                          <Copy size={12} />
+                        )}
                       </button>
                     </div>
                   </div>
@@ -349,24 +376,43 @@ export default function PaymentGatewaySettings({ onBack } = {}) {
               <div className="pt-2">
                 {form.kycStatus === "VERIFIED" ? (
                   <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center gap-2.5 text-xs text-emerald-800 font-semibold">
-                    <ShieldCheck size={16} className="text-emerald-600 shrink-0" />
-                    <span>Payments are Live — Customers can pay via WhatsApp checkout buttons.</span>
+                    <ShieldCheck
+                      size={16}
+                      className="text-emerald-600 shrink-0"
+                    />
+                    <span>
+                      Payments are Live — Customers can pay via WhatsApp
+                      checkout buttons.
+                    </span>
                   </div>
                 ) : form.accountStatus === "SUSPENDED" ? (
                   <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 flex items-center gap-2.5 text-xs text-rose-800 font-semibold">
-                    <AlertTriangle size={16} className="text-rose-600 shrink-0" />
-                    <span>Account Suspended — Please check your Razorpay merchant dashboard.</span>
+                    <AlertTriangle
+                      size={16}
+                      className="text-rose-600 shrink-0"
+                    />
+                    <span>
+                      Account Suspended — Please check your Razorpay merchant
+                      dashboard.
+                    </span>
                   </div>
                 ) : (
                   <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 flex items-center gap-2.5 text-xs text-amber-900 font-semibold">
                     <Clock size={16} className="text-amber-600 shrink-0" />
-                    <span>Verification in Progress — Online payments will automatically activate once Razorpay verifies your business documents.</span>
+                    <span>
+                      Verification in Progress — Online payments will
+                      automatically activate once Razorpay verifies your
+                      business documents.
+                    </span>
                   </div>
                 )}
               </div>
 
               <p className="text-xs text-slate-500 pt-1 leading-relaxed">
-                When customers order products in WhatsApp, an automated payment link will be sent directly to their chat. Transactions settle straight into your registered bank account with <strong>0% platform fees</strong>.
+                When customers order products in WhatsApp, an automated payment
+                link will be sent directly to their chat. Transactions settle
+                straight into your registered bank account with{" "}
+                <strong>0% platform fees</strong>.
               </p>
             </div>
           ) : (
@@ -382,7 +428,9 @@ export default function PaymentGatewaySettings({ onBack } = {}) {
                     Collect Payments on WhatsApp
                   </h3>
                   <p className="text-xs text-slate-500 leading-relaxed">
-                    Connect your Razorpay account to send instant payment links and accept UPI, cards, and net banking with zero setup hassle.
+                    Connect your Razorpay account to send instant payment links
+                    and accept UPI, cards, and net banking with zero setup
+                    hassle.
                   </p>
                 </div>
 
@@ -395,14 +443,22 @@ export default function PaymentGatewaySettings({ onBack } = {}) {
                     className="px-8 py-3.5 text-xs font-bold rounded-xl bg-gradient-to-r from-[#0C2340] to-[#0C83FD] text-white hover:opacity-95 transition inline-flex items-center gap-2.5 shadow-md hover:shadow-lg disabled:opacity-60"
                   >
                     {connecting ? (
-                      <RefreshCw size={16} className="animate-spin text-white" />
+                      <RefreshCw
+                        size={16}
+                        className="animate-spin text-white"
+                      />
                     ) : (
                       <RazorpayLogo className="w-4 h-4" />
                     )}
-                    <span>{connecting ? "Redirecting to Razorpay..." : "Connect Razorpay Account"}</span>
+                    <span>
+                      {connecting
+                        ? "Redirecting to Razorpay..."
+                        : "Connect Razorpay Account"}
+                    </span>
                   </button>
                   <p className="text-[11px] text-slate-400 mt-2">
-                    You will be redirected to Razorpay to log in and approve your store.
+                    You will be redirected to Razorpay to log in and approve
+                    your store.
                   </p>
                 </div>
 
@@ -412,9 +468,12 @@ export default function PaymentGatewaySettings({ onBack } = {}) {
                     <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center mb-2.5">
                       <ShieldCheck size={18} />
                     </div>
-                    <h4 className="text-xs font-bold text-slate-800">0% Platform Cut</h4>
+                    <h4 className="text-xs font-bold text-slate-800">
+                      0% Platform Cut
+                    </h4>
                     <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-                      100% of customer payments go straight into your bank account.
+                      100% of customer payments go straight into your bank
+                      account.
                     </p>
                   </div>
 
@@ -422,9 +481,12 @@ export default function PaymentGatewaySettings({ onBack } = {}) {
                     <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#0C83FD] flex items-center justify-center mb-2.5">
                       <Zap size={18} />
                     </div>
-                    <h4 className="text-xs font-bold text-slate-800">Instant UPI Checkout</h4>
+                    <h4 className="text-xs font-bold text-slate-800">
+                      Instant UPI Checkout
+                    </h4>
                     <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-                      Customers pay via GPay, PhonePe, Paytm, or cards with a single tap.
+                      Customers pay via GPay, PhonePe, Paytm, or cards with a
+                      single tap.
                     </p>
                   </div>
 
@@ -432,9 +494,12 @@ export default function PaymentGatewaySettings({ onBack } = {}) {
                     <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center mb-2.5">
                       <CheckCircle2 size={18} />
                     </div>
-                    <h4 className="text-xs font-bold text-slate-800">Auto Order Confirmation</h4>
+                    <h4 className="text-xs font-bold text-slate-800">
+                      Auto Order Confirmation
+                    </h4>
                     <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-                      WhatsApp orders are confirmed immediately upon successful payment.
+                      WhatsApp orders are confirmed immediately upon successful
+                      payment.
                     </p>
                   </div>
                 </div>
@@ -451,9 +516,12 @@ export default function PaymentGatewaySettings({ onBack } = {}) {
                       1
                     </span>
                     <div>
-                      <h5 className="text-xs font-bold text-slate-800">Connect Account</h5>
+                      <h5 className="text-xs font-bold text-slate-800">
+                        Connect Account
+                      </h5>
                       <p className="text-[11px] text-slate-500 mt-0.5">
-                        Click Connect and authorize your Razorpay merchant profile.
+                        Click Connect and authorize your Razorpay merchant
+                        profile.
                       </p>
                     </div>
                   </div>
@@ -463,9 +531,12 @@ export default function PaymentGatewaySettings({ onBack } = {}) {
                       2
                     </span>
                     <div>
-                      <h5 className="text-xs font-bold text-slate-800">Share Payment Link</h5>
+                      <h5 className="text-xs font-bold text-slate-800">
+                        Share Payment Link
+                      </h5>
                       <p className="text-[11px] text-slate-500 mt-0.5">
-                        Customers receive interactive "Pay Now" links during chat checkout.
+                        Customers receive interactive "Pay Now" links during
+                        chat checkout.
                       </p>
                     </div>
                   </div>
@@ -475,9 +546,12 @@ export default function PaymentGatewaySettings({ onBack } = {}) {
                       3
                     </span>
                     <div>
-                      <h5 className="text-xs font-bold text-slate-800">Get Paid Automatically</h5>
+                      <h5 className="text-xs font-bold text-slate-800">
+                        Get Paid Automatically
+                      </h5>
                       <p className="text-[11px] text-slate-500 mt-0.5">
-                        Funds settle directly into your bank and the order marks as Paid.
+                        Funds settle directly into your bank and the order marks
+                        as Paid.
                       </p>
                     </div>
                   </div>
@@ -494,7 +568,8 @@ export default function PaymentGatewaySettings({ onBack } = {}) {
                   Checkout & Payment Controls
                 </h4>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Configure payment methods, link expiration, and Cash on Delivery rules.
+                  Configure payment methods, link expiration, and Cash on
+                  Delivery rules.
                 </p>
               </div>
             </div>
@@ -503,16 +578,21 @@ export default function PaymentGatewaySettings({ onBack } = {}) {
               {/* Enable COD Toggle */}
               <div className="p-4 rounded-xl border border-slate-200/80 bg-slate-50/50 flex items-center justify-between gap-3">
                 <div>
-                  <h5 className="text-xs font-bold text-slate-800">Cash on Delivery (COD) / Pay on Pickup</h5>
+                  <h5 className="text-xs font-bold text-slate-800">
+                    Cash on Delivery (COD) / Pay on Pickup
+                  </h5>
                   <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
-                    Allow customers to pay in cash or at counter if they prefer not to pay online.
+                    Allow customers to pay in cash or at counter if they prefer
+                    not to pay online.
                   </p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer shrink-0">
                   <input
                     type="checkbox"
                     checked={form.enableCod}
-                    onChange={(e) => setForm({ ...form, enableCod: e.target.checked })}
+                    onChange={(e) =>
+                      setForm({ ...form, enableCod: e.target.checked })
+                    }
                     className="sr-only peer"
                   />
                   <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
@@ -522,9 +602,12 @@ export default function PaymentGatewaySettings({ onBack } = {}) {
               {/* Payment Link Expiry Input */}
               <div className="p-4 rounded-xl border border-slate-200/80 bg-slate-50/50 flex items-center justify-between gap-3">
                 <div>
-                  <h5 className="text-xs font-bold text-slate-800">Payment Link Expiry Time</h5>
+                  <h5 className="text-xs font-bold text-slate-800">
+                    Payment Link Expiry Time
+                  </h5>
                   <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
-                    Auto-expire unpaid payment links (minimum 15 mins required by Razorpay).
+                    Auto-expire unpaid payment links (minimum 15 mins required
+                    by Razorpay).
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
@@ -533,10 +616,20 @@ export default function PaymentGatewaySettings({ onBack } = {}) {
                     min="15"
                     max="1440"
                     value={form.paymentLinkExpiryMins}
-                    onChange={(e) => setForm({ ...form, paymentLinkExpiryMins: Math.max(15, Math.min(1440, Number(e.target.value) || 15)) })}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        paymentLinkExpiryMins: Math.max(
+                          15,
+                          Math.min(1440, Number(e.target.value) || 15),
+                        ),
+                      })
+                    }
                     className="w-16 text-xs text-center font-bold px-2 py-1.5 rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
-                  <span className="text-xs font-semibold text-slate-500">mins</span>
+                  <span className="text-xs font-semibold text-slate-500">
+                    mins
+                  </span>
                 </div>
               </div>
             </div>
@@ -549,8 +642,14 @@ export default function PaymentGatewaySettings({ onBack } = {}) {
                 disabled={savingGeneral}
                 className="px-4 py-2 text-xs font-bold rounded-xl bg-[#0C83FD] text-white hover:bg-[#125EF2] transition flex items-center gap-2 shadow-xs disabled:opacity-50"
               >
-                {savingGeneral ? <RefreshCw size={14} className="animate-spin text-white" /> : <Save size={14} />}
-                <span>{savingGeneral ? "Saving..." : "Save Checkout Settings"}</span>
+                {savingGeneral ? (
+                  <RefreshCw size={14} className="animate-spin text-white" />
+                ) : (
+                  <Save size={14} />
+                )}
+                <span>
+                  {savingGeneral ? "Saving..." : "Save Checkout Settings"}
+                </span>
               </button>
             </div>
           </div>
@@ -566,13 +665,18 @@ export default function PaymentGatewaySettings({ onBack } = {}) {
                 <Key size={14} className="text-slate-400" />
                 <span>Developer Options (Manual API Keys Setup)</span>
               </div>
-              {showManualKeys ? <ChevronUp size={14} className="text-slate-400" /> : <ChevronDown size={14} className="text-slate-400" />}
+              {showManualKeys ? (
+                <ChevronUp size={14} className="text-slate-400" />
+              ) : (
+                <ChevronDown size={14} className="text-slate-400" />
+              )}
             </button>
 
             {showManualKeys && (
               <div className="p-4 pt-2 border-t border-slate-200/70 bg-white space-y-4">
                 <p className="text-[11px] text-slate-500">
-                  If you prefer not to use automatic connection, you can enter your Razorpay Key ID, Secret, and Webhook secret manually.
+                  If you prefer not to use automatic connection, you can enter
+                  your Razorpay Key ID, Secret, and Webhook secret manually.
                 </p>
 
                 <div className="grid sm:grid-cols-2 gap-3">
@@ -583,7 +687,9 @@ export default function PaymentGatewaySettings({ onBack } = {}) {
                     <input
                       type="text"
                       value={form.razorpayKeyId}
-                      onChange={(e) => setForm({ ...form, razorpayKeyId: e.target.value })}
+                      onChange={(e) =>
+                        setForm({ ...form, razorpayKeyId: e.target.value })
+                      }
                       placeholder="rzp_live_xxxxxxxxxxxxxxxx"
                       className="w-full text-xs px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
                     />
@@ -597,8 +703,17 @@ export default function PaymentGatewaySettings({ onBack } = {}) {
                       <input
                         type={showKeySecret ? "text" : "password"}
                         value={form.razorpayKeySecret}
-                        onChange={(e) => setForm({ ...form, razorpayKeySecret: e.target.value })}
-                        placeholder={form.hasKeySecret ? "••••••••••••••••" : "Enter Key Secret"}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            razorpayKeySecret: e.target.value,
+                          })
+                        }
+                        placeholder={
+                          form.hasKeySecret
+                            ? "••••••••••••••••"
+                            : "Enter Key Secret"
+                        }
                         className="w-full text-xs pl-3 pr-8 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
                       />
                       <button
@@ -606,7 +721,11 @@ export default function PaymentGatewaySettings({ onBack } = {}) {
                         onClick={() => setShowKeySecret(!showKeySecret)}
                         className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                       >
-                        {showKeySecret ? <EyeOff size={13} /> : <Eye size={13} />}
+                        {showKeySecret ? (
+                          <EyeOff size={13} />
+                        ) : (
+                          <Eye size={13} />
+                        )}
                       </button>
                     </div>
                   </div>
@@ -621,8 +740,17 @@ export default function PaymentGatewaySettings({ onBack } = {}) {
                       <input
                         type={showWebhookSecret ? "text" : "password"}
                         value={form.razorpayWebhookSecret}
-                        onChange={(e) => setForm({ ...form, razorpayWebhookSecret: e.target.value })}
-                        placeholder={form.hasWebhookSecret ? "••••••••••••••••" : "Enter Webhook Secret"}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            razorpayWebhookSecret: e.target.value,
+                          })
+                        }
+                        placeholder={
+                          form.hasWebhookSecret
+                            ? "••••••••••••••••"
+                            : "Enter Webhook Secret"
+                        }
                         className="w-full text-xs pl-3 pr-8 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
                       />
                       <button
@@ -630,7 +758,11 @@ export default function PaymentGatewaySettings({ onBack } = {}) {
                         onClick={() => setShowWebhookSecret(!showWebhookSecret)}
                         className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                       >
-                        {showWebhookSecret ? <EyeOff size={13} /> : <Eye size={13} />}
+                        {showWebhookSecret ? (
+                          <EyeOff size={13} />
+                        ) : (
+                          <Eye size={13} />
+                        )}
                       </button>
                     </div>
                   </div>
@@ -688,7 +820,9 @@ export default function PaymentGatewaySettings({ onBack } = {}) {
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <h4 className="text-xs font-bold text-slate-800">Customer Checkout Preview</h4>
+                <h4 className="text-xs font-bold text-slate-800">
+                  Customer Checkout Preview
+                </h4>
               </div>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
                 WhatsApp
@@ -699,7 +833,8 @@ export default function PaymentGatewaySettings({ onBack } = {}) {
             <div className="rounded-xl bg-[#EFEAE2] p-3 border border-slate-200/80 shadow-inner space-y-2 font-sans">
               <div className="bg-white rounded-xl rounded-tl-xs p-3 shadow-xs text-left space-y-2 border border-slate-100/90">
                 <p className="text-[11px] text-slate-800 font-medium leading-snug">
-                  Hi Rahul! 👋 Your order <strong>#ORD-2084</strong> has been placed.
+                  Hi Rahul! 👋 Your order <strong>#ORD-2084</strong> has been
+                  placed.
                 </p>
 
                 <div className="p-2.5 rounded-lg bg-slate-50/80 border border-slate-100 text-[10px] text-slate-600 space-y-1">
@@ -714,7 +849,8 @@ export default function PaymentGatewaySettings({ onBack } = {}) {
                 </div>
 
                 <p className="text-[10px] text-slate-500 leading-tight">
-                  Tap below to complete payment securely via UPI, Card, or NetBanking:
+                  Tap below to complete payment securely via UPI, Card, or
+                  NetBanking:
                 </p>
 
                 {/* WhatsApp Interactive CTA Button */}
@@ -733,7 +869,8 @@ export default function PaymentGatewaySettings({ onBack } = {}) {
             </div>
 
             <p className="text-[10px] text-slate-400 mt-2.5 text-center leading-relaxed">
-              This is the exact payment card your customers will receive inside WhatsApp chat.
+              This is the exact payment card your customers will receive inside
+              WhatsApp chat.
             </p>
           </div>
 
@@ -745,67 +882,85 @@ export default function PaymentGatewaySettings({ onBack } = {}) {
             <div className="space-y-2 text-xs">
               <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
                 <span className="text-slate-500">Platform Commission</span>
-                <span className="font-bold text-emerald-600">0% (Zero Platform Fee)</span>
+                <span className="font-bold text-emerald-600">
+                  0% (Zero Platform Fee)
+                </span>
               </div>
               <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
                 <span className="text-slate-500">Payment Modes</span>
-                <span className="font-semibold text-slate-800">UPI, Cards, NetBanking</span>
+                <span className="font-semibold text-slate-800">
+                  UPI, Cards, NetBanking
+                </span>
               </div>
               <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
                 <span className="text-slate-500">Payout Target</span>
-                <span className="font-semibold text-slate-800">Direct to Your Bank</span>
+                <span className="font-semibold text-slate-800">
+                  Direct to Your Bank
+                </span>
               </div>
               <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
                 <span className="text-slate-500">Order Updates</span>
-                <span className="font-semibold text-emerald-600">Real-Time Instant Sync</span>
+                <span className="font-semibold text-emerald-600">
+                  Real-Time Instant Sync
+                </span>
               </div>
               <div className="flex items-center justify-between py-1.5">
                 <span className="text-slate-500">Security</span>
-                <span className="font-semibold text-slate-800">256-bit Bank Grade</span>
+                <span className="font-semibold text-slate-800">
+                  256-bit Bank Grade
+                </span>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-               {/* Disconnect Modal */}
-      {showDisconnectModal && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 space-y-4 relative z-10 animate-in zoom-in-95 duration-150">
-            <div className="w-10 h-10 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center border border-rose-100">
-              <AlertTriangle size={20} />
-            </div>
+      {/* Disconnect Modal */}
+      {showDisconnectModal &&
+        createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
+            <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 space-y-4 relative z-10 animate-in zoom-in-95 duration-150">
+              <div className="w-10 h-10 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center border border-rose-100">
+                <AlertTriangle size={20} />
+              </div>
 
-            <div>
-              <h3 className="text-sm font-bold text-slate-800">Disconnect Razorpay?</h3>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Disconnecting will disable online payment links in WhatsApp. You can reconnect anytime.
-              </p>
-            </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-800">
+                  Disconnect Razorpay?
+                </h3>
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                  Disconnecting will disable online payment links in WhatsApp.
+                  You can reconnect anytime.
+                </p>
+              </div>
 
-            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
-              <button
-                type="button"
-                disabled={disconnecting}
-                onClick={() => setShowDisconnectModal(false)}
-                className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 transition"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={disconnecting}
-                onClick={handleDisconnectConfirm}
-                className="px-4 py-2 text-xs font-semibold rounded-xl bg-rose-600 text-white hover:bg-rose-700 transition flex items-center gap-1.5 shadow-xs disabled:opacity-50"
-              >
-                {disconnecting && <RefreshCw size={13} className="animate-spin" />}
-                <span>{disconnecting ? "Disconnecting..." : "Yes, Disconnect"}</span>
-              </button>
+              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  disabled={disconnecting}
+                  onClick={() => setShowDisconnectModal(false)}
+                  className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={disconnecting}
+                  onClick={handleDisconnectConfirm}
+                  className="px-4 py-2 text-xs font-semibold rounded-xl bg-rose-600 text-white hover:bg-rose-700 transition flex items-center gap-1.5 shadow-xs disabled:opacity-50"
+                >
+                  {disconnecting && (
+                    <RefreshCw size={13} className="animate-spin" />
+                  )}
+                  <span>
+                    {disconnecting ? "Disconnecting..." : "Yes, Disconnect"}
+                  </span>
+                </button>
+              </div>
             </div>
-          </div>
-        </div>,
-        document.body
-      )} 
-       </div>
+          </div>,
+          document.body,
+        )}
+    </div>
   );
 }

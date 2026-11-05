@@ -1,30 +1,31 @@
 // tenant-web/src/components/automation/NodeTypes/CatalogNode.jsx (do not remove this comment)
 
-import { Handle, Position } from 'reactflow'
-import { ShoppingBag, X } from 'lucide-react'
-import { useReactFlow } from 'reactflow'
+import { Handle, Position } from "reactflow";
+import { ShoppingBag, X } from "lucide-react";
+import { useReactFlow } from "reactflow";
 
 const handleStyle = {
   width: 10,
   height: 10,
-  background: '#94a3b8',
-  border: '2px solid white',
-}
+  background: "#94a3b8",
+  border: "2px solid white",
+};
 
 export default function CatalogNode({ id, data, selected }) {
-  const { deleteElements } = useReactFlow()
+  const { deleteElements } = useReactFlow();
 
   const handleDelete = (e) => {
-    e.stopPropagation()
-    deleteElements({ nodes: [{ id }] })
-  }
+    e.stopPropagation();
+    deleteElements({ nodes: [{ id }] });
+  };
 
   return (
     <div
       className={`bg-white rounded-xl border-2 p-3 w-56 shadow-sm transition
-        ${selected
-          ? 'border-indigo-500'
-          : 'border-slate-200 hover:border-indigo-300'
+        ${
+          selected
+            ? "border-indigo-500"
+            : "border-slate-200 hover:border-indigo-300"
         }`}
     >
       <Handle type="target" position={Position.Left} style={handleStyle} />
@@ -47,7 +48,7 @@ export default function CatalogNode({ id, data, selected }) {
       </div>
 
       <p className="text-xs text-slate-600 bg-slate-50 rounded-lg p-2 mb-2 line-clamp-2">
-        {data.content || 'Browse our catalog below...'}
+        {data.content || "Browse our catalog below..."}
       </p>
 
       <div className="bg-indigo-50/70 border border-indigo-100 rounded-lg py-1.5 px-2 text-center">
@@ -58,5 +59,5 @@ export default function CatalogNode({ id, data, selected }) {
 
       <Handle type="source" position={Position.Right} style={handleStyle} />
     </div>
-  )
+  );
 }

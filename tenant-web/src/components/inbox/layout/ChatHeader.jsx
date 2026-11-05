@@ -1,5 +1,5 @@
 // tenant-web/src/components/inbox/layout/ChatHeader.jsx (do not remove this comment)
-import React from 'react';
+import React from "react";
 import {
   Phone,
   CheckCircle2,
@@ -82,7 +82,10 @@ export default function ChatHeader({
           </div>
           <div>
             <p className="font-bold text-white text-sm leading-none flex items-center gap-1.5">
-              {activeChat.contact?.name || (activeChat.contact?.username ? `@${activeChat.contact.username}` : "Customer")}
+              {activeChat.contact?.name ||
+                (activeChat.contact?.username
+                  ? `@${activeChat.contact.username}`
+                  : "Customer")}
             </p>
             <div className="flex items-center gap-1.5 mt-1 flex-wrap">
               <p className="text-[10px] text-emerald-200 font-medium">
@@ -92,7 +95,9 @@ export default function ChatHeader({
                     ? `via Facebook Messenger`
                     : `via WhatsApp • ${activeChat.contact?.phone || ""}`}
               </p>
-              {activeViewers.filter((v) => String(v.userId) !== String(user?.id)).length > 0 && (
+              {activeViewers.filter(
+                (v) => String(v.userId) !== String(user?.id),
+              ).length > 0 && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#064E47] text-emerald-100 text-[10px] font-medium border border-emerald-400/30 ml-2 shadow-sm">
                   <Eye size={11} className="text-emerald-300" />
                   <span>
@@ -108,10 +113,7 @@ export default function ChatHeader({
           </div>
         </div>
 
-
-
         <div className="flex items-center gap-2">
-
           {activeChat.channel === "WHATSAPP" && (
             <button
               onClick={() => handleInitiateCall(activeChat.contact)}
@@ -121,7 +123,7 @@ export default function ChatHeader({
               <Phone size={14} className="text-white" />
             </button>
           )}
-            {activeChat.status === "OPEN" ? (
+          {activeChat.status === "OPEN" ? (
             <button
               onClick={() => handleUpdateStatus("RESOLVED")}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-white/15 hover:bg-white/25 backdrop-blur-sm border border-white/10 rounded-xl text-white text-xs font-semibold transition duration-150"
@@ -190,7 +192,11 @@ export default function ChatHeader({
                   <span className="flex items-center gap-2.5">
                     <Eye size={14} /> Contact Details
                   </span>
-                  {showContactPanel ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+                  {showContactPanel ? (
+                    <ChevronRight size={14} />
+                  ) : (
+                    <ChevronLeft size={14} />
+                  )}
                 </button>
 
                 {userRole === "admin" && (
@@ -212,13 +218,9 @@ export default function ChatHeader({
             )}
           </div>
         </div>
-
-
-
-
       </div>
 
-                  {/* ── 24-Hour Window Expired Notice (Top Small Compact Banner) ── */}
+      {/* ── 24-Hour Window Expired Notice (Top Small Compact Banner) ── */}
       {activeChat &&
         is24hExpired(activeChat) &&
         activeChat.status === "OPEN" &&
@@ -227,7 +229,8 @@ export default function ChatHeader({
             <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 border border-amber-200/80 rounded-lg text-[10px] font-medium text-amber-900 shadow-xs">
               <AlertTriangle size={12} className="text-amber-600 shrink-0" />
               <span>
-                {activeChat.channel === "MESSENGER" || activeChat.channel === "INSTAGRAM"
+                {activeChat.channel === "MESSENGER" ||
+                activeChat.channel === "INSTAGRAM"
                   ? "Standard 24h window has ended. Responses will use 7-day Human Agent window."
                   : "It has been more than 24 hours since customer messaged. You can only respond using a Template."}
               </span>
@@ -236,7 +239,8 @@ export default function ChatHeader({
         )}
 
       {/* Collision Warning Alert Banner */}
-      {typingAgents.filter((t) => String(t.userId) !== String(user?.id)).length > 0 && (
+      {typingAgents.filter((t) => String(t.userId) !== String(user?.id))
+        .length > 0 && (
         <div className="bg-amber-500 text-white px-5 py-2.5 flex items-center justify-between shadow-md animate-pulse shrink-0 border-b border-amber-600">
           <div className="flex items-center gap-2 text-xs font-bold">
             <AlertTriangle size={16} className="text-amber-100 shrink-0" />
