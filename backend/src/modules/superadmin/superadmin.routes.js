@@ -76,6 +76,12 @@ router.get("/profile", verifySuperAdmin, (req, res) => {
 });
 
 //Tenant Management
+router.post(
+  "/register-tenant",
+  verifySuperAdmin,
+  superAdminController.registerTenant,
+);
+
 router.get(
   "/get-all-tenants",
   verifySuperAdmin,

@@ -1780,11 +1780,7 @@ export default function Tenants() {
       return;
     }
     try {
-      const registerBaseURL = `${import.meta.env.VITE_API_URL}/tenant`;
-      const response = await axios.post(
-        `${registerBaseURL}/register`,
-        newTenant,
-      );
+      const response = await api.post("/register-tenant", newTenant);
       if (response.data?.success) {
         toast.success(
           `Tenant "${newTenant.tenantName}" registered successfully!`,

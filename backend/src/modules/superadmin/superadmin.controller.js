@@ -25,6 +25,7 @@ import {
   getAllPaymentsService,
   getTenantBillingService,
 } from "./superadmin.service.js";
+import { registerTenantService } from "../tenant/tenantService.js";
 
 // ═══════════════════════════════════════════
 // CREATE SUPERADMIN — no audit needed
@@ -167,6 +168,18 @@ export const resetPasswordSuperAdmin = async (req, res) => {
       confirmPassword,
     );
     return res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+// ═══════════════════════════════════════════
+// REGISTER TENANT (Admin Onboarding)
+// ═══════════════════════════════════════════
+export const registerTenant = async (req, res) => {
+  try {
+    const result = await registerTenantService(req.body);
+    return res.status(201).json({ success: true, ...result });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
   }
