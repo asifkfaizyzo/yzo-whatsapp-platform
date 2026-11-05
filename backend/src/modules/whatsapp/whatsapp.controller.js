@@ -667,7 +667,8 @@ export const getWhatsAppStatus = async (req, res) => {
     });
     const tenant = tenantRow?.whatsapp || {};
 
-    const isConnected = !!(tenant?.whatsappPhoneId && tenant?.whatsappWabaId);
+    const isConnected = process.env.MOCK_WHATSAPP === 'true' ||
+      !!(tenant?.whatsappPhoneId && tenant?.whatsappWabaId);
     if (!isConnected) {
       return res.json({
         success: true,
