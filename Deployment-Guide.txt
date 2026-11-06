@@ -7,6 +7,11 @@
 # Repo: /var/www/SudoReply
 # Stack: Docker Compose v2 (backend + frontends + postgres + redis)
 #
+
+# Start your Cloudflare tunnel DEV : cloudflared tunnel run sudoreply-dev
+
+
+
 # Nginx reverse proxy (host-level, /etc/nginx/sites-enabled/sudoreply.conf):
 #   api.sudoreply.com   → localhost:5000  (backend)
 #   admin.sudoreply.com → localhost:3001  (admin-web)
