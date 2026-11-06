@@ -18,6 +18,7 @@ import { spacing, borderRadius } from '../../theme/spacing';
 import { SearchBar } from '../../components/ui/SearchBar';
 import { Avatar } from '../../components/ui/Avatar';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { PlatformBadge } from '../../components/ui/PlatformBadge';
 import { useContacts, useDeleteContact } from '../../hooks/useContacts';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
@@ -47,7 +48,10 @@ export const ContactsListScreen: React.FC<Props> = ({ navigation }) => {
       onPress={() => navigation.navigate('ContactDetail', { id: item.id })}
       onLongPress={() => handleDelete(item.id, item.name)}
     >
-      <Avatar name={item.name} size={44} />
+      <View style={styles.avatarWrap}>
+        <Avatar name={item.name} size={44} />
+        <PlatformBadge channel={item.channel} />
+      </View>
       <View style={styles.contactInfo}>
         <Text style={styles.contactName} numberOfLines={1}>
           {item.name || 'Unknown'}
@@ -156,6 +160,11 @@ const styles = StyleSheet.create({
   },
   searchContainer: { paddingHorizontal: spacing.xl, marginBottom: spacing.sm },
   list: { paddingHorizontal: spacing.xl, paddingBottom: spacing.huge },
+  avatarWrap: {
+    position: 'relative',
+    width: 44,
+    height: 44,
+  },
   contactCard: {
     flexDirection: 'row',
     alignItems: 'center',

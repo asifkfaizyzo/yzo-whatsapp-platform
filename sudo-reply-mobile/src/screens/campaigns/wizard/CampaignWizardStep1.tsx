@@ -10,15 +10,15 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../../theme/colors';
-import { typography } from '../../theme/typography';
-import { spacing, borderRadius } from '../../theme/spacing';
-import { Card } from '../../components/ui/Card';
-import { Input } from '../../components/ui/Input';
-import { Button } from '../../components/ui/Button';
-import { Badge } from '../../components/ui/Badge';
-import { useApprovedTemplates, getTemplateBodyInfo } from '../../hooks/useTemplates';
-import { useCampaignWizardStore } from '../../stores/campaignWizardStore';
+import { colors } from '../../../theme/colors';
+import { typography } from '../../../theme/typography';
+import { spacing, borderRadius } from '../../../theme/spacing';
+import { Card } from '../../../components/ui/Card';
+import { Input } from '../../../components/ui/Input';
+import { Button } from '../../../components/ui/Button';
+import { Badge } from '../../../components/ui/Badge';
+import { useApprovedTemplates, getTemplateBodyInfo } from '../../../hooks/useTemplates';
+import { useCampaignWizardStore } from '../../../stores/campaignWizardStore';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 type Props = NativeStackScreenProps<any, 'CampaignWizardStep1'>;
