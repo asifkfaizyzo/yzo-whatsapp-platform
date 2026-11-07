@@ -422,25 +422,87 @@ export const requestCallPermission = async (req, res) => {
 
     const token = await getTenantToken(req.tenant?.id || req.user?.tenantId);
 
-    const response = await axios.post(
-      `${GRAPH_BASE_URL}/${phoneId}/messages`,
-      {
-        messaging_product: "whatsapp",
-        recipient_type: "individual",
-        to: toNumber,
-        type: "interactive",
-        interactive: {
-          type: "call_permission_request",
-          body: {
-            text: "Please grant us permission to call you via WhatsApp.",
-          },
-          action: {
-            name: "call_permission_request",
-          },
+    const permissionPayload = {
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to: toNumber,
+      type: "interactive",
+      interactive: {
+        type: "call_permission_request",
+        body: {
+          text: "Please grant us permission to call you via WhatsApp.",
+        },
+        action: {
+          name: "call_permission_request",
         },
       },
-      { headers: { Authorization: `Bearer ${token}` } },
-    );
+    };
+
+    let response;
+    try {
+      response = await axios.post(
+        `${GRAPH_BASE_URL}/${phoneId}/messages`,
+        permissionPayload,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+    } catch (permErr) {
+      const metaCode = permErr.response?.data?.error?.code;
+
+      // Error 138000 = Calling API not enabled for this phone number
+      if (metaCode === 138000) {
+        console.warn(
+          `[requestCallPermission] Calling not enabled for phoneId ${phoneId}. Auto-enabling...`,
+        );
+        try {
+          await axios.post(
+            `${GRAPH_BASE_URL}/${phoneId}/settings`,
+            {
+              calling: {
+                status: "ENABLED",
+                call_icon_visibility: "DEFAULT",
+              },
+            },
+            { headers: { Authorization: `Bearer ${token}` } },
+          );
+          console.log(
+            `[requestCallPermission] Calling enabled successfully for phoneId ${phoneId}. Retrying permission request...`,
+          );
+        } catch (settingsErr) {
+          console.error(
+            "[requestCallPermission] Failed to auto-enable calling:",
+            settingsErr.response?.data || settingsErr.message,
+          );
+          return res.status(500).json({
+            error: "CALLING_ENABLE_FAILED",
+            message:
+              "Calling is not enabled for this phone number and could not be auto-enabled. Please enable it manually in WhatsApp Manager → Phone Number Settings → Calling.",
+          });
+        }
+
+        // Retry the permission request after enabling calling
+        try {
+          response = await axios.post(
+            `${GRAPH_BASE_URL}/${phoneId}/messages`,
+            permissionPayload,
+            { headers: { Authorization: `Bearer ${token}` } },
+          );
+        } catch (retryErr) {
+          console.error(
+            "[requestCallPermission] Retry failed after enabling calling:",
+            retryErr.response?.data || retryErr.message,
+          );
+          return res.status(500).json({
+            error: "PERMISSION_REQUEST_FAILED",
+            message:
+              "Calling was enabled but the permission request still failed. Please try again in a few seconds.",
+          });
+        }
+      } else {
+        // Non-138000 error — throw to outer catch
+        throw permErr;
+      }
+    }
+
     res.json({ success: true, data: response.data });
   } catch (error) {
     console.error(
@@ -451,7 +513,7 @@ export const requestCallPermission = async (req, res) => {
       .status(500)
       .json({
         error:
-          error.response?.data ||
+          error.response?.data?.error?.message ||
           error.message ||
           "Failed to request permission",
       });
@@ -481,11 +543,21 @@ export const getCallSettings = async (req, res) => {
       );
     }
 
+    // Sanitize Meta's NOT_SET → valid defaults (Meta returns NOT_SET when calling was never configured)
+    const validStatuses = ["ENABLED", "DISABLED"];
+    const validVisibilities = ["DEFAULT", "DISABLE_ALL"];
+    const sanitizedStatus = validStatuses.includes(callingSettings.status)
+      ? callingSettings.status
+      : "ENABLED";
+    const sanitizedVisibility = validVisibilities.includes(callingSettings.call_icon_visibility)
+      ? callingSettings.call_icon_visibility
+      : "DEFAULT";
+
     res.json({
       success: true,
       data: {
-        status: callingSettings.status || "ENABLED",
-        callIconVisibility: callingSettings.call_icon_visibility || "DEFAULT",
+        status: sanitizedStatus,
+        callIconVisibility: sanitizedVisibility,
       },
     });
   } catch (error) {
@@ -504,10 +576,20 @@ export const updateCallSettings = async (req, res) => {
     const updateData = req.body;
     const token = await getTenantToken(req.tenant?.id || req.user?.tenantId);
 
+    // Whitelist valid Meta enum values — reject NOT_SET or any invalid value
+    const validStatuses = ["ENABLED", "DISABLED"];
+    const validVisibilities = ["DEFAULT", "DISABLE_ALL"];
+    const safeStatus = validStatuses.includes(updateData.status)
+      ? updateData.status
+      : "ENABLED";
+    const safeVisibility = validVisibilities.includes(updateData.callIconVisibility)
+      ? updateData.callIconVisibility
+      : "DEFAULT";
+
     const payload = {
       calling: {
-        status: updateData.status || "ENABLED",
-        call_icon_visibility: updateData.callIconVisibility || "DEFAULT",
+        status: safeStatus,
+        call_icon_visibility: safeVisibility,
       },
     };
 
