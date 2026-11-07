@@ -38,17 +38,42 @@ export interface Conversation {
   updatedAt: string;
 }
 
-export const useAssignedConversations = () => {
-  return useQuery({
-    queryKey: ['conversations', 'assigned'],
+export interface ConversationsResponse {
+  conversations: Conversation[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  counts: {
+    all: number;
+    unread: number;
+    open: number;
+    closed: number;
+  };
+  channelCounts: {
+    ALL: number;
+    WHATSAPP: number;
+    MESSENGER: number;
+    INSTAGRAM: number;
+  };
+}
+
+export const useAssignedConversations = (filters?: {
+  status?: string;
+  channel?: string;
+}) => {
+  return useQuery<ConversationsResponse>({
+    queryKey: ['conversations', 'assigned', filters?.status, filters?.channel],
     queryFn: async () => {
-      const { data } = await api.get(ENDPOINTS.conversations.assigned);
-      return data.data?.conversations || data.data || data.conversations || [];
+      const params: Record<string, string> = {};
+      if (filters?.status) params.status = filters.status;
+      if (filters?.channel && filters.channel !== 'ALL') params.channel = filters.channel;
+      const { data } = await api.get(ENDPOINTS.conversations.assigned, { params });
+      return data.data || data;
     },
     refetchInterval: 15_000,
   });
 };
-
 export const useConversationMessages = (conversationId: string | null) => {
   return useQuery({
     queryKey: ['messages', conversationId],

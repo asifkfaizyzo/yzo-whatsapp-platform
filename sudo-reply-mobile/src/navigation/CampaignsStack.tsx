@@ -2,10 +2,10 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { CampaignsListScreen } from '../screens/campaigns/CampaignsListScreen';
-import { CampaignWizardStep1 } from '../screens/campaigns/CampaignWizardStep1';
-import { CampaignWizardStep2 } from '../screens/campaigns/CampaignWizardStep2';
-import { CampaignWizardStep3 } from '../screens/campaigns/CampaignWizardStep3';
-import { CampaignWizardStep4 } from '../screens/campaigns/CampaignWizardStep4';
+import { CampaignWizardStep1 } from '../screens/campaigns/wizard/CampaignWizardStep1';
+import { CampaignWizardStep2 } from '../screens/campaigns/wizard/CampaignWizardStep2';
+import { CampaignWizardStep3 } from '../screens/campaigns/wizard/CampaignWizardStep3';
+import { CampaignWizardStep4 } from '../screens/campaigns/wizard/CampaignWizardStep4';
 
 const Stack = createNativeStackNavigator();
 
