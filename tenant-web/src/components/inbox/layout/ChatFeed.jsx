@@ -260,9 +260,9 @@ export default function ChatFeed({
                         alt={msg.mediaName || "image"}
                         className="rounded-lg max-w-full hover:opacity-90 transition shadow-sm"
                         style={{
-                          maxWidth: "220px",
-                          maxHeight: "200px",
-                          objectFit: "cover",
+                          maxWidth: "260px",
+                          maxHeight: "240px",
+                          objectFit: "contain",
                         }}
                         onError={(e) => {
                           e.target.style.display = "none";

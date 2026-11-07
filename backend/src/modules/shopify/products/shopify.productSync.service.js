@@ -1,7 +1,7 @@
 // backend/src/modules/shopify/products/shopify.productSync.service.js (do not remove this comment)
 import axios from "axios";
 import prisma from "../../../config/prisma.js";
-import { decrypt } from "../../../lib/crypto.js";
+import { getShopifyAccessToken } from "../shopify.service.js";
 
 /**
  * Fetch shop-level currency from Shopify
@@ -197,7 +197,7 @@ export const syncAllProducts = async (tenantId) => {
   }
 
   const shopName = connection.shopName;
-  const accessToken = decrypt(connection.accessToken);
+  const accessToken = await getShopifyAccessToken(tenantId);
   const apiVersion = process.env.SHOPIFY_API_VERSION || "2026-07";
 
   // 1. Get shop currency once

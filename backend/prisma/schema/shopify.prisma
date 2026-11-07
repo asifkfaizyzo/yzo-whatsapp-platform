@@ -2,18 +2,21 @@
 // Shopify integration — connection, product catalog sync, back-in-stock
 
 model ShopifyConnection {
-  id            String   @id @default(cuid())
-  tenantId      String   @unique
-  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id                    String   @id @default(cuid())
+  tenantId              String   @unique
+  tenant                Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  shopName      String
-  accessToken   String   @db.Text
-  webhookSecret String?  @db.Text
+  shopName              String
+  accessToken           String   @db.Text
+  accessTokenExpiresAt DateTime?
+  refreshToken          String?  @db.Text
+  refreshTokenExpiresAt DateTime?
+  webhookSecret         String?  @db.Text
 
-  connectedBy   String?
-  status        String   @default("active")
-  connectedAt   DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  connectedBy           String?
+  status                String   @default("active")
+  connectedAt           DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
   // ── Cart Recovery Settings ──
   cartRecoveryEnabled    Boolean  @default(true)

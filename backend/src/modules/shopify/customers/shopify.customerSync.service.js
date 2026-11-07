@@ -1,7 +1,7 @@
 // backend/src/modules/shopify/customers/shopify.customerSync.service.js (do not remove this comment)
 import axios from "axios";
 import prisma from "../../../config/prisma.js";
-import { decrypt } from "../../../lib/crypto.js";
+import { getShopifyAccessToken } from "../shopify.service.js";
 
 /**
  * Helper to format Shopify address into a single readable location string
@@ -161,7 +161,7 @@ export const syncAllShopifyCustomers = async (tenantId) => {
   }
 
   const shopName = connection.shopName;
-  const accessToken = decrypt(connection.accessToken);
+  const accessToken = await getShopifyAccessToken(tenantId);
   const apiVersion = process.env.SHOPIFY_API_VERSION || "2026-07";
 
   let pageInfo = null;

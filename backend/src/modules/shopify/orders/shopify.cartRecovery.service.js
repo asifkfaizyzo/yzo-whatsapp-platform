@@ -3,6 +3,7 @@
 import axios from "axios";
 import prisma from "../../../config/prisma.js";
 import { decrypt } from "../../../lib/crypto.js";
+import { getShopifyAccessToken } from "../shopify.service.js";
 import { orderWebhookQueue } from "../../../cron/queues/order-webhook.queue.js";
 import { sendMessageService } from "../../messages/message.service.js";
 import {
@@ -78,7 +79,7 @@ async function fetchShopifyProductImage(tenantId, productId, variantId) {
     });
 
     if (!shopifyConn || !shopifyConn.accessToken) return null;
-    const accessToken = decrypt(shopifyConn.accessToken);
+    const accessToken = await getShopifyAccessToken(tenantId);
 
     let cleanShop = shopifyConn.shopName
       .replace(/^https?:\/\//i, "")
@@ -155,7 +156,7 @@ async function fetchAbandonedCheckoutCustomer(tenantId, checkoutId) {
     .replace(/\/.*$/, "")
     .trim()
     .toLowerCase();
-  const accessToken = decrypt(shopifyConn.accessToken);
+  const accessToken = await getShopifyAccessToken(tenantId);
   const apiVersion = process.env.SHOPIFY_API_VERSION || "2026-10";
 
   const response = await axios.post(

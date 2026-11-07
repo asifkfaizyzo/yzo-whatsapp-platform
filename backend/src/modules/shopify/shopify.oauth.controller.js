@@ -206,18 +206,39 @@ export const handleOAuthCallback = async (req, res) => {
         client_id: apiKey,
         client_secret: apiSecret,
         code: req.query.code,
+        expiring: 1,
       },
       { timeout: 10000 },
     );
 
-    const accessToken = tokenResponse.data?.access_token;
-    if (!accessToken) {
-      throw new Error("Shopify did not return an access token");
+    const {
+      access_token: accessToken,
+      expires_in: expiresIn,
+      refresh_token: refreshToken,
+      refresh_token_expires_in: refreshTokenExpiresIn,
+    } = tokenResponse.data || {};
+    if (
+      !accessToken ||
+      !refreshToken ||
+      !Number.isFinite(expiresIn) ||
+      !Number.isFinite(refreshTokenExpiresIn)
+    ) {
+      throw new Error(
+        "Shopify did not return the expiring offline access-token credentials",
+      );
     }
+    const tokenReceivedAt = Date.now();
+    const accessTokenExpiresAt = new Date(tokenReceivedAt + expiresIn * 1000);
+    const refreshTokenExpiresAt = new Date(
+      tokenReceivedAt + refreshTokenExpiresIn * 1000,
+    );
 
     await shopifyService.connect(state.tenantId, null, {
       shopName: shop,
       accessToken,
+      accessTokenExpiresAt,
+      refreshToken,
+      refreshTokenExpiresAt,
       webhookSecret: apiSecret,
     });
 

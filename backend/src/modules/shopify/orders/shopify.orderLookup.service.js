@@ -2,7 +2,7 @@
 
 import axios from "axios";
 import prisma from "../../../config/prisma.js";
-import { decrypt } from "../../../lib/crypto.js";
+import { getShopifyAccessToken } from "../shopify.service.js";
 import { generateTrackingUrl } from "../../../lib/utils/tracking.helper.js";
 
 const normalizeShopifyApiOrder = (shopifyOrder) => {
@@ -124,7 +124,7 @@ const shopifyOrderLookupService = {
           }
 
           const apiVersion = process.env.SHOPIFY_API_VERSION || "2026-07";
-          const accessToken = decrypt(connection.accessToken);
+          const accessToken = await getShopifyAccessToken(tenantId);
           const response = await axios.get(
             `https://${shopName}/admin/api/${apiVersion}/orders.json`,
             {
@@ -201,7 +201,7 @@ const shopifyOrderLookupService = {
             }
 
             const apiVersion = process.env.SHOPIFY_API_VERSION || "2026-07";
-            const accessToken = decrypt(connection.accessToken);
+            const accessToken = await getShopifyAccessToken(tenantId);
             const response = await axios.get(
               `https://${shopName}/admin/api/${apiVersion}/orders.json`,
               {
