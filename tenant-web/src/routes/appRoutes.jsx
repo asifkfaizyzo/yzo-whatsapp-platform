@@ -8,7 +8,7 @@ import LandingPage from "../pages/Home";
 import NotFound from "../pages/NotFound";
 
 import Dashboard from "../pages/dashboard/Dashboard";
-import Inbox from "../pages/dashboard/Inbox";
+import InboxPage from "../pages/Inbox/InboxPage";
 import Broadcasts from "../pages/dashboard/Broadcasts";
 import Templates from "../pages/dashboard/Templates";
 import Contacts from "../pages/dashboard/Contacts";
@@ -130,7 +130,7 @@ function App() {
           }
         >
           <Route index element={<Dashboard />} />
-          <Route path="inbox" element={<Inbox />} />
+          <Route path="inbox" element={<InboxPage />} />
           <Route path="broadcasts" element={<Broadcasts />} />
           <Route path="templates" element={<Templates />} />
           <Route path="contacts" element={<Contacts />} />

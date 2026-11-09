@@ -1,8 +1,8 @@
-// tenant-web/src/components/inbox/layout/ChatInput.jsx (do not remove this comment)
+// tenant-web/src/pages/Inbox/comps/ChatInput.jsx (do not remove this comment)
 import React from "react";
 import { Paperclip, Smile, Send, Mic, X, MapPin } from "lucide-react";
 import EmojiPicker from "emoji-picker-react";
-import QuickReplyPopover from "../QuickReplyPopover";
+import QuickReplyPopover from "./QuickReplyPopover";
 
 export default function ChatInput({
   handleSendMessage,
@@ -78,7 +78,7 @@ export default function ChatInput({
           </div>
         )}
 
-      {/* ── Staged Quick Reply Attachment Preview ── */}
+      {/* Staged Quick Reply Attachment Preview */}
       {stagedQuickReply && (
         <div className="flex items-center gap-2 px-3 py-2 bg-emerald-50 border border-emerald-200/80 rounded-xl text-xs text-[#075E54] shadow-xs animate-in fade-in slide-in-from-bottom-1">
           <Paperclip size={14} className="shrink-0 text-[#075E54]" />
@@ -104,7 +104,7 @@ export default function ChatInput({
 
       {/* Input Row */}
       <div className="flex items-center gap-2">
-        {/* ── Emoji Picker Button ── */}
+        {/* Emoji Picker Button */}
         <div className="relative" ref={emojiPickerRef}>
           <button
             type="button"
@@ -116,7 +116,6 @@ export default function ChatInput({
             <Smile size={22} />
           </button>
 
-          {/* Emoji Picker Popup - Ultra Compact */}
           {showEmojiPicker && (
             <div className="absolute bottom-full left-0 mb-2 z-50 shadow-2xl rounded-xl overflow-hidden border border-emerald-100 animate-in fade-in slide-in-from-bottom-2 duration-150">
               <EmojiPicker
@@ -150,7 +149,6 @@ export default function ChatInput({
           onChange={handleFileSelect}
         />
 
-        {/* ── WhatsApp-Style Hidden File Inputs ── */}
         <input
           type="file"
           ref={documentInputRef}
@@ -181,7 +179,7 @@ export default function ChatInput({
           onChange={handleFileSelect}
         />
 
-        {/* ── NEW WhatsApp-Style Attach Button with Menu ── */}
+        {/* Attach Button with Menu */}
         <div className="relative" ref={attachMenuRef}>
           <button
             type="button"
@@ -193,27 +191,15 @@ export default function ChatInput({
             <Paperclip size={20} className="rotate-45" />
           </button>
 
-          {/* ── Popup Attach Menu - Compact ── */}
           {showAttachMenu && (
             <div className="absolute bottom-full left-0 mb-2 z-50 bg-white rounded-xl shadow-2xl border border-emerald-100 overflow-hidden min-w-[200px] animate-in fade-in slide-in-from-bottom-2 duration-150">
-              {/* Document */}
               <button
                 type="button"
                 onClick={() => handleAttachMenuClick("document")}
                 className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-[#F0F2F5] transition text-left"
               >
                 <div className="w-7 h-7 rounded-full bg-[#7F66FF]/10 flex items-center justify-center shrink-0">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="#7F66FF"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7F66FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                     <polyline points="14 2 14 8 20 8" />
                     <line x1="16" y1="13" x2="8" y2="13" />
@@ -221,67 +207,38 @@ export default function ChatInput({
                     <polyline points="10 9 9 9 8 9" />
                   </svg>
                 </div>
-                <span className="text-xs font-medium text-[#111B21]">
-                  Document
-                </span>
+                <span className="text-xs font-medium text-[#111B21]">Document</span>
               </button>
 
-              {/* Photos & Videos */}
               <button
                 type="button"
                 onClick={() => handleAttachMenuClick("photos")}
                 className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-[#F0F2F5] transition text-left"
               >
                 <div className="w-7 h-7 rounded-full bg-[#007BFC]/10 flex items-center justify-center shrink-0">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="#007BFC"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#007BFC" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
                     <circle cx="8.5" cy="8.5" r="1.5" />
                     <polyline points="21 15 16 10 5 21" />
                   </svg>
                 </div>
-                <span className="text-xs font-medium text-[#111B21]">
-                  Photos & videos
-                </span>
+                <span className="text-xs font-medium text-[#111B21]">Photos & videos</span>
               </button>
 
-              {/* Audio */}
               <button
                 type="button"
                 onClick={() => handleAttachMenuClick("audio")}
                 className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-[#F0F2F5] transition text-left"
               >
                 <div className="w-7 h-7 rounded-full bg-[#F7943D]/10 flex items-center justify-center shrink-0">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="#F7943D"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F7943D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
                     <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" />
                   </svg>
                 </div>
-                <span className="text-xs font-medium text-[#111B21]">
-                  Audio
-                </span>
+                <span className="text-xs font-medium text-[#111B21]">Audio</span>
               </button>
 
-              {/* Location */}
               <button
                 type="button"
                 onClick={() => handleAttachMenuClick("location")}
@@ -290,9 +247,7 @@ export default function ChatInput({
                 <div className="w-7 h-7 rounded-full bg-[#00A884]/10 flex items-center justify-center shrink-0">
                   <MapPin size={14} className="text-[#00A884]" />
                 </div>
-                <span className="text-xs font-medium text-[#111B21]">
-                  Location
-                </span>
+                <span className="text-xs font-medium text-[#111B21]">Location</span>
               </button>
             </div>
           )}
@@ -358,7 +313,6 @@ export default function ChatInput({
                 const val = e.target.value;
                 setTypedMessage(val);
 
-                // Slash command trigger detection
                 if (val.startsWith("/")) {
                   const query = val.replace(/^\/+/, "").toLowerCase().trim();
                   const matched = quickRepliesList.filter((qr) => {

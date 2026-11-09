@@ -334,7 +334,7 @@ export const handleIncomingMessage = async ({
     // ── Push to ALL tenant agents for unassigned messages ──
     prisma.user
       .findMany({
-        where: { tenantId, userType: "USER" },
+        where: { tenantId },
         select: { id: true },
       })
       .then((agents) => {

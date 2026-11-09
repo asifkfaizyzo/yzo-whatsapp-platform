@@ -1,6 +1,6 @@
-// tenant-web/src/components/inbox/modals/MediaPreviewModal.jsx (do not remove this comment)
+// tenant-web/src/pages/Inbox/comps/MediaPreviewModal.jsx (do not remove this comment)
 import React from "react";
-import { X, Paperclip } from "lucide-react";
+import { X, Paperclip, Mic } from "lucide-react";
 export default function MediaPreviewModal({
   previewImageModal,
   setPreviewImageModal,
@@ -52,7 +52,7 @@ export default function MediaPreviewModal({
                   <Mic size={24} />
                 </div>
                 <p className="text-white text-sm font-semibold mb-4 truncate max-w-xs mx-auto">
-                  {previewMediaModal?.name || "Voice / Audio Message"}
+                  {previewImageModal?.name || "Voice / Audio Message"}
                 </p>
                 <audio
                   src={previewImageModal.url}

@@ -1,4 +1,4 @@
-// tenant-web/src/components/inbox/modals/MediaStagingOverlay.jsx (do not remove this comment)
+// tenant-web/src/pages/Inbox/comps/MediaStagingOverlay.jsx (do not remove this comment)
 import React from "react";
 import { X, FileText, Smile, RefreshCw, Send } from "lucide-react";
 import EmojiPicker from "emoji-picker-react";
@@ -18,7 +18,7 @@ export default function MediaStagingOverlay({
 }) {
   return (
     <>
-      {/* ── Media Staging Overlay (WhatsApp Web Style) ── */}
+      {/* Ã¢â€â‚¬Ã¢â€â‚¬ Media Staging Overlay (WhatsApp Web Style) Ã¢â€â‚¬Ã¢â€â‚¬ */}
       {selectedFile && (
         <div className="absolute inset-0 z-40 bg-[#0B141A]/95 backdrop-blur-md flex flex-col animate-in fade-in duration-150">
           {/* Top Bar: Discard + File Info */}
@@ -70,7 +70,7 @@ export default function MediaStagingOverlay({
                   {selectedFile.name}
                 </p>
                 <p className="text-xs text-slate-400 uppercase tracking-wider mb-3">
-                  {selectedFile.name.split(".").pop() || "Document"} •{" "}
+                  {selectedFile.name.split(".").pop() || "Document"} Ã¢â‚¬Â¢{" "}
                   {selectedFile.size < 1024 * 1024
                     ? (selectedFile.size / 1024).toFixed(1) + " KB"
                     : (selectedFile.size / (1024 * 1024)).toFixed(1) + " MB"}

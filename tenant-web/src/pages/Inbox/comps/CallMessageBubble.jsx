@@ -1,7 +1,6 @@
-// tenant-web/src/components/inbox/CallMessageBubble.jsx (do not remove this comment)
+// tenant-web/src/pages/Inbox/comps/CallMessageBubble.jsx (do not remove this comment)
 import React, { useState, useRef, useEffect } from "react";
 import {
-  PhoneCall,
   PhoneIncoming,
   PhoneOutgoing,
   PhoneMissed,
@@ -12,7 +11,6 @@ import {
   Clock,
   ChevronDown,
   ChevronUp,
-  X,
   Phone,
 } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
@@ -33,7 +31,6 @@ export default function CallMessageBubble({ call, onCallContact }) {
     "CONNECTING",
   ].includes(call.status);
 
-  // Time formatting
   const callDate = call.createdAt ? new Date(call.createdAt) : new Date();
   const timeStr = !isNaN(callDate.getTime())
     ? callDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
@@ -42,13 +39,10 @@ export default function CallMessageBubble({ call, onCallContact }) {
   const formatDuration = (seconds) => {
     if (!seconds || isNaN(seconds)) return "0:00";
     const m = Math.floor(seconds / 60);
-    const s = Math.floor(seconds % 60)
-      .toString()
-      .padStart(2, "0");
+    const s = Math.floor(seconds % 60).toString().padStart(2, "0");
     return `${m}:${s}`;
   };
 
-  // Recording
   const recording =
     (call.recordings || []).find(
       (r) => r.downloadStatus === "DOWNLOADED" && r.mediaUrl,
@@ -61,7 +55,6 @@ export default function CallMessageBubble({ call, onCallContact }) {
       : `${backendUrl}${recording.mediaUrl}`
     : null;
 
-  // Audio Playback State
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [audioDuration, setAudioDuration] = useState(call.duration || 0);
@@ -113,11 +106,9 @@ export default function CallMessageBubble({ call, onCallContact }) {
     setCurrentTime(seekTime);
   };
 
-  // Transcript
   const transcript = (call.transcripts || [])[0];
   const [showTranscript, setShowTranscript] = useState(false);
 
-  // Status Styling
   const getStatusBadge = () => {
     if (isCompleted) {
       return (
@@ -206,7 +197,7 @@ export default function CallMessageBubble({ call, onCallContact }) {
           </div>
         </div>
 
-        {/* Audio Recording Player (If recording exists) */}
+        {/* Audio Recording Player */}
         {audioUrl ? (
           <div className="mt-2.5 pt-1">
             <audio ref={audioRef} src={audioUrl} preload="metadata" />
@@ -276,11 +267,7 @@ export default function CallMessageBubble({ call, onCallContact }) {
                   </span>
                 )}
               </span>
-              {showTranscript ? (
-                <ChevronUp size={13} />
-              ) : (
-                <ChevronDown size={13} />
-              )}
+              {showTranscript ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
             </button>
 
             {showTranscript && (

@@ -1,11 +1,10 @@
-// tenant-web/src/components/inbox/QuickReplyPopover.jsx (do not remove this comment)
+// tenant-web/src/pages/Inbox/comps/QuickReplyPopover.jsx (do not remove this comment)
 import React, { useEffect, useRef } from "react";
 import {
   Zap,
   FileText,
   Image as ImageIcon,
   Check,
-  Sparkles,
 } from "lucide-react";
 
 /**
@@ -153,7 +152,7 @@ export default function QuickReplyPopover({
                     )}
 
                     <span
-                      className={`rounded px-1.5 py-0.2 text-[9px] font-semibold uppercase ${
+                      className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase ${
                         isPersonal
                           ? "bg-indigo-50 text-indigo-700"
                           : "bg-slate-100 text-slate-500"

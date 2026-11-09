@@ -1,4 +1,4 @@
-// tenant-web/src/components/inbox/layout/ChatSidebar.jsx (do not remove this comment)
+// tenant-web/src/pages/Inbox/comps/ChatSidebar.jsx (do not remove this comment)
 import React from "react";
 import {
   MessageSquarePlus,
@@ -9,6 +9,7 @@ import {
   Filter,
   Pin,
   RefreshCw,
+  Archive,
 } from "lucide-react";
 import { FaWhatsapp, FaFacebookMessenger, FaInstagram } from "react-icons/fa";
 
@@ -64,7 +65,7 @@ export default function ChatSidebar({
         </div>
 
         <div className="flex items-center gap-1.5">
-          {/* ── New Chat Button (Only for ALL or WHATSAPP channels) ── */}
+          {/* New Chat Button (Only for ALL or WHATSAPP channels) */}
           {selectedChannel === "ALL" || selectedChannel === "WHATSAPP" ? (
             <button
               onClick={() => setShowNewChatModal(true)}
@@ -83,7 +84,7 @@ export default function ChatSidebar({
             </div>
           )}
 
-          {/* ── 3-Dot Menu (Admin Only) ── */}
+          {/* 3-Dot Menu (Admin Only) */}
           {userRole === "admin" && (
             <div className="relative" ref={sidebarMenuRef}>
               <button
@@ -561,7 +562,8 @@ export default function ChatSidebar({
           onClick={() => setShowArchived(true)}
           className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-[#667781] hover:text-[#075E54] hover:bg-[#F0F2F5] rounded-xl transition duration-150"
         >
-          <span>📁 Archived Chats</span>
+          <Archive size={14} />
+          <span>Archived Chats</span>
           {archivedChats.length > 0 && (
             <span className="ml-auto inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[#075E54] text-white text-[9px] font-bold">
               {archivedChats.length}

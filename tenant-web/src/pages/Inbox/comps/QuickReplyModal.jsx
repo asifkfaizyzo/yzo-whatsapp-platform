@@ -1,4 +1,4 @@
-// tenant-web/src/components/inbox/QuickReplyModal.jsx (do not remove this comment)
+// tenant-web/src/pages/Inbox/comps/QuickReplyModal.jsx (do not remove this comment)
 import React, { useState, useMemo } from "react";
 import {
   Zap,
@@ -8,7 +8,6 @@ import {
   Image as ImageIcon,
   ArrowRight,
   ExternalLink,
-  Plus,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -164,7 +163,7 @@ export default function QuickReplyModal({
                         <span className="text-xs font-bold text-slate-900 truncate">
                           {reply.title}
                         </span>
-                        <span className="rounded bg-slate-200/80 px-1.5 py-0.2 text-[9px] font-medium text-slate-600 uppercase">
+                        <span className="rounded bg-slate-200/80 px-1.5 py-0.5 text-[9px] font-medium text-slate-600 uppercase">
                           {reply.category}
                         </span>
                       </div>

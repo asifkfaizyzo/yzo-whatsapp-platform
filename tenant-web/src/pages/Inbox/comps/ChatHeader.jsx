@@ -1,4 +1,4 @@
-// tenant-web/src/components/inbox/layout/ChatHeader.jsx (do not remove this comment)
+// tenant-web/src/pages/Inbox/comps/ChatHeader.jsx (do not remove this comment)
 import React from "react";
 import {
   Phone,
@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   AlertTriangle,
   Eye,
+  Archive,
 } from "lucide-react";
 import { FaWhatsapp, FaFacebookMessenger, FaInstagram } from "react-icons/fa";
 
@@ -90,10 +91,10 @@ export default function ChatHeader({
             <div className="flex items-center gap-1.5 mt-1 flex-wrap">
               <p className="text-[10px] text-emerald-200 font-medium">
                 {activeChat.channel === "INSTAGRAM"
-                  ? `via Instagram DM • @${activeChat.contact?.username || activeChat.contact?.name || "user"}`
+                  ? `via Instagram DM @${activeChat.contact?.username || activeChat.contact?.name || "user"}`
                   : activeChat.channel === "MESSENGER"
                     ? `via Facebook Messenger`
-                    : `via WhatsApp • ${activeChat.contact?.phone || ""}`}
+                    : `via WhatsApp ${activeChat.contact?.phone || ""}`}
               </p>
               {activeViewers.filter(
                 (v) => String(v.userId) !== String(user?.id),
@@ -165,21 +166,7 @@ export default function ChatHeader({
                       className="animate-spin text-[#075E54]"
                     />
                   ) : (
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="#075E54"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="21 8 21 21 3 21 3 8" />
-                      <rect x="1" y="3" width="22" height="5" />
-                      <line x1="10" y1="12" x2="14" y2="12" />
-                    </svg>
+                    <Archive size={14} className="text-[#075E54]" />
                   )}
                   <span>Archive Chat</span>
                 </button>
@@ -220,7 +207,7 @@ export default function ChatHeader({
         </div>
       </div>
 
-      {/* ── 24-Hour Window Expired Notice (Top Small Compact Banner) ── */}
+      {/* 24-Hour Window Expired Notice (Top Small Compact Banner) */}
       {activeChat &&
         is24hExpired(activeChat) &&
         activeChat.status === "OPEN" &&
@@ -245,7 +232,7 @@ export default function ChatHeader({
           <div className="flex items-center gap-2 text-xs font-bold">
             <AlertTriangle size={16} className="text-amber-100 shrink-0" />
             <span>
-              ⚠️ COLLISION ALERT:{" "}
+              COLLISION ALERT:{" "}
               {typingAgents
                 .filter((t) => String(t.userId) !== String(user?.id))
                 .map((t) => t.name)
@@ -274,8 +261,7 @@ export default function ChatHeader({
                 Are you sure you want to delete this conversation?
               </p>
               <p className="text-xs text-[#667781] mb-6">
-                ⚠️ This will permanently delete all messages and cannot be
-                undone.
+                This will permanently delete all messages and cannot be undone.
               </p>
               <div className="flex gap-3">
                 <button

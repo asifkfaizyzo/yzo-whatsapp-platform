@@ -141,6 +141,10 @@ cd /var/www/SudoReply
 
 docker compose up -d --build backend
 
+If only backend/.env changed (no code, no frontend):
+cd /var/www/SudoReply
+docker compose restart backend
+
 # Run pending migrations (safe — does NOT reset data):
 docker compose exec backend npx prisma migrate deploy
 

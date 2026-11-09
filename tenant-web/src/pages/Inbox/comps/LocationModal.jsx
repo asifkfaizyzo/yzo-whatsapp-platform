@@ -1,6 +1,6 @@
-// tenant-web/src/components/inbox/modals/LocationModal.jsx (do not remove this comment)
+// tenant-web/src/pages/Inbox/comps/LocationModal.jsx (do not remove this comment)
 import React from "react";
-import { MapPin, X, RefreshCw } from "lucide-react";
+import { MapPin, X, RefreshCw, Info, AlertCircle } from "lucide-react";
 export default function LocationModal({
   showLocationModal,
   setShowLocationModal,
@@ -129,42 +129,14 @@ export default function LocationModal({
 
               {/* Helper */}
               <p className="text-[10px] text-[#667781] flex items-center gap-1">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="10"
-                  height="10"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="12" y1="8" x2="12" y2="12" />
-                  <line x1="12" y1="16" x2="12.01" y2="16" />
-                </svg>
+                <Info size={10} className="shrink-0" />
                 Find coordinates: Google Maps → right click → copy lat/long
               </p>
 
               {/* Error */}
               {locationError && (
                 <div className="flex items-center gap-2 px-3 py-2 bg-red-50 rounded-xl border border-red-100">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="12"
-                    height="12"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="#EF4444"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="8" x2="12" y2="12" />
-                    <line x1="12" y1="16" x2="12.01" y2="16" />
-                  </svg>
+                  <AlertCircle size={12} className="text-red-500 shrink-0" />
                   <p className="text-xs text-red-600 font-medium">
                     {locationError}
                   </p>

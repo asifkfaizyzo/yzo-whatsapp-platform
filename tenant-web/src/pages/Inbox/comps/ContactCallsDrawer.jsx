@@ -1,4 +1,4 @@
-// tenant-web/src/components/inbox/ContactCallsDrawer.jsx (do not remove this comment)
+// tenant-web/src/pages/Inbox/comps/ContactCallsDrawer.jsx (do not remove this comment)
 import React, { useState, useRef, useEffect } from "react";
 import {
   ChevronLeft,
@@ -15,7 +15,6 @@ import {
   ChevronDown,
   ChevronUp,
   RefreshCw,
-  Search,
 } from "lucide-react";
 
 export default function ContactCallsDrawer({

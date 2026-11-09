@@ -208,7 +208,7 @@ const flowEngine = {
 
           // 2. Try WooCommerce Review Reply Interception
           const { handleWooCommerceReviewReply } =
-            await import("./woocommerce.orderLifecycle.js");
+            await import("../woocommerce/woocommerce.orderLifecycle.js");
           const wooResult = await handleWooCommerceReviewReply({
             tenantId: conversation.tenantId,
             contactPhone: contact.phone,

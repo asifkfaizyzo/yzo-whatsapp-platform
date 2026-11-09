@@ -1,4 +1,4 @@
-// tenant-web/src/components/inbox/layout/ChatFeed.jsx (do not remove this comment)
+// tenant-web/src/pages/Inbox/comps/ChatFeed.jsx (do not remove this comment)
 import React from "react";
 import { FaWhatsapp, FaFacebookMessenger, FaInstagram } from "react-icons/fa";
 import {
@@ -14,8 +14,10 @@ import {
   Copy,
   CheckCheck,
   Check,
+  Ban,
+  Building2,
 } from "lucide-react";
-import CallMessageBubble from "../CallMessageBubble";
+import CallMessageBubble from "./CallMessageBubble";
 
 export default function ChatFeed({
   chatContainerRef,
@@ -89,7 +91,7 @@ export default function ChatFeed({
           if (msg.isDeleted) {
             return (
               <div
-                key={msg.id || `msg-del-${msgIdx}`}
+                key={msg.id || `msg-del-${itemIdx}`}
                 className={`flex ${isAgent ? "justify-end" : "justify-start"}`}
               >
                 <div
@@ -100,7 +102,8 @@ export default function ChatFeed({
                   }`}
                 >
                   <p className="italic text-[#667781] text-xs flex items-center gap-1">
-                    🚫 This message was deleted
+                    <Ban size={11} className="text-red-400 shrink-0" />
+                    This message was deleted
                   </p>
                   <div className="mt-1 flex justify-end">
                     <span className="text-[10px] text-[#667781]">
@@ -115,7 +118,7 @@ export default function ChatFeed({
           // ── NORMAL MESSAGE UI ──
           return (
             <div
-              key={msg.id || `msg-${msgIdx}`}
+              key={msg.id || `msg-${itemIdx}`}
               className={`flex ${isAgent ? "justify-end" : "justify-start"} animate-in fade-in slide-in-from-bottom-2 duration-200`}
               onMouseEnter={() => setHoveredMessageId(msg.id)}
               onMouseLeave={() => setHoveredMessageId(null)}
@@ -123,7 +126,7 @@ export default function ChatFeed({
               {/* Delete Button (left of agent msg) */}
               {isAgent &&
                 hoveredMessageId === msg.id &&
-                canDeleteMessage(msg) && (
+                canDeleteMessage(msg, user) && (
                   <div className="flex items-center mr-1 relative">
                     <button
                       onClick={() =>
@@ -187,7 +190,7 @@ export default function ChatFeed({
                 {/* Delete Button for INBOUND (right side, admin only) */}
                 {!isAgent &&
                   hoveredMessageId === msg.id &&
-                  canDeleteMessage(msg) && (
+                  canDeleteMessage(msg, user) && (
                     <div className="absolute -right-8 top-1/2 -translate-y-1/2">
                       <button
                         onClick={() =>
@@ -430,11 +433,9 @@ export default function ChatFeed({
                       <div className="my-1.5 w-full min-w-[260px] max-w-[320px] rounded-2xl overflow-hidden border border-slate-200/80 bg-white shadow-sm transition hover:shadow-md">
                         {/* Map Preview Header */}
                         <div className="relative h-28 bg-slate-100 overflow-hidden flex items-center justify-center border-b border-slate-200/70">
-                          {/* Stylized Google Maps Background Grid */}
                           <div className="absolute inset-0 bg-[radial-gradient(#94a3b8_1px,transparent_1px)] [background-size:16px_16px] opacity-40" />
                           <div className="absolute inset-0 bg-gradient-to-t from-slate-900/40 via-transparent to-slate-900/10" />
 
-                          {/* Stylized Road Lines Simulation */}
                           <svg
                             className="absolute inset-0 w-full h-full opacity-25"
                             xmlns="http://www.w3.org/2000/svg"
@@ -460,7 +461,6 @@ export default function ChatFeed({
                             />
                           </svg>
 
-                          {/* Center Static Map Pin */}
                           <div className="relative z-10 flex flex-col items-center drop-shadow-md">
                             <div className="w-9 h-9 rounded-full bg-[#EA4335] text-white flex items-center justify-center border-2 border-white shadow-sm">
                               <MapPin size={18} className="fill-white" />
@@ -468,7 +468,6 @@ export default function ChatFeed({
                             <div className="w-2 h-1 rounded-full bg-slate-900/40 mt-0.5" />
                           </div>
 
-                          {/* Top Badges */}
                           <div className="absolute top-2 left-2.5 right-2.5 flex items-center justify-between z-10">
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-900/75 backdrop-blur-md text-[10px] font-bold text-white shadow-sm">
                               <MapPin size={10} className="text-emerald-400" />
@@ -487,12 +486,24 @@ export default function ChatFeed({
                         {/* Location Details Body */}
                         <div className="p-3 bg-white space-y-2.5">
                           <div>
-                            <p className="text-xs font-bold text-slate-900 leading-tight">
-                              {msg.locName ||
-                                (msg.senderType === "CONTACT"
-                                  ? "📍 Shared Delivery Location"
-                                  : "🏬 Store Location Pin")}
+                            <p className="text-xs font-bold text-slate-900 leading-tight flex items-center gap-1">
+                              {msg.senderType === "CONTACT" ? (
+                                <>
+                                  <MapPin size={11} className="text-emerald-600 shrink-0" />
+                                  Shared Delivery Location
+                                </>
+                              ) : (
+                                <>
+                                  <Building2 size={11} className="text-blue-600 shrink-0" />
+                                  Store Location Pin
+                                </>
+                              )}
                             </p>
+                            {msg.locName && (
+                              <p className="text-[11px] text-slate-700 mt-0.5 font-medium">
+                                {msg.locName}
+                              </p>
+                            )}
                             {msg.locAddress && (
                               <p className="text-[11px] text-slate-600 mt-1 leading-relaxed line-clamp-2">
                                 {msg.locAddress}
@@ -500,7 +511,6 @@ export default function ChatFeed({
                             )}
                           </div>
 
-                          {/* Action Buttons */}
                           {lat && lng && (
                             <div className="pt-1 flex items-center gap-2">
                               <a
@@ -532,7 +542,8 @@ export default function ChatFeed({
                       </div>
                     );
                   })()}
-                {/* ⭐ BUTTONS (Interactive / Template buttons) */}
+
+                {/* BUTTONS (Interactive / Template buttons) */}
                 {(() => {
                   let btns = null;
                   if (Array.isArray(msg.buttons)) {
@@ -565,21 +576,7 @@ export default function ChatFeed({
                               rel="noopener noreferrer"
                               className="flex items-center justify-center gap-1.5 py-1.5 px-3 bg-white/70 hover:bg-white border border-[#075E54]/20 rounded-lg text-[12px] font-semibold text-[#075E54] hover:text-[#064E47] transition shadow-xs"
                             >
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="12"
-                                height="12"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2.5"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              >
-                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                                <polyline points="15 3 21 3 21 9" />
-                                <line x1="10" y1="14" x2="21" y2="3" />
-                              </svg>
+                              <ExternalLink size={12} />
                               <span>{title}</span>
                             </a>
                           );
@@ -691,7 +688,7 @@ export default function ChatFeed({
               <FaWhatsapp className="w-10 h-10 text-[#25D366]/40" />
             </div>
             <p className="text-xs text-[#54656F] font-medium bg-white/60 backdrop-blur-sm px-4 py-2 rounded-lg shadow-sm">
-              No messages yet. Say hello! 👋
+              No messages yet. Say hello!
             </p>
           </div>
         )}
@@ -721,7 +718,7 @@ export default function ChatFeed({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* ── Floating WhatsApp-Style Scroll To Bottom Button ── */}
+      {/* Floating Scroll To Bottom Button */}
       {showScrollArrow && (
         <button
           type="button"
