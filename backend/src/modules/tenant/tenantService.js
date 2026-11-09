@@ -28,7 +28,9 @@ export const registerTenantService = async (data) => {
     websiteUrl,
     industry,
     companySize,
-    country
+    country,
+    useCase,
+    timezone,
   } = data;
 
   // 1️⃣ Validate input
@@ -65,7 +67,11 @@ export const registerTenantService = async (data) => {
       industry,
       companySize,
       country,
+      useCase,
+      timezone,
       status: 'PENDING', // New tenants start as PENDING
+      onboardingStep: 6,
+      onboardingCompleted: true,
     },
   });
 

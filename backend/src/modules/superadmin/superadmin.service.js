@@ -268,6 +268,8 @@ export const getAllTenantsService = async () => {
       timezone: true,
       isActive: true,
       status: true,
+      onboardingStep: true,
+      onboardingCompleted: true,
       createdAt: true,
       updatedAt: true,
       subscription: {
@@ -351,8 +353,18 @@ export const getTenantByIdService = async (tenantId) => {
       email: true,
       phone: true,
       address: true,
+      firstName: true,
+      lastName: true,
+      websiteUrl: true,
+      industry: true,
+      companySize: true,
+      country: true,
+      useCase: true,
+      timezone: true,
       isActive: true,
       status: true,
+      onboardingStep: true,
+      onboardingCompleted: true,
       createdAt: true,
       updatedAt: true,
     },
@@ -388,14 +400,22 @@ export const updateTenantByIdService = async (
   if (data.industry !== undefined) updateData.industry = data.industry;
   if (data.companySize !== undefined) updateData.companySize = data.companySize;
   if (data.country !== undefined) updateData.country = data.country;
+  if (data.useCase !== undefined) updateData.useCase = data.useCase;
   if (data.timezone !== undefined) updateData.timezone = data.timezone;
   if (data.logo !== undefined) updateData.logo = data.logo;
 
   if (data.email) {
-    const emailExists = await prisma.tenant.findFirst({
-      where: { email: data.email, id: { not: tenantId } },
-    });
-    if (emailExists) throw new Error("Email already in use");
+    const [emailExistsInTenant, emailExistsInUser, emailExistsInSuperAdmin] =
+      await Promise.all([
+        prisma.tenant.findFirst({
+          where: { email: data.email, id: { not: tenantId } },
+        }),
+        prisma.user.findUnique({ where: { email: data.email } }),
+        prisma.superAdmin.findUnique({ where: { email: data.email } }),
+      ]);
+    if (emailExistsInTenant || emailExistsInUser || emailExistsInSuperAdmin) {
+      throw new Error("Email already in use");
+    }
     updateData.email = data.email;
   }
 
@@ -418,6 +438,7 @@ export const updateTenantByIdService = async (
       industry: true,
       companySize: true,
       country: true,
+      useCase: true,
       timezone: true,
       logo: true,
       isActive: true,

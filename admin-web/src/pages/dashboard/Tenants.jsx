@@ -1460,6 +1460,10 @@ function TenantDrawer({
             <div className="grid grid-cols-2 gap-x-5">
               <Field label="Company Name" value={tenant.tenantName} />
               <Field
+                label="Company Size"
+                value={tenant.companySize}
+              />
+              <Field
                 label="Subdomain"
                 value={
                   tenant.subdomain ? `${tenant.subdomain}.sudoreply.com` : "—"
@@ -1470,8 +1474,22 @@ function TenantDrawer({
               <Field label="Industry" value={tenant.industry} />
               <Field label="Timezone" value={tenant.timezone} />
               <Field label="Country" value={tenant.country} />
+              <Field label="Website" value={tenant.websiteUrl} />
+              <Field
+                label="Onboarding"
+                value={
+                  tenant.onboardingCompleted
+                    ? "Complete"
+                    : `Incomplete (step ${tenant.onboardingStep || 1})`
+                }
+              />
+              <Field
+                label="Account Access"
+                value={tenant.isActive ? "Active" : "Inactive"}
+              />
             </div>
             <Field label="Business Address" value={tenant.address} />
+            <Field label="Use Case" value={tenant.useCase} />
           </Section>
 
           {/* Owner Information */}
@@ -1479,7 +1497,11 @@ function TenantDrawer({
             <div className="grid grid-cols-2 gap-x-5">
               <Field
                 label="Owner Name"
-                value={tenant.ownerName || tenant.tenantName}
+                value={
+                  tenant.ownerName ||
+                  [tenant.firstName, tenant.lastName].filter(Boolean).join(" ") ||
+                  tenant.tenantName
+                }
               />
               <Field label="Email" value={tenant.email} />
               <Field label="Phone" value={tenant.phone} />
@@ -1726,10 +1748,18 @@ export default function Tenants() {
   // New Tenant Form State
   const [newTenant, setNewTenant] = useState({
     tenantName: "",
+    firstName: "",
+    lastName: "",
     email: "",
     password: "",
     phone: "",
     address: "",
+    websiteUrl: "",
+    industry: "",
+    companySize: "",
+    country: "",
+    useCase: "",
+    timezone: "Asia/Kolkata",
   });
 
   // ── Data Fetching ───────────────────────────────────────────────────────────
@@ -1774,7 +1804,15 @@ export default function Tenants() {
     e.preventDefault();
     setModalError("");
     setModalLoading(true);
-    if (!newTenant.tenantName || !newTenant.email || !newTenant.password) {
+    if (
+      !newTenant.tenantName ||
+      !newTenant.firstName ||
+      !newTenant.lastName ||
+      !newTenant.email ||
+      !newTenant.password ||
+      !newTenant.phone ||
+      !newTenant.companySize
+    ) {
       setModalError("Please fill in all required fields.");
       setModalLoading(false);
       return;
@@ -1788,10 +1826,18 @@ export default function Tenants() {
         setIsModalOpen(false);
         setNewTenant({
           tenantName: "",
+          firstName: "",
+          lastName: "",
           email: "",
           password: "",
           phone: "",
           address: "",
+          websiteUrl: "",
+          industry: "",
+          companySize: "",
+          country: "",
+          useCase: "",
+          timezone: "Asia/Kolkata",
         });
         fetchTenants();
       } else {
@@ -1825,6 +1871,14 @@ export default function Tenants() {
         email: editingTenant.email,
         phone: editingTenant.phone,
         address: editingTenant.address,
+        firstName: editingTenant.firstName,
+        lastName: editingTenant.lastName,
+        websiteUrl: editingTenant.websiteUrl,
+        industry: editingTenant.industry,
+        companySize: editingTenant.companySize,
+        country: editingTenant.country,
+        useCase: editingTenant.useCase,
+        timezone: editingTenant.timezone,
       });
       if (response.data?.success) {
         toast.success(
@@ -2144,9 +2198,17 @@ export default function Tenants() {
     setEditingTenant({
       id: tenant.id,
       tenantName: tenant.tenantName || "",
+      firstName: tenant.firstName || "",
+      lastName: tenant.lastName || "",
       email: tenant.email || "",
       phone: tenant.phone || "",
       address: tenant.address || "",
+      websiteUrl: tenant.websiteUrl || "",
+      industry: tenant.industry || "",
+      companySize: tenant.companySize || "",
+      country: tenant.country || "",
+      useCase: tenant.useCase || "",
+      timezone: tenant.timezone || "",
     });
     setModalError("");
     setIsEditModalOpen(true);
@@ -2451,9 +2513,19 @@ export default function Tenants() {
                   return (
                     <tr
                       key={tenant.id}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`View details for ${getName(tenant)}`}
+                      onClick={() => setDrawerTenant(tenant)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setDrawerTenant(tenant);
+                        }
+                      }}
                       className={`hover:bg-blue-50/20 transition-colors duration-100 group ${
                         idx % 2 === 1 ? "bg-slate-50/20" : "bg-white"
-                      }`}
+                      } cursor-pointer`}
                     >
                       {/* Organization info */}
                       <td className="py-4 px-5">
@@ -2479,7 +2551,12 @@ export default function Tenants() {
                       {/* Owner & Contact */}
                       <td className="py-4 px-5">
                         <p className="text-xs font-semibold text-slate-800 leading-tight">
-                          {tenant.ownerName || tenant.tenantName || "—"}
+                          {tenant.ownerName ||
+                            [tenant.firstName, tenant.lastName]
+                              .filter(Boolean)
+                              .join(" ") ||
+                            tenant.tenantName ||
+                            "—"}
                         </p>
                         <p className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
                           <Mail size={10} />
@@ -2583,7 +2660,11 @@ export default function Tenants() {
                       </td>
 
                       {/* Actions */}
-                      <td className="py-4 px-5 text-right">
+                      <td
+                        className="py-4 px-5 text-right"
+                        onClick={(event) => event.stopPropagation()}
+                        onKeyDown={(event) => event.stopPropagation()}
+                      >
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             onClick={() => {
@@ -2755,7 +2836,7 @@ export default function Tenants() {
       {isModalOpen &&
         createPortal(
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-150">
-            <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl max-w-md w-full overflow-hidden">
+            <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
               <div
                 className="px-6 py-5 border-b border-slate-100 flex items-center justify-between"
                 style={{
@@ -2786,13 +2867,44 @@ export default function Tenants() {
                   <X size={15} />
                 </button>
               </div>
-              <form onSubmit={handleCreateTenant} className="p-6 space-y-4">
+              <form
+                onSubmit={handleCreateTenant}
+                className="p-6 space-y-4 overflow-y-auto"
+              >
                 {modalError && (
                   <div className="rounded-xl bg-rose-50 border border-rose-100 p-3 text-xs text-rose-600 font-medium flex items-center gap-2">
                     <AlertCircle size={14} />
                     <span>{modalError}</span>
                   </div>
                 )}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1">
+                      Admin First Name <span className="text-rose-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="firstName"
+                      required
+                      value={newTenant.firstName}
+                      onChange={handleInputChange}
+                      className="w-full text-xs px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-[#125fe2]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1">
+                      Admin Last Name <span className="text-rose-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="lastName"
+                      required
+                      value={newTenant.lastName}
+                      onChange={handleInputChange}
+                      className="w-full text-xs px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-[#125fe2]"
+                    />
+                  </div>
+                </div>
                 <div>
                   <label className="text-xs font-semibold text-slate-700 block mb-1">
                     Company Name <span className="text-rose-400">*</span>
@@ -2844,17 +2956,46 @@ export default function Tenants() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-semibold text-slate-700 block mb-1">
-                      Phone
+                      Phone <span className="text-rose-400">*</span>
                     </label>
                     <input
-                      type="text"
+                      type="tel"
                       name="phone"
+                      required
+                      minLength={10}
                       placeholder="+91 98765 43210"
                       value={newTenant.phone}
                       onChange={handleInputChange}
                       className="w-full text-xs px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-[#125fe2]"
                     />
                   </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1">
+                      Company Size <span className="text-rose-400">*</span>
+                    </label>
+                    <select
+                      name="companySize"
+                      required
+                      value={newTenant.companySize}
+                      onChange={handleInputChange}
+                      className="w-full text-xs px-3 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-[#125fe2]"
+                    >
+                      <option value="">Select company size</option>
+                      {[
+                        "1-10 employees",
+                        "11-50 employees",
+                        "51-200 employees",
+                        "201-500 employees",
+                        "500+ employees",
+                      ].map((size) => (
+                        <option key={size} value={size}>
+                          {size}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-semibold text-slate-700 block mb-1">
                       Address
@@ -2864,6 +3005,71 @@ export default function Tenants() {
                       name="address"
                       placeholder="City, Country"
                       value={newTenant.address}
+                      onChange={handleInputChange}
+                      className="w-full text-xs px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-[#125fe2]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1">
+                      Country
+                    </label>
+                    <input
+                      type="text"
+                      name="country"
+                      value={newTenant.country}
+                      onChange={handleInputChange}
+                      className="w-full text-xs px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-[#125fe2]"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1">
+                      Website
+                    </label>
+                    <input
+                      type="text"
+                      name="websiteUrl"
+                      placeholder="example.com"
+                      value={newTenant.websiteUrl}
+                      onChange={handleInputChange}
+                      className="w-full text-xs px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-[#125fe2]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1">
+                      Industry
+                    </label>
+                    <input
+                      type="text"
+                      name="industry"
+                      value={newTenant.industry}
+                      onChange={handleInputChange}
+                      className="w-full text-xs px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-[#125fe2]"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1">
+                      Use Case
+                    </label>
+                    <textarea
+                      name="useCase"
+                      value={newTenant.useCase}
+                      onChange={handleInputChange}
+                      rows={2}
+                      className="w-full text-xs px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-[#125fe2]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1">
+                      Timezone
+                    </label>
+                    <input
+                      type="text"
+                      name="timezone"
+                      value={newTenant.timezone}
                       onChange={handleInputChange}
                       className="w-full text-xs px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-[#125fe2]"
                     />
@@ -2910,7 +3116,7 @@ export default function Tenants() {
         editingTenant &&
         createPortal(
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-150">
-            <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl max-w-md w-full overflow-hidden">
+            <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
               <div
                 className="px-6 py-5 border-b border-slate-100 flex items-center justify-between"
                 style={{
@@ -2942,13 +3148,50 @@ export default function Tenants() {
                   <X size={15} />
                 </button>
               </div>
-              <form onSubmit={handleUpdateTenant} className="p-6 space-y-4">
+              <form
+                onSubmit={handleUpdateTenant}
+                className="p-6 space-y-4 overflow-y-auto"
+              >
                 {modalError && (
                   <div className="rounded-xl bg-rose-50 border border-rose-100 p-3 text-xs text-rose-600 font-medium flex items-center gap-2">
                     <AlertCircle size={14} />
                     <span>{modalError}</span>
                   </div>
                 )}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1">
+                      Admin First Name
+                    </label>
+                    <input
+                      type="text"
+                      value={editingTenant.firstName}
+                      onChange={(e) =>
+                        setEditingTenant({
+                          ...editingTenant,
+                          firstName: e.target.value,
+                        })
+                      }
+                      className="w-full text-xs px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-[#125fe2]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1">
+                      Admin Last Name
+                    </label>
+                    <input
+                      type="text"
+                      value={editingTenant.lastName}
+                      onChange={(e) =>
+                        setEditingTenant({
+                          ...editingTenant,
+                          lastName: e.target.value,
+                        })
+                      }
+                      className="w-full text-xs px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-[#125fe2]"
+                    />
+                  </div>
+                </div>
                 <div>
                   <label className="text-xs font-semibold text-slate-700 block mb-1">
                     Company Name <span className="text-rose-400">*</span>
@@ -3005,16 +3248,129 @@ export default function Tenants() {
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-slate-700 block mb-1">
+                      Company Size
+                    </label>
+                    <select
+                      value={editingTenant.companySize}
+                      onChange={(e) =>
+                        setEditingTenant({
+                          ...editingTenant,
+                          companySize: e.target.value,
+                        })
+                      }
+                      className="w-full text-xs px-3 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-[#125fe2]"
+                    >
+                      <option value="">Not set</option>
+                      {[
+                        "1-10 employees",
+                        "11-50 employees",
+                        "51-200 employees",
+                        "201-500 employees",
+                        "500+ employees",
+                      ].map((size) => (
+                        <option key={size} value={size}>
+                          {size}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1">
                       Address
                     </label>
                     <input
                       type="text"
-                      placeholder="City, Country"
                       value={editingTenant.address}
                       onChange={(e) =>
                         setEditingTenant({
                           ...editingTenant,
                           address: e.target.value,
+                        })
+                      }
+                      className="w-full text-xs px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-[#125fe2]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1">
+                      Country
+                    </label>
+                    <input
+                      type="text"
+                      value={editingTenant.country}
+                      onChange={(e) =>
+                        setEditingTenant({
+                          ...editingTenant,
+                          country: e.target.value,
+                        })
+                      }
+                      className="w-full text-xs px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-[#125fe2]"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1">
+                      Website
+                    </label>
+                    <input
+                      type="text"
+                      value={editingTenant.websiteUrl}
+                      onChange={(e) =>
+                        setEditingTenant({
+                          ...editingTenant,
+                          websiteUrl: e.target.value,
+                        })
+                      }
+                      className="w-full text-xs px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-[#125fe2]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1">
+                      Industry
+                    </label>
+                    <input
+                      type="text"
+                      value={editingTenant.industry}
+                      onChange={(e) =>
+                        setEditingTenant({
+                          ...editingTenant,
+                          industry: e.target.value,
+                        })
+                      }
+                      className="w-full text-xs px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-[#125fe2]"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1">
+                      Use Case
+                    </label>
+                    <textarea
+                      value={editingTenant.useCase}
+                      onChange={(e) =>
+                        setEditingTenant({
+                          ...editingTenant,
+                          useCase: e.target.value,
+                        })
+                      }
+                      rows={2}
+                      className="w-full text-xs px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-[#125fe2]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1">
+                      Timezone
+                    </label>
+                    <input
+                      type="text"
+                      value={editingTenant.timezone}
+                      onChange={(e) =>
+                        setEditingTenant({
+                          ...editingTenant,
+                          timezone: e.target.value,
                         })
                       }
                       className="w-full text-xs px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-[#125fe2]"

@@ -13,6 +13,7 @@ import { verifySuperAdmin } from "../../middlewares/auth.superAdmin.js";
 
 import {
   createSuperAdminSchema,
+  registerTenantSchema,
   updateTenantByAdminSchema,
   superAdminIdParamSchema,
 } from "./superadmin.schema.js";
@@ -79,6 +80,7 @@ router.get("/profile", verifySuperAdmin, (req, res) => {
 router.post(
   "/register-tenant",
   verifySuperAdmin,
+  validate(registerTenantSchema),
   superAdminController.registerTenant,
 );
 
