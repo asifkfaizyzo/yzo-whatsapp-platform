@@ -447,10 +447,10 @@ export const loginOrRegisterWithGoogleService = async (credential) => {
   let user = await prisma.user.findUnique({ where: { email } });
 
   if (!tenant) {
-    tenant = await prisma.tenant.findUnique({
-      where: { auth: { googleId } },
-      include: { auth: true, subscription: true },
-    });
+    tenant = await prisma.tenant.findFirst({
+  where: { auth: { googleId } },
+  include: { auth: true, subscription: true },
+});
   }
   if (tenant) Object.assign(tenant, tenant?.auth, tenant?.subscription);
 
@@ -572,10 +572,10 @@ export const loginOrRegisterWithFacebookService = async (accessToken) => {
   let user = await prisma.user.findUnique({ where: { email } });
 
   if (!tenant) {
-    tenant = await prisma.tenant.findUnique({
-      where: { auth: { facebookId } },
-      include: { auth: true, subscription: true },
-    });
+   tenant = await prisma.tenant.findFirst({
+  where: { auth: { facebookId } },
+  include: { auth: true, subscription: true },
+});
   }
   if (tenant) Object.assign(tenant, tenant?.auth, tenant?.subscription);
 

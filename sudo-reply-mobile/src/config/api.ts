@@ -1,102 +1,124 @@
-// sudo-reply-mobile/src/config/api.ts (do not remove this comment)
+// sudo-reply-mobile/src/config/api.ts
 const FALLBACK_URL = 'http://192.168.29.69:5000';
 // AFTER (production)
 // export const API_BASE_URL = 'https://api.sudoreply.com';
 // BEFORE (local dev)
 export const API_BASE_URL = 'http://192.168.29.69:5000';
 
-
 export const ENDPOINTS = {
+  // ── Agent (User) Auth & Profile ── mounted at /tenant/user
   auth: {
-    login: '/api3/login-user',
-    logout: '/api3/logout-user',
-    refreshToken: '/api3/refresh-user-access',
-    forgotPassword: '/api3/forgot-usr-password',
-    resetPassword: '/api3/reset-usr-password',
-    me: '/api3/me',
-    changePassword: '/api3/change-password',
-    availability: '/api3/availability',
-    dashboardStats: '/api3/dashboard-stats',
-    unreadCount: '/api3/unread-count',
-    googleLogin: '/api3/google-login',
-    pushToken: '/api3/push-token',
-    notificationPrefs: '/api3/notification-preferences',
+    login:              '/tenant/user/login-user',
+    logout:             '/tenant/user/logout-user',
+    refreshToken:       '/tenant/user/refresh-user-access',
+    forgotPassword:     '/tenant/user/forgot-usr-password',
+    resetPassword:      '/tenant/user/reset-usr-password',
+    me:                 '/tenant/user/me',
+    changePassword:     '/tenant/user/change-password',
+    availability:       '/tenant/user/availability',
+    dashboardStats:     '/tenant/user/dashboard-stats',
+    unreadCount:        '/tenant/user/unread-count',
+    googleLogin:        '/tenant/user/google-login',
+    pushToken:          '/tenant/user/push-token',
+    notificationPrefs:  '/tenant/user/notification-preferences',
+    myAssignedContacts: '/tenant/user/my-assigned-contacts',
   },
 
+  // ── Tenant Auth ── mounted at /tenant (via tenant.routes.js → tenant.auth.routes.js)
   tenantAuth: {
-    login:            '/api2/login',
-    logout:           '/api2/logout',
-    refreshToken:     '/api2/refresh-token',
-    forgotPassword:   '/api2/forgot-ten-password',
-    resetPassword:    '/api2/reset-ten-password',
-    me:               '/api2/me',
-    changePassword:   '/api2/change-password',
-    googleLogin:      '/api2/google-login',
+    login:          '/tenant/login',
+    logout:         '/tenant/logout',
+    refreshToken:   '/tenant/refresh-token',
+    forgotPassword: '/tenant/forgot-ten-password',
+    resetPassword:  '/tenant/reset-ten-password',
+    googleLogin:    '/tenant/google-login',
+    facebookLogin:  '/tenant/facebook-login',
+    // ⚠️ me & changePassword likely in tenant.profile.routes.js — confirm exact sub-path
+    me:             '/tenant/me',
+    changePassword: '/tenant/change-password',
   },
 
+  // ── Contacts ── mounted at /tenant/contacts
   contacts: {
-    create:           '/api4/create-contact',
-    getAll:           '/api4/get-all-contacts',
-    getById:          (id: string) => `/api4/get-contact/${id}`,
-    update:           (id: string) => `/api4/update-contact/${id}`,
-    delete:           (id: string) => `/api4/delete-contact/${id}`,
-    block:            (id: string) => `/api4/block-contact/${id}`,
-    unblock:          (id: string) => `/api4/unblock-contact/${id}`,
-    importPhone:      '/api4/import-phone',
-    addTag:           (contactId: string) => `/api4/${contactId}/tags`,
-    removeTag:        (contactId: string, tagId: string) => `/api4/${contactId}/tags/${tagId}`,
-    byUser:           (userId: string) => `/api4/by-user/${userId}`,
+    create:           '/tenant/contacts/create-contact',
+    getAll:           '/tenant/contacts/get-all-contacts',
+    getById:          (id: string) => `/tenant/contacts/get-contact/${id}`,
+    update:           (id: string) => `/tenant/contacts/update-contact/${id}`,
+    delete:           (id: string) => `/tenant/contacts/delete-contact/${id}`,
+    block:            (id: string) => `/tenant/contacts/block-contact/${id}`,
+    unblock:          (id: string) => `/tenant/contacts/unblock-contact/${id}`,
+    importPhone:      '/tenant/contacts/import-phone',
+    addTag:           (contactId: string) => `/tenant/contacts/${contactId}/tags`,
+    removeTag:        (contactId: string, tagId: string) => `/tenant/contacts/${contactId}/tags/${tagId}`,
+    byUser:           (userId: string) => `/tenant/contacts/by-user/${userId}`,
+    bulkDelete:       '/tenant/contacts/bulk-delete',
+    importGuidelines: '/tenant/contacts/import-guidelines',
+    sampleCsv:        '/tenant/contacts/sample-csv',
   },
 
+  // ── Conversations ── mounted at /tenant/conversations
   conversations: {
-    create:           '/api5/create-conversation',
-    getByContact:     (contactId: string) => `/api5/conversation/${contactId}`,
-    assigned:         '/api5/assigned',
-    getMessages:      (conversationId: string) => `/api5/getmessage/${conversationId}`,
-    updateStatus:     (id: string) => `/api5/status/${id}`,
-    archive:          (id: string) => `/api5/archive/${id}`,
-    unarchive:        (id: string) => `/api5/unarchive/${id}`,
-    delete:           (id: string) => `/api5/delete/${id}`,
-    archived:         '/api5/archived',
-    markRead:         (id: string) => `/api5/mark-read/${id}`,
-    bulkReassign:     '/api5/bulk-reassign',
-    media:            (id: string) => `/api5/media/${id}`,
-    pin:              (id: string) => `/api5/pin/${id}`,
+    create:       '/tenant/conversations/create-conversation',
+    getByContact: (contactId: string) => `/tenant/conversations/conversation/${contactId}`,
+    assigned:     '/tenant/conversations/assigned',
+    getMessages:  (conversationId: string) => `/tenant/conversations/getmessage/${conversationId}`,
+    updateStatus: (id: string) => `/tenant/conversations/status/${id}`,
+    archive:      (id: string) => `/tenant/conversations/archive/${id}`,
+    unarchive:    (id: string) => `/tenant/conversations/unarchive/${id}`,
+    delete:       (id: string) => `/tenant/conversations/delete/${id}`,
+    archived:     '/tenant/conversations/archived',
+    markRead:     (id: string) => `/tenant/conversations/mark-read/${id}`,
+    bulkReassign: '/tenant/conversations/bulk-reassign',
+    media:        (id: string) => `/tenant/conversations/media/${id}`,
+    pin:          (id: string) => `/tenant/conversations/pin/${id}`,
   },
 
-  // ── Messages (send) ──
+  // ── Messages (send) ── mounted at /tenant/messages
   messages: {
-    sendText:         (contactId: string) => `/api6/contacts/${contactId}/messages`,
-    sendMedia:        (contactId: string) => `/api6/contacts/${contactId}/messages/media`,
-    delete:           (messageId: string) => `/api6/${messageId}`,
-    refreshMedia:     (messageId: string) => `/api6/refresh/${messageId}`,
-    sendTemplate: (contactId: string) => `/api6/contacts/${contactId}/messages/template`,
+    sendText:     (contactId: string) => `/tenant/messages/contacts/${contactId}/messages`,
+    sendMedia:    (contactId: string) => `/tenant/messages/contacts/${contactId}/messages/media`,
+    delete:       (messageId: string) => `/tenant/messages/${messageId}`,
+    sendTemplate: (contactId: string) => `/tenant/messages/contacts/${contactId}/messages/template`,
+    // ⚠️ refreshMedia was at /api6/refresh/:id — not present in new message.routes.js
   },
 
+  // ── Tags ── mounted at /tenant/tags
   tags: {
-    getAll:           '/api7/get-all-tag',
+    getAll: '/tenant/tags/get-all-tag',
   },
 
+  // ── Templates ── mounted at /tenant/templates
   templates: {
-  getAll: '/api8/',
-},
+    getAll: '/tenant/templates/',
+  },
 
-   broadcasts: {
-    getAll:           '/api9/',
-    getById:          (id: string) => `/api9/${id}`,
-    create:           '/api9/launch',
+  // ── Broadcasts ── mounted at /tenant/broadcasts
+  broadcasts: {
+    getAll:          '/tenant/broadcasts/',
+    getStats:        (id: string) => `/tenant/broadcasts/${id}/stats`,
+    getRecipients:   (id: string) => `/tenant/broadcasts/${id}/recipients`,
+    exportRecipients:(id: string) => `/tenant/broadcasts/${id}/export`,
+    create:          '/tenant/broadcasts/launch',
+    cancel:          (id: string) => `/tenant/broadcasts/${id}/cancel`,
+    pause:           (id: string) => `/tenant/broadcasts/${id}/pause`,
+    resume:          (id: string) => `/tenant/broadcasts/${id}/resume`,
+    retryFailed:     (id: string) => `/tenant/broadcasts/${id}/retry-failed`,
   },
-   quickReplies: {
-    getAll:           '/api2/quick-replies/',
-    getByShortcut:    (shortcut: string) => `/api2/quick-replies/by-shortcut/${shortcut}`,
-    categories:       '/api2/quick-replies/categories',
+
+  // ── Quick Replies ── mounted at /tenant/quick-replies
+  quickReplies: {
+    getAll:        '/tenant/quick-replies/',
+    getByShortcut: (shortcut: string) => `/tenant/quick-replies/by-shortcut/${shortcut}`,
+    categories:    '/tenant/quick-replies/categories',
   },
-   notifications: {
-    getAll:           '/api2/notifications/',
-    paginated:        '/api2/notifications/paginated',
-    markRead:         (id: string) => `/api2/notifications/${id}/read`,
-    markAllRead:      '/api2/notifications/read-all',
-    clearAll:         '/api2/notifications/clear-all',
-    delete:           (id: string) => `/api2/notifications/${id}`,
+
+  // ── Notifications ── mounted at /tenant/notifications
+  notifications: {
+    getAll:     '/tenant/notifications/',
+    paginated:  '/tenant/notifications/paginated',
+    markRead:   (id: string) => `/tenant/notifications/${id}/read`,
+    markAllRead:'/tenant/notifications/read-all',
+    clearAll:   '/tenant/notifications/clear-all',
+    delete:     (id: string) => `/tenant/notifications/${id}`,
   },
 } as const;
