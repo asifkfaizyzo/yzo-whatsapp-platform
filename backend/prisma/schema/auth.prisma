@@ -4,8 +4,11 @@
 model SuperAdmin {
   id        String   @id @default(cuid())
   name      String
+  username    String?    @unique   
   email     String   @unique
   password  String
+  resetToken       String?
+  resetTokenExpiry DateTime?
   refreshTokens RefreshToken[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -17,9 +20,13 @@ model SuperAdmin {
 model User {
   id         String   @id @default(cuid())
   tenantId   String
+  username    String    @unique   
   name       String
   email      String   @unique
   password   String
+  deletedAt        DateTime?
+  resetToken       String?
+  resetTokenExpiry DateTime?
 
   createdTemplates Template[]
   createdBroadcasts Broadcast[]
@@ -68,13 +75,3 @@ model RefreshToken {
   @@map("refresh_tokens")
 }
 
-model PasswordReset {
-  id        String   @id @default(cuid())
-  email     String
-  token     String   @unique @default("")
-  expiresAt DateTime
-  isUsed    Boolean  @default(false)
-  createdAt DateTime @default(now())
-
-  @@map("password_resets")
-}

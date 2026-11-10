@@ -4,7 +4,10 @@ model Tenant {
   id          String   @id @default(cuid())
   tenantName  String?
   email       String?  @unique
+  username    String    @unique   
   password    String?
+  resetToken       String?
+  resetTokenExpiry DateTime?
   phone       String?
   address     String?
   firstName   String?
@@ -15,6 +18,14 @@ model Tenant {
   country     String?
   useCase     String?
   logo        String?
+  deletedAt        DateTime?
+  otpAttempts      Int       @default(0)
+  isEmailVerified  Boolean   @default(false)
+  otpHash          String?
+  otpExpiresAt     DateTime?
+  authProvider     String    @default("LOCAL")
+  googleId         String?   @unique
+  facebookId       String?   @unique
   timezone    String?  @default("Asia/Kolkata")
   status      TenantStatus @default(PENDING)
   isActive    Boolean  @default(true)

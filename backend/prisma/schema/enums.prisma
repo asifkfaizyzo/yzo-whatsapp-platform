@@ -5,7 +5,9 @@
 
 enum TenantStatus {
   PENDING
-  APPROVED
+  ONBOARDING   
+  ACTIVE       
+  APPROVED     
   BLOCKED
 }
 

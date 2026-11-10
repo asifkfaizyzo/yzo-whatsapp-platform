@@ -1,709 +1,452 @@
-// backend/src/modules/tenant/auth/tenant.auth.controller.js (do not remove this comment)
-import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
-import crypto from "crypto";
-import prisma from "../../../config/prisma.js";
-import {
-  generateAccessToken,
-  generateRefreshToken,
-} from "../../auth/jwt.service.js";
-import { loginUserService } from "../../users/user.service.js";
-import {
-  registerTenantService,
-  loginTenantService,
-  logoutTenantService,
-  refreshTenantAccessTokenService,
-  loginOrRegisterWithGoogleService,
-  loginOrRegisterWithFacebookService,
-  forgotPasswordTenantService,
-  resetPasswordTenantService,
-} from "./tenant.auth.service.js";
-import {
-  sendVerificationOtpEmail,
-  sendTenantWelcomeEmail,
-} from "../../auth/email.service.js";
-import { extractRequestMeta } from "../../../lib/utils/request.meta.js";
-import { createSuperAdminNotification } from "../../superadmin-notifications/superadminNotification.service.js";
-import { emitToSuperAdmin } from "../../../lib/socket.js";
+// backend/src/modules/tenant/auth/tenant.auth.controller.new.js (do not remove this comment)
 
-// ===================== TENANT AUTH =====================
-export const registerTenant = async (req, res) => {
+import { OAuth2Client } from "google-auth-library";
+import axios from "axios";
+import { success, error } from "../../../utils/response.js";
+import {
+  signupService,
+  loginService,
+  logoutService,
+  refreshTokenService,
+  oauthSignupService,
+  oauthLoginService,
+  forgotPasswordService,
+  resetPasswordService,
+  checkUsernameService,
+  usernameSuggestionsService,
+  updateProfileService,
+  verifyEmailOtpService,
+  resendOtpService,
+  updateOnboardingStepService,
+  setPasswordService,
+  setUsernameService,
+} from "./tenant.auth.service.new.js";
+
+// ═══════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════
+const COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+  maxAge: 7 * 24 * 60 * 60 * 1000,
+  path: "/",
+};
+
+const setRefreshCookie = (res, token) => {
+  res.cookie("tenant_refreshToken", token, COOKIE_OPTIONS);
+};
+
+const clearAuthCookies = (res) => {
+  const clearOpts = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    path: "/",
+  };
+  res.clearCookie("tenant_refreshToken", clearOpts);
+  res.clearCookie("onboarding_token", clearOpts);
+};
+
+const getIp = (req) =>
+  req.ip ||
+  req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
+  req.connection?.remoteAddress ||
+  null;
+
+const getUserAgent = (req) => req.get("user-agent") || null;
+
+// ── OAuth Verification ──
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+const verifyGoogleCredential = async (credential) => {
+  const ticket = await googleClient.verifyIdToken({
+    idToken: credential,
+    audience: process.env.GOOGLE_CLIENT_ID,
+  });
+  const payload = ticket.getPayload();
+  if (!payload.email) {
+    throw new Error("Google account does not have an email address");
+  }
+  return {
+    email: payload.email,
+    firstName: payload.given_name || "",
+    lastName: payload.family_name || "",
+    providerId: payload.sub,
+  };
+};
+
+const verifyFacebookToken = async (accessToken) => {
+  const { data } = await axios.get("https://graph.facebook.com/me", {
+    params: {
+      access_token: accessToken,
+      fields: "id,email,first_name,last_name",
+    },
+  });
+  if (!data.email) {
+    throw new Error("Facebook account does not have an email address");
+  }
+  return {
+    email: data.email,
+    firstName: data.first_name || "",
+    lastName: data.last_name || "",
+    providerId: data.id,
+  };
+};
+
+// ═══════════════════════════════════════════════════════════
+// ERROR HANDLER WRAPPER
+// ═══════════════════════════════════════════════════════════
+const handle = (fn) => async (req, res) => {
   try {
-    const result = await registerTenantService(req.body);
-    const { accessToken, refreshToken, user } = result.data;
-
-    res.cookie("tenant_refreshToken", refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-      path: "/",
-    });
-
-    return res.status(201).json({
-      success: true,
-      message: "Tenant registered and logged in successfully",
-      data: { user, accessToken, refreshToken },
-    });
-  } catch (error) {
-    return res.status(400).json({
-      success: false,
-      message: error.message,
-    });
+    await fn(req, res);
+  } catch (err) {
+    if (err.name === "AuthError") {
+      return error(res, err.message, err.statusCode);
+    }
+    console.error(`[TenantAuth] ${err.message}`, err.stack);
+    return error(res, "Internal server error", 500);
   }
 };
 
-export const loginTenant = async (req, res) => {
-  try {
-    const { email } = req.body;
-    const meta = extractRequestMeta(req);
+// ═══════════════════════════════════════════════════════════
+// 1. SIGNUP
+// ═══════════════════════════════════════════════════════════
+export const signup = handle(async (req, res) => {
+  const { email, password, recaptchaToken } = req.body;
 
-    if (!email) {
-      return res.status(400).json({
-        success: false,
-        message: "Email and password are required",
-      });
-    }
+  const result = await signupService({
+    email,
+    password,
+    recaptchaToken,
+    ip: getIp(req),
+    userAgent: getUserAgent(req),
+  });
 
-    const tenantExists = await prisma.tenant.findUnique({
-      where: { email },
-    });
-    let result;
-    let cookieName = "tenant_refreshToken";
+  setRefreshCookie(res, result.refreshToken);
 
-    if (tenantExists) {
-      result = await loginTenantService(req.body, meta);
-      cookieName = "tenant_refreshToken";
-    } else {
-      const userExists = await prisma.user.findUnique({ where: { email } });
-      if (userExists) {
-        result = await loginUserService(req.body, meta);
-        cookieName = "user_refreshToken";
-      } else {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid credentials",
-        });
-      }
-    }
-    const { accessToken, refreshToken, user } = result;
-
-    res.cookie(cookieName, refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-      path: "/",
-    });
-
-    return res.status(200).json({
-      success: true,
-      message: "Login successful",
-      data: { user, accessToken, refreshToken },
-    });
-  } catch (error) {
-    return res.status(400).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
-export const logoutTenant = async (req, res) => {
-  try {
-    const refreshToken =
-      req.cookies.tenant_refreshToken ||
-      req.cookies.user_refreshToken ||
-      req.cookies.refreshToken ||
-      req.body.refreshToken;
-
-    if (refreshToken) {
-      await logoutTenantService(refreshToken);
-    }
-
-    const cookieOptions = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      path: "/",
-    };
-
-    res.clearCookie("tenant_refreshToken", cookieOptions);
-    res.clearCookie("user_refreshToken", cookieOptions);
-    res.clearCookie("refreshToken", cookieOptions);
-    res.clearCookie("onboarding_token", cookieOptions);
-
-    return res.status(200).json({
-      success: true,
-      message: "Logout successful",
-    });
-  } catch (error) {
-    return res.status(400).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
-export const refreshTenantAccessToken = async (req, res) => {
-  try {
-    const refreshToken =
-      req.cookies.tenant_refreshToken ||
-      req.cookies.refreshToken ||
-      req.body.refreshToken;
-
-    if (!refreshToken) {
-      return res.status(401).json({
-        success: false,
-        message: "Refresh token not found in cookies or body",
-      });
-    }
-
-    const result = await refreshTenantAccessTokenService(refreshToken);
-
-    return res.status(200).json({
-      success: true,
-      message: "Access token refreshed successfully",
+  return success(
+    res,
+    {
+      tenant: result.tenant,
       accessToken: result.accessToken,
-      user: result.user,
-    });
-  } catch (error) {
-    return res.status(401).json({
-      success: false,
-      message: error.message,
-    });
+      requiresOnboarding: result.requiresOnboarding,
+    },
+    "Account created successfully",
+    201,
+  );
+});
+
+// ═══════════════════════════════════════════════════════════
+// 2. LOGIN
+// ═══════════════════════════════════════════════════════════
+export const login = handle(async (req, res) => {
+  const { identifier, password, recaptchaToken } = req.body;
+
+  const result = await loginService({
+    identifier,
+    password,
+    recaptchaToken,
+    ip: getIp(req),
+    userAgent: getUserAgent(req),
+  });
+
+  setRefreshCookie(res, result.refreshToken);
+
+  return success(res, {
+    tenant: result.tenant,
+    accessToken: result.accessToken,
+    requiresUsername: result.requiresUsername,
+    requiresOnboarding: result.requiresOnboarding,
+  });
+});
+
+// ═══════════════════════════════════════════════════════════
+// 3. LOGOUT
+// ═══════════════════════════════════════════════════════════
+export const logout = handle(async (req, res) => {
+  const refreshToken =
+    req.cookies?.tenant_refreshToken || req.body?.refreshToken;
+
+  const tenantId = req.actorId || null;
+
+  if (refreshToken) {
+    await logoutService({ refreshToken, tenantId });
   }
-};
 
-export const forgotPasswordTenant = async (req, res) => {
-  try {
-    const { email } = req.body;
-    const result = await forgotPasswordTenantService(email);
-    return res.status(200).json({
-      success: true,
-      data: result,
-    });
-  } catch (error) {
-    return res.status(400).json({
-      success: false,
-      message: error.message,
-    });
+  clearAuthCookies(res);
+
+  return success(res, null, "Logged out successfully");
+});
+
+// ═══════════════════════════════════════════════════════════
+// 4. REFRESH TOKEN
+// ═══════════════════════════════════════════════════════════
+export const refresh = handle(async (req, res) => {
+  const refreshToken =
+    req.cookies?.tenant_refreshToken || req.body?.refreshToken;
+
+  if (!refreshToken) {
+    return error(res, "Refresh token not found", 401);
   }
-};
 
-export const resetPasswordTenant = async (req, res) => {
-  try {
-    const { token, newPassword, confirmPassword } = req.body;
-    const result = await resetPasswordTenantService(
-      token,
-      newPassword,
-      confirmPassword,
-    );
-    return res.status(200).json({
-      success: true,
-      data: result,
-    });
-  } catch (error) {
-    return res.status(400).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
+  const result = await refreshTokenService({ refreshToken });
 
-export const googleLoginTenant = async (req, res) => {
-  try {
-    const { credential } = req.body;
-    const result = await loginOrRegisterWithGoogleService(credential);
-    const { accessToken, refreshToken, user } = result;
+  setRefreshCookie(res, result.refreshToken);
 
-    res.cookie("tenant_refreshToken", refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-      path: "/",
-    });
+  return success(res, {
+    accessToken: result.accessToken,
+  });
+});
 
-    return res.status(200).json({
-      success: true,
-      message: "Google login successful",
-      data: { user, accessToken, refreshToken },
-    });
-  } catch (error) {
-    return res.status(400).json({
-      success: false,
-      message: error.message || "Google Auth failed",
-    });
-  }
-};
+// ═══════════════════════════════════════════════════════════
+// 5. GOOGLE SIGNUP
+// ═══════════════════════════════════════════════════════════
+export const googleSignup = handle(async (req, res) => {
+  const { credential, recaptchaToken } = req.body;
 
-export const facebookLoginTenant = async (req, res) => {
-  try {
-    const { accessToken: facebookAccessToken } = req.body;
-    const result =
-      await loginOrRegisterWithFacebookService(facebookAccessToken);
-    const { accessToken, refreshToken, user } = result;
+  // Verify Google ID token
+  const oauthData = await verifyGoogleCredential(credential);
 
-    res.cookie("tenant_refreshToken", refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-      path: "/",
-    });
+  const result = await oauthSignupService({
+    email: oauthData.email,
+    firstName: oauthData.firstName,
+    lastName: oauthData.lastName,
+    provider: "GOOGLE",
+    providerId: oauthData.providerId,
+    recaptchaToken,
+    ip: getIp(req),
+    userAgent: getUserAgent(req),
+  });
 
-    return res.status(200).json({
-      success: true,
-      message: "Facebook login successful",
-      data: { user, accessToken, refreshToken },
-    });
-  } catch (error) {
-    return res.status(400).json({
-      success: false,
-      message: error.message || "Facebook Auth failed",
-    });
-  }
-};
+  setRefreshCookie(res, result.refreshToken);
 
-// ===================== MULTI-STEP ONBOARDING =====================
+  return success(
+    res,
+    {
+      tenant: result.tenant,
+      accessToken: result.accessToken,
+      isNew: result.isNew,
+      requiresOnboarding: result.requiresOnboarding,
+    },
+    result.isNew ? "Account created via Google" : "Logged in via Google",
+    result.isNew ? 201 : 200,
+  );
+});
 
-export const onboardingStep1 = async (req, res) => {
-  try {
-    const { firstName, lastName } = req.body;
+// ═══════════════════════════════════════════════════════════
+// 6. FACEBOOK SIGNUP
+// ═══════════════════════════════════════════════════════════
+export const facebookSignup = handle(async (req, res) => {
+  const { accessToken, recaptchaToken } = req.body;
 
-    const tenant = await prisma.tenant.create({
-      data: {
-        firstName,
-        lastName,
-        onboardingStep: 2,
-        onboardingCompleted: false,
-        status: "PENDING",
-      },
-    });
+  const oauthData = await verifyFacebookToken(accessToken);
 
-    const onboardingToken = jwt.sign(
-      { id: tenant.id, type: "TENANT_ONBOARDING" },
-      process.env.ACCESS_SECRET,
-      { expiresIn: "7d" },
-    );
+  const result = await oauthSignupService({
+    email: oauthData.email,
+    firstName: oauthData.firstName,
+    lastName: oauthData.lastName,
+    provider: "FACEBOOK",
+    providerId: oauthData.providerId,
+    recaptchaToken,
+    ip: getIp(req),
+    userAgent: getUserAgent(req),
+  });
 
-    res.cookie("onboarding_token", onboardingToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-      path: "/",
-    });
+  setRefreshCookie(res, result.refreshToken);
 
-    return res.status(201).json({
-      success: true,
-      message: "Step 1 complete: Tenant created",
-      data: {
-        user: {
-          id: tenant.id,
-          firstName: tenant.firstName,
-          lastName: tenant.lastName,
-          onboardingStep: tenant.onboardingStep,
-          onboardingCompleted: tenant.onboardingCompleted,
-          type: "TENANT",
-        },
-      },
-    });
-  } catch (error) {
-    return res.status(400).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
+  return success(
+    res,
+    {
+      tenant: result.tenant,
+      accessToken: result.accessToken,
+      isNew: result.isNew,
+      requiresOnboarding: result.requiresOnboarding,
+    },
+    result.isNew ? "Account created via Facebook" : "Logged in via Facebook",
+    result.isNew ? 201 : 200,
+  );
+});
 
-export const onboardingStep2 = async (req, res) => {
-  try {
-    const tenantId = req.tenantId;
-    const { email } = req.body;
+// ═══════════════════════════════════════════════════════════
+// 7. GOOGLE LOGIN (existing only)
+// ═══════════════════════════════════════════════════════════
+export const googleLogin = handle(async (req, res) => {
+  const { credential } = req.body;
 
-    const [emailExistsInTenant, emailExistsInUser, emailExistsInSuperAdmin] =
-      await Promise.all([
-        prisma.tenant.findUnique({ where: { email } }),
-        prisma.user.findUnique({ where: { email } }),
-        prisma.superAdmin.findUnique({ where: { email } }),
-      ]);
+  const oauthData = await verifyGoogleCredential(credential);
 
-    if (
-      (emailExistsInTenant && emailExistsInTenant.id !== tenantId) ||
-      emailExistsInUser ||
-      emailExistsInSuperAdmin
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Email is already registered on the platform",
-      });
-    }
+  const result = await oauthLoginService({
+    email: oauthData.email,
+    provider: "GOOGLE",
+    providerId: oauthData.providerId,
+    ip: getIp(req),
+    userAgent: getUserAgent(req),
+  });
 
-    const otpCode = crypto.randomInt(100000, 999999).toString();
-    const otpHash = crypto.createHash("sha256").update(otpCode).digest("hex");
-    const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+  setRefreshCookie(res, result.refreshToken);
 
-    const updated = await prisma.tenant.update({
-      where: { id: tenantId },
-      data: { email },
-    });
+  return success(res, {
+    tenant: result.tenant,
+    accessToken: result.accessToken,
+    requiresOnboarding: result.requiresOnboarding,
+  });
+});
 
-    await prisma.tenantAuth.upsert({
-      where: { tenantId },
-      create: {
-        tenantId,
-        otpHash,
-        otpExpiresAt,
-        isEmailVerified: false,
-      },
-      update: {
-        otpHash,
-        otpExpiresAt,
-        isEmailVerified: false,
-      },
-    });
+// ═══════════════════════════════════════════════════════════
+// 8. FACEBOOK LOGIN (existing only)
+// ═══════════════════════════════════════════════════════════
+export const facebookLogin = handle(async (req, res) => {
+  const { accessToken } = req.body;
 
-    await sendVerificationOtpEmail(email, otpCode);
+  const oauthData = await verifyFacebookToken(accessToken);
 
-    return res.status(200).json({
-      success: true,
-      message: "Step 2 complete: Verification email sent successfully.",
-      data: {
-        user: {
-          id: updated.id,
-          firstName: updated.firstName,
-          lastName: updated.lastName,
-          email: updated.email,
-          onboardingStep: updated.onboardingStep,
-          onboardingCompleted: updated.onboardingCompleted,
-          type: "TENANT",
-        },
-      },
-    });
-  } catch (error) {
-    return res.status(400).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
+  const result = await oauthLoginService({
+    email: oauthData.email,
+    provider: "FACEBOOK",
+    providerId: oauthData.providerId,
+    ip: getIp(req),
+    userAgent: getUserAgent(req),
+  });
 
-export const verifyEmailOtp = async (req, res) => {
-  try {
-    const tenantId = req.tenantId;
-    const { otpCode } = req.body;
+  setRefreshCookie(res, result.refreshToken);
 
-    if (!otpCode || otpCode.length !== 6) {
-      return res.status(400).json({
-        success: false,
-        message: "A valid 6-digit verification code is required.",
-      });
-    }
+  return success(res, {
+    tenant: result.tenant,
+    accessToken: result.accessToken,
+    requiresOnboarding: result.requiresOnboarding,
+  });
+});
 
-    const tenant = await prisma.tenant.findUnique({
-      where: { id: tenantId },
-      include: { auth: true },
-    });
+// ═══════════════════════════════════════════════════════════
+// 9. FORGOT PASSWORD
+// ═══════════════════════════════════════════════════════════
+export const forgotPassword = handle(async (req, res) => {
+  const { email } = req.body;
 
-    if (!tenant || !tenant.auth?.otpHash || !tenant.auth?.otpExpiresAt) {
-      return res.status(400).json({
-        success: false,
-        message: "Verification request not found. Please request a new code.",
-      });
-    }
+  const result = await forgotPasswordService({
+    email,
+    ip: getIp(req),
+    userAgent: getUserAgent(req),
+  });
 
-    if (new Date() > tenant.auth.otpExpiresAt) {
-      return res.status(400).json({
-        success: false,
-        message: "Verification code has expired. Please request a new one.",
-      });
-    }
+  return success(res, null, result.message);
+});
 
-    const hashedInput = crypto
-      .createHash("sha256")
-      .update(otpCode)
-      .digest("hex");
-    if (hashedInput !== tenant.auth.otpHash) {
-      return res.status(400).json({
-        success: false,
-        message: "Incorrect verification code.",
-      });
-    }
+// ═══════════════════════════════════════════════════════════
+// 10. RESET PASSWORD
+// ═══════════════════════════════════════════════════════════
+export const resetPassword = handle(async (req, res) => {
+  const { token, newPassword } = req.body;
 
-    const updated = await prisma.tenant.update({
-      where: { id: tenantId },
-      data: { onboardingStep: 3 },
-    });
+  const result = await resetPasswordService({
+    token,
+    newPassword,
+    ip: getIp(req),
+    userAgent: getUserAgent(req),
+  });
 
-    await prisma.tenantAuth.update({
-      where: { tenantId },
-      data: {
-        isEmailVerified: true,
-        otpHash: null,
-        otpExpiresAt: null,
-      },
-    });
+  return success(res, null, result.message);
+});
 
-    return res.status(200).json({
-      success: true,
-      message: "Email verified successfully",
-      data: {
-        user: {
-          id: updated.id,
-          firstName: updated.firstName,
-          lastName: updated.lastName,
-          email: updated.email,
-          onboardingStep: updated.onboardingStep,
-          onboardingCompleted: updated.onboardingCompleted,
-          type: "TENANT",
-        },
-      },
-    });
-  } catch (error) {
-    return res.status(400).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
+// ═══════════════════════════════════════════════════════════
+// 11. CHECK USERNAME
+// ═══════════════════════════════════════════════════════════
+export const checkUsername = handle(async (req, res) => {
+  const { username } = req.query;
 
-export const onboardingStep3 = async (req, res) => {
-  try {
-    const tenantId = req.tenantId;
-    const { password } = req.body;
+  const result = await checkUsernameService({ username });
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+  return success(res, result);
+});
 
-    const updated = await prisma.tenant.update({
-      where: { id: tenantId },
-      data: {
-        password: hashedPassword,
-        onboardingStep: 4,
-      },
-    });
+// ═══════════════════════════════════════════════════════════
+// 12. USERNAME SUGGESTIONS
+// ═══════════════════════════════════════════════════════════
+export const usernameSuggestions = handle(async (req, res) => {
+  const { firstName, lastName } = req.query;
 
-    return res.status(200).json({
-      success: true,
-      message: "Step 3 complete: Password updated",
-      data: {
-        user: {
-          id: updated.id,
-          firstName: updated.firstName,
-          lastName: updated.lastName,
-          email: updated.email,
-          onboardingStep: updated.onboardingStep,
-          onboardingCompleted: updated.onboardingCompleted,
-          type: "TENANT",
-        },
-      },
-    });
-  } catch (error) {
-    return res.status(400).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
+  const result = await usernameSuggestionsService({ firstName, lastName });
 
-export const onboardingStep4 = async (req, res) => {
-  try {
-    const tenantId = req.tenantId;
-    const { tenantName, websiteUrl } = req.body;
+  return success(res, result);
+});
 
-    const updated = await prisma.tenant.update({
-      where: { id: tenantId },
-      data: {
-        tenantName,
-        websiteUrl,
-        onboardingStep: 5,
-      },
-    });
+// ═══════════════════════════════════════════════════════════
+// 13. UPDATE PROFILE (Onboarding Step 2)
+// ═══════════════════════════════════════════════════════════
+export const updateProfile = handle(async (req, res) => {
+  const { firstName, lastName, username } = req.body;
+  const tenantId = req.actorId;
 
-    return res.status(200).json({
-      success: true,
-      message: "Step 4 complete: Company info updated",
-      data: {
-        user: {
-          id: updated.id,
-          firstName: updated.firstName,
-          lastName: updated.lastName,
-          email: updated.email,
-          tenantName: updated.tenantName,
-          websiteUrl: updated.websiteUrl,
-          onboardingStep: updated.onboardingStep,
-          onboardingCompleted: updated.onboardingCompleted,
-          type: "TENANT",
-        },
-      },
-    });
-  } catch (error) {
-    return res.status(400).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
+  const result = await updateProfileService({
+    tenantId,
+    firstName,
+    lastName,
+    username,
+  });
 
-export const onboardingStep5 = async (req, res) => {
-  try {
-    const tenantId = req.tenantId;
-    const { phone, companySize, useCase } = req.body;
+  return success(res, result, "Profile updated");
+});
 
-    const updated = await prisma.tenant.update({
-      where: { id: tenantId },
-      data: {
-        phone,
-        companySize,
-        useCase,
-        onboardingStep: 6,
-        onboardingCompleted: true,
-      },
-    });
+// ═══════════════════════════════════════════════════════════
+// 14. VERIFY EMAIL OTP (Onboarding Step 3)
+// ═══════════════════════════════════════════════════════════
+export const verifyEmailOtp = handle(async (req, res) => {
+  const { otp } = req.body;
+  const tenantId = req.actorId;
 
-    await sendTenantWelcomeEmail({
-      email: updated.email,
-      firstName: updated.firstName,
-      lastName: updated.lastName,
-      tenantName: updated.tenantName,
-    });
+  const result = await verifyEmailOtpService({ tenantId, otp });
 
-    try {
-      const notification = await createSuperAdminNotification({
-        type: "tenant_registered",
-        title: "🆕 New Tenant Registered",
-        message: `${updated.tenantName || `${updated.firstName} ${updated.lastName}`} just completed onboarding and joined the platform.`,
-        metadata: {
-          tenantId: updated.id,
-          tenantName: updated.tenantName,
-          email: updated.email,
-          firstName: updated.firstName,
-          lastName: updated.lastName,
-          registeredAt: new Date().toISOString(),
-        },
-      });
+  return success(
+    res,
+    result,
+    result.alreadyVerified ? "Email already verified" : "Email verified",
+  );
+});
 
-      emitToSuperAdmin("superadmin_notification", { notification });
+// ═══════════════════════════════════════════════════════════
+// 15. RESEND OTP
+// ═══════════════════════════════════════════════════════════
+export const resendOtp = handle(async (req, res) => {
+  const tenantId = req.actorId;
 
-      console.log(`✅ SuperAdmin notified — new tenant: ${updated.email}`);
-    } catch (err) {
-      console.error("❌ SuperAdmin notification failed:", err.message);
-    }
+  const result = await resendOtpService({ tenantId });
 
-    const accessToken = generateAccessToken({
-      id: updated.id,
-      email: updated.email,
-      type: "TENANT",
-    });
+  return success(res, null, result.message);
+});
 
-    const refreshToken = generateRefreshToken({
-      id: updated.id,
-      type: "TENANT",
-    });
+// ═══════════════════════════════════════════════════════════
+// 16. UPDATE ONBOARDING STEP (Generic, Steps 4–7)
+// ═══════════════════════════════════════════════════════════
+export const updateOnboardingStep = handle(async (req, res) => {
+  const { step } = req.body;
+  const tenantId = req.actorId;
 
-    const { saveRefreshToken } =
-      await import("../../auth/refreshToken.service.js");
-    await saveRefreshToken({
-      token: refreshToken,
-      tenantId: updated.id,
-    });
+  const result = await updateOnboardingStepService({ tenantId, step });
 
-    res.clearCookie("onboarding_token", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      path: "/",
-    });
+  return success(res, result, `Onboarding step ${step} complete`);
+});
 
-    res.cookie("tenant_refreshToken", refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-      path: "/",
-    });
+// ═══════════════════════════════════════════════════════════
+// 17. SET PASSWORD (OAuth users)
+// ═══════════════════════════════════════════════════════════
+export const setPassword = handle(async (req, res) => {
+  const { newPassword } = req.body;
+  const tenantId = req.actorId;
 
-    return res.status(200).json({
-      success: true,
-      message: "Onboarding completed and logged in successfully",
-      data: {
-        accessToken,
-        refreshToken,
-        user: {
-          id: updated.id,
-          name: updated.tenantName,
-          email: updated.email,
-          type: "TENANT",
-          status: updated.status,
-          planId: null,
-          planStatus: null,
-          billingType: null,
-          tenantName: updated.tenantName,
-          firstName: updated.firstName,
-          lastName: updated.lastName,
-          phone: updated.phone,
-          address: updated.address,
-          onboardingStep: updated.onboardingStep,
-          onboardingCompleted: updated.onboardingCompleted,
-        },
-      },
-    });
-  } catch (error) {
-    return res.status(400).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
+  const result = await setPasswordService({ tenantId, newPassword });
 
-export const getOnboardingStatus = async (req, res) => {
-  try {
-    const token = req.cookies.onboarding_token;
-    if (!token) {
-      return res.status(200).json({
-        success: true,
-        data: null,
-      });
-    }
+  return success(res, null, result.message);
+});
 
-    const decoded = jwt.verify(token, process.env.ACCESS_SECRET);
-    const tenant = await prisma.tenant.findUnique({
-      where: { id: decoded.id },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-        tenantName: true,
-        websiteUrl: true,
-        phone: true,
-        companySize: true,
-        useCase: true,
-        onboardingStep: true,
-        onboardingCompleted: true,
-      },
-    });
+// ═══════════════════════════════════════════════════════════
+// 18. SET USERNAME (Legacy guard)
+// ═══════════════════════════════════════════════════════════
+export const setUsername = handle(async (req, res) => {
+  const { username } = req.body;
+  const tenantId = req.actorId;
 
-    if (!tenant) {
-      res.clearCookie("onboarding_token", { path: "/" });
-      return res.status(200).json({ success: true, data: null });
-    }
+  const result = await setUsernameService({ tenantId, username });
 
-    return res.status(200).json({
-      success: true,
-      data: {
-        user: {
-          ...tenant,
-          type: "TENANT",
-        },
-      },
-    });
-  } catch (error) {
-    res.clearCookie("onboarding_token", { path: "/" });
-    return res.status(200).json({
-      success: true,
-      data: null,
-    });
-  }
-};
+  return success(res, result, "Username set successfully");
+});

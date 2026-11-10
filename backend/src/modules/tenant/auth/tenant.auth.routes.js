@@ -1,93 +1,166 @@
-// backend/src/modules/tenant/auth/tenant.auth.routes.js (do not remove this comment)
-import express from "express";
-import * as tenantController from "./tenant.auth.controller.js";
-import { verifyOnboarding } from "../../../middlewares/auth.tenant.js";
+// backend/src/modules/tenant/auth/tenant.auth.routes.new.js (do not remove this comment)
+
+import { Router } from "express";
+import * as ctrl from "./tenant.auth.controller.new.js";
+import { authenticate } from "../../../middleware/authenticate.js";
+import { requireTenant } from "../../../middleware/requireTenant.js";
+import { requireOnboarding } from "../../../middleware/requireOnboarding.js";
+import {
+  authLimiter,
+  signupLimiter,
+  otpLimiter,
+  resetLimiter,
+  usernameCheckLimiter,
+} from "../../../middleware/rateLimiter.js";
 import validate from "../../../middlewares/validate.middleware.js";
 import {
+  signupSchema,
   loginSchema,
-  forgotPasswordSchema,
-  resetPasswordSchema,
-  refreshTokenSchema,
   logoutSchema,
+  refreshSchema,
+  googleSignupSchema,
+  facebookSignupSchema,
   googleLoginSchema,
   facebookLoginSchema,
-} from "../../auth/auth.schema.js";
-import {
-  step1Schema,
-  step2Schema,
-  step3Schema,
-  step4Schema,
-  step5Schema,
-} from "./tenant.auth.schema.js";
+  forgotPasswordSchema,
+  resetPasswordSchema,
+  checkUsernameSchema,
+  usernameSuggestionsSchema,
+  setUsernameSchema,
+  profileSchema,
+  verifyOtpSchema,
+  onboardingStepSchema,
+  setPasswordSchema,
+} from "./tenant.auth.schema.new.js";
 
-const router = express.Router();
+const router = Router();
 
-// ── Multi-Step Onboarding ──
-router.post(
-  "/register/step-1",
-  validate(step1Schema),
-  tenantController.onboardingStep1,
-);
-router.put(
-  "/register/step-2",
-  verifyOnboarding,
-  validate(step2Schema),
-  tenantController.onboardingStep2,
-);
-router.post(
-  "/register/verify-email",
-  verifyOnboarding,
-  tenantController.verifyEmailOtp,
-);
-router.put(
-  "/register/step-3",
-  verifyOnboarding,
-  validate(step3Schema),
-  tenantController.onboardingStep3,
-);
-router.put(
-  "/register/step-4",
-  verifyOnboarding,
-  validate(step4Schema),
-  tenantController.onboardingStep4,
-);
-router.put(
-  "/register/step-5",
-  verifyOnboarding,
-  validate(step5Schema),
-  tenantController.onboardingStep5,
-);
-router.get("/register/status", tenantController.getOnboardingStatus);
+// ═══════════════════════════════════════════════════════════
+// PUBLIC ROUTES (no auth required)
+// ═══════════════════════════════════════════════════════════
 
-// ── Auth ──
-router.post("/login", validate(loginSchema), tenantController.loginTenant);
-router.post("/logout", validate(logoutSchema), tenantController.logoutTenant);
+// ── Email Signup & Login ──
+router.post("/signup", signupLimiter, validate(signupSchema), ctrl.signup);
+router.post("/login", authLimiter, validate(loginSchema), ctrl.login);
+
+// ── Token Management ──
+router.post("/logout", validate(logoutSchema), ctrl.logout);
+router.post("/refresh", validate(refreshSchema), ctrl.refresh);
+
+// ── OAuth Signup (creates account or auto-logins) ──
 router.post(
-  "/refresh-token",
-  validate(refreshTokenSchema),
-  tenantController.refreshTenantAccessToken,
+  "/google-signup",
+  signupLimiter,
+  validate(googleSignupSchema),
+  ctrl.googleSignup,
 );
 router.post(
-  "/forgot-ten-password",
-  validate(forgotPasswordSchema),
-  tenantController.forgotPasswordTenant,
-);
-router.post(
-  "/reset-ten-password",
-  validate(resetPasswordSchema),
-  tenantController.resetPasswordTenant,
+  "/facebook-signup",
+  signupLimiter,
+  validate(facebookSignupSchema),
+  ctrl.facebookSignup,
 );
 
-// ── Social Login ──
+// ── OAuth Login (existing accounts only) ──
 router.post(
   "/google-login",
+  authLimiter,
   validate(googleLoginSchema),
-  tenantController.googleLoginTenant,
+  ctrl.googleLogin,
 );
 router.post(
   "/facebook-login",
+  authLimiter,
   validate(facebookLoginSchema),
-  tenantController.facebookLoginTenant,
+  ctrl.facebookLogin,
+);
+
+// ── Password Reset ──
+router.post(
+  "/forgot-password",
+  resetLimiter,
+  validate(forgotPasswordSchema),
+  ctrl.forgotPassword,
+);
+router.post(
+  "/reset-password",
+  resetLimiter,
+  validate(resetPasswordSchema),
+  ctrl.resetPassword,
+);
+
+// ═══════════════════════════════════════════════════════════
+// ONBOARDING ROUTES (auth + onboarding status required)
+// ═══════════════════════════════════════════════════════════
+
+router.get(
+  "/check-username",
+  authenticate,
+  requireOnboarding,
+  usernameCheckLimiter,
+  validate(checkUsernameSchema),
+  ctrl.checkUsername,
+);
+
+router.get(
+  "/username-suggestions",
+  authenticate,
+  requireOnboarding,
+  validate(usernameSuggestionsSchema),
+  ctrl.usernameSuggestions,
+);
+
+router.put(
+  "/onboarding/profile",
+  authenticate,
+  requireOnboarding,
+  validate(profileSchema),
+  ctrl.updateProfile,
+);
+
+router.post(
+  "/onboarding/verify-email",
+  authenticate,
+  requireOnboarding,
+  otpLimiter,
+  validate(verifyOtpSchema),
+  ctrl.verifyEmailOtp,
+);
+
+router.post(
+  "/onboarding/resend-otp",
+  authenticate,
+  requireOnboarding,
+  otpLimiter,
+  ctrl.resendOtp,
+);
+
+router.put(
+  "/onboarding/step",
+  authenticate,
+  requireOnboarding,
+  validate(onboardingStepSchema),
+  ctrl.updateOnboardingStep,
+);
+
+router.put(
+  "/onboarding/set-password",
+  authenticate,
+  requireOnboarding,
+  validate(setPasswordSchema),
+  ctrl.setPassword,
+);
+
+// ═══════════════════════════════════════════════════════════
+// LEGACY GUARD (for ACTIVE tenants with NULL username)
+// ═══════════════════════════════════════════════════════════
+
+router.put(
+  "/set-username",
+  authenticate,
+  requireTenant,
+  validate(setUsernameSchema),
+  ctrl.setUsername,
 );
 
 export default router;
