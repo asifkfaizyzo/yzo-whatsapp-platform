@@ -47,7 +47,7 @@ import mediaRoutes from "./modules/messages/media.routes.js";
 // OLD TENANT ROUTES (contacts, conversations, messages, etc.)
 // Auth paths handled by new tenantAuthRoutes above.
 // ═══════════════════════════════════════════════════════════════
-import tenantRoutes from "./modules/tenant/tenant.routes.js";
+import tenantUserRoutes from "./modules/tenant/users/tenant.users.routes.js";
 import contactRoutes from "./modules/contacts/contact.routes.js";
 import conversationRoutes from "./modules/conversations/conversation.routes.js";
 import messageRoutes from "./modules/messages/message.routes.js";
@@ -299,7 +299,7 @@ app.use("/sradmin/admin/enterprise-leads", enterpriseLeadAdminRoutes);
 // OLD TENANT ROUTES (contacts, conversations, etc.)
 // Auth paths shadowed by new tenantAuthRoutes above.
 // ═══════════════════════════════════════════════════════════════
-app.use("/tenant", tenantRoutes);
+app.use("/tenant", tenantUserRoutes);
 app.use("/tenant", ticketRoutes);
 app.use("/tenant", enquiryRoutes);
 app.use("/tenant/contacts", contactRoutes);

@@ -48,7 +48,7 @@ export default function Dashboard() {
     setLoading(true);
     setError("");
     try {
-      const response = await api.get("/get-all-tenants");
+      const response = await api.get("/tenants");
       if (response.data?.success && response.data?.data?.tenants) {
         setTenants(response.data.data.tenants);
       }

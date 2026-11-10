@@ -58,7 +58,7 @@ export const logoutSuperAdmin = async () => {
 // Request Reset Link for Super Admin
 export const forgotPasswordSuperAdmin = async (email) => {
   try {
-    const response = await api.post("/forgot-sup-password", { email });
+    const response = await api.post("/forgot-password", { email });
     return { success: true, message: response.data?.message };
   } catch (error) {
     return {
@@ -75,7 +75,7 @@ export const resetPasswordSuperAdmin = async (
   confirmPassword,
 ) => {
   try {
-    const response = await api.post("/reset-sup-password", {
+    const response = await api.post("/reset-password", {
       token,
       newPassword,
       confirmPassword,

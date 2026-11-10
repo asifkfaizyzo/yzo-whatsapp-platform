@@ -21,6 +21,7 @@ import {
   deleteTenantService,
   deactivateUserService,
   reactivateUserService,
+  registerTenantService ,
 } from "./sradmin.tenant.service.js";
 
 // -- Error wrapper (same pattern as Phase 5) --
@@ -151,4 +152,11 @@ export const reactivateUser = handle(async (req, res) => {
   const meta = extractRequestMeta(req);
   const result = await reactivateUserService(parsed.data.id, actor, meta);
   return res.json(success("Agent reactivated", result));
+});
+
+export const registerTenant = handle(async (req, res) => {
+  const actor = req.srAdmin;
+  const meta = extractRequestMeta(req);
+  const result = await registerTenantService(req.body, actor, meta);
+  return res.status(201).json(success("Tenant registered successfully", result));
 });

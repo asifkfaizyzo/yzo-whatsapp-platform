@@ -4,6 +4,7 @@ import { Router } from "express";
 import { authenticate } from "../../../middleware/authenticate.js";
 import { requireSRAdmin } from "../../../middleware/requireSRAdmin.js";
 import { apiLimiter } from "../../../middleware/rateLimiter.js";
+import validate from "../../../middleware/validate.js";
 import {
   getAllTenants,
   getTenantById,
@@ -16,12 +17,17 @@ import {
   deleteTenant,
   deactivateUser,
   reactivateUser,
+  registerTenant,
 } from "./sradmin.tenant.controller.js";
+import { registerTenantSchema } from "./sradmin.tenant.schema.js";
 
 const router = Router();
 
 // All routes require SRAdmin authentication
 router.use(authenticate, requireSRAdmin, apiLimiter);
+
+// -- SRAdmin Creates Tenant --
+router.post("/register", validate(registerTenantSchema), registerTenant);
 
 // -- Tenant CRUD --
 router.get("/", getAllTenants);

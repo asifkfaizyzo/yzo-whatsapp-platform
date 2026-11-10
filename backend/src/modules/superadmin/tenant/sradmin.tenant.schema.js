@@ -52,3 +52,20 @@ export const changeStatusSchema = z.object({
 export const userIdParamSchema = z.object({
   id: z.string().cuid("Invalid user ID"),
 });
+
+// -- SRAdmin registers a new tenant --
+export const registerTenantSchema = z.object({
+  tenantName: z.string().trim().min(1, "Tenant name is required").max(100),
+  firstName: z.string().trim().min(1, "First name is required").max(50),
+  lastName: z.string().trim().min(1, "Last name is required").max(50),
+  email: z.string().email("Valid email is required"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  phone: z.string().trim().min(5, "Phone is required").max(20),
+  companySize: z.string().trim().min(1, "Company size is required"),
+  address: z.string().trim().max(500).optional(),
+  websiteUrl: z.string().trim().url().optional().or(z.literal("")),
+  industry: z.string().trim().max(100).optional(),
+  country: z.string().trim().max(100).optional(),
+  useCase: z.string().trim().max(500).optional(),
+  timezone: z.string().trim().max(50).optional(),
+});

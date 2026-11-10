@@ -1,6 +1,7 @@
 // backend/src/modules/superadmin/tenant/sradmin.tenant.service.js (do not remove this comment)
 
 import prisma from "../../../config/prisma.js";
+import { hashPassword } from "../../../utils/hash.js";
 import { createAuditLog } from "../../audit/audit.service.js";
 import { revokeAllTenantTokens, revokeAllTokens } from "../../../services/session.service.js";
 import { createSuperAdminNotification } from "../../superadmin-notifications/superadminNotification.service.js";
@@ -559,4 +560,106 @@ export const reactivateUserService = async (id, actor, meta) => {
   });
 
   return updated;
+};
+
+// ---------------------------------------------------------------
+// REGISTER TENANT (SRAdmin creates tenant with all details)
+// ---------------------------------------------------------------
+export const registerTenantService = async (data, actor, meta) => {
+  const {
+    tenantName,
+    firstName,
+    lastName,
+    email,
+    password,
+    phone,
+    address,
+    websiteUrl,
+    industry,
+    companySize,
+    country,
+    useCase,
+    timezone,
+  } = data;
+
+  const normalizedEmail = email.toLowerCase().trim();
+
+  // -- Check global email uniqueness --
+  const [existingTenant, existingUser, existingSRAdmin] = await Promise.all([
+    prisma.tenant.findFirst({ where: { email: normalizedEmail, deletedAt: null } }),
+    prisma.user.findFirst({ where: { email: normalizedEmail, deletedAt: null } }),
+    prisma.superAdmin.findFirst({ where: { email: normalizedEmail } }),
+  ]);
+
+  if (existingTenant || existingUser || existingSRAdmin) {
+    const err = new Error("Email is already registered on the platform");
+    err.status = 409;
+    throw err;
+  }
+
+  // -- Hash password --
+  const hashedPassword = await hashPassword(password);
+
+  // -- Create tenant with all details pre-filled --
+  const tenant = await prisma.tenant.create({
+    data: {
+      tenantName,
+      email: normalizedEmail,
+      password: hashedPassword,
+      firstName,
+      lastName,
+      phone,
+      address,
+      websiteUrl,
+      industry,
+      companySize,
+      country,
+      useCase,
+      timezone: timezone || "Asia/Kolkata",
+      status: "PENDING",
+      onboardingStep: 6,
+      isActive: true,
+      isEmailVerified: true,
+    },
+    select: {
+      id: true,
+      email: true,
+      tenantName: true,
+      firstName: true,
+      lastName: true,
+      status: true,
+      onboardingStep: true,
+      createdAt: true,
+    },
+  });
+
+  // -- Audit log --
+  await createAuditLog({
+    actorId: actor.id,
+    actorType: "SUPERADMIN",
+    actorName: actor.name,
+    actorEmail: actor.email,
+    action: "REGISTER_TENANT",
+    module: "TENANT_MANAGEMENT",
+    description: `SRAdmin registered new tenant "${tenantName}" (${normalizedEmail})`,
+    targetId: tenant.id,
+    targetType: "TENANT",
+    targetName: tenantName,
+    ipAddress: meta?.ipAddress,
+    userAgent: meta?.userAgent,
+  });
+
+  // -- Notify other SRAdmins (non-blocking) --
+  try {
+    await createSuperAdminNotification({
+      type: "tenant_registered",
+      title: "New Tenant Registered",
+      message: `${tenantName} (${normalizedEmail}) was registered by ${actor.name}`,
+      metadata: { tenantId: tenant.id, tenantName, email: normalizedEmail },
+    });
+  } catch {
+    // Non-blocking
+  }
+
+  return tenant;
 };

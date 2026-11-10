@@ -39,23 +39,33 @@ const router = Router();
 // PUBLIC ROUTES (no auth required)
 // ═══════════════════════════════════════════════════════════
 
-// ── Email Signup & Login ──
-router.post("/signup", signupLimiter, validate(signupSchema), ctrl.signup);
+// ── Email Signup (Kiran's new flow) ──
+router.post(
+  "/auth/signup",
+  signupLimiter,
+  validate(signupSchema),
+  ctrl.signup,
+);
+
+// ── Email Login ──
 router.post("/login", authLimiter, validate(loginSchema), ctrl.login);
 
 // ── Token Management ──
 router.post("/logout", validate(logoutSchema), ctrl.logout);
 router.post("/refresh", validate(refreshSchema), ctrl.refresh);
 
+// Backward-compat: auth store + axios interceptor still call /refresh-token
+router.post("/refresh-token", validate(refreshSchema), ctrl.refresh);
+
 // ── OAuth Signup (creates account or auto-logins) ──
 router.post(
-  "/google-signup",
+  "/auth/google-signup",
   signupLimiter,
   validate(googleSignupSchema),
   ctrl.googleSignup,
 );
 router.post(
-  "/facebook-signup",
+  "/auth/facebook-signup",
   signupLimiter,
   validate(facebookSignupSchema),
   ctrl.facebookSignup,
@@ -89,12 +99,26 @@ router.post(
   ctrl.resetPassword,
 );
 
+// Backward-compat: old auth.js still calls /forgot-ten-password and /reset-ten-password
+router.post(
+  "/forgot-ten-password",
+  resetLimiter,
+  validate(forgotPasswordSchema),
+  ctrl.forgotPassword,
+);
+router.post(
+  "/reset-ten-password",
+  resetLimiter,
+  validate(resetPasswordSchema),
+  ctrl.resetPassword,
+);
+
 // ═══════════════════════════════════════════════════════════
 // ONBOARDING ROUTES (auth + onboarding status required)
 // ═══════════════════════════════════════════════════════════
 
 router.get(
-  "/check-username",
+  "/auth/check-username",
   authenticate,
   requireOnboarding,
   usernameCheckLimiter,
@@ -103,7 +127,7 @@ router.get(
 );
 
 router.get(
-  "/username-suggestions",
+  "/auth/username-suggestions",
   authenticate,
   requireOnboarding,
   validate(usernameSuggestionsSchema),
@@ -111,7 +135,7 @@ router.get(
 );
 
 router.put(
-  "/onboarding/profile",
+  "/auth/onboarding/profile",
   authenticate,
   requireOnboarding,
   validate(profileSchema),
@@ -119,7 +143,7 @@ router.put(
 );
 
 router.post(
-  "/onboarding/verify-email",
+  "/auth/onboarding/verify-email",
   authenticate,
   requireOnboarding,
   otpLimiter,
@@ -128,7 +152,7 @@ router.post(
 );
 
 router.post(
-  "/onboarding/resend-otp",
+  "/auth/onboarding/resend-otp",
   authenticate,
   requireOnboarding,
   otpLimiter,
@@ -136,7 +160,7 @@ router.post(
 );
 
 router.put(
-  "/onboarding/step",
+  "/auth/onboarding/step",
   authenticate,
   requireOnboarding,
   validate(onboardingStepSchema),
@@ -144,7 +168,7 @@ router.put(
 );
 
 router.put(
-  "/onboarding/set-password",
+  "/auth/onboarding/set-password",
   authenticate,
   requireOnboarding,
   validate(setPasswordSchema),

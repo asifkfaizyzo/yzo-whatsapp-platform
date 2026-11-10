@@ -1459,10 +1459,7 @@ function TenantDrawer({
           <Section title="Company Profile">
             <div className="grid grid-cols-2 gap-x-5">
               <Field label="Company Name" value={tenant.tenantName} />
-              <Field
-                label="Company Size"
-                value={tenant.companySize}
-              />
+              <Field label="Company Size" value={tenant.companySize} />
               <Field
                 label="Subdomain"
                 value={
@@ -1499,7 +1496,9 @@ function TenantDrawer({
                 label="Owner Name"
                 value={
                   tenant.ownerName ||
-                  [tenant.firstName, tenant.lastName].filter(Boolean).join(" ") ||
+                  [tenant.firstName, tenant.lastName]
+                    .filter(Boolean)
+                    .join(" ") ||
                   tenant.tenantName
                 }
               />
@@ -1769,7 +1768,7 @@ export default function Tenants() {
     setError("");
     try {
       const [tenantsRes, plansRes] = await Promise.all([
-        api.get("/get-all-tenants"),
+        api.get("/tenants"),
         getPlans(),
       ]);
 
@@ -1818,7 +1817,7 @@ export default function Tenants() {
       return;
     }
     try {
-      const response = await api.post("/register-tenant", newTenant);
+      const response = await api.post("/tenants/register", newTenant);
       if (response.data?.success) {
         toast.success(
           `Tenant "${newTenant.tenantName}" registered successfully!`,
@@ -1866,7 +1865,7 @@ export default function Tenants() {
       return;
     }
     try {
-      const response = await api.put(`/update-tenant/${editingTenant.id}`, {
+      const response = await api.put(`/tenants/${editingTenant.id}`, {
         tenantName: editingTenant.tenantName,
         email: editingTenant.email,
         phone: editingTenant.phone,
@@ -1913,7 +1912,7 @@ export default function Tenants() {
     });
     if (ok) {
       try {
-        const response = await api.patch(`/users/${userId}/${action}`);
+        const response = await api.patch(`/tenants/users/${userId}/${action}`);
         if (response.data?.success) {
           toast.success(
             `User "${userName}" has been ${isActive ? "deactivated" : "activated"}.`,
@@ -1954,7 +1953,7 @@ export default function Tenants() {
     });
     if (ok) {
       try {
-        const response = await api.patch(`/${action}-tenant/${tenantId}`);
+        const response = await api.patch(`/tenants/${tenantId}/${action}`);
         if (response.data?.success) {
           toast.success(
             `Tenant "${tenantName}" has been ${isActive ? "suspended" : "activated"}.`,
@@ -1991,7 +1990,7 @@ export default function Tenants() {
     });
     if (ok) {
       try {
-        const response = await api.patch(`/${action}-tenant/${tenantId}`);
+        const response = await api.patch(`/tenants/${tenantId}/${action}`);
         if (response.data?.success) {
           toast.success(`Tenant "${tenantName}" successfully ${action}ed.`);
           fetchTenants();
@@ -2018,7 +2017,7 @@ export default function Tenants() {
     });
     if (ok) {
       try {
-        const response = await api.delete(`/delete-tenant/${tenantId}`);
+        const response = await api.delete(`/tenants/${tenantId}`);
         if (response.data?.success) {
           toast.success(
             `Tenant "${tenantName}" and all associated data deleted.`,
