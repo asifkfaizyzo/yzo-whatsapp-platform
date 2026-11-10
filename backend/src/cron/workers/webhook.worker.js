@@ -1246,8 +1246,30 @@ export const processWebhookJob = async (job) => {
 
       // ── CONTACTS ───────────────────────────────────────────
     } else if (messageType === "contacts") {
-      const c = message.contacts?.[0];
-      text = `👤 Contact shared: ${c?.name?.formatted_name || "Unknown"}`;
+      const sharedContacts = message.contacts || [];
+      text = sharedContacts
+        .map((sharedContact) => {
+          const name =
+            sharedContact.name?.formatted_name ||
+            [
+              sharedContact.name?.first_name,
+              sharedContact.name?.last_name,
+            ]
+              .filter(Boolean)
+              .join(" ") ||
+            "Unknown";
+          const phoneNumbers = (sharedContact.phones || [])
+            .map((phone) => phone.phone || phone.wa_id)
+            .filter(Boolean);
+
+          return `👤 Contact shared: ${name}${
+            phoneNumbers.length ? `\n📞 ${phoneNumbers.join(", ")}` : ""
+          }`;
+        })
+        .join("\n\n");
+      if (!text) {
+        text = "👤 Contact shared: Unknown";
+      }
       type = "TEXT";
 
       // ── INTERACTIVE (Button / List replies) ─────────────────

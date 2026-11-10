@@ -14,6 +14,7 @@ import { emitToTenant, emitToUser } from "../../lib/socket.js";
 import fs from "fs";
 import path from "path";
 import { trackUsage } from "../quick-replies/quickReply.service.js";
+import { convertWebmToOggOpus } from "../../lib/utils/audio.converter.js";
 import pushService, {
   shouldSendPush,
 } from "../../modules/notifications/push.service.js";
@@ -924,12 +925,24 @@ export const sendMediaMessageService = async ({
     msgStatus = "sent";
   } else if (tenant?.whatsappPhoneId && tenant?.whatsappAccessToken) {
     try {
+      const isVoiceNote = file.mimetype === "audio/webm";
+      if (isVoiceNote) {
+        const originalPath = file.path;
+        const convertedFile = await convertWebmToOggOpus(
+          file.path,
+          file.originalname,
+        );
+        fs.unlinkSync(originalPath);
+        file = { ...file, ...convertedFile };
+      }
+
       const result = await sendWhatsAppMedia({
         tenant,
         contactPhone: contact.phone,
         file,
         caption,
         mediaType,
+        isVoiceNote,
       });
 
       waMessageId = result?.messages?.[0]?.id || null;
@@ -994,6 +1007,7 @@ const sendWhatsAppMedia = async ({
   file,
   caption,
   mediaType,
+  isVoiceNote = false,
 }) => {
   const accessToken = decrypt(tenant.whatsappAccessToken);
   const phoneId = tenant.whatsappPhoneId;
@@ -1084,6 +1098,10 @@ const sendWhatsAppMedia = async ({
   }
 
   const mediaPayload = { id: mediaId };
+
+  if (waType === "audio" && isVoiceNote) {
+    mediaPayload.voice = true;
+  }
 
   if (waType === "document" && file.originalname) {
     mediaPayload.filename = file.originalname;

@@ -165,6 +165,7 @@ export const getMessagesController = async (req, res) => {
     const data = await getMessages({
       tenantId,
       conversationId,
+      userId: req.userType === "USER" ? req.userId : null,
       limit,
       before,
     });
@@ -468,6 +469,7 @@ export const getConversationMediaController = async (req, res) => {
     const data = await getConversationMedia({
       conversationId,
       tenantId,
+      userId: req.userType === "USER" ? req.userId : null,
       type,
       page,
       limit,

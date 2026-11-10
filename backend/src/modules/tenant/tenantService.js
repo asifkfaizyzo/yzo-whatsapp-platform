@@ -9,6 +9,7 @@ import axios from 'axios';
 import { generateAccessToken, generateRefreshToken, verifyAccessToken, verifyRefreshToken } from '../auth/jwt.service.js';
 import { saveRefreshToken, deleteRefreshToken, findRefreshToken } from '../auth/refreshToken.service.js';
 import { forgotPasswordService, resetPasswordService, } from '../auth/password.service.js';
+import { sendTenantWelcomeEmail } from '../auth/email.service.js';
 import { createNotification } from "../notifications/notification.service.js";
 import { checkLimitAccess } from '../../lib/plan.limits.js';
 import { createSuperAdminNotification } from '../superadmin-notifications/superadminNotification.service.js';
@@ -73,6 +74,13 @@ export const registerTenantService = async (data) => {
       onboardingStep: 6,
       onboardingCompleted: true,
     },
+  });
+
+  await sendTenantWelcomeEmail({
+    email: tenant.email,
+    firstName: tenant.firstName,
+    lastName: tenant.lastName,
+    tenantName: tenant.tenantName,
   });
 
   // ✅ Notify SuperAdmin about new tenant registration

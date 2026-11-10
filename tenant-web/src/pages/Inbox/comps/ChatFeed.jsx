@@ -1,6 +1,6 @@
 // tenant-web/src/pages/Inbox/comps/ChatFeed.jsx (do not remove this comment)
 import React from "react";
-import { FaWhatsapp, FaFacebookMessenger, FaInstagram } from "react-icons/fa";
+import { FaWhatsapp } from "react-icons/fa";
 import {
   RefreshCw,
   Trash2,
@@ -299,7 +299,7 @@ export default function ChatFeed({
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-[11px] font-semibold text-[#111B21] truncate group-hover:text-[#075E54] transition">
-                        {msg.mediaName || "File"}
+                      {msg.mediaName || "File"}
                       </p>
                       <p className="text-[9px] text-[#667781]">
                         {msg.mediaSize
@@ -636,29 +636,6 @@ export default function ChatFeed({
 
                 {/* Time + Ticks */}
                 <div className="mt-1 flex items-center gap-1 justify-end text-[10px] text-[#667781]">
-                  {!isAgent && (
-                    <span className="inline-flex items-center mr-0.5">
-                      {(activeChat.channel === "WHATSAPP" ||
-                        !activeChat.channel) && (
-                        <FaWhatsapp
-                          className="text-[#25D366] text-[11px]"
-                          title="via WhatsApp"
-                        />
-                      )}
-                      {activeChat.channel === "MESSENGER" && (
-                        <FaFacebookMessenger
-                          className="text-[#0084FF] text-[11px]"
-                          title="via Messenger"
-                        />
-                      )}
-                      {activeChat.channel === "INSTAGRAM" && (
-                        <FaInstagram
-                          className="text-[#E1306C] text-[11px]"
-                          title="via Instagram"
-                        />
-                      )}
-                    </span>
-                  )}
                   <span>{timeStr}</span>
                   {isAgent && (
                     <>

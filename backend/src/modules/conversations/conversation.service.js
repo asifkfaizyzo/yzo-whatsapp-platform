@@ -259,18 +259,22 @@ export const getAssignedConversations = async ({
 
 //Get messages for a conversation (pagination + infinite scroll)
 export const getMessages = async (params) => {
-  const { conversationId, limit = 30, before } = params;
+  const { conversationId, tenantId, userId, limit = 30, before } = params;
 
   // Step 1: Check if conversation exists
-  const conversation = await prisma.conversation.findUnique({
-    where: { id: conversationId },
+  const conversation = await prisma.conversation.findFirst({
+    where: {
+      id: conversationId,
+      tenantId,
+      ...(userId ? { contact: { assignedTo: userId } } : {}),
+    },
   });
 
   if (!conversation) {
-    throw new Error("Conversation not found");
+    throw Object.assign(new Error("Conversation not found"), {
+      statusCode: 404,
+    });
   }
-
-  const tenantId = conversation.tenantId; // ✅ NEW - needed for signing
 
   // Step 2: Build filter
   const where = {
@@ -937,12 +941,17 @@ export const markConversationAsRead = async ({ conversationId, tenantId }) => {
 export const getConversationMedia = async ({
   conversationId,
   tenantId,
+  userId,
   type = "media", // "media" | "docs" | "links"
   page = 1,
   limit = 50,
 }) => {
   const conversation = await prisma.conversation.findFirst({
-    where: { id: conversationId, tenantId },
+    where: {
+      id: conversationId,
+      tenantId,
+      ...(userId ? { contact: { assignedTo: userId } } : {}),
+    },
   });
 
   if (!conversation) {
