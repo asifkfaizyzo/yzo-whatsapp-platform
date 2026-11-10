@@ -1,4 +1,4 @@
-// backend/src/middlewares/upload.template.js (do not remove this comment)
+// backend/src/middleware/upload.template.js (do not remove this comment)
 //
 // Dedicated Multer config for template HEADER media uploads.
 // Separate from the contact upload middleware so we can enforce
