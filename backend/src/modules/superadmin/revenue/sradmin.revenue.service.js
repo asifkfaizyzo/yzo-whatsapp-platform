@@ -1,6 +1,5 @@
-// backend/src/modules/revenue/revenue.service.js (do not remove this comment)
-
-import prisma from "../../config/prisma.js";
+// backend/src/modules/superadmin/revenue/sradmin.revenue.service.js
+import prisma from "../../../config/prisma.js";
 
 // -- Dashboard Card Stats --
 export const getPlatformRevenueStatsService = async () => {
@@ -65,18 +64,15 @@ export const getRevenueStatsService = async () => {
   const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
 
-  // -- Total Revenue --
   const totalRevenue = allPayments.reduce(
     (sum, p) => sum + (p.totalAmount || 0),
     0,
   );
 
-  // -- This Month --
   const thisMonthRevenue = allPayments
     .filter((p) => new Date(p.paidAt) >= startOfMonth)
     .reduce((sum, p) => sum + (p.totalAmount || 0), 0);
 
-  // -- Last Month --
   const lastMonthRevenue = allPayments
     .filter((p) => {
       const d = new Date(p.paidAt);
@@ -84,22 +80,17 @@ export const getRevenueStatsService = async () => {
     })
     .reduce((sum, p) => sum + (p.totalAmount || 0), 0);
 
-  // -- Total GST --
   const totalGST = allPayments.reduce((sum, p) => sum + (p.gstAmount || 0), 0);
 
-  // -- MRR & ARR --
   const mrr = thisMonthRevenue;
   const arr = parseFloat((mrr * 12).toFixed(2));
 
-  // -- Active Tenants --
   const activeTenants = await prisma.tenant.count({
     where: { subscription: { planStatus: "active" }, isActive: true },
   });
 
-  // -- Total Payments Count --
   const totalPayments = allPayments.length;
 
-  // -- Monthly Breakdown (last 6 months) --
   const monthlyBreakdown = [];
   for (let i = 5; i >= 0; i--) {
     const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -127,7 +118,6 @@ export const getRevenueStatsService = async () => {
     });
   }
 
-  // -- Plan Distribution --
   const planMap = {};
   for (const p of allPayments) {
     if (!p.planId) continue;
@@ -240,7 +230,6 @@ export const getTenantBillingDetailService = async (tenantId) => {
     },
   });
 
-  // -- Next Renewal Date --
   let nextRenewalDate = null;
   if (tenant.planActivatedAt && tenant.planStatus === "active") {
     const activatedAt = new Date(tenant.planActivatedAt);

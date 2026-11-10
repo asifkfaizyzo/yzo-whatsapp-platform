@@ -1,6 +1,6 @@
 // backend/src/modules/tenant/profile/tenant.profile.controller.js (do not remove this comment)
 import prisma from "../../../config/prisma.js";
-import { updateTenantByIdService } from "../../superadmin/superadmin.service.js";
+import { updateTenantByIdService } from "./tenant.profile.service.js";
 import {
   updateTenantPasswordService,
   uploadTenantLogoService,

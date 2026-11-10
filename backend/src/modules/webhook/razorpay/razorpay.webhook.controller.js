@@ -1,7 +1,7 @@
 // backend/src/modules/webhook/razorpay/razorpay.webhook.controller.js (do not remove this comment)
 import crypto from "crypto";
 import prisma from "../../../config/prisma.js";
-import { calculateGST } from "../../superadmin/superadmin.service.js";
+import { calculateGST } from "../../../lib/billing.js";
 import { generateInvoicePDF } from "../../plans/invoice.service.js";
 import { sendInvoiceEmail } from "../../auth/email.service.js";
 

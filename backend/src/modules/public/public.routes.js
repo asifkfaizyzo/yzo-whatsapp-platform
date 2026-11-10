@@ -1,6 +1,6 @@
 // backend/src/modules/public/public.routes.js (do not remove this comment)
 import express from "express";
-import { getPublicGSTSettings } from "../superadmin/superadmin.controller.js";
+import { getPublicGSTSettings } from "../superadmin/settings/sradmin.settings.controller.js";
 
 const router = express.Router();
 

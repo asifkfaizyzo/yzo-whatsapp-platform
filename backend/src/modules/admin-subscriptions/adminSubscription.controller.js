@@ -2,7 +2,7 @@
 import crypto from "crypto";
 import prisma from "../../config/prisma.js";
 import nodemailer from "nodemailer";
-import { calculateGST } from "../superadmin/superadmin.service.js";
+import { calculateGST } from "../../lib/billing.js";
 import { sendInvoiceEmail } from "../auth/email.service.js";
 import { generateInvoicePDFFromModel } from "../plans/invoice.service.js";
 import { createAuditLog } from "../audit/audit.service.js";

@@ -32,9 +32,10 @@ import sradminTenantRoutes from "./modules/superadmin/tenant/sradmin.tenant.rout
 // These handle everything NOT caught by the new routes above.
 // Phase 10 will remove auth + tenant CRUD from this file.
 // ═══════════════════════════════════════════════════════════════
-import superadminRoutes from "./modules/superadmin/superadmin.routes.js";
 import adminTicketRoutes from "./modules/tickets/ticket.admin.routes.js";
-import revenueRoutes from "./modules/revenue/revenue.routes.js";
+import sradminRevenueRoutes from "./modules/superadmin/revenue/sradmin.revenue.routes.js";
+import sradminSettingsRoutes from "./modules/superadmin/settings/sradmin.settings.routes.js";
+import sradminReportRoutes from "./modules/superadmin/reports/sradmin.reports.routes.js";
 import adminSubscriptionsRoute from "./modules/admin-subscriptions/adminSubscription.routes.js";
 import enterpriseLeadAdminRoutes from "./modules/enterprise-leads/enterpriseLead.admin.routes.js";
 import superAdminNotificationRoutes from "./modules/superadmin-notifications/superadminNotification.routes.js";
@@ -281,9 +282,10 @@ app.use("/sradmin/tenants", sradminTenantRoutes);
 // OLD SUPERADMIN ROUTES (revenue, GST, notifications, audit, etc.)
 // Auth + tenant CRUD paths are shadowed by new routes above.
 // ═══════════════════════════════════════════════════════════════
-app.use("/sradmin", superadminRoutes);
 app.use("/sradmin", adminTicketRoutes);
-app.use("/sradmin", revenueRoutes);
+app.use("/sradmin", sradminRevenueRoutes);
+app.use("/sradmin/settings", sradminSettingsRoutes);
+app.use("/sradmin", sradminReportRoutes);
 app.use("/sradmin", enquiryRoutes);
 app.use("/sradmin/plans", planRoutes);
 app.use("/sradmin/billing", billingRoutes);

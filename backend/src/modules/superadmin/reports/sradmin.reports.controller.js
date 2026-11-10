@@ -6,7 +6,7 @@ import {
   getReportDeliveryService,
   getReportTenantsService,
   getReportSystemHealthService,
-} from "./reports.service.js";
+} from "./sradmin.reports.service.js";
 
 export const getReportKPIs = async (req, res) => {
   try {

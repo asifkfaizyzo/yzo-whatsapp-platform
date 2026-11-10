@@ -1,6 +1,6 @@
 // backend/src/modules/superadmin/reports.service.js (do not remove this comment)
 
-import prisma from "../../config/prisma.js";
+import prisma from "../../../config/prisma.js";
 
 /**
  * Helper to build date range filters

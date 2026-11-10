@@ -1,15 +1,14 @@
-// backend/src/modules/revenue/revenue.routes.js (do not remove this comment)
-
+// backend/src/modules/superadmin/revenue/sradmin.revenue.routes.js
 import express from "express";
 import {
   getPlatformRevenueStats,
   getRevenueStats,
   getRevenuePayments,
   getTenantBillingDetail,
-  getInvoiceUrl,
-} from "./revenue.controller.js";
-import { authenticate } from "../../middleware/authenticate.js";
-import { requireSRAdmin } from "../../middleware/requireSRAdmin.js";
+  adminDownloadInvoice,
+} from "./sradmin.revenue.controller.js";
+import { authenticate } from "../../../middleware/authenticate.js";
+import { requireSRAdmin } from "../../../middleware/requireSRAdmin.js";
 
 const router = express.Router();
 
@@ -24,6 +23,12 @@ router.get(
   authenticate, requireSRAdmin,
   getTenantBillingDetail,
 );
-router.get("/revenue/invoice/:paymentId", authenticate, requireSRAdmin, getInvoiceUrl);
+
+// ── Invoice download (adminDownloadInvoice wins — was first-mount in app.js) ──
+router.get(
+  "/revenue/invoice/:paymentId",
+  authenticate, requireSRAdmin,
+  adminDownloadInvoice,
+);
 
 export default router;

@@ -53,4 +53,13 @@ router.post(
   ctrl.createSRAdmin,
 );
 
+// ── Profile health check (moved from superadmin.routes.js) ──
+router.get("/profile", authenticate, requireSRAdmin, (req, res) => {
+  return res.status(200).json({
+    success: true,
+    message: "Middleware working properly",
+    superAdmin: req.srAdmin,
+  });
+});
+
 export default router;

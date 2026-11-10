@@ -17,7 +17,7 @@ import { createSuperAdminNotification } from "../superadmin-notifications/supera
 import { emitToSuperAdmin } from "../../lib/socket.js";
 import { createAuditLog } from "../audit/audit.service.js";
 import { extractRequestMeta } from "../../lib/utils/request.meta.js";
-import { calculateGST } from "../superadmin/superadmin.service.js";
+import { calculateGST } from "../../lib/billing.js";
 import { razorpay, getRazorpay } from "../../config/razorpay.js";
 
 // ? Export Razorpay instance from centralized config
