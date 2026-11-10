@@ -118,6 +118,7 @@ const checkParentTenant = async (tenantId) => {
 // -----------------------------------------------------------
 export const loginService = async ({
   identifier,
+  email,
   password,
   recaptchaToken,
   ip,
@@ -127,8 +128,11 @@ export const loginService = async ({
   const captchaOk = await verifyRecaptcha(recaptchaToken, "login");
   if (!captchaOk) throw new AuthError("reCAPTCHA verification failed", 403);
 
+  const loginId = identifier || email;
+  if (!loginId) throw new AuthError("Email or username is required", 400);
+
   // -- Detect identifier type --
-  const trimmed = identifier.trim();
+  const trimmed = loginId.trim();
   const isEmail = trimmed.includes("@");
 
   const where = isEmail

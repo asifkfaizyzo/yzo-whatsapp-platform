@@ -13,7 +13,7 @@ import {
   X,
 } from "lucide-react";
 import FormError from "../../../../components/FormError";
-import { checkUsername } from "../../../../api/auth";
+import { checkUsername, updateOnboardingProfile } from "../../../../api/auth";
 
 const schema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -131,7 +131,16 @@ export default function ProfileSetup({
       }, 500);
       return;
     }
-    // TODO: const result = await updateOnboardingProfile(data);
+    try {
+      const result = await updateOnboardingProfile(data);
+      if (result.success) {
+        onContinue(data);
+      } else {
+        setError(result.message || "Failed to save profile.");
+      }
+    } catch (err) {
+      setError(err.message || "Something went wrong.");
+    }
     setIsLoading(false);
   };
 

@@ -35,9 +35,9 @@ export default function LoginPage() {
   const handleGoogleSuccess = async (credentialResponse) => {
     const result = await loginWithGoogle(credentialResponse.credential);
     if (result.success) {
-      const tenantUser = result.data?.data?.user;
+      const tenantUser = result.data?.data?.tenant;
       if (tenantUser?.type === "TENANT" && !tenantUser?.onboardingCompleted) {
-        navigate("/register");
+        navigate("/signup");
       } else {
         navigate("/dashboard");
       }
@@ -53,9 +53,9 @@ export default function LoginPage() {
   const handleFacebookSuccess = async (accessToken) => {
     const result = await loginWithFacebook(accessToken);
     if (result.success) {
-      const tenantUser = result.data?.data?.user;
+      const tenantUser = result.data?.data?.tenant;
       if (tenantUser?.type === "TENANT" && !tenantUser?.onboardingCompleted) {
-        navigate("/register");
+        navigate("/signup");
       } else {
         navigate("/dashboard");
       }
@@ -72,7 +72,7 @@ export default function LoginPage() {
   useEffect(() => {
     if (isHydrated && isAuthenticated && user) {
       if (user.type === "TENANT" && !user.onboardingCompleted) {
-        navigate("/register", { replace: true });
+        navigate("/signup", { replace: true });
       } else {
         navigate("/dashboard", { replace: true });
       }
@@ -89,10 +89,9 @@ export default function LoginPage() {
     defaultValues: { email: "", password: "" },
     onSubmitService: (data) => login(data.email, data.password),
     onSuccess: (result) => {
-      // ← Navigate based on user type and onboarding step returned from login
-      const tenantUser = result?.data?.data?.user;
+      const tenantUser = result?.data?.tenant;
       if (tenantUser?.type === "TENANT" && !tenantUser?.onboardingCompleted) {
-        navigate("/register");
+        navigate("/signup");
       } else {
         navigate("/dashboard");
       }

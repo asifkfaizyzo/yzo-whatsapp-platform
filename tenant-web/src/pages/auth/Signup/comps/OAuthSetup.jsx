@@ -14,7 +14,11 @@ import {
   X,
 } from "lucide-react";
 import FormError from "../../../../components/FormError";
-import { checkUsername } from "../../../../api/auth";
+import {
+  checkUsername,
+  setOAuthPassword,
+  updateOnboardingProfile,
+} from "../../../../api/auth";
 
 const schema = z
   .object({
@@ -155,7 +159,24 @@ export default function OAuthSetup({ mockMode, meta, userData, onContinue }) {
       }, 500);
       return;
     }
-    // TODO: await setOAuthPassword(data.password); + updateProfile({ username })
+    try {
+      const profileResult = await updateOnboardingProfile({
+        username: data.username,
+      });
+      if (!profileResult.success) {
+        setError(profileResult.message || "Failed to save username.");
+        setIsLoading(false);
+        return;
+      }
+      const pwResult = await setOAuthPassword(data.password);
+      if (pwResult.success) {
+        onContinue(data);
+      } else {
+        setError(pwResult.message || "Failed to set password.");
+      }
+    } catch (err) {
+      setError(err.message || "Something went wrong.");
+    }
     setIsLoading(false);
   };
 

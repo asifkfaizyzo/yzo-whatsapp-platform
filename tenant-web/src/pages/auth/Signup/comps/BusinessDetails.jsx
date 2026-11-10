@@ -12,6 +12,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import FormError from "../../../../components/FormError";
+import { updateOnboardingStep } from "../../../../api/auth";
 import StyledSelect from "../../../../components/common/StyledSelect";
 
 const schema = z.object({
@@ -65,7 +66,16 @@ export default function BusinessDetails({
       }, 500);
       return;
     }
-    // TODO: await updateOnboardingStep(5, data);
+    try {
+      const result = await updateOnboardingStep(5, data);
+      if (result.success) {
+        onContinue(data);
+      } else {
+        setError(result.message || "Failed to save business details.");
+      }
+    } catch (err) {
+      setError(err.message || "Something went wrong.");
+    }
     setIsLoading(false);
   };
 

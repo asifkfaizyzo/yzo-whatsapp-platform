@@ -31,15 +31,19 @@ export const signupSchema = z.object({
 // LOGIN (Email or Username)
 // -----------------------------------------------------------
 export const loginSchema = z.object({
-  body: z.object({
-    identifier: z
-      .string({ required_error: "Email or username is required" })
-      .min(1, "Email or username is required"),
-    password: z
-      .string({ required_error: "Password is required" })
-      .min(1, "Password is required"),
-    recaptchaToken: recaptchaRule,
-  }),
+  body: z
+    .object({
+      identifier: z.string().optional(),
+      email: z.string().optional(),
+      password: z
+        .string({ required_error: "Password is required" })
+        .min(1, "Password is required"),
+      recaptchaToken: recaptchaRule,
+    })
+    .refine((d) => d.identifier || d.email, {
+      message: "Email or username is required",
+      path: ["identifier"],
+    }),
 });
 
 // -----------------------------------------------------------
@@ -129,9 +133,15 @@ export const resetPasswordSchema = z.object({
 // USERNAME
 // -----------------------------------------------------------
 export const checkUsernameSchema = z.object({
-  query: z.object({
-    username: z.string().min(1, "Username query is required"),
-  }),
+  query: z
+    .object({
+      q: z.string().optional(),
+      username: z.string().optional(),
+    })
+    .refine((d) => d.q || d.username, {
+      message: "Username query is required",
+      path: ["username"],
+    }),
 });
 
 export const usernameSuggestionsSchema = z.object({
@@ -180,19 +190,21 @@ export const verifyOtpSchema = z.object({
   body: z.object({
     otp: z
       .string({ required_error: "OTP is required" })
-      .length(6, "OTP must be 6 digits")
-      .regex(/^\d{6}$/, "OTP must be numeric"),
+      .length(4, "OTP must be 4 digits")
+      .regex(/^\d{4}$/, "OTP must be numeric"),
   }),
 });
 
 export const onboardingStepSchema = z.object({
-  body: z.object({
-    step: z
-      .number({ required_error: "Step number is required" })
-      .int("Step must be an integer")
-      .min(1, "Invalid step")
-      .max(7, "Invalid step"),
-  }),
+  body: z
+    .object({
+      step: z
+        .number({ required_error: "Step number is required" })
+        .int("Step must be an integer")
+        .min(1, "Invalid step")
+        .max(7, "Invalid step"),
+    })
+    .passthrough(),
 });
 
 export const setPasswordSchema = z.object({

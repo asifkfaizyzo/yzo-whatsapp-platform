@@ -28,31 +28,6 @@ export const useAuthStore = create((set) => ({
 
       // No session stored
       if (!userType) {
-        try {
-          const onboardingRes = await axios.get(
-            `${import.meta.env.VITE_BACKEND_URL}/tenant/register/status`,
-            { withCredentials: true },
-          );
-          if (onboardingRes.data?.success && onboardingRes.data?.data?.user) {
-            const onboardingUser = onboardingRes.data.data.user;
-            localStorage.setItem("user", JSON.stringify(onboardingUser));
-            localStorage.setItem("user_type", "TENANT");
-            set({
-              user: onboardingUser,
-              accessToken: null,
-              isAuthenticated: true,
-              isLoading: false,
-              isHydrated: true,
-            });
-            return;
-          }
-        } catch (onboardingError) {
-          console.log(
-            "No onboarding session on startup:",
-            onboardingError.message,
-          );
-        }
-
         set({
           user: null,
           accessToken: null,
@@ -76,11 +51,9 @@ export const useAuthStore = create((set) => ({
 
       const isUser = userType === "USER";
 
-      const accessToken = isUser
-        ? response.data.data.accessToken
-        : response.data.accessToken;
+      const accessToken = response.data.data.accessToken;
 
-      const serverUser = isUser ? response.data.data.user : response.data.user;
+      const serverUser = isUser ? response.data.data.user : response.data.data.tenant;
 
       const userData =
         serverUser || JSON.parse(localStorage.getItem("user") || "null");
@@ -105,29 +78,6 @@ export const useAuthStore = create((set) => ({
       });
     } catch (error) {
       console.log("Refresh Failed:", error.response?.data || error.message);
-
-      // Check if there is an active onboarding session
-      try {
-        const onboardingRes = await axios.get(
-          `${import.meta.env.VITE_BACKEND_URL}/tenant/register/status`,
-          { withCredentials: true },
-        );
-        if (onboardingRes.data?.success && onboardingRes.data?.data?.user) {
-          const onboardingUser = onboardingRes.data.data.user;
-          localStorage.setItem("user", JSON.stringify(onboardingUser));
-          localStorage.setItem("user_type", "TENANT");
-          set({
-            user: onboardingUser,
-            accessToken: null,
-            isAuthenticated: true,
-            isLoading: false,
-            isHydrated: true,
-          });
-          return;
-        }
-      } catch (onboardingError) {
-        console.log("Onboarding status check failed:", onboardingError.message);
-      }
 
       const status = error.response?.status;
 

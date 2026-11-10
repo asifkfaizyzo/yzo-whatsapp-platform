@@ -57,9 +57,24 @@ const SAFE_TENANT_SELECT = {
   status: true,
   isActive: true,
   onboardingStep: true,
+  onboardingCompleted: true,
   isEmailVerified: true,
   authProvider: true,
   createdAt: true,
+};
+
+const SUBSCRIPTION_INCLUDE = {
+  subscription: {
+    select: {
+      planId: true,
+      planStatus: true,
+      subscriptionStatus: true,
+      currentPlan: true,
+      hasUsedTrial: true,
+      planPeriodEnd: true,
+      dataDeletionDate: true,
+    },
+  },
 };
 
 const sanitizeTenant = (tenant) => {
@@ -67,6 +82,15 @@ const sanitizeTenant = (tenant) => {
   const safe = {};
   for (const key of Object.keys(SAFE_TENANT_SELECT)) {
     if (key in tenant) safe[key] = tenant[key];
+  }
+  if (tenant.subscription) {
+    safe.planId = tenant.subscription.planId || null;
+    safe.planStatus = tenant.subscription.planStatus || null;
+    safe.subscriptionStatus = tenant.subscription.subscriptionStatus || null;
+    safe.currentPlan = tenant.subscription.currentPlan || null;
+    safe.hasUsedTrial = tenant.subscription.hasUsedTrial || false;
+    safe.planPeriodEnd = tenant.subscription.planPeriodEnd || null;
+    safe.dataDeletionDate = tenant.subscription.dataDeletionDate || null;
   }
   return safe;
 };
@@ -167,7 +191,7 @@ export const signupService = async ({
       isActive: true,
       isEmailVerified: false,
     },
-    select: { ...SAFE_TENANT_SELECT, password: true },
+    select: { ...SAFE_TENANT_SELECT, password: true, ...SUBSCRIPTION_INCLUDE },
   });
 
   // -- Issue tokens --
@@ -205,6 +229,7 @@ export const signupService = async ({
 // -----------------------------------------------------------
 export const loginService = async ({
   identifier,
+  email,
   password,
   recaptchaToken,
   ip,
@@ -214,8 +239,11 @@ export const loginService = async ({
   const captchaOk = await verifyRecaptcha(recaptchaToken, "login");
   if (!captchaOk) throw new AuthError("reCAPTCHA verification failed", 403);
 
+  const loginId = identifier || email;
+  if (!loginId) throw new AuthError("Email or username is required", 400);
+
   // -- Detect identifier type --
-  const trimmed = identifier.trim();
+  const trimmed = loginId.trim();
   const isEmail = trimmed.includes("@");
 
   const where = isEmail
@@ -227,6 +255,7 @@ export const loginService = async ({
     select: {
       ...SAFE_TENANT_SELECT,
       password: true,
+      ...SUBSCRIPTION_INCLUDE,
     },
   });
 
@@ -359,7 +388,7 @@ export const refreshTokenService = async ({ refreshToken }) => {
   // -- Verify tenant still exists and is active --
   const tenant = await prisma.tenant.findFirst({
     where: { id: decoded.id, deletedAt: null },
-    select: { ...SAFE_TENANT_SELECT },
+    select: { ...SAFE_TENANT_SELECT, ...SUBSCRIPTION_INCLUDE },
   });
 
   if (!tenant) {
@@ -376,7 +405,7 @@ export const refreshTokenService = async ({ refreshToken }) => {
   await deleteRefreshToken(refreshToken).catch(() => {});
   const tokens = await issueTokens(tenant);
 
-  return tokens;
+  return { ...tokens, tenant: sanitizeTenant(tenant) };
 };
 
 // -----------------------------------------------------------
@@ -402,7 +431,7 @@ export const oauthSignupService = async ({
   // -- Check if tenant already exists --
   const existingTenant = await prisma.tenant.findFirst({
     where: { email: normalizedEmail, deletedAt: null },
-    select: { ...SAFE_TENANT_SELECT, status: true },
+    select: { ...SAFE_TENANT_SELECT, status: true, ...SUBSCRIPTION_INCLUDE },
   });
 
   if (existingTenant) {
@@ -461,7 +490,7 @@ export const oauthSignupService = async ({
       isActive: true,
       isEmailVerified: true, // OAuth email is pre-verified by provider
     },
-    select: { ...SAFE_TENANT_SELECT },
+    select: { ...SAFE_TENANT_SELECT, ...SUBSCRIPTION_INCLUDE },
   });
 
   const tokens = await issueTokens(newTenant);
@@ -509,7 +538,7 @@ export const oauthLoginService = async ({
 
   const tenant = await prisma.tenant.findFirst({
     where: { email: normalizedEmail, deletedAt: null },
-    select: { ...SAFE_TENANT_SELECT },
+    select: { ...SAFE_TENANT_SELECT, ...SUBSCRIPTION_INCLUDE },
   });
 
   if (!tenant) {
@@ -734,7 +763,7 @@ export const updateProfileService = async ({
       username: username.toLowerCase().trim(),
       onboardingStep: 2,
     },
-    select: SAFE_TENANT_SELECT,
+    select: { ...SAFE_TENANT_SELECT, ...SUBSCRIPTION_INCLUDE },
   });
 
   logAuth({
@@ -816,7 +845,7 @@ export const verifyEmailOtpService = async ({ tenantId, otp }) => {
       otpAttempts: 0,
       onboardingStep: 3,
     },
-    select: SAFE_TENANT_SELECT,
+    select: { ...SAFE_TENANT_SELECT, ...SUBSCRIPTION_INCLUDE },
   });
 
   logAuth({
@@ -886,7 +915,7 @@ export const resendOtpService = async ({ tenantId }) => {
 // -----------------------------------------------------------
 // 14. UPDATE ONBOARDING STEP (Generic, Steps 4�7)
 // -----------------------------------------------------------
-export const updateOnboardingStepService = async ({ tenantId, step }) => {
+export const updateOnboardingStepService = async ({ tenantId, step, data = {} }) => {
   const tenant = await prisma.tenant.findFirst({
     where: { id: tenantId, deletedAt: null },
     select: { id: true, email: true, onboardingStep: true, status: true },
@@ -900,26 +929,42 @@ export const updateOnboardingStepService = async ({ tenantId, step }) => {
     throw new AuthError("Invalid onboarding step", 422);
   }
 
-  // Allow advancing by 1 or re-submitting current step
-  if (targetStep > tenant.onboardingStep + 1) {
+  // Allow advancing by up to 2 steps (OAuth flow skips email verify step)
+  if (targetStep > tenant.onboardingStep + 2) {
     throw new AuthError(
       `Cannot skip steps. Current step: ${tenant.onboardingStep}, requested: ${targetStep}`,
       422,
     );
   }
 
-  // -- Determine new status --
+  // -- Whitelist of allowed Tenant fields per step --
+  const ALLOWED_FIELDS = {
+    4: ["tenantName", "websiteUrl"],
+    5: ["phone", "companySize", "useCase", "industry", "country", "address"],
+    6: ["industry", "country", "address"],
+    7: [],
+  };
+
   const updateData = { onboardingStep: targetStep };
 
-  // Final step ? transition to ACTIVE
-  if (targetStep >= 7 && tenant.status === "ONBOARDING") {
+  // Save step-specific data fields
+  const allowed = ALLOWED_FIELDS[targetStep] || [];
+  for (const key of allowed) {
+    if (data[key] !== undefined) {
+      updateData[key] = data[key];
+    }
+  }
+
+  // Final step (5+) → complete onboarding and transition to ACTIVE
+  if (targetStep >= 5 && tenant.status === "ONBOARDING") {
     updateData.status = "ACTIVE";
+    updateData.onboardingCompleted = true;
   }
 
   const updated = await prisma.tenant.update({
     where: { id: tenantId },
     data: updateData,
-    select: SAFE_TENANT_SELECT,
+    select: { ...SAFE_TENANT_SELECT, ...SUBSCRIPTION_INCLUDE },
   });
 
   logAuth({
@@ -927,7 +972,7 @@ export const updateOnboardingStepService = async ({ tenantId, step }) => {
     actorType: "TENANT",
     actorEmail: tenant.email,
     action: "ONBOARDING_STEP_UPDATED",
-    description: `Onboarding advanced to step ${targetStep}${targetStep >= 7 ? " (ACTIVE)" : ""}`,
+    description: `Onboarding advanced to step ${targetStep}${targetStep >= 5 ? " (COMPLETE → ACTIVE)" : ""}`,
     tenantId,
   });
 

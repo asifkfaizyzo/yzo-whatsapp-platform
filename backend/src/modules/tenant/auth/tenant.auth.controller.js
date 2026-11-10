@@ -48,6 +48,11 @@ const clearAuthCookies = (res) => {
   res.clearCookie("onboarding_token", clearOpts);
 };
 
+const buildUserPayload = (tenant) => {
+  if (!tenant) return null;
+  return { ...tenant, type: "TENANT" };
+};
+
 const getIp = (req) =>
   req.ip ||
   req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
@@ -128,7 +133,7 @@ export const signup = handle(async (req, res) => {
   return success(
     res,
     {
-      tenant: result.tenant,
+      tenant: buildUserPayload(result.tenant),
       accessToken: result.accessToken,
       requiresOnboarding: result.requiresOnboarding,
     },
@@ -141,10 +146,11 @@ export const signup = handle(async (req, res) => {
 // 2. LOGIN
 // -----------------------------------------------------------
 export const login = handle(async (req, res) => {
-  const { identifier, password, recaptchaToken } = req.body;
+  const { identifier, email, password, recaptchaToken } = req.body;
 
   const result = await loginService({
     identifier,
+    email,
     password,
     recaptchaToken,
     ip: getIp(req),
@@ -154,7 +160,7 @@ export const login = handle(async (req, res) => {
   setRefreshCookie(res, result.refreshToken);
 
   return success(res, {
-    tenant: result.tenant,
+    tenant: buildUserPayload(result.tenant),
     accessToken: result.accessToken,
     requiresUsername: result.requiresUsername,
     requiresOnboarding: result.requiresOnboarding,
@@ -196,6 +202,7 @@ export const refresh = handle(async (req, res) => {
 
   return success(res, {
     accessToken: result.accessToken,
+    tenant: buildUserPayload(result.tenant),
   });
 });
 
@@ -224,7 +231,7 @@ export const googleSignup = handle(async (req, res) => {
   return success(
     res,
     {
-      tenant: result.tenant,
+      tenant: buildUserPayload(result.tenant),
       accessToken: result.accessToken,
       isNew: result.isNew,
       requiresOnboarding: result.requiresOnboarding,
@@ -258,7 +265,7 @@ export const facebookSignup = handle(async (req, res) => {
   return success(
     res,
     {
-      tenant: result.tenant,
+      tenant: buildUserPayload(result.tenant),
       accessToken: result.accessToken,
       isNew: result.isNew,
       requiresOnboarding: result.requiresOnboarding,
@@ -287,7 +294,7 @@ export const googleLogin = handle(async (req, res) => {
   setRefreshCookie(res, result.refreshToken);
 
   return success(res, {
-    tenant: result.tenant,
+    tenant: buildUserPayload(result.tenant),
     accessToken: result.accessToken,
     requiresOnboarding: result.requiresOnboarding,
   });
@@ -312,7 +319,7 @@ export const facebookLogin = handle(async (req, res) => {
   setRefreshCookie(res, result.refreshToken);
 
   return success(res, {
-    tenant: result.tenant,
+    tenant: buildUserPayload(result.tenant),
     accessToken: result.accessToken,
     requiresOnboarding: result.requiresOnboarding,
   });
@@ -353,9 +360,9 @@ export const resetPassword = handle(async (req, res) => {
 // 11. CHECK USERNAME
 // -----------------------------------------------------------
 export const checkUsername = handle(async (req, res) => {
-  const { username } = req.query;
+  const { q, username } = req.query;
 
-  const result = await checkUsernameService({ username });
+  const result = await checkUsernameService({ username: q || username });
 
   return success(res, result);
 });
@@ -385,7 +392,10 @@ export const updateProfile = handle(async (req, res) => {
     username,
   });
 
-  return success(res, result, "Profile updated");
+  return success(res, {
+    ...result,
+    tenant: buildUserPayload(result.tenant),
+  }, "Profile updated");
 });
 
 // -----------------------------------------------------------
@@ -397,9 +407,12 @@ export const verifyEmailOtp = handle(async (req, res) => {
 
   const result = await verifyEmailOtpService({ tenantId, otp });
 
+  const payload = result.tenant
+    ? { ...result, tenant: buildUserPayload(result.tenant) }
+    : result;
   return success(
     res,
-    result,
+    payload,
     result.alreadyVerified ? "Email already verified" : "Email verified",
   );
 });
@@ -419,12 +432,15 @@ export const resendOtp = handle(async (req, res) => {
 // 16. UPDATE ONBOARDING STEP (Generic, Steps 4�7)
 // -----------------------------------------------------------
 export const updateOnboardingStep = handle(async (req, res) => {
-  const { step } = req.body;
+  const { step, ...data } = req.body;
   const tenantId = req.actorId;
 
-  const result = await updateOnboardingStepService({ tenantId, step });
+  const result = await updateOnboardingStepService({ tenantId, step, data });
 
-  return success(res, result, `Onboarding step ${step} complete`);
+  return success(res, {
+    ...result,
+    tenant: buildUserPayload(result.tenant),
+  }, `Onboarding step ${step} complete`);
 });
 
 // -----------------------------------------------------------
@@ -448,5 +464,8 @@ export const setUsername = handle(async (req, res) => {
 
   const result = await setUsernameService({ tenantId, username });
 
-  return success(res, result, "Username set successfully");
+  return success(res, {
+    ...result,
+    tenant: buildUserPayload(result.tenant),
+  }, "Username set successfully");
 });

@@ -15,15 +15,19 @@ const recaptchaRule = z.string().optional();
 // LOGIN (Email or Username)
 // -----------------------------------------------------------
 export const loginSchema = z.object({
-  body: z.object({
-    identifier: z
-      .string({ required_error: "Email or username is required" })
-      .min(1, "Email or username is required"),
-    password: z
-      .string({ required_error: "Password is required" })
-      .min(1, "Password is required"),
-    recaptchaToken: recaptchaRule,
-  }),
+  body: z
+    .object({
+      identifier: z.string().optional(),
+      email: z.string().optional(),
+      password: z
+        .string({ required_error: "Password is required" })
+        .min(1, "Password is required"),
+      recaptchaToken: recaptchaRule,
+    })
+    .refine((d) => d.identifier || d.email, {
+      message: "Email or username is required",
+      path: ["identifier"],
+    }),
 });
 
 // -----------------------------------------------------------

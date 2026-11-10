@@ -12,6 +12,7 @@ import {
   XCircle,
 } from "lucide-react";
 import FormError from "../../../../components/FormError";
+import { verifyEmailOtpNew, resendOtp } from "../../../../api/auth";
 
 const schema = z.object({
   otpCode: z
@@ -73,8 +74,25 @@ export default function EmailOTP({
       return;
     }
 
-    // TODO: verifyEmailOtpNew(otp).then(...)
-    setIsLoading(false);
+    verifyEmailOtpNew(otp)
+      .then((result) => {
+        setIsLoading(false);
+        if (result.success) {
+          setStatus("success");
+          setTimeout(() => onContinue({ otpCode: otp }), 800);
+        } else {
+          setStatus("error");
+          setError(result.message || "Invalid code.");
+          hasSubmitted.current = false;
+        }
+      })
+      .catch(() => {
+        setIsLoading(false);
+        setStatus("error");
+        setError("Verification failed. Please try again.");
+        hasSubmitted.current = false;
+      });
+    return;
   }, [otp, mockMode, onContinue]);
 
   useEffect(() => {
@@ -99,8 +117,23 @@ export default function EmailOTP({
       }, 600);
       return;
     }
-    // TODO: const result = await verifyEmailOtpNew(data.otpCode);
-    setIsLoading(false);
+    try {
+      const result = await verifyEmailOtpNew(data.otpCode);
+      setIsLoading(false);
+      if (result.success) {
+        setStatus("success");
+        setTimeout(() => onContinue(data), 800);
+      } else {
+        setStatus("error");
+        setError(result.message || "Invalid code.");
+        hasSubmitted.current = false;
+      }
+    } catch (err) {
+      setIsLoading(false);
+      setStatus("error");
+      setError("Verification failed. Please try again.");
+      hasSubmitted.current = false;
+    }
   };
 
   const handleResend = () => {
@@ -111,7 +144,9 @@ export default function EmailOTP({
     hasSubmitted.current = false;
     setValue("otpCode", "");
     if (mockMode) return;
-    // TODO: await resendOtp();
+    resendOtp().catch(() => {
+      setError("Failed to resend code. Please try again.");
+    });
   };
 
   return (

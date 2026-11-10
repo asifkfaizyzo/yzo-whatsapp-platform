@@ -203,5 +203,8 @@ export const setUsername = handle(async (req, res) => {
 
   const result = await setUsernameService({ userId, username });
 
-  return success(res, result, "Username set successfully");
+  return success(res, {
+    ...result,
+    tenant: buildUserPayload(result.tenant),
+  }, "Username set successfully");
 });

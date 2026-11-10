@@ -49,6 +49,8 @@ import mediaRoutes from "./modules/messages/media.routes.js";
 // Auth paths handled by new tenantAuthRoutes above.
 // ═══════════════════════════════════════════════════════════════
 import tenantUserRoutes from "./modules/tenant/users/tenant.users.routes.js";
+import tenantProfileRoutes from "./modules/tenant/profile/tenant.profile.routes.js";
+import tenantIntegrationRoutes from "./modules/tenant/integrations/tenant.integrations.routes.js";
 import contactRoutes from "./modules/contacts/contact.routes.js";
 import conversationRoutes from "./modules/conversations/conversation.routes.js";
 import messageRoutes from "./modules/messages/message.routes.js";
@@ -318,6 +320,8 @@ app.use("/tenant/plans", planRoutes);
 app.use("/tenant/billing", billingRoutes);
 app.use("/tenant/google-sheets", googleSheetsRoutes);
 app.use("/tenant/register/enterprise-lead", enterpriseLeadRoutes);
+app.use("/tenant", tenantProfileRoutes);
+app.use("/tenant", tenantIntegrationRoutes);
 
 // ═══════════════════════════════════════════════════════════════
 // OLD USER / AGENT ROUTES (non-auth paths)

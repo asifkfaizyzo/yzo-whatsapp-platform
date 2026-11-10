@@ -2,128 +2,7 @@
 import api, { userApi } from "./axios";
 import { useAuthStore } from "../store/useAuthStore";
 
-// Step 1: First name + Last name
-export const registerStep1 = async (formData) => {
-  try {
-    const response = await api.post("/register/step-1", {
-      firstName: formData.firstName,
-      lastName: formData.lastName,
-    });
 
-    const currentToken = useAuthStore.getState().accessToken;
-    const onboardingUser = { ...response.data.data.user, type: "TENANT" };
-    useAuthStore.getState().login(onboardingUser, currentToken || null);
-
-    return { success: true, data: response.data };
-  } catch (error) {
-    return {
-      success: false,
-      message: error.response?.data?.message || "Step 1 failed",
-    };
-  }
-};
-
-// Step 2: Email
-export const registerStep2 = async (formData) => {
-  try {
-    const response = await api.put("/register/step-2", {
-      email: formData.email,
-    });
-
-    const currentToken = useAuthStore.getState().accessToken;
-    const onboardingUser = { ...response.data.data.user, type: "TENANT" };
-    useAuthStore.getState().login(onboardingUser, currentToken || null);
-
-    return { success: true, data: response.data };
-  } catch (error) {
-    return {
-      success: false,
-      message: error.response?.data?.message || "Step 2 failed",
-    };
-  }
-};
-
-// Step 2.5: Verify Email OTP Code
-export const verifyEmailOtp = async (otpCode) => {
-  try {
-    const response = await api.post("/register/verify-email", {
-      otpCode,
-    });
-
-    const currentToken = useAuthStore.getState().accessToken;
-    const onboardingUser = { ...response.data.data.user, type: "TENANT" };
-    useAuthStore.getState().login(onboardingUser, currentToken || null);
-
-    return { success: true, data: response.data };
-  } catch (error) {
-    return {
-      success: false,
-      message: error.response?.data?.message || "Verification failed",
-    };
-  }
-};
-
-// Step 3: Password
-export const registerStep3 = async (formData) => {
-  try {
-    const response = await api.put("/register/step-3", {
-      password: formData.password,
-    });
-
-    const currentToken = useAuthStore.getState().accessToken;
-    const onboardingUser = { ...response.data.data.user, type: "TENANT" };
-    useAuthStore.getState().login(onboardingUser, currentToken || null);
-
-    return { success: true, data: response.data };
-  } catch (error) {
-    return {
-      success: false,
-      message: error.response?.data?.message || "Step 3 failed",
-    };
-  }
-};
-
-// Step 4: Company name + Website
-export const registerStep4 = async (formData) => {
-  try {
-    const response = await api.put("/register/step-4", {
-      tenantName: formData.tenantName,
-      websiteUrl: formData.websiteUrl,
-    });
-
-    const currentToken = useAuthStore.getState().accessToken;
-    const onboardingUser = { ...response.data.data.user, type: "TENANT" };
-    useAuthStore.getState().login(onboardingUser, currentToken || null);
-
-    return { success: true, data: response.data };
-  } catch (error) {
-    return {
-      success: false,
-      message: error.response?.data?.message || "Step 4 failed",
-    };
-  }
-};
-
-// Step 5: Phone + Team Size + Use Case
-export const registerStep5 = async (formData) => {
-  try {
-    const response = await api.put("/register/step-5", {
-      phone: formData.phone,
-      companySize: formData.companySize,
-      useCase: formData.useCase,
-    });
-
-    const loggedInUser = { ...response.data.data.user, type: "TENANT" };
-    useAuthStore.getState().login(loggedInUser, response.data.data.accessToken);
-
-    return { success: true, data: response.data };
-  } catch (error) {
-    return {
-      success: false,
-      message: error.response?.data?.message || "Step 5 failed",
-    };
-  }
-};
 
 // Login
 export const login = async (email, password) => {
@@ -133,11 +12,10 @@ export const login = async (email, password) => {
       password,
     });
 
+    const tenant = response.data.data.tenant;
     useAuthStore
       .getState()
-      .login(response.data.data.user, response.data.data.accessToken);
-
-    console.log(response.data.data.user);
+      .login(tenant, response.data.data.accessToken);
 
     return {
       success: true,
@@ -319,9 +197,10 @@ export const loginWithGoogle = async (credential) => {
   try {
     const response = await api.post("/google-login", { credential });
 
+    const tenant = response.data.data.tenant;
     useAuthStore
       .getState()
-      .login(response.data.data.user, response.data.data.accessToken);
+      .login(tenant, response.data.data.accessToken);
 
     return {
       success: true,
@@ -340,9 +219,10 @@ export const loginWithFacebook = async (accessToken) => {
   try {
     const response = await api.post("/facebook-login", { accessToken });
 
+    const tenant = response.data.data.tenant;
     useAuthStore
       .getState()
-      .login(response.data.data.user, response.data.data.accessToken);
+      .login(tenant, response.data.data.accessToken);
 
     return {
       success: true,
@@ -367,8 +247,8 @@ export const loginWithFacebook = async (accessToken) => {
 export const signupWithEmail = async (email, password) => {
   try {
     const response = await api.post("/auth/signup", { email, password });
-    const { accessToken, user } = response.data.data;
-    useAuthStore.getState().login(user, accessToken);
+    const { accessToken, tenant } = response.data.data;
+    useAuthStore.getState().login(tenant, accessToken);
     return { success: true, data: response.data };
   } catch (error) {
     return {
@@ -382,8 +262,8 @@ export const signupWithEmail = async (email, password) => {
 export const signupWithGoogle = async (credential) => {
   try {
     const response = await api.post("/auth/google-signup", { credential });
-    const { accessToken, user } = response.data.data;
-    useAuthStore.getState().login(user, accessToken);
+    const { accessToken, tenant } = response.data.data;
+    useAuthStore.getState().login(tenant, accessToken);
     return { success: true, data: response.data };
   } catch (error) {
     return {
@@ -397,8 +277,8 @@ export const signupWithGoogle = async (credential) => {
 export const signupWithFacebook = async (accessToken) => {
   try {
     const response = await api.post("/auth/facebook-signup", { accessToken });
-    const { accessToken: token, user } = response.data.data;
-    useAuthStore.getState().login(user, token);
+    const { accessToken: token, tenant } = response.data.data;
+    useAuthStore.getState().login(tenant, token);
     return { success: true, data: response.data };
   } catch (error) {
     return {
@@ -413,8 +293,8 @@ export const verifyEmailOtpNew = async (otp) => {
   try {
     const response = await api.post("/auth/onboarding/verify-email", { otp });
     const currentToken = useAuthStore.getState().accessToken;
-    const user = { ...response.data.data.user, type: "TENANT" };
-    useAuthStore.getState().login(user, currentToken);
+    const tenant = response.data.data.tenant;
+    if (tenant) useAuthStore.getState().login(tenant, currentToken);
     return { success: true, data: response.data };
   } catch (error) {
     return {
@@ -442,8 +322,8 @@ export const updateOnboardingProfile = async (data) => {
   try {
     const response = await api.put("/auth/onboarding/profile", data);
     const currentToken = useAuthStore.getState().accessToken;
-    const user = { ...response.data.data.user, type: "TENANT" };
-    useAuthStore.getState().login(user, currentToken);
+    const tenant = response.data.data.tenant;
+    if (tenant) useAuthStore.getState().login(tenant, currentToken);
     return { success: true, data: response.data };
   } catch (error) {
     return {
@@ -457,11 +337,11 @@ export const updateOnboardingProfile = async (data) => {
 export const setOAuthPassword = async (password) => {
   try {
     const response = await api.put("/auth/onboarding/set-password", {
-      password,
+      newPassword: password,
     });
     const currentToken = useAuthStore.getState().accessToken;
-    const user = { ...response.data.data.user, type: "TENANT" };
-    useAuthStore.getState().login(user, currentToken);
+    const tenant = response.data.data.tenant;
+    if (tenant) useAuthStore.getState().login(tenant, currentToken);
     return { success: true, data: response.data };
   } catch (error) {
     return {
@@ -474,10 +354,10 @@ export const setOAuthPassword = async (password) => {
 // PUT /tenant/auth/onboarding/step  (steps 4, 5, 6, 7)
 export const updateOnboardingStep = async (step, data) => {
   try {
-    const response = await api.put("/auth/onboarding/step", { step, data });
+    const response = await api.put("/auth/onboarding/step", { step, ...data });
     const currentToken = useAuthStore.getState().accessToken;
-    const user = { ...response.data.data.user, type: "TENANT" };
-    useAuthStore.getState().login(user, currentToken);
+    const tenant = response.data.data.tenant;
+    if (tenant) useAuthStore.getState().login(tenant, currentToken);
     return { success: true, data: response.data };
   } catch (error) {
     return {
@@ -491,7 +371,7 @@ export const updateOnboardingStep = async (step, data) => {
 export const checkUsername = async (username) => {
   try {
     const response = await api.get("/auth/check-username", {
-      params: { q: username },
+      params: { username },
     });
     return { success: true, data: response.data.data };
   } catch (error) {

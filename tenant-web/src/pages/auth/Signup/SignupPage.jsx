@@ -13,7 +13,7 @@ import BusinessDetails from "./comps/BusinessDetails";
 //  When true: all API calls are skipped, forms just advance steps,
 //  and a dummy user is seeded into the auth store so route guards pass.
 // ═══════════════════════════════════════════════════════════════════
-const MOCK_SIGNUP = true;
+const MOCK_SIGNUP = false;
 
 // ── Step Component Maps ──
 const REGULAR_STEPS = [

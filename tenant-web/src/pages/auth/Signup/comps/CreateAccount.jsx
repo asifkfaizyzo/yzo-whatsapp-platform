@@ -15,6 +15,11 @@ import {
 import { GoogleLogin } from "@react-oauth/google";
 import FacebookLoginButton from "../../../../components/auth/FacebookLoginButton";
 import FormError from "../../../../components/FormError";
+import {
+  signupWithEmail,
+  signupWithGoogle,
+  signupWithFacebook,
+} from "../../../../api/auth";
 
 const schema = z.object({
   email: z.string().email("Invalid email address"),
@@ -90,7 +95,16 @@ export default function CreateAccount({
       }, 500);
       return;
     }
-    // TODO: const result = await signupWithEmail(data.email, data.password);
+    try {
+      const result = await signupWithEmail(data.email, data.password);
+      if (result.success) {
+        onContinue(data);
+      } else {
+        setError(result.message || "Signup failed. Please try again.");
+      }
+    } catch (err) {
+      setError(err.message || "Something went wrong.");
+    }
     setIsLoading(false);
   };
 
@@ -111,7 +125,22 @@ export default function CreateAccount({
       }, 700);
       return;
     }
-    // TODO: const result = await signupWithGoogle(credentialResponse.credential);
+    try {
+      const result = await signupWithGoogle(credentialResponse.credential);
+      if (result.success) {
+        const t = result.data?.data?.tenant || {};
+        onOAuth({
+          provider: "google",
+          email: t.email || "",
+          firstName: t.firstName || "",
+          lastName: t.lastName || "",
+        });
+      } else {
+        setGoogleError(result.message || "Google sign-up failed.");
+      }
+    } catch (err) {
+      setGoogleError(err.message || "Something went wrong.");
+    }
     setIsLoading(false);
   };
 
@@ -132,7 +161,22 @@ export default function CreateAccount({
       }, 700);
       return;
     }
-    // TODO: const result = await signupWithFacebook(accessToken);
+    try {
+      const result = await signupWithFacebook(accessToken);
+      if (result.success) {
+        const t = result.data?.data?.tenant || {};
+        onOAuth({
+          provider: "facebook",
+          email: t.email || "",
+          firstName: t.firstName || "",
+          lastName: t.lastName || "",
+        });
+      } else {
+        setFbError(result.message || "Facebook sign-up failed.");
+      }
+    } catch (err) {
+      setFbError(err.message || "Something went wrong.");
+    }
     setIsLoading(false);
   };
 

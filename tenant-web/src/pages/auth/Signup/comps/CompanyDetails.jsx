@@ -11,6 +11,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import FormError from "../../../../components/FormError";
+import { updateOnboardingStep } from "../../../../api/auth";
 
 const schema = z.object({
   tenantName: z.string().min(2, "Company name must be at least 2 characters"),
@@ -61,7 +62,16 @@ export default function CompanyDetails({
       }, 500);
       return;
     }
-    // TODO: await updateOnboardingStep(4, data);
+    try {
+      const result = await updateOnboardingStep(4, data);
+      if (result.success) {
+        onContinue(data);
+      } else {
+        setError(result.message || "Failed to save company details.");
+      }
+    } catch (err) {
+      setError(err.message || "Something went wrong.");
+    }
     setIsLoading(false);
   };
 

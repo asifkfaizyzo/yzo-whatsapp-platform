@@ -46,14 +46,10 @@ export const requireOnboarding = async (req, res, next) => {
         isActive: true,
         onboardingStep: true,
         onboardingCompleted: true,
+        isEmailVerified: true,
+        authProvider: true,
         createdAt: true,
         updatedAt: true,
-        auth: {
-          select: {
-            isEmailVerified: true,
-            authProvider: true,
-          },
-        },
       },
     });
 
