@@ -355,3 +355,165 @@ export const loginWithFacebook = async (accessToken) => {
     };
   }
 };
+
+// ═══════════════════════════════════════════════════════════════════
+//  NEW SIGNUP FLOW ENDPOINTS (Phase 1 — dummy stubs)
+//  These will be replaced with real API calls in Phase 3.
+//  Currently they return mock success responses so the frontend
+//  can be tested end-to-end with MOCK_SIGNUP = true.
+// ═══════════════════════════════════════════════════════════════════
+
+// POST /tenant/auth/signup
+export const signupWithEmail = async (email, password) => {
+  try {
+    const response = await api.post("/auth/signup", { email, password });
+    const { accessToken, user } = response.data.data;
+    useAuthStore.getState().login(user, accessToken);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Signup failed",
+    };
+  }
+};
+
+// POST /tenant/auth/google-signup
+export const signupWithGoogle = async (credential) => {
+  try {
+    const response = await api.post("/auth/google-signup", { credential });
+    const { accessToken, user } = response.data.data;
+    useAuthStore.getState().login(user, accessToken);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Google signup failed",
+    };
+  }
+};
+
+// POST /tenant/auth/facebook-signup
+export const signupWithFacebook = async (accessToken) => {
+  try {
+    const response = await api.post("/auth/facebook-signup", { accessToken });
+    const { accessToken: token, user } = response.data.data;
+    useAuthStore.getState().login(user, token);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Facebook signup failed",
+    };
+  }
+};
+
+// POST /tenant/auth/onboarding/verify-email
+export const verifyEmailOtpNew = async (otp) => {
+  try {
+    const response = await api.post("/auth/onboarding/verify-email", { otp });
+    const currentToken = useAuthStore.getState().accessToken;
+    const user = { ...response.data.data.user, type: "TENANT" };
+    useAuthStore.getState().login(user, currentToken);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Verification failed",
+    };
+  }
+};
+
+// POST /tenant/auth/onboarding/resend-otp
+export const resendOtp = async () => {
+  try {
+    const response = await api.post("/auth/onboarding/resend-otp");
+    return { success: true, message: response.data?.message || "Code sent" };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to resend code",
+    };
+  }
+};
+
+// PUT /tenant/auth/onboarding/profile
+export const updateOnboardingProfile = async (data) => {
+  try {
+    const response = await api.put("/auth/onboarding/profile", data);
+    const currentToken = useAuthStore.getState().accessToken;
+    const user = { ...response.data.data.user, type: "TENANT" };
+    useAuthStore.getState().login(user, currentToken);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Profile update failed",
+    };
+  }
+};
+
+// PUT /tenant/auth/onboarding/set-password (OAuth users)
+export const setOAuthPassword = async (password) => {
+  try {
+    const response = await api.put("/auth/onboarding/set-password", {
+      password,
+    });
+    const currentToken = useAuthStore.getState().accessToken;
+    const user = { ...response.data.data.user, type: "TENANT" };
+    useAuthStore.getState().login(user, currentToken);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Password setup failed",
+    };
+  }
+};
+
+// PUT /tenant/auth/onboarding/step  (steps 4, 5, 6, 7)
+export const updateOnboardingStep = async (step, data) => {
+  try {
+    const response = await api.put("/auth/onboarding/step", { step, data });
+    const currentToken = useAuthStore.getState().accessToken;
+    const user = { ...response.data.data.user, type: "TENANT" };
+    useAuthStore.getState().login(user, currentToken);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || `Step ${step} failed`,
+    };
+  }
+};
+
+// GET /tenant/auth/check-username?q=xxx
+export const checkUsername = async (username) => {
+  try {
+    const response = await api.get("/auth/check-username", {
+      params: { q: username },
+    });
+    return { success: true, data: response.data.data };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Username check failed",
+    };
+  }
+};
+
+// GET /tenant/auth/username-suggestions?firstName=x&lastName=y
+export const getUsernameSuggestions = async (firstName, lastName) => {
+  try {
+    const response = await api.get("/auth/username-suggestions", {
+      params: { firstName, lastName },
+    });
+    return { success: true, data: response.data.data };
+  } catch (error) {
+    return {
+      success: false,
+      message:
+        error.response?.data?.message || "Failed to fetch suggestions",
+    };
+  }
+};

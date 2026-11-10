@@ -1,12 +1,11 @@
 // tenant-web/src/routes/appRoutes.jsx (do not remove this comment)
 import { Navigate, Route, Routes } from "react-router-dom";
 import Login from "../pages/auth/Login";
-import RegisterPage from "../pages/auth/Register";
+import SignupPage from "../pages/auth/Signup/SignupPage";
 import ForgotPassword from "../pages/auth/ForgotPassword";
 import MainLayout from "../layouts/MainLayout";
 import LandingPage from "../pages/Home";
 import NotFound from "../pages/NotFound";
-
 import Dashboard from "../pages/dashboard/Dashboard";
 import InboxPage from "../pages/Inbox/InboxPage";
 import Broadcasts from "../pages/dashboard/Broadcasts";
@@ -27,13 +26,12 @@ import Pricing from "../pages/Pricing";
 import Testimonials from "../pages/Testimonials";
 import Contact from "../pages/Contact";
 
-// Support Pages ✅ ADD THESE
+// Support Pages ✅
 import HelpCenter from "../pages/HelpCenter";
 import PrivacyPolicy from "../pages/DataPolicy";
 import Terms from "../pages/Terms";
 import RefundPolicy from "../pages/RefundPolicy";
 import ShippingPolicy from "../pages/ShippingPolicy";
-// import Status from "../pages/Status";
 
 import SelectPlan from "../pages/SelectPlan";
 import Checkout from "../pages/checkout";
@@ -57,19 +55,24 @@ function App() {
         {/* Public Routes */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
+
+        {/* ── NEW: Signup flow ── */}
         <Route
-          path="/register"
+          path="/signup"
           element={
             <ProtectedRoute>
-              <RegisterPage />
+              <SignupPage />
             </ProtectedRoute>
           }
         />
+
+        {/* ── Backward compat: old /register → /signup ── */}
+        <Route path="/register" element={<Navigate to="/signup" replace />} />
+
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
 
         {/* Landing Routes ✅ */}
-        <Route path="/" element={<Home />} />
         <Route path="/features" element={<Features />} />
         <Route path="/pricing" element={<Pricing />} />
         <Route path="/testimonials" element={<Testimonials />} />
@@ -82,7 +85,6 @@ function App() {
         <Route path="/refund-policy" element={<RefundPolicy />} />
         <Route path="/cancellation-refunds" element={<RefundPolicy />} />
         <Route path="/shipping-policy" element={<ShippingPolicy />} />
-        {/* <Route path="/status"        element={<Status />}       /> */}
 
         {/* ✅ Plan & Payment Routes */}
         <Route
@@ -167,7 +169,8 @@ function App() {
             </ProtectedRoute>
           }
         />
-        {/* Razorpay Partner OAuth Callback Handlers (Intercepts redirect when landing on port 5174) */}
+
+        {/* Razorpay Partner OAuth Callback Handlers */}
         <Route
           path="/sradmin/auth/razorpay/callback"
           element={<RazorpayOAuthCallback />}

@@ -17,7 +17,7 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
 
   // ❌ Not logged in
   if (!isAuthenticated || !user) {
-    if (location.pathname === "/register") {
+    if (location.pathname === "/signup") {          // ← was /register
       return children;
     }
     return <Navigate to="/login" state={{ from: location }} replace />;
@@ -29,16 +29,10 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     return <Navigate to="/dashboard" replace />;
   }
 
-  // ✅ No plan → select plan
-  const isPlanPage =
-    location.pathname === "/select-plan" ||
-    location.pathname === "/plans" ||
-    location.pathname === "/payment" ||
-    location.pathname === "/checkout";
-  // ❌ Incomplete onboarding → force them to the registration/onboarding page
+  // ❌ Incomplete onboarding → force to signup
   if (user?.type === "TENANT" && !user?.onboardingCompleted) {
-    if (location.pathname !== "/register") {
-      return <Navigate to="/register" replace />;
+    if (location.pathname !== "/signup") {           // ← was /register
+      return <Navigate to="/signup" replace />;      // ← was /register
     }
   } else if (user?.type === "TENANT" && user?.onboardingCompleted) {
     // ✅ Enterprise Pending check
@@ -49,8 +43,8 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
       return children;
     }
 
-    // Already finished onboarding → prevent accessing register page
-    if (location.pathname === "/register") {
+    // Already finished onboarding → prevent accessing signup page
+    if (location.pathname === "/signup") {           // ← was /register
       return <Navigate to="/dashboard" replace />;
     }
 
@@ -72,6 +66,6 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   }
 
   return children;
-}; // ← function closes HERE
+};
 
 export default ProtectedRoute;
