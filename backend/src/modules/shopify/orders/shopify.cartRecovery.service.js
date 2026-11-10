@@ -12,46 +12,46 @@ import {
   isProductionEnvironment,
 } from "./shopify.orderLifecycle.js";
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // DEFAULT MESSAGE TEMPLATES (Tenant can override via settings)
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 
-const DEFAULT_1H_TEMPLATE = `Hey {{customer_name}}! 👋
+const DEFAULT_1H_TEMPLATE = `Hey {{customer_name}}! ??
 
 You left something in your cart at {{store_name}}:
 
-🛒 {{product_summary}}
-💰 Total: {{currency}} {{total_amount}}
+?? {{product_summary}}
+?? Total: {{currency}} {{total_amount}}
 
 Complete your purchase before items sell out:
-🔗 {{checkout_url}}`;
+?? {{checkout_url}}`;
 
-const DEFAULT_24H_TEMPLATE = `⏰ *Your cart is about to expire!*
+const DEFAULT_24H_TEMPLATE = `? *Your cart is about to expire!*
 
 Hi {{customer_name}}, here's what's waiting for you at {{store_name}}:
 
-🛒 {{product_summary}}
-💰 Total: {{currency}} {{total_amount}}
+?? {{product_summary}}
+?? Total: {{currency}} {{total_amount}}
 
-Almost sold out — buy now before it's gone:
-🔗 {{checkout_url}}`;
+Almost sold out � buy now before it's gone:
+?? {{checkout_url}}`;
 
-const DEFAULT_48H_TEMPLATE = `🎁 *Special offer just for you!*
+const DEFAULT_48H_TEMPLATE = `?? *Special offer just for you!*
 
 Hi {{customer_name}}, we noticed you left items at {{store_name}}.
 
-🛒 {{product_summary}}
-💰 Total: {{currency}} {{total_amount}}
+?? {{product_summary}}
+?? Total: {{currency}} {{total_amount}}
 
 Use code *{{discount_code}}* for {{discount_label}} off to complete your order!
-🏷️ Code: {{discount_code}}
+??? Code: {{discount_code}}
 
 Checkout now:
-🔗 {{checkout_url}}`;
+?? {{checkout_url}}`;
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // HELPER: Render message template with variables
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 
 function renderMessage(template, vars) {
   let result = template || "";
@@ -65,9 +65,9 @@ function renderMessage(template, vars) {
   return result;
 }
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // HELPER: Fetch product image from Shopify Admin API if missing
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 
 async function fetchShopifyProductImage(tenantId, productId, variantId) {
   if (!productId && !variantId) return null;
@@ -113,7 +113,7 @@ async function fetchShopifyProductImage(tenantId, productId, variantId) {
         }
       } catch (err) {
         console.warn(
-          `⚠️ [Cart Recovery] Could not fetch variant image from Shopify API: ${err.message}`,
+          `?? [Cart Recovery] Could not fetch variant image from Shopify API: ${err.message}`,
         );
       }
     }
@@ -134,7 +134,7 @@ async function fetchShopifyProductImage(tenantId, productId, variantId) {
     }
   } catch (err) {
     console.warn(
-      `⚠️ [Cart Recovery] Could not fetch product image from API: ${err.message}`,
+      `?? [Cart Recovery] Could not fetch product image from API: ${err.message}`,
     );
   }
 
@@ -215,9 +215,9 @@ async function fetchAbandonedCheckoutCustomer(tenantId, checkoutId) {
   return { customerName, customerEmail: email };
 }
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // HELPER: Extract checkout data from Shopify payload
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 function extractCheckoutData(payload) {
   const rawPhone =
     payload.phone ||
@@ -287,9 +287,9 @@ function extractCheckoutData(payload) {
   };
 }
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // HELPER: Check if checkout already converted to an order
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 
 async function isCheckoutConverted(tenantId, checkoutId, customerPhone) {
   // 1. Check if a real order exists for this checkout
@@ -329,9 +329,9 @@ async function isCheckoutConverted(tenantId, checkoutId, customerPhone) {
   return false;
 }
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // HELPER: Build message for each tier
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 
 function buildReminderMessage(tier, cartData, settings) {
   const vars = {
@@ -357,13 +357,13 @@ function buildReminderMessage(tier, cartData, settings) {
   return renderMessage(template, vars);
 }
 
-// ─────────────────────────────────────────────────────────────
-// STEP A: Handle checkouts/update webhook → save + schedule
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
+// STEP A: Handle checkouts/update webhook ? save + schedule
+// -------------------------------------------------------------
 
 export async function handleCheckoutUpdate(tenantId, payload) {
   console.log(
-    `🛒 [Cart Recovery] Processing checkout update for tenant ${tenantId}`,
+    `?? [Cart Recovery] Processing checkout update for tenant ${tenantId}`,
   );
 
   // 1. Parse checkout data
@@ -385,7 +385,7 @@ export async function handleCheckoutUpdate(tenantId, payload) {
       if (checkout.lineItems[0])
         checkout.lineItems[0].imageUrl = cleanFetchedImg;
       console.log(
-        `📸 [Cart Recovery] Auto-fetched product image from Shopify API: ${cleanFetchedImg}`,
+        `?? [Cart Recovery] Auto-fetched product image from Shopify API: ${cleanFetchedImg}`,
       );
     }
   }
@@ -399,11 +399,11 @@ export async function handleCheckoutUpdate(tenantId, payload) {
     if (checkout.lineItems?.[0] && !checkout.lineItems[0].imageUrl) {
       checkout.lineItems[0].imageUrl = fallbackImg;
     }
-    console.log(`📸 [Cart Recovery] Using fallback placeholder product image`);
+    console.log(`?? [Cart Recovery] Using fallback placeholder product image`);
   }
 
   if (!checkout.checkoutId) {
-    console.warn("⚠️ [Cart Recovery] No checkout ID in payload, skipping");
+    console.warn("?? [Cart Recovery] No checkout ID in payload, skipping");
     return { skipped: true, reason: "no_checkout_id" };
   }
 
@@ -424,7 +424,7 @@ export async function handleCheckoutUpdate(tenantId, payload) {
       }
     } catch (error) {
       console.warn(
-        `⚠️ [Cart Recovery] Could not fetch checkout customer details: ${error.message}`,
+        `?? [Cart Recovery] Could not fetch checkout customer details: ${error.message}`,
       );
     }
   }
@@ -432,7 +432,7 @@ export async function handleCheckoutUpdate(tenantId, payload) {
   // 2. Skip if already completed/converted
   if (checkout.completedAt || checkout.orderId) {
     console.log(
-      `⏭️ [Cart Recovery] Checkout ${checkout.checkoutId} already completed, skipping`,
+      `?? [Cart Recovery] Checkout ${checkout.checkoutId} already completed, skipping`,
     );
     return { skipped: true, reason: "already_completed" };
   }
@@ -440,7 +440,7 @@ export async function handleCheckoutUpdate(tenantId, payload) {
   // 3. Skip if no phone (can't send WhatsApp)
   if (!checkout.customerPhone) {
     console.warn(
-      `⚠️ [Cart Recovery] Checkout ${checkout.checkoutId} has no phone, skipping`,
+      `?? [Cart Recovery] Checkout ${checkout.checkoutId} has no phone, skipping`,
     );
     return { skipped: true, reason: "no_phone" };
   }
@@ -459,7 +459,7 @@ export async function handleCheckoutUpdate(tenantId, payload) {
 
   if (shopifyConn && shopifyConn.cartRecoveryEnabled === false) {
     console.log(
-      `⏭️ [Cart Recovery] Cart recovery disabled for tenant ${tenantId}`,
+      `?? [Cart Recovery] Cart recovery disabled for tenant ${tenantId}`,
     );
     return { skipped: true, reason: "disabled" };
   }
@@ -521,7 +521,7 @@ export async function handleCheckoutUpdate(tenantId, payload) {
   });
 
   console.log(
-    `✅ [Cart Recovery] Abandoned cart saved (ID: ${cartOrder.id}, Checkout: ${checkout.checkoutId})`,
+    `? [Cart Recovery] Abandoned cart saved (ID: ${cartOrder.id}, Checkout: ${checkout.checkoutId})`,
   );
 
   // 6. Schedule 3 delayed reminders
@@ -547,9 +547,9 @@ export async function handleCheckoutUpdate(tenantId, payload) {
   };
 }
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // STEP B: Schedule 3 delayed BullMQ jobs
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 
 export async function scheduleCartReminders(data) {
   const {
@@ -584,7 +584,7 @@ export async function scheduleCartReminders(data) {
     tier: null, // will be set per job
   };
 
-  // ── Auto-detect: short delays in dev, real delays in prod ──
+  // -- Auto-detect: short delays in dev, real delays in prod --
   const isProd = isProductionEnvironment();
   const DELAYS = isProd
     ? {
@@ -599,7 +599,7 @@ export async function scheduleCartReminders(data) {
       };
 
   console.log(
-    `⏱️ [Cart Recovery] Using ${isProd ? "PRODUCTION" : "DEV"} delays`,
+    `?? [Cart Recovery] Using ${isProd ? "PRODUCTION" : "DEV"} delays`,
   );
 
   // Check which reminders are enabled
@@ -623,7 +623,7 @@ export async function scheduleCartReminders(data) {
   for (const [tier, delay] of Object.entries(DELAYS)) {
     if (!enabled[tier]) {
       console.log(
-        `⏭️ [Cart Recovery] ${tier} reminder disabled for tenant ${tenantId}, skipping`,
+        `?? [Cart Recovery] ${tier} reminder disabled for tenant ${tenantId}, skipping`,
       );
       continue;
     }
@@ -636,7 +636,7 @@ export async function scheduleCartReminders(data) {
         const state = await existingJob.getState();
         if (state === "active") {
           console.log(
-            `⏳ [Cart Recovery] ${tier} job active for ${checkoutId}, leaving active execution`,
+            `? [Cart Recovery] ${tier} job active for ${checkoutId}, leaving active execution`,
           );
           continue;
         }
@@ -644,11 +644,11 @@ export async function scheduleCartReminders(data) {
         try {
           await existingJob.remove();
           console.log(
-            `🗑️ [Cart Recovery] Removed existing ${tier} job (state=${state}) for ${checkoutId}`,
+            `??? [Cart Recovery] Removed existing ${tier} job (state=${state}) for ${checkoutId}`,
           );
         } catch (rmErr) {
           console.warn(
-            `⚠️ [Cart Recovery] Could not remove old job: ${rmErr.message}`,
+            `?? [Cart Recovery] Could not remove old job: ${rmErr.message}`,
           );
         }
       }
@@ -666,11 +666,11 @@ export async function scheduleCartReminders(data) {
         },
       );
       console.log(
-        `⏱️ [Cart Recovery] Scheduled ${tier} reminder for checkout ${checkoutId} (delay: ${delay}ms)`,
+        `?? [Cart Recovery] Scheduled ${tier} reminder for checkout ${checkoutId} (delay: ${delay}ms)`,
       );
     } catch (err) {
       console.error(
-        `❌ [Cart Recovery] Failed to schedule ${tier} reminder:`,
+        `? [Cart Recovery] Failed to schedule ${tier} reminder:`,
         err.message,
       );
       throw err;
@@ -678,9 +678,9 @@ export async function scheduleCartReminders(data) {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // STEP C: Process a reminder when delayed job fires
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 
 export async function processCartReminder(data) {
   const {
@@ -700,7 +700,7 @@ export async function processCartReminder(data) {
   } = data;
 
   console.log(
-    `🛒 [Cart Recovery] Processing ${tier} reminder for checkout ${checkoutId} (tenant ${tenantId})`,
+    `?? [Cart Recovery] Processing ${tier} reminder for checkout ${checkoutId} (tenant ${tenantId})`,
   );
 
   // 1. CRITICAL: Re-check if cart already converted
@@ -711,7 +711,7 @@ export async function processCartReminder(data) {
   );
   if (isConverted) {
     console.log(
-      `✅ [Cart Recovery] Checkout ${checkoutId} already converted, cancelling ${tier} reminder`,
+      `? [Cart Recovery] Checkout ${checkoutId} already converted, cancelling ${tier} reminder`,
     );
 
     // Mark cart as converted in DB
@@ -734,7 +734,7 @@ export async function processCartReminder(data) {
 
   const sentField = sentFieldMap[tier];
   if (!sentField) {
-    console.warn(`⚠️ [Cart Recovery] Unknown tier: ${tier}`);
+    console.warn(`?? [Cart Recovery] Unknown tier: ${tier}`);
     return { skipped: true, reason: "unknown_tier" };
   }
 
@@ -749,7 +749,7 @@ export async function processCartReminder(data) {
 
   if (existingCart?.[sentField]) {
     console.log(
-      `⏭️ [Cart Recovery] ${tier} reminder already sent for checkout ${checkoutId}`,
+      `?? [Cart Recovery] ${tier} reminder already sent for checkout ${checkoutId}`,
     );
     return { skipped: true, reason: "already_sent" };
   }
@@ -759,7 +759,7 @@ export async function processCartReminder(data) {
     existingCart?.cartStatus === "recovered"
   ) {
     console.log(
-      `⏭️ [Cart Recovery] Cart ${checkoutId} is ${existingCart.cartStatus}, skipping ${tier} reminder`,
+      `?? [Cart Recovery] Cart ${checkoutId} is ${existingCart.cartStatus}, skipping ${tier} reminder`,
     );
     return { skipped: true, reason: "cart_status_" + existingCart.cartStatus };
   }
@@ -791,7 +791,7 @@ export async function processCartReminder(data) {
   };
   if (shopifyConn && shopifyConn[tierEnabledMap[tier]] === false) {
     console.log(
-      `⏭️ [Cart Recovery] ${tier} reminder now disabled for tenant ${tenantId}, skipping`,
+      `?? [Cart Recovery] ${tier} reminder now disabled for tenant ${tenantId}, skipping`,
     );
     return { skipped: true, reason: "tier_disabled" };
   }
@@ -836,14 +836,14 @@ export async function processCartReminder(data) {
   if (!isProd && process.env.SHOPIFY_OVERRIDE_PHONE_IN_DEV === "true") {
     targetPhone = process.env.META_TEST_PHONE || "+15556289708";
     console.log(
-      `📱 [Cart Recovery] DEV phone override active: ${customerPhone} -> ${targetPhone}`,
+      `?? [Cart Recovery] DEV phone override active: ${customerPhone} -> ${targetPhone}`,
     );
   }
 
   const cleanDigits = String(targetPhone || "").replace(/\D/g, "");
   if (!cleanDigits) {
     console.warn(
-      `⚠️ [Cart Recovery] No phone for checkout ${checkoutId}, skipping ${tier} reminder`,
+      `?? [Cart Recovery] No phone for checkout ${checkoutId}, skipping ${tier} reminder`,
     );
     return { skipped: true, reason: "no_phone" };
   }
@@ -859,19 +859,19 @@ export async function processCartReminder(data) {
 
   if (!contact || !conversation) {
     console.warn(
-      `⚠️ [Cart Recovery] Could not find/create contact for checkout ${checkoutId}`,
+      `?? [Cart Recovery] Could not find/create contact for checkout ${checkoutId}`,
     );
     return { skipped: true, reason: "contact_not_found" };
   }
 
   console.log(
-    `💬 [Cart Recovery] Sending ${tier} reminder to ${cleanPhone}...`,
+    `?? [Cart Recovery] Sending ${tier} reminder to ${cleanPhone}...`,
   );
 
-  // 6. Send message — DEV vs PROD branching
+  // 6. Send message � DEV vs PROD branching
   if (!isProd) {
-    // ── DEVELOPMENT: Send free-form text via sendMessageService ──
-    // ✅ sendMessageService already saves to inbox, so NO saveShopifyInboxMessage needed
+    // -- DEVELOPMENT: Send free-form text via sendMessageService --
+    // ? sendMessageService already saves to inbox, so NO saveShopifyInboxMessage needed
     await sendMessageService({
       tenantId,
       contactId: contact.id,
@@ -880,7 +880,7 @@ export async function processCartReminder(data) {
       text: messageBody,
     });
 
-    // ✅ Send product image as a SEPARATE image message (with cleaned CDN URL)
+    // ? Send product image as a SEPARATE image message (with cleaned CDN URL)
     if (settings.cartIncludeImage && cartData.productImageUrl) {
       try {
         let cleanMediaUrl = String(cartData.productImageUrl)
@@ -897,23 +897,23 @@ export async function processCartReminder(data) {
           type: "image",
           mediaUrl: cleanMediaUrl,
           fileUrl: cleanMediaUrl,
-          caption: `🛒 ${cartData.productSummary}\n💰 ${cartData.currency} ${cartData.total?.toFixed(2)}`,
+          caption: `?? ${cartData.productSummary}\n?? ${cartData.currency} ${cartData.total?.toFixed(2)}`,
         });
         console.log(
-          `📸 [Cart Recovery] Product image sent for ${tier} reminder: ${cleanMediaUrl}`,
+          `?? [Cart Recovery] Product image sent for ${tier} reminder: ${cleanMediaUrl}`,
         );
       } catch (imgErr) {
         console.warn(
-          `⚠️ [Cart Recovery] Image send failed, skipping image: ${imgErr.message}`,
+          `?? [Cart Recovery] Image send failed, skipping image: ${imgErr.message}`,
         );
       }
     }
 
     console.log(
-      `✅ [Cart Recovery] ${tier} reminder sent (DEV mode) to ${cleanPhone}`,
+      `? [Cart Recovery] ${tier} reminder sent (DEV mode) to ${cleanPhone}`,
     );
   } else {
-    // ── PRODUCTION: Send Meta-approved template ──
+    // -- PRODUCTION: Send Meta-approved template --
     const sentUsingTemplate = await sendProductionCartTemplate({
       tenantId,
       customerPhone: cleanPhone,
@@ -948,15 +948,15 @@ export async function processCartReminder(data) {
   });
 
   console.log(
-    `✅ [Cart Recovery] ${tier} reminder completed for checkout ${checkoutId}`,
+    `? [Cart Recovery] ${tier} reminder completed for checkout ${checkoutId}`,
   );
 
   return { success: true, tier, checkoutId, to: cleanPhone };
 }
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // STEP D: Cancel pending reminders when order placed
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 
 export async function cancelCartReminders(tenantId, checkoutId) {
   if (!checkoutId) return;
@@ -972,17 +972,17 @@ export async function cancelCartReminders(tenantId, checkoutId) {
         await job.remove();
         cancelled++;
         console.log(
-          `🗑️ [Cart Recovery] Cancelled ${tier} reminder job for checkout ${checkoutId}`,
+          `??? [Cart Recovery] Cancelled ${tier} reminder job for checkout ${checkoutId}`,
         );
       }
     } catch (err) {
-      // Job might already be removed/completed/active — that's fine
+      // Job might already be removed/completed/active � that's fine
       if (
         !err.message?.includes("not found") &&
         !err.message?.includes("locked")
       ) {
         console.warn(
-          `⚠️ [Cart Recovery] Could not cancel ${tier} job ${jobId}: ${err.message}`,
+          `?? [Cart Recovery] Could not cancel ${tier} job ${jobId}: ${err.message}`,
         );
       }
     }
@@ -1005,24 +1005,24 @@ export async function cancelCartReminders(tenantId, checkoutId) {
 
     if (cancelledJobs.count > 0) {
       console.log(
-        `✅ [Cart Recovery] Marked ${cancelledJobs.count} cart(s) as 'recovered' for checkout ${checkoutId}`,
+        `? [Cart Recovery] Marked ${cancelledJobs.count} cart(s) as 'recovered' for checkout ${checkoutId}`,
       );
     }
   } catch (err) {
     console.warn(
-      `⚠️ [Cart Recovery] Could not update cart status: ${err.message}`,
+      `?? [Cart Recovery] Could not update cart status: ${err.message}`,
     );
   }
 
   console.log(
-    `🗑️ [Cart Recovery] Cancelled ${cancelled} pending reminder job(s) for checkout ${checkoutId}`,
+    `??? [Cart Recovery] Cancelled ${cancelled} pending reminder job(s) for checkout ${checkoutId}`,
   );
   return { cancelled };
 }
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // STEP E: Send Meta template (PRODUCTION ONLY)
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 
 async function sendProductionCartTemplate({
   tenantId,
@@ -1052,7 +1052,7 @@ async function sendProductionCartTemplate({
 
     if (!phoneNumberId || !whatsappToken) {
       console.warn(
-        `⚠️ [Cart Recovery] WhatsApp not connected for tenant ${tenantId}, using text fallback`,
+        `?? [Cart Recovery] WhatsApp not connected for tenant ${tenantId}, using text fallback`,
       );
       throw new Error("WhatsApp sender is not connected");
     }
@@ -1112,7 +1112,7 @@ async function sendProductionCartTemplate({
 
     if (!approvedTemplate) {
       console.warn(
-        `⚠️ [Cart Recovery] No APPROVED template for ${tier} (searched: ${namePatterns.join(", ")}), using text fallback`,
+        `?? [Cart Recovery] No APPROVED template for ${tier} (searched: ${namePatterns.join(", ")}), using text fallback`,
       );
       throw new Error(`No approved WhatsApp template found for ${tier}`);
     }
@@ -1177,7 +1177,7 @@ async function sendProductionCartTemplate({
       });
     } else if (settings.cartIncludeImage && cartData.productImageUrl) {
       console.warn(
-        `⚠️ [Cart Recovery] Template "${approvedTemplate.name}" has no IMAGE header; sending without product image`,
+        `?? [Cart Recovery] Template "${approvedTemplate.name}" has no IMAGE header; sending without product image`,
       );
     }
 
@@ -1258,12 +1258,12 @@ async function sendProductionCartTemplate({
     );
 
     console.log(
-      `✅ [Cart Recovery] Template "${approvedTemplate.name}" sent to ${cleanRecipientPhone} (WAMID: ${waResponse.data?.messages?.[0]?.id || "ok"})`,
+      `? [Cart Recovery] Template "${approvedTemplate.name}" sent to ${cleanRecipientPhone} (WAMID: ${waResponse.data?.messages?.[0]?.id || "ok"})`,
     );
     return true;
   } catch (err) {
     console.error(
-      `❌ [Cart Recovery] Template send failed for ${tier}:`,
+      `? [Cart Recovery] Template send failed for ${tier}:`,
       err.response?.data || err.message,
     );
 
@@ -1279,7 +1279,7 @@ async function sendProductionCartTemplate({
       return false;
     } catch (fallbackErr) {
       console.error(
-        `❌ [Cart Recovery] Fallback text also failed:`,
+        `? [Cart Recovery] Fallback text also failed:`,
         fallbackErr.message,
       );
       throw new Error(

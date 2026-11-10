@@ -67,18 +67,18 @@ const normalizeShopifyApiOrder = (shopifyOrder) => {
 };
 
 const shopifyOrderLookupService = {
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // Find a tenant's Shopify order by number, or latest by phone when no number is given
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   findOrder: async (tenantId, phone, orderNumber = null) => {
     try {
       console.log(
-        `🔎 SHOPIFY LOOKUP -> Tenant: "${tenantId}", Phone: "${phone}", Query: "${orderNumber}"`,
+        `?? SHOPIFY LOOKUP -> Tenant: "${tenantId}", Phone: "${phone}", Query: "${orderNumber}"`,
       );
 
       if (!tenantId) {
         console.error(
-          "❌ shopifyOrderLookupService.findOrder requires a tenantId",
+          "? shopifyOrderLookupService.findOrder requires a tenantId",
         );
         return null;
       }
@@ -103,7 +103,7 @@ const shopifyOrderLookupService = {
         });
 
         if (order) {
-          console.log(`✅ FOUND BY ORDER NUMBER: #${cleanNum}`);
+          console.log(`? FOUND BY ORDER NUMBER: #${cleanNum}`);
           return order;
         }
 
@@ -118,7 +118,7 @@ const shopifyOrderLookupService = {
             .toLowerCase();
           if (!/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(shopName)) {
             console.error(
-              `❌ Invalid Shopify shop domain configured for tenant ${tenantId}`,
+              `? Invalid Shopify shop domain configured for tenant ${tenantId}`,
             );
             return null;
           }
@@ -146,17 +146,17 @@ const shopifyOrderLookupService = {
           );
 
           if (matchedOrder) {
-            console.log(`✅ FOUND BY SHOPIFY API: #${cleanNum}`);
+            console.log(`? FOUND BY SHOPIFY API: #${cleanNum}`);
             return normalizeShopifyApiOrder(matchedOrder);
           }
         } else {
           console.warn(
-            `⚠️ No active Shopify connection for tenant ${tenantId}`,
+            `?? No active Shopify connection for tenant ${tenantId}`,
           );
         }
 
         console.log(
-          `⚠️ Shopify order #${cleanNum} was not found for tenant ${tenantId}`,
+          `?? Shopify order #${cleanNum} was not found for tenant ${tenantId}`,
         );
         return null;
       }
@@ -180,7 +180,7 @@ const shopifyOrderLookupService = {
           });
 
           if (phoneOrder) {
-            console.log(`✅ FOUND BY PHONE NUMBER: ${phoneOrder.orderNumber}`);
+            console.log(`? FOUND BY PHONE NUMBER: ${phoneOrder.orderNumber}`);
             return phoneOrder;
           }
 
@@ -195,7 +195,7 @@ const shopifyOrderLookupService = {
               .toLowerCase();
             if (!/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(shopName)) {
               console.error(
-                `❌ Invalid Shopify shop domain configured for tenant ${tenantId}`,
+                `? Invalid Shopify shop domain configured for tenant ${tenantId}`,
               );
               return null;
             }
@@ -231,31 +231,31 @@ const shopifyOrderLookupService = {
 
             if (matchedOrder) {
               console.log(
-                `✅ FOUND BY SHOPIFY API PHONE LOOKUP for tenant ${tenantId}`,
+                `? FOUND BY SHOPIFY API PHONE LOOKUP for tenant ${tenantId}`,
               );
               return normalizeShopifyApiOrder(matchedOrder);
             }
           } else {
             console.warn(
-              `⚠️ No active Shopify connection for tenant ${tenantId}`,
+              `?? No active Shopify connection for tenant ${tenantId}`,
             );
           }
         }
       }
 
       console.log(
-        `⚠️ Order lookup returned no results for Query: "${orderNumber}", Phone: "${phone}"`,
+        `?? Order lookup returned no results for Query: "${orderNumber}", Phone: "${phone}"`,
       );
       return null;
     } catch (error) {
-      console.error("❌ shopifyOrderLookupService.findOrder error:", error);
+      console.error("? shopifyOrderLookupService.findOrder error:", error);
       return null;
     }
   },
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // Format tracking info from order JSON
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   formatTrackingInfo: (order) => {
     let trackingInfo = order?.trackingInfo || [];
 
@@ -309,34 +309,34 @@ const shopifyOrderLookupService = {
     };
   },
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // Format order status with emojis
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   formatOrderStatus: (order) => {
     if (!order) return null;
 
     const statusMap = {
-      PENDING: "⏳ Pending",
-      CONFIRMED: "✅ Confirmed",
-      PROCESSING: "🔄 Processing",
-      COMPLETED: "✅ Fulfilled",
-      SHIPPED: "🚚 Shipped",
-      OUT_FOR_DELIVERY: "📦 Out for Delivery",
-      DELIVERED: "✅ Delivered",
-      CANCELLED: "❌ Cancelled",
-      REFUNDED: "💰 Refunded",
-      FULFILLED: "✅ Fulfilled",
-      UNFULFILLED: "⏳ Unfulfilled",
-      PARTIALLY_FULFILLED: "📦 Partially Fulfilled",
+      PENDING: "? Pending",
+      CONFIRMED: "? Confirmed",
+      PROCESSING: "?? Processing",
+      COMPLETED: "? Fulfilled",
+      SHIPPED: "?? Shipped",
+      OUT_FOR_DELIVERY: "?? Out for Delivery",
+      DELIVERED: "? Delivered",
+      CANCELLED: "? Cancelled",
+      REFUNDED: "?? Refunded",
+      FULFILLED: "? Fulfilled",
+      UNFULFILLED: "? Unfulfilled",
+      PARTIALLY_FULFILLED: "?? Partially Fulfilled",
     };
 
     const paymentMap = {
-      PAID: "✅ Paid",
-      UNPAID: "⏳ Unpaid",
-      PENDING: "⏳ Pending",
-      CANCELLED: "❌ Cancelled",
-      REFUNDED: "💰 Refunded",
-      PARTIALLY_REFUNDED: "💰 Partially Refunded",
+      PAID: "? Paid",
+      UNPAID: "? Unpaid",
+      PENDING: "? Pending",
+      CANCELLED: "? Cancelled",
+      REFUNDED: "?? Refunded",
+      PARTIALLY_REFUNDED: "?? Partially Refunded",
     };
 
     const rawStatus = order.status || "Unknown";
@@ -363,9 +363,9 @@ const shopifyOrderLookupService = {
     };
   },
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // Format line items and total from EcommerceOrder fields
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   formatOrderDetails: (order) => {
     const lineItems = Array.isArray(order?.lineItems) ? order.lineItems : [];
     const itemsSummary =
@@ -375,7 +375,7 @@ const shopifyOrderLookupService = {
               const name = item?.name || item?.title || `Item ${index + 1}`;
               const quantity = Number(item?.quantity) || 1;
               const price = Number(item?.price ?? item?.unitPrice ?? 0);
-              return `  • ${name} × ${quantity} — ${order.currency || "INR"} ${price.toFixed(2)}`;
+              return `  � ${name} � ${quantity} � ${order.currency || "INR"} ${price.toFixed(2)}`;
             })
             .join("\n")
         : "  No items found";
@@ -410,7 +410,7 @@ const shopifyOrderLookupService = {
       return {
         lookupFound: false,
         order_number: "N/A",
-        order_status: "❌ Order Not Found",
+        order_status: "? Order Not Found",
         order_status_raw: "Not Found",
         payment_status: "N/A",
         payment_status_raw: "N/A",
@@ -425,7 +425,7 @@ const shopifyOrderLookupService = {
         item_count: "0",
         customer_name: "N/A",
         orderNumber: "N/A",
-        orderStatus: "❌ Order Not Found",
+        orderStatus: "? Order Not Found",
         paymentStatus: "N/A",
         trackingNumber: "N/A",
         trackingUrl: "N/A",

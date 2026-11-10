@@ -1,7 +1,8 @@
 // backend/src/modules/orders/order.routes.js (do not remove this comment)
 import express from "express";
-import { verifyTenantOrUser } from "../../middlewares/auth.verifyTenantOrUser.js";
-import { verifyTenant } from "../../middlewares/auth.tenant.js";
+import { authenticate } from "../../middleware/authenticate.js";
+import { requireTenantOrUser } from "../../middleware/requireTenantOrUser.js";
+import { requireTenant } from "../../middleware/requireTenant.js";
 import {
   getOrders,
   getOrderById,
@@ -13,19 +14,19 @@ import {
 const router = express.Router();
 
 // List & View Orders
-router.get("/", verifyTenantOrUser, getOrders);
-router.get("/:orderId", verifyTenantOrUser, getOrderById);
+router.get("/", authenticate, requireTenantOrUser, getOrders);
+router.get("/:orderId", authenticate, requireTenantOrUser, getOrderById);
 
 // Payment Actions (Tenant only)
 router.post(
   "/:orderId/resend-payment-link",
-  verifyTenant,
+  authenticate, requireTenant,
   resendPaymentLinkHandler,
 );
-router.post("/:orderId/refund", verifyTenant, refundOrderHandler);
+router.post("/:orderId/refund", authenticate, requireTenant, refundOrderHandler);
 router.post(
   "/:orderId/cancel-payment-link",
-  verifyTenant,
+  authenticate, requireTenant,
   cancelOrderPaymentLinkHandler,
 );
 

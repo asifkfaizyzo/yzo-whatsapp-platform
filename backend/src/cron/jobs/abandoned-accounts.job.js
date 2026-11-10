@@ -8,25 +8,25 @@ const ABANDONMENT_THRESHOLD_HOURS = 24;
 export const startCleanupWorker = () => {
   const cleanAbandonedAccounts = async () => {
     try {
-      console.log("🧹 Running abandoned accounts cleanup worker...");
+      console.log("?? Running abandoned accounts cleanup worker...");
 
       const cutoffDate = new Date(
         Date.now() - ABANDONMENT_THRESHOLD_HOURS * 60 * 60 * 1000,
       );
 
-      // ═══════════════════════════════════════════
-      // 1️⃣ Find TRULY abandoned tenants
-      //    ✅ Onboarding not completed
-      //    ✅ Older than 24 hours
-      //    ✅ ZERO payments (SAFETY)
-      //    ✅ ZERO invoices (SAFETY)
-      // ═══════════════════════════════════════════
+      // -------------------------------------------
+      // 1?? Find TRULY abandoned tenants
+      //    ? Onboarding not completed
+      //    ? Older than 24 hours
+      //    ? ZERO payments (SAFETY)
+      //    ? ZERO invoices (SAFETY)
+      // -------------------------------------------
       const abandonedTenants = await prisma.tenant.findMany({
         where: {
           onboardingCompleted: false,
           createdAt: { lt: cutoffDate },
 
-          // 🛡️ Safety filters — protect paying customers
+          // ??? Safety filters � protect paying customers
           payments: { none: {} },
           invoices: { none: {} },
         },
@@ -39,24 +39,24 @@ export const startCleanupWorker = () => {
       });
 
       if (abandonedTenants.length === 0) {
-        console.log("✅ No abandoned onboarding accounts to delete.");
+        console.log("? No abandoned onboarding accounts to delete.");
         return;
       }
 
       const tenantIds = abandonedTenants.map((t) => t.id);
 
       console.log(
-        `🧹 Found ${tenantIds.length} truly abandoned accounts. ` +
+        `?? Found ${tenantIds.length} truly abandoned accounts. ` +
           `Deleting dependent records...`,
       );
 
-      // ═══════════════════════════════════════════
-      // 2️⃣ Delete in correct order to satisfy
+      // -------------------------------------------
+      // 2?? Delete in correct order to satisfy
       //    foreign key constraints
       //    (matches YOUR schema exactly)
-      // ═══════════════════════════════════════════
+      // -------------------------------------------
       await prisma.$transaction([
-        // ── Auth ──
+        // -- Auth --
         prisma.userTagMapping.deleteMany({
           where: { tenantId: { in: tenantIds } },
         }),
@@ -64,7 +64,7 @@ export const startCleanupWorker = () => {
           where: { tenantId: { in: tenantIds } },
         }),
 
-        // ── Conversations & Messages ──
+        // -- Conversations & Messages --
         prisma.message.deleteMany({
           where: {
             OR: [
@@ -90,7 +90,7 @@ export const startCleanupWorker = () => {
           },
         }),
 
-        // ── Broadcasts & Recipients ──
+        // -- Broadcasts & Recipients --
         prisma.broadcastRecipient.deleteMany({
           where: {
             OR: [
@@ -111,12 +111,12 @@ export const startCleanupWorker = () => {
           where: { tenantId: { in: tenantIds } },
         }),
 
-        // ── Templates ──
+        // -- Templates --
         prisma.template.deleteMany({
           where: { tenantId: { in: tenantIds } },
         }),
 
-        // ── Contacts & Tags ──
+        // -- Contacts & Tags --
         prisma.contactTagMapping.deleteMany({
           where: {
             OR: [
@@ -132,7 +132,7 @@ export const startCleanupWorker = () => {
           where: { tenantId: { in: tenantIds } },
         }),
 
-        // ── Chat Automation & Flows ──
+        // -- Chat Automation & Flows --
         prisma.flowNode.deleteMany({
           where: { flow: { tenantId: { in: tenantIds } } },
         }),
@@ -146,7 +146,7 @@ export const startCleanupWorker = () => {
           where: { tenantId: { in: tenantIds } },
         }),
 
-        // ── Support Tickets ──
+        // -- Support Tickets --
         prisma.ticketMessage.deleteMany({
           where: {
             OR: [
@@ -159,17 +159,17 @@ export const startCleanupWorker = () => {
           where: { tenantId: { in: tenantIds } },
         }),
 
-        // ── Notifications ──
+        // -- Notifications --
         prisma.notification.deleteMany({
           where: { tenantId: { in: tenantIds } },
         }),
 
-        // ── Enterprise leads ──
+        // -- Enterprise leads --
         prisma.enterpriseLead.deleteMany({
           where: { tenantId: { in: tenantIds } },
         }),
 
-        // ── Subscription, Invoices & Payments ──
+        // -- Subscription, Invoices & Payments --
         prisma.subscriptionReminder.deleteMany({
           where: { tenantId: { in: tenantIds } },
         }),
@@ -186,36 +186,36 @@ export const startCleanupWorker = () => {
           where: { tenantId: { in: tenantIds } },
         }),
 
-        // ── Audit logs → unlink but preserve ──
+        // -- Audit logs ? unlink but preserve --
         prisma.auditLog.updateMany({
           where: { tenantId: { in: tenantIds } },
           data: { tenantId: null },
         }),
 
-        // ── Users ──
+        // -- Users --
         prisma.user.deleteMany({
           where: { tenantId: { in: tenantIds } },
         }),
 
-        // ── Finally delete tenants ──
+        // -- Finally delete tenants --
         prisma.tenant.deleteMany({
           where: { id: { in: tenantIds } },
         }),
       ]);
 
-      // ═══════════════════════════════════════════
-      // 3️⃣ Log what was deleted
-      // ═══════════════════════════════════════════
+      // -------------------------------------------
+      // 3?? Log what was deleted
+      // -------------------------------------------
       console.log(
-        `🗑️ Successfully deleted ${tenantIds.length} abandoned accounts:`,
+        `??? Successfully deleted ${tenantIds.length} abandoned accounts:`,
       );
       abandonedTenants.forEach((t) => {
         const email = t.email || "no-email";
         const name = t.tenantName || "no-name";
-        console.log(`   ├─ ${email} (${name}) — ${t.id}`);
+        console.log(`   +- ${email} (${name}) � ${t.id}`);
       });
     } catch (error) {
-      console.error("❌ Failed to clean abandoned accounts:");
+      console.error("? Failed to clean abandoned accounts:");
       console.error("   Error:", error.message);
     }
   };

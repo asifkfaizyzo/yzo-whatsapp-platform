@@ -15,7 +15,7 @@ export const evaluateReopen = async (conversation, messageText) => {
     where: { tenantId: conversation.tenantId },
   });
 
-  // 🔍 Fetch the actual assignment status from the Contact model
+  // ?? Fetch the actual assignment status from the Contact model
   const contact = await prisma.contact.findUnique({
     where: { id: conversation.contactId },
   });

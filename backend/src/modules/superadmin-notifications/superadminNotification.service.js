@@ -2,7 +2,7 @@
 
 import prisma from "../../config/prisma.js";
 
-// ── Get all superadmin notifications ──
+// -- Get all superadmin notifications --
 export const getNotifications = async () => {
   return await prisma.superAdminNotification.findMany({
     orderBy: { createdAt: "desc" },
@@ -10,14 +10,14 @@ export const getNotifications = async () => {
   });
 };
 
-// ── Get unread count ──
+// -- Get unread count --
 export const getUnreadCount = async () => {
   return await prisma.superAdminNotification.count({
     where: { isRead: false },
   });
 };
 
-// ── Create a new notification ──
+// -- Create a new notification --
 export const createSuperAdminNotification = async ({
   type,
   title,
@@ -35,7 +35,7 @@ export const createSuperAdminNotification = async ({
   });
 };
 
-// ── Mark one as read ──
+// -- Mark one as read --
 export const markAsRead = async (id) => {
   return await prisma.superAdminNotification.update({
     where: { id },
@@ -43,7 +43,7 @@ export const markAsRead = async (id) => {
   });
 };
 
-// ── Mark all as read ──
+// -- Mark all as read --
 export const markAllAsRead = async () => {
   return await prisma.superAdminNotification.updateMany({
     where: { isRead: false },
@@ -51,12 +51,12 @@ export const markAllAsRead = async () => {
   });
 };
 
-// ── Clear all notifications ──
+// -- Clear all notifications --
 export const clearAllNotifications = async () => {
   return await prisma.superAdminNotification.deleteMany({});
 };
 
-// ── 🆕 Get paginated notifications with filters ──
+// -- ?? Get paginated notifications with filters --
 export const getPaginatedNotifications = async ({
   page = 1,
   limit = 20,
@@ -104,7 +104,7 @@ export const getPaginatedNotifications = async ({
   };
 };
 
-// ── 🆕 Delete a single notification ──
+// -- ?? Delete a single notification --
 export const deleteNotification = async (id) => {
   return await prisma.superAdminNotification.delete({
     where: { id },

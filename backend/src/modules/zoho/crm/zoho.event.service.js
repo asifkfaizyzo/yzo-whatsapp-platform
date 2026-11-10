@@ -63,7 +63,7 @@ export async function createZohoCalendarEvent(
 
     if (result && result.code === "SUCCESS" && result.details?.id) {
       console.log(
-        `📅 [ZohoEvent] Booked Event "${title}" (${result.details.id}) for contact ${contactId}`,
+        `?? [ZohoEvent] Booked Event "${title}" (${result.details.id}) for contact ${contactId}`,
       );
 
       // Auto-send WhatsApp Confirmation Message
@@ -72,7 +72,7 @@ export async function createZohoCalendarEvent(
         timeStyle: "short",
       });
 
-      const confirmMsg = `🗓️ *Meeting Confirmed!*\n\n• *Topic:* ${title || "Consultation"}\n• *Time:* ${readableDate}\n• *Venue:* ${venue || "Online"}\n\nWe look forward to speaking with you!`;
+      const confirmMsg = `??? *Meeting Confirmed!*\n\n� *Topic:* ${title || "Consultation"}\n� *Time:* ${readableDate}\n� *Venue:* ${venue || "Online"}\n\nWe look forward to speaking with you!`;
 
       await sendMessageService({
         contactId,
@@ -95,7 +95,7 @@ export async function createZohoCalendarEvent(
     };
   } catch (error) {
     console.error(
-      `❌ [ZohoEvent] Scheduling failed:`,
+      `? [ZohoEvent] Scheduling failed:`,
       error.response?.data || error.message,
     );
     return { success: false, message: error.message };

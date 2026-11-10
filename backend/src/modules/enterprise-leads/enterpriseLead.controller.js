@@ -46,7 +46,7 @@ export const submitEnterpriseLead = async (req, res) => {
     });
   }
 
-  const tenantId = req.tenantId; // From verifyOnboarding middleware
+  const tenantId = req.tenantId; // From authenticate, requireOnboarding middleware
   const {
     companyName,
     contactName,
@@ -327,8 +327,8 @@ export const updateStatus = async (req, res) => {
     const historyItem = {
       status,
       timestamp: new Date().toISOString(),
-      adminName: req.superAdmin?.name || "Admin",
-      adminId: req.superAdminId || "unknown",
+      adminName: req.srAdmin?.name || "Admin",
+      adminId: req.srAdminId || "unknown",
       notes: `Status changed to '${status}'`,
     };
 
@@ -385,7 +385,7 @@ export const updateNotes = async (req, res) => {
 // ── Admin: Activate Enterprise Account ──
 export const activateTenant = async (req, res) => {
   const { id } = req.params;
-  const adminId = req.superAdminId; // From verifySuperAdmin middleware
+  const adminId = req.srAdminId; // From authenticate, requireSRAdmin middleware
 
   try {
     const lead = await prisma.enterpriseLead.findUnique({
@@ -410,7 +410,7 @@ export const activateTenant = async (req, res) => {
     const historyItem = {
       status: "converted",
       timestamp: new Date().toISOString(),
-      adminName: req.superAdmin?.name || "Admin",
+      adminName: req.srAdmin?.name || "Admin",
       adminId,
       notes: "Enterprise account activated.",
     };

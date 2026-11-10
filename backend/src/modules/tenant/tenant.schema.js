@@ -1,5 +1,5 @@
 // backend/src/modules/tenant/tenant.schema.js (do not remove this comment)
-// Barrel re-export — schemas now live in their sub-module folders.
+// Barrel re-export � schemas now live in their sub-module folders.
 // This file exists for backward compatibility only.
 
 export {

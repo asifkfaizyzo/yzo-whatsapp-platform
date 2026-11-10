@@ -1,8 +1,9 @@
 // backend/src/modules/broadcasts/broadcast.routes.js (do not remove this comment)
 import express from "express";
-import { verifyTenant } from "../../middlewares/auth.tenant.js";
-import { verifyTenantOrUser } from "../../middlewares/auth.verifyTenantOrUser.js";
-import { checkSubscriptionAccess } from "../../middlewares/subscription.access.js";
+import { authenticate } from "../../middleware/authenticate.js";
+import { requireTenant } from "../../middleware/requireTenant.js";
+import { requireTenantOrUser } from "../../middleware/requireTenantOrUser.js";
+import { checkSubscriptionAccess } from "../../middleware/subscriptionAccess.js";
 import {
   getBroadcasts,
   getBroadcastStats,
@@ -20,49 +21,49 @@ import { resolveShopifySegment } from "./broadcast.shopifySegment.service.js";
 const router = express.Router();
 
 // Viewing broadcasts list and stats/logs is allowed for users (agents) and tenants
-router.get("/", verifyTenantOrUser, checkSubscriptionAccess, getBroadcasts);
+router.get("/", authenticate, requireTenantOrUser, checkSubscriptionAccess, getBroadcasts);
 router.get(
   "/:id/stats",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   checkSubscriptionAccess,
   getBroadcastStats,
 );
 router.get(
   "/:id/recipients",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   checkSubscriptionAccess,
   getBroadcastRecipients,
 );
 router.get(
   "/:id/export",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   checkSubscriptionAccess,
   exportBroadcastRecipients,
 );
 
 // Actions restricted to Tenant Admins
-router.post("/launch", verifyTenant, checkSubscriptionAccess, launchBroadcast);
+router.post("/launch", authenticate, requireTenant, checkSubscriptionAccess, launchBroadcast);
 router.post(
   "/:id/cancel",
-  verifyTenant,
+  authenticate, requireTenant,
   checkSubscriptionAccess,
   cancelBroadcast,
 );
 router.post(
   "/:id/pause",
-  verifyTenant,
+  authenticate, requireTenant,
   checkSubscriptionAccess,
   pauseBroadcast,
 );
 router.post(
   "/:id/resume",
-  verifyTenant,
+  authenticate, requireTenant,
   checkSubscriptionAccess,
   resumeBroadcast,
 );
 router.post(
   "/:id/retry-failed",
-  verifyTenant,
+  authenticate, requireTenant,
   checkSubscriptionAccess,
   retryFailedBroadcast,
 );
@@ -70,7 +71,7 @@ router.post(
 // 🔒 TEST ROUTE: WooCommerce Smart Segmentation Tester
 router.post(
   "/test/woo-segment",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   checkSubscriptionAccess,
   async (req, res) => {
     try {

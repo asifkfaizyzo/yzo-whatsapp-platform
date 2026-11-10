@@ -23,16 +23,16 @@ export const initializeMediasoup = async () => {
       const data = await res.json();
       if (data?.ip) {
         setAnnouncedIp(data.ip);
-        console.log(`🌐 [Mediasoup] Auto-detected public IP: ${data.ip}`);
+        console.log(`?? [Mediasoup] Auto-detected public IP: ${data.ip}`);
       }
     } catch (e) {
       console.log(
-        `ℹ️ [Mediasoup] Using default announced IP: ${getAnnouncedIp()}`,
+        `?? [Mediasoup] Using default announced IP: ${getAnnouncedIp()}`,
       );
     }
   } else {
     console.log(
-      `🌐 [Mediasoup] Using configured announced IP: ${process.env.MEDIASOUP_ANNOUNCED_IP}`,
+      `?? [Mediasoup] Using configured announced IP: ${process.env.MEDIASOUP_ANNOUNCED_IP}`,
     );
   }
 
@@ -52,7 +52,7 @@ export const initializeMediasoup = async () => {
     mediaCodecs: mediasoupConfig.router.mediaCodecs,
   });
 
-  console.log("✅ Mediasoup Worker & Router initialized for WhatsApp Calling");
+  console.log("? Mediasoup Worker & Router initialized for WhatsApp Calling");
   return { worker, router };
 };
 

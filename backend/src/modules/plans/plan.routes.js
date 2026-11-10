@@ -20,9 +20,10 @@ import {
   getBillingDetails,
   downloadInvoice,
 } from "./plan.controller.js";
-import { verifySuperAdmin } from "../../middlewares/auth.superAdmin.js";
-import { verifyTenantOrUser } from "../../middlewares/auth.verifyTenantOrUser.js";
-import { verifyTenant } from "../../middlewares/auth.tenant.js";
+import { authenticate } from "../../middleware/authenticate.js";
+import { requireSRAdmin } from "../../middleware/requireSRAdmin.js";
+import { requireTenantOrUser } from "../../middleware/requireTenantOrUser.js";
+import { requireTenant } from "../../middleware/requireTenant.js";
 
 import rateLimit from "express-rate-limit";
 
@@ -46,33 +47,33 @@ router.get("/public", getPublicPlans);
 router.get("/features", getFeatures);
 
 // ── Razorpay routes (TENANT ONLY — not regular users/agents) ──
-router.post("/create-order", verifyTenant, orderLimiter, createPaymentOrder);
-router.post("/verify-payment", verifyTenant, verifyPaymentAndActivate);
+router.post("/create-order", authenticate, requireTenant, orderLimiter, createPaymentOrder);
+router.post("/verify-payment", authenticate, requireTenant, verifyPaymentAndActivate);
 router.post(
   "/create-subscription-trial",
-  verifyTenant,
+  authenticate, requireTenant,
   orderLimiter,
   createSubscriptionTrial,
 );
 router.post(
   "/verify-subscription-trial",
-  verifyTenant,
+  authenticate, requireTenant,
   verifySubscriptionTrial,
 );
 router.post(
   "/create-paid-subscription",
-  verifyTenant,
+  authenticate, requireTenant,
   orderLimiter,
   createPaidSubscription,
 );
-router.post("/verify-paid-subscription", verifyTenant, verifyPaidSubscription);
+router.post("/verify-paid-subscription", authenticate, requireTenant, verifyPaidSubscription);
 
 // ── Billing details (TENANT ONLY — not users) ──
-router.get("/billing", verifyTenant, getBillingDetails);
-router.get("/billing/invoice/:paymentId", verifyTenant, downloadInvoice);
+router.get("/billing", authenticate, requireTenant, getBillingDetails);
+router.get("/billing/invoice/:paymentId", authenticate, requireTenant, downloadInvoice);
 
 // ── Protected routes (superadmin only) ──
-router.use(verifySuperAdmin);
+router.use(authenticate, requireSRAdmin);
 
 router.get("/", getPlans);
 router.get("/:id", getPlan);

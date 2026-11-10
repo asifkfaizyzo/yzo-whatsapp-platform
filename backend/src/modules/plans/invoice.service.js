@@ -4,13 +4,13 @@ import fs from "fs";
 import path from "path";
 import prisma from "../../config/prisma.js";
 
-// ── Ensure invoices directory exists ──
+// -- Ensure invoices directory exists --
 const invoicesDir = path.join(process.cwd(), "uploads", "invoices");
 if (!fs.existsSync(invoicesDir)) {
   fs.mkdirSync(invoicesDir, { recursive: true });
 }
 
-// ── Generate Invoice Number ──
+// -- Generate Invoice Number --
 export const generateInvoiceNumber = (paymentId) => {
   const date = new Date();
   const year = date.getFullYear();
@@ -19,7 +19,7 @@ export const generateInvoiceNumber = (paymentId) => {
   return `INV-${year}${month}-${short}`;
 };
 
-// ── Format Currency ──
+// -- Format Currency --
 const formatINR = (amount) => {
   return `Rs. ${Number(amount).toLocaleString("en-IN", {
     minimumFractionDigits: 2,
@@ -27,7 +27,7 @@ const formatINR = (amount) => {
   })}`;
 };
 
-// ── Format Date ──
+// -- Format Date --
 const formatDate = (date) => {
   return new Date(date).toLocaleDateString("en-IN", {
     day: "2-digit",
@@ -36,12 +36,12 @@ const formatDate = (date) => {
   });
 };
 
-// ══════════════════════════════════════════
+// ------------------------------------------
 // MAIN: Generate Invoice PDF
-// ══════════════════════════════════════════
+// ------------------------------------------
 export const generateInvoicePDF = (payment, tenant) => {
   return new Promise(async (resolve, reject) => {
-    // ── Fetch GST config ──
+    // -- Fetch GST config --
     const gstConfig = await getInvoiceGSTConfig();
     try {
       const invoiceNumber = generateInvoiceNumber(payment.id);
@@ -49,19 +49,19 @@ export const generateInvoicePDF = (payment, tenant) => {
       const filePath = path.join(invoicesDir, fileName);
       const fileUrl = `/uploads/invoices/${fileName}`;
 
-      // ── Create PDF Document ──
+      // -- Create PDF Document --
       const doc = new PDFDocument({
         size: "A4",
         margin: 50,
       });
 
-      // ── Pipe to file ──
+      // -- Pipe to file --
       const stream = fs.createWriteStream(filePath);
       doc.pipe(stream);
 
-      // ════════════════════════════════
+      // --------------------------------
       // HEADER SECTION
-      // ════════════════════════════════
+      // --------------------------------
       // Blue header background
       doc.rect(0, 0, 595, 120).fill("#125EF2");
 
@@ -93,9 +93,9 @@ export const generateInvoicePDF = (payment, tenant) => {
         .font("Helvetica")
         .text(invoiceNumber, 350, 65, { align: "right", width: 195 });
 
-      // ════════════════════════════════
+      // --------------------------------
       // INVOICE META (Date, Status)
-      // ════════════════════════════════
+      // --------------------------------
       doc.rect(0, 120, 595, 50).fill("#F8FAFF");
 
       doc
@@ -136,9 +136,9 @@ export const generateInvoicePDF = (payment, tenant) => {
         .font("Helvetica-Bold")
         .text("PAID", 353, 149);
 
-      // ════════════════════════════════
+      // --------------------------------
       // SELLER & BUYER INFO
-      // ════════════════════════════════
+      // --------------------------------
       doc.moveDown(4);
       const infoY = 195;
 
@@ -191,9 +191,9 @@ export const generateInvoicePDF = (payment, tenant) => {
         doc.text(tenant.address, 320, infoY + 56, { width: 220 });
       }
 
-      // ════════════════════════════════
+      // --------------------------------
       // PAYMENT DETAILS TABLE
-      // ════════════════════════════════
+      // --------------------------------
       const tableY = 310;
 
       // Table header background
@@ -243,9 +243,9 @@ export const generateInvoicePDF = (payment, tenant) => {
           align: "right",
         });
 
-      // ════════════════════════════════
+      // --------------------------------
       // AMOUNT SUMMARY
-      // ════════════════════════════════
+      // --------------------------------
       const summaryY = tableY + 90;
 
       // Divider line
@@ -273,7 +273,7 @@ export const generateInvoicePDF = (payment, tenant) => {
 
       let currentY = summaryY + 18;
 
-      // ── Dynamic GST Rows ──
+      // -- Dynamic GST Rows --
       if (gstConfig.gstEnabled && payment.gstAmount > 0) {
         if (gstConfig.gstType === "CGST_SGST") {
           const halfPct = gstConfig.gstPercent / 2;
@@ -301,7 +301,7 @@ export const generateInvoicePDF = (payment, tenant) => {
             });
           currentY += 18;
         } else {
-          // ── IGST ──
+          // -- IGST --
           doc
             .fillColor("#666666")
             .fontSize(9)
@@ -345,9 +345,9 @@ export const generateInvoicePDF = (payment, tenant) => {
           align: "right",
         });
 
-      // ════════════════════════════════
+      // --------------------------------
       // PAYMENT INFO
-      // ════════════════════════════════
+      // --------------------------------
       const payInfoY = summaryY + 110;
 
       doc.rect(50, payInfoY, 495, 70).fill("#F0F7FF");
@@ -374,9 +374,9 @@ export const generateInvoicePDF = (payment, tenant) => {
         )
         .text(`Order ID: ${payment.razorpayOrderId}`, 65, payInfoY + 54);
 
-      // ════════════════════════════════
+      // --------------------------------
       // AMOUNT IN WORDS
-      // ════════════════════════════════
+      // --------------------------------
       const wordsY = payInfoY + 90;
 
       doc
@@ -388,9 +388,9 @@ export const generateInvoicePDF = (payment, tenant) => {
         .fillColor("#666666")
         .text(`${numberToWords(payment.totalAmount)} Only`);
 
-      // ════════════════════════════════
-      // NOTES / GST NOTE — Dynamic
-      // ════════════════════════════════
+      // --------------------------------
+      // NOTES / GST NOTE � Dynamic
+      // --------------------------------
       const noteY = wordsY + 30;
 
       doc
@@ -431,9 +431,9 @@ export const generateInvoicePDF = (payment, tenant) => {
           });
       }
 
-      // ════════════════════════════════
+      // --------------------------------
       // FOOTER
-      // ════════════════════════════════
+      // --------------------------------
       doc.rect(0, 760, 595, 82).fill("#125EF2");
 
       doc
@@ -454,7 +454,7 @@ export const generateInvoicePDF = (payment, tenant) => {
           width: 595,
         });
 
-      // ── Finalize PDF ──
+      // -- Finalize PDF --
       doc.end();
 
       stream.on("finish", () => {
@@ -470,12 +470,12 @@ export const generateInvoicePDF = (payment, tenant) => {
   });
 };
 
-// ════════════════════════════════
+// --------------------------------
 // HELPER: Number to Words
-// ════════════════════════════════
-// ── Helper: Number to Words ──
+// --------------------------------
+// -- Helper: Number to Words --
 const numberToWords = (amount) => {
-  let num = Math.round(amount); // ← Change const to let
+  let num = Math.round(amount); // ? Change const to let
 
   const ones = [
     "",
@@ -534,7 +534,7 @@ const numberToWords = (amount) => {
 
   if (num >= 10000000) {
     result += convertHundreds(Math.floor(num / 10000000)) + "Crore ";
-    num %= 10000000; // ← Now works because num is let
+    num %= 10000000; // ? Now works because num is let
   }
   if (num >= 100000) {
     result += convertHundreds(Math.floor(num / 100000)) + "Lakh ";
@@ -549,7 +549,7 @@ const numberToWords = (amount) => {
   return `Indian Rupees ${result.trim()}`;
 };
 
-// ── Generate PDF from new Invoice Model (Append to the end of invoice.service.js) ──
+// -- Generate PDF from new Invoice Model (Append to the end of invoice.service.js) --
 export const generateInvoicePDFFromModel = (invoice, tenant) => {
   return new Promise((resolve, reject) => {
     try {
@@ -558,13 +558,13 @@ export const generateInvoicePDFFromModel = (invoice, tenant) => {
       const filePath = path.join(invoicesDir, fileName);
       const fileUrl = `/uploads/invoices/${fileName}`;
 
-      // ── Create PDF Document ──
+      // -- Create PDF Document --
       const doc = new PDFDocument({
         size: "A4",
         margin: 50,
       });
 
-      // ── Pipe to file ──
+      // -- Pipe to file --
       const stream = fs.createWriteStream(filePath);
       doc.pipe(stream);
 
@@ -848,7 +848,7 @@ export const generateInvoicePDFFromModel = (invoice, tenant) => {
   });
 };
 
-// ── Helper: Fetch GST config from DB ──
+// -- Helper: Fetch GST config from DB --
 const getInvoiceGSTConfig = async () => {
   try {
     const settings = await prisma.platformSettings.findUnique({

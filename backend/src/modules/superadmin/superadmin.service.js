@@ -100,7 +100,7 @@ export const loginSuperAdminService = async (data, meta = {}) => {
       actorEmail: email,
       action: "LOGIN_FAILED",
       module: "AUTH",
-      description: `Failed login attempt — email not found: ${email}`,
+      description: `Failed login attempt � email not found: ${email}`,
       ipAddress,
       userAgent,
     });
@@ -117,7 +117,7 @@ export const loginSuperAdminService = async (data, meta = {}) => {
       actorEmail: superAdmin.email,
       action: "LOGIN_FAILED",
       module: "AUTH",
-      description: `Failed login attempt — wrong password`,
+      description: `Failed login attempt � wrong password`,
       ipAddress,
       userAgent,
     });
@@ -220,7 +220,7 @@ export const refreshAccessTokenService = async (refreshToken) => {
     {
       id: superAdmin.id,
       email: superAdmin.email,
-      name: superAdmin.name, // ✅ ADD
+      name: superAdmin.name, // ? ADD
       type: "SUPERADMIN",
     },
     process.env.ACCESS_SECRET,
@@ -497,7 +497,7 @@ export const updateTenantByIdService = async (
 //===========Deactivate tenant===========
 export const deactivateTenantService = async (tenantId, actor, meta = {}) => {
   if (!tenantId) throw new Error("Tenant ID is required");
-  if (!actor?.id) throw new Error("Actor (superadmin) is required"); // ✅ GUARD ADDED
+  if (!actor?.id) throw new Error("Actor (superadmin) is required"); // ? GUARD ADDED
 
   const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
   if (!tenant) throw new Error("Tenant not found");
@@ -560,7 +560,7 @@ export const deactivateTenantService = async (tenantId, actor, meta = {}) => {
 //===========Reactivate tenant===========
 export const reactivateTenantService = async (tenantId, actor, meta = {}) => {
   if (!tenantId) throw new Error("Tenant ID is required");
-  if (!actor?.id) throw new Error("Actor (superadmin) is required"); // ✅ GUARD ADDED
+  if (!actor?.id) throw new Error("Actor (superadmin) is required"); // ? GUARD ADDED
 
   const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
   if (!tenant) throw new Error("Tenant not found");
@@ -608,7 +608,7 @@ export const reactivateTenantService = async (tenantId, actor, meta = {}) => {
 //===========Delete tenant===========
 export const deleteTenantByIdService = async (tenantId, actor, meta = {}) => {
   if (!tenantId) throw new Error("Tenant ID is required");
-  if (!actor?.id) throw new Error("Actor (superadmin) is required"); // ✅ GUARD ADDED
+  if (!actor?.id) throw new Error("Actor (superadmin) is required"); // ? GUARD ADDED
 
   const existingTenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
@@ -777,7 +777,7 @@ export const deleteTenantByIdService = async (tenantId, actor, meta = {}) => {
 //===========Approve Tenant===========
 export const approveTenantService = async (tenantId, actor, meta = {}) => {
   if (!tenantId) throw new Error("Tenant ID is required");
-  if (!actor?.id) throw new Error("Actor (superadmin) is required"); // ✅ GUARD ADDED
+  if (!actor?.id) throw new Error("Actor (superadmin) is required"); // ? GUARD ADDED
 
   const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
   if (!tenant) throw new Error("Tenant not found");
@@ -822,7 +822,7 @@ export const approveTenantService = async (tenantId, actor, meta = {}) => {
 //===========Block tenant===========
 export const blockTenantService = async (tenantId, actor, meta = {}) => {
   if (!tenantId) throw new Error("Tenant ID is required");
-  if (!actor?.id) throw new Error("Actor (superadmin) is required"); // ✅ GUARD ADDED
+  if (!actor?.id) throw new Error("Actor (superadmin) is required"); // ? GUARD ADDED
 
   const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
   if (!tenant) throw new Error("Tenant not found");
@@ -883,7 +883,7 @@ export const blockTenantService = async (tenantId, actor, meta = {}) => {
 //===========Unblock tenant===========
 export const unblockTenantService = async (tenantId, actor, meta = {}) => {
   if (!tenantId) throw new Error("Tenant ID is required");
-  if (!actor?.id) throw new Error("Actor (superadmin) is required"); // ✅ GUARD ADDED
+  if (!actor?.id) throw new Error("Actor (superadmin) is required"); // ? GUARD ADDED
 
   const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
   if (!tenant) throw new Error("Tenant not found");
@@ -927,7 +927,7 @@ export const unblockTenantService = async (tenantId, actor, meta = {}) => {
 //===========Deactivate user by superadmin===========
 export const deactivateUserService = async (userId, actor, meta = {}) => {
   if (!userId) throw new Error("User ID is required");
-  if (!actor?.id) throw new Error("Actor (superadmin) is required"); // ✅ GUARD ADDED
+  if (!actor?.id) throw new Error("Actor (superadmin) is required"); // ? GUARD ADDED
 
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw new Error("User not found");
@@ -970,7 +970,7 @@ export const deactivateUserService = async (userId, actor, meta = {}) => {
 //===========Reactivate user by superadmin===========
 export const reactivateUserService = async (userId, actor, meta = {}) => {
   if (!userId) throw new Error("User ID is required");
-  if (!actor?.id) throw new Error("Actor (superadmin) is required"); // ✅ GUARD ADDED
+  if (!actor?.id) throw new Error("Actor (superadmin) is required"); // ? GUARD ADDED
 
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw new Error("User not found");
@@ -1008,9 +1008,9 @@ export const reactivateUserService = async (userId, actor, meta = {}) => {
   return { message: "User reactivated successfully", user: reactivatedUser };
 };
 
-// ══════════════════════════════════════════
+// ------------------------------------------
 // REVENUE
-// ══════════════════════════════════════════
+// ------------------------------------------
 export const getRevenueStatsService = async () => {
   const payments = await prisma.payment.findMany({
     where: { status: "SUCCESS" },
@@ -1164,11 +1164,11 @@ export const getTenantBillingService = async (tenantId) => {
   };
 };
 
-// ══════════════════════════════════════════
+// ------------------------------------------
 // GST / TAX SETTINGS
-// ══════════════════════════════════════════
+// ------------------------------------------
 
-// ── Get GST Settings ──
+// -- Get GST Settings --
 export const getGSTSettingsService = async () => {
   let settings = await prisma.platformSettings.findUnique({
     where: { id: "GLOBAL" },
@@ -1194,7 +1194,7 @@ export const getGSTSettingsService = async () => {
   return settings;
 };
 
-// ── Update GST Settings ──
+// -- Update GST Settings --
 export const updateGSTSettingsService = async (data, actor, meta = {}) => {
   const {
     gstEnabled,
@@ -1208,7 +1208,7 @@ export const updateGSTSettingsService = async (data, actor, meta = {}) => {
     sacCode,
   } = data;
 
-  // ── Validate ──
+  // -- Validate --
   if (gstPercent !== undefined) {
     const pct = parseFloat(gstPercent);
     if (isNaN(pct) || pct < 0 || pct > 100) {
@@ -1224,7 +1224,7 @@ export const updateGSTSettingsService = async (data, actor, meta = {}) => {
     throw new Error("Pricing type must be EXCLUSIVE or INCLUSIVE");
   }
 
-  // ── Build update payload ──
+  // -- Build update payload --
   const updateData = {};
   if (gstEnabled !== undefined) updateData.gstEnabled = Boolean(gstEnabled);
   if (gstPercent !== undefined) updateData.gstPercent = parseFloat(gstPercent);
@@ -1256,7 +1256,7 @@ export const updateGSTSettingsService = async (data, actor, meta = {}) => {
     },
   });
 
-  // ── Audit Log ──
+  // -- Audit Log --
   if (actor?.id) {
     await createAuditLog({
       actorId: actor.id,
@@ -1265,7 +1265,7 @@ export const updateGSTSettingsService = async (data, actor, meta = {}) => {
       actorEmail: actor.email,
       action: "GST_SETTINGS_UPDATED",
       module: "SETTINGS",
-      description: `SuperAdmin "${actor.name}" updated GST settings — GST is now ${updated.gstEnabled ? "ENABLED" : "DISABLED"} at ${updated.gstPercent}%`,
+      description: `SuperAdmin "${actor.name}" updated GST settings � GST is now ${updated.gstEnabled ? "ENABLED" : "DISABLED"} at ${updated.gstPercent}%`,
       ipAddress: meta.ipAddress,
       userAgent: meta.userAgent,
       tenantId: null,
@@ -1281,7 +1281,7 @@ export const updateGSTSettingsService = async (data, actor, meta = {}) => {
   return updated;
 };
 
-// ── Get GST Config Helper (used by other services) ──
+// -- Get GST Config Helper (used by other services) --
 export const getGSTConfig = async () => {
   try {
     const settings = await prisma.platformSettings.findUnique({
@@ -1323,7 +1323,7 @@ export const getGSTConfig = async () => {
   }
 };
 
-// ── Calculate GST for a base amount ──
+// -- Calculate GST for a base amount --
 export const calculateGST = async (baseAmount) => {
   const config = await getGSTConfig();
   const base = parseFloat(baseAmount);

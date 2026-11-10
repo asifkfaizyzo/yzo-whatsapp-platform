@@ -68,7 +68,7 @@ const getOrUploadWhatsAppMediaId = async (
   const resJson = await uploadRes.json();
   if (!uploadRes.ok || !resJson.id) {
     console.error(
-      "❌ Meta media upload error for broadcast template:",
+      "? Meta media upload error for broadcast template:",
       resJson,
     );
     throw new Error(
@@ -94,7 +94,7 @@ const sendMetaTemplateMessage = async (
 
   const templateComponents = [];
 
-  // ── HEADER component ─────────────────────────────────────────────────────
+  // -- HEADER component -----------------------------------------------------
   const headerType = template?.headerType || "NONE";
   const hasDynamicHeaderText =
     template?.headerParams > 0 ||
@@ -194,7 +194,7 @@ const sendMetaTemplateMessage = async (
     });
   }
 
-  // ── BODY component ───────────────────────────────────────────────────────
+  // -- BODY component -------------------------------------------------------
   const bodyParameters = (params?.body || []).map((val) => {
     const textVal =
       val != null && String(val).trim().length > 0 ? String(val).trim() : "-";
@@ -324,14 +324,14 @@ export const processBroadcastRecipientJob = async (job) => {
 
   if (!currentCampaign || currentCampaign.status === "CANCELLED") {
     console.log(
-      `🚫 Broadcast job [${job.id}] skipped because campaign ${broadcastId} is CANCELLED.`,
+      `?? Broadcast job [${job.id}] skipped because campaign ${broadcastId} is CANCELLED.`,
     );
     return;
   }
 
   if (currentCampaign.status === "PAUSED") {
     console.log(
-      `⏸️ Broadcast job [${job.id}] delayed because campaign ${broadcastId} is PAUSED.`,
+      `?? Broadcast job [${job.id}] delayed because campaign ${broadcastId} is PAUSED.`,
     );
     // Re-queue with a delay so it waits for campaign resume
     throw new Error("CAMPAIGN_PAUSED");
@@ -496,7 +496,7 @@ export const processBroadcastRecipientJob = async (job) => {
         template.name,
         template.language,
         { body: bodyParams },
-        template, // ← pass full template object for header component construction
+        template, // ? pass full template object for header component construction
       );
       finalWamid = metaRes.messages?.[0]?.id;
 
@@ -749,12 +749,12 @@ export const startBroadcastWorker = () => {
 
   worker.on("active", (job) => {
     console.log(
-      `📩 Processing broadcast job [${job.id}] (attempt ${(job.attemptsMade || 0) + 1}/${job.opts?.attempts || 1}) for recipient: ${job.data?.contact?.phone}`,
+      `?? Processing broadcast job [${job.id}] (attempt ${(job.attemptsMade || 0) + 1}/${job.opts?.attempts || 1}) for recipient: ${job.data?.contact?.phone}`,
     );
   });
 
   worker.on("completed", (job) => {
-    console.log(`✅ Broadcast Job [${job.id}] completed successfully`);
+    console.log(`? Broadcast Job [${job.id}] completed successfully`);
     const { broadcastId } = job.data;
     checkCampaignCompletion(broadcastId);
   });
@@ -762,7 +762,7 @@ export const startBroadcastWorker = () => {
   worker.on("failed", (job, err) => {
     const isFinal = job.attemptsMade >= (job.opts?.attempts || 1);
     console.error(
-      `❌ Broadcast Job [${job?.id}] failed (attempt ${job.attemptsMade}/${job.opts?.attempts || 1}):`,
+      `? Broadcast Job [${job?.id}] failed (attempt ${job.attemptsMade}/${job.opts?.attempts || 1}):`,
       err.message,
     );
     if (isFinal && job?.data?.broadcastId) {
@@ -810,7 +810,7 @@ const checkCampaignCompletion = async (broadcastId) => {
 
       if (result.count > 0 && campaignData) {
         console.log(
-          `🎉 Broadcast campaign ${broadcastId} status set to ${finalStatus}!`,
+          `?? Broadcast campaign ${broadcastId} status set to ${finalStatus}!`,
         );
         emitToTenant(campaignData.tenantId, "broadcast_update", {
           broadcastId,

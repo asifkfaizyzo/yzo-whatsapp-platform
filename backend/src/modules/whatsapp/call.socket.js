@@ -41,10 +41,10 @@ export const bridgeAgentToMeta = async (callData) => {
       metaConsumer.on("producerclose", () => {
         callData.metaConsumer = null;
       });
-      console.log("✅ [MediaBridge] Agent audio successfully routed to Meta");
+      console.log("? [MediaBridge] Agent audio successfully routed to Meta");
     } catch (e) {
       console.error(
-        "❌ [MediaBridge] Failed to route Agent audio to Meta:",
+        "? [MediaBridge] Failed to route Agent audio to Meta:",
         e.message,
       );
     }
@@ -203,7 +203,7 @@ export const registerCallSocketHandlers = (socket, io) => {
       });
 
       console.log(
-        `✅ [MediaBridge] Customer audio routed to browser (call: ${callId})`,
+        `? [MediaBridge] Customer audio routed to browser (call: ${callId})`,
       );
 
       callback({

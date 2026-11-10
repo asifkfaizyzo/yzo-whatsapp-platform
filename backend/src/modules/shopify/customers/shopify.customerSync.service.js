@@ -55,7 +55,7 @@ export const syncShopifyCustomer = async (tenantId, customerPayload) => {
 
   if (!formattedPhone && !email) {
     console.log(
-      `⚠️ [Shopify Sync] Customer ${shopifyId} (${fullName}) has no phone or email. Skipping.`,
+      `?? [Shopify Sync] Customer ${shopifyId} (${fullName}) has no phone or email. Skipping.`,
     );
     return null;
   }
@@ -108,7 +108,7 @@ export const syncShopifyCustomer = async (tenantId, customerPayload) => {
       },
     });
     console.log(
-      `✅ [Shopify Sync] Created new SudoReply Contact: ${contact.name} (${contact.id})`,
+      `? [Shopify Sync] Created new SudoReply Contact: ${contact.name} (${contact.id})`,
     );
   } else {
     const updateData = {};
@@ -169,7 +169,7 @@ export const syncAllShopifyCustomers = async (tenantId) => {
   let hasNextPage = true;
 
   console.log(
-    `🚀 [Shopify Sync] Starting full customer sync for ${shopName}...`,
+    `?? [Shopify Sync] Starting full customer sync for ${shopName}...`,
   );
 
   while (hasNextPage) {
@@ -191,7 +191,7 @@ export const syncAllShopifyCustomers = async (tenantId) => {
         totalSynced++;
       } catch (err) {
         console.error(
-          `❌ [Shopify Sync] Error syncing customer ${customer.id}:`,
+          `? [Shopify Sync] Error syncing customer ${customer.id}:`,
           err.message,
         );
       }
@@ -209,7 +209,7 @@ export const syncAllShopifyCustomers = async (tenantId) => {
   }
 
   console.log(
-    `🎉 [Shopify Sync] Completed customer sync. Total processed: ${totalSynced}`,
+    `?? [Shopify Sync] Completed customer sync. Total processed: ${totalSynced}`,
   );
   return { totalSynced };
 };

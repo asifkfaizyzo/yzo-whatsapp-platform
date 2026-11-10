@@ -90,7 +90,7 @@ async function provisionSubMerchantWebhook(
     headers["X-Razorpay-Account"] = accountId;
   } else {
     console.warn(
-      "⚠️ [RazorpayOAuth] Neither OAuth access token nor Partner key/secret available. Skipping webhook creation.",
+      "?? [RazorpayOAuth] Neither OAuth access token nor Partner key/secret available. Skipping webhook creation.",
     );
     return null;
   }
@@ -121,17 +121,17 @@ async function provisionSubMerchantWebhook(
       );
       webhookId = response.data?.id;
       console.log(
-        `✅ [RazorpayOAuth] Successfully created programmatic webhook ${webhookId} for ${accountId}`,
+        `? [RazorpayOAuth] Successfully created programmatic webhook ${webhookId} for ${accountId}`,
       );
       break;
     } catch (err) {
       console.error(
-        `⚠️ [RazorpayOAuth] Attempt ${attempt} failed to create webhook for ${accountId}:`,
+        `?? [RazorpayOAuth] Attempt ${attempt} failed to create webhook for ${accountId}:`,
         err.response?.data || err.message,
       );
       if (attempt === 3) {
         console.error(
-          `❌ [RazorpayOAuth] Programmatic webhook creation aborted after 3 attempts for ${accountId}`,
+          `? [RazorpayOAuth] Programmatic webhook creation aborted after 3 attempts for ${accountId}`,
         );
       } else {
         await new Promise((r) => setTimeout(r, 1000 * attempt));
@@ -172,11 +172,11 @@ async function deleteSubMerchantWebhook(
       timeout: 8000,
     });
     console.log(
-      `🗑️ [RazorpayOAuth] Deleted webhook ${webhookId} for ${accountId}`,
+      `??? [RazorpayOAuth] Deleted webhook ${webhookId} for ${accountId}`,
     );
   } catch (err) {
     console.warn(
-      `⚠️ [RazorpayOAuth] Failed to delete webhook ${webhookId}:`,
+      `?? [RazorpayOAuth] Failed to delete webhook ${webhookId}:`,
       err.response?.data || err.message,
     );
   }
@@ -209,10 +209,10 @@ async function revokeOAuthToken(token) {
         timeout: 8000,
       },
     );
-    console.log("🗑️ [RazorpayOAuth] Revoked OAuth access token with Razorpay");
+    console.log("??? [RazorpayOAuth] Revoked OAuth access token with Razorpay");
   } catch (err) {
     console.warn(
-      "⚠️ [RazorpayOAuth] Token revoke error:",
+      "?? [RazorpayOAuth] Token revoke error:",
       err.response?.data || err.message,
     );
   }
@@ -257,9 +257,9 @@ function getDynamicFrontendUrl(req) {
   return tenantUrl || "http://localhost:5174";
 }
 
-// ──────────────────────────────────────────────
+// ----------------------------------------------
 // CONTROLLERS
-// ──────────────────────────────────────────────
+// ----------------------------------------------
 
 /**
  * GET /sradmin/tenant/payment-gateway/oauth/url
@@ -280,7 +280,7 @@ export async function getOAuthAuthorizeUrl(req, res) {
 
     if (!clientId) {
       console.error(
-        "❌ [RazorpayOAuth] RAZORPAY_CLIENT_ID missing in process.env",
+        "? [RazorpayOAuth] RAZORPAY_CLIENT_ID missing in process.env",
       );
       return res.status(400).json({
         success: false,
@@ -290,7 +290,7 @@ export async function getOAuthAuthorizeUrl(req, res) {
     }
 
     console.log(
-      "🔗 [RazorpayOAuth] Generated authorization URL with redirect_uri:",
+      "?? [RazorpayOAuth] Generated authorization URL with redirect_uri:",
       redirectUri,
     );
 
@@ -307,7 +307,7 @@ export async function getOAuthAuthorizeUrl(req, res) {
       url: authUrl,
     });
   } catch (error) {
-    console.error("❌ [RazorpayOAuth] getOAuthAuthorizeUrl error:", error);
+    console.error("? [RazorpayOAuth] getOAuthAuthorizeUrl error:", error);
     return res.status(500).json({ success: false, error: error.message });
   }
 }
@@ -329,7 +329,7 @@ function extractErrorMessage(error) {
  * Handles OAuth redirection callback from auth.razorpay.com
  */
 export async function handleOAuthCallback(req, res) {
-  console.log("📥 [RazorpayOAuth] Incoming callback received:", {
+  console.log("?? [RazorpayOAuth] Incoming callback received:", {
     query: req.query,
     originalUrl: req.originalUrl,
     host: req.headers.host,
@@ -344,7 +344,7 @@ export async function handleOAuthCallback(req, res) {
 
   if (oauthError) {
     console.error(
-      "❌ [RazorpayOAuth] Authorization denied or failed:",
+      "? [RazorpayOAuth] Authorization denied or failed:",
       oauthError,
       error_description,
     );
@@ -357,7 +357,7 @@ export async function handleOAuthCallback(req, res) {
 
   if (!code || !state) {
     console.warn(
-      "⚠️ [RazorpayOAuth] Missing code or state in callback query params",
+      "?? [RazorpayOAuth] Missing code or state in callback query params",
     );
     return res.redirect(
       `${frontendUrl}/dashboard/integrations?app=razorpay&error=Missing+authorization+code+or+state`,
@@ -367,9 +367,9 @@ export async function handleOAuthCallback(req, res) {
   let tenantId;
   try {
     tenantId = verifyAndExtractState(state);
-    console.log(`🔑 [RazorpayOAuth] State verified for tenantId: ${tenantId}`);
+    console.log(`?? [RazorpayOAuth] State verified for tenantId: ${tenantId}`);
   } catch (err) {
-    console.error("❌ [RazorpayOAuth] State verification failed:", err.message);
+    console.error("? [RazorpayOAuth] State verification failed:", err.message);
     return res.redirect(
       `${frontendUrl}/dashboard/integrations?app=razorpay&error=${encodeURIComponent(err.message)}`,
     );
@@ -404,7 +404,7 @@ export async function handleOAuthCallback(req, res) {
     for (const testUri of uniqueCandidates) {
       try {
         console.log(
-          `🔄 [RazorpayOAuth] Attempting token exchange with redirect_uri: ${testUri}`,
+          `?? [RazorpayOAuth] Attempting token exchange with redirect_uri: ${testUri}`,
         );
         tokenResponse = await axios.post(
           "https://auth.razorpay.com/token",
@@ -424,14 +424,14 @@ export async function handleOAuthCallback(req, res) {
           },
         );
         console.log(
-          `✅ [RazorpayOAuth] Token exchange succeeded with redirect_uri: ${testUri}`,
+          `? [RazorpayOAuth] Token exchange succeeded with redirect_uri: ${testUri}`,
         );
         break;
       } catch (err) {
         lastExchangeError = err;
         const errDetail = extractErrorMessage(err);
         console.error(
-          `⚠️ [RazorpayOAuth] Token exchange failed with ${testUri}:`,
+          `?? [RazorpayOAuth] Token exchange failed with ${testUri}:`,
           {
             status: err.response?.status,
             responseData: err.response?.data,
@@ -516,7 +516,7 @@ export async function handleOAuthCallback(req, res) {
   } catch (error) {
     const msg = extractErrorMessage(error);
     console.error(
-      "❌ [RazorpayOAuth] handleOAuthCallback final failure:",
+      "? [RazorpayOAuth] handleOAuthCallback final failure:",
       msg,
       error.response?.data || error,
     );
@@ -596,7 +596,7 @@ export async function disconnectRazorpayOAuth(req, res) {
       await invalidateTenantRazorpayCache(tenantId);
     } catch (cacheErr) {
       console.warn(
-        "⚠️ [RazorpayOAuth] Cache invalidation notice:",
+        "?? [RazorpayOAuth] Cache invalidation notice:",
         cacheErr.message,
       );
     }
@@ -611,7 +611,7 @@ export async function disconnectRazorpayOAuth(req, res) {
       message: "Razorpay account successfully disconnected.",
     });
   } catch (error) {
-    console.error("❌ [RazorpayOAuth] disconnectRazorpayOAuth error:", error);
+    console.error("? [RazorpayOAuth] disconnectRazorpayOAuth error:", error);
     return res.status(500).json({ success: false, error: error.message });
   }
 }
@@ -655,7 +655,7 @@ export async function getOAuthStatus(req, res) {
       },
     });
   } catch (error) {
-    console.error("❌ [RazorpayOAuth] getOAuthStatus error:", error);
+    console.error("? [RazorpayOAuth] getOAuthStatus error:", error);
     return res.status(500).json({ success: false, error: error.message });
   }
 }

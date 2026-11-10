@@ -2,7 +2,7 @@
 
 import * as notificationService from "./superadminNotification.service.js";
 
-// ── Get all notifications ──
+// -- Get all notifications --
 export const getNotifications = async (req, res) => {
   try {
     const notifications = await notificationService.getNotifications();
@@ -23,7 +23,7 @@ export const getNotifications = async (req, res) => {
   }
 };
 
-// ── Mark one as read ──
+// -- Mark one as read --
 export const markAsRead = async (req, res) => {
   try {
     const { id } = req.params;
@@ -37,7 +37,7 @@ export const markAsRead = async (req, res) => {
   }
 };
 
-// ── Mark all as read ──
+// -- Mark all as read --
 export const markAllAsRead = async (req, res) => {
   try {
     await notificationService.markAllAsRead();
@@ -50,7 +50,7 @@ export const markAllAsRead = async (req, res) => {
   }
 };
 
-// ── Clear all ──
+// -- Clear all --
 export const clearAll = async (req, res) => {
   try {
     await notificationService.clearAllNotifications();
@@ -63,7 +63,7 @@ export const clearAll = async (req, res) => {
   }
 };
 
-// ── 🆕 Get paginated notifications ──
+// -- ?? Get paginated notifications --
 export const getPaginatedNotifications = async (req, res) => {
   try {
     const { page = 1, limit = 20, filter = "all", type = "all" } = req.query;
@@ -87,7 +87,7 @@ export const getPaginatedNotifications = async (req, res) => {
   }
 };
 
-// ── 🆕 Delete a single notification ──
+// -- ?? Delete a single notification --
 export const deleteNotification = async (req, res) => {
   try {
     const { id } = req.params;

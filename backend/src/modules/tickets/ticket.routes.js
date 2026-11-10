@@ -18,7 +18,8 @@ import {
   userReplyTicket,
 } from "./ticket.controller.js";
 
-import { verifyTenantOrUser } from "../../middlewares/auth.verifyTenantOrUser.js";
+import { authenticate } from "../../middleware/authenticate.js";
+import { requireTenantOrUser } from "../../middleware/requireTenantOrUser.js";
 import { ticketUpload } from "../../config/upload.ticket.js";
 
 const router = express.Router();
@@ -26,43 +27,43 @@ const router = express.Router();
 // ── Tenant own tickets ──
 router.post(
   "/tickets",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   ticketUpload.single("attachment"),
   createTenantTicket,
 );
-router.get("/tickets/my", verifyTenantOrUser, getTenantTickets);
+router.get("/tickets/my", authenticate, requireTenantOrUser, getTenantTickets);
 router.get(
   "/tickets/user-tickets/all",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   getTenantUserTickets,
 );
-router.get("/tickets/:ticketId", verifyTenantOrUser, getTenantTicketDetail);
-router.post("/tickets/:ticketId/reply", verifyTenantOrUser, tenantReplyTicket);
-router.patch("/tickets/:ticketId/close", verifyTenantOrUser, closeTenantTicket);
+router.get("/tickets/:ticketId", authenticate, requireTenantOrUser, getTenantTicketDetail);
+router.post("/tickets/:ticketId/reply", authenticate, requireTenantOrUser, tenantReplyTicket);
+router.patch("/tickets/:ticketId/close", authenticate, requireTenantOrUser, closeTenantTicket);
 router.post(
   "/tickets/:ticketId/reply-user",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   tenantReplyUserTicket,
 );
-router.patch("/tickets/:ticketId/escalate", verifyTenantOrUser, escalateTicket);
+router.patch("/tickets/:ticketId/escalate", authenticate, requireTenantOrUser, escalateTicket);
 router.patch(
   "/tickets/:ticketId/resolve",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   resolveTenantUserTicket,
 );
 
 // ── User tickets ──
 router.post(
   "/user-tickets",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   ticketUpload.single("attachment"),
   createUserTicket,
 );
-router.get("/user-tickets/my", verifyTenantOrUser, getUserTickets);
-router.get("/user-tickets/:ticketId", verifyTenantOrUser, getUserTicketDetail);
+router.get("/user-tickets/my", authenticate, requireTenantOrUser, getUserTickets);
+router.get("/user-tickets/:ticketId", authenticate, requireTenantOrUser, getUserTicketDetail);
 router.post(
   "/user-tickets/:ticketId/reply",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   userReplyTicket,
 );
 

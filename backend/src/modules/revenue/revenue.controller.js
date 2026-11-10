@@ -8,7 +8,7 @@ import {
   getInvoiceUrlService,
 } from "./revenue.service.js";
 
-// ── Dashboard Card → GET /api/revenue-stats ──
+// -- Dashboard Card ? GET /api/revenue-stats --
 export const getPlatformRevenueStats = async (req, res) => {
   try {
     const data = await getPlatformRevenueStatsService();
@@ -19,7 +19,7 @@ export const getPlatformRevenueStats = async (req, res) => {
   }
 };
 
-// ── Revenue Page Stats → GET /api/revenue/stats ──
+// -- Revenue Page Stats ? GET /api/revenue/stats --
 export const getRevenueStats = async (req, res) => {
   try {
     const data = await getRevenueStatsService();
@@ -30,7 +30,7 @@ export const getRevenueStats = async (req, res) => {
   }
 };
 
-// ── Revenue Payments → GET /api/revenue/payments ──
+// -- Revenue Payments ? GET /api/revenue/payments --
 export const getRevenuePayments = async (req, res) => {
   try {
     const data = await getRevenuePaymentsService();
@@ -41,7 +41,7 @@ export const getRevenuePayments = async (req, res) => {
   }
 };
 
-// ── Tenant Billing Detail → GET /api/revenue/tenant/:tenantId ──
+// -- Tenant Billing Detail ? GET /api/revenue/tenant/:tenantId --
 export const getTenantBillingDetail = async (req, res) => {
   try {
     const data = await getTenantBillingDetailService(req.params.tenantId);
@@ -58,7 +58,7 @@ export const getTenantBillingDetail = async (req, res) => {
   }
 };
 
-// ── Invoice URL → GET /api/revenue/invoice/:paymentId ──
+// -- Invoice URL ? GET /api/revenue/invoice/:paymentId --
 export const getInvoiceUrl = async (req, res) => {
   try {
     const invoiceUrl = await getInvoiceUrlService(req.params.paymentId);

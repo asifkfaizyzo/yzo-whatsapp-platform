@@ -176,10 +176,10 @@ export const markProductDeleted = async (tenantId, shopifyProductId) => {
       },
     });
     console.log(
-      `🗑️ [Shopify Product] Marked product ${shopifyProductId} as deleted`,
+      `??? [Shopify Product] Marked product ${shopifyProductId} as deleted`,
     );
   } catch (err) {
-    console.error(`❌ [Shopify Product] Failed to mark deleted:`, err.message);
+    console.error(`? [Shopify Product] Failed to mark deleted:`, err.message);
   }
 };
 
@@ -210,7 +210,7 @@ export const syncAllProducts = async (tenantId) => {
   let totalErrors = 0;
 
   console.log(
-    `🚀 [Shopify Product Sync] Starting full sync for ${shopName}...`,
+    `?? [Shopify Product Sync] Starting full sync for ${shopName}...`,
   );
 
   while (hasNextPage) {
@@ -234,7 +234,7 @@ export const syncAllProducts = async (tenantId) => {
         } catch (err) {
           totalErrors++;
           console.error(
-            `❌ [Shopify Product Sync] Error syncing product ${shopifyProduct.id}:`,
+            `? [Shopify Product Sync] Error syncing product ${shopifyProduct.id}:`,
             err.message,
           );
         }
@@ -250,13 +250,13 @@ export const syncAllProducts = async (tenantId) => {
         hasNextPage = false;
       }
     } catch (err) {
-      console.error(`❌ [Shopify Product Sync] API error:`, err.message);
+      console.error(`? [Shopify Product Sync] API error:`, err.message);
       throw new Error(`Shopify API error during product sync: ${err.message}`);
     }
   }
 
   console.log(
-    `🎉 [Shopify Product Sync] Completed. Synced: ${totalSynced}, Errors: ${totalErrors}`,
+    `?? [Shopify Product Sync] Completed. Synced: ${totalSynced}, Errors: ${totalErrors}`,
   );
 
   return { totalSynced, totalErrors, currency };

@@ -276,7 +276,7 @@ export const updateSubscription = async (req, res) => {
           status: "APPROVED",
           dataDeletionDate: null,
           trialExtendedCount: (tenant.trialExtendedCount || 0) + 1,
-          trialExtendedByAdmin: req.superAdmin?.email || "Super Admin",
+          trialExtendedByAdmin: req.srAdmin?.email || "Super Admin",
         };
         notificationNote = `Your plan active period has been extended by ${parsedDays} days. It is now active until ${newEnd.toLocaleDateString()}.`;
         break;
@@ -342,11 +342,11 @@ export const updateSubscription = async (req, res) => {
 
     // Audit Log
     await createAuditLog({
-      actorId: req.superAdmin?.id || "SUPER_ADMIN",
+      actorId: req.srAdmin?.id || "SUPER_ADMIN",
       actorType: "SUPER_ADMIN",
-      actorName: req.superAdmin?.name || "Super Admin",
+      actorName: req.srAdmin?.name || "Super Admin",
       actorEmail:
-        req.superAdmin?.email || process.env.EMAIL_USER || "info@sudoreply.com",
+        req.srAdmin?.email || process.env.EMAIL_USER || "info@sudoreply.com",
       action: "PLAN_CHANGED",
       module: "BILLING",
       description: `Subscription action "${action}" executed for tenant "${tenant.tenantName}"`,
@@ -603,11 +603,11 @@ export const manualPlanActivation = async (req, res) => {
       // D. Create Audit Log
       await tx.auditLog.create({
         data: {
-          actorId: req.superAdmin?.id || "SUPER_ADMIN",
+          actorId: req.srAdmin?.id || "SUPER_ADMIN",
           actorType: "SUPER_ADMIN",
-          actorName: req.superAdmin?.name || "Super Admin",
+          actorName: req.srAdmin?.name || "Super Admin",
           actorEmail:
-            req.superAdmin?.email ||
+            req.srAdmin?.email ||
             process.env.EMAIL_USER ||
             "info@sudoreply.com",
           action: "PLAN_ACTIVATED",

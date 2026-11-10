@@ -56,7 +56,7 @@ export const getAllContactsController = async (req, res) => {
     const search = req.query.search || "";
     const filter = req.query.filter || "all";
     const channel = req.query.channel || null;
-    const userId = req.userType === "USER" ? req.user.id : null;
+    const userId = req.actorType === "USER" ? req.user.id : null;
 
     const result = await getAllContacts(
       tenantId,
@@ -120,7 +120,7 @@ export const updateContactController = async (req, res) => {
 // 5.===================== DELETE CONTACT =====================
 export const deleteContactController = async (req, res) => {
   try {
-    if (req.userType !== "TENANT") {
+    if (req.actorType !== "TENANT") {
       return res.status(403).json({
         success: false,
         message: "Only tenant admins can delete contacts",
@@ -139,7 +139,7 @@ export const deleteContactController = async (req, res) => {
 // 5b.===================== BULK DELETE CONTACTS =====================
 export const bulkDeleteContactsController = async (req, res) => {
   try {
-    if (req.userType !== "TENANT") {
+    if (req.actorType !== "TENANT") {
       return res
         .status(403)
         .json({
@@ -169,7 +169,7 @@ export const bulkDeleteContactsController = async (req, res) => {
 // 6.===================== BLOCK CONTACT =====================
 export const blockContactController = async (req, res) => {
   try {
-    if (req.userType !== "TENANT") {
+    if (req.actorType !== "TENANT") {
       return res.status(403).json({
         success: false,
         message: "Only tenant admins can block contacts",
@@ -187,7 +187,7 @@ export const blockContactController = async (req, res) => {
 // 7.===================== UNBLOCK CONTACT =====================
 export const unblockContactController = async (req, res) => {
   try {
-    if (req.userType !== "TENANT") {
+    if (req.actorType !== "TENANT") {
       return res.status(403).json({
         success: false,
         message: "Only tenant admins can unblock contacts",
@@ -442,7 +442,7 @@ export const downloadSampleCSVController = async (req, res) => {
 export const importPhoneContactsController = async (req, res) => {
   try {
     const tenantId = req.tenantId;
-    const userId = req.userType === "USER" ? req.user.id : null;
+    const userId = req.actorType === "USER" ? req.user.id : null;
     const { contacts } = req.body;
 
     if (!contacts || !Array.isArray(contacts) || contacts.length === 0) {

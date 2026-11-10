@@ -12,7 +12,7 @@ export const getRazorpay = () => {
 
   if (!key_id || !key_secret) {
     console.error(
-      "❌ RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET is missing from .env",
+      "? RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET is missing from .env",
     );
     throw new Error("Razorpay credentials not configured");
   }
@@ -21,7 +21,7 @@ export const getRazorpay = () => {
   if (!instance || cachedKeyId !== key_id) {
     instance = new Razorpay({ key_id, key_secret });
     cachedKeyId = key_id;
-    console.log(`✅ Razorpay initialized (key: ${key_id.slice(0, 10)}...)`);
+    console.log(`? Razorpay initialized (key: ${key_id.slice(0, 10)}...)`);
   }
 
   return instance;

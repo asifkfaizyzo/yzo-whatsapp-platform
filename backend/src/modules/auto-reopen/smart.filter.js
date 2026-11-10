@@ -6,7 +6,7 @@ const JUNK_PATTERNS = [
   /^(great|awesome|perfect|cool)[.!]*$/i,
   /^(got it|noted|understood)[.!]*$/i,
   /^(yes|no|yeah|nope|yep)[.!]*$/i,
-  /^[👍👌🙏✅😊]+$/,
+  /^[?????????]+$/,
 ];
 
 export const isJunkMessage = (text) => {

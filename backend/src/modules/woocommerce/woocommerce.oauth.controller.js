@@ -66,7 +66,7 @@ export const getWooCommerceOAuthUrl = async (req, res) => {
 
     const authUrl = authObj.toString();
 
-    console.log("🔗 [WooCommerceOAuth] Generated auth URL:", authUrl);
+    console.log("?? [WooCommerceOAuth] Generated auth URL:", authUrl);
 
     return res.json({ success: true, authUrl });
   } catch (error) {
@@ -86,7 +86,7 @@ export const getWooCommerceOAuthUrl = async (req, res) => {
 export const handleWooCommerceOAuthCallback = async (req, res) => {
   try {
     console.log(
-      "📥 [WooCommerceOAuthCallback] Received credentials callback from WooCommerce",
+      "?? [WooCommerceOAuthCallback] Received credentials callback from WooCommerce",
     );
 
     let payload = req.body;
@@ -100,7 +100,7 @@ export const handleWooCommerceOAuthCallback = async (req, res) => {
     }
 
     console.log(
-      "📥 [WooCommerceOAuthCallback] Payload received:",
+      "?? [WooCommerceOAuthCallback] Payload received:",
       JSON.stringify(payload),
     );
 
@@ -108,7 +108,7 @@ export const handleWooCommerceOAuthCallback = async (req, res) => {
 
     if (!user_id || !consumer_key || !consumer_secret) {
       console.error(
-        "❌ [WooCommerceOAuthCallback] Missing parameters in payload:",
+        "? [WooCommerceOAuthCallback] Missing parameters in payload:",
         payload,
       );
       return res
@@ -141,7 +141,7 @@ export const handleWooCommerceOAuthCallback = async (req, res) => {
     });
 
     console.log(
-      `✅ [WooCommerceOAuthCallback] Connection SUCCESS for tenant: ${tenantId}`,
+      `? [WooCommerceOAuthCallback] Connection SUCCESS for tenant: ${tenantId}`,
     );
 
     // Return HTTP 200 JSON back to WooCommerce
@@ -159,12 +159,12 @@ export const handleWooCommerceOAuthCallback = async (req, res) => {
         autoProvisionWebhooks(tenantId, storeUrl, consumer_key, consumer_secret)
           .then(() =>
             console.log(
-              `🎉 [WooCommerceOAuthCallback] Webhooks auto-provisioned for tenant: ${tenantId}`,
+              `?? [WooCommerceOAuthCallback] Webhooks auto-provisioned for tenant: ${tenantId}`,
             ),
           )
           .catch((err) =>
             console.error(
-              `⚠️ [WooCommerceOAuthCallback] Webhook provisioning warning:`,
+              `?? [WooCommerceOAuthCallback] Webhook provisioning warning:`,
               err.message,
             ),
           );
@@ -172,7 +172,7 @@ export const handleWooCommerceOAuthCallback = async (req, res) => {
     }
   } catch (error) {
     console.error(
-      "💥 [WooCommerceOAuthCallback] Error processing callback:",
+      "?? [WooCommerceOAuthCallback] Error processing callback:",
       error,
     );
     if (!res.headersSent) {

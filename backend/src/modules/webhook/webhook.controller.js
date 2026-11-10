@@ -18,14 +18,14 @@ export const verifyMetaSignature = (req, res, next) => {
   if (rawSecrets.length === 0) {
     if (process.env.NODE_ENV === "production") {
       console.error(
-        "❌ META_APP_SECRET is missing in production! Rejecting webhook.",
+        "? META_APP_SECRET is missing in production! Rejecting webhook.",
       );
       return res
         .status(500)
         .json({ success: false, message: "Server configuration error" });
     }
     console.warn(
-      "⚠️ META_APP_SECRET is not configured or using placeholder in .env. Skipping signature verification in dev.",
+      "?? META_APP_SECRET is not configured or using placeholder in .env. Skipping signature verification in dev.",
     );
     return next();
   }
@@ -34,12 +34,12 @@ export const verifyMetaSignature = (req, res, next) => {
   if (!signatureHeader) {
     if (process.env.NODE_ENV !== "production") {
       console.warn(
-        "⚠️ Incoming webhook request missing x-hub-signature-256 header. (Skipping signature check in dev mode)",
+        "?? Incoming webhook request missing x-hub-signature-256 header. (Skipping signature check in dev mode)",
       );
       return next();
     }
     console.warn(
-      "⚠️ Incoming webhook request missing x-hub-signature-256 header.",
+      "?? Incoming webhook request missing x-hub-signature-256 header.",
     );
     return res.status(401).send("Signature missing");
   }
@@ -61,9 +61,9 @@ export const verifyMetaSignature = (req, res, next) => {
 
   if (!matchedSecret) {
     console.warn(
-      "⚠️ Webhook signature validation failed! Request unauthorized.",
+      "?? Webhook signature validation failed! Request unauthorized.",
     );
-    console.warn("🔍 [Meta Webhook Debug]:", {
+    console.warn("?? [Meta Webhook Debug]:", {
       object: req.body?.object || "unknown",
       url: req.originalUrl,
       hasRawBody: Boolean(req.rawBody),
@@ -91,7 +91,7 @@ export const verifyMetaWebhook = async (req, res) => {
     process.env.META_VERIFY_TOKEN || "yzo_default_verification_token";
 
   if (mode === "subscribe" && token === verifyToken) {
-    console.log("✅ Webhook verified successfully by Meta!");
+    console.log("? Webhook verified successfully by Meta!");
     return res.status(200).send(challenge);
   }
   return res.sendStatus(403);

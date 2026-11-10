@@ -58,7 +58,7 @@ export const handleCallEvents = async (value, tenant) => {
     // 1. Handle Connect Event (Inbound & Outbound)
     if (isConnect) {
       if (isUserInitiated) {
-        console.log(`🔔 [Incoming Call] Inbound call received: ${wacid}`);
+        console.log(`?? [Incoming Call] Inbound call received: ${wacid}`);
 
         // Cache Meta's incoming SDP offer for direct WebRTC negotiation upon agent accept
         const metaSdpOffer = call.session?.sdp;
@@ -136,7 +136,7 @@ export const handleCallEvents = async (value, tenant) => {
 
         if (tenant) {
           console.log(
-            `📢 [Socket] Emitting incoming_whatsapp_call to tenant ${tenant.id}: ${wacid}`,
+            `?? [Socket] Emitting incoming_whatsapp_call to tenant ${tenant.id}: ${wacid}`,
           );
           emitToTenant(tenant.id, "incoming_whatsapp_call", {
             wacid,
@@ -167,7 +167,7 @@ export const handleCallEvents = async (value, tenant) => {
               sdpAnswer,
             );
             console.log(
-              `✅ [Mediasoup] Outbound call ${wacid} metaProducer ready: ${metaProducer.id}`,
+              `? [Mediasoup] Outbound call ${wacid} metaProducer ready: ${metaProducer.id}`,
             );
 
             const existing = activeCalls.get(wacid) || {};
@@ -236,7 +236,7 @@ export const handleCallEvents = async (value, tenant) => {
       if (!status) status = "COMPLETED";
 
       console.log(
-        `📞 [Call Event] Status transition for ${wacid}: ${status} (reason: ${call.reason})`,
+        `?? [Call Event] Status transition for ${wacid}: ${status} (reason: ${call.reason})`,
       );
 
       let updateData = { status };
@@ -287,7 +287,7 @@ export const handleCallEvents = async (value, tenant) => {
 
       if (tenant) {
         console.log(
-          `📢 [Socket] Emitting call_status_update to tenant ${tenant.id}: ${wacid} -> ${status}`,
+          `?? [Socket] Emitting call_status_update to tenant ${tenant.id}: ${wacid} -> ${status}`,
         );
         emitToTenant(tenant.id, "call_status_update", {
           wacid,
@@ -343,7 +343,7 @@ export const handleCallEvents = async (value, tenant) => {
 
     if (tenant) {
       console.log(
-        `📢 [Socket] Emitting status update from statuses array to tenant ${tenant.id}: ${wacid} -> ${status}`,
+        `?? [Socket] Emitting status update from statuses array to tenant ${tenant.id}: ${wacid} -> ${status}`,
       );
       emitToTenant(tenant.id, "call_status_update", {
         wacid,
@@ -419,7 +419,7 @@ export const handleCallEvents = async (value, tenant) => {
         calls[0]?.id ||
         calls[0]?.call_id;
       console.log(
-        `🎙️ [CallWebhook] Queuing call recording for wacid: ${recWacid}`,
+        `??? [CallWebhook] Queuing call recording for wacid: ${recWacid}`,
         JSON.stringify(rec),
       );
       await callMediaQueue.add("process-call-recording", {
@@ -481,7 +481,7 @@ export const handleCallEvents = async (value, tenant) => {
         calls[0]?.id ||
         calls[0]?.call_id;
       console.log(
-        `📝 [CallWebhook] Queuing call transcription for wacid: ${transWacid}`,
+        `?? [CallWebhook] Queuing call transcription for wacid: ${transWacid}`,
         JSON.stringify(trans),
       );
       await callMediaQueue.add("process-call-transcription", {

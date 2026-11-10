@@ -7,8 +7,8 @@
  * Loads the admin from DB and verifies existence.
  *
  * Sets on req:
- *   req.srAdmin   — SuperAdmin record
- *   req.srAdminId — admin's database ID
+ *   req.srAdmin   � SuperAdmin record
+ *   req.srAdminId � admin's database ID
  */
 
 import prisma from "../config/prisma.js";

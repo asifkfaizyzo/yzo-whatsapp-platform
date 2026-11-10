@@ -179,7 +179,7 @@ export const checkSubscriptionAccess = async (req, res, next) => {
       });
     }
 
-    // Deny by default — any unknown or null status does NOT get access
+    // Deny by default � any unknown or null status does NOT get access
     console.warn(`[checkSubscriptionAccess] Unknown subscription status "${status}" for tenant ${req.tenantId}. Denying access.`);
     return res.status(403).json({
       success: false,

@@ -97,7 +97,7 @@ export const connect = async (
     );
     if (failedTopics.length > 0) {
       console.error(
-        `❌ Shopify webhook setup incomplete for ${cleanShop}:`,
+        `? Shopify webhook setup incomplete for ${cleanShop}:`,
         failedTopics
           .map(({ topic, error }) => `${topic} (${error})`)
           .join("; "),
@@ -105,12 +105,12 @@ export const connect = async (
     }
     if (failedTopics.some(({ topic }) => topic === "checkouts/update")) {
       console.error(
-        `❌ Abandoned-cart recovery will not receive checkout webhooks for ${cleanShop}`,
+        `? Abandoned-cart recovery will not receive checkout webhooks for ${cleanShop}`,
       );
     }
   } catch (webhooksErr) {
     console.error(
-      "⚠️ Automatic webhook registration error:",
+      "?? Automatic webhook registration error:",
       webhooksErr.message,
     );
   }

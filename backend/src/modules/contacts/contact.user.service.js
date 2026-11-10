@@ -143,9 +143,9 @@ export const userAssignMultipleContacts = async (
 
 // ======== Manual Priority Assignment using Tag-User Mapping.========
 // - Highest priority tag is checked first
-// - If multiple users exist for that tag → Round Robin
-// - If no users exist for that tag → try next tag
-// - If no users exist for any tag → keep contact unassigned
+// - If multiple users exist for that tag ? Round Robin
+// - If no users exist for that tag ? try next tag
+// - If no users exist for any tag ? keep contact unassigned
 export const assignByPriority = async (contactIds, tenantId) => {
   // 1. Fetch contacts with their tags
   const contacts = await getContactsWithTags(contactIds, tenantId);
@@ -183,7 +183,7 @@ export const assignByPriority = async (contactIds, tenantId) => {
         .sort((a, b) => a.priority - b.priority);
 
       if (tags.length === 0) {
-        console.log(`⏸️ ${contact.name} has no tag. Leaving unassigned.`);
+        console.log(`?? ${contact.name} has no tag. Leaving unassigned.`);
         errors.push({
           contactId: contact.id,
           name: contact.name,
@@ -215,15 +215,15 @@ export const assignByPriority = async (contactIds, tenantId) => {
       }
 
       if (eligibleUsers.length === 1) {
-        // ─────────────────────────────────────
-        // ONLY ONE USER → Direct Assignment
-        // ─────────────────────────────────────
+        // -------------------------------------
+        // ONLY ONE USER ? Direct Assignment
+        // -------------------------------------
         selectedUserId = eligibleUsers[0].id;
         assignmentMethod = "Direct (Single user for tag)";
       } else {
-        // ─────────────────────────────────────
-        // MULTIPLE USERS → Round Robin within group
-        // ─────────────────────────────────────
+        // -------------------------------------
+        // MULTIPLE USERS ? Round Robin within group
+        // -------------------------------------
         const eligibleUserIds = eligibleUsers.map((u) => u.id);
         selectedUserId = await getLeastLoadedUser(eligibleUserIds, tenantId);
         assignmentMethod = `Round Robin (Tag: ${highestPriorityTag.name})`;
@@ -233,7 +233,7 @@ export const assignByPriority = async (contactIds, tenantId) => {
       await assignContactToUser(contact.id, selectedUserId);
 
       console.log(
-        `✅ ${contact.name} → ${selectedUserId} (${assignmentMethod})`,
+        `? ${contact.name} ? ${selectedUserId} (${assignmentMethod})`,
       );
 
       results.push({

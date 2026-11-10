@@ -16,14 +16,14 @@ import {
   deleteTenant,
   deactivateUser,
   reactivateUser,
-} from "./sradmin.tenant.controller.new.js";
+} from "./sradmin.tenant.controller.js";
 
 const router = Router();
 
 // All routes require SRAdmin authentication
 router.use(authenticate, requireSRAdmin, apiLimiter);
 
-// ── Tenant CRUD ──
+// -- Tenant CRUD --
 router.get("/", getAllTenants);
 router.get("/:id", getTenantById);
 router.put("/:id", updateTenant);
@@ -34,7 +34,7 @@ router.patch("/:id/deactivate", deactivateTenant);
 router.patch("/:id/reactivate", reactivateTenant);
 router.delete("/:id", deleteTenant);
 
-// ── User (Agent) Moderation ──
+// -- User (Agent) Moderation --
 router.patch("/users/:id/deactivate", deactivateUser);
 router.patch("/users/:id/reactivate", reactivateUser);
 

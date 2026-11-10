@@ -5,7 +5,7 @@ import { sendExpiryReminderEmail } from "../../modules/auth/email.service.js";
 
 const processExpiryReminders = async () => {
   const timestamp = new Date().toISOString();
-  console.log(`[${timestamp}] ── CRON: Starting Expiry Reminders Job ──`);
+  console.log(`[${timestamp}] -- CRON: Starting Expiry Reminders Job --`);
 
   try {
     // 1. Find tenants who are active or trialing
@@ -59,7 +59,7 @@ const processExpiryReminders = async () => {
           reminderType = "1_day_before";
           emailSubject = isTrialing
             ? "Your free trial ends tomorrow"
-            : "Last chance — expires tomorrow";
+            : "Last chance � expires tomorrow";
           templateName = "expiry_reminder_1";
         }
 

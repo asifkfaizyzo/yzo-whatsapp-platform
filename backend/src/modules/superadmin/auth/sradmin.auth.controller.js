@@ -1,6 +1,6 @@
 // backend/src/modules/superadmin/auth/sradmin.auth.controller.js (do not remove this comment)
 
-import { success, error } from "../../utils/response.js";
+import { success, error } from "../../../utils/response.js";
 import {
   createSRAdminService,
   loginService,
@@ -8,11 +8,11 @@ import {
   refreshTokenService,
   forgotPasswordService,
   resetPasswordService,
-} from "./sradmin.auth.service.new.js";
+} from "./sradmin.auth.service.js";
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // HELPERS
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 const COOKIE_OPTIONS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
@@ -55,9 +55,9 @@ const handle = (fn) => async (req, res) => {
   }
 };
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 1. CREATE SRADMIN
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const createSRAdmin = handle(async (req, res) => {
   const { name, email, password } = req.body;
   const createdBy = req.actorId;
@@ -72,9 +72,9 @@ export const createSRAdmin = handle(async (req, res) => {
   return success(res, result, "SRAdmin created successfully", 201);
 });
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 2. LOGIN
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const login = handle(async (req, res) => {
   const { identifier, password } = req.body;
 
@@ -93,9 +93,9 @@ export const login = handle(async (req, res) => {
   });
 });
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 3. LOGOUT
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const logout = handle(async (req, res) => {
   const refreshToken =
     req.cookies?.admin_refreshToken || req.body?.refreshToken;
@@ -112,9 +112,9 @@ export const logout = handle(async (req, res) => {
   return success(res, null, "Logged out successfully");
 });
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 4. REFRESH TOKEN
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const refresh = handle(async (req, res) => {
   const refreshToken =
     req.cookies?.admin_refreshToken || req.body?.refreshToken;
@@ -132,9 +132,9 @@ export const refresh = handle(async (req, res) => {
   });
 });
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 5. FORGOT PASSWORD
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const forgotPassword = handle(async (req, res) => {
   const { email } = req.body;
 
@@ -147,9 +147,9 @@ export const forgotPassword = handle(async (req, res) => {
   return success(res, null, result.message);
 });
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 6. RESET PASSWORD
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const resetPassword = handle(async (req, res) => {
   const { token, newPassword } = req.body;
 

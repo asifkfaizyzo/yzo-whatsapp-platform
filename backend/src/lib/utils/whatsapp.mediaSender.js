@@ -18,7 +18,7 @@ export const sendWhatsAppMedia = async ({
   const phoneId = tenant.whatsappPhoneId;
   const cleanPhone = contactPhone.replace("+", "");
 
-  // ── Step 1: Upload media to Meta ──
+  // -- Step 1: Upload media to Meta --
   const fileBuffer = fs.readFileSync(file.path);
 
   let uploadMimeType = file.mimetype || "application/octet-stream";
@@ -68,7 +68,7 @@ export const sendWhatsAppMedia = async ({
 
   if (!uploadRes.ok) {
     const err = await uploadRes.json();
-    console.error("❌ Meta media upload error:", err);
+    console.error("? Meta media upload error:", err);
     throw new Error(
       `Media upload failed: ${err.error?.message || JSON.stringify(err)}`,
     );
@@ -76,7 +76,7 @@ export const sendWhatsAppMedia = async ({
 
   const { id: mediaId } = await uploadRes.json();
 
-  // ── Step 2: Send message with media ID ──
+  // -- Step 2: Send message with media ID --
   const typeMap = {
     IMAGE: "image",
     VIDEO: "video",

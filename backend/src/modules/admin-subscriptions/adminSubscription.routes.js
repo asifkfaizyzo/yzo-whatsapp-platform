@@ -1,6 +1,7 @@
 // backend/src/modules/admin-subscriptions/adminSubscription.routes.js (do not remove this comment)
 import { Router } from "express";
-import { verifySuperAdmin } from "../../middlewares/auth.superAdmin.js";
+import { authenticate } from "../../middleware/authenticate.js";
+import { requireSRAdmin } from "../../middleware/requireSRAdmin.js";
 import * as adminSubscriptionsController from "./adminSubscription.controller.js";
 import rateLimit from "express-rate-limit";
 
@@ -18,17 +19,17 @@ const adminActionLimiter = rateLimit({
 
 router.get(
   "/",
-  verifySuperAdmin,
+  authenticate, requireSRAdmin,
   adminSubscriptionsController.getSubscriptions,
 );
 router.patch(
   "/:tenantId",
-  verifySuperAdmin,
+  authenticate, requireSRAdmin,
   adminSubscriptionsController.updateSubscription,
 );
 router.post(
   "/:tenantId/manual-activate",
-  verifySuperAdmin,
+  authenticate, requireSRAdmin,
   adminActionLimiter,
   adminSubscriptionsController.manualPlanActivation,
 );

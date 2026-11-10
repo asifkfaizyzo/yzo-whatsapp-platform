@@ -62,12 +62,12 @@ export const cancelSubscription = async (req, res) => {
             false,
           );
           console.log(
-            `✅ Cancelled Razorpay mandate for subscription ${tenant.razorpaySubscriptionId}`,
+            `? Cancelled Razorpay mandate for subscription ${tenant.razorpaySubscriptionId}`,
           );
         }
       } catch (rzpErr) {
         console.warn(
-          "⚠️ Razorpay subscription cancellation notice (proceeding with local DB cancellation):",
+          "?? Razorpay subscription cancellation notice (proceeding with local DB cancellation):",
           rzpErr?.error?.description || rzpErr?.message || rzpErr,
         );
       }
@@ -187,7 +187,7 @@ export const cancelSubscription = async (req, res) => {
     try {
       const notification = await createSuperAdminNotification({
         type: "subscription_cancelled",
-        title: "🚨 Subscription Cancelled",
+        title: "?? Subscription Cancelled",
         message: `${tenant.tenantName} cancelled their subscription (${tenant.currentPlan || "Plan"}). Reason: ${reason}`,
         metadata: {
           tenantId: tenant.id,
@@ -289,7 +289,7 @@ export const reactivateSubscription = async (req, res) => {
     try {
       const notification = await createSuperAdminNotification({
         type: "subscription_reactivated",
-        title: "🎉 Subscription Reactivated",
+        title: "?? Subscription Reactivated",
         message: `${tenant.tenantName} reactivated their subscription (${tenant.currentPlan || "Plan"})`,
         metadata: {
           tenantId: tenant.id,
@@ -332,7 +332,7 @@ export const reactivateSubscription = async (req, res) => {
   }
 };
 
-// ── Tenant Self-Service: Pause Subscription ──
+// -- Tenant Self-Service: Pause Subscription --
 export const pauseSubscription = async (req, res) => {
   const meta = extractRequestMeta(req);
   const { pauseDuration = "indefinite", reason = "Customer requested pause" } =
@@ -376,11 +376,11 @@ export const pauseSubscription = async (req, res) => {
           pause_at: "now",
         });
         console.log(
-          `⏸️ Paused Razorpay subscription ${tenant.razorpaySubscriptionId}`,
+          `?? Paused Razorpay subscription ${tenant.razorpaySubscriptionId}`,
         );
       } catch (rzpErr) {
         console.warn(
-          "⚠️ Razorpay pause notice (proceeding with local DB pause):",
+          "?? Razorpay pause notice (proceeding with local DB pause):",
           rzpErr?.error?.description || rzpErr?.message,
         );
       }
@@ -430,7 +430,7 @@ export const pauseSubscription = async (req, res) => {
     try {
       const notification = await createSuperAdminNotification({
         type: "subscription_paused",
-        title: "⏸️ Subscription Paused",
+        title: "?? Subscription Paused",
         message: `${tenant.tenantName} paused their subscription (${pauseDuration})`,
         metadata: {
           tenantId: tenant.id,
@@ -474,7 +474,7 @@ export const pauseSubscription = async (req, res) => {
   }
 };
 
-// ── Tenant Self-Service: Resume Subscription ──
+// -- Tenant Self-Service: Resume Subscription --
 export const resumeSubscription = async (req, res) => {
   const meta = extractRequestMeta(req);
 
@@ -505,11 +505,11 @@ export const resumeSubscription = async (req, res) => {
           resume_at: "now",
         });
         console.log(
-          `✅ Resumed Razorpay subscription ${tenant.razorpaySubscriptionId}`,
+          `? Resumed Razorpay subscription ${tenant.razorpaySubscriptionId}`,
         );
       } catch (rzpErr) {
         console.warn(
-          "⚠️ Razorpay resume notice (proceeding with local DB resume):",
+          "?? Razorpay resume notice (proceeding with local DB resume):",
           rzpErr?.error?.description || rzpErr?.message,
         );
       }
@@ -557,7 +557,7 @@ export const resumeSubscription = async (req, res) => {
     try {
       const notification = await createSuperAdminNotification({
         type: "subscription_resumed",
-        title: "▶️ Subscription Resumed",
+        title: "?? Subscription Resumed",
         message: `${tenant.tenantName} resumed their subscription (${tenant.currentPlan || "Plan"})`,
         metadata: {
           tenantId: tenant.id,

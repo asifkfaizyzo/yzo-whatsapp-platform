@@ -61,14 +61,14 @@ export const autoProvisionWebhooks = async (
       }
 
       console.log(
-        `✅ [WooCommerceService] Webhook "${item.topic}" provisioned successfully (ID: ${response.data.id})`,
+        `? [WooCommerceService] Webhook "${item.topic}" provisioned successfully (ID: ${response.data.id})`,
       );
     } catch (error) {
       const status = error.response?.status || "network error";
       const message = error.response?.data?.message || error.message;
       failedTopics.push(item.topic);
       console.error(
-        `⚠️ [WooCommerceService] Webhook "${item.topic}" failed (${status}) at ${error.config?.url || webhookEndpoint}: ${message}`,
+        `?? [WooCommerceService] Webhook "${item.topic}" failed (${status}) at ${error.config?.url || webhookEndpoint}: ${message}`,
       );
     }
   }
@@ -134,12 +134,12 @@ export const updateWooCommerceOrderStatus = async (
     }
 
     console.log(
-      `✅ [WooCommerceService] Order #${orderId} updated to '${newStatus}' for tenant ${tenantId}`,
+      `? [WooCommerceService] Order #${orderId} updated to '${newStatus}' for tenant ${tenantId}`,
     );
     return true;
   } catch (error) {
     console.error(
-      `❌ [WooCommerceService] Failed to update order #${orderId}:`,
+      `? [WooCommerceService] Failed to update order #${orderId}:`,
       error.response?.data || error.message,
     );
     return false;

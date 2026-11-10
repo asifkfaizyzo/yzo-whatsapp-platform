@@ -8,7 +8,7 @@ import {
   updateTenantSchema,
   blockTenantSchema,
   userIdParamSchema,
-} from "./sradmin.tenant.schema.new.js";
+} from "./sradmin.tenant.schema.js";
 import {
   getAllTenantsService,
   getTenantByIdService,
@@ -21,9 +21,9 @@ import {
   deleteTenantService,
   deactivateUserService,
   reactivateUserService,
-} from "./sradmin.tenant.service.new.js";
+} from "./sradmin.tenant.service.js";
 
-// ── Error wrapper (same pattern as Phase 5) ──
+// -- Error wrapper (same pattern as Phase 5) --
 const handle = (fn) => async (req, res) => {
   try {
     await fn(req, res);
@@ -33,9 +33,9 @@ const handle = (fn) => async (req, res) => {
   }
 };
 
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
 // TENANT CRUD
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
 
 export const getAllTenants = handle(async (req, res) => {
   const parsed = listTenantsSchema.safeParse(req.query);
@@ -73,7 +73,7 @@ export const approveTenant = handle(async (req, res) => {
   const actor = req.srAdmin;
   const meta = extractRequestMeta(req);
   const result = await approveTenantService(parsed.data.id, actor, meta);
-  return res.json(success("Tenant approved — moved to ONBOARDING", result));
+  return res.json(success("Tenant approved � moved to ONBOARDING", result));
 });
 
 export const blockTenant = handle(async (req, res) => {
@@ -129,9 +129,9 @@ export const deleteTenant = handle(async (req, res) => {
   return res.json(success("Tenant soft-deleted", result));
 });
 
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
 // USER (AGENT) MODERATION
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
 
 export const deactivateUser = handle(async (req, res) => {
   const parsed = userIdParamSchema.safeParse(req.params);

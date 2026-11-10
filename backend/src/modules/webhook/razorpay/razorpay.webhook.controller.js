@@ -19,7 +19,7 @@ export const handleRazorpayWebhook = async (req, res) => {
     }
 
     if (!req.rawBody) {
-      console.warn("⚠️ Webhook rawBody missing on request");
+      console.warn("?? Webhook rawBody missing on request");
     }
 
     // Verify Signature
@@ -38,16 +38,16 @@ export const handleRazorpayWebhook = async (req, res) => {
       expectedBuf.length !== sigBuf.length ||
       !crypto.timingSafeEqual(expectedBuf, sigBuf)
     ) {
-      console.warn("⚠️ Invalid Razorpay Webhook Signature");
+      console.warn("?? Invalid Razorpay Webhook Signature");
       return res.status(400).send("Invalid signature");
     }
 
     const event = req.body.event;
-    console.log(`🔔 Verified Razorpay Webhook received: ${event}`);
+    console.log(`?? Verified Razorpay Webhook received: ${event}`);
 
-    // ─────────────────────────────────────────────────────────────
+    // -------------------------------------------------------------
     // 1. EVENT: Payment Success (order.paid / payment.captured)
-    // ─────────────────────────────────────────────────────────────
+    // -------------------------------------------------------------
     if (event === "order.paid" || event === "payment.captured") {
       const paymentEntity = req.body?.payload?.payment?.entity;
       const orderId = paymentEntity?.order_id;
@@ -166,16 +166,16 @@ export const handleRazorpayWebhook = async (req, res) => {
           });
         } catch (pdfErr) {
           console.error(
-            "❌ PDF generation or email failed in webhook:",
+            "? PDF generation or email failed in webhook:",
             pdfErr.message,
           );
         }
       }
     }
 
-    // ─────────────────────────────────────────────────────────────
+    // -------------------------------------------------------------
     // 2. EVENT: Recurring Subscription Authenticated (Mandate Active)
-    // ─────────────────────────────────────────────────────────────
+    // -------------------------------------------------------------
     else if (event === "subscription.authenticated") {
       const subscription = req.body?.payload?.subscription?.entity;
       if (subscription?.id) {
@@ -195,9 +195,9 @@ export const handleRazorpayWebhook = async (req, res) => {
       }
     }
 
-    // ─────────────────────────────────────────────────────────────
+    // -------------------------------------------------------------
     // 3. EVENT: Recurring Subscription Charged (Day 15 Renewal / Monthly)
-    // ─────────────────────────────────────────────────────────────
+    // -------------------------------------------------------------
     else if (event === "subscription.charged") {
       const subscription = req.body?.payload?.subscription?.entity;
       const payment = req.body?.payload?.payment?.entity;
@@ -210,7 +210,7 @@ export const handleRazorpayWebhook = async (req, res) => {
 
         if (existingPayment) {
           console.log(
-            `[Webhook] Duplicate subscription.charged event for payment ${payment.id} — skipping`,
+            `[Webhook] Duplicate subscription.charged event for payment ${payment.id} � skipping`,
           );
           return res.status(200).json({ status: "ok", duplicate: true });
         }
@@ -317,7 +317,7 @@ export const handleRazorpayWebhook = async (req, res) => {
             });
           } catch (pdfErr) {
             console.error(
-              "❌ PDF generation or email failed for subscription.charged:",
+              "? PDF generation or email failed for subscription.charged:",
               pdfErr.message,
             );
           }
@@ -325,9 +325,9 @@ export const handleRazorpayWebhook = async (req, res) => {
       }
     }
 
-    // ─────────────────────────────────────────────────────────────
+    // -------------------------------------------------------------
     // 4. EVENT: Subscription Halted / Failed Auto-Debit (Soft Lock)
-    // ─────────────────────────────────────────────────────────────
+    // -------------------------------------------------------------
     else if (event === "subscription.halted") {
       const subscription = req.body?.payload?.subscription?.entity;
       if (subscription?.id) {
@@ -344,9 +344,9 @@ export const handleRazorpayWebhook = async (req, res) => {
       }
     }
 
-    // ─────────────────────────────────────────────────────────────
+    // -------------------------------------------------------------
     // 5. EVENT: Subscription Pending (Waiting for mandate)
-    // ─────────────────────────────────────────────────────────────
+    // -------------------------------------------------------------
     else if (event === "subscription.pending") {
       const subscription = req.body?.payload?.subscription?.entity;
       console.log(
@@ -354,9 +354,9 @@ export const handleRazorpayWebhook = async (req, res) => {
       );
     }
 
-    // ─────────────────────────────────────────────────────────────
+    // -------------------------------------------------------------
     // 6. EVENT: Subscription Completed (End of Total Cycles)
-    // ─────────────────────────────────────────────────────────────
+    // -------------------------------------------------------------
     else if (event === "subscription.completed") {
       const subscription = req.body?.payload?.subscription?.entity;
       if (subscription?.id) {
@@ -370,9 +370,9 @@ export const handleRazorpayWebhook = async (req, res) => {
       }
     }
 
-    // ─────────────────────────────────────────────────────────────
+    // -------------------------------------------------------------
     // 7. EVENT: Subscription Cancelled
-    // ─────────────────────────────────────────────────────────────
+    // -------------------------------------------------------------
     else if (event === "subscription.cancelled") {
       const subscription = req.body?.payload?.subscription?.entity;
       if (subscription?.id) {
@@ -387,9 +387,9 @@ export const handleRazorpayWebhook = async (req, res) => {
       }
     }
 
-    // ─────────────────────────────────────────────────────────────
+    // -------------------------------------------------------------
     // 7A. EVENT: Subscription Paused
-    // ─────────────────────────────────────────────────────────────
+    // -------------------------------------------------------------
     else if (event === "subscription.paused") {
       const subscription = req.body?.payload?.subscription?.entity;
       if (subscription?.id) {
@@ -405,9 +405,9 @@ export const handleRazorpayWebhook = async (req, res) => {
       }
     }
 
-    // ─────────────────────────────────────────────────────────────
+    // -------------------------------------------------------------
     // 7B. EVENT: Subscription Resumed
-    // ─────────────────────────────────────────────────────────────
+    // -------------------------------------------------------------
     else if (event === "subscription.resumed") {
       const subscription = req.body?.payload?.subscription?.entity;
       if (subscription?.id) {
@@ -424,9 +424,9 @@ export const handleRazorpayWebhook = async (req, res) => {
       }
     }
 
-    // ─────────────────────────────────────────────────────────────
+    // -------------------------------------------------------------
     // 8. EVENT: Payment Failed (payment.failed)
-    // ─────────────────────────────────────────────────────────────
+    // -------------------------------------------------------------
     else if (event === "payment.failed") {
       const paymentEntity = req.body?.payload?.payment?.entity;
       const orderId = paymentEntity?.order_id;
@@ -452,9 +452,9 @@ export const handleRazorpayWebhook = async (req, res) => {
       }
     }
 
-    // ─────────────────────────────────────────────────────────────
+    // -------------------------------------------------------------
     // 9. EVENT: Refund Processed (refund.processed / refund.created)
-    // ─────────────────────────────────────────────────────────────
+    // -------------------------------------------------------------
     else if (event === "refund.processed" || event === "refund.created") {
       const refundEntity = req.body?.payload?.refund?.entity;
       const paymentId = refundEntity?.payment_id;

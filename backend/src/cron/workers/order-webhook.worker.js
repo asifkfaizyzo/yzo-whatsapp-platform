@@ -5,7 +5,7 @@ import { redisConnection } from "../../config/redis.js";
 import { processOrderWebhookJob } from "../../modules/webhook/order.webhook.controller.js";
 import { dlqQueue } from "../queues/dlq.queue.js";
 
-// ── Cart Recovery Job Router ──
+// -- Cart Recovery Job Router --
 const routeJob = async (job) => {
   if (job.name === "woocommerce-cart-event") {
     const { handleWooCommerceCartEvent } =
@@ -19,7 +19,7 @@ const routeJob = async (job) => {
     return processCartReminder(job.data);
   }
 
-  // ── Shopify Post-Purchase Engagement Jobs ──
+  // -- Shopify Post-Purchase Engagement Jobs --
   if (job.name === "shopify-review-request") {
     const { processReviewRequestJob } =
       await import("../../modules/shopify/orders/shopify.postPurchase.service.js");
@@ -64,13 +64,13 @@ export const startOrderWebhookWorker = () => {
   worker.on("completed", (job) => {
     const eventName = job.data?.topic || job.data?.event || job.name;
     console.log(
-      `✅ [OrderWebhookWorker] Job ${job.id} (${eventName}) processed successfully`,
+      `? [OrderWebhookWorker] Job ${job.id} (${eventName}) processed successfully`,
     );
   });
 
   worker.on("failed", async (job, err) => {
     console.error(
-      `❌ [OrderWebhookWorker] Job ${job?.id} failed (attempt ${job?.attemptsMade}/${job?.opts?.attempts}):`,
+      `? [OrderWebhookWorker] Job ${job?.id} failed (attempt ${job?.attemptsMade}/${job?.opts?.attempts}):`,
       err.message,
     );
 
@@ -97,11 +97,11 @@ export const startOrderWebhookWorker = () => {
         );
 
         console.warn(
-          `📮 [DLQ] Order webhook job ${job.id} moved to DLQ after ${job.attemptsMade} attempts`,
+          `?? [DLQ] Order webhook job ${job.id} moved to DLQ after ${job.attemptsMade} attempts`,
         );
       } catch (dlqErr) {
         console.error(
-          "⚠️ [DLQ] Failed to push order webhook job to DLQ:",
+          "?? [DLQ] Failed to push order webhook job to DLQ:",
           dlqErr.message,
         );
       }
@@ -109,7 +109,7 @@ export const startOrderWebhookWorker = () => {
   });
 
   console.log(
-    "👷 Order Webhook Worker started (concurrency: 5) with DLQ support",
+    "?? Order Webhook Worker started (concurrency: 5) with DLQ support",
   );
   return worker;
 };

@@ -147,7 +147,7 @@ export const getOAuthUrl = (req, res) => {
 
     const { apiKey, apiSecret } = getShopifyConfig();
     const callbackUrl = getCallbackUrl(req);
-    console.log("👉 EXACT CALLBACK URL BEING SENT TO SHOPIFY:", callbackUrl);
+    console.log("?? EXACT CALLBACK URL BEING SENT TO SHOPIFY:", callbackUrl);
     const scopes =
       process.env.SHOPIFY_SCOPES ||
       "read_orders,read_products,read_customers,read_checkouts";
@@ -246,18 +246,18 @@ export const handleOAuthCallback = async (req, res) => {
     try {
       await registerShopifyWebhooks(shop, accessToken);
     } catch (err) {
-      console.error("⚠️ OAuth Webhook Registration Error:", err.message);
+      console.error("?? OAuth Webhook Registration Error:", err.message);
     }
 
-    // 🆕 Auto-trigger initial product catalog sync (non-blocking)
+    // ?? Auto-trigger initial product catalog sync (non-blocking)
     syncAllProducts(state.tenantId)
       .then((result) => {
         console.log(
-          `🚀 [OAuth] Initial product sync completed: ${result.totalSynced} products`,
+          `?? [OAuth] Initial product sync completed: ${result.totalSynced} products`,
         );
       })
       .catch((err) => {
-        console.error("⚠️ [OAuth] Initial product sync failed:", err.message);
+        console.error("?? [OAuth] Initial product sync failed:", err.message);
       });
 
     return redirectToIntegrations(res, { connected: "true" });

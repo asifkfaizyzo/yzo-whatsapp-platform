@@ -8,7 +8,7 @@ import {
   sendTemplateMessageService,
   deleteMessageService,
 } from "./message.service.js";
-import upload from "../../middlewares/upload.middleware.js";
+import upload from "../../middleware/upload.js";
 import { emitToTenant } from "../../lib/socket.js";
 import { generateSignedUrl } from "../../lib/utils/signed.url.js";
 import fs from "fs";
@@ -184,7 +184,7 @@ export const sendMessage = async (req, res) => {
     const { contactId } = req.params;
     const { text, quickReplyId, detachMedia } = req.body;
     const tenantId = req.tenantId;
-    const senderType = req.userType;
+    const senderType = req.actorType;
 
     const senderId = senderType === "TENANT" ? req.tenant?.id : req.user?.id;
 
@@ -319,7 +319,7 @@ export const sendMediaMessage = [
       console.log("req.file:", req.file);
       console.log("req.params:", req.params);
       console.log("req.tenantId:", req.tenantId);
-      console.log("req.userType:", req.userType);
+      console.log("req.actorType:", req.actorType);
 
       const { contactId } = req.params;
       const { caption, conversationId } = req.body;
@@ -354,10 +354,10 @@ export const sendMediaMessage = [
       let senderId = null;
       let senderType = null;
 
-      if (req.userType === "TENANT" && req.tenant) {
+      if (req.actorType === "TENANT" && req.tenant) {
         senderId = req.tenant.id;
         senderType = "TENANT";
-      } else if (req.userType === "USER" && req.user) {
+      } else if (req.actorType === "USER" && req.user) {
         senderId = req.user.id;
         senderType = "USER";
       }
@@ -461,11 +461,11 @@ export const deleteMessageController = async (req, res) => {
     let requesterRole = null;
     let tenantId = null;
 
-    if (req.userType === "TENANT") {
+    if (req.actorType === "TENANT") {
       requesterId = req.tenant.id;
       requesterRole = "TENANT";
       tenantId = req.tenant.id;
-    } else if (req.userType === "USER") {
+    } else if (req.actorType === "USER") {
       requesterId = req.user.id;
       requesterRole = "USER"; // ✅ matches deleteMessageService check
       tenantId = req.tenantId;
@@ -532,7 +532,7 @@ export const sendTemplateMessage = async (req, res) => {
     const { contactId } = req.params;
     const { templateId, params } = req.body;
     const tenantId = req.tenantId;
-    const senderType = req.userType;
+    const senderType = req.actorType;
 
     const senderId = senderType === "TENANT" ? req.tenant?.id : req.user?.id;
 

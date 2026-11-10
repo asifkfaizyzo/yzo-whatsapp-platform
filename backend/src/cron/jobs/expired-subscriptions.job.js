@@ -39,7 +39,7 @@ const sendSystemDeletionConfirmation = async (email, companyName) => {
 export const checkExpiredSubscriptions = async () => {
   const timestamp = new Date().toISOString();
   console.log(
-    `[${timestamp}] ── CRON: Starting Subscription & Trial Expiry checks ──`,
+    `[${timestamp}] -- CRON: Starting Subscription & Trial Expiry checks --`,
   );
   const now = new Date();
 

@@ -1,24 +1,24 @@
 // backend/src/modules/superadmin/auth/sradmin.auth.service.js (do not remove this comment)
 
-import prisma from "../../config/prisma.js";
-import { hashPassword, comparePassword } from "../../utils/hash.js";
-import { createTokenPair } from "../../utils/tokens.js";
+import prisma from "../../../config/prisma.js";
+import { hashPassword, comparePassword } from "../../../utils/hash.js";
+import { createTokenPair } from "../../../utils/tokens.js";
 import {
   generateResetToken,
   hashResetToken,
-} from "../../utils/resetToken.js";
+} from "../../../utils/resetToken.js";
 import {
   saveRefreshToken,
   deleteRefreshToken,
   findRefreshToken,
-} from "../auth/refreshToken.service.js";
-import { verifyRefreshToken } from "../auth/jwt.service.js";
-import { sendPasswordResetEmail } from "../auth/email.service.js";
-import { createAuditLog } from "../audit/audit.service.js";
+} from "../../auth/refreshToken.service.js";
+import { verifyRefreshToken } from "../../auth/jwt.service.js";
+import { sendPasswordResetEmail } from "../../auth/email.service.js";
+import { createAuditLog } from "../../audit/audit.service.js";
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // CUSTOM ERROR
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 class AuthError extends Error {
   constructor(message, statusCode = 400) {
     super(message);
@@ -27,9 +27,9 @@ class AuthError extends Error {
   }
 }
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // CONSTANTS & HELPERS
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 const SAFE_SRADMIN_SELECT = {
   id: true,
   name: true,
@@ -65,9 +65,9 @@ const issueTokens = async (admin) => {
 const logAuth = (fields) =>
   createAuditLog({ module: "AUTH", ...fields }).catch(() => {});
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 1. CREATE SRADMIN (by existing SRAdmin)
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const createSRAdminService = async ({
   name,
   email,
@@ -76,7 +76,7 @@ export const createSRAdminService = async ({
 }) => {
   const normalizedEmail = email.toLowerCase().trim();
 
-  // ── Check across all actor tables ──
+  // -- Check across all actor tables --
   const [tenant, user, existingAdmin] = await Promise.all([
     prisma.tenant.findFirst({
       where: { email: normalizedEmail, deletedAt: null },
@@ -124,9 +124,9 @@ export const createSRAdminService = async ({
   return { srAdmin: sanitizeSRAdmin(newAdmin) };
 };
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 2. LOGIN (Email or Username + Password)
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const loginService = async ({ identifier, password, ip, userAgent }) => {
   const trimmed = identifier.trim();
   const isEmail = trimmed.includes("@");
@@ -150,7 +150,7 @@ export const loginService = async ({ identifier, password, ip, userAgent }) => {
       actorName: "Unknown",
       actorEmail: isEmail ? trimmed : "N/A",
       action: "LOGIN_FAILED",
-      description: `Failed SRAdmin login — ${isEmail ? "email" : "username"} not found`,
+      description: `Failed SRAdmin login � ${isEmail ? "email" : "username"} not found`,
       ipAddress: ip,
       userAgent,
     });
@@ -191,9 +191,9 @@ export const loginService = async ({ identifier, password, ip, userAgent }) => {
   };
 };
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 3. LOGOUT
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const logoutService = async ({ refreshToken, adminId }) => {
   try {
     await deleteRefreshToken(refreshToken);
@@ -212,10 +212,10 @@ export const logoutService = async ({ refreshToken, adminId }) => {
   return { message: "Logged out successfully" };
 };
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 4. REFRESH TOKEN
 //    Bug #19 FIX: Uses createTokenPair() not raw jwt.sign()
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const refreshTokenService = async ({ refreshToken }) => {
   const tokenRecord = await findRefreshToken(refreshToken, "SUPERADMIN");
   if (!tokenRecord || tokenRecord.isRevoked) {
@@ -240,16 +240,16 @@ export const refreshTokenService = async ({ refreshToken }) => {
     throw new AuthError("SRAdmin account not found", 401);
   }
 
-  // ── Rotate tokens ──
+  // -- Rotate tokens --
   await deleteRefreshToken(refreshToken).catch(() => {});
   const tokens = await issueTokens(admin);
 
   return tokens;
 };
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 5. FORGOT PASSWORD
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const forgotPasswordService = async ({ email, ip, userAgent }) => {
   const normalizedEmail = email.toLowerCase().trim();
 
@@ -292,9 +292,9 @@ export const forgotPasswordService = async ({ email, ip, userAgent }) => {
   return { message: genericMessage };
 };
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 6. RESET PASSWORD
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const resetPasswordService = async ({
   token,
   newPassword,
@@ -326,7 +326,7 @@ export const resetPasswordService = async ({
     },
   });
 
-  // ── Revoke all sessions ──
+  // -- Revoke all sessions --
   await prisma.refreshToken.deleteMany({
     where: { superAdminId: admin.id },
   });

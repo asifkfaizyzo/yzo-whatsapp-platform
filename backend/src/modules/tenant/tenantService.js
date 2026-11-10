@@ -35,13 +35,13 @@ export const registerTenantService = async (data) => {
     timezone,
   } = data;
 
-  // 1️⃣ Validate input
+  // 1?? Validate input
   const resolvedTenantName = tenantName || (firstName ? `${firstName}'s Workspace` : (email ? email.split('@')[0] : 'My') + "'s Workspace");
   if (!email || !password) {
     throw new Error('Email and password are required');
   }
 
-  // 2️⃣ Check global email uniqueness (Tenant, User, SuperAdmin)
+  // 2?? Check global email uniqueness (Tenant, User, SuperAdmin)
   const [emailExistsInTenant, emailExistsInUser, emailExistsInSuperAdmin] = await Promise.all([
     prisma.tenant.findUnique({ where: { email } }),
     prisma.user.findUnique({ where: { email } }),
@@ -52,10 +52,10 @@ export const registerTenantService = async (data) => {
     throw new Error('Email is already registered on the platform');
   }
 
-  // 3️⃣ Hash password
+  // 3?? Hash password
   const hashedPassword = await bcrypt.hash(password, 10);
 
-  // 4️⃣ Create Tenant
+  // 4?? Create Tenant
   const tenant = await prisma.tenant.create({
     data: {
       tenantName: resolvedTenantName,
@@ -84,11 +84,11 @@ export const registerTenantService = async (data) => {
     tenantName: tenant.tenantName,
   });
 
-  // ✅ Notify SuperAdmin about new tenant registration
+  // ? Notify SuperAdmin about new tenant registration
   try {
     const superAdminNotif = await createSuperAdminNotification({
       type: 'tenant_registered',
-      title: '🆕 New Tenant Registered',
+      title: '?? New Tenant Registered',
       message: `${resolvedTenantName} (${email}) just signed up`,
       metadata: {
         tenantId: tenant.id,
@@ -108,12 +108,12 @@ export const registerTenantService = async (data) => {
         metadata: superAdminNotif.metadata,
       },
     });
-    console.log(`📤 SuperAdmin notified: new tenant ${resolvedTenantName}`);
+    console.log(`?? SuperAdmin notified: new tenant ${resolvedTenantName}`);
   } catch (err) {
-    console.error('❌ SuperAdmin notification failed:', err.message);
+    console.error('? SuperAdmin notification failed:', err.message);
   }
 
-  // 5️⃣ Generate JWT Tokens
+  // 5?? Generate JWT Tokens
   const accessToken = generateAccessToken({
     id: tenant.id,
     email: tenant.email,
@@ -125,16 +125,16 @@ export const registerTenantService = async (data) => {
     type: 'TENANT',
   });
 
-  // 6️⃣ Save refresh token
+  // 6?? Save refresh token
   await saveRefreshToken({
     token: refreshToken,
     tenantId: tenant.id,
   });
 
-  // 7️⃣ Remove password & refreshToken
+  // 7?? Remove password & refreshToken
   const { password: _, ...safeTenant } = tenant;
 
-  // 8️⃣ Return data
+  // 8?? Return data
   return {
     message: 'Tenant registered successfully',
     data: {
@@ -172,7 +172,7 @@ export const loginTenantService = async (data, meta = {}) => {
 
   const tenant = await prisma.tenant.findUnique({ where: { email } });
 
-  // ── Tenant not found ──
+  // -- Tenant not found --
   if (!tenant) {
     await createAuditLog({
       actorId:     'UNKNOWN',
@@ -181,14 +181,14 @@ export const loginTenantService = async (data, meta = {}) => {
       actorEmail:  email,
       action:      'LOGIN_FAILED',
       module:      'AUTH',
-      description: `Failed tenant login — email not found: ${email}`,
+      description: `Failed tenant login � email not found: ${email}`,
       ipAddress,
       userAgent,
     });
     throw new Error('Invalid credentials');
   }
 
-  // ── Tenant blocked ──
+  // -- Tenant blocked --
   if (tenant.status === 'BLOCKED') {
     await createAuditLog({
       actorId:     tenant.id,
@@ -205,7 +205,7 @@ export const loginTenantService = async (data, meta = {}) => {
     throw new Error('Your account is blocked. Contact support.');
   }
 
-  // ── Tenant deactivated ──
+  // -- Tenant deactivated --
   if (!tenant.isActive) {
     await createAuditLog({
       actorId:     tenant.id,
@@ -228,7 +228,7 @@ export const loginTenantService = async (data, meta = {}) => {
 
   const isPasswordMatch = await bcrypt.compare(password, tenant.password);
 
-  // ── Wrong password ──
+  // -- Wrong password --
   if (!isPasswordMatch) {
     await createAuditLog({
       actorId:     tenant.id,
@@ -237,7 +237,7 @@ export const loginTenantService = async (data, meta = {}) => {
       actorEmail:  tenant.email,
       action:      'LOGIN_FAILED',
       module:      'AUTH',
-      description: `Failed tenant login — wrong password`,
+      description: `Failed tenant login � wrong password`,
       ipAddress,
       userAgent,
       tenantId:    tenant.id,
@@ -245,11 +245,11 @@ export const loginTenantService = async (data, meta = {}) => {
     throw new Error('Invalid credentials');
   }
 
-  // ── Tokens ──
+  // -- Tokens --
   const accessToken = generateAccessToken({
     id:    tenant.id,
     email: tenant.email,
-    name:  tenant.tenantName,   // ← ADD name
+    name:  tenant.tenantName,   // ? ADD name
     type:  'TENANT',
   });
 
@@ -260,7 +260,7 @@ export const loginTenantService = async (data, meta = {}) => {
 
   await saveRefreshToken({ token: refreshToken, tenantId: tenant.id });
 
-  // ── Success audit log ──
+  // -- Success audit log --
   await createAuditLog({
     actorId:     tenant.id,
     actorType:   'TENANT',
@@ -306,7 +306,7 @@ export const logoutTenantService = async (refreshToken, meta = {}) => {
     throw new Error('Refresh token required');
   }
 
-  // ── Find who owns this refresh token ──
+  // -- Find who owns this refresh token --
   const tokenRecord = await prisma.refreshToken.findFirst({
     where: { token: refreshToken },
     include: {
@@ -328,10 +328,10 @@ export const logoutTenantService = async (refreshToken, meta = {}) => {
     },
   });
 
-  // ── Delete token ──
+  // -- Delete token --
   await deleteRefreshToken(refreshToken);
 
-  // ── Log based on who owned the token ──
+  // -- Log based on who owned the token --
   if (tokenRecord?.tenant) {
     await createAuditLog({
       actorId:     tokenRecord.tenant.id,
@@ -373,26 +373,26 @@ export const refreshTenantAccessTokenService =
       throw new Error('Refresh token required');
     }
 
-    // 2️⃣ Find token in DB
+    // 2?? Find token in DB
     const tokenRecord = await findRefreshToken(refreshToken, 'TENANT');
 
     if (!tokenRecord) {
       throw new Error('Invalid refresh token');
     }
 
-    // 3️⃣ Check expiry in DB
+    // 3?? Check expiry in DB
     if (tokenRecord.expiresAt < new Date()) {
       throw new Error('Refresh token expired, please login again');
     }
 
-    // 4️⃣ Verify JWT signature
+    // 4?? Verify JWT signature
     try {
       verifyRefreshToken(refreshToken);
     } catch (error) {
       throw new Error('Invalid refresh token');
     }
 
-    // 5️⃣ Find Tenant
+    // 5?? Find Tenant
     const tenant = await prisma.tenant.findUnique({
       where: { id: tokenRecord.tenantId },
     });
@@ -401,14 +401,14 @@ export const refreshTenantAccessTokenService =
       throw new Error('Tenant not found');
     }
 
-    // 6️⃣ Generate new access token only
+    // 6?? Generate new access token only
     const newAccessToken = generateAccessToken({
       id: tenant.id,
       email: tenant.email,
       type: 'TENANT',
     });
 
-    // 1️⃣1️⃣ Return new token and user details
+    // 1??1?? Return new token and user details
     return {
       message: 'Token refreshed successfully',
       accessToken: newAccessToken,
@@ -459,7 +459,7 @@ export const resetPasswordTenantService = async (
 export const createUserService = async (data, tenantId) => {
   const { name, email, password } = data;
 
-  // 1️⃣ Validate input
+  // 1?? Validate input
   if (!name || !email || !password) {
     throw new Error('Name, email and password are required');
   }
@@ -476,7 +476,7 @@ export const createUserService = async (data, tenantId) => {
     throw new Error('Tenant ID is required');
   }
   console.log("checking emails");
-  // 2️⃣ Check global email uniqueness (Tenant, User, SuperAdmin)
+  // 2?? Check global email uniqueness (Tenant, User, SuperAdmin)
   const [emailExistsInTenant, emailExistsInUser, emailExistsInSuperAdmin] = await Promise.all([
     prisma.tenant.findUnique({ where: { email } }),
     prisma.user.findUnique({ where: { email } }),
@@ -487,10 +487,10 @@ export const createUserService = async (data, tenantId) => {
     throw new Error('Email is already registered on the platform');
   }
 
-  // 3️⃣ Hash password
+  // 3?? Hash password
   const hashedPassword = await bcrypt.hash(password, 10);
   console.log("creating user");
-  // 5️⃣ Create User under this Tenant
+  // 5?? Create User under this Tenant
   const user = await prisma.user.create({
     data: {
       name,
@@ -501,7 +501,7 @@ export const createUserService = async (data, tenantId) => {
     },
   });
 
-  // 6️⃣ Generate tokens
+  // 6?? Generate tokens
   const accessToken = generateAccessToken({
     id: user.id,
     email: user.email,
@@ -515,16 +515,16 @@ export const createUserService = async (data, tenantId) => {
     type: 'USER',
   });
 
-  // 7️⃣ Save refresh token
+  // 7?? Save refresh token
   await saveRefreshToken({
     token: refreshToken,
     userId: user.id,
   });
 
-  // 8️⃣ Remove sensitive data
+  // 8?? Remove sensitive data
   const { password: _, ...safeUser } = user;
   console.log("return response");
-  // 9️⃣ Return data
+  // 9?? Return data
   return {
     message: 'User created successfully',
     user: {
@@ -543,11 +543,11 @@ export const createUserService = async (data, tenantId) => {
 
 //===========Get all users of tenant- tenantcontroller===========
 export const getUsersByTenantService = async (tenantId) => {
-  // 1️⃣ Validate
+  // 1?? Validate
   if (!tenantId) {
     throw new Error('Tenant ID is required');
   }
-  // 2️⃣ Fetch all users under this tenant (exclude passwords)
+  // 2?? Fetch all users under this tenant (exclude passwords)
   const users = await prisma.user.findMany({
     where: { tenantId: tenantId },
     select: {
@@ -558,7 +558,7 @@ export const getUsersByTenantService = async (tenantId) => {
       tenantId: true,
       createdAt: true,
       updatedAt: true,
-      // ❌ password is NOT selected
+      // ? password is NOT selected
       assignedContacts: {
         select: { id: true }
       }
@@ -575,7 +575,7 @@ export const getUsersByTenantService = async (tenantId) => {
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
 
-    // ✅ The dynamic count you were looking for
+    // ? The dynamic count you were looking for
     assignedContactCount: user.assignedContacts.length
   }));
 
@@ -592,7 +592,7 @@ export const getUsersByTenantService = async (tenantId) => {
 
 //===========Get by-id using tenant-controller===========
 export const getUserByIdService = async (userId, tenantId) => {
-  // 1️⃣ Validate input
+  // 1?? Validate input
   if (!userId) {
     throw new Error('User ID is required');
   }
@@ -601,7 +601,7 @@ export const getUserByIdService = async (userId, tenantId) => {
     throw new Error('Tenant ID is required');
   }
 
-  // 2️⃣ Find user by id AND tenantId
+  // 2?? Find user by id AND tenantId
   const user = await prisma.user.findFirst({
     where: {
       id: userId,
@@ -618,12 +618,12 @@ export const getUserByIdService = async (userId, tenantId) => {
     },
   });
 
-  // 3️⃣ If not found
+  // 3?? If not found
   if (!user) {
     throw new Error('User not found');
   }
 
-  // 4️⃣ Return user
+  // 4?? Return user
   return {
     message: 'User fetched successfully',
     user,
@@ -635,7 +635,7 @@ export const getUserByIdService = async (userId, tenantId) => {
 //===========Update user by id under tenant-controller===========
 export const updateUserByIdService = async (userId, tenantId, data) => {
 
-  // 1️⃣ Validate input
+  // 1?? Validate input
   if (!userId) {
     throw new Error('User ID is required');
   }
@@ -644,7 +644,7 @@ export const updateUserByIdService = async (userId, tenantId, data) => {
     throw new Error('Tenant ID is required');
   }
 
-  // 2️⃣ Check if user exists AND belongs to this tenant
+  // 2?? Check if user exists AND belongs to this tenant
   const existingUser = await prisma.user.findFirst({
     where: {
       id: userId,
@@ -656,7 +656,7 @@ export const updateUserByIdService = async (userId, tenantId, data) => {
     throw new Error('User not found');
   }
 
-  // 3️⃣ Prepare update data (only allowed fields)
+  // 3?? Prepare update data (only allowed fields)
   const updateData = {};
 
   if (data.name) {
@@ -689,12 +689,12 @@ export const updateUserByIdService = async (userId, tenantId, data) => {
     updateData.isActive = data.isActive;
   }
 
-  // 4️⃣ Check if there's anything to update
+  // 4?? Check if there's anything to update
   if (Object.keys(updateData).length === 0) {
     throw new Error('No valid fields to update');
   }
 
-  // 5️⃣ Update user
+  // 5?? Update user
   const updatedUser = await prisma.user.update({
     where: { id: userId },
     data: updateData,
@@ -722,7 +722,7 @@ export const updateUserByIdService = async (userId, tenantId, data) => {
 //===========Deactivate user by id (soft delete) under tenant-controller===========
 export const deactivateUserByIdService = async (userId, tenantId) => {
 
-  // 1️⃣ Validate input
+  // 1?? Validate input
   if (!userId) {
     throw new Error('User ID is required');
   }
@@ -730,7 +730,7 @@ export const deactivateUserByIdService = async (userId, tenantId) => {
   if (!tenantId) {
     throw new Error('Tenant ID is required');
   }
-  // 2️⃣ Check if user exists AND belongs to this tenant
+  // 2?? Check if user exists AND belongs to this tenant
   const existingUser = await prisma.user.findFirst({
     where: {
       id: userId,
@@ -738,17 +738,17 @@ export const deactivateUserByIdService = async (userId, tenantId) => {
     },
   });
 
-  // 3️⃣ User not found
+  // 3?? User not found
   if (!existingUser) {
     throw new Error('User not found');
   }
 
-  // 4️⃣ Check if already deactivated
+  // 4?? Check if already deactivated
   if (!existingUser.isActive) {
     throw new Error('User is already deactivated');
   }
 
-  // 5️⃣ Deactivate user (set isActive to false)
+  // 5?? Deactivate user (set isActive to false)
   const deactivatedUser = await prisma.user.update({
     where: { id: userId },
     data: { isActive: false },
@@ -761,7 +761,7 @@ export const deactivateUserByIdService = async (userId, tenantId) => {
       updatedAt: true,
     },
   });
-  // 6️⃣ Delete their refresh tokens (force logout)
+  // 6?? Delete their refresh tokens (force logout)
   await prisma.refreshToken.deleteMany({
     where: { userId: userId },
   });
@@ -777,7 +777,7 @@ export const deactivateUserByIdService = async (userId, tenantId) => {
 //===========Reactivate User By Tenant - under tenant-controller===========
 export const reactivateUserByIdService = async (userId, tenantId) => {
 
-  // 1️⃣ Validate input
+  // 1?? Validate input
   if (!userId) {
     throw new Error('User ID is required');
   }
@@ -792,7 +792,7 @@ export const reactivateUserByIdService = async (userId, tenantId) => {
     throw new Error(limitCheck.message);
   }
 
-  // 2️⃣ Check if user exists AND belongs to this tenant
+  // 2?? Check if user exists AND belongs to this tenant
   const existingUser = await prisma.user.findFirst({
     where: {
       id: userId,
@@ -800,17 +800,17 @@ export const reactivateUserByIdService = async (userId, tenantId) => {
     },
   });
 
-  // 3️⃣ User not found
+  // 3?? User not found
   if (!existingUser) {
     throw new Error('User not found');
   }
 
-  // 4️⃣ Check if already active
+  // 4?? Check if already active
   if (existingUser.isActive) {
     throw new Error('User is already active');
   }
 
-  // 5️⃣ Reactivate user (set isActive to true)
+  // 5?? Reactivate user (set isActive to true)
   const reactivatedUser = await prisma.user.update({
     where: { id: userId },
     data: { isActive: true },
@@ -838,7 +838,7 @@ export const reactivateUserByIdService = async (userId, tenantId) => {
 //Delete user by id under tenant-controller
 export const deleteUserByIdService = async (userId, tenantId) => {
 
-  // 1️⃣ Validate input
+  // 1?? Validate input
   if (!userId) {
     throw new Error('User ID is required');
   }
@@ -847,7 +847,7 @@ export const deleteUserByIdService = async (userId, tenantId) => {
     throw new Error('Tenant ID is required');
   }
 
-  // 2️⃣ Check if user exists AND belongs to this tenant
+  // 2?? Check if user exists AND belongs to this tenant
   const existingUser = await prisma.user.findFirst({
     where: {
       id: userId,
@@ -921,20 +921,20 @@ export const getUnassignedContacts = async (tenantId) => {
 
 
 export const assignContactService = async (contactId, userId, tenantId) => {
-  // ── 1. Validate contact ──
+  // -- 1. Validate contact --
   const contact = await prisma.contact.findFirst({
     where: { id: contactId, tenantId },
   });
   if (!contact) throw new Error("Contact not found");
 
-  // ── 2. Validate user ──
+  // -- 2. Validate user --
   const user = await prisma.user.findFirst({
     where: { id: userId, tenantId },
     select: { id: true, name: true },
   });
   if (!user) throw new Error("User not found");
 
-  // ── 3. Assign contact ──
+  // -- 3. Assign contact --
   const updatedContact = await prisma.contact.update({
     where: { id: contactId },
     data: {
@@ -943,7 +943,7 @@ export const assignContactService = async (contactId, userId, tenantId) => {
     },
   });
 
-  // ── 4. Also update conversation ──
+  // -- 4. Also update conversation --
   const conversation = await prisma.conversation.findUnique({
     where: { contactId },
   });
@@ -955,7 +955,7 @@ export const assignContactService = async (contactId, userId, tenantId) => {
     });
   }
 
-    // ── 5. Notify agent ──
+    // -- 5. Notify agent --
   try {
     const notification = await createNotification({
       tenantId,
@@ -976,14 +976,14 @@ export const assignContactService = async (contactId, userId, tenantId) => {
       metadata: notification.metadata,
     };
 
-    // ✅ Emit to tenant room (for admin dashboard)
+    // ? Emit to tenant room (for admin dashboard)
     emitToTenant(tenantId, "new_notification", { notification: notifPayload });
 
-    // ✅ Emit directly to assigned user (for agent's notification bell)
+    // ? Emit directly to assigned user (for agent's notification bell)
     emitToUser(userId, "new_notification", { notification: notifPayload });
   
 
-    // ── 6. Emit to user so their inbox refreshes ──
+    // -- 6. Emit to user so their inbox refreshes --
     if (conversation) {
       // Show unread count
       if (conversation.unreadCount > 0) {
@@ -1003,7 +1003,7 @@ export const assignContactService = async (contactId, userId, tenantId) => {
       });
     }
 
-    // ── 7. Update tenant's unassigned count ──
+    // -- 7. Update tenant's unassigned count --
     const unassignedCount = await prisma.contact.count({
       where: { tenantId, assignedTo: null, isActive: true }
     });
@@ -1015,15 +1015,15 @@ export const assignContactService = async (contactId, userId, tenantId) => {
       conversationId: conversation?.id,
     });
 
-    // ── 8. Send WhatsApp to customer ──
+    // -- 8. Send WhatsApp to customer --
     try {
       const flowEngineModule = await import('../automation/flowEngineService.js');
       const flowEngine = flowEngineModule.default;
 
       const customerMsg =
-        `👋 Hi ${contact.name || 'there'}!\n\n` +
+        `?? Hi ${contact.name || 'there'}!\n\n` +
         `You've been connected with *${user.name}*.\n` +
-        `They will respond to you shortly. 💬`;
+        `They will respond to you shortly. ??`;
 
       await flowEngine.sendWhatsAppMessage(tenantId, contact.phone, customerMsg);
 
@@ -1094,10 +1094,10 @@ export const reassignContactService = async (contactId, newUserId, tenantId) => 
       metadata: notification.metadata,
     };
 
-    // ✅ Emit to tenant room
+    // ? Emit to tenant room
     emitToTenant(tenantId, 'new_notification', { notification: notifPayload });
 
-    // ✅ Emit to new agent's room
+    // ? Emit to new agent's room
     emitToUser(newUserId, 'new_notification', { notification: notifPayload });
 
     if (conversation) {
@@ -1122,9 +1122,9 @@ export const reassignContactService = async (contactId, newUserId, tenantId) => 
       const flowEngine = flowEngineModule.default;
 
       const customerMsg =
-        `👋 Hi ${contact.name || 'there'}!\n\n` +
+        `?? Hi ${contact.name || 'there'}!\n\n` +
         `Your conversation has been transferred to *${user.name}*.\n` +
-        `They will help you from here. 💬`;
+        `They will help you from here. ??`;
 
       await flowEngine.sendWhatsAppMessage(tenantId, contact.phone, customerMsg);
 
@@ -1149,7 +1149,7 @@ export const unassignContactService = async (
   contactId,
   tenantId
 ) => {
-  // 1️⃣ Check contact belongs to tenant
+  // 1?? Check contact belongs to tenant
   const contact = await prisma.contact.findFirst({
     where: {
       id: contactId,
@@ -1161,12 +1161,12 @@ export const unassignContactService = async (
     throw new Error("Contact not found");
   }
 
-  // 2️⃣ Check if already unassigned
+  // 2?? Check if already unassigned
   if (!contact.assignedTo) {
     throw new Error("Contact is already unassigned");
   }
 
-  // 3️⃣ Unassign contact
+  // 3?? Unassign contact
   const updatedContact = await prisma.contact.update({
     where: {
       id: contactId,
@@ -1188,7 +1188,7 @@ export const listConversations = async (tenantId, options = {}) => {
   const limit = options.limit || 20;
   const skip = (page - 1) * limit;
 
-  // 1️⃣ Fetch conversations
+  // 1?? Fetch conversations
   const conversations = await prisma.conversation.findMany({
     where: {
       tenantId,
@@ -1199,17 +1199,17 @@ export const listConversations = async (tenantId, options = {}) => {
         orderBy: {
           createdAt: "desc",
         },
-        take: 1, // 🔥 only last message (important for inbox)
+        take: 1, // ?? only last message (important for inbox)
       },
     },
     orderBy: {
-      updatedAt: "desc", // 🔥 latest chat first (WhatsApp style)
+      updatedAt: "desc", // ?? latest chat first (WhatsApp style)
     },
     skip,
     take: limit,
   });
 
-  // 2️⃣ Count total conversations
+  // 2?? Count total conversations
   const total = await prisma.conversation.count({
     where: { tenantId },
   });
@@ -1230,12 +1230,12 @@ export const getAutoReopenConfigService = async (tenantId) => {
     throw new Error('Tenant ID is required');
   }
 
-  // 1️⃣ Find existing config
+  // 1?? Find existing config
   let config = await prisma.autoReopenConfig.findUnique({
     where: { tenantId },
   });
 
-  // 2️⃣ If it doesn't exist, create a default one
+  // 2?? If it doesn't exist, create a default one
   if (!config) {
     config = await prisma.autoReopenConfig.create({
       data: {
@@ -1510,13 +1510,13 @@ export const loginOrRegisterWithFacebookService = async (accessToken) => {
         status: 'APPROVED',
         onboardingStep: 5,
         onboardingCompleted: true,
-        planId: defaultPlan?.id || null, // 👈 Auto-assigns default plan
-        planStatus: 'active',             // 👈 Auto-activates plan
+        planId: defaultPlan?.id || null, // ?? Auto-assigns default plan
+        planStatus: 'active',             // ?? Auto-activates plan
         billingType: 'MONTHLY',
       },
     });
   } else {
-    // Scenario C: Tenant exists — ensure active plan & onboarding so reviewer is never blocked
+    // Scenario C: Tenant exists � ensure active plan & onboarding so reviewer is never blocked
     const updateData = {
       ...(tenant.authProvider !== 'FACEBOOK' || !tenant.facebookId ? { facebookId, authProvider: 'FACEBOOK' } : {}),
       ...(tenant.email ? {} : { email }),
@@ -1614,15 +1614,15 @@ export const updateTenantPasswordService = async (
     data: { password: hashedPassword },
   });
 
-  // ─────────────────────────────────────────────
-  // 🔍 DEBUG BLOCK - remove after fix confirmed
-  // ─────────────────────────────────────────────
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('🔍 STEP 1 - Reached audit log section');
-  console.log('🔍 tenant.id      :', tenant.id);
-  console.log('🔍 tenant.email   :', tenant.email);
-  console.log('🔍 tenant.tenantName:', tenant.tenantName);
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  // ---------------------------------------------
+  // ?? DEBUG BLOCK - remove after fix confirmed
+  // ---------------------------------------------
+  console.log('?????????????????????????????????????');
+  console.log('?? STEP 1 - Reached audit log section');
+  console.log('?? tenant.id      :', tenant.id);
+  console.log('?? tenant.email   :', tenant.email);
+  console.log('?? tenant.tenantName:', tenant.tenantName);
+  console.log('?????????????????????????????????????');
 
   try {
     const auditPayload = {
@@ -1636,19 +1636,19 @@ export const updateTenantPasswordService = async (
       tenantId:    tenant.id,
     };
 
-    console.log('🔍 STEP 2 - Audit payload:', JSON.stringify(auditPayload, null, 2));
+    console.log('?? STEP 2 - Audit payload:', JSON.stringify(auditPayload, null, 2));
 
     const auditResult = await createAuditLog(auditPayload);
 
-    console.log('✅ STEP 3 - Audit log created:', auditResult?.id ?? auditResult);
+    console.log('? STEP 3 - Audit log created:', auditResult?.id ?? auditResult);
   } catch (auditError) {
-    // ⚠️ THIS will show you the EXACT failure reason
-    console.error('❌ STEP 3 - Audit log FAILED');
-    console.error('❌ Error message :', auditError.message);
-    console.error('❌ Error code    :', auditError.code);    // Prisma error code
-    console.error('❌ Full error    :', auditError);
+    // ?? THIS will show you the EXACT failure reason
+    console.error('? STEP 3 - Audit log FAILED');
+    console.error('? Error message :', auditError.message);
+    console.error('? Error code    :', auditError.code);    // Prisma error code
+    console.error('? Full error    :', auditError);
   }
-  // ─────────────────────────────────────────────
+  // ---------------------------------------------
 
   return { message: 'Password updated successfully' };
 };
@@ -1661,13 +1661,13 @@ export const uploadTenantLogoService = async (tenantId, file) => {
   if (!tenantId) throw new Error("Tenant ID is required");
   if (!file) throw new Error("No file uploaded");
 
-  // 1️⃣ Find tenant
+  // 1?? Find tenant
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
   });
   if (!tenant) throw new Error("Tenant not found");
 
-  // 2️⃣ Delete old logo file (if exists)
+  // 2?? Delete old logo file (if exists)
   if (tenant.logo) {
     try {
       // Extract file path from URL (e.g. /uploads/logos/xyz/logo-123.png)
@@ -1677,14 +1677,14 @@ export const uploadTenantLogoService = async (tenantId, file) => {
       }
     } catch (err) {
       console.error("Failed to delete old logo:", err.message);
-      // Don't throw — continue with new upload
+      // Don't throw � continue with new upload
     }
   }
 
-  // 3️⃣ Build public URL for the new logo
+  // 3?? Build public URL for the new logo
   const logoUrl = `/${file.path.replace(/\\/g, '/')}`; // normalize for Windows
 
-  // 4️⃣ Update tenant with new logo URL
+  // 4?? Update tenant with new logo URL
   const updatedTenant = await prisma.tenant.update({
     where: { id: tenantId },
     data: { logo: logoUrl },

@@ -83,21 +83,21 @@ export const getConversationController = async (req, res) => {
 export const getAssignedConversationsController = async (req, res) => {
   try {
     console.log("🔥 tenantId:", req.tenantId);
-    console.log("🔥 userType:", req.userType);
+    console.log("🔥 userType:", req.actorType);
     // 1️⃣ Get logged-in user info
-    const userId = req.userType === "TENANT" ? null : req.user.id;
+    const userId = req.actorType === "TENANT" ? null : req.user.id;
     const tenantId = req.tenantId;
 
     // 2️⃣ Get pagination and filter from URL
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
     const filter =
-      req.query.filter || (req.userType === "TENANT" ? "all" : "my");
+      req.query.filter || (req.actorType === "TENANT" ? "all" : "my");
 
     let status = "ALL"; // ← default is ALL (no status filter)
     let assignmentType = "all";
 
-    if (req.userType === "TENANT") {
+    if (req.actorType === "TENANT") {
       if (filter === "closed") {
         status = "CLOSED";
       } else if (filter === "open") {
@@ -165,7 +165,7 @@ export const getMessagesController = async (req, res) => {
     const data = await getMessages({
       tenantId,
       conversationId,
-      userId: req.userType === "USER" ? req.userId : null,
+      userId: req.actorType === "USER" ? req.userId : null,
       limit,
       before,
     });
@@ -192,8 +192,8 @@ export const updateConversationStatusController = async (req, res) => {
     const tenantId = req.tenantId;
 
     // Extract agent context
-    const agentId = req.userType === "TENANT" ? null : req.user.id;
-    const userType = req.userType;
+    const agentId = req.actorType === "TENANT" ? null : req.user.id;
+    const userType = req.actorType;
 
     const conversation = await updateConversationStatus({
       conversationId,
@@ -221,8 +221,8 @@ export const archiveConversationController = async (req, res) => {
   try {
     const { conversationId } = req.params;
     const tenantId = req.tenantId;
-    const requesterId = req.userType === "TENANT" ? req.tenant.id : req.user.id;
-    const requesterRole = req.userType; // "TENANT" or "USER"
+    const requesterId = req.actorType === "TENANT" ? req.tenant.id : req.user.id;
+    const requesterRole = req.actorType; // "TENANT" or "USER"
 
     const result = await archiveConversation({
       conversationId,
@@ -252,8 +252,8 @@ export const unarchiveConversationController = async (req, res) => {
   try {
     const { conversationId } = req.params;
     const tenantId = req.tenantId;
-    const requesterId = req.userType === "TENANT" ? req.tenant.id : req.user.id;
-    const requesterRole = req.userType;
+    const requesterId = req.actorType === "TENANT" ? req.tenant.id : req.user.id;
+    const requesterRole = req.actorType;
 
     const result = await unarchiveConversation({
       conversationId,
@@ -280,8 +280,8 @@ export const deleteConversationController = async (req, res) => {
   try {
     const { conversationId } = req.params;
     const tenantId = req.tenantId;
-    const requesterId = req.userType === "TENANT" ? req.tenant.id : req.user.id;
-    const requesterRole = req.userType;
+    const requesterId = req.actorType === "TENANT" ? req.tenant.id : req.user.id;
+    const requesterRole = req.actorType;
 
     const result = await deleteConversation({
       conversationId,
@@ -310,7 +310,7 @@ export const deleteConversationController = async (req, res) => {
 export const getArchivedConversationsController = async (req, res) => {
   try {
     const tenantId = req.tenantId;
-    const userId = req.userType === "USER" ? req.user.id : null;
+    const userId = req.actorType === "USER" ? req.user.id : null;
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
 
@@ -335,7 +335,7 @@ export const getArchivedConversationsController = async (req, res) => {
 export const bulkReassignConversationsController = async (req, res) => {
   try {
     // ── Guard: Only TENANT (admin) can bulk reassign ───────
-    if (req.userType !== "TENANT") {
+    if (req.actorType !== "TENANT") {
       return res.status(403).json({
         success: false,
         message: "Unauthorized: Only admin can bulk reassign conversations",
@@ -469,7 +469,7 @@ export const getConversationMediaController = async (req, res) => {
     const data = await getConversationMedia({
       conversationId,
       tenantId,
-      userId: req.userType === "USER" ? req.userId : null,
+      userId: req.actorType === "USER" ? req.userId : null,
       type,
       page,
       limit,

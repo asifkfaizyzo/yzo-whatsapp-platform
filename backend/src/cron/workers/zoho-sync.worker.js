@@ -14,7 +14,7 @@ export const processZohoSyncJob = async (job) => {
   }
 
   console.log(
-    `👷 [ZohoSyncWorker] Processing Job ${job.id} for tenant ${tenantId} (${syncType || "FULL"})`,
+    `?? [ZohoSyncWorker] Processing Job ${job.id} for tenant ${tenantId} (${syncType || "FULL"})`,
   );
 
   return await syncTenantContactsToZoho(tenantId, { syncType });
@@ -28,12 +28,12 @@ export const startZohoSyncWorker = () => {
 
   worker.on("completed", (job) => {
     console.log(
-      `✅ [ZohoSyncWorker] Job ${job.id} completed successfully for tenant ${job.data?.tenantId}`,
+      `? [ZohoSyncWorker] Job ${job.id} completed successfully for tenant ${job.data?.tenantId}`,
     );
   });
 
   worker.on("failed", async (job, err) => {
-    console.error(`❌ [ZohoSyncWorker] Job ${job?.id} failed:`, err.message);
+    console.error(`? [ZohoSyncWorker] Job ${job?.id} failed:`, err.message);
 
     if (job && job.attemptsMade >= job.opts.attempts) {
       try {
@@ -53,17 +53,17 @@ export const startZohoSyncWorker = () => {
         );
 
         console.warn(
-          `📮 [DLQ] Zoho sync job ${job.id} moved to DLQ after ${job.attemptsMade} attempts`,
+          `?? [DLQ] Zoho sync job ${job.id} moved to DLQ after ${job.attemptsMade} attempts`,
         );
       } catch (dlqError) {
         console.error(
-          "⚠️ [DLQ] Failed to push Zoho job to DLQ:",
+          "?? [DLQ] Failed to push Zoho job to DLQ:",
           dlqError.message,
         );
       }
     }
   });
 
-  console.log("👷 Zoho sync worker started (concurrency: 3) with DLQ support");
+  console.log("?? Zoho sync worker started (concurrency: 3) with DLQ support");
   return worker;
 };

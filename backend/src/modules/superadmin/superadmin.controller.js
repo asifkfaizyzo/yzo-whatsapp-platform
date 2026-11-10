@@ -216,7 +216,7 @@ export const getTenantById = async (req, res) => {
 export const updateTenantById = async (req, res) => {
   try {
     const meta = extractRequestMeta(req);
-    const actor = req.superAdmin;
+    const actor = req.srAdmin;
     const { id } = req.params;
     const data = req.body;
     const result = await updateTenantByIdService(id, data, actor, meta);
@@ -232,7 +232,7 @@ export const updateTenantById = async (req, res) => {
 export const deactivateTenant = async (req, res) => {
   try {
     const meta = extractRequestMeta(req);
-    const actor = req.superAdmin;
+    const actor = req.srAdmin;
     const { id } = req.params;
     const result = await deactivateTenantService(id, actor, meta);
     return res.status(200).json({ success: true, data: result });
@@ -247,7 +247,7 @@ export const deactivateTenant = async (req, res) => {
 export const reactivateTenant = async (req, res) => {
   try {
     const meta = extractRequestMeta(req);
-    const actor = req.superAdmin;
+    const actor = req.srAdmin;
     const { id } = req.params;
     const result = await reactivateTenantService(id, actor, meta);
     return res.status(200).json({ success: true, data: result });
@@ -262,7 +262,7 @@ export const reactivateTenant = async (req, res) => {
 export const deleteTenantById = async (req, res) => {
   try {
     const meta = extractRequestMeta(req);
-    const actor = req.superAdmin;
+    const actor = req.srAdmin;
     const { id } = req.params;
     const result = await deleteTenantByIdService(id, actor, meta);
     return res.status(200).json({ success: true, data: result });
@@ -277,7 +277,7 @@ export const deleteTenantById = async (req, res) => {
 export const approveTenant = async (req, res) => {
   try {
     const meta = extractRequestMeta(req);
-    const actor = req.superAdmin;
+    const actor = req.srAdmin;
     const { id } = req.params;
     const result = await approveTenantService(id, actor, meta);
     return res.status(200).json({ success: true, data: result });
@@ -292,7 +292,7 @@ export const approveTenant = async (req, res) => {
 export const blockTenant = async (req, res) => {
   try {
     const meta = extractRequestMeta(req);
-    const actor = req.superAdmin;
+    const actor = req.srAdmin;
     const { id } = req.params;
     const result = await blockTenantService(id, actor, meta);
     return res.status(200).json({ success: true, data: result });
@@ -307,7 +307,7 @@ export const blockTenant = async (req, res) => {
 export const unblockTenant = async (req, res) => {
   try {
     const meta = extractRequestMeta(req);
-    const actor = req.superAdmin;
+    const actor = req.srAdmin;
     const { id } = req.params;
     const result = await unblockTenantService(id, actor, meta);
     return res.status(200).json({ success: true, data: result });
@@ -322,7 +322,7 @@ export const unblockTenant = async (req, res) => {
 export const deactivateUser = async (req, res) => {
   try {
     const meta = extractRequestMeta(req);
-    const actor = req.superAdmin;
+    const actor = req.srAdmin;
     const { id } = req.params;
     const result = await deactivateUserService(id, actor, meta);
     return res.status(200).json({ success: true, data: result });
@@ -337,7 +337,7 @@ export const deactivateUser = async (req, res) => {
 export const reactivateUser = async (req, res) => {
   try {
     const meta = extractRequestMeta(req);
-    const actor = req.superAdmin;
+    const actor = req.srAdmin;
     const { id } = req.params;
     const result = await reactivateUserService(id, actor, meta);
     return res.status(200).json({ success: true, data: result });
@@ -465,9 +465,9 @@ export const updateGSTSettings = async (req, res) => {
       await import("./superadmin.service.js");
 
     const actor = {
-      id: req.superAdmin.id,
-      name: req.superAdmin.name,
-      email: req.superAdmin.email,
+      id: req.srAdmin.id,
+      name: req.srAdmin.name,
+      email: req.srAdmin.email,
     };
     const meta = extractRequestMeta(req);
 

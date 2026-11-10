@@ -30,8 +30,8 @@ export const loginUser = async (req, res) => {
     const result = await loginUserService(req.body, meta);
     const { accessToken, refreshToken, user } = result;
 
-    // 🔍 DIAGNOSTIC — remove after confirming
-    console.log("🔑 Login tokens:", {
+    // ?? DIAGNOSTIC � remove after confirming
+    console.log("?? Login tokens:", {
       hasAccess: !!accessToken,
       accessLen: accessToken?.length,
       hasRefresh: !!refreshToken,
@@ -70,7 +70,7 @@ export const logoutUser = async (req, res) => {
     const refreshToken = req.cookies.user_refreshToken || req.body.refreshToken;
 
     if (refreshToken) {
-      await logoutUserService(refreshToken, meta); // ← pass meta only
+      await logoutUserService(refreshToken, meta); // ? pass meta only
     }
 
     // Clear cookie
@@ -160,7 +160,7 @@ export const resetPasswordUser = async (req, res) => {
 // ===================== ASSIGNED CONTACTS =====================
 export const getMyAssignedContacts = async (req, res) => {
   try {
-    // Safety check — make sure auth middleware ran properly
+    // Safety check � make sure auth middleware ran properly
     if (!req.user || !req.user.id || !req.user.tenantId) {
       return res.status(401).json({
         success: false,
@@ -184,7 +184,7 @@ export const getMyAssignedContacts = async (req, res) => {
       ...result,
     });
   } catch (error) {
-    console.error("❌ Error in getMyAssignedContacts:", error);
+    console.error("? Error in getMyAssignedContacts:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to fetch assigned contacts",
@@ -213,7 +213,7 @@ export const getUserProfile = async (req, res) => {
       data: user,
     });
   } catch (error) {
-    console.error("❌ Error in getUserProfile:", error);
+    console.error("? Error in getUserProfile:", error);
     return res.status(400).json({
       success: false,
       message: error.message,
@@ -240,7 +240,7 @@ export const updateUserPassword = async (req, res) => {
       ...result,
     });
   } catch (error) {
-    console.error("❌ Error in updateUserPassword:", error);
+    console.error("? Error in updateUserPassword:", error);
     return res.status(400).json({
       success: false,
       message: error.message,
@@ -249,7 +249,7 @@ export const updateUserPassword = async (req, res) => {
 };
 
 // ============================================================
-// 🆕 UPDATE AGENT AVAILABILITY STATUS
+// ?? UPDATE AGENT AVAILABILITY STATUS
 // ============================================================
 export const updateAvailability = async (req, res) => {
   try {
@@ -278,7 +278,7 @@ export const updateAvailability = async (req, res) => {
       data: result,
     });
   } catch (error) {
-    console.error("❌ Error in updateAvailability:", error);
+    console.error("? Error in updateAvailability:", error);
     return res.status(400).json({
       success: false,
       message: error.message,
@@ -287,7 +287,7 @@ export const updateAvailability = async (req, res) => {
 };
 
 // ============================================================
-// 🆕 AGENT DASHBOARD STATS
+// ?? AGENT DASHBOARD STATS
 // ============================================================
 export const getDashboardStats = async (req, res) => {
   try {
@@ -305,7 +305,7 @@ export const getDashboardStats = async (req, res) => {
       data: result,
     });
   } catch (error) {
-    console.error("❌ Error in getDashboardStats:", error);
+    console.error("? Error in getDashboardStats:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to fetch dashboard stats",
@@ -314,7 +314,7 @@ export const getDashboardStats = async (req, res) => {
 };
 
 // ============================================================
-// 🆕 GLOBAL UNREAD BADGE COUNT
+// ?? GLOBAL UNREAD BADGE COUNT
 // ============================================================
 export const getUnreadBadgeCount = async (req, res) => {
   try {
@@ -332,7 +332,7 @@ export const getUnreadBadgeCount = async (req, res) => {
       data: result,
     });
   } catch (error) {
-    console.error("❌ Error in getUnreadBadgeCount:", error);
+    console.error("? Error in getUnreadBadgeCount:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to fetch unread count",
@@ -341,7 +341,7 @@ export const getUnreadBadgeCount = async (req, res) => {
 };
 
 // ============================================================
-// 🆕 GOOGLE LOGIN FOR AGENT
+// ?? GOOGLE LOGIN FOR AGENT
 // ============================================================
 export const googleLoginUser = async (req, res) => {
   try {
@@ -349,15 +349,15 @@ export const googleLoginUser = async (req, res) => {
     const result = await loginUserWithGoogleService(credential);
     const { accessToken, refreshToken, user } = result;
 
-    // 🔍 ADD THIS ONE LINE
-    console.log("🔑 GOOGLE LOGIN RESULT:", {
+    // ?? ADD THIS ONE LINE
+    console.log("?? GOOGLE LOGIN RESULT:", {
       hasAccess: !!accessToken,
       hasRefresh: !!refreshToken,
       refreshLen: refreshToken?.length,
     });
 
-    // 🔍 DIAGNOSTIC — remove after confirming
-    console.log("🔑 Login tokens:", {
+    // ?? DIAGNOSTIC � remove after confirming
+    console.log("?? Login tokens:", {
       hasAccess: !!accessToken,
       accessLen: accessToken?.length,
       hasRefresh: !!refreshToken,
@@ -385,9 +385,9 @@ export const googleLoginUser = async (req, res) => {
   }
 };
 
-// ═════════════════════════════════════════
-// 🆕 PUSH TOKEN REGISTRATION
-// ═════════════════════════════════════════
+// -----------------------------------------
+// ?? PUSH TOKEN REGISTRATION
+// -----------------------------------------
 export const registerPushToken = async (req, res) => {
   try {
     const { pushToken } = req.body;
@@ -420,7 +420,7 @@ export const registerPushToken = async (req, res) => {
     });
 
     console.log(
-      `🔔 Push token saved for agent ${userId}: ${pushToken.substring(0, 30)}...`,
+      `?? Push token saved for agent ${userId}: ${pushToken.substring(0, 30)}...`,
     );
 
     return res.status(200).json({
@@ -428,7 +428,7 @@ export const registerPushToken = async (req, res) => {
       message: "Push token registered",
     });
   } catch (error) {
-    console.error("❌ registerPushToken error:", error.message);
+    console.error("? registerPushToken error:", error.message);
     return res
       .status(500)
       .json({ success: false, message: "Failed to register push token" });
@@ -453,21 +453,21 @@ export const clearPushToken = async (req, res) => {
       },
     });
 
-    console.log(`🔔 Push token cleared for agent ${userId}`);
+    console.log(`?? Push token cleared for agent ${userId}`);
 
     return res.status(200).json({
       success: true,
       message: "Push token cleared",
     });
   } catch (error) {
-    console.error("❌ clearPushToken error:", error.message);
+    console.error("? clearPushToken error:", error.message);
     return res
       .status(500)
       .json({ success: false, message: "Failed to clear push token" });
   }
 };
 
-// ── Get Notification Preferences ──
+// -- Get Notification Preferences --
 export const getNotificationPreferences = async (req, res) => {
   try {
     const userId = req.userId || req.user?.id;
@@ -499,7 +499,7 @@ export const getNotificationPreferences = async (req, res) => {
   }
 };
 
-// ── Update Notification Preferences ──
+// -- Update Notification Preferences --
 export const updateNotificationPreferences = async (req, res) => {
   try {
     const userId = req.userId || req.user?.id;

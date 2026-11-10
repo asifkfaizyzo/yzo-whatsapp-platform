@@ -72,7 +72,7 @@ export const createContact = async (data, tenantId, userId) => {
     });
 
     if (!tag) {
-      console.log(`⚠️ Tag '${tagIdentifier}' not found. Skipping...`);
+      console.log(`?? Tag '${tagIdentifier}' not found. Skipping...`);
       continue;
     }
 
@@ -89,13 +89,13 @@ export const createContact = async (data, tenantId, userId) => {
       await prisma.contactTagMapping.create({
         data: { contactId: contact.id, tagId: tag.id },
       });
-      console.log(`✅ Tag '${tag.name}' mapped to contact`);
+      console.log(`? Tag '${tag.name}' mapped to contact`);
     }
   }
 
-  // ✅ Run cascading priority assignment if created by TENANT
+  // ? Run cascading priority assignment if created by TENANT
   if (!userId) {
-    console.log(`🔄 Running cascading priority assignment for: ${name}`);
+    console.log(`?? Running cascading priority assignment for: ${name}`);
     await assignContactByPriority(contact.id, tenantId);
   }
 
@@ -262,7 +262,7 @@ export const getContactById = async (contactId, tenantId) => {
 
 // ===================== GET CONTACTS BY USER ID =====================
 export const getContactsByUserId = async (tenantId, userId) => {
-  console.log(`🔍 Fetching contacts for User: ${userId}, Tenant: ${tenantId}`);
+  console.log(`?? Fetching contacts for User: ${userId}, Tenant: ${tenantId}`);
 
   const contacts = await prisma.contact.findMany({
     where: {
@@ -277,9 +277,9 @@ export const getContactsByUserId = async (tenantId, userId) => {
     },
   });
 
-  console.log(`✅ Found ${contacts.length} contacts`);
+  console.log(`? Found ${contacts.length} contacts`);
   console.log(
-    `📋 Contacts:`,
+    `?? Contacts:`,
     contacts.map((c) => c.name),
   );
 
@@ -373,7 +373,7 @@ export const updateContact = async (contactId, tenantId, data) => {
 
         if (!tag) {
           console.log(
-            `⚠️ Tag '${tagIdentifier}' not found during update. Skipping...`,
+            `?? Tag '${tagIdentifier}' not found during update. Skipping...`,
           );
           continue;
         }
@@ -618,7 +618,7 @@ export const importContactsFromCSV = async (filePath, tenantId) => {
     const rows = await new Promise((resolve, reject) => {
       const results = [];
       fs.createReadStream(filePath)
-        .pipe(csv()) // ✅ Dynamic parsing, stops column shift
+        .pipe(csv()) // ? Dynamic parsing, stops column shift
         .on("data", (row) => results.push(row))
         .on("end", () => resolve(results))
         .on("error", reject);
@@ -647,7 +647,7 @@ export const importContactsFromCSV = async (filePath, tenantId) => {
         const name = normalized.name?.trim();
         const rawPhone = normalized.phone?.trim() || "";
 
-        // 🔴 Reject Missing
+        // ?? Reject Missing
         if (!name || !rawPhone) {
           summary.errors++;
           summary.errorDetails.push({
@@ -657,7 +657,7 @@ export const importContactsFromCSV = async (filePath, tenantId) => {
           });
           continue;
         }
-        // 🔴 Reject Excel E+ notation
+        // ?? Reject Excel E+ notation
         if (/e\+/i.test(rawPhone)) {
           summary.errors++;
           summary.errorDetails.push({
@@ -667,7 +667,7 @@ export const importContactsFromCSV = async (filePath, tenantId) => {
           });
           continue;
         }
-        // 🔴 Reject Letters
+        // ?? Reject Letters
         if (/[a-zA-Z]/.test(rawPhone)) {
           summary.errors++;
           summary.errorDetails.push({
@@ -764,7 +764,7 @@ export const assignContactByPriority = async (contactId, tenantId) => {
     include: {
       contactTags: {
         include: { tag: true },
-        orderBy: { tag: { priority: "asc" } }, // ✅ Sort in DB query
+        orderBy: { tag: { priority: "asc" } }, // ? Sort in DB query
       },
     },
   });
@@ -775,19 +775,19 @@ export const assignContactByPriority = async (contactId, tenantId) => {
 
   // 2. Cascading: Try each tag
   for (const { tag } of contact.contactTags) {
-    // ── BEFORE ──
+    // -- BEFORE --
     // const userMappings = await prisma.userTagMapping.findMany({
     //     where: { tagId: tag.id, tenantId }
     // });
 
-    // ── AFTER ──
+    // -- AFTER --
     const userMappings = await prisma.userTagMapping.findMany({
       where: {
         tagId: tag.id,
         tenantId,
         user: {
           isActive: true,
-          availabilityStatus: "AVAILABLE", // ← NEW
+          availabilityStatus: "AVAILABLE", // ? NEW
         },
       },
     });
@@ -826,7 +826,7 @@ export const assignContactByPriority = async (contactId, tenantId) => {
 // ======== Round Robin Helper ========
 // Find the user who currently has the least number of assigned contacts
 // This is the core logic used for balanced distribution
-// ✅ NEW: Fast single-query aggregation
+// ? NEW: Fast single-query aggregation
 export const getLeastLoadedUser = async (userIds, tenantId) => {
   const userCounts = await prisma.contact.groupBy({
     by: ["assignedTo"],
@@ -996,7 +996,7 @@ export const getTagById = async (tagId) => {
 
 /**
  * Auto-sync hook: Push contact to Zoho CRM if integration is connected.
- * Non-blocking — runs in background via dynamic import to avoid circular deps.
+ * Non-blocking � runs in background via dynamic import to avoid circular deps.
  */
 async function triggerZohoAutoSync(tenantId, contactId) {
   try {
@@ -1009,7 +1009,7 @@ async function triggerZohoAutoSync(tenantId, contactId) {
       );
     });
   } catch (_) {
-    // Zoho module not available — silently ignore
+    // Zoho module not available � silently ignore
   }
 }
 

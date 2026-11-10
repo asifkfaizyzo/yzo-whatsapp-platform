@@ -14,7 +14,7 @@ const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI;
  */
 export const getOAuth2Client = (tokens = null) => {
   if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GOOGLE_REDIRECT_URI) {
-    console.error("❌ Google OAuth Credentials missing in .env");
+    console.error("? Google OAuth Credentials missing in .env");
   }
 
   const oauth2Client = new google.auth.OAuth2(

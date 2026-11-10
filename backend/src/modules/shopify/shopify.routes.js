@@ -1,6 +1,7 @@
 // backend/src/modules/shopify/shopify.routes.js (do not remove this comment)
 import express from "express";
-import { verifyTenantOrUser } from "../../middlewares/auth.verifyTenantOrUser.js";
+import { authenticate } from "../../middleware/authenticate.js";
+import { requireTenantOrUser } from "../../middleware/requireTenantOrUser.js";
 import * as shopifyController from "./shopify.controller.js";
 import * as shopifyOAuthController from "./shopify.oauth.controller.js";
 import * as shopifyWebhookController from "./webhooks/shopify.webhook.controller.js";
@@ -13,7 +14,7 @@ router.get("/oauth/callback", shopifyOAuthController.handleOAuthCallback);
 router.post("/webhooks", shopifyWebhookController.handleIncomingWebhook);
 
 // 2. AUTHENTICATED ROUTES (Requires SudoReply User Context)
-router.use(verifyTenantOrUser);
+router.use(authenticate, requireTenantOrUser);
 
 router.get("/oauth/url", shopifyOAuthController.getOAuthUrl);
 router.post("/connect", shopifyController.connect);

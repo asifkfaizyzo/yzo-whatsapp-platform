@@ -1,35 +1,36 @@
 // backend/src/modules/billing/billing.routes.js (do not remove this comment)
 import { Router } from "express";
-import { verifyTenant } from "../../middlewares/auth.tenant.js";
-import { checkSubscriptionAccess } from "../../middlewares/subscription.access.js";
+import { authenticate } from "../../middleware/authenticate.js";
+import { requireTenant } from "../../middleware/requireTenant.js";
+import { checkSubscriptionAccess } from "../../middleware/subscriptionAccess.js";
 import * as billingController from "./billing.controller.js";
 
 const router = Router();
 
-router.post("/cancel", verifyTenant, billingController.cancelSubscription);
-router.post("/cancel-autopay", verifyTenant, billingController.cancelAutopay);
+router.post("/cancel", authenticate, requireTenant, billingController.cancelSubscription);
+router.post("/cancel-autopay", authenticate, requireTenant, billingController.cancelAutopay);
 router.post(
   "/reactivate",
-  verifyTenant,
+  authenticate, requireTenant,
   billingController.reactivateSubscription,
 );
-router.post("/pause", verifyTenant, billingController.pauseSubscription);
-router.post("/resume", verifyTenant, billingController.resumeSubscription);
+router.post("/pause", authenticate, requireTenant, billingController.pauseSubscription);
+router.post("/resume", authenticate, requireTenant, billingController.resumeSubscription);
 router.get(
   "/",
-  verifyTenant,
+  authenticate, requireTenant,
   checkSubscriptionAccess,
   billingController.getBillingOverview,
 );
 router.get(
   "/invoices",
-  verifyTenant,
+  authenticate, requireTenant,
   checkSubscriptionAccess,
   billingController.getInvoices,
 );
 router.get(
   "/invoices/:id/download",
-  verifyTenant,
+  authenticate, requireTenant,
   billingController.downloadInvoicePdf,
 );
 

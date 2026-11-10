@@ -2,7 +2,7 @@
 import axios from "axios";
 
 const REQUIRED_WEBHOOK_TOPICS = [
-  "orders/create", // 1.1 Order Confirmation ✅
+  "orders/create", // 1.1 Order Confirmation ?
   "orders/updated", // 1.2 Payment Received (check financial_status)
   "orders/fulfilled", // 1.3 Order Shipped
   "fulfillments/create", // Tracking details added to a fulfillment
@@ -14,12 +14,12 @@ const REQUIRED_WEBHOOK_TOPICS = [
   "carts/update", // Online-store cart updated
   "checkouts/create", // Abandoned checkout created
   "checkouts/update", // Abandoned checkout updated
-  "customers/create", // 🆕 New customer greeting
-  "customers/update", // 🆕 Customer information updated
-  "products/create", // 🆕 Product catalog sync — new product
-  "products/update", // 🆕 Product catalog sync + Back-in-Stock detection
-  "products/delete", // 🆕 Product catalog sync — product removed
-  "inventory_levels/update", // 🆕 Inventory quantity changes
+  "customers/create", // ?? New customer greeting
+  "customers/update", // ?? Customer information updated
+  "products/create", // ?? Product catalog sync � new product
+  "products/update", // ?? Product catalog sync + Back-in-Stock detection
+  "products/delete", // ?? Product catalog sync � product removed
+  "inventory_levels/update", // ?? Inventory quantity changes
 ];
 
 /**
@@ -74,8 +74,8 @@ export const registerShopifyWebhooks = async (shopName, accessToken) => {
     .toLowerCase();
   if (!cleanShop.includes(".")) cleanShop = `${cleanShop}.myshopify.com`;
 
-  console.log(`\n📡 [Shopify Webhook] Syncing webhooks for ${cleanShop}`);
-  console.log(`   👉 Target Address: ${callbackUrl}`);
+  console.log(`\n?? [Shopify Webhook] Syncing webhooks for ${cleanShop}`);
+  console.log(`   ?? Target Address: ${callbackUrl}`);
 
   // 1. Fetch existing webhooks from Shopify
   let existingWebhooks = [];
@@ -90,7 +90,7 @@ export const registerShopifyWebhooks = async (shopName, accessToken) => {
     existingWebhooks = existingRes.data?.webhooks || [];
   } catch (err) {
     console.warn(
-      `⚠️ [Shopify Webhook] Could not fetch existing webhooks: ${err.message}`,
+      `?? [Shopify Webhook] Could not fetch existing webhooks: ${err.message}`,
     );
   }
 
@@ -108,7 +108,7 @@ export const registerShopifyWebhooks = async (shopName, accessToken) => {
     // If webhook exists AND URL matches current callbackUrl, we are good!
     if (existingHook && existingHook.address === callbackUrl) {
       console.log(
-        `✅ [Shopify Webhook] Topic '${topic}' is up-to-date (${callbackUrl})`,
+        `? [Shopify Webhook] Topic '${topic}' is up-to-date (${callbackUrl})`,
       );
       results.push({ topic, status: "up_to_date", id: existingHook.id });
       continue;
@@ -118,7 +118,7 @@ export const registerShopifyWebhooks = async (shopName, accessToken) => {
     if (existingHook && existingHook.address !== callbackUrl) {
       try {
         console.log(
-          `🔄 [Shopify Webhook] Updating outdated URL for '${topic}'...`,
+          `?? [Shopify Webhook] Updating outdated URL for '${topic}'...`,
         );
         const updateRes = await axios.put(
           `https://${cleanShop}/admin/api/${apiVersion}/webhooks/${existingHook.id}.json`,
@@ -132,7 +132,7 @@ export const registerShopifyWebhooks = async (shopName, accessToken) => {
           },
         );
         console.log(
-          `🎉 [Shopify Webhook] Updated topic '${topic}' to: ${callbackUrl}`,
+          `?? [Shopify Webhook] Updated topic '${topic}' to: ${callbackUrl}`,
         );
         results.push({
           topic,
@@ -142,7 +142,7 @@ export const registerShopifyWebhooks = async (shopName, accessToken) => {
       } catch (err) {
         const errorMsg = err.response?.data?.errors || err.message;
         console.error(
-          `❌ [Shopify Webhook] Failed to update topic '${topic}':`,
+          `? [Shopify Webhook] Failed to update topic '${topic}':`,
           errorMsg,
         );
         results.push({ topic, status: "failed", error: errorMsg });
@@ -171,7 +171,7 @@ export const registerShopifyWebhooks = async (shopName, accessToken) => {
       );
 
       console.log(
-        `🎉 [Shopify Webhook] Created new topic '${topic}' -> ${callbackUrl}`,
+        `?? [Shopify Webhook] Created new topic '${topic}' -> ${callbackUrl}`,
       );
       results.push({
         topic,
@@ -181,7 +181,7 @@ export const registerShopifyWebhooks = async (shopName, accessToken) => {
     } catch (err) {
       const errorMsg = err.response?.data?.errors || err.message;
       console.error(
-        `❌ [Shopify Webhook] Failed to create topic '${topic}':`,
+        `? [Shopify Webhook] Failed to create topic '${topic}':`,
         errorMsg,
       );
       results.push({ topic, status: "failed", error: errorMsg });

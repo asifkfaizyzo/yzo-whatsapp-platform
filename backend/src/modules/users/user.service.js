@@ -32,7 +32,7 @@ export const loginUserService = async (data, meta = {}) => {
 
   const user = await prisma.user.findUnique({ where: { email } });
 
-  // ── User not found ──
+  // -- User not found --
   if (!user) {
     await createAuditLog({
       actorId: "UNKNOWN",
@@ -41,14 +41,14 @@ export const loginUserService = async (data, meta = {}) => {
       actorEmail: email,
       action: "LOGIN_FAILED",
       module: "AUTH",
-      description: `Failed user login — email not found: ${email}`,
+      description: `Failed user login � email not found: ${email}`,
       ipAddress,
       userAgent,
     });
     throw new Error("Invalid credentials");
   }
 
-  // ── User deactivated ──
+  // -- User deactivated --
   if (!user.isActive) {
     await createAuditLog({
       actorId: user.id,
@@ -67,7 +67,7 @@ export const loginUserService = async (data, meta = {}) => {
     );
   }
 
-  // ── Tenant check ──
+  // -- Tenant check --
   const tenantRow = await prisma.tenant.findUnique({
     where: { id: user.tenantId },
     select: {
@@ -89,7 +89,7 @@ export const loginUserService = async (data, meta = {}) => {
       actorEmail: user.email,
       action: "LOGIN_FAILED",
       module: "AUTH",
-      description: `User login failed — organization blocked or deactivated`,
+      description: `User login failed � organization blocked or deactivated`,
       ipAddress,
       userAgent,
       tenantId: user.tenantId,
@@ -101,7 +101,7 @@ export const loginUserService = async (data, meta = {}) => {
     throw new Error("Your organization account is pending approval.");
   }
 
-  // ── Wrong password ──
+  // -- Wrong password --
   const isPasswordMatch = await bcrypt.compare(password, user.password);
   if (!isPasswordMatch) {
     await createAuditLog({
@@ -111,7 +111,7 @@ export const loginUserService = async (data, meta = {}) => {
       actorEmail: user.email,
       action: "LOGIN_FAILED",
       module: "AUTH",
-      description: `Failed user login — wrong password`,
+      description: `Failed user login � wrong password`,
       ipAddress,
       userAgent,
       tenantId: user.tenantId,
@@ -119,11 +119,11 @@ export const loginUserService = async (data, meta = {}) => {
     throw new Error("Invalid credentials");
   }
 
-  // ── Tokens ──
+  // -- Tokens --
   const accessToken = generateAccessToken({
     id: user.id,
     email: user.email,
-    name: user.name, // ← ADD name
+    name: user.name, // ? ADD name
     tenantId: user.tenantId,
     type: "USER",
   });
@@ -136,7 +136,7 @@ export const loginUserService = async (data, meta = {}) => {
 
   await saveRefreshToken({ token: refreshToken, userId: user.id });
 
-  // ── Success audit log ──
+  // -- Success audit log --
   await createAuditLog({
     actorId: user.id,
     actorType: "USER",
@@ -176,7 +176,7 @@ export const logoutUserService = async (refreshToken, meta = {}) => {
     throw new Error("Refresh token required");
   }
 
-  // ── Find who owns this refresh token ──
+  // -- Find who owns this refresh token --
   const tokenRecord = await prisma.refreshToken.findFirst({
     where: { token: refreshToken },
     include: {
@@ -191,10 +191,10 @@ export const logoutUserService = async (refreshToken, meta = {}) => {
     },
   });
 
-  // ── Delete token ──
+  // -- Delete token --
   await deleteRefreshToken(refreshToken);
 
-  // ── Log who logged out ──
+  // -- Log who logged out --
   if (tokenRecord?.user) {
     await createAuditLog({
       actorId: tokenRecord.user.id,
@@ -215,31 +215,31 @@ export const logoutUserService = async (refreshToken, meta = {}) => {
 
 // =========user access token refresh service =========
 export const refreshUserAccessTokenService = async (refreshToken) => {
-  // 1️⃣ Check input
+  // 1?? Check input
   if (!refreshToken) {
     throw new Error("Refresh token required");
   }
 
-  // 2️⃣ Find token in DB
+  // 2?? Find token in DB
   const tokenRecord = await findRefreshToken(refreshToken, "USER");
 
   if (!tokenRecord) {
     throw new Error("Invalid refresh token");
   }
 
-  // 3️⃣ Check expiry in DB
+  // 3?? Check expiry in DB
   if (tokenRecord.expiresAt < new Date()) {
     throw new Error("Refresh token expired, please login again");
   }
 
-  // 4️⃣ Verify JWT signature
+  // 4?? Verify JWT signature
   try {
     verifyRefreshToken(refreshToken);
   } catch (error) {
     throw new Error("Invalid refresh token");
   }
 
-  // 5️⃣ Find User
+  // 5?? Find User
   const user = await prisma.user.findUnique({
     where: { id: tokenRecord.userId },
   });
@@ -252,7 +252,7 @@ export const refreshUserAccessTokenService = async (refreshToken) => {
     throw new Error("User account is deactivated");
   }
 
-  // 6️⃣ Generate new access token
+  // 6?? Generate new access token
   const newAccessToken = generateAccessToken({
     id: user.id,
     email: user.email,
@@ -260,7 +260,7 @@ export const refreshUserAccessTokenService = async (refreshToken) => {
     type: "USER",
   });
 
-  // 8️⃣ Return tokens (same refreshToken continues to work)
+  // 8?? Return tokens (same refreshToken continues to work)
   return {
     message: "Token refreshed successfully",
     accessToken: newAccessToken,
@@ -289,7 +289,7 @@ export const resetPasswordUserService = async (
 
 // ===================== ASSIGNED CONTACTS =====================
 export const getAssignedContacts = async (userId, tenantId, options = {}) => {
-  // 🔍 DEBUG: check who is calling API
+  // ?? DEBUG: check who is calling API
   // console.log("LOGIN USER ID:", userId);
   // console.log("TENANT ID:", tenantId);
 
@@ -297,7 +297,7 @@ export const getAssignedContacts = async (userId, tenantId, options = {}) => {
   const limit = options.limit || 20;
   const skip = (page - 1) * limit;
 
-  // 🔥 DEBUG: check ALL contacts in DB
+  // ?? DEBUG: check ALL contacts in DB
   const all = await prisma.contact.findMany();
   // console.log("ALL CONTACTS:", all);
   const totalAll = all.length;
@@ -305,7 +305,7 @@ export const getAssignedContacts = async (userId, tenantId, options = {}) => {
 
   const where = {
     assignedTo: userId,
-    tenantId: tenantId, // 🔒 Tenant isolation
+    tenantId: tenantId, // ?? Tenant isolation
     isActive: true,
     isBlocked: false,
   };
@@ -367,7 +367,7 @@ export const getUserProfileService = async (userId) => {
       tenantId: true,
       createdAt: true,
       updatedAt: true,
-      // 🆕 Include tenant info (for showing logo & company name)
+      // ?? Include tenant info (for showing logo & company name)
       tenant: {
         select: {
           id: true,
@@ -392,7 +392,7 @@ export const updateUserPasswordService = async (
   userId,
   { currentPassword, newPassword, confirmPassword },
 ) => {
-  // 1️⃣ Validate input
+  // 1?? Validate input
   if (!currentPassword) {
     throw new Error("Current password is required");
   }
@@ -406,7 +406,7 @@ export const updateUserPasswordService = async (
     throw new Error("Password must be at least 8 characters long");
   }
 
-  // 2️⃣ Find user
+  // 2?? Find user
   const user = await prisma.user.findUnique({
     where: { id: userId },
   });
@@ -415,27 +415,27 @@ export const updateUserPasswordService = async (
     throw new Error("User not found");
   }
 
-  // 3️⃣ Verify current password
+  // 3?? Verify current password
   const isPasswordMatch = await bcrypt.compare(currentPassword, user.password);
   if (!isPasswordMatch) {
     throw new Error("Current password is incorrect");
   }
 
-  // 4️⃣ Hash new password
+  // 4?? Hash new password
   const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-  // 5️⃣ Update in DB
+  // 5?? Update in DB
   await prisma.user.update({
     where: { id: userId },
     data: { password: hashedPassword },
   });
 
-  // 6️⃣ Optional: Delete all refresh tokens (force re-login on other devices)
+  // 6?? Optional: Delete all refresh tokens (force re-login on other devices)
   await prisma.refreshToken.deleteMany({
     where: { userId: userId },
   });
 
-  // ✅ ADD audit log
+  // ? ADD audit log
   await createAuditLog({
     actorId: user.id,
     actorType: "USER",
@@ -454,7 +454,7 @@ export const updateUserPasswordService = async (
 };
 
 // ============================================================
-// 🆕 UPDATE AGENT AVAILABILITY
+// ?? UPDATE AGENT AVAILABILITY
 // ============================================================
 export const updateAvailabilityService = async (userId, status) => {
   const user = await prisma.user.update({
@@ -471,7 +471,7 @@ export const updateAvailabilityService = async (userId, status) => {
 };
 
 // ============================================================
-// 🆕 DASHBOARD STATS FOR AGENT
+// ?? DASHBOARD STATS FOR AGENT
 // ============================================================
 export const getDashboardStatsService = async (userId, tenantId) => {
   const todayStart = new Date();
@@ -565,7 +565,7 @@ export const getDashboardStatsService = async (userId, tenantId) => {
 };
 
 // ============================================================
-// 🆕 GLOBAL UNREAD BADGE COUNT
+// ?? GLOBAL UNREAD BADGE COUNT
 // ============================================================
 export const getUnreadBadgeCountService = async (userId, tenantId) => {
   const [unreadConversations, unreadNotifications] = await Promise.all([

@@ -1,14 +1,14 @@
 // backend/src/modules/superadmin/auth/sradmin.auth.routes.js (do not remove this comment)
 
 import { Router } from "express";
-import * as ctrl from "./sradmin.auth.controller.new.js";
-import { authenticate } from "../../middleware/authenticate.js";
-import { requireSRAdmin } from "../../middleware/requireSRAdmin.js";
+import * as ctrl from "./sradmin.auth.controller.js";
+import { authenticate } from "../../../middleware/authenticate.js";
+import { requireSRAdmin } from "../../../middleware/requireSRAdmin.js";
 import {
   authLimiter,
   resetLimiter,
-} from "../../middleware/rateLimiter.js";
-import validate from "../../middlewares/validate.middleware.js";
+} from "../../../middleware/rateLimiter.js";
+import validate from "../../../middleware/validate.js";
 import {
   createSRAdminSchema,
   loginSchema,
@@ -16,7 +16,7 @@ import {
   refreshSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
-} from "./sradmin.auth.schema.new.js";
+} from "./sradmin.auth.schema.js";
 
 const router = Router();
 

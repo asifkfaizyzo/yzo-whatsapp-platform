@@ -111,7 +111,7 @@ export const sendInvoiceEmail = async (
           <div style="background: #f8faff; padding: 30px; border: 1px solid #e2e8f0;">
             
             <h2 style="color: #1a1a1a; margin: 0 0 10px 0;">
-              Payment Received! 🎉
+              Payment Received! ??
             </h2>
             
             <p style="color: #666; font-size: 14px;">
@@ -143,7 +143,7 @@ export const sendInvoiceEmail = async (
             <p style="color: #666; font-size: 13px;">
               Your invoice is attached as a PDF to this email.
               You can also download it anytime from your 
-              <strong>Dashboard → Billing</strong> section.
+              <strong>Dashboard ? Billing</strong> section.
             </p>
 
           </div>
@@ -167,7 +167,7 @@ export const sendInvoiceEmail = async (
     console.log(`Invoice email sent to: ${email}`);
   } catch (error) {
     console.error("Invoice email error:", error);
-    // Non-critical — don't throw
+    // Non-critical � don't throw
   }
 };
 
@@ -182,18 +182,18 @@ export const sendTicketEmail = async ({
   category,
   priority,
 }) => {
-  // ✅ Guard — if no recipient, log and skip silently
+  // ? Guard � if no recipient, log and skip silently
   if (!to) {
     console.warn(
-      `⚠️ sendTicketEmail skipped — no recipient for ticket ${ticketNumber}`,
+      `?? sendTicketEmail skipped � no recipient for ticket ${ticketNumber}`,
     );
     return;
   }
 
-  // ✅ Guard — if email config missing, warn clearly
+  // ? Guard � if email config missing, warn clearly
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
     console.error(
-      "❌ EMAIL_USER or EMAIL_PASS is not set in environment variables",
+      "? EMAIL_USER or EMAIL_PASS is not set in environment variables",
     );
     return;
   }
@@ -216,7 +216,7 @@ export const sendTicketEmail = async ({
           <div style="background: #f8faff; padding: 30px; border: 1px solid #e2e8f0;">
             
             <h2 style="color: #1a1a1a; margin: 0 0 16px 0;">
-              🎫 ${title}
+              ?? ${title}
             </h2>
 
             <div style="background: white; border: 1px solid #e2e8f0;
@@ -323,18 +323,18 @@ export const sendTicketEmail = async ({
       `,
     });
 
-    // ✅ Log success with messageId for debugging
+    // ? Log success with messageId for debugging
     console.log(
-      `✅ Ticket email sent to: ${to} | messageId: ${info.messageId}`,
+      `? Ticket email sent to: ${to} | messageId: ${info.messageId}`,
     );
   } catch (error) {
-    // ✅ Log the FULL error — not just a generic message
-    console.error(`❌ Ticket email FAILED to: ${to}`);
-    console.error(`❌ Subject: ${subject}`);
-    console.error(`❌ Error code: ${error.code}`);
-    console.error(`❌ Error message: ${error.message}`);
-    console.error(`❌ Full error:`, error);
-    // Non-blocking — don't throw, ticket still saves
+    // ? Log the FULL error � not just a generic message
+    console.error(`? Ticket email FAILED to: ${to}`);
+    console.error(`? Subject: ${subject}`);
+    console.error(`? Error code: ${error.code}`);
+    console.error(`? Error message: ${error.message}`);
+    console.error(`? Full error:`, error);
+    // Non-blocking � don't throw, ticket still saves
   }
 };
 // ===================== SEND VERIFICATION OTP EMAIL =====================
@@ -497,7 +497,7 @@ export const sendEnterpriseLeadNotificationEmail = async (
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
           <div style="background: #125EF2; padding: 24px; text-align: center;">
-            <h1 style="color: white; margin: 0; font-size: 20px; font-weight: bold;">New Enterprise Lead Received 🚀</h1>
+            <h1 style="color: white; margin: 0; font-size: 20px; font-weight: bold;">New Enterprise Lead Received ??</h1>
           </div>
           <div style="padding: 30px; color: #334155; line-height: 1.6;">
             <h3 style="color: #1e293b; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; margin-top: 0;">Lead Details</h3>
@@ -567,7 +567,7 @@ export const sendEnterpriseAccountActivationEmail = async (email, name) => {
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
           <div style="background: #10B981; padding: 24px; text-align: center;">
-            <h1 style="color: white; margin: 0; font-size: 24px; font-weight: bold; letter-spacing: 0.5px;">Account Activated 🎉</h1>
+            <h1 style="color: white; margin: 0; font-size: 24px; font-weight: bold; letter-spacing: 0.5px;">Account Activated ??</h1>
           </div>
           <div style="padding: 30px; color: #334155; line-height: 1.6;">
             <h2 style="color: #1e293b; margin: 0 0 16px 0; font-size: 20px; font-weight: 700;">Welcome to SudoReply Enterprise!</h2>
@@ -607,7 +607,7 @@ export const sendEnterpriseAccountActivationEmail = async (email, name) => {
   }
 };
 
-// ── SUBSCRIPTION SYSTEM EMAIL HANDLERS ──
+// -- SUBSCRIPTION SYSTEM EMAIL HANDLERS --
 const getTemplateHTML = (templateName, variables) => {
   const templatePath = path.join(
     process.cwd(),
@@ -643,7 +643,7 @@ export const sendCancellationAdminAlertEmail = async (email, data) => {
     let htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
         <div style="background: #EF4444; padding: 20px; text-align: center;">
-          <h2 style="color: white; margin: 0;">Subscription Cancelled Alert ⚠️</h2>
+          <h2 style="color: white; margin: 0;">Subscription Cancelled Alert ??</h2>
         </div>
         <div style="padding: 24px; color: #334155;">
           <p><strong>Tenant Name:</strong> ${data.companyName || data.name || "N/A"}</p>
@@ -660,7 +660,7 @@ export const sendCancellationAdminAlertEmail = async (email, data) => {
     await transporter.sendMail({
       from: `"SudoReply System" <${process.env.EMAIL_USER}>`,
       to: email,
-      subject: `🚨 Tenant Cancelled: ${data.companyName}`,
+      subject: `?? Tenant Cancelled: ${data.companyName}`,
       html: htmlContent,
     });
     console.log("Cancellation admin alert sent to:", email);
@@ -674,7 +674,7 @@ export const sendPauseAdminAlertEmail = async (email, data) => {
     const htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
         <div style="background: #8B5CF6; padding: 20px; text-align: center;">
-          <h2 style="color: white; margin: 0; font-size: 20px;">Subscription Paused Alert ⏸️</h2>
+          <h2 style="color: white; margin: 0; font-size: 20px;">Subscription Paused Alert ??</h2>
         </div>
         <div style="padding: 24px; color: #334155; line-height: 1.6;">
           <p>A tenant has temporarily paused their subscription mandate.</p>
@@ -708,7 +708,7 @@ export const sendPauseAdminAlertEmail = async (email, data) => {
     await transporter.sendMail({
       from: `"SudoReply System" <${process.env.EMAIL_USER}>`,
       to: email,
-      subject: `⏸️ Tenant Paused: ${data.companyName}`,
+      subject: `?? Tenant Paused: ${data.companyName}`,
       html: htmlContent,
     });
     console.log("Pause admin alert email sent to:", email);
@@ -722,7 +722,7 @@ export const sendResumeAdminAlertEmail = async (email, data) => {
     const htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
         <div style="background: #10B981; padding: 20px; text-align: center;">
-          <h2 style="color: white; margin: 0; font-size: 20px;">Subscription Resumed Alert ▶️</h2>
+          <h2 style="color: white; margin: 0; font-size: 20px;">Subscription Resumed Alert ??</h2>
         </div>
         <div style="padding: 24px; color: #334155; line-height: 1.6;">
           <p>A tenant has resumed their subscription and restored full access.</p>
@@ -752,7 +752,7 @@ export const sendResumeAdminAlertEmail = async (email, data) => {
     await transporter.sendMail({
       from: `"SudoReply System" <${process.env.EMAIL_USER}>`,
       to: email,
-      subject: `▶️ Tenant Resumed: ${data.companyName}`,
+      subject: `?? Tenant Resumed: ${data.companyName}`,
       html: htmlContent,
     });
     console.log("Resume admin alert email sent to:", email);
@@ -761,7 +761,7 @@ export const sendResumeAdminAlertEmail = async (email, data) => {
   }
 };
 
-// ── TENANT EMAIL: Subscription Paused ──
+// -- TENANT EMAIL: Subscription Paused --
 export const sendSubscriptionPausedEmail = async (email, data) => {
   try {
     const frontendUrl = process.env.FRONTEND_URLS
@@ -773,7 +773,7 @@ export const sendSubscriptionPausedEmail = async (email, data) => {
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); background: #ffffff;">
         <div style="background: linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%); padding: 32px 24px; text-align: center;">
           <div style="background: rgba(255,255,255,0.2); width: 48px; height: 48px; border-radius: 12px; margin: 0 auto 12px auto; display: flex; align-items: center; justify-content: center; line-height: 48px; font-size: 24px;">
-            ⏸️
+            ??
           </div>
           <h1 style="color: white; margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.5px;">Subscription Paused</h1>
           <p style="color: #DDD6FE; margin: 6px 0 0 0; font-size: 14px;">Your plan is temporarily on hold</p>
@@ -793,7 +793,7 @@ export const sendSubscriptionPausedEmail = async (email, data) => {
               </tr>
               <tr>
                 <td style="padding: 6px 0; color: #6D28D9; font-weight: 600;">Renewal Billing:</td>
-                <td style="padding: 6px 0; color: #059669; font-weight: 700;">₹0 (No charges during pause)</td>
+                <td style="padding: 6px 0; color: #059669; font-weight: 700;">?0 (No charges during pause)</td>
               </tr>
               <tr>
                 <td style="padding: 6px 0; color: #6D28D9; font-weight: 600;">Data Status:</td>
@@ -818,7 +818,7 @@ export const sendSubscriptionPausedEmail = async (email, data) => {
         </div>
 
         <div style="background: #F8FAFC; border-top: 1px solid #E2E8F0; padding: 16px; text-align: center;">
-          <p style="color: #94A3B8; font-size: 12px; margin: 0;">SudoReply WhatsApp Platform • Questions? Contact info@sudoreply.com</p>
+          <p style="color: #94A3B8; font-size: 12px; margin: 0;">SudoReply WhatsApp Platform � Questions? Contact info@sudoreply.com</p>
         </div>
       </div>
     `;
@@ -826,7 +826,7 @@ export const sendSubscriptionPausedEmail = async (email, data) => {
     await transporter.sendMail({
       from: `"SudoReply Billing" <${process.env.EMAIL_USER}>`,
       to: email,
-      subject: `⏸️ Your SudoReply subscription has been paused`,
+      subject: `?? Your SudoReply subscription has been paused`,
       html: htmlContent,
     });
     console.log(
@@ -838,7 +838,7 @@ export const sendSubscriptionPausedEmail = async (email, data) => {
   }
 };
 
-// ── TENANT EMAIL: Subscription Resumed ──
+// -- TENANT EMAIL: Subscription Resumed --
 export const sendSubscriptionResumedEmail = async (email, data) => {
   try {
     const frontendUrl = process.env.FRONTEND_URLS
@@ -850,7 +850,7 @@ export const sendSubscriptionResumedEmail = async (email, data) => {
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); background: #ffffff;">
         <div style="background: linear-gradient(135deg, #059669 0%, #047857 100%); padding: 32px 24px; text-align: center;">
           <div style="background: rgba(255,255,255,0.2); width: 48px; height: 48px; border-radius: 12px; margin: 0 auto 12px auto; display: flex; align-items: center; justify-content: center; line-height: 48px; font-size: 24px;">
-            🚀
+            ??
           </div>
           <h1 style="color: white; margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.5px;">Welcome Back!</h1>
           <p style="color: #A7F3D0; margin: 6px 0 0 0; font-size: 14px;">Your subscription has been resumed successfully</p>
@@ -866,7 +866,7 @@ export const sendSubscriptionResumedEmail = async (email, data) => {
             <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
               <tr>
                 <td style="padding: 6px 0; color: #047857; font-weight: 600; width: 40%;">Account Status:</td>
-                <td style="padding: 6px 0; color: #065F46; font-weight: 700;">Active & Online ✅</td>
+                <td style="padding: 6px 0; color: #065F46; font-weight: 700;">Active & Online ?</td>
               </tr>
               <tr>
                 <td style="padding: 6px 0; color: #047857; font-weight: 600;">Plan:</td>
@@ -895,7 +895,7 @@ export const sendSubscriptionResumedEmail = async (email, data) => {
         </div>
 
         <div style="background: #F8FAFC; border-top: 1px solid #E2E8F0; padding: 16px; text-align: center;">
-          <p style="color: #94A3B8; font-size: 12px; margin: 0;">SudoReply WhatsApp Platform • Questions? Contact info@sudoreply.com</p>
+          <p style="color: #94A3B8; font-size: 12px; margin: 0;">SudoReply WhatsApp Platform � Questions? Contact info@sudoreply.com</p>
         </div>
       </div>
     `;
@@ -903,7 +903,7 @@ export const sendSubscriptionResumedEmail = async (email, data) => {
     await transporter.sendMail({
       from: `"SudoReply" <${process.env.EMAIL_USER}>`,
       to: email,
-      subject: `🎉 Your SudoReply subscription is now active!`,
+      subject: `?? Your SudoReply subscription is now active!`,
       html: htmlContent,
     });
     console.log(
@@ -1018,15 +1018,15 @@ export const sendTenantWelcomeEmail = async ({
     await transporter.sendMail({
       from: `"SudoReply" <${process.env.EMAIL_USER}>`,
       to: email,
-      subject: "🎉 Welcome to SudoReply — Your account is ready!",
+      subject: "?? Welcome to SudoReply � Your account is ready!",
       html: htmlContent,
     });
 
-    console.log(`✅ Welcome email sent to: ${email}`);
+    console.log(`? Welcome email sent to: ${email}`);
   } catch (error) {
-    // ⚠️ Non-blocking — onboarding still completes even if email fails
-    console.error(`❌ Welcome email FAILED to: ${email}`);
-    console.error(`❌ Error: ${error.message}`);
+    // ?? Non-blocking � onboarding still completes even if email fails
+    console.error(`? Welcome email FAILED to: ${email}`);
+    console.error(`? Error: ${error.message}`);
   }
 };
 
@@ -1045,7 +1045,7 @@ export const sendWhatsAppStatusAlertEmail = async ({
     await transporter.sendMail({
       from: `"SudoReply Alerts" <${process.env.EMAIL_USER}>`,
       to: superAdminEmail,
-      subject: `⚡ WhatsApp ${isConnected ? "Connected" : "Disconnected"} — ${tenantName}`,
+      subject: `? WhatsApp ${isConnected ? "Connected" : "Disconnected"} � ${tenantName}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; 
                     margin: 0 auto; border: 1px solid #e2e8f0; 
@@ -1055,7 +1055,7 @@ export const sendWhatsAppStatusAlertEmail = async ({
           <div style="background: ${isConnected ? "#125EF2" : "#ef4444"}; 
                       padding: 24px; text-align: center;">
             <h1 style="color: white; margin: 0; font-size: 20px; font-weight: bold;">
-              ${isConnected ? "✅ WhatsApp Connected" : "🔴 WhatsApp Disconnected"}
+              ${isConnected ? "? WhatsApp Connected" : "?? WhatsApp Disconnected"}
             </h1>
           </div>
 
@@ -1153,11 +1153,11 @@ export const sendWhatsAppStatusAlertEmail = async ({
     });
 
     console.log(
-      `✅ WhatsApp ${action} alert email sent to superadmin: ${superAdminEmail}`,
+      `? WhatsApp ${action} alert email sent to superadmin: ${superAdminEmail}`,
     );
   } catch (error) {
     // Non-blocking
-    console.error(`❌ WhatsApp alert email FAILED: ${error.message}`);
+    console.error(`? WhatsApp alert email FAILED: ${error.message}`);
   }
 };
 
@@ -1185,12 +1185,12 @@ export const sendTemplateStatusEmail = async ({
     : status === "REJECTED"
       ? "#dc2626"
       : "#d97706";
-  const statusIcon = isApproved ? "🎉" : status === "REJECTED" ? "⚠️" : "⏸️";
+  const statusIcon = isApproved ? "??" : status === "REJECTED" ? "??" : "??";
   const subject = isApproved
-    ? `🎉 Your WhatsApp Template "${templateName}" is Approved!`
+    ? `?? Your WhatsApp Template "${templateName}" is Approved!`
     : status === "REJECTED"
-      ? `⚠️ WhatsApp Template "${templateName}" was Rejected`
-      : `ℹ️ WhatsApp Template "${templateName}" Status Updated: ${status}`;
+      ? `?? WhatsApp Template "${templateName}" was Rejected`
+      : `?? WhatsApp Template "${templateName}" Status Updated: ${status}`;
 
   try {
     await transporter.sendMail({
@@ -1277,7 +1277,7 @@ export const sendTemplateStatusEmail = async ({
           <!-- Footer -->
           <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px; text-align: center;">
             <p style="color: #94a3b8; font-size: 12px; margin: 0;">
-              SudoReply Platform Notifications · <a href="https://sudoreply.com" style="color: #6366f1; text-decoration: none;">sudoreply.com</a>
+              SudoReply Platform Notifications � <a href="https://sudoreply.com" style="color: #6366f1; text-decoration: none;">sudoreply.com</a>
             </p>
           </div>
 
@@ -1286,11 +1286,11 @@ export const sendTemplateStatusEmail = async ({
     });
 
     console.log(
-      `✅ Template ${status} notification email sent to ${toEmail} for template: ${templateName}`,
+      `? Template ${status} notification email sent to ${toEmail} for template: ${templateName}`,
     );
   } catch (err) {
     console.error(
-      `❌ Failed to send template status email to ${toEmail}:`,
+      `? Failed to send template status email to ${toEmail}:`,
       err.message,
     );
   }

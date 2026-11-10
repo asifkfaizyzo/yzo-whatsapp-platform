@@ -213,7 +213,7 @@ test("selects synced approved welcome templates and maps supported placeholders"
       customerName: "Test Customer",
       storeName: "Test Store",
     }),
-    "👋 Welcome to *Test Store*, *Test Customer*! We're glad you're here.",
+    "?? Welcome to *Test Store*, *Test Customer*! We're glad you're here.",
   );
   assert.equal(findWooCustomerWelcomeTemplate([]), null);
 });
@@ -404,7 +404,7 @@ test("notifies on payment changes and terminal order statuses", () => {
     customerName: "Test Customer",
     orderNumber: "536",
   });
-  assert.match(paid, /Payment status: \*Pending\* → \*Paid\*/);
+  assert.match(paid, /Payment status: \*Pending\* ? \*Paid\*/);
 
   for (const [status, expected] of [
     ["cancelled", /cancelled/],

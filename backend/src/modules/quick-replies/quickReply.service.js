@@ -18,7 +18,7 @@ const safeUnlink = async (relativePath) => {
     }
   } catch (err) {
     console.warn(
-      `⚠️ Warning: Failed to unlink file at "${relativePath}":`,
+      `?? Warning: Failed to unlink file at "${relativePath}":`,
       err.message,
     );
   }
@@ -506,7 +506,7 @@ export const trackUsage = async (id, tenantId) => {
     });
   } catch (err) {
     console.warn(
-      `⚠️ Warning: Failed to track usage for QuickReply "${id}":`,
+      `?? Warning: Failed to track usage for QuickReply "${id}":`,
       err.message,
     );
   }

@@ -5,7 +5,7 @@ import { autoProvisionWebhooks } from "./woocommerce.service.js";
 
 export const getWooCommerceAuthWebhookConfig = async (req, res) => {
   try {
-    if (req.userType !== "TENANT") {
+    if (req.actorType !== "TENANT") {
       return res
         .status(403)
         .json({
@@ -72,7 +72,7 @@ export const getWooCommerceAuthWebhookConfig = async (req, res) => {
 
 export const getWooCommerceCartRecoveryWebhookConfig = async (req, res) => {
   try {
-    if (req.userType !== "TENANT") {
+    if (req.actorType !== "TENANT") {
       return res
         .status(403)
         .json({

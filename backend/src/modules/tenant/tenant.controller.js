@@ -1,5 +1,5 @@
 // backend/src/modules/tenant/tenant.controller.js (do not remove this comment)
-// Barrel re-export — controllers now live in their sub-module folders.
+// Barrel re-export � controllers now live in their sub-module folders.
 // This file exists for backward compatibility only.
 
 export * from "./auth/tenant.auth.controller.js";

@@ -20,7 +20,7 @@ function resolveCustomerPhone(order) {
     order.billing_address?.phone ||
     order.shipping_address?.phone ||
     order.phone ||
-    (order.first_name ? order.phone : null); // 🆕 customers/create has phone at root
+    (order.first_name ? order.phone : null); // ?? customers/create has phone at root
 
   let cleanPhone = rawPhone ? rawPhone.replace(/[^\d+]/g, "") : null;
   if (cleanPhone && !cleanPhone.startsWith("+")) {
@@ -54,7 +54,7 @@ export const handleIncomingWebhook = async (req, res) => {
 
   // 1. ALWAYS log incoming webhook hit immediately
   console.log(
-    `📥 [Shopify Webhook Received] Topic: '${topic}' | Shop: '${cleanDomain}'`,
+    `?? [Shopify Webhook Received] Topic: '${topic}' | Shop: '${cleanDomain}'`,
   );
 
   try {
@@ -93,7 +93,7 @@ export const handleIncomingWebhook = async (req, res) => {
 
     if (!tenantId) {
       console.warn(
-        `⚠️ [Shopify Webhook] No active integration found for shop: ${cleanDomain}`,
+        `?? [Shopify Webhook] No active integration found for shop: ${cleanDomain}`,
       );
       return res
         .status(200)
@@ -116,7 +116,7 @@ export const handleIncomingWebhook = async (req, res) => {
       : process.env.SHOPIFY_API_SECRET;
     if (!rawSecret) {
       console.error(
-        `❌ [Shopify Webhook] No signing secret configured for ${cleanDomain}`,
+        `? [Shopify Webhook] No signing secret configured for ${cleanDomain}`,
       );
       return res
         .status(503)
@@ -143,7 +143,7 @@ export const handleIncomingWebhook = async (req, res) => {
       !crypto.timingSafeEqual(receivedSignatureBuffer, expectedSignatureBuffer)
     ) {
       console.warn(
-        `⚠️ [Shopify Webhook] HMAC signature mismatch for ${cleanDomain} | ` +
+        `?? [Shopify Webhook] HMAC signature mismatch for ${cleanDomain} | ` +
           `rawBodyCaptured=${Buffer.isBuffer(req.rawBody)} | ` +
           `rawBodyBytes=${Buffer.isBuffer(req.rawBody) ? req.rawBody.length : 0} | ` +
           `signedBodyBytes=${rawPayload.length}`,
@@ -153,7 +153,7 @@ export const handleIncomingWebhook = async (req, res) => {
         .json({ success: false, message: "Invalid Shopify webhook signature" });
     }
     console.log(
-      `🔒 [Shopify Webhook] HMAC Signature Verified Successfully for ${cleanDomain}`,
+      `?? [Shopify Webhook] HMAC Signature Verified Successfully for ${cleanDomain}`,
     );
 
     // 4. Format & override target phone for local dev testing safely
@@ -200,35 +200,35 @@ export const handleIncomingWebhook = async (req, res) => {
     );
 
     console.log(
-      `⚡ [ShopifyWebhook] Queued '${topic}' job for Order #${payload.name || payload.id} in BullMQ`,
+      `? [ShopifyWebhook] Queued '${topic}' job for Order #${payload.name || payload.id} in BullMQ`,
     );
 
-    // 🆕 Handle products/update for Back-in-Stock alerts (async, non-blocking)
+    // ?? Handle products/update for Back-in-Stock alerts (async, non-blocking)
     if (topic === "products/update") {
       handleProductUpdateForBackInStock(tenantId, payload, cleanDomain)
         .then((result) => {
           if (result.triggered) {
             console.log(
-              `🔔 [BackInStock] Auto-broadcast triggered for: ${result.productTitle}`,
+              `?? [BackInStock] Auto-broadcast triggered for: ${result.productTitle}`,
             );
           }
         })
         .catch((err) => {
-          console.error("💥 [BackInStock] Async handler error:", err.message);
+          console.error("?? [BackInStock] Async handler error:", err.message);
         });
     }
 
-    // 🆕 Handle product catalog sync (async, non-blocking)
+    // ?? Handle product catalog sync (async, non-blocking)
     if (topic === "products/create" || topic === "products/update") {
       upsertProduct(tenantId, payload, cleanDomain, payload.currency || "INR")
         .then(() => {
           console.log(
-            `📦 [Product Sync] Upserted product: ${payload.title} (${payload.id})`,
+            `?? [Product Sync] Upserted product: ${payload.title} (${payload.id})`,
           );
         })
         .catch((err) => {
           console.error(
-            `💥 [Product Sync] Upsert error for product ${payload.id}:`,
+            `?? [Product Sync] Upsert error for product ${payload.id}:`,
             err.message,
           );
         });
@@ -237,11 +237,11 @@ export const handleIncomingWebhook = async (req, res) => {
     if (topic === "products/delete") {
       markProductDeleted(tenantId, payload.id)
         .then(() => {
-          console.log(`🗑️ [Product Sync] Deleted product: ${payload.id}`);
+          console.log(`??? [Product Sync] Deleted product: ${payload.id}`);
         })
         .catch((err) => {
           console.error(
-            `💥 [Product Sync] Delete error for product ${payload.id}:`,
+            `?? [Product Sync] Delete error for product ${payload.id}:`,
             err.message,
           );
         });
@@ -251,7 +251,7 @@ export const handleIncomingWebhook = async (req, res) => {
       .status(200)
       .json({ success: true, message: "Event accepted and queued" });
   } catch (error) {
-    console.error("💥 [ShopifyWebhook] Failed to accept event:", error);
+    console.error("?? [ShopifyWebhook] Failed to accept event:", error);
     return res
       .status(500)
       .json({ success: false, error: "Database/Queue Dispatch Failure" });

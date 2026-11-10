@@ -1,86 +1,86 @@
 // backend/src/modules/conversations/conversation.routes.js (do not remove this comment)
 import express from "express";
 import * as conversationController from "./conversation.controller.js";
-// import { verifyUser } from '../../middlewares/auth.user.js';
-import { verifyTenantOrUser } from "../../middlewares/auth.verifyTenantOrUser.js";
+import { authenticate } from "../../middleware/authenticate.js";
+import { requireTenantOrUser } from "../../middleware/requireTenantOrUser.js";
 
 const router = express.Router();
 
 router.post(
   "/create-conversation",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   conversationController.createConversation,
 );
 
 router.get(
   "/conversation/:contactId",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   conversationController.getConversationController,
 );
 //conversations assigned to the logged in user
 router.get(
   "/assigned",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   conversationController.getAssignedConversationsController,
 );
 
 router.get(
   "/getmessage/:conversationId",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   conversationController.getMessagesController,
 );
 
 // Update conversation status
 router.patch(
   "/status/:conversationId",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   conversationController.updateConversationStatusController,
 );
 
 // ── New Routes ────────────────────────────────────────────
 router.patch(
   "/archive/:conversationId",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   conversationController.archiveConversationController,
 );
 router.patch(
   "/unarchive/:conversationId",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   conversationController.unarchiveConversationController,
 );
 router.delete(
   "/delete/:conversationId",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   conversationController.deleteConversationController,
 );
 router.get(
   "/archived",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   conversationController.getArchivedConversationsController,
 );
 // ── Mark as Read ──────────────────────────────────────────
 router.patch(
   "/mark-read/:conversationId",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   conversationController.markConversationAsReadController,
 );
 
 // ── Bulk Reassign ──────────────────────────────────────────
 router.patch(
   "/bulk-reassign",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   conversationController.bulkReassignConversationsController,
 );
 // ── Media, Links & Docs ────────────────────────────────────
 router.get(
   "/media/:conversationId",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   conversationController.getConversationMediaController,
 );
 
 router.patch(
   "/pin/:id",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   conversationController.togglePinController,
 );
 

@@ -15,12 +15,12 @@ export const forgotPasswordService = async (email, userType) => {
   console.log("Email received:", email);
   console.log("UserType received:", userType);
 
-  // 1️⃣ Validate
+  // 1?? Validate
   if (!email) {
     throw new Error("Email is required");
   }
 
-  // 2️⃣ Find user based on type (with auto-detection fallback)
+  // 2?? Find user based on type (with auto-detection fallback)
   let user = null;
   let detectedUserType = userType;
 
@@ -55,7 +55,7 @@ export const forgotPasswordService = async (email, userType) => {
     }
   }
 
-  // 3️⃣ Security: dont reveal if email exists
+  // 3?? Security: dont reveal if email exists
   if (!user) {
     return {
       message:
@@ -63,16 +63,16 @@ export const forgotPasswordService = async (email, userType) => {
     };
   }
 
-  // 4️⃣ Generate reset token
+  // 4?? Generate reset token
   const resetToken = generateResetToken();
   const expiresAt = getResetTokenExpiry();
 
-  // 5️⃣ Delete any old reset tokens
+  // 5?? Delete any old reset tokens
   await prisma.passwordReset.deleteMany({
     where: { email },
   });
 
-  // 6️⃣ Save token to DB
+  // 6?? Save token to DB
   await prisma.passwordReset.create({
     data: {
       email,
@@ -82,10 +82,10 @@ export const forgotPasswordService = async (email, userType) => {
     },
   });
 
-  // 7️⃣ Send email
+  // 7?? Send email
   await sendPasswordResetEmail(email, resetToken, detectedUserType);
 
-  // ✅ 8️⃣ Audit log — PASSWORD_RESET_REQUESTED
+  // ? 8?? Audit log � PASSWORD_RESET_REQUESTED
   await createAuditLog({
     actorId: user.id,
     actorType:
@@ -119,39 +119,39 @@ export const resetPasswordService = async (
   confirmPassword,
   userType,
 ) => {
-  // 1️⃣ Validate
+  // 1?? Validate
   if (!token || !newPassword || !confirmPassword) {
     throw new Error("Token, new password and confirm password are required");
   }
 
-  // 2️⃣ Check passwords match
+  // 2?? Check passwords match
   if (newPassword !== confirmPassword) {
     throw new Error("Passwords do not match");
   }
 
-  // 3️⃣ Find token in DB
+  // 3?? Find token in DB
   const resetRecord = await prisma.passwordReset.findFirst({
     where: { token, isUsed: false },
   });
 
-  // 4️⃣ Invalid token
+  // 4?? Invalid token
   if (!resetRecord) {
     throw new Error("Invalid or expired reset link");
   }
 
-  // 5️⃣ Check expiry
+  // 5?? Check expiry
   if (resetRecord.expiresAt < new Date()) {
     throw new Error("Reset link expired. Please request a new one.");
   }
 
-  // 6️⃣ Hash new password
+  // 6?? Hash new password
   const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-  // 7️⃣ Detect user type
-  let actualUserType = userType; // ← use the TYPE passed in
+  // 7?? Detect user type
+  let actualUserType = userType; // ? use the TYPE passed in
   let targetUser = null;
 
-  // ✅ Use userType passed in — don't auto-detect
+  // ? Use userType passed in � don't auto-detect
   if (actualUserType === "SUPERADMIN") {
     const superAdminFound = await prisma.superAdmin.findUnique({
       where: { email: resetRecord.email },
@@ -175,7 +175,7 @@ export const resetPasswordService = async (
     }
   }
 
-  // Fallback — if userType wrong, auto detect
+  // Fallback � if userType wrong, auto detect
   if (!targetUser) {
     const superAdminFound = await prisma.superAdmin.findUnique({
       where: { email: resetRecord.email },
@@ -207,14 +207,14 @@ export const resetPasswordService = async (
     throw new Error("Account not found for this reset link");
   }
 
-  // 9️⃣ Update password based on type
+  // 9?? Update password based on type
   if (actualUserType === "SUPERADMIN") {
     await prisma.superAdmin.update({
       where: { email: resetRecord.email },
       data: { password: hashedPassword },
     });
     await prisma.refreshToken.deleteMany({
-      where: { superAdminId: targetUser.id }, // ← uses targetUser ✅
+      where: { superAdminId: targetUser.id }, // ? uses targetUser ?
     });
   }
 
@@ -224,7 +224,7 @@ export const resetPasswordService = async (
       data: { password: hashedPassword },
     });
     await prisma.refreshToken.deleteMany({
-      where: { tenantId: targetUser.id }, // ← uses targetUser ✅
+      where: { tenantId: targetUser.id }, // ? uses targetUser ?
     });
   }
 
@@ -234,17 +234,17 @@ export const resetPasswordService = async (
       data: { password: hashedPassword },
     });
     await prisma.refreshToken.deleteMany({
-      where: { userId: targetUser.id }, // ← uses targetUser ✅
+      where: { userId: targetUser.id }, // ? uses targetUser ?
     });
   }
 
-  // 1️⃣0️⃣ Mark token as used
+  // 1??0?? Mark token as used
   await prisma.passwordReset.update({
     where: { id: resetRecord.id },
     data: { isUsed: true },
   });
 
-  // ✅ 1️⃣1️⃣ Audit log
+  // ? 1??1?? Audit log
   await createAuditLog({
     actorId: targetUser.id,
     actorType: actualUserType === "SUPERADMIN" ? "SUPER_ADMIN" : actualUserType,

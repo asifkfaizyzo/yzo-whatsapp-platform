@@ -71,7 +71,7 @@ export async function createZohoDealFromOrder(tenantId, order, contact) {
 
     if (result && result.code === "SUCCESS" && result.details?.id) {
       console.log(
-        `💰 [ZohoDeal] Created Deal "${dealName}" (${result.details.id})`,
+        `?? [ZohoDeal] Created Deal "${dealName}" (${result.details.id})`,
       );
 
       await prisma.contactProviderMapping.upsert({
@@ -98,7 +98,7 @@ export async function createZohoDealFromOrder(tenantId, order, contact) {
     }
   } catch (error) {
     console.error(
-      `❌ [ZohoDeal] Failed for order ${order.orderNumber}:`,
+      `? [ZohoDeal] Failed for order ${order.orderNumber}:`,
       error.response?.data || error.message,
     );
   }
@@ -156,10 +156,10 @@ export async function updateZohoDealStage(tenantId, orderId, paymentStatus) {
     });
 
     console.log(
-      `💰 [ZohoDeal] Updated Deal stage to "${newStage}" for order ${orderId}`,
+      `?? [ZohoDeal] Updated Deal stage to "${newStage}" for order ${orderId}`,
     );
   } catch (error) {
-    console.error(`❌ [ZohoDeal] Stage update failed:`, error.message);
+    console.error(`? [ZohoDeal] Stage update failed:`, error.message);
   }
 }
 
@@ -171,7 +171,7 @@ function buildDealDescription(order) {
   if (order.items && order.items.length > 0) {
     desc += `\nItems:\n`;
     for (const item of order.items) {
-      desc += `• ${item.productName || item.productRetailerId} x${item.quantity} — ${item.currency} ${Number(item.itemPrice).toFixed(2)}\n`;
+      desc += `� ${item.productName || item.productRetailerId} x${item.quantity} � ${item.currency} ${Number(item.itemPrice).toFixed(2)}\n`;
     }
   }
   return desc.substring(0, 5000);

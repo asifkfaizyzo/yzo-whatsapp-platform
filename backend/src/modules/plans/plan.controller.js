@@ -20,10 +20,10 @@ import { extractRequestMeta } from "../../lib/utils/request.meta.js";
 import { calculateGST } from "../superadmin/superadmin.service.js";
 import { razorpay, getRazorpay } from "../../config/razorpay.js";
 
-// ✅ Export Razorpay instance from centralized config
+// ? Export Razorpay instance from centralized config
 export { razorpay, getRazorpay };
 
-// ── Get all plans ──
+// -- Get all plans --
 export const getPlans = async (req, res) => {
   try {
     const plans = await planService.getAllPlans();
@@ -33,7 +33,7 @@ export const getPlans = async (req, res) => {
   }
 };
 
-// ── Get public plans (no auth) ──
+// -- Get public plans (no auth) --
 export const getPublicPlans = async (req, res) => {
   try {
     const plans = await planService.getPublicPlans();
@@ -43,7 +43,7 @@ export const getPublicPlans = async (req, res) => {
   }
 };
 
-// ── Get single plan ──
+// -- Get single plan --
 export const getPlan = async (req, res) => {
   try {
     const plan = await planService.getPlanById(req.params.id);
@@ -58,7 +58,7 @@ export const getPlan = async (req, res) => {
   }
 };
 
-// ── Create plan ──
+// -- Create plan --
 export const createPlan = async (req, res) => {
   try {
     const parsed = createPlanSchema.safeParse(req.body);
@@ -82,7 +82,7 @@ export const createPlan = async (req, res) => {
   }
 };
 
-// ── Update plan ──
+// -- Update plan --
 export const updatePlan = async (req, res) => {
   try {
     const parsed = updatePlanSchema.safeParse(req.body);
@@ -101,7 +101,7 @@ export const updatePlan = async (req, res) => {
   }
 };
 
-// ── Toggle status ──
+// -- Toggle status --
 export const toggleStatus = async (req, res) => {
   try {
     const plan = await planService.togglePlanStatus(req.params.id);
@@ -111,7 +111,7 @@ export const toggleStatus = async (req, res) => {
   }
 };
 
-// ── Delete plan ──
+// -- Delete plan --
 export const deletePlan = async (req, res) => {
   try {
     await planService.deletePlan(req.params.id);
@@ -128,7 +128,7 @@ export const deletePlan = async (req, res) => {
   }
 };
 
-// ── Get all features ──
+// -- Get all features --
 export const getFeatures = async (req, res) => {
   try {
     const features = await planService.getAllFeatures();
@@ -138,7 +138,7 @@ export const getFeatures = async (req, res) => {
   }
 };
 
-// ── Create feature ──
+// -- Create feature --
 export const createFeature = async (req, res) => {
   try {
     const parsed = createFeatureSchema.safeParse(req.body);
@@ -157,7 +157,7 @@ export const createFeature = async (req, res) => {
   }
 };
 
-// ── Delete feature ──
+// -- Delete feature --
 export const deleteFeature = async (req, res) => {
   try {
     await planService.deleteFeature(req.params.id);
@@ -222,7 +222,7 @@ export const createPaymentOrder = async (req, res) => {
     const gstAmount = gstCalc.gstAmount;
     const totalAmount = gstCalc.totalAmount;
 
-    // Razorpay amount is in PAISE (₹1 = 100 paise)
+    // Razorpay amount is in PAISE (?1 = 100 paise)
     const amountInPaise = Math.round(totalAmount * 100);
 
     // 3. Create order in Razorpay
@@ -274,7 +274,7 @@ export const createPaymentOrder = async (req, res) => {
   }
 };
 
-// ✅ Verify Payment & Activate Plan
+// ? Verify Payment & Activate Plan
 export const verifyPaymentAndActivate = async (req, res) => {
   try {
     const meta = extractRequestMeta(req);
@@ -384,7 +384,7 @@ export const verifyPaymentAndActivate = async (req, res) => {
           actorEmail: tenant.email,
           action: "PAYMENT_FAILED",
           module: "BILLING",
-          description: `Payment verification failed for tenant "${tenant.tenantName}" — invalid signature`,
+          description: `Payment verification failed for tenant "${tenant.tenantName}" � invalid signature`,
           ipAddress: meta.ipAddress,
           userAgent: meta.userAgent,
           tenantId: tenantId,
@@ -516,7 +516,7 @@ export const verifyPaymentAndActivate = async (req, res) => {
 
       console.log(
         `[planController] Cumulative extension for tenant ${tenantId}: ` +
-          `${tenant.planPeriodEnd.toISOString()} → ${periodEnd.toISOString()}`,
+          `${tenant.planPeriodEnd.toISOString()} ? ${periodEnd.toISOString()}`,
       );
     }
 
@@ -604,7 +604,7 @@ export const verifyPaymentAndActivate = async (req, res) => {
       });
     }
 
-    // ✅ PAYMENT_SUCCESS audit log
+    // ? PAYMENT_SUCCESS audit log
     const auditResult1 = await createAuditLog({
       actorId: tenantId,
       actorType: "TENANT",
@@ -612,7 +612,7 @@ export const verifyPaymentAndActivate = async (req, res) => {
       actorEmail: tenant.email,
       action: "PAYMENT_SUCCESS",
       module: "BILLING",
-      description: `Tenant "${tenant.tenantName}" paid ₹${totalAmount} for ${plan.name} (${validBillingType})`,
+      description: `Tenant "${tenant.tenantName}" paid ?${totalAmount} for ${plan.name} (${validBillingType})`,
       tenantId: tenantId,
       ipAddress: meta.ipAddress ?? null,
       userAgent: meta.userAgent ?? null,
@@ -630,7 +630,7 @@ export const verifyPaymentAndActivate = async (req, res) => {
       },
     });
 
-    // ✅ PLAN_ACTIVATED audit log
+    // ? PLAN_ACTIVATED audit log
     const auditResult2 = await createAuditLog({
       actorId: tenantId,
       actorType: "TENANT",
@@ -666,15 +666,15 @@ export const verifyPaymentAndActivate = async (req, res) => {
         }
       })
       .catch((e) => {
-        console.warn("⚠️ Could not fetch payment method:", e.message);
+        console.warn("?? Could not fetch payment method:", e.message);
       });
 
     // 9. SuperAdmin notification (non-blocking)
     try {
       const notification = await createSuperAdminNotification({
         type: "tenant_payment",
-        title: "💰 Payment Received",
-        message: `${tenant.tenantName} paid ₹${totalAmount} for ${plan.name} (${validBillingType})`,
+        title: "?? Payment Received",
+        message: `${tenant.tenantName} paid ?${totalAmount} for ${plan.name} (${validBillingType})`,
         metadata: {
           tenantId: updatedTenant.id,
           tenantName: tenant.tenantName,
@@ -692,7 +692,7 @@ export const verifyPaymentAndActivate = async (req, res) => {
       });
       emitToSuperAdmin("superadmin_notification", { notification });
     } catch (notifyErr) {
-      console.error("❌ SuperAdmin notification failed:", notifyErr.message);
+      console.error("? SuperAdmin notification failed:", notifyErr.message);
     }
 
     // 10. Invoice PDF + email (non-blocking)
@@ -710,7 +710,7 @@ export const verifyPaymentAndActivate = async (req, res) => {
         );
       })
       .catch((err) => {
-        console.error("❌ Invoice generation error:", err);
+        console.error("? Invoice generation error:", err);
       });
 
     // 11. Return success immediately
@@ -785,7 +785,7 @@ const getOrCreateRazorpayPlan = async (
   return rzpPlanId;
 };
 
-// ── Create Recurring Subscription with Free Trial ──
+// -- Create Recurring Subscription with Free Trial --
 export const createSubscriptionTrial = async (req, res) => {
   const { planId, billingType = "monthly" } = req.body;
   const tenantId = req.tenantId;
@@ -880,7 +880,7 @@ export const createSubscriptionTrial = async (req, res) => {
         subErr?.statusCode === 400
       ) {
         console.warn(
-          "⚠️ Razorpay Plan ID not found in current environment. Re-creating plan on Razorpay...",
+          "?? Razorpay Plan ID not found in current environment. Re-creating plan on Razorpay...",
         );
         rzpPlanId = await getOrCreateRazorpayPlan(plan, billingType, true);
         subscription = await razorpay.subscriptions.create({
@@ -921,7 +921,7 @@ export const createSubscriptionTrial = async (req, res) => {
   }
 };
 
-// ── Verify Mandate Signature & Formally Activate Trial ──
+// -- Verify Mandate Signature & Formally Activate Trial --
 export const verifySubscriptionTrial = async (req, res) => {
   const { razorpay_payment_id, razorpay_subscription_id, razorpay_signature } =
     req.body;
@@ -1049,7 +1049,7 @@ export const verifySubscriptionTrial = async (req, res) => {
   }
 };
 
-// ── Create Paid Recurring Subscription (Autopay with immediate Cycle 1 debit) ──
+// -- Create Paid Recurring Subscription (Autopay with immediate Cycle 1 debit) --
 export const createPaidSubscription = async (req, res) => {
   const { planId, billingType = "monthly" } = req.body;
   const tenantId = req.tenantId;
@@ -1116,7 +1116,7 @@ export const createPaidSubscription = async (req, res) => {
         subErr?.statusCode === 400
       ) {
         console.warn(
-          "⚠️ Razorpay Plan ID not found in current environment. Re-creating plan on Razorpay...",
+          "?? Razorpay Plan ID not found in current environment. Re-creating plan on Razorpay...",
         );
         rzpPlanId = await getOrCreateRazorpayPlan(plan, billingType, true);
         subscription = await razorpay.subscriptions.create({
@@ -1148,7 +1148,7 @@ export const createPaidSubscription = async (req, res) => {
   }
 };
 
-// ── Verify Paid Subscription (Signature Verification, Payment Capture & Activation) ──
+// -- Verify Paid Subscription (Signature Verification, Payment Capture & Activation) --
 export const verifyPaidSubscription = async (req, res) => {
   const {
     razorpay_payment_id,
@@ -1239,12 +1239,12 @@ export const verifyPaidSubscription = async (req, res) => {
         ) {
           await razorpay.subscriptions.cancel(previousSubscriptionId, false);
           console.log(
-            `✅ Automatically cancelled previous Razorpay mandate ${previousSubscriptionId} upon plan upgrade`,
+            `? Automatically cancelled previous Razorpay mandate ${previousSubscriptionId} upon plan upgrade`,
           );
         }
       } catch (oldSubErr) {
         console.warn(
-          `⚠️ Notice cancelling previous Razorpay mandate ${previousSubscriptionId}:`,
+          `?? Notice cancelling previous Razorpay mandate ${previousSubscriptionId}:`,
           oldSubErr?.error?.description || oldSubErr?.message,
         );
       }
@@ -1448,7 +1448,7 @@ export const verifyPaidSubscription = async (req, res) => {
   }
 };
 
-// ✅ NEW — Get Billing Details for Tenant Dashboard
+// ? NEW � Get Billing Details for Tenant Dashboard
 export const getBillingDetails = async (req, res) => {
   try {
     const tenantId = req.tenantId;
@@ -1620,7 +1620,7 @@ export const getBillingDetails = async (req, res) => {
   }
 };
 
-// ✅ Download Invoice
+// ? Download Invoice
 export const downloadInvoice = async (req, res) => {
   try {
     const { paymentId } = req.params;
@@ -1630,7 +1630,7 @@ export const downloadInvoice = async (req, res) => {
     const payment = await prisma.payment.findFirst({
       where: {
         id: paymentId,
-        tenantId, // ← Security: only own payments
+        tenantId, // ? Security: only own payments
         status: "SUCCESS",
       },
     });

@@ -1,10 +1,8 @@
 // backend/src/modules/whatsapp/whatsapp.routes.js (do not remove this comment)
 import express from "express";
-import {
-  verifyTenant,
-  requireApprovedTenant,
-} from "../../middlewares/auth.tenant.js";
-import { verifyTenantOrUser } from "../../middlewares/auth.verifyTenantOrUser.js";
+import { authenticate } from "../../middleware/authenticate.js";
+import { requireTenant } from "../../middleware/requireTenant.js";
+import { requireTenantOrUser } from "../../middleware/requireTenantOrUser.js";
 import {
   exchangeToken,
   setupWhatsApp,
@@ -33,65 +31,64 @@ import multer from "multer";
 
 const upload = multer({ dest: "uploads/temp/" });
 
-import validate from "../../middlewares/validate.middleware.js";
-import { checkSubscriptionAccess } from "../../middlewares/subscription.access.js";
+import validate from "../../middleware/validate.js";
+import { checkSubscriptionAccess } from "../../middleware/subscriptionAccess.js";
 import { sendLocationSchema, setupWhatsAppSchema } from "./whatsapp.schema.js";
 
 const router = express.Router();
 
 // GET /tenant/whatsapp/status - Allowed for both Tenants and Users (Agents)
-router.get("/status", verifyTenantOrUser, getWhatsAppStatus);
+router.get("/status", authenticate, requireTenantOrUser, getWhatsAppStatus);
 
 // send-location
 router.post(
   "/send-location",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   checkSubscriptionAccess,
   validate(sendLocationSchema),
   sendLocation,
 );
 
 // Call Management Routes (Allowed for both Tenants and Users)
-router.post("/calls/accept", verifyTenantOrUser, acceptCall);
-router.post("/calls/reject", verifyTenantOrUser, rejectCall);
-router.post("/calls/terminate", verifyTenantOrUser, terminateCall);
+router.post("/calls/accept", authenticate, requireTenantOrUser, acceptCall);
+router.post("/calls/reject", authenticate, requireTenantOrUser, rejectCall);
+router.post("/calls/terminate", authenticate, requireTenantOrUser, terminateCall);
 router.post(
   "/calls/initiate",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   checkSubscriptionAccess,
   initiateCall,
 );
-router.get("/calls/history", verifyTenantOrUser, getCallHistory);
+router.get("/calls/history", authenticate, requireTenantOrUser, getCallHistory);
 router.get(
   "/calls/conversation/:conversationId",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   getConversationCalls,
 );
-router.get("/calls/contact/:contactId", verifyTenantOrUser, getContactCalls);
+router.get("/calls/contact/:contactId", authenticate, requireTenantOrUser, getContactCalls);
 router.get(
   "/calls/permissions/:contactId",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   getCallPermissions,
 );
 router.get(
   "/calls/permissions/check/:contactId",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   checkCallPermission,
 );
 router.post(
   "/calls/permissions/request",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   checkSubscriptionAccess,
   requestCallPermission,
 );
 
 // POST /tenant/whatsapp/exchange-token — Embedded Signup code exchange
 // Must be BEFORE requireApprovedTenant (tenant may not be approved yet during onboarding)
-router.post("/exchange-token", verifyTenant, exchangeToken);
+router.post("/exchange-token", authenticate, requireTenant, exchangeToken);
 
 // All other routes require a verified, approved tenant admin
-router.use(verifyTenant, requireApprovedTenant);
-
+router.use(authenticate, requireTenant);
 // POST /tenant/whatsapp/setup
 router.post("/setup", validate(setupWhatsAppSchema), setupWhatsApp);
 

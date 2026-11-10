@@ -8,7 +8,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 
-// ── Allowed MIME types per Meta template header limits ──────────────────────
+// -- Allowed MIME types per Meta template header limits ----------------------
 const ALLOWED_IMAGE_MIMES = [
   "image/jpeg",
   "image/jpg",
@@ -33,17 +33,17 @@ export const TEMPLATE_MEDIA_MIMES = [
   ...ALLOWED_DOCUMENT_MIMES,
 ];
 
-// ── Size limits per Meta template header spec ────────────────────────────────
+// -- Size limits per Meta template header spec --------------------------------
 export const TEMPLATE_SIZE_LIMITS = {
   IMAGE: 5 * 1024 * 1024, // 5 MB
   VIDEO: 16 * 1024 * 1024, // 16 MB
   DOCUMENT: 16 * 1024 * 1024, // 16 MB
 };
 
-// ── Storage ──────────────────────────────────────────────────────────────────
+// -- Storage ------------------------------------------------------------------
 const storage = multer.diskStorage({
   destination(req, _file, cb) {
-    // tenantId is always from auth middleware — never from request body/query
+    // tenantId is always from auth middleware � never from request body/query
     const tenantId = req.tenantId;
     if (!tenantId) {
       return cb(
@@ -68,7 +68,7 @@ const storage = multer.diskStorage({
   },
 });
 
-// ── MIME-type filter ─────────────────────────────────────────────────────────
+// -- MIME-type filter ---------------------------------------------------------
 const fileFilter = (_req, file, cb) => {
   if (TEMPLATE_MEDIA_MIMES.includes(file.mimetype)) {
     cb(null, true);
@@ -83,7 +83,7 @@ const fileFilter = (_req, file, cb) => {
   }
 };
 
-// ── Multer instance ──────────────────────────────────────────────────────────
+// -- Multer instance ----------------------------------------------------------
 const templateUpload = multer({
   storage,
   fileFilter,
@@ -94,7 +94,7 @@ const templateUpload = multer({
 
 export default templateUpload;
 
-// ── Helper: validate uploaded file size against header-type-specific limits ─
+// -- Helper: validate uploaded file size against header-type-specific limits -
 export function validateTemplateMediaSize(file, headerType) {
   if (!file) return null;
 

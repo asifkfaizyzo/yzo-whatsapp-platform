@@ -1,15 +1,15 @@
 // backend/src/modules/audit/audit.service.js (do not remove this comment)
 import prisma from "../../config/prisma.js";
 
-// ─────────────────────────────────────────
+// -----------------------------------------
 // HOW MANY DAYS TO KEEP LOGS
-// ─────────────────────────────────────────
+// -----------------------------------------
 const RETENTION_DAYS = 90;
 
-// ─────────────────────────────────────────
+// -----------------------------------------
 // CREATE AUDIT LOG
 // Call this after every important action
-// ─────────────────────────────────────────
+// -----------------------------------------
 export const createAuditLog = async ({
   actorId,
   actorType,
@@ -28,7 +28,7 @@ export const createAuditLog = async ({
 }) => {
   try {
     const log = await prisma.auditLog.create({
-      // ← added return
+      // ? added return
       data: {
         actorId,
         actorType,
@@ -47,19 +47,19 @@ export const createAuditLog = async ({
       },
     });
 
-    return log; // ← return so callers can confirm it was saved
+    return log; // ? return so callers can confirm it was saved
   } catch (error) {
-    // ⚠️ Never crash the main flow because of audit log failure
+    // ?? Never crash the main flow because of audit log failure
     console.error("[AuditLog] Failed to write log:", error.message);
-    console.error("[AuditLog] Action:", action, "| Actor:", actorId); // ← better debug info
-    return null; // ← explicit null so callers can check if needed
+    console.error("[AuditLog] Action:", action, "| Actor:", actorId); // ? better debug info
+    return null; // ? explicit null so callers can check if needed
   }
 };
 
-// ─────────────────────────────────────────
+// -----------------------------------------
 // GET AUDIT LOGS
 // SuperAdmin views logs with filters
-// ─────────────────────────────────────────
+// -----------------------------------------
 export const getAuditLogsService = async (filters = {}) => {
   const {
     actorType,
@@ -73,7 +73,7 @@ export const getAuditLogsService = async (filters = {}) => {
     limit = 20,
   } = filters;
 
-  // ── Build filter conditions ──
+  // -- Build filter conditions --
   const where = {};
 
   if (actorType && actorType !== "ALL") where.actorType = actorType;
@@ -104,7 +104,7 @@ export const getAuditLogsService = async (filters = {}) => {
 
   const skip = (Number(page) - 1) * Number(limit);
 
-  // ── Query ──
+  // -- Query --
   const [logs, total] = await Promise.all([
     prisma.auditLog.findMany({
       where,
@@ -135,10 +135,10 @@ export const getAuditLogsService = async (filters = {}) => {
   };
 };
 
-// ─────────────────────────────────────────
+// -----------------------------------------
 // GET AUDIT LOG STATS
 // For the stats strip on top of the page
-// ─────────────────────────────────────────
+// -----------------------------------------
 export const getAuditLogStatsService = async () => {
   const now = new Date();
   const last24h = new Date(now - 24 * 60 * 60 * 1000);
@@ -187,15 +187,15 @@ export const getAuditLogStatsService = async () => {
   };
 };
 
-// ─────────────────────────────────────────
+// -----------------------------------------
 // CLEANUP OLD AUDIT LOGS
 // Called by cron job every day at 2AM
-// ─────────────────────────────────────────
+// -----------------------------------------
 export const cleanupOldAuditLogsService = async () => {
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - RETENTION_DAYS);
 
-  // 1️⃣ Delete old logs — EXCEPT SYSTEM_CLEANUP logs (keep forever)
+  // 1?? Delete old logs � EXCEPT SYSTEM_CLEANUP logs (keep forever)
   const result = await prisma.auditLog.deleteMany({
     where: {
       createdAt: { lt: cutoffDate },
@@ -207,7 +207,7 @@ export const cleanupOldAuditLogsService = async () => {
     `[AuditCleanup] Deleted ${result.count} logs older than ${RETENTION_DAYS} days`,
   );
 
-  // 2️⃣ Write SYSTEM_CLEANUP audit log — only if something was deleted
+  // 2?? Write SYSTEM_CLEANUP audit log � only if something was deleted
   if (result.count > 0) {
     await createAuditLog({
       actorId: "SYSTEM",
@@ -226,7 +226,7 @@ export const cleanupOldAuditLogsService = async () => {
       },
     });
   } else {
-    console.log("[AuditCleanup] No old logs to delete — skipping audit entry");
+    console.log("[AuditCleanup] No old logs to delete � skipping audit entry");
   }
 
   return {

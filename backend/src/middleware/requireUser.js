@@ -10,9 +10,9 @@
  *   - Parent tenant is not BLOCKED and is active
  *
  * Sets on req:
- *   req.user     — User record with tenant info
- *   req.userId   — user's database ID
- *   req.tenantId — parent tenant's ID (for scoping queries)
+ *   req.user     � User record with tenant info
+ *   req.userId   � user's database ID
+ *   req.tenantId � parent tenant's ID (for scoping queries)
  */
 
 import prisma from "../config/prisma.js";

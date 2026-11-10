@@ -15,10 +15,10 @@ import {
   parseShopifyReviewRating,
 } from "./shopify.postPurchaseMessages.js";
 
-// ─────────────────────────────────────────────
+// ---------------------------------------------
 // ENQUEUE: Schedule post-purchase jobs from lifecycle events
 // Called by shopify.orderLifecycle.js when delivery/order events fire
-// ─────────────────────────────────────────────
+// ---------------------------------------------
 
 /**
  * Schedule a review request after delivery
@@ -49,7 +49,7 @@ export const scheduleReviewRequest = async ({
   );
 
   console.log(
-    `⏱️ [PostPurchase] Review request scheduled for ${order.orderNumber} in ${delayDays} days`,
+    `?? [PostPurchase] Review request scheduled for ${order.orderNumber} in ${delayDays} days`,
   );
 };
 
@@ -81,7 +81,7 @@ export const scheduleCrossSell = async ({
   );
 
   console.log(
-    `⏱️ [PostPurchase] Cross-sell scheduled for ${order.orderNumber} in ${delayHours}h`,
+    `?? [PostPurchase] Cross-sell scheduled for ${order.orderNumber} in ${delayHours}h`,
   );
 };
 
@@ -109,14 +109,14 @@ export const scheduleUpsell = async ({ tenantId, order }) => {
   );
 
   console.log(
-    `⏱️ [PostPurchase] Upsell scheduled for ${order.orderNumber} in 15 min`,
+    `?? [PostPurchase] Upsell scheduled for ${order.orderNumber} in 15 min`,
   );
 };
 
-// ─────────────────────────────────────────────
+// ---------------------------------------------
 // EXECUTE: Process post-purchase jobs when they fire
 // Called by order-webhook.worker.js when delayed jobs trigger
-// ─────────────────────────────────────────────
+// ---------------------------------------------
 
 /**
  * Process review request job
@@ -186,7 +186,7 @@ export const processReviewRequestJob = async (data) => {
   });
 
   console.log(
-    `✅ [PostPurchase] Review request sent for ${orderNumber} to ${customerPhone}`,
+    `? [PostPurchase] Review request sent for ${orderNumber} to ${customerPhone}`,
   );
   return { success: true, type: "REVIEW_REQUEST", orderNumber };
 };
@@ -269,14 +269,14 @@ export const processCrossSellJob = async (data) => {
     }
   } catch (err) {
     console.warn(
-      `⚠️ [PostPurchase] Cross-sell product lookup failed:`,
+      `?? [PostPurchase] Cross-sell product lookup failed:`,
       err.message,
     );
   }
 
   if (recommendedProducts.length === 0) {
     console.log(
-      `⏭️ [PostPurchase] No related products found for cross-sell on ${orderNumber}`,
+      `?? [PostPurchase] No related products found for cross-sell on ${orderNumber}`,
     );
     return { skipped: true, reason: "no_related_products" };
   }
@@ -310,7 +310,7 @@ export const processCrossSellJob = async (data) => {
     data: { crossSellSentAt: new Date() },
   });
 
-  console.log(`✅ [PostPurchase] Cross-sell sent for ${orderNumber}`);
+  console.log(`? [PostPurchase] Cross-sell sent for ${orderNumber}`);
   return { success: true, type: "CROSS_SELL", orderNumber };
 };
 
@@ -384,7 +384,7 @@ export const processUpsellJob = async (data) => {
     }
   } catch (err) {
     console.warn(
-      `⚠️ [PostPurchase] Upsell product lookup failed:`,
+      `?? [PostPurchase] Upsell product lookup failed:`,
       err.message,
     );
   }
@@ -422,7 +422,7 @@ export const processUpsellJob = async (data) => {
     data: { upsellSentAt: new Date() },
   });
 
-  console.log(`✅ [PostPurchase] Upsell sent for ${orderNumber}`);
+  console.log(`? [PostPurchase] Upsell sent for ${orderNumber}`);
   return { success: true, type: "UPSELL", orderNumber };
 };
 
@@ -463,7 +463,7 @@ export const handleReviewReply = async ({
   });
 
   console.log(
-    `⭐ [PostPurchase] Review saved: ${rating}/5 for order ${pendingReviewOrder.orderNumber}`,
+    `? [PostPurchase] Review saved: ${rating}/5 for order ${pendingReviewOrder.orderNumber}`,
   );
   return { success: true, rating, orderNumber: pendingReviewOrder.orderNumber };
 };
@@ -529,7 +529,7 @@ export const processReorderReminderJob = async (data) => {
     data: { reorderReminderSentAt: new Date() },
   });
 
-  console.log(`✅ [PostPurchase] Reorder reminder sent for ${orderNumber}`);
+  console.log(`? [PostPurchase] Reorder reminder sent for ${orderNumber}`);
   return { success: true, type: "REORDER_REMINDER", orderNumber };
 };
 
@@ -592,6 +592,6 @@ export const processWinBackJob = async (data) => {
     data: { winBackSentAt: new Date() },
   });
 
-  console.log(`✅ [PostPurchase] Win-back sent to ${customerPhone}`);
+  console.log(`? [PostPurchase] Win-back sent to ${customerPhone}`);
   return { success: true, type: "WIN_BACK", customerPhone };
 };

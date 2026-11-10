@@ -9,11 +9,12 @@ import {
   getPaginatedNotifications,
   deleteNotification,
 } from "./notification.controller.js";
-import { verifyTenantOrUser } from "../../middlewares/auth.verifyTenantOrUser.js";
+import { authenticate } from "../../middleware/authenticate.js";
+import { requireTenantOrUser } from "../../middleware/requireTenantOrUser.js";
 
 const router = Router();
 
-router.use(verifyTenantOrUser);
+router.use(authenticate, requireTenantOrUser);
 
 router.get("/", getNotifications);
 router.get("/paginated", getPaginatedNotifications);

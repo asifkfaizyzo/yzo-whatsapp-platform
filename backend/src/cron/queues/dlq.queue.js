@@ -5,7 +5,7 @@ import { redisConnection } from "../../config/redis.js";
 export const QUEUE_NAME_DLQ = "webhook-dlq";
 
 /**
- * Dead Letter Queue — stores webhooks that failed all retry attempts
+ * Dead Letter Queue � stores webhooks that failed all retry attempts
  *
  * Unlike the main queue:
  *   - Jobs stay here indefinitely (until admin acts)
@@ -25,4 +25,4 @@ export const dlqQueue = new Queue(QUEUE_NAME_DLQ, {
   },
 });
 
-console.log("📮 Dead Letter Queue initialized");
+console.log("?? Dead Letter Queue initialized");

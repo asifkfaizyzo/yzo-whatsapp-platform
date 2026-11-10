@@ -3,12 +3,12 @@
 import prisma from "../../config/prisma.js";
 
 const flowService = {
-  // ── Get all flows ──
+  // -- Get all flows --
   getAllFlows: async (tenantId) => {
     return await prisma.flow.findMany({
       where: { tenantId },
       include: {
-        keywords: true, // ← include keywords
+        keywords: true, // ? include keywords
         _count: {
           select: { nodes: true },
         },
@@ -17,18 +17,18 @@ const flowService = {
     });
   },
 
-  // ── Get flow by id ──
+  // -- Get flow by id --
   getFlowById: async (flowId, tenantId) => {
     return await prisma.flow.findFirst({
       where: { id: flowId, tenantId },
       include: {
-        keywords: true, // ← include keywords
+        keywords: true, // ? include keywords
         nodes: { orderBy: { order: "asc" } },
       },
     });
   },
 
-  // ── Create flow ──
+  // -- Create flow --
   createFlow: async (tenantId, data) => {
     return await prisma.flow.create({
       data: {
@@ -40,7 +40,7 @@ const flowService = {
     });
   },
 
-  // ── Save flow with nodes and keywords ──
+  // -- Save flow with nodes and keywords --
   saveFlow: async (flowId, tenantId, data) => {
     const { name, triggerType, keywords, nodes, edges } = data;
 
@@ -74,17 +74,17 @@ const flowService = {
     }
 
     // 3. Delete old nodes ONLY if nodes provided
-    // ⭐ Add this check
+    // ? Add this check
     if (nodes && Array.isArray(nodes) && nodes.length > 0) {
       // Delete old nodes
       await prisma.flowNode.deleteMany({
         where: { flowId },
       });
 
-      // ── Build next node map (normal nodes) ──
+      // -- Build next node map (normal nodes) --
       const nextNodeMap = {};
 
-      // ── Build button edge map (button nodes) ──
+      // -- Build button edge map (button nodes) --
       const buttonEdgeMap = {};
 
       if (edges && Array.isArray(edges)) {
@@ -109,7 +109,7 @@ const flowService = {
         data: nodes.map((node, index) => {
           let options = node.data?.options || null;
 
-          // ⭐ INTERACTIVE_BUTTONS: inject nextNodeId + preserve media
+          // ? INTERACTIVE_BUTTONS: inject nextNodeId + preserve media
           if (node.type === "INTERACTIVE_BUTTONS") {
             const btnMap = buttonEdgeMap[node.id] || {};
 
@@ -154,7 +154,7 @@ const flowService = {
     });
   },
 
-  // ── Add keywords to flow ──
+  // -- Add keywords to flow --
   addKeywords: async (flowId, tenantId, keywords) => {
     if (!keywords || !Array.isArray(keywords) || keywords.length === 0) {
       throw new Error("keywords must be a non-empty array");
@@ -171,14 +171,14 @@ const flowService = {
     });
   },
 
-  // ── Remove keyword ──
+  // -- Remove keyword --
   removeKeyword: async (keywordId, tenantId) => {
     return await prisma.keywordTrigger.delete({
       where: { id: keywordId },
     });
   },
 
-  // ── Get all keywords of tenant ──
+  // -- Get all keywords of tenant --
   getAllKeywords: async (tenantId) => {
     return await prisma.keywordTrigger.findMany({
       where: { tenantId },
@@ -191,12 +191,12 @@ const flowService = {
     });
   },
 
-  // ── FIND FLOW BY KEYWORD (used by engine) ──
-  // ── FIND FLOW BY KEYWORD (used by engine) ──
+  // -- FIND FLOW BY KEYWORD (used by engine) --
+  // -- FIND FLOW BY KEYWORD (used by engine) --
   findFlowByKeyword: async (tenantId, userMessage) => {
     const cleanMessage = userMessage.toLowerCase().trim();
 
-    console.log(`🔍 Searching keyword in message: "${cleanMessage}"`);
+    console.log(`?? Searching keyword in message: "${cleanMessage}"`);
 
     // Get all active flows with keywords
     const triggers = await prisma.keywordTrigger.findMany({
@@ -210,16 +210,16 @@ const flowService = {
       },
     });
 
-    console.log(`📚 Total keywords in DB: ${triggers.length}`);
+    console.log(`?? Total keywords in DB: ${triggers.length}`);
 
-    // ✅ Case-insensitive match — check if message contains any keyword
+    // ? Case-insensitive match � check if message contains any keyword
     const matched = triggers.find((trigger) => {
       const keyword = trigger.keyword.toLowerCase().trim();
 
       // Exact match
       if (cleanMessage === keyword) return true;
 
-      // Contains match — "Hello there" matches keyword "hello"
+      // Contains match � "Hello there" matches keyword "hello"
       if (cleanMessage.includes(keyword)) return true;
 
       return false;
@@ -227,15 +227,15 @@ const flowService = {
 
     // Return flow only if active
     if (matched && matched.flow.isActive) {
-      console.log(`🎯 Keyword matched: "${matched.keyword}"`);
+      console.log(`?? Keyword matched: "${matched.keyword}"`);
       return matched.flow;
     }
 
-    console.log("❌ No keyword matched");
+    console.log("? No keyword matched");
     return null;
   },
 
-  // ── Find default flow ──
+  // -- Find default flow --
   findDefaultFlow: async (tenantId) => {
     return await prisma.flow.findFirst({
       where: {
@@ -249,7 +249,7 @@ const flowService = {
     });
   },
 
-  // ── Find order flow (event-based trigger for WhatsApp cart orders) ──
+  // -- Find order flow (event-based trigger for WhatsApp cart orders) --
   findOrderFlow: async (tenantId) => {
     return await prisma.flow.findFirst({
       where: {
@@ -263,7 +263,7 @@ const flowService = {
     });
   },
 
-  // ── Delete flow ──
+  // -- Delete flow --
   deleteFlow: async (flowId, tenantId) => {
     // keywords auto delete (onDelete: Cascade)
     // nodes auto delete (onDelete: Cascade)
@@ -272,7 +272,7 @@ const flowService = {
     });
   },
 
-  // ── Toggle flow active ──
+  // -- Toggle flow active --
   toggleFlow: async (flowId, tenantId, isActive) => {
     return await prisma.flow.update({
       where: { id: flowId },
@@ -280,8 +280,8 @@ const flowService = {
     });
   },
 
-  // ── Set default flow ──
-  // ── Set default flow ──
+  // -- Set default flow --
+  // -- Set default flow --
   setDefaultFlow: async (flowId, tenantId) => {
     await prisma.flow.updateMany({
       where: { tenantId },
@@ -293,7 +293,7 @@ const flowService = {
     });
   },
 
-  // ── Unset default flow ──
+  // -- Unset default flow --
   unsetDefaultFlow: async (flowId, tenantId) => {
     return await prisma.flow.update({
       where: { id: flowId },
@@ -301,7 +301,7 @@ const flowService = {
     });
   },
 
-  // ── Get node by id ──
+  // -- Get node by id --
   getNodeById: async (nodeId) => {
     return await prisma.flowNode.findUnique({
       where: { id: nodeId },

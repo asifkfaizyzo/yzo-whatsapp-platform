@@ -6,7 +6,7 @@ import {
 } from "../auth/email.service.js";
 import { validationResult } from "express-validator";
 
-// ── Public Enquiry Submission ──
+// -- Public Enquiry Submission --
 export const submitEnquiry = async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -46,7 +46,7 @@ export const submitEnquiry = async (req, res) => {
       data: enquiry,
     });
   } catch (error) {
-    console.error("❌ Submit enquiry error:", error);
+    console.error("? Submit enquiry error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to submit enquiry",
@@ -54,7 +54,7 @@ export const submitEnquiry = async (req, res) => {
   }
 };
 
-// ── Admin: List Enquiries (Paginated, Searchable, Filterable) ──
+// -- Admin: List Enquiries (Paginated, Searchable, Filterable) --
 export const getEnquiries = async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
@@ -99,7 +99,7 @@ export const getEnquiries = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("❌ Get enquiries error:", error);
+    console.error("? Get enquiries error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to fetch enquiries",
@@ -107,7 +107,7 @@ export const getEnquiries = async (req, res) => {
   }
 };
 
-// ── Admin: Get Single Enquiry ──
+// -- Admin: Get Single Enquiry --
 export const getEnquiry = async (req, res) => {
   const { id } = req.params;
 
@@ -136,7 +136,7 @@ export const getEnquiry = async (req, res) => {
       data: enquiry,
     });
   } catch (error) {
-    console.error("❌ Get single enquiry error:", error);
+    console.error("? Get single enquiry error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to fetch enquiry details",
@@ -144,7 +144,7 @@ export const getEnquiry = async (req, res) => {
   }
 };
 
-// ── Admin: Update Status ──
+// -- Admin: Update Status --
 export const updateStatus = async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
@@ -167,7 +167,7 @@ export const updateStatus = async (req, res) => {
       data: updated,
     });
   } catch (error) {
-    console.error("❌ Update enquiry status error:", error);
+    console.error("? Update enquiry status error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to update status",
@@ -175,7 +175,7 @@ export const updateStatus = async (req, res) => {
   }
 };
 
-// ── Admin: Delete Enquiry ──
+// -- Admin: Delete Enquiry --
 export const deleteEnquiry = async (req, res) => {
   const { id } = req.params;
 
@@ -189,7 +189,7 @@ export const deleteEnquiry = async (req, res) => {
       message: "Enquiry deleted",
     });
   } catch (error) {
-    console.error("❌ Delete enquiry error:", error);
+    console.error("? Delete enquiry error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to delete enquiry",

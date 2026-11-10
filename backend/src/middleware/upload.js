@@ -19,7 +19,7 @@ const storage = multer.diskStorage({
       return cb(null, fallback);
     }
 
-    // ✅ Detect inbound or outbound
+    // ? Detect inbound or outbound
     const isInbound = req.path.includes("incoming");
     const direction = isInbound ? "inbound" : "outbound";
 
@@ -29,7 +29,7 @@ const storage = multer.diskStorage({
       resolvedTenantId,
       "contacts",
       resolvedContactId,
-      direction, // ✅ /outbound or /inbound
+      direction, // ? /outbound or /inbound
     );
 
     fs.mkdirSync(uploadPath, { recursive: true });
@@ -37,7 +37,7 @@ const storage = multer.diskStorage({
   },
 
   filename: function (req, file, cb) {
-    // ✅ Sanitize filename
+    // ? Sanitize filename
     const ext = path.extname(file.originalname);
     const baseName = path
       .basename(file.originalname, ext)

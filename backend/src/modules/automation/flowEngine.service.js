@@ -12,9 +12,9 @@ import shopifyOrderLookupService from "../shopify/orders/shopify.orderLookup.ser
 import faqService from "./faq.service.js";
 
 const flowEngine = {
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // MAIN ENTRY POINT
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   processIncomingMessage: async (
     conversation,
     contact,
@@ -23,14 +23,14 @@ const flowEngine = {
     extraData = {},
   ) => {
     try {
-      console.log(`\n📩 New message: "${userMessage}"`);
+      console.log(`\n?? New message: "${userMessage}"`);
       console.log(`   Conversation ID : ${conversation.id}`);
       console.log(`   Mode            : ${conversation.mode}`);
       console.log(`   CurrentNodeId   : ${conversation.currentNodeId}`);
       console.log(`   BotPaused       : ${conversation.botPaused}`);
       console.log(`   IsNewContact    : ${isNewContact}`);
 
-      // ── Handle Incoming Location & Text Address Messages for Google Sheets Syncing ──
+      // -- Handle Incoming Location & Text Address Messages for Google Sheets Syncing --
       const textStr = typeof userMessage === "string" ? userMessage.trim() : "";
       const textLower = textStr.toLowerCase();
 
@@ -48,7 +48,7 @@ const flowEngine = {
       const isLocationMsg =
         isTextAddress ||
         (typeof userMessage === "string" &&
-          (userMessage.includes("📍 Location") ||
+          (userMessage.includes("?? Location") ||
             userMessage.includes("maps.google.com") ||
             userMessage === "LOCATION_RECEIVED")) ||
         extraData?.messageType === "LOCATION" ||
@@ -101,7 +101,7 @@ const flowEngine = {
               })
               .catch(() => activeOrder);
           } else {
-            // 🆕 NO active pending order exists -> CREATE AN ORDER FIRST!
+            // ?? NO active pending order exists -> CREATE AN ORDER FIRST!
             const tenantId = conversation.tenantId;
             const orderNumber = `ORD-${tenantId.slice(-4).toUpperCase()}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
 
@@ -120,7 +120,7 @@ const flowEngine = {
               })
               .catch((err) => {
                 console.error(
-                  "❌ Error creating initial order on location receive:",
+                  "? Error creating initial order on location receive:",
                   err.message,
                 );
                 return null;
@@ -131,7 +131,7 @@ const flowEngine = {
             conversation.flowData.activeOrderId = activeOrder.id;
             conversation.flowData.activeOrderNumber = activeOrder.orderNumber;
 
-            // 📊 Immediately log / update Google Sheets for this Order!
+            // ?? Immediately log / update Google Sheets for this Order!
             const productSummary = (activeOrder.items || [])
               .map((i) => `${i.productName || "Item"} (x${i.quantity || 1})`)
               .join(", ");
@@ -177,7 +177,7 @@ const flowEngine = {
         }
       }
 
-      // ── CASE 0.5: Check for post-purchase review rating reply (Shopify & WooCommerce) ──
+      // -- CASE 0.5: Check for post-purchase review rating reply (Shopify & WooCommerce) --
       if (textStr) {
         try {
           // 1. Try Shopify Review Reply Interception
@@ -190,7 +190,7 @@ const flowEngine = {
           });
           if (shopifyResult?.handled) {
             console.log(
-              `⭐ [ReviewReply] Captured Shopify rating ${shopifyResult.rating} for order ${shopifyResult.orderId}`,
+              `? [ReviewReply] Captured Shopify rating ${shopifyResult.rating} for order ${shopifyResult.orderId}`,
             );
             if (shopifyResult.responseSent) {
               await flowEngine.sendBotTextMessage(
@@ -216,7 +216,7 @@ const flowEngine = {
           });
           if (wooResult?.handled) {
             console.log(
-              `⭐ [ReviewReply] Captured WooCommerce rating ${wooResult.rating} for order ${wooResult.orderId}`,
+              `? [ReviewReply] Captured WooCommerce rating ${wooResult.rating} for order ${wooResult.orderId}`,
             );
             if (wooResult.responseSent) {
               await flowEngine.sendBotTextMessage(
@@ -233,20 +233,20 @@ const flowEngine = {
           }
         } catch (reviewErr) {
           console.warn(
-            "⚠️ [ReviewReply] Error checking review reply:",
+            "?? [ReviewReply] Error checking review reply:",
             reviewErr.message,
           );
         }
       }
 
-      // ── CASE 1: Agent is handling → notify agent only ──
+      // -- CASE 1: Agent is handling ? notify agent only --
       if (conversation.mode === "AGENT" || conversation.botPaused) {
-        console.log("👤 Agent is handling - skipping bot");
+        console.log("?? Agent is handling - skipping bot");
         await flowEngine.notifyAgents(conversation, contact, userMessage);
         return;
       }
 
-      // ── CHECK ORDER CONFIRMATION / GOOGLE SHEETS / INTERACTIVE ACTIONS FIRST ──
+      // -- CHECK ORDER CONFIRMATION / GOOGLE SHEETS / INTERACTIVE ACTIONS FIRST --
       const handledOrderAction = await flowEngine.handleOrderConfirmationAction(
         conversation,
         contact,
@@ -259,7 +259,7 @@ const flowEngine = {
           typeof handledOrderAction === "object" &&
           handledOrderAction.reply
         ) {
-          console.log(`🤖 Sending automation reply back to customer...`);
+          console.log(`?? Sending automation reply back to customer...`);
 
           if (handledOrderAction.buttons) {
             // Send Interactive Buttons
@@ -294,19 +294,19 @@ const flowEngine = {
         return; // Stop standard flow execution because the sheet automation handled it
       }
 
-      console.log(`🔍 DEBUG BEFORE CASE 1.5:`);
+      console.log(`?? DEBUG BEFORE CASE 1.5:`);
       console.log(`   isNewContact: ${isNewContact}`);
       console.log(`   contact.assignedTo: ${contact.assignedTo}`);
       console.log(`   contact.name: ${contact.name}`);
       console.log(`   contact.id: ${contact.id}`);
 
-      // ── CASE 1.5: Existing contact with assigned agent → skip bot ──
+      // -- CASE 1.5: Existing contact with assigned agent ? skip bot --
       if (!isNewContact && contact.assignedTo) {
         console.log(
-          `👤 Contact ${contact.name} already assigned - skipping bot`,
+          `?? Contact ${contact.name} already assigned - skipping bot`,
         );
 
-        // ✅ Only update conversation assignedTo
+        // ? Only update conversation assignedTo
         // Do NOT force botPaused or mode change here
         // The conversation mode was already set correctly before
         await prisma.conversation.update({
@@ -316,7 +316,7 @@ const flowEngine = {
           },
         });
 
-        // ✅ Notify the assigned agent directly
+        // ? Notify the assigned agent directly
         emitToUser(contact.assignedTo, "new_message", {
           conversationId: conversation.id,
           message: {
@@ -345,7 +345,7 @@ const flowEngine = {
           },
         });
 
-        // ✅ Also notify tenant room for dashboard update
+        // ? Also notify tenant room for dashboard update
         emitToTenant(conversation.tenantId, "new_message", {
           conversationId: conversation.id,
           message: {
@@ -360,13 +360,13 @@ const flowEngine = {
           assignedTo: contact.assignedTo,
         });
 
-        console.log(`📤 Notified assigned agent: ${contact.assignedTo}`);
+        console.log(`?? Notified assigned agent: ${contact.assignedTo}`);
         return;
       }
 
-      // ── CASE 1.6: Contact in queue → don't restart bot ──
+      // -- CASE 1.6: Contact in queue ? don't restart bot --
       if (conversation.mode === "QUEUED") {
-        console.log(`⏳ Contact ${contact.name} in queue - no bot restart`);
+        console.log(`? Contact ${contact.name} in queue - no bot restart`);
 
         // Just deliver to tenant inbox
         emitToTenant(conversation.tenantId, "new_message", {
@@ -384,9 +384,9 @@ const flowEngine = {
         return;
       }
 
-      // ── CASE 2: Bot active + waiting on a node → continue flow ──
-      // ✅ ADD DEBUG BEFORE THE CHECK
-      console.log(`🐛 CASE 2 CHECK:`);
+      // -- CASE 2: Bot active + waiting on a node ? continue flow --
+      // ? ADD DEBUG BEFORE THE CHECK
+      console.log(`?? CASE 2 CHECK:`);
       console.log(`   mode: ${conversation.mode}`);
       console.log(`   currentFlowId: ${conversation.currentFlowId}`);
       console.log(`   currentNodeId: ${conversation.currentNodeId}`);
@@ -396,16 +396,16 @@ const flowEngine = {
         conversation.currentFlowId &&
         conversation.currentNodeId
       ) {
-        console.log(`✅ CASE 2 entered - checking timeout`);
+        console.log(`? CASE 2 entered - checking timeout`);
 
         // Check if session has timed out
         const timedOut = await flowEngine.checkSessionTimeout(
           conversation,
           24, // hours
         );
-        console.log(`⏰ timedOut result: ${timedOut}`);
+        console.log(`? timedOut result: ${timedOut}`);
         if (timedOut) {
-          console.log("⏰ Session timed out. Restarting flow...");
+          console.log("? Session timed out. Restarting flow...");
 
           await prisma.conversation.update({
             where: { id: conversation.id },
@@ -418,7 +418,7 @@ const flowEngine = {
           });
 
           const timeoutMsg =
-            "⏰ Your previous session has ended.\n\n" +
+            "? Your previous session has ended.\n\n" +
             "Let me start fresh for you!";
 
           await flowEngine.sendBotTextMessage(
@@ -446,7 +446,7 @@ const flowEngine = {
         }
 
         // Session active: resume
-        console.log("🤖 Resuming flow from last node...");
+        console.log("?? Resuming flow from last node...");
         await flowEngine.continueFlow(
           conversation,
           contact,
@@ -457,8 +457,8 @@ const flowEngine = {
         return;
       }
 
-      // ── CASE 3: No active flow → find by keyword ──
-      console.log("🔍 Looking for flow by keyword...");
+      // -- CASE 3: No active flow ? find by keyword --
+      console.log("?? Looking for flow by keyword...");
       await flowEngine.startNewFlow(
         conversation,
         contact,
@@ -466,16 +466,16 @@ const flowEngine = {
         isNewContact,
       );
     } catch (error) {
-      console.error("❌ Flow Engine Error:", error);
+      console.error("? Flow Engine Error:", error);
     }
   },
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // Handle Menu Actions, Payment & Single-Row Sheet Tracking
-  // ─────────────────────────────────────────
-  // ─────────────────────────────────────────
+  // -----------------------------------------
+  // -----------------------------------------
   // Handle Menu Actions, Payment & Single-Row Sheet Tracking
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   handleOrderConfirmationAction: async (conversation, contact, userMessage) => {
     try {
       let actualUserMessage = userMessage;
@@ -506,10 +506,10 @@ const flowEngine = {
       msgStr = String(msgStr || "").trim();
       const textLower = msgStr.toLowerCase();
 
-      // ═══════════════════════════════════════════════════
+      // ---------------------------------------------------
       // BRANCH A: ORDER CONFIRMATION / PAYMENT ACTIONS
       // (Confirm / Cancel / Modify / COD / Pay Retry)
-      // ═══════════════════════════════════════════════════
+      // ---------------------------------------------------
       const isConfirm =
         textLower === "confirm order" ||
         textLower === "confirm" ||
@@ -564,7 +564,7 @@ const flowEngine = {
         const activeOrderId = activeOrder?.id || null;
         const orderNumber = activeOrder?.orderNumber || "N/A";
 
-        // ── Handle Switching from Online Payment to COD ──
+        // -- Handle Switching from Online Payment to COD --
         if (isCodSwitch && activeOrderId) {
           const tenant = await prisma.tenant.findUnique({
             where: { id: conversation.tenantId },
@@ -588,7 +588,7 @@ const flowEngine = {
               status: "CONFIRMED",
             });
 
-            // 📊 Sync COD Confirmed Order to Google Sheets
+            // ?? Sync COD Confirmed Order to Google Sheets
             try {
               const fullOrder = await prisma.order.findUnique({
                 where: { id: activeOrderId },
@@ -630,7 +630,7 @@ const flowEngine = {
               );
             }
 
-            const codMsg = `✅ *Switched to Cash on Delivery*\n\nOrder #${orderNumber} is now confirmed for *Cash on Delivery*! 🚚\n\nPlease keep ${activeOrder?.currency || "INR"} ${activeOrder ? Number(activeOrder.totalAmount).toFixed(2) : ""} ready upon delivery.`;
+            const codMsg = `? *Switched to Cash on Delivery*\n\nOrder #${orderNumber} is now confirmed for *Cash on Delivery*! ??\n\nPlease keep ${activeOrder?.currency || "INR"} ${activeOrder ? Number(activeOrder.totalAmount).toFixed(2) : ""} ready upon delivery.`;
             await flowEngine.sendBotTextMessage(
               conversation,
               actualContact,
@@ -642,7 +642,7 @@ const flowEngine = {
           }
         }
 
-        // ── Handle Payment Link Retry / Resend ──
+        // -- Handle Payment Link Retry / Resend --
         if (isPayRetry && activeOrderId) {
           try {
             const { resendOrderPaymentLink } =
@@ -653,12 +653,12 @@ const flowEngine = {
                 tenantId: conversation.tenantId,
               });
 
-            const payBody = `💳 *Payment Link for Order #${orderNumber}*\n\n💰 Total Amount: *${freshOrder.currency} ${Number(freshOrder.totalAmount).toFixed(2)}*\n\nPlease tap the button below to complete your payment:\n\n❌ _Want to cancel? Reply *Cancel*._`;
+            const payBody = `?? *Payment Link for Order #${orderNumber}*\n\n?? Total Amount: *${freshOrder.currency} ${Number(freshOrder.totalAmount).toFixed(2)}*\n\nPlease tap the button below to complete your payment:\n\n? _Want to cancel? Reply *Cancel*._`;
             await flowEngine.sendWhatsAppPaymentCTA(
               conversation.tenantId,
               actualContact.phone,
               {
-                headerText: "💳 Complete Payment",
+                headerText: "?? Complete Payment",
                 bodyText: payBody,
                 buttonText: "Pay Now",
                 url: paymentLink.short_url,
@@ -671,7 +671,7 @@ const flowEngine = {
           }
         }
 
-        // ── Handle Order Confirmation ──
+        // -- Handle Order Confirmation --
         if (isConfirm) {
           const tenant = await prisma.tenant.findUnique({
             where: { id: conversation.tenantId },
@@ -717,7 +717,7 @@ const flowEngine = {
               );
 
               if (fallbackCod) {
-                // 📊 Sync fallback COD Confirmed Order to Google Sheets
+                // ?? Sync fallback COD Confirmed Order to Google Sheets
                 try {
                   const fullOrder = await prisma.order.findUnique({
                     where: { id: activeOrder.id },
@@ -765,7 +765,7 @@ const flowEngine = {
                   );
                 }
 
-                const confirmMsg = `🎉 *Order #${orderNumber} Confirmed!*\n\nThank you! Your order has been placed with Cash on Delivery (Total: ${activeOrder.currency} ${Number(activeOrder.totalAmount).toFixed(2)}). We will notify you once it's on the way! 🚚`;
+                const confirmMsg = `?? *Order #${orderNumber} Confirmed!*\n\nThank you! Your order has been placed with Cash on Delivery (Total: ${activeOrder.currency} ${Number(activeOrder.totalAmount).toFixed(2)}). We will notify you once it's on the way! ??`;
                 await flowEngine.sendBotTextMessage(
                   conversation,
                   actualContact,
@@ -776,7 +776,7 @@ const flowEngine = {
                 return true;
               }
 
-              // 📊 Sync Online Payment Confirmed Order to Google Sheets
+              // ?? Sync Online Payment Confirmed Order to Google Sheets
               try {
                 const fullOrder = await prisma.order.findUnique({
                   where: { id: activeOrder.id },
@@ -824,13 +824,13 @@ const flowEngine = {
                 );
               }
 
-              const payBody = `📦 *Order #${orderNumber} Confirmed!*\n\n💰 Total Amount: *${activeOrder.currency} ${Number(activeOrder.totalAmount).toFixed(2)}*\n\nPlease tap the button below to complete your payment securely.${tenant.enableCod ? "\n\n💡 _Prefer Cash on Delivery? Simply reply *COD*._" : ""}\n❌ _Want to cancel? Reply *Cancel*._`;
+              const payBody = `?? *Order #${orderNumber} Confirmed!*\n\n?? Total Amount: *${activeOrder.currency} ${Number(activeOrder.totalAmount).toFixed(2)}*\n\nPlease tap the button below to complete your payment securely.${tenant.enableCod ? "\n\n?? _Prefer Cash on Delivery? Simply reply *COD*._" : ""}\n? _Want to cancel? Reply *Cancel*._`;
 
               await flowEngine.sendWhatsAppPaymentCTA(
                 conversation.tenantId,
                 actualContact.phone,
                 {
-                  headerText: "💳 Complete Payment",
+                  headerText: "?? Complete Payment",
                   bodyText: payBody,
                   footerText: `Expires in ${tenant.paymentLinkExpiryMins || 30} mins`,
                   buttonText: "Pay Now",
@@ -865,7 +865,7 @@ const flowEngine = {
               return true;
             } catch (payLinkErr) {
               console.error(
-                "❌ Failed to generate Razorpay payment link:",
+                "? Failed to generate Razorpay payment link:",
                 payLinkErr.message,
               );
               if (tenant?.enableCod) {
@@ -877,7 +877,7 @@ const flowEngine = {
                     status: "CONFIRMED",
                   },
                 });
-                const confirmMsg = `🎉 *Order #${orderNumber} Confirmed!*\n\nYour order has been confirmed with Cash on Delivery (Total: ${activeOrder.currency} ${Number(activeOrder.totalAmount).toFixed(2)}). We will notify you once it's on the way! 🚚`;
+                const confirmMsg = `?? *Order #${orderNumber} Confirmed!*\n\nYour order has been confirmed with Cash on Delivery (Total: ${activeOrder.currency} ${Number(activeOrder.totalAmount).toFixed(2)}). We will notify you once it's on the way! ??`;
                 await flowEngine.sendBotTextMessage(
                   conversation,
                   actualContact,
@@ -911,7 +911,7 @@ const flowEngine = {
               paymentMethod: "COD",
             });
 
-            // 📊 Sync Confirmed Order to Google Sheets
+            // ?? Sync Confirmed Order to Google Sheets
             try {
               const fullOrder = await prisma.order.findUnique({
                 where: { id: activeOrderId },
@@ -954,7 +954,7 @@ const flowEngine = {
               );
             }
 
-            const confirmMsg = `🎉 *Order #${orderNumber} Confirmed!*\n\nYour order has been placed with Cash on Delivery. We will notify you once it's on the way! 🚚`;
+            const confirmMsg = `?? *Order #${orderNumber} Confirmed!*\n\nYour order has been placed with Cash on Delivery. We will notify you once it's on the way! ??`;
             await flowEngine.sendBotTextMessage(
               conversation,
               actualContact,
@@ -966,7 +966,7 @@ const flowEngine = {
           }
         }
 
-        // ── Handle Order Cancellation ──
+        // -- Handle Order Cancellation --
         if (isCancel) {
           if (activeOrderId) {
             await prisma.order
@@ -984,7 +984,7 @@ const flowEngine = {
               paymentStatus: "CANCELLED",
             });
 
-            // 📊 Sync Cancelled Order to Google Sheets
+            // ?? Sync Cancelled Order to Google Sheets
             try {
               const fullOrder = await prisma.order.findUnique({
                 where: { id: activeOrderId },
@@ -1033,7 +1033,7 @@ const flowEngine = {
             }
           }
 
-          const cancelMsg = `❌ *Order #${orderNumber} Cancelled*\n\nYour order has been cancelled. If you would like to start a new order anytime, simply message us "menu" or "order"!`;
+          const cancelMsg = `? *Order #${orderNumber} Cancelled*\n\nYour order has been cancelled. If you would like to start a new order anytime, simply message us "menu" or "order"!`;
           await flowEngine.sendBotTextMessage(
             conversation,
             actualContact,
@@ -1053,7 +1053,7 @@ const flowEngine = {
           return true;
         }
 
-        // ── Handle Order Modification / Reorder ──
+        // -- Handle Order Modification / Reorder --
         if (isModify) {
           if (activeOrderId) {
             await prisma.order
@@ -1075,7 +1075,7 @@ const flowEngine = {
               paymentStatus: "CANCELLED",
             });
 
-            // 📊 Sync Modified/Reordered Order status to Google Sheets
+            // ?? Sync Modified/Reordered Order status to Google Sheets
             try {
               const fullOrder = await prisma.order.findUnique({
                 where: { id: activeOrderId },
@@ -1124,7 +1124,7 @@ const flowEngine = {
             }
           }
 
-          const modifyMsg = `🔄 *Order Modification Requested*\n\nYour previous order #${orderNumber} selection has been reset. You can now browse products and place a new order! 🛒`;
+          const modifyMsg = `?? *Order Modification Requested*\n\nYour previous order #${orderNumber} selection has been reset. You can now browse products and place a new order! ??`;
           await flowEngine.sendBotTextMessage(
             conversation,
             actualContact,
@@ -1148,9 +1148,9 @@ const flowEngine = {
         return true;
       }
 
-      // ═══════════════════════════════════════════════════
+      // ---------------------------------------------------
       // BRANCH B: CUSTOM AUTOMATION FLOWS HANDLE ALL OTHER MESSAGES
-      // ═══════════════════════════════════════════════════
+      // ---------------------------------------------------
       return false;
     } catch (error) {
       console.error("Error in handleOrderConfirmationAction:", error);
@@ -1158,15 +1158,15 @@ const flowEngine = {
     }
   },
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // Trigger Event: ORDER_RECEIVED (WhatsApp cart order)
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   triggerOrderFlow: async (conversation, contact, order) => {
     try {
       const tenantId = conversation.tenantId;
 
       console.log(
-        `🛍️ Triggering ORDER_RECEIVED flow for order ${order.orderNumber} (tenant: ${tenantId})`,
+        `??? Triggering ORDER_RECEIVED flow for order ${order.orderNumber} (tenant: ${tenantId})`,
       );
 
       // Automatically sync received order details to connected Google Sheet
@@ -1233,7 +1233,7 @@ const flowEngine = {
 
       if (!flow) {
         console.log(
-          "ℹ️ No active custom ORDER_RECEIVED flow configured. Sending dynamic order summary & confirmation buttons.",
+          "?? No active custom ORDER_RECEIVED flow configured. Sending dynamic order summary & confirmation buttons.",
         );
 
         const items = order.items || [];
@@ -1244,18 +1244,18 @@ const flowEngine = {
               it.productRetailerId ||
               `Item ${idx + 1}`
             ).replace(/^SKU:\s*/i, "");
-            return `• *${rawName}* (x${it.quantity}) — ${it.currency || order.currency} ${(Number(it.itemPrice) * it.quantity).toFixed(2)}`;
+            return `� *${rawName}* (x${it.quantity}) � ${it.currency || order.currency} ${(Number(it.itemPrice) * it.quantity).toFixed(2)}`;
           })
           .join("\n");
 
         let deliveryLine = "";
         if (order.deliveryType === "HOME_DELIVERY") {
-          deliveryLine = `\n🚚 *Delivery:* Home Delivery\n📍 *Address:* ${order.deliveryAddress || "Shared GPS Location"}`;
+          deliveryLine = `\n?? *Delivery:* Home Delivery\n?? *Address:* ${order.deliveryAddress || "Shared GPS Location"}`;
         } else if (order.deliveryType === "STORE_PICKUP") {
-          deliveryLine = `\n🏬 *Delivery:* Store Pick Up\n📍 *Location:* ${order.deliveryName || "Main Store"} (${order.deliveryAddress || ""})`;
+          deliveryLine = `\n?? *Delivery:* Store Pick Up\n?? *Location:* ${order.deliveryName || "Main Store"} (${order.deliveryAddress || ""})`;
         }
 
-        const summaryText = `📦 *Order Summary #${order.orderNumber}*\n\n${formattedItems}\n\n💰 *Total Amount:* ${order.currency} ${Number(order.totalAmount).toFixed(2)}${deliveryLine}${order.customerNote ? `\n📝 *Note:* ${order.customerNote}` : ""}\n\nPlease review and confirm your order below:`;
+        const summaryText = `?? *Order Summary #${order.orderNumber}*\n\n${formattedItems}\n\n?? *Total Amount:* ${order.currency} ${Number(order.totalAmount).toFixed(2)}${deliveryLine}${order.customerNote ? `\n?? *Note:* ${order.customerNote}` : ""}\n\nPlease review and confirm your order below:`;
 
         const buttons = [
           { id: `btn_confirm_${order.id}`, title: "Confirm Order" },
@@ -1296,7 +1296,7 @@ const flowEngine = {
       }
 
       if (!flow.nodes || flow.nodes.length === 0) {
-        console.log("⚠️ Order flow has no nodes:", flow.id);
+        console.log("?? Order flow has no nodes:", flow.id);
         return;
       }
 
@@ -1331,7 +1331,7 @@ const flowEngine = {
       };
 
       console.log(
-        `🚀 Executing first node of order flow: ${firstNode.id} (${firstNode.type})`,
+        `?? Executing first node of order flow: ${firstNode.id} (${firstNode.type})`,
       );
 
       await flowEngine.executeNode(
@@ -1342,13 +1342,13 @@ const flowEngine = {
         false,
       );
     } catch (err) {
-      console.error("❌ triggerOrderFlow error:", err);
+      console.error("? triggerOrderFlow error:", err);
     }
   },
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // Start new flow by keyword
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   startNewFlow: async (
     conversation,
     contact,
@@ -1368,17 +1368,17 @@ const flowEngine = {
 
     // No flow found at all
     if (!flow) {
-      console.log("⚠️ No flow found. Ignoring message.");
+      console.log("?? No flow found. Ignoring message.");
       return;
     }
 
     // Flow has no nodes
     if (!flow.nodes || flow.nodes.length === 0) {
-      console.log("⚠️ Flow has no nodes:", flow.id);
+      console.log("?? Flow has no nodes:", flow.id);
       return;
     }
 
-    console.log(`✅ Flow found: "${flow.name}" | Nodes: ${flow.nodes.length}`);
+    console.log(`? Flow found: "${flow.name}" | Nodes: ${flow.nodes.length}`);
 
     // Get first node
     const firstNode = flow.nodes[0];
@@ -1419,9 +1419,9 @@ const flowEngine = {
     );
   },
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // Continue from current node
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   continueFlow: async (
     conversation,
     contact,
@@ -1434,7 +1434,7 @@ const flowEngine = {
     );
 
     if (!currentNode) {
-      console.log("⚠️ Node not found. Ending flow.");
+      console.log("?? Node not found. Ending flow.");
       await flowEngine.endFlow(conversation);
       return;
     }
@@ -1449,9 +1449,9 @@ const flowEngine = {
     );
   },
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // Execute a single node
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   executeNode: async (
     node,
     conversation,
@@ -1460,7 +1460,7 @@ const flowEngine = {
     isNewContact = false,
     extraData = {},
   ) => {
-    console.log(`\n⚙️  Node: ${node.id} | Type: ${node.type}`);
+    console.log(`\n??  Node: ${node.id} | Type: ${node.type}`);
 
     switch (node.type) {
       case "SEND_MESSAGE":
@@ -1573,14 +1573,14 @@ const flowEngine = {
         break;
 
       default:
-        console.log("⚠️ Unknown node type:", node.type);
+        console.log("?? Unknown node type:", node.type);
     }
   },
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // Template Variable Interpolation Helper
   // Replaces {{key}} with values from flowData
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   replaceTemplateVariables: (text, flowData = {}) => {
     if (!text || typeof text !== "string") return text;
     return text.replace(/\{\{(\w+)\}\}/g, (match, key) => {
@@ -1592,12 +1592,12 @@ const flowEngine = {
     });
   },
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // SEND_MESSAGE Node
-  // ─────────────────────────────────────────
-  // ─────────────────────────────────────────
+  // -----------------------------------------
+  // -----------------------------------------
   // SEND_MESSAGE Node (with media support + template variables)
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   handleSendMessage: async (
     node,
     conversation,
@@ -1608,16 +1608,16 @@ const flowEngine = {
     const options = node.options || {};
     const hasMedia = options.mediaUrl && options.mediaType;
 
-    // ✅ Interpolate template variables in node content
+    // ? Interpolate template variables in node content
     const resolvedContent = flowEngine.replaceTemplateVariables(
       node.content || "",
       conversation.flowData || {},
     );
 
     if (hasMedia) {
-      // ── Send MEDIA message (image/video) ──
+      // -- Send MEDIA message (image/video) --
       console.log(
-        `📎 Sending media: ${options.mediaType} → ${options.mediaUrl}`,
+        `?? Sending media: ${options.mediaType} ? ${options.mediaUrl}`,
       );
 
       await flowEngine.sendBotMediaMessage(
@@ -1644,8 +1644,8 @@ const flowEngine = {
         caption: resolvedContent || null,
       });
     } else {
-      // ── Send TEXT message (with interpolated variables) ──
-      console.log(`📨 Sending message: "${resolvedContent}"`);
+      // -- Send TEXT message (with interpolated variables) --
+      console.log(`?? Sending message: "${resolvedContent}"`);
 
       await flowEngine.sendBotTextMessage(
         conversation,
@@ -1656,7 +1656,7 @@ const flowEngine = {
       await flowEngine.saveBotMessage(conversation.id, resolvedContent);
     }
 
-    // ── Move to next node (same as before) ──
+    // -- Move to next node (same as before) --
     if (node.nextNodeId) {
       const nextNode = await flowService.getNodeById(node.nextNodeId);
 
@@ -1686,9 +1686,9 @@ const flowEngine = {
     }
   },
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // ASK_QUESTION Node (with media support)
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   handleAskQuestion: async (
     node,
     conversation,
@@ -1699,13 +1699,13 @@ const flowEngine = {
     const isReplying = conversation.currentNodeId === node.id;
 
     if (!isReplying) {
-      // ── ARRIVING: Send question (text or media) and STOP ──
+      // -- ARRIVING: Send question (text or media) and STOP --
       const options = node.options || {};
       const hasMedia = options.mediaUrl && options.mediaType;
 
       if (hasMedia) {
         console.log(
-          `❓ Asking with media (${options.mediaType}): "${node.content}"`,
+          `? Asking with media (${options.mediaType}): "${node.content}"`,
         );
 
         await flowEngine.sendBotMediaMessage(
@@ -1732,7 +1732,7 @@ const flowEngine = {
           caption: node.content || null,
         });
       } else {
-        console.log(`❓ Asking: "${node.content}"`);
+        console.log(`? Asking: "${node.content}"`);
 
         await flowEngine.sendBotTextMessage(
           conversation,
@@ -1751,10 +1751,10 @@ const flowEngine = {
         },
       });
 
-      console.log(`⏸️  Waiting for reply on node: ${node.id}`);
+      console.log(`??  Waiting for reply on node: ${node.id}`);
     } else {
-      // ── REPLYING: User answered ──
-      console.log(`💬 User answered: "${userMessage}"`);
+      // -- REPLYING: User answered --
+      console.log(`?? User answered: "${userMessage}"`);
 
       const options = node.options || {};
 
@@ -1774,7 +1774,7 @@ const flowEngine = {
 
           try {
             console.log(
-              `🔍 Auto-fetching Shopify order details for order: ${userAnswer}`,
+              `?? Auto-fetching Shopify order details for order: ${userAnswer}`,
             );
             const order = await shopifyOrderLookupService.findOrder(
               conversation.tenantId,
@@ -1786,9 +1786,9 @@ const flowEngine = {
             const cleanedUserAnswer = userAnswer.replace(/^#+\s*/, "");
 
             if (order) {
-              console.log(`✅ Order found: #${order.orderNumber}`);
+              console.log(`? Order found: #${order.orderNumber}`);
             } else {
-              console.log(`⚠️ Order #${userAnswer} not found`);
+              console.log(`?? Order #${userAnswer} not found`);
             }
             currentFlowData = {
               ...currentFlowData,
@@ -1799,7 +1799,7 @@ const flowEngine = {
             };
           } catch (err) {
             console.error(
-              "❌ Error during automatic Shopify order lookup:",
+              "? Error during automatic Shopify order lookup:",
               err,
             );
             const cleanedUserAnswer = userAnswer.replace(/^#+\s*/, "");
@@ -1819,7 +1819,7 @@ const flowEngine = {
         });
 
         conversation.flowData = currentFlowData;
-        console.log(`💾 Saved "${variableName}": "${userAnswer}"`);
+        console.log(`?? Saved "${variableName}": "${userAnswer}"`);
       }
 
       if (node.nextNodeId) {
@@ -1850,9 +1850,9 @@ const flowEngine = {
     }
   },
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // CONDITION Node
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   handleCondition: async (
     node,
     conversation,
@@ -1860,7 +1860,7 @@ const flowEngine = {
     userMessage,
     isNewContact = false,
   ) => {
-    console.log(`🔀 Evaluating condition...`);
+    console.log(`?? Evaluating condition...`);
 
     const options = node.options || [];
     const answer = (userMessage || "").toLowerCase().trim();
@@ -1879,31 +1879,31 @@ const flowEngine = {
       const rule = (opt.value || "").toLowerCase().trim();
       if (!rule) continue;
 
-      console.log(`   🔍 Checking rule: "${rule}"`);
+      console.log(`   ?? Checking rule: "${rule}"`);
 
       let isMatch = false;
 
-      // ─── DB-BASED RULES ───
+      // --- DB-BASED RULES ---
       if (rule === "new_contact") {
         isMatch = isNewContact;
-        console.log(`   🆕 New contact (flag): ${isMatch}`);
+        console.log(`   ?? New contact (flag): ${isMatch}`);
       } else if (rule === "registered" || rule === "contact_exists") {
         isMatch = !isNewContact;
-        console.log(`   🗄️ Existing contact check: ${isMatch}`);
+        console.log(`   ??? Existing contact check: ${isMatch}`);
       } else if (rule === "has_agent" || rule === "assigned") {
         const c = await prisma.contact.findUnique({
           where: { id: contact.id },
           select: { assignedTo: true },
         });
         isMatch = !!c?.assignedTo;
-        console.log(`   👤 Has agent: ${isMatch}`);
+        console.log(`   ?? Has agent: ${isMatch}`);
       } else if (rule === "no_agent" || rule === "unassigned") {
         const c = await prisma.contact.findUnique({
           where: { id: contact.id },
           select: { assignedTo: true },
         });
         isMatch = !isNewContact && !c?.assignedTo;
-        console.log(`   👤 Existing without agent: ${isMatch}`);
+        console.log(`   ?? Existing without agent: ${isMatch}`);
       } else if (rule.startsWith("has_tag:")) {
         const tagName = rule.replace("has_tag:", "").trim();
         const tagExists = await prisma.contactTagMapping.findFirst({
@@ -1915,36 +1915,36 @@ const flowEngine = {
           },
         });
         isMatch = !!tagExists;
-        console.log(`   🏷️  Tag "${tagName}": ${isMatch}`);
+        console.log(`   ???  Tag "${tagName}": ${isMatch}`);
       } else if (["order_found", "lookup_found"].includes(rule)) {
         isMatch = conversation.flowData?.lookupFound === true;
-        console.log(`   📦 Shopify order found: ${isMatch}`);
+        console.log(`   ?? Shopify order found: ${isMatch}`);
       } else if (
         ["order_not_found", "lookup_not_found", "not_found"].includes(rule)
       ) {
         isMatch = conversation.flowData?.lookupFound === false;
-        console.log(`   📦 Shopify order not found: ${isMatch}`);
+        console.log(`   ?? Shopify order not found: ${isMatch}`);
 
-        // ─── TEXT-BASED RULES ───
+        // --- TEXT-BASED RULES ---
       } else if (rule === answer) {
         isMatch = true;
-        console.log(`   📝 Exact match: true`);
+        console.log(`   ?? Exact match: true`);
       } else if (rule.endsWith("*")) {
         const prefix = rule.slice(0, -1);
         if (answer.startsWith(prefix)) isMatch = true;
-        console.log(`   ⭐ Wildcard match: ${isMatch}`);
+        console.log(`   ? Wildcard match: ${isMatch}`);
       } else if (answer.includes(rule)) {
         isMatch = true;
-        console.log(`   📝 Contains match: true`);
+        console.log(`   ?? Contains match: true`);
       } else if (rule === "valid_order" || rule === "valid") {
         const orderPattern = /^[a-z]{2,}\d+$/i;
         if (orderPattern.test(answer)) isMatch = true;
-        console.log(`   📦 Valid order pattern: ${isMatch}`);
+        console.log(`   ?? Valid order pattern: ${isMatch}`);
       }
 
       if (isMatch) {
         matched = opt;
-        console.log(`   ✅ Matched: "${opt.value}"`);
+        console.log(`   ? Matched: "${opt.value}"`);
         break;
       }
     }
@@ -1955,7 +1955,7 @@ const flowEngine = {
 
     if (chosen && chosen.nextNodeId) {
       console.log(
-        `➡️  Going to: ${chosen.default ? "Else branch" : chosen.value}`,
+        `??  Going to: ${chosen.default ? "Else branch" : chosen.value}`,
       );
 
       const nextNode = await flowService.getNodeById(chosen.nextNodeId);
@@ -1979,18 +1979,18 @@ const flowEngine = {
           isNewContact,
         );
       } else {
-        console.log("⚠️ Next node not found");
+        console.log("?? Next node not found");
         await flowEngine.endFlow(conversation);
       }
     } else {
-      console.log("⚠️ No matching branch. Ending flow.");
+      console.log("?? No matching branch. Ending flow.");
       await flowEngine.endFlow(conversation);
     }
   },
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // INTERACTIVE_BUTTONS Node (with header media support)
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   handleInteractiveButtons: async (
     node,
     conversation,
@@ -2010,10 +2010,10 @@ const flowEngine = {
     const media = Array.isArray(rawOptions) ? null : rawOptions.media || null;
 
     if (!isReplying) {
-      // ── ARRIVING: optional media header, then buttons ──
+      // -- ARRIVING: optional media header, then buttons --
       if (media?.mediaUrl && media?.mediaType) {
         console.log(
-          `🔘 Sending header media (${media.mediaType}) before buttons`,
+          `?? Sending header media (${media.mediaType}) before buttons`,
         );
 
         await flowEngine.sendBotMediaMessage(
@@ -2039,7 +2039,7 @@ const flowEngine = {
         });
       }
 
-      console.log(`🔘 Sending buttons: "${node.content}"`);
+      console.log(`?? Sending buttons: "${node.content}"`);
 
       await flowEngine.sendBotInteractiveButtons(
         conversation,
@@ -2064,12 +2064,12 @@ const flowEngine = {
         },
       });
 
-      console.log(`⏸️  Waiting for button click: ${node.id}`);
+      console.log(`??  Waiting for button click: ${node.id}`);
     } else {
-      // ── REPLYING: User clicked a button ──
-      console.log(`🖱️  Button clicked: "${userMessage}"`);
+      // -- REPLYING: User clicked a button --
+      console.log(`???  Button clicked: "${userMessage}"`);
 
-      console.log(`🔍 DEBUG BUTTONS:`);
+      console.log(`?? DEBUG BUTTONS:`);
       console.log(`   Available buttons:`, JSON.stringify(buttons, null, 2));
       console.log(`   User message: "${userMessage}"`);
 
@@ -2081,7 +2081,7 @@ const flowEngine = {
       );
 
       if (!clickedButton) {
-        console.log("⚠️ No button matched. Re-sending buttons...");
+        console.log("?? No button matched. Re-sending buttons...");
 
         // Re-send media header if exists
         if (media?.mediaUrl && media?.mediaType) {
@@ -2114,13 +2114,13 @@ const flowEngine = {
           })),
         });
 
-        console.log("✅ Buttons re-sent and saved");
+        console.log("? Buttons re-sent and saved");
         return;
       }
 
       console.log(
-        `✅ Button matched: "${clickedButton.title}"` +
-          ` → Node: ${clickedButton.nextNodeId}`,
+        `? Button matched: "${clickedButton.title}"` +
+          ` ? Node: ${clickedButton.nextNodeId}`,
       );
 
       if (clickedButton.nextNodeId) {
@@ -2147,19 +2147,19 @@ const flowEngine = {
             isNewContact,
           );
         } else {
-          console.log("⚠️ Target node not found");
+          console.log("?? Target node not found");
           await flowEngine.endFlow(conversation);
         }
       } else {
-        console.log("⚠️ Button has no nextNodeId");
+        console.log("?? Button has no nextNodeId");
         await flowEngine.endFlow(conversation);
       }
     }
   },
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // SEND_CATALOG Node
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   handleSendCatalog: async (
     node,
     conversation,
@@ -2167,7 +2167,7 @@ const flowEngine = {
     userMessage,
     isNewContact = false,
   ) => {
-    console.log(`📦 Executing SEND_CATALOG node: ${node.id}`);
+    console.log(`?? Executing SEND_CATALOG node: ${node.id}`);
     const options = node.options || {};
     const bodyText =
       node.content || options.bodyText || "Browse our catalog below:";
@@ -2210,9 +2210,9 @@ const flowEngine = {
     }
   },
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // ASK_LOCATION Node (Home Delivery GPS request)
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   handleAskLocation: async (
     node,
     conversation,
@@ -2225,10 +2225,10 @@ const flowEngine = {
 
     if (!isReplying) {
       // Arriving at node: send location request message and wait
-      console.log(`📍 Sending Location Request message: "${node.content}"`);
+      console.log(`?? Sending Location Request message: "${node.content}"`);
       const promptText =
         node.content ||
-        "Please share your delivery location so we can deliver your order accurately 🚚";
+        "Please share your delivery location so we can deliver your order accurately ??";
 
       await flowEngine.sendLocationRequestMessage(
         conversation.tenantId,
@@ -2248,11 +2248,11 @@ const flowEngine = {
         },
       });
 
-      console.log(`⏸️  Waiting for location from contact: ${contact.phone}`);
+      console.log(`??  Waiting for location from contact: ${contact.phone}`);
     } else {
       // Replying at node: customer sent location or text or other media
       console.log(
-        `📍 Location reply received. extraData:`,
+        `?? Location reply received. extraData:`,
         extraData,
         `userMessage: "${userMessage}"`,
       );
@@ -2301,10 +2301,10 @@ const flowEngine = {
       } else {
         // Customer sent non-text/non-location (e.g. image, audio, sticker)
         console.log(
-          "⚠️ Non-location/non-text received at ASK_LOCATION step. Prompting retry.",
+          "?? Non-location/non-text received at ASK_LOCATION step. Prompting retry.",
         );
         const retryPrompt =
-          'Please share your delivery address by tapping the "Send location" button or typing your address in text 🚚';
+          'Please share your delivery address by tapping the "Send location" button or typing your address in text ??';
         await flowEngine.sendBotTextMessage(conversation, contact, retryPrompt);
         await flowEngine.saveBotMessage(conversation.id, retryPrompt);
         return;
@@ -2361,7 +2361,7 @@ const flowEngine = {
           data: { flowData: updatedFlowData },
         });
         const orderNumber = conversation.flowData?.orderNumber || "your order";
-        const confirmationMsg = `✅ *Order #${orderNumber} Confirmed!*\n\n🚚 Delivery Address:\n${locationAddress}\n\nWe will notify you when your order is out for delivery!`;
+        const confirmationMsg = `? *Order #${orderNumber} Confirmed!*\n\n?? Delivery Address:\n${locationAddress}\n\nWe will notify you when your order is out for delivery!`;
         await flowEngine.sendBotTextMessage(
           conversation,
           contact,
@@ -2373,9 +2373,9 @@ const flowEngine = {
     }
   },
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // SEND_LOCATION Node (Store Pick Up Map Pin)
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   handleSendLocation: async (
     node,
     conversation,
@@ -2383,7 +2383,7 @@ const flowEngine = {
     userMessage,
     isNewContact = false,
   ) => {
-    console.log(`🏬 Executing SEND_LOCATION node: ${node.id}`);
+    console.log(`?? Executing SEND_LOCATION node: ${node.id}`);
     const options = node.options || {};
     const storeData = {
       storeName: options.storeName || options.name || "Store Pick Up Location",
@@ -2442,17 +2442,17 @@ const flowEngine = {
       }
     } else {
       const orderNumber = conversation.flowData?.orderNumber || "your order";
-      const pickupMsg = `🏬 *Order #${orderNumber} Confirmed for Store Pickup!*\n\nPlease visit ${storeData.storeName} with your Order ID to collect your items.`;
+      const pickupMsg = `?? *Order #${orderNumber} Confirmed for Store Pickup!*\n\nPlease visit ${storeData.storeName} with your Order ID to collect your items.`;
       await flowEngine.sendBotTextMessage(conversation, contact, pickupMsg);
       await flowEngine.saveBotMessage(conversation.id, pickupMsg);
       await flowEngine.endFlow(conversation);
     }
   },
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // SHOPIFY_ORDER_LOOKUP Node
-  // Queries EcommerceOrder → populates flowData
-  // ─────────────────────────────────────────
+  // Queries EcommerceOrder ? populates flowData
+  // -----------------------------------------
   handleShopifyOrderLookup: async (
     node,
     conversation,
@@ -2460,7 +2460,7 @@ const flowEngine = {
     userMessage,
     isNewContact = false,
   ) => {
-    console.log(`🔍 Executing SHOPIFY_ORDER_LOOKUP node: ${node.id}`);
+    console.log(`?? Executing SHOPIFY_ORDER_LOOKUP node: ${node.id}`);
 
     const options = node.options || {};
     const tenantId = conversation.tenantId;
@@ -2483,7 +2483,7 @@ const flowEngine = {
     );
 
     if (order) {
-      console.log(`✅ Order found: ${order.orderNumber} (${order.status})`);
+      console.log(`? Order found: ${order.orderNumber} (${order.status})`);
 
       // Build all template variables
       const orderData = shopifyOrderLookupService.buildFlowData(order);
@@ -2527,7 +2527,7 @@ const flowEngine = {
         }
       }
     } else {
-      console.log(`⚠️ No order found for phone ${phone}`);
+      console.log(`?? No order found for phone ${phone}`);
 
       // Merge "not found" flag into flowData
       const cleanOrderNumber =
@@ -2578,10 +2578,10 @@ const flowEngine = {
     await flowEngine.endFlow(conversation);
   },
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // FAQ_LOOKUP Node
-  // Searches BotFaq → auto-replies or populates flowData
-  // ─────────────────────────────────────────
+  // Searches BotFaq ? auto-replies or populates flowData
+  // -----------------------------------------
   handleFaqLookup: async (
     node,
     conversation,
@@ -2589,7 +2589,7 @@ const flowEngine = {
     userMessage,
     isNewContact = false,
   ) => {
-    console.log(`❓ Executing FAQ_LOOKUP node: ${node.id}`);
+    console.log(`? Executing FAQ_LOOKUP node: ${node.id}`);
 
     const options = node.options || {};
     const tenantId = conversation.tenantId;
@@ -2599,7 +2599,7 @@ const flowEngine = {
     console.log(`   Query: "${query}"`);
 
     if (!query) {
-      console.log("⚠️ Empty query. Skipping FAQ lookup.");
+      console.log("?? Empty query. Skipping FAQ lookup.");
       if (node.nextNodeId) {
         const nextNode = await flowService.getNodeById(node.nextNodeId);
         if (nextNode) {
@@ -2621,7 +2621,7 @@ const flowEngine = {
     const faq = await faqService.searchFaq(tenantId, query);
 
     if (faq) {
-      console.log(`✅ FAQ matched: "${faq.question}" (score above threshold)`);
+      console.log(`? FAQ matched: "${faq.question}" (score above threshold)`);
 
       // Store in flowData
       const updatedFlowData = {
@@ -2641,7 +2641,7 @@ const flowEngine = {
 
       // Auto-reply mode: send answer directly and end
       if (options.autoReply === true) {
-        console.log(`📤 Auto-replying with FAQ answer`);
+        console.log(`?? Auto-replying with FAQ answer`);
         await flowEngine.sendBotTextMessage(conversation, contact, faq.answer);
         await flowEngine.saveBotMessage(conversation.id, faq.answer);
         await flowEngine.endFlow(conversation);
@@ -2672,7 +2672,7 @@ const flowEngine = {
         }
       }
     } else {
-      console.log(`⚠️ No FAQ matched for query: "${query}"`);
+      console.log(`?? No FAQ matched for query: "${query}"`);
 
       const updatedFlowData = {
         ...(conversation.flowData || {}),
@@ -2714,19 +2714,19 @@ const flowEngine = {
     await flowEngine.endFlow(conversation);
   },
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // ASSIGN_AGENT Node
-  // Stop bot → assign to human agent
-  // ─────────────────────────────────────────
+  // Stop bot ? assign to human agent
+  // -----------------------------------------
   handleAssignAgent: async (node, conversation, contact) => {
-    console.log("\n👤 Assigning to agent...");
+    console.log("\n?? Assigning to agent...");
 
     let agent = null;
     let freshContact = null;
 
-    // ═══════════════════════════════════════════════════
+    // ---------------------------------------------------
     // Step 1: Check if contact has a previous agent
-    // ═══════════════════════════════════════════════════
+    // ---------------------------------------------------
     freshContact = await prisma.contact.findUnique({
       where: { id: contact.id },
       select: {
@@ -2748,13 +2748,13 @@ const flowEngine = {
       );
 
       if (isOnline) {
-        // ✅ Previous agent is ONLINE → sticky assign
+        // ? Previous agent is ONLINE ? sticky assign
         agent = freshContact.assignedUser;
-        console.log(`✅ Sticky → ${agent.name} (online)`);
+        console.log(`? Sticky ? ${agent.name} (online)`);
       } else {
-        // ⚠️ Previous agent is OFFLINE
+        // ?? Previous agent is OFFLINE
         console.log(
-          `⚠️ Previous agent ${freshContact.assignedUser.name} is OFFLINE`,
+          `?? Previous agent ${freshContact.assignedUser.name} is OFFLINE`,
         );
 
         // Notify the offline agent
@@ -2762,7 +2762,7 @@ const flowEngine = {
           notification: {
             id: `offline_${conversation.id}_${Date.now()}`,
             type: "contact_waiting",
-            title: "💬 Contact is waiting for you",
+            title: "?? Contact is waiting for you",
             message: `${contact.name} is waiting. Please come online.`,
             isRead: false,
             createdAt: new Date(),
@@ -2777,24 +2777,24 @@ const flowEngine = {
         await flowEngine.sendBotTextMessage(
           conversation,
           freshContact,
-          `⚠️ Your previous agent *${freshContact.assignedUser.name}* ` +
+          `?? Your previous agent *${freshContact.assignedUser.name}* ` +
             `is currently offline.\n\n` +
-            `We are finding the next available agent for you... ⏳`,
+            `We are finding the next available agent for you... ?`,
         );
 
         await flowEngine.saveBotMessage(
           conversation.id,
-          `⚠️ Your previous agent ${freshContact.assignedUser.name} ` +
+          `?? Your previous agent ${freshContact.assignedUser.name} ` +
             `is offline. Finding next available agent...`,
         );
 
-        // agent stays null → falls through to Round Robin
+        // agent stays null ? falls through to Round Robin
       }
     }
 
-    // ═══════════════════════════════════════════════════
-    // Step 2: No agent yet → Try tag-matched agent
-    // ═══════════════════════════════════════════════════
+    // ---------------------------------------------------
+    // Step 2: No agent yet ? Try tag-matched agent
+    // ---------------------------------------------------
     if (!agent) {
       const contactTags = await prisma.contactTagMapping.findMany({
         where: { contactId: contact.id },
@@ -2802,9 +2802,9 @@ const flowEngine = {
       });
 
       const contactTagIds = contactTags.map((ct) => ct.tagId);
-      console.log(`🏷️  Contact tags: ${contactTagIds.length}`);
+      console.log(`???  Contact tags: ${contactTagIds.length}`);
 
-      // ── Step 3: Tag matched online agents ──
+      // -- Step 3: Tag matched online agents --
       if (contactTagIds.length > 0) {
         const matchingAgents = await prisma.userTagMapping.findMany({
           where: {
@@ -2825,7 +2825,7 @@ const flowEngine = {
               index === self.findIndex((u) => u.id === user.id),
           );
 
-        console.log(`👥 Online tag-matched agents: ${onlineTagAgents.length}`);
+        console.log(`?? Online tag-matched agents: ${onlineTagAgents.length}`);
 
         if (onlineTagAgents.length > 0) {
           // Pick least busy (Round Robin)
@@ -2843,15 +2843,15 @@ const flowEngine = {
           agentCounts.sort((a, b) => a.count - b.count);
           agent = agentCounts[0].agent;
           console.log(
-            `✅ Tag match → ${agent.name} ` + `(load: ${agentCounts[0].count})`,
+            `? Tag match ? ${agent.name} ` + `(load: ${agentCounts[0].count})`,
           );
         }
       }
 
-      // ── Step 4: No tag match → any online agent (Round Robin) ──
+      // -- Step 4: No tag match ? any online agent (Round Robin) --
       if (!agent) {
         console.log(
-          "⚠️ No tag-matched agent. " + "Falling back to any online agent...",
+          "?? No tag-matched agent. " + "Falling back to any online agent...",
         );
 
         const allAgents = await prisma.user.findMany({
@@ -2865,7 +2865,7 @@ const flowEngine = {
           isUserOnline(conversation.tenantId, a.id),
         );
 
-        console.log(`👥 Total online agents: ${onlineAgents.length}`);
+        console.log(`?? Total online agents: ${onlineAgents.length}`);
 
         if (onlineAgents.length > 0) {
           // Pick least busy (Round Robin)
@@ -2883,15 +2883,15 @@ const flowEngine = {
           agentCounts.sort((a, b) => a.count - b.count);
           agent = agentCounts[0].agent;
           console.log(
-            `✅ Fallback → ${agent.name} ` + `(load: ${agentCounts[0].count})`,
+            `? Fallback ? ${agent.name} ` + `(load: ${agentCounts[0].count})`,
           );
         }
       }
     }
 
-    // ═══════════════════════════════════════════════════
-    // Step 5: Agent found → ASSIGN + NOTIFY
-    // ═══════════════════════════════════════════════════
+    // ---------------------------------------------------
+    // Step 5: Agent found ? ASSIGN + NOTIFY
+    // ---------------------------------------------------
     if (agent) {
       // Update conversation
       await prisma.conversation.update({
@@ -2916,10 +2916,10 @@ const flowEngine = {
             assignedAt: new Date(),
           },
         });
-        console.log(`📝 Contact updated → assigned to ${agent.name}`);
+        console.log(`?? Contact updated ? assigned to ${agent.name}`);
       } else {
         console.log(
-          `📝 Contact already assigned to ${agent.name} - no update needed`,
+          `?? Contact already assigned to ${agent.name} - no update needed`,
         );
       }
 
@@ -2938,7 +2938,7 @@ const flowEngine = {
         notification: {
           id: `assign_${conversation.id}_${Date.now()}`,
           type: "contact_assigned",
-          title: "🎯 New chat assigned",
+          title: "?? New chat assigned",
           message: `${contact.name} has been assigned to you`,
           isRead: false,
           createdAt: new Date(),
@@ -2960,7 +2960,7 @@ const flowEngine = {
         fromQueue: false,
       });
 
-      // ✅ ADD: Emit to USER so their Inbox refreshes
+      // ? ADD: Emit to USER so their Inbox refreshes
       emitToUser(agent.id, "conversation_assigned", {
         conversationId: conversation.id,
         contactId: contact.id,
@@ -2968,7 +2968,7 @@ const flowEngine = {
         contactPhone: contact.phone,
       });
 
-      // ✅ ADD: Emit unread count to user
+      // ? ADD: Emit unread count to user
       const currentConv = await prisma.conversation.findUnique({
         where: { id: conversation.id },
       });
@@ -2982,7 +2982,7 @@ const flowEngine = {
         });
       }
 
-      // ✅ ADD: Update tenant unassigned count (decrease)
+      // ? ADD: Update tenant unassigned count (decrease)
       const unassignedCount = await prisma.contact.count({
         where: {
           tenantId: conversation.tenantId,
@@ -2998,15 +2998,15 @@ const flowEngine = {
         conversationId: conversation.id,
       });
 
-      console.log(`✅ Final assignment: ${agent.name} (${agent.id})`);
+      console.log(`? Final assignment: ${agent.name} (${agent.id})`);
       console.log(
-        `📤 Emitted to user_${agent.id}: conversation_assigned, unread_count_update`,
+        `?? Emitted to user_${agent.id}: conversation_assigned, unread_count_update`,
       );
 
       // Tell customer they are connected
       const assignmentText =
-        `✅ You're connected with *${agent.name}*! ` +
-        `They will assist you shortly. 💬`;
+        `? You're connected with *${agent.name}*! ` +
+        `They will assist you shortly. ??`;
 
       await flowEngine.sendBotTextMessage(
         conversation,
@@ -3016,10 +3016,10 @@ const flowEngine = {
 
       await flowEngine.saveBotMessage(conversation.id, assignmentText);
     } else {
-      // ═══════════════════════════════════════════════════
-      // Step 6: No agent online at all → QUEUE
-      // ═══════════════════════════════════════════════════
-      console.log("⚠️ No online agent available. Adding to queue...\n");
+      // ---------------------------------------------------
+      // Step 6: No agent online at all ? QUEUE
+      // ---------------------------------------------------
+      console.log("?? No online agent available. Adding to queue...\n");
 
       await prisma.conversation.update({
         where: { id: conversation.id },
@@ -3031,7 +3031,7 @@ const flowEngine = {
       });
 
       const queueText =
-        "⏳ All our agents are currently busy.\n\n" +
+        "? All our agents are currently busy.\n\n" +
         "You are in the waiting queue.\n" +
         "We will respond as soon as an agent is available.";
 
@@ -3041,21 +3041,21 @@ const flowEngine = {
     }
   },
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // Check Session Timeout
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   checkSessionTimeout: async (conversation, timeoutHours = 24) => {
     try {
       const lastMessage = await prisma.message.findFirst({
         where: {
           conversationId: conversation.id,
-          direction: "OUTBOUND", // ✅ Only bot messages
+          direction: "OUTBOUND", // ? Only bot messages
         },
         orderBy: { createdAt: "desc" },
       });
 
-      // ✅ ADD DEBUG LOG
-      console.log(`\n🕐 TIMEOUT DEBUG:`);
+      // ? ADD DEBUG LOG
+      console.log(`\n?? TIMEOUT DEBUG:`);
       console.log(`   ConvID: ${conversation.id}`);
       console.log(`   Last msg ID: ${lastMessage?.id}`);
       console.log(`   Last msg text: "${lastMessage?.text}"`);
@@ -3063,7 +3063,7 @@ const flowEngine = {
       console.log(`   Current time: ${new Date()}`);
 
       if (!lastMessage) {
-        console.log("⏰ No messages found. Fresh session.");
+        console.log("? No messages found. Fresh session.");
         return false;
       }
 
@@ -3085,21 +3085,21 @@ const flowEngine = {
       }
 
       console.log(
-        `⏰ Node type     : ${currentNode?.type}\n` +
-          `⏰ Elapsed       : ${diffHours.toFixed(2)} hours\n` +
-          `⏰ Timeout limit : ${timeout} hours`,
+        `? Node type     : ${currentNode?.type}\n` +
+          `? Elapsed       : ${diffHours.toFixed(2)} hours\n` +
+          `? Timeout limit : ${timeout} hours`,
       );
 
       return diffHours > timeout;
     } catch (error) {
-      console.error("❌ checkSessionTimeout error:", error);
+      console.error("? checkSessionTimeout error:", error);
       return false;
     }
   },
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // End the flow
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   endFlow: async (conversation) => {
     await prisma.conversation.update({
       where: { id: conversation.id },
@@ -3110,12 +3110,12 @@ const flowEngine = {
         mode: "BOT",
       },
     });
-    console.log(`✅ Flow ended: ${conversation.id}`);
+    console.log(`? Flow ended: ${conversation.id}`);
   },
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // Notify agents (when mode = AGENT)
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   notifyAgents: async (conversation, contact, message) => {
     emitToTenant(conversation.tenantId, "new_message", {
       conversationId: conversation.id,
@@ -3126,10 +3126,10 @@ const flowEngine = {
     });
   },
 
-  // ─────────────────────────────────────────
-  // ─────────────────────────────────────────
+  // -----------------------------------------
+  // -----------------------------------------
   // Send Media Message via WhatsApp, Messenger, or Instagram
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   sendBotMediaMessage: async (
     tenantId,
     phone,
@@ -3148,7 +3148,7 @@ const flowEngine = {
 
         if (!tenant?.facebookPageAccessToken) {
           console.error(
-            `❌ Tenant Facebook/Instagram Page Access Token not configured for ${channel} bot media`,
+            `? Tenant Facebook/Instagram Page Access Token not configured for ${channel} bot media`,
           );
           return null;
         }
@@ -3158,7 +3158,7 @@ const flowEngine = {
         const channelId = contact?.channelId || contact?.phone || phone;
         if (!channelId) {
           console.error(
-            `❌ Cannot send ${channel} bot media: missing channelId`,
+            `? Cannot send ${channel} bot media: missing channelId`,
           );
           return null;
         }
@@ -3190,7 +3190,7 @@ const flowEngine = {
             });
           } catch (capErr) {
             console.error(
-              `⚠️ Failed to send bot media caption to ${channel}:`,
+              `?? Failed to send bot media caption to ${channel}:`,
               capErr.message,
             );
           }
@@ -3200,14 +3200,14 @@ const flowEngine = {
       }
 
       if (process.env.MOCK_WHATSAPP === "true") {
-        console.log("\n╔══════════════════════════════════════╗");
-        console.log("║  📱 MOCK WHATSAPP - MEDIA           ║");
-        console.log("╠══════════════════════════════════════╣");
-        console.log(`║  To     : ${phone}`);
-        console.log(`║  Type   : ${mediaData.mediaType}`);
-        console.log(`║  URL    : ${mediaData.mediaUrl}`);
-        console.log(`║  Caption: ${mediaData.caption || "(none)"}`);
-        console.log("╚══════════════════════════════════════╝\n");
+        console.log("\n+--------------------------------------+");
+        console.log("�  ?? MOCK WHATSAPP - MEDIA           �");
+        console.log("�--------------------------------------�");
+        console.log(`�  To     : ${phone}`);
+        console.log(`�  Type   : ${mediaData.mediaType}`);
+        console.log(`�  URL    : ${mediaData.mediaUrl}`);
+        console.log(`�  Caption: ${mediaData.caption || "(none)"}`);
+        console.log("+--------------------------------------+\n");
         return { messages: [{ id: "mock_media_" + Date.now() }] };
       }
 
@@ -3222,7 +3222,7 @@ const flowEngine = {
       const tenant = _waRow?.whatsapp || {};
 
       if (!tenant?.whatsappPhoneId || !tenant?.whatsappAccessToken) {
-        console.error("❌ Tenant WhatsApp credentials not configured");
+        console.error("? Tenant WhatsApp credentials not configured");
         return;
       }
 
@@ -3242,16 +3242,16 @@ const flowEngine = {
         mediaType: mediaData.mediaType,
       });
 
-      console.log(`📤 Media sent: ${result.waMessageId}`);
+      console.log(`?? Media sent: ${result.waMessageId}`);
       return result;
     } catch (error) {
-      console.error("❌ sendBotMediaMessage error:", error);
+      console.error("? sendBotMediaMessage error:", error);
     }
   },
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // Save bot MEDIA message to DB (NEW)
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   saveBotMediaMessage: async (conversationId, mediaData) => {
     try {
       const message = await prisma.message.create({
@@ -3304,17 +3304,17 @@ const flowEngine = {
 
       if (assignedTo) {
         emitToUser(assignedTo, "new_message", messagePayload);
-        console.log(`📤 Bot media emitted to user_${assignedTo}`);
+        console.log(`?? Bot media emitted to user_${assignedTo}`);
       }
     } catch (error) {
-      console.error("❌ saveBotMediaMessage error:", error);
+      console.error("? saveBotMediaMessage error:", error);
     }
   },
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // Omnichannel Bot Text Message Dispatcher
   // Routes to Messenger / Instagram (Graph API) or WhatsApp
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   sendBotTextMessage: async (conversation, contact, text) => {
     try {
       const channel = conversation?.channel || contact?.channel || "WHATSAPP";
@@ -3327,7 +3327,7 @@ const flowEngine = {
 
         if (!tenant?.facebookPageAccessToken) {
           console.error(
-            `❌ Tenant Facebook/Instagram Page Access Token not configured for ${channel} bot reply`,
+            `? Tenant Facebook/Instagram Page Access Token not configured for ${channel} bot reply`,
           );
           return null;
         }
@@ -3337,12 +3337,12 @@ const flowEngine = {
         const channelId = contact?.channelId || contact?.phone;
         if (!channelId) {
           console.error(
-            `❌ Cannot send ${channel} bot reply: missing contact channelId / PSID`,
+            `? Cannot send ${channel} bot reply: missing contact channelId / PSID`,
           );
           return null;
         }
 
-        console.log(`📤 Sending ${channel} Bot reply to ${channelId}...`);
+        console.log(`?? Sending ${channel} Bot reply to ${channelId}...`);
         const result = await sendMetaMessage({
           tenant,
           channelId,
@@ -3352,7 +3352,7 @@ const flowEngine = {
         });
 
         console.log(
-          `✅ ${channel} Bot reply sent successfully:`,
+          `? ${channel} Bot reply sent successfully:`,
           result?.messageId,
         );
         return result;
@@ -3365,15 +3365,15 @@ const flowEngine = {
         text,
       );
     } catch (err) {
-      console.error("❌ sendBotTextMessage error:", err.message);
+      console.error("? sendBotTextMessage error:", err.message);
       return null;
     }
   },
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // Omnichannel Bot Interactive Buttons Dispatcher
   // Routes to Messenger / Instagram (Quick Replies) or WhatsApp
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   sendBotInteractiveButtons: async (
     conversation,
     contact,
@@ -3391,7 +3391,7 @@ const flowEngine = {
 
         if (!tenant?.facebookPageAccessToken) {
           console.error(
-            `❌ Tenant Facebook/Instagram Page Access Token not configured for ${channel} bot buttons`,
+            `? Tenant Facebook/Instagram Page Access Token not configured for ${channel} bot buttons`,
           );
           return null;
         }
@@ -3401,7 +3401,7 @@ const flowEngine = {
         const channelId = contact?.channelId || contact?.phone;
         if (!channelId) {
           console.error(
-            `❌ Cannot send ${channel} bot buttons: missing contact channelId`,
+            `? Cannot send ${channel} bot buttons: missing contact channelId`,
           );
           return null;
         }
@@ -3413,7 +3413,7 @@ const flowEngine = {
         }));
 
         console.log(
-          `📤 Sending ${channel} Bot Quick Replies to ${channelId}...`,
+          `?? Sending ${channel} Bot Quick Replies to ${channelId}...`,
         );
         const result = await sendMetaMessage({
           tenant,
@@ -3427,7 +3427,7 @@ const flowEngine = {
         });
 
         console.log(
-          `✅ ${channel} Bot Quick Replies sent successfully:`,
+          `? ${channel} Bot Quick Replies sent successfully:`,
           result?.messageId,
         );
         return result;
@@ -3441,23 +3441,23 @@ const flowEngine = {
         buttons,
       );
     } catch (err) {
-      console.error("❌ sendBotInteractiveButtons error:", err.message);
+      console.error("? sendBotInteractiveButtons error:", err.message);
       return null;
     }
   },
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // Send WhatsApp Message via Meta API
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   sendWhatsAppMessage: async (tenantId, phone, text) => {
     try {
       if (process.env.MOCK_WHATSAPP === "true") {
-        console.log("\n╔══════════════════════════════════════╗");
-        console.log("║  📱 MOCK WHATSAPP (Dev Mode)        ║");
-        console.log("╠══════════════════════════════════════╣");
-        console.log(`║  To   : ${phone}`);
-        console.log(`║  Text : ${text}`);
-        console.log("╚══════════════════════════════════════╝\n");
+        console.log("\n+--------------------------------------+");
+        console.log("�  ?? MOCK WHATSAPP (Dev Mode)        �");
+        console.log("�--------------------------------------�");
+        console.log(`�  To   : ${phone}`);
+        console.log(`�  Text : ${text}`);
+        console.log("+--------------------------------------+\n");
         return { messages: [{ id: "mock_" + Date.now() }] };
       }
 
@@ -3472,7 +3472,7 @@ const flowEngine = {
       const tenant = _waRow?.whatsapp || {};
 
       if (!tenant?.whatsappPhoneId || !tenant?.whatsappAccessToken) {
-        console.error("❌ Tenant WhatsApp credentials not configured");
+        console.error("? Tenant WhatsApp credentials not configured");
         return null;
       }
 
@@ -3499,31 +3499,31 @@ const flowEngine = {
 
           const result = await response.json();
           if (result.messages?.[0]?.id) {
-            console.log(`📤 WhatsApp sent: ${result.messages[0].id}`);
+            console.log(`?? WhatsApp sent: ${result.messages[0].id}`);
             return result;
           } else {
             console.error(
-              `❌ WhatsApp send failed (attempt ${attempt}):`,
+              `? WhatsApp send failed (attempt ${attempt}):`,
               result,
             );
           }
         } catch (fetchErr) {
           console.warn(
-            `⚠️ WhatsApp send fetch error (attempt ${attempt}/2):`,
+            `?? WhatsApp send fetch error (attempt ${attempt}/2):`,
             fetchErr.message,
           );
           if (attempt === 2) throw fetchErr;
         }
       }
     } catch (error) {
-      console.error("❌ sendWhatsAppMessage error:", error);
+      console.error("? sendWhatsAppMessage error:", error);
       return null;
     }
   },
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // Send Interactive Buttons via Meta API
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   sendWhatsAppInteractiveButtons: async (
     tenantId,
     phone,
@@ -3534,21 +3534,21 @@ const flowEngine = {
       const isListMode = buttons.length > 3;
 
       if (process.env.MOCK_WHATSAPP === "true") {
-        console.log("\n╔══════════════════════════════════════╗");
+        console.log("\n+--------------------------------------+");
         console.log(
           isListMode
-            ? "║  📱 MOCK WHATSAPP - LIST (OPTIONS)   ║"
-            : "║  📱 MOCK WHATSAPP - BUTTONS         ║",
+            ? "�  ?? MOCK WHATSAPP - LIST (OPTIONS)   �"
+            : "�  ?? MOCK WHATSAPP - BUTTONS         �",
         );
-        console.log("╠══════════════════════════════════════╣");
-        console.log(`║  To   : ${phone}`);
-        console.log(`║  Body : ${bodyText}`);
+        console.log("�--------------------------------------�");
+        console.log(`�  To   : ${phone}`);
+        console.log(`�  Body : ${bodyText}`);
         buttons.forEach((b, i) => {
           console.log(
-            `║  ${isListMode ? "Opt" : "Btn"}${i + 1} : [${b.title}]`,
+            `�  ${isListMode ? "Opt" : "Btn"}${i + 1} : [${b.title}]`,
           );
         });
-        console.log("╚══════════════════════════════════════╝\n");
+        console.log("+--------------------------------------+\n");
         return { messages: [{ id: "mock_btn_" + Date.now() }] };
       }
 
@@ -3563,7 +3563,7 @@ const flowEngine = {
       const tenant = _waRow?.whatsapp || {};
 
       if (!tenant?.whatsappPhoneId || !tenant?.whatsappAccessToken) {
-        console.error("❌ Tenant WhatsApp credentials not configured");
+        console.error("? Tenant WhatsApp credentials not configured");
         return null;
       }
 
@@ -3639,32 +3639,32 @@ const flowEngine = {
           const result = await response.json();
           if (result.messages?.[0]?.id) {
             console.log(
-              `📤 Interactive message (${isListMode ? "list" : "buttons"}) sent: ${result.messages[0].id}`,
+              `?? Interactive message (${isListMode ? "list" : "buttons"}) sent: ${result.messages[0].id}`,
             );
             return result;
           } else {
             console.error(
-              `❌ Interactive send failed (attempt ${attempt}):`,
+              `? Interactive send failed (attempt ${attempt}):`,
               result,
             );
           }
         } catch (fetchErr) {
           console.warn(
-            `⚠️ Interactive send fetch error (attempt ${attempt}/2):`,
+            `?? Interactive send fetch error (attempt ${attempt}/2):`,
             fetchErr.message,
           );
           if (attempt === 2) throw fetchErr;
         }
       }
     } catch (error) {
-      console.error("❌ sendWhatsAppInteractiveButtons error:", error);
+      console.error("? sendWhatsAppInteractiveButtons error:", error);
       return null;
     }
   },
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // Send Catalog Message via Meta API
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   sendWhatsAppCatalogMessage: async (
     tenantId,
     phone,
@@ -3674,12 +3674,12 @@ const flowEngine = {
   ) => {
     try {
       if (process.env.MOCK_WHATSAPP === "true") {
-        console.log("\n╔══════════════════════════════════════╗");
-        console.log("║  📱 MOCK WHATSAPP - CATALOG MESSAGE  ║");
-        console.log("╠══════════════════════════════════════╣");
-        console.log(`║  To     : ${phone}`);
-        console.log(`║  Body   : ${bodyText}`);
-        console.log("╚══════════════════════════════════════╝\n");
+        console.log("\n+--------------------------------------+");
+        console.log("�  ?? MOCK WHATSAPP - CATALOG MESSAGE  �");
+        console.log("�--------------------------------------�");
+        console.log(`�  To     : ${phone}`);
+        console.log(`�  Body   : ${bodyText}`);
+        console.log("+--------------------------------------+\n");
         return { messages: [{ id: "mock_cat_" + Date.now() }] };
       }
 
@@ -3694,7 +3694,7 @@ const flowEngine = {
       const tenant = _waRow?.whatsapp || {};
 
       if (!tenant?.whatsappPhoneId || !tenant?.whatsappAccessToken) {
-        console.error("❌ Tenant WhatsApp credentials not configured");
+        console.error("? Tenant WhatsApp credentials not configured");
         return null;
       }
 
@@ -3731,40 +3731,40 @@ const flowEngine = {
 
           const result = await response.json();
           if (result.messages?.[0]?.id) {
-            console.log(`📤 Catalog message sent: ${result.messages[0].id}`);
+            console.log(`?? Catalog message sent: ${result.messages[0].id}`);
             return result;
           } else {
             console.error(
-              `❌ Catalog message send failed (attempt ${attempt}):`,
+              `? Catalog message send failed (attempt ${attempt}):`,
               result,
             );
           }
         } catch (fetchErr) {
           console.warn(
-            `⚠️ Catalog send fetch error (attempt ${attempt}/2):`,
+            `?? Catalog send fetch error (attempt ${attempt}/2):`,
             fetchErr.message,
           );
           if (attempt === 2) throw fetchErr;
         }
       }
     } catch (error) {
-      console.error("❌ sendWhatsAppCatalogMessage error:", error);
+      console.error("? sendWhatsAppCatalogMessage error:", error);
       return null;
     }
   },
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // Send Location Request Message via Meta API
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   sendLocationRequestMessage: async (tenantId, phone, bodyText) => {
     try {
       if (process.env.MOCK_WHATSAPP === "true") {
-        console.log("\n╔══════════════════════════════════════╗");
-        console.log("║  📱 MOCK WHATSAPP - LOCATION REQUEST ║");
-        console.log("╠══════════════════════════════════════╣");
-        console.log(`║  To     : ${phone}`);
-        console.log(`║  Body   : ${bodyText}`);
-        console.log("╚══════════════════════════════════════╝\n");
+        console.log("\n+--------------------------------------+");
+        console.log("�  ?? MOCK WHATSAPP - LOCATION REQUEST �");
+        console.log("�--------------------------------------�");
+        console.log(`�  To     : ${phone}`);
+        console.log(`�  Body   : ${bodyText}`);
+        console.log("+--------------------------------------+\n");
         return { messages: [{ id: "mock_loc_req_" + Date.now() }] };
       }
 
@@ -3779,7 +3779,7 @@ const flowEngine = {
       const tenant = _waRow?.whatsapp || {};
 
       if (!tenant?.whatsappPhoneId || !tenant?.whatsappAccessToken) {
-        console.error("❌ Tenant WhatsApp credentials not configured");
+        console.error("? Tenant WhatsApp credentials not configured");
         return null;
       }
 
@@ -3794,7 +3794,7 @@ const flowEngine = {
           body: {
             text:
               bodyText ||
-              "Please share your delivery location so we can reach you accurately 🚚",
+              "Please share your delivery location so we can reach you accurately ??",
           },
           action: { name: "send_location" },
         },
@@ -3814,41 +3814,41 @@ const flowEngine = {
 
           const result = await response.json();
           if (result.messages?.[0]?.id) {
-            console.log(`📤 Location Request sent: ${result.messages[0].id}`);
+            console.log(`?? Location Request sent: ${result.messages[0].id}`);
             return result;
           } else {
             console.error(
-              `❌ Location Request failed (attempt ${attempt}):`,
+              `? Location Request failed (attempt ${attempt}):`,
               result,
             );
           }
         } catch (fetchErr) {
           console.warn(
-            `⚠️ Location request fetch error (attempt ${attempt}/2):`,
+            `?? Location request fetch error (attempt ${attempt}/2):`,
             fetchErr.message,
           );
           if (attempt === 2) throw fetchErr;
         }
       }
     } catch (error) {
-      console.error("❌ sendLocationRequestMessage error:", error);
+      console.error("? sendLocationRequestMessage error:", error);
       return null;
     }
   },
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // Send Store Location Pin via Meta API
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   sendStoreLocationPin: async (tenantId, phone, storeData) => {
     try {
       if (process.env.MOCK_WHATSAPP === "true") {
-        console.log("\n╔══════════════════════════════════════╗");
-        console.log("║  📱 MOCK WHATSAPP - STORE PIN        ║");
-        console.log("╠══════════════════════════════════════╣");
-        console.log(`║  To     : ${phone}`);
-        console.log(`║  Name   : ${storeData.storeName}`);
-        console.log(`║  Address: ${storeData.address}`);
-        console.log("╚══════════════════════════════════════╝\n");
+        console.log("\n+--------------------------------------+");
+        console.log("�  ?? MOCK WHATSAPP - STORE PIN        �");
+        console.log("�--------------------------------------�");
+        console.log(`�  To     : ${phone}`);
+        console.log(`�  Name   : ${storeData.storeName}`);
+        console.log(`�  Address: ${storeData.address}`);
+        console.log("+--------------------------------------+\n");
         return { messages: [{ id: "mock_pin_" + Date.now() }] };
       }
 
@@ -3863,7 +3863,7 @@ const flowEngine = {
       const tenant = _waRow?.whatsapp || {};
 
       if (!tenant?.whatsappPhoneId || !tenant?.whatsappAccessToken) {
-        console.error("❌ Tenant WhatsApp credentials not configured");
+        console.error("? Tenant WhatsApp credentials not configured");
         return null;
       }
 
@@ -3895,31 +3895,31 @@ const flowEngine = {
 
           const result = await response.json();
           if (result.messages?.[0]?.id) {
-            console.log(`📤 Store pin sent: ${result.messages[0].id}`);
+            console.log(`?? Store pin sent: ${result.messages[0].id}`);
             return result;
           } else {
             console.error(
-              `❌ Store pin send failed (attempt ${attempt}):`,
+              `? Store pin send failed (attempt ${attempt}):`,
               result,
             );
           }
         } catch (fetchErr) {
           console.warn(
-            `⚠️ Store pin send fetch error (attempt ${attempt}/2):`,
+            `?? Store pin send fetch error (attempt ${attempt}/2):`,
             fetchErr.message,
           );
           if (attempt === 2) throw fetchErr;
         }
       }
     } catch (error) {
-      console.error("❌ sendStoreLocationPin error:", error);
+      console.error("? sendStoreLocationPin error:", error);
       return null;
     }
   },
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // Save bot message to DB
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   saveBotMessage: async (conversationId, text, extra = {}) => {
     try {
       const message = await prisma.message.create({
@@ -3953,30 +3953,30 @@ const flowEngine = {
         },
       };
 
-      // ✅ Emit to tenant (dashboard)
+      // ? Emit to tenant (dashboard)
       emitToTenant(
         message.conversation.tenantId,
         "new_message",
         messagePayload,
       );
 
-      // ✅ ADD: Also emit to assigned user (agent's inbox)
+      // ? ADD: Also emit to assigned user (agent's inbox)
       const assignedTo =
         message.conversation.assignedTo ||
         message.conversation.contact?.assignedTo;
 
       if (assignedTo) {
         emitToUser(assignedTo, "new_message", messagePayload);
-        console.log(`📤 Bot message emitted to user_${assignedTo}`);
+        console.log(`?? Bot message emitted to user_${assignedTo}`);
       }
     } catch (error) {
-      console.error("❌ saveBotMessage error:", error);
+      console.error("? saveBotMessage error:", error);
     }
   },
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // PAYMENT Node
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   handlePaymentNode: async (
     node,
     conversation,
@@ -3984,7 +3984,7 @@ const flowEngine = {
     userMessage,
     isNewContact = false,
   ) => {
-    console.log(`💳 Executing PAYMENT node: ${node.id}`);
+    console.log(`?? Executing PAYMENT node: ${node.id}`);
     try {
       const activeOrderId = conversation.flowData?.activeOrderId;
       let order = null;
@@ -4020,7 +4020,7 @@ const flowEngine = {
 
       if (!order || !tenant) {
         console.warn(
-          "⚠️ No active order or tenant found for PAYMENT node. Ensure an order is created prior to the Payment node.",
+          "?? No active order or tenant found for PAYMENT node. Ensure an order is created prior to the Payment node.",
         );
         if (node.nextNodeId) {
           const nextNode = await flowService.getNodeById(node.nextNodeId);
@@ -4045,7 +4045,7 @@ const flowEngine = {
       });
 
       if (fallbackCod) {
-        const codMsg = `🎉 *Order #${order.orderNumber} Placed!*\n\nTotal Amount: ${order.currency} ${Number(order.totalAmount).toFixed(2)} (Cash on Delivery)`;
+        const codMsg = `?? *Order #${order.orderNumber} Placed!*\n\nTotal Amount: ${order.currency} ${Number(order.totalAmount).toFixed(2)} (Cash on Delivery)`;
         await flowEngine.sendBotTextMessage(conversation, contact, codMsg);
         await flowEngine.saveBotMessage(conversation.id, codMsg);
         if (node.nextNodeId) {
@@ -4064,7 +4064,7 @@ const flowEngine = {
 
       const payBody =
         node.content ||
-        `📦 *Payment for Order #${order.orderNumber}*\n\n💰 Total Amount: *${order.currency} ${Number(order.totalAmount).toFixed(2)}*\n\nPlease tap the button below to complete your payment securely:${tenant.enableCod ? "\n\n💡 _Prefer Cash on Delivery? Reply *COD*._" : ""}`;
+        `?? *Payment for Order #${order.orderNumber}*\n\n?? Total Amount: *${order.currency} ${Number(order.totalAmount).toFixed(2)}*\n\nPlease tap the button below to complete your payment securely:${tenant.enableCod ? "\n\n?? _Prefer Cash on Delivery? Reply *COD*._" : ""}`;
 
       let ctaResult = null;
       if (contact.phone) {
@@ -4072,7 +4072,7 @@ const flowEngine = {
           conversation.tenantId,
           contact.phone,
           {
-            headerText: "💳 Complete Payment",
+            headerText: "?? Complete Payment",
             bodyText: payBody,
             footerText: `Expires in ${tenant.paymentLinkExpiryMins || 30} mins`,
             buttonText: "Pay Now",
@@ -4083,7 +4083,7 @@ const flowEngine = {
 
       if (!ctaResult) {
         // Fallback for Instagram, Messenger, or missing WABA CTA support
-        const fallbackPayMsg = `${payBody}\n\n👉 *Pay Here:* ${paymentLink.short_url}`;
+        const fallbackPayMsg = `${payBody}\n\n?? *Pay Here:* ${paymentLink.short_url}`;
         await flowEngine.sendBotTextMessage(
           conversation,
           contact,
@@ -4113,10 +4113,10 @@ const flowEngine = {
       });
 
       console.log(
-        `⏸️ Conversation ${conversation.id} waiting for payment confirmation on node ${node.id}`,
+        `?? Conversation ${conversation.id} waiting for payment confirmation on node ${node.id}`,
       );
     } catch (err) {
-      console.error("❌ Failed in handlePaymentNode:", err.message);
+      console.error("? Failed in handlePaymentNode:", err.message);
       if (node.nextNodeId) {
         const nextNode = await flowService.getNodeById(node.nextNodeId);
         if (nextNode)
@@ -4132,13 +4132,13 @@ const flowEngine = {
     }
   },
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // Resume Flow After Successful Payment
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   resumeFlowAfterPayment: async (order, paymentStatus) => {
     try {
       console.log(
-        `▶️ [resumeFlowAfterPayment] Order #${order.orderNumber} paid. Resuming flow...`,
+        `?? [resumeFlowAfterPayment] Order #${order.orderNumber} paid. Resuming flow...`,
       );
 
       let conversation = null;
@@ -4158,7 +4158,7 @@ const flowEngine = {
 
       if (!conversation || !conversation.contact) {
         console.log(
-          `⚠️ [resumeFlowAfterPayment] No conversation found for order ${order.orderNumber}`,
+          `?? [resumeFlowAfterPayment] No conversation found for order ${order.orderNumber}`,
         );
         return;
       }
@@ -4166,7 +4166,7 @@ const flowEngine = {
       const contact = conversation.contact;
 
       // Send detailed payment receipt message (Order #, Amount & Transaction ID)
-      const confirmMsg = `🎉 *Payment Received!*\n\nPayment for Order #${order.orderNumber} has been received successfully.\n\n💰 *Amount:* ${order.currency} ${Number(order.totalAmount).toFixed(2)}\n🔖 *Transaction ID:* ${order.razorpayPaymentId || "N/A"}\n\nYour order is confirmed and our team has started processing it! 🚚`;
+      const confirmMsg = `?? *Payment Received!*\n\nPayment for Order #${order.orderNumber} has been received successfully.\n\n?? *Amount:* ${order.currency} ${Number(order.totalAmount).toFixed(2)}\n?? *Transaction ID:* ${order.razorpayPaymentId || "N/A"}\n\nYour order is confirmed and our team has started processing it! ??`;
 
       // 24-hour Meta messaging window check
       const lastActivity = conversation.updatedAt
@@ -4179,12 +4179,12 @@ const flowEngine = {
         await flowEngine.saveBotMessage(conversation.id, confirmMsg);
       } else {
         console.warn(
-          `⚠️ [resumeFlowAfterPayment] Outside 24h window for contact ${contact.phone}. Free-form message withheld.`,
+          `?? [resumeFlowAfterPayment] Outside 24h window for contact ${contact.phone}. Free-form message withheld.`,
         );
         await flowEngine.saveBotMessage(conversation.id, confirmMsg);
       }
 
-      // Check if conversation was paused on a PAYMENT node — if so, advance to next flow node
+      // Check if conversation was paused on a PAYMENT node � if so, advance to next flow node
       if (conversation.currentNodeId) {
         const currentNode = await flowService.getNodeById(
           conversation.currentNodeId,
@@ -4199,7 +4199,7 @@ const flowEngine = {
           );
           if (nextNode) {
             console.log(
-              `▶️ Advancing flow to next node: ${nextNode.id} (${nextNode.type})`,
+              `?? Advancing flow to next node: ${nextNode.id} (${nextNode.type})`,
             );
             await prisma.conversation.update({
               where: { id: conversation.id },
@@ -4214,13 +4214,13 @@ const flowEngine = {
 
       await flowEngine.endFlow(conversation);
     } catch (err) {
-      console.error("❌ resumeFlowAfterPayment error:", err);
+      console.error("? resumeFlowAfterPayment error:", err);
     }
   },
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // Handle Payment Failed Alert
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   handlePaymentFailed: async (order, reason) => {
     try {
       let conversation = null;
@@ -4239,14 +4239,14 @@ const flowEngine = {
         select: { enableCod: true },
       });
 
-      const failMsg = `⚠️ *Payment Unsuccessful*\n\nYour payment for Order #${order.orderNumber} could not be processed (${reason || "Payment failed"}).\n\nTap below to retry your payment${tenant?.enableCod ? ", or reply *COD* to switch to Cash on Delivery." : "."}`;
+      const failMsg = `?? *Payment Unsuccessful*\n\nYour payment for Order #${order.orderNumber} could not be processed (${reason || "Payment failed"}).\n\nTap below to retry your payment${tenant?.enableCod ? ", or reply *COD* to switch to Cash on Delivery." : "."}`;
 
       if (order.paymentLinkUrl) {
         await flowEngine.sendWhatsAppPaymentCTA(
           conversation.tenantId,
           contact.phone,
           {
-            headerText: "⚠️ Payment Retry",
+            headerText: "?? Payment Retry",
             bodyText: failMsg,
             buttonText: "Retry Payment",
             url: order.paymentLinkUrl,
@@ -4258,13 +4258,13 @@ const flowEngine = {
 
       await flowEngine.saveBotMessage(conversation.id, failMsg);
     } catch (err) {
-      console.error("❌ handlePaymentFailed error:", err);
+      console.error("? handlePaymentFailed error:", err);
     }
   },
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // Handle Payment Link Expired Alert
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   handlePaymentExpired: async (order) => {
     try {
       let conversation = null;
@@ -4283,18 +4283,18 @@ const flowEngine = {
         select: { enableCod: true },
       });
 
-      const expireMsg = `⏰ *Payment Link Expired*\n\nThe payment link for Order #${order.orderNumber} has expired.\n\nReply *PAY* to generate a fresh payment link${tenant?.enableCod ? ", or reply *COD* to pay on delivery." : "."}`;
+      const expireMsg = `? *Payment Link Expired*\n\nThe payment link for Order #${order.orderNumber} has expired.\n\nReply *PAY* to generate a fresh payment link${tenant?.enableCod ? ", or reply *COD* to pay on delivery." : "."}`;
 
       await flowEngine.sendBotTextMessage(conversation, contact, expireMsg);
       await flowEngine.saveBotMessage(conversation.id, expireMsg);
     } catch (err) {
-      console.error("❌ handlePaymentExpired error:", err);
+      console.error("? handlePaymentExpired error:", err);
     }
   },
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // Send Interactive CTA URL (Payment Button)
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   sendWhatsAppPaymentCTA: async (
     tenantId,
     phone,
@@ -4302,14 +4302,14 @@ const flowEngine = {
   ) => {
     try {
       if (process.env.MOCK_WHATSAPP === "true") {
-        console.log("\n╔══════════════════════════════════════╗");
-        console.log("║  📱 MOCK WHATSAPP - PAYMENT CTA URL  ║");
-        console.log("╠══════════════════════════════════════╣");
-        console.log(`║  To     : ${phone}`);
-        console.log(`║  Header : ${headerText || "Complete Payment"}`);
-        console.log(`║  Body   : ${bodyText}`);
-        console.log(`║  Button : [${buttonText || "Pay Now"}] -> ${url}`);
-        console.log("╚══════════════════════════════════════╝\n");
+        console.log("\n+--------------------------------------+");
+        console.log("�  ?? MOCK WHATSAPP - PAYMENT CTA URL  �");
+        console.log("�--------------------------------------�");
+        console.log(`�  To     : ${phone}`);
+        console.log(`�  Header : ${headerText || "Complete Payment"}`);
+        console.log(`�  Body   : ${bodyText}`);
+        console.log(`�  Button : [${buttonText || "Pay Now"}] -> ${url}`);
+        console.log("+--------------------------------------+\n");
         return { messages: [{ id: "mock_cta_" + Date.now() }] };
       }
 
@@ -4324,7 +4324,7 @@ const flowEngine = {
       const tenant = _waRow?.whatsapp || {};
 
       if (!tenant?.whatsappPhoneId || !tenant?.whatsappAccessToken) {
-        console.error("❌ Tenant WhatsApp credentials not configured");
+        console.error("? Tenant WhatsApp credentials not configured");
         return null;
       }
 
@@ -4365,20 +4365,20 @@ const flowEngine = {
           const result = await response.json();
           if (result.messages?.[0]?.id) {
             console.log(
-              `📤 WhatsApp Payment CTA sent: ${result.messages[0].id}`,
+              `?? WhatsApp Payment CTA sent: ${result.messages[0].id}`,
             );
             return result;
           } else {
             console.warn(
-              `⚠️ Payment CTA send attempt ${attempt} failed:`,
+              `?? Payment CTA send attempt ${attempt} failed:`,
               result,
             );
             // If cta_url is not supported for this WABA or number, fall back to standard text message with link
             if (attempt === 2) {
               console.log(
-                "🔄 Falling back to standard text message with payment link",
+                "?? Falling back to standard text message with payment link",
               );
-              const fallbackText = `${headerText ? `*${headerText}*\n\n` : ""}${bodyText}\n\n👉 Pay here: ${url}`;
+              const fallbackText = `${headerText ? `*${headerText}*\n\n` : ""}${bodyText}\n\n?? Pay here: ${url}`;
               return await flowEngine.sendWhatsAppMessage(
                 tenantId,
                 phone,
@@ -4388,11 +4388,11 @@ const flowEngine = {
           }
         } catch (fetchErr) {
           console.warn(
-            `⚠️ Payment CTA fetch error (attempt ${attempt}/2):`,
+            `?? Payment CTA fetch error (attempt ${attempt}/2):`,
             fetchErr.message,
           );
           if (attempt === 2) {
-            const fallbackText = `${bodyText}\n\n👉 Pay here: ${url}`;
+            const fallbackText = `${bodyText}\n\n?? Pay here: ${url}`;
             return await flowEngine.sendWhatsAppMessage(
               tenantId,
               phone,
@@ -4402,7 +4402,7 @@ const flowEngine = {
         }
       }
     } catch (error) {
-      console.error("❌ sendWhatsAppPaymentCTA error:", error);
+      console.error("? sendWhatsAppPaymentCTA error:", error);
       return null;
     }
   },

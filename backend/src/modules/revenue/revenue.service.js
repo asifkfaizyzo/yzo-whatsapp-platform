@@ -2,7 +2,7 @@
 
 import prisma from "../../config/prisma.js";
 
-// ── Dashboard Card Stats ──
+// -- Dashboard Card Stats --
 export const getPlatformRevenueStatsService = async () => {
   const allPayments = await prisma.payment.findMany({
     where: { status: "SUCCESS" },
@@ -44,7 +44,7 @@ export const getPlatformRevenueStatsService = async () => {
   };
 };
 
-// ── Revenue Page Full Stats ──
+// -- Revenue Page Full Stats --
 export const getRevenueStatsService = async () => {
   const allPayments = await prisma.payment.findMany({
     where: { status: "SUCCESS" },
@@ -65,18 +65,18 @@ export const getRevenueStatsService = async () => {
   const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
 
-  // ── Total Revenue ──
+  // -- Total Revenue --
   const totalRevenue = allPayments.reduce(
     (sum, p) => sum + (p.totalAmount || 0),
     0,
   );
 
-  // ── This Month ──
+  // -- This Month --
   const thisMonthRevenue = allPayments
     .filter((p) => new Date(p.paidAt) >= startOfMonth)
     .reduce((sum, p) => sum + (p.totalAmount || 0), 0);
 
-  // ── Last Month ──
+  // -- Last Month --
   const lastMonthRevenue = allPayments
     .filter((p) => {
       const d = new Date(p.paidAt);
@@ -84,22 +84,22 @@ export const getRevenueStatsService = async () => {
     })
     .reduce((sum, p) => sum + (p.totalAmount || 0), 0);
 
-  // ── Total GST ──
+  // -- Total GST --
   const totalGST = allPayments.reduce((sum, p) => sum + (p.gstAmount || 0), 0);
 
-  // ── MRR & ARR ──
+  // -- MRR & ARR --
   const mrr = thisMonthRevenue;
   const arr = parseFloat((mrr * 12).toFixed(2));
 
-  // ── Active Tenants ──
+  // -- Active Tenants --
   const activeTenants = await prisma.tenant.count({
     where: { subscription: { planStatus: "active" }, isActive: true },
   });
 
-  // ── Total Payments Count ──
+  // -- Total Payments Count --
   const totalPayments = allPayments.length;
 
-  // ── Monthly Breakdown (last 6 months) ──
+  // -- Monthly Breakdown (last 6 months) --
   const monthlyBreakdown = [];
   for (let i = 5; i >= 0; i--) {
     const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -127,7 +127,7 @@ export const getRevenueStatsService = async () => {
     });
   }
 
-  // ── Plan Distribution ──
+  // -- Plan Distribution --
   const planMap = {};
   for (const p of allPayments) {
     if (!p.planId) continue;
@@ -166,7 +166,7 @@ export const getRevenueStatsService = async () => {
   };
 };
 
-// ── All Payments ──
+// -- All Payments --
 export const getRevenuePaymentsService = async () => {
   return await prisma.payment.findMany({
     where: { status: "SUCCESS" },
@@ -197,7 +197,7 @@ export const getRevenuePaymentsService = async () => {
   });
 };
 
-// ── Tenant Billing Detail ──
+// -- Tenant Billing Detail --
 export const getTenantBillingDetailService = async (tenantId) => {
   const tenantRow = await prisma.tenant.findUnique({
     where: { id: tenantId },
@@ -240,7 +240,7 @@ export const getTenantBillingDetailService = async (tenantId) => {
     },
   });
 
-  // ── Next Renewal Date ──
+  // -- Next Renewal Date --
   let nextRenewalDate = null;
   if (tenant.planActivatedAt && tenant.planStatus === "active") {
     const activatedAt = new Date(tenant.planActivatedAt);
@@ -263,7 +263,7 @@ export const getTenantBillingDetailService = async (tenantId) => {
   };
 };
 
-// ── Invoice URL ──
+// -- Invoice URL --
 export const getInvoiceUrlService = async (paymentId) => {
   const payment = await prisma.payment.findFirst({
     where: { id: paymentId, status: "SUCCESS" },

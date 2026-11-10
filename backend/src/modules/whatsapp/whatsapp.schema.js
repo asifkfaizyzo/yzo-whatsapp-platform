@@ -2,14 +2,14 @@
 
 import { z } from "zod";
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // Send Location Schema
 // Used by: POST /tenant/whatsapp/send-location
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 
 export const sendLocationSchema = z.object({
   body: z.object({
-    // ── Who to send to ──────────────────────────────────────
+    // -- Who to send to --------------------------------------
     // WhatsApp phone number without + prefix
     // e.g. "919876543210"
     to: z
@@ -18,7 +18,7 @@ export const sendLocationSchema = z.object({
       .max(15, "Phone number too long")
       .regex(/^\d+$/, "Phone number must contain only digits, no + or spaces"),
 
-    // ── Core location ───────────────────────────────────────
+    // -- Core location ---------------------------------------
     latitude: z
       .number({ required_error: "latitude is required" })
       .min(-90, "latitude must be >= -90")
@@ -29,7 +29,7 @@ export const sendLocationSchema = z.object({
       .min(-180, "longitude must be >= -180")
       .max(180, "longitude must be <= 180"),
 
-    // ── Optional ────────────────────────────────────────────
+    // -- Optional --------------------------------------------
     name: z.string().max(100, "name must not exceed 100 characters").optional(),
 
     address: z
@@ -37,7 +37,7 @@ export const sendLocationSchema = z.object({
       .max(300, "address must not exceed 300 characters")
       .optional(),
 
-    // ── Link to conversation ─────────────────────────────────
+    // -- Link to conversation ---------------------------------
     conversationId: z.string().optional(),
   }),
 

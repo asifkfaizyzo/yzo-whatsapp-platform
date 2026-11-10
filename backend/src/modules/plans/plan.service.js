@@ -1,7 +1,7 @@
 // backend/src/modules/plans/plan.service.js (do not remove this comment)
 import prisma from "../../config/prisma.js";
 
-// ── Get all plans (superadmin) ──
+// -- Get all plans (superadmin) --
 export const getAllPlans = async () => {
   return prisma.subscriptionPlan.findMany({
     include: {
@@ -15,7 +15,7 @@ export const getAllPlans = async () => {
   });
 };
 
-// ── Get public active plans (tenant pricing page — no auth) ──
+// -- Get public active plans (tenant pricing page � no auth) --
 export const getPublicPlans = async () => {
   return prisma.subscriptionPlan.findMany({
     where: { status: "ACTIVE" },
@@ -29,7 +29,7 @@ export const getPublicPlans = async () => {
   });
 };
 
-// ── Get single plan by ID ──
+// -- Get single plan by ID --
 export const getPlanById = async (id) => {
   return prisma.subscriptionPlan.findUnique({
     where: { id },
@@ -41,7 +41,7 @@ export const getPlanById = async (id) => {
   });
 };
 
-// ── Create plan ──
+// -- Create plan --
 export const createPlan = async (data) => {
   const {
     name,
@@ -101,7 +101,7 @@ export const createPlan = async (data) => {
   });
 };
 
-// ── Update plan ──
+// -- Update plan --
 export const updatePlan = async (id, data) => {
   const {
     name,
@@ -167,7 +167,7 @@ export const updatePlan = async (id, data) => {
   });
 };
 
-// ── Toggle plan status ──
+// -- Toggle plan status --
 export const togglePlanStatus = async (id) => {
   const plan = await prisma.subscriptionPlan.findUnique({
     where: { id },
@@ -183,7 +183,7 @@ export const togglePlanStatus = async (id) => {
   });
 };
 
-// ── Delete plan ──
+// -- Delete plan --
 export const deletePlan = async (id) => {
   // Check if any tenants are on this plan
   const tenantCount = await prisma.tenantSubscription.count({
@@ -192,21 +192,21 @@ export const deletePlan = async (id) => {
 
   if (tenantCount > 0) {
     throw new Error(
-      `Cannot delete — ${tenantCount} tenant(s) are on this plan`,
+      `Cannot delete � ${tenantCount} tenant(s) are on this plan`,
     );
   }
 
   return prisma.subscriptionPlan.delete({ where: { id } });
 };
 
-// ── Get all features ──
+// -- Get all features --
 export const getAllFeatures = async () => {
   return prisma.feature.findMany({
     orderBy: { name: "asc" },
   });
 };
 
-// ── Create feature ──
+// -- Create feature --
 export const createFeature = async (name) => {
   return prisma.feature.upsert({
     where: { name },
@@ -215,7 +215,7 @@ export const createFeature = async (name) => {
   });
 };
 
-// ── Delete feature ──
+// -- Delete feature --
 export const deleteFeature = async (id) => {
   return prisma.feature.delete({ where: { id } });
 };

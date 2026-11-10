@@ -13,7 +13,7 @@ import path from "path";
 // CONFIG & MIDDLEWARE
 // ═══════════════════════════════════════════════════════════════
 import { serverAdapter } from "./config/bull.board.js";
-import { bullBoardAuth } from "./middlewares/auth.bullBoard.js";
+import { bullBoardAuth } from "./middleware/bullBoardAuth.js";
 
 // ═══════════════════════════════════════════════════════════════
 // NEW AUTH ROUTES (Phase 5, 6, 7) — mounted FIRST, take precedence

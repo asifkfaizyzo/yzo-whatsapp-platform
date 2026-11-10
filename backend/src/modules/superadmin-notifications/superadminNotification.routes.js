@@ -9,12 +9,13 @@ import {
   getPaginatedNotifications,
   deleteNotification,
 } from "./superadminNotification.controller.js";
-import { verifySuperAdmin } from "../../middlewares/auth.superAdmin.js";
+import { authenticate } from "../../middleware/authenticate.js";
+import { requireSRAdmin } from "../../middleware/requireSRAdmin.js";
 
 const router = Router();
 
 // All routes protected by superadmin auth
-router.use(verifySuperAdmin);
+router.use(authenticate, requireSRAdmin);
 
 router.get("/", getNotifications);
 router.get("/paginated", getPaginatedNotifications);

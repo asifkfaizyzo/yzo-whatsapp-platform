@@ -1,14 +1,14 @@
 // backend/src/modules/users/user.auth.routes.js (do not remove this comment)
 
 import { Router } from "express";
-import * as ctrl from "./user.auth.controller.new.js";
+import * as ctrl from "./user.auth.controller.js";
 import { authenticate } from "../../middleware/authenticate.js";
 import { requireUser } from "../../middleware/requireUser.js";
 import {
   authLimiter,
   resetLimiter,
 } from "../../middleware/rateLimiter.js";
-import validate from "../../middlewares/validate.middleware.js";
+import validate from "../../middleware/validate.js";
 import {
   loginSchema,
   logoutSchema,
@@ -17,7 +17,7 @@ import {
   resetPasswordSchema,
   googleLoginSchema,
   setUsernameSchema,
-} from "./user.auth.schema.new.js";
+} from "./user.auth.schema.js";
 
 const router = Router();
 

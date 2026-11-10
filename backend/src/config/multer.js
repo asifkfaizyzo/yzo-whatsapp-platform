@@ -3,12 +3,12 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 
-// ✅ Create uploads folder if not exists
+// ? Create uploads folder if not exists
 if (!fs.existsSync("uploads")) {
   fs.mkdirSync("uploads");
 }
 
-// ✅ Storage settings
+// ? Storage settings
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, "uploads/");
@@ -19,7 +19,7 @@ const storage = multer.diskStorage({
   },
 });
 
-// ✅ Only allow CSV files
+// ? Only allow CSV files
 const fileFilter = (req, file, cb) => {
   const ext = path.extname(file.originalname).toLowerCase();
   if (ext === ".csv") {
@@ -29,7 +29,7 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-// ✅ Export upload middleware
+// ? Export upload middleware
 export const upload = multer({
   storage,
   fileFilter,

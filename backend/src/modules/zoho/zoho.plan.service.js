@@ -34,15 +34,15 @@ export async function detectZohoPlan(tenantId, forceRefresh = false) {
 
     const org = response?.org?.[0];
 
-    // 🔍 Debug log to see exact fields returned by Zoho CRM API
+    // ?? Debug log to see exact fields returned by Zoho CRM API
     console.log(
-      "🔍 [ZohoPlan Debug] Raw Org Data:",
+      "?? [ZohoPlan Debug] Raw Org Data:",
       JSON.stringify(org, null, 2),
     );
 
     if (!org) {
       console.warn(
-        `⚠️ [ZohoPlan] No org data returned for tenant ${tenantId}, probing features...`,
+        `?? [ZohoPlan] No org data returned for tenant ${tenantId}, probing features...`,
       );
       return await probeFeatures(tenantId);
     }
@@ -76,7 +76,7 @@ export async function detectZohoPlan(tenantId, forceRefresh = false) {
       if (isActuallyHigherPlan) {
         edition = isActuallyHigherPlan;
         console.log(
-          `✨ [ZohoPlan] Corrected Free label to ${edition} based on active module accessibility.`,
+          `? [ZohoPlan] Corrected Free label to ${edition} based on active module accessibility.`,
         );
       }
     }
@@ -87,7 +87,7 @@ export async function detectZohoPlan(tenantId, forceRefresh = false) {
       trialDaysRemaining:
         org.trial_days_remaining || licenseDetails.trial_days_remaining || null,
       companyName: org.company_name || null,
-      currencySymbol: org.currency_symbol || "₹",
+      currencySymbol: org.currency_symbol || "?",
       countryCode: org.country_code || "IN",
       totalLicenses: licenseDetails.total_licenses || org.user_count || 1,
       usedLicenses: licenseDetails.used_licenses || 1,
@@ -104,7 +104,7 @@ export async function detectZohoPlan(tenantId, forceRefresh = false) {
     );
 
     console.log(
-      `✅ [ZohoPlan] Detected ${edition} plan (Trial: ${planData.isTrial}) for tenant ${tenantId}`,
+      `? [ZohoPlan] Detected ${edition} plan (Trial: ${planData.isTrial}) for tenant ${tenantId}`,
     );
 
     // Emit live socket event to update frontend instantly
@@ -115,7 +115,7 @@ export async function detectZohoPlan(tenantId, forceRefresh = false) {
     return planData;
   } catch (error) {
     console.warn(
-      `⚠️ [ZohoPlan] Direct org query failed (${error.response?.status || error.message}). Probing features...`,
+      `?? [ZohoPlan] Direct org query failed (${error.response?.status || error.message}). Probing features...`,
     );
     return await probeFeatures(tenantId);
   }
@@ -243,7 +243,7 @@ async function probeFeatures(tenantId) {
     edition,
     isTrial: true,
     companyName: null,
-    currencySymbol: "₹",
+    currencySymbol: "?",
     countryCode: "IN",
     totalLicenses: 1,
     usedLicenses: 1,

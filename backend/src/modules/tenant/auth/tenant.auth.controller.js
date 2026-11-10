@@ -20,11 +20,11 @@ import {
   updateOnboardingStepService,
   setPasswordService,
   setUsernameService,
-} from "./tenant.auth.service.new.js";
+} from "./tenant.auth.service.js";
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // HELPERS
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 const COOKIE_OPTIONS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
@@ -56,7 +56,7 @@ const getIp = (req) =>
 
 const getUserAgent = (req) => req.get("user-agent") || null;
 
-// ── OAuth Verification ──
+// -- OAuth Verification --
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const verifyGoogleCredential = async (credential) => {
@@ -94,9 +94,9 @@ const verifyFacebookToken = async (accessToken) => {
   };
 };
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // ERROR HANDLER WRAPPER
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 const handle = (fn) => async (req, res) => {
   try {
     await fn(req, res);
@@ -109,9 +109,9 @@ const handle = (fn) => async (req, res) => {
   }
 };
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 1. SIGNUP
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const signup = handle(async (req, res) => {
   const { email, password, recaptchaToken } = req.body;
 
@@ -137,9 +137,9 @@ export const signup = handle(async (req, res) => {
   );
 });
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 2. LOGIN
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const login = handle(async (req, res) => {
   const { identifier, password, recaptchaToken } = req.body;
 
@@ -161,9 +161,9 @@ export const login = handle(async (req, res) => {
   });
 });
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 3. LOGOUT
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const logout = handle(async (req, res) => {
   const refreshToken =
     req.cookies?.tenant_refreshToken || req.body?.refreshToken;
@@ -179,9 +179,9 @@ export const logout = handle(async (req, res) => {
   return success(res, null, "Logged out successfully");
 });
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 4. REFRESH TOKEN
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const refresh = handle(async (req, res) => {
   const refreshToken =
     req.cookies?.tenant_refreshToken || req.body?.refreshToken;
@@ -199,9 +199,9 @@ export const refresh = handle(async (req, res) => {
   });
 });
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 5. GOOGLE SIGNUP
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const googleSignup = handle(async (req, res) => {
   const { credential, recaptchaToken } = req.body;
 
@@ -234,9 +234,9 @@ export const googleSignup = handle(async (req, res) => {
   );
 });
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 6. FACEBOOK SIGNUP
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const facebookSignup = handle(async (req, res) => {
   const { accessToken, recaptchaToken } = req.body;
 
@@ -268,9 +268,9 @@ export const facebookSignup = handle(async (req, res) => {
   );
 });
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 7. GOOGLE LOGIN (existing only)
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const googleLogin = handle(async (req, res) => {
   const { credential } = req.body;
 
@@ -293,9 +293,9 @@ export const googleLogin = handle(async (req, res) => {
   });
 });
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 8. FACEBOOK LOGIN (existing only)
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const facebookLogin = handle(async (req, res) => {
   const { accessToken } = req.body;
 
@@ -318,9 +318,9 @@ export const facebookLogin = handle(async (req, res) => {
   });
 });
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 9. FORGOT PASSWORD
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const forgotPassword = handle(async (req, res) => {
   const { email } = req.body;
 
@@ -333,9 +333,9 @@ export const forgotPassword = handle(async (req, res) => {
   return success(res, null, result.message);
 });
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 10. RESET PASSWORD
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const resetPassword = handle(async (req, res) => {
   const { token, newPassword } = req.body;
 
@@ -349,9 +349,9 @@ export const resetPassword = handle(async (req, res) => {
   return success(res, null, result.message);
 });
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 11. CHECK USERNAME
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const checkUsername = handle(async (req, res) => {
   const { username } = req.query;
 
@@ -360,9 +360,9 @@ export const checkUsername = handle(async (req, res) => {
   return success(res, result);
 });
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 12. USERNAME SUGGESTIONS
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const usernameSuggestions = handle(async (req, res) => {
   const { firstName, lastName } = req.query;
 
@@ -371,9 +371,9 @@ export const usernameSuggestions = handle(async (req, res) => {
   return success(res, result);
 });
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 13. UPDATE PROFILE (Onboarding Step 2)
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const updateProfile = handle(async (req, res) => {
   const { firstName, lastName, username } = req.body;
   const tenantId = req.actorId;
@@ -388,9 +388,9 @@ export const updateProfile = handle(async (req, res) => {
   return success(res, result, "Profile updated");
 });
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 14. VERIFY EMAIL OTP (Onboarding Step 3)
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const verifyEmailOtp = handle(async (req, res) => {
   const { otp } = req.body;
   const tenantId = req.actorId;
@@ -404,9 +404,9 @@ export const verifyEmailOtp = handle(async (req, res) => {
   );
 });
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 15. RESEND OTP
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const resendOtp = handle(async (req, res) => {
   const tenantId = req.actorId;
 
@@ -415,9 +415,9 @@ export const resendOtp = handle(async (req, res) => {
   return success(res, null, result.message);
 });
 
-// ═══════════════════════════════════════════════════════════
-// 16. UPDATE ONBOARDING STEP (Generic, Steps 4–7)
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
+// 16. UPDATE ONBOARDING STEP (Generic, Steps 4�7)
+// -----------------------------------------------------------
 export const updateOnboardingStep = handle(async (req, res) => {
   const { step } = req.body;
   const tenantId = req.actorId;
@@ -427,9 +427,9 @@ export const updateOnboardingStep = handle(async (req, res) => {
   return success(res, result, `Onboarding step ${step} complete`);
 });
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 17. SET PASSWORD (OAuth users)
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const setPassword = handle(async (req, res) => {
   const { newPassword } = req.body;
   const tenantId = req.actorId;
@@ -439,9 +439,9 @@ export const setPassword = handle(async (req, res) => {
   return success(res, null, result.message);
 });
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 18. SET USERNAME (Legacy guard)
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const setUsername = handle(async (req, res) => {
   const { username } = req.body;
   const tenantId = req.actorId;

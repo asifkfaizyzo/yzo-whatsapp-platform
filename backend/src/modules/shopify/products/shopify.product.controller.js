@@ -24,7 +24,7 @@ export const triggerProductSync = async (req, res) => {
       data: result,
     });
   } catch (err) {
-    console.error("💥 [Product Sync Controller]", err.message);
+    console.error("?? [Product Sync Controller]", err.message);
     return res.status(500).json({
       success: false,
       message: err.message || "Product sync failed",
@@ -57,7 +57,7 @@ export const listProducts = async (req, res) => {
       data: result,
     });
   } catch (err) {
-    console.error("💥 [Product List Controller]", err.message);
+    console.error("?? [Product List Controller]", err.message);
     return res.status(500).json({
       success: false,
       message: "Failed to fetch products",
@@ -91,7 +91,7 @@ export const getProduct = async (req, res) => {
       data: product,
     });
   } catch (err) {
-    console.error("💥 [Product Detail Controller]", err.message);
+    console.error("?? [Product Detail Controller]", err.message);
     return res.status(500).json({
       success: false,
       message: "Failed to fetch product",

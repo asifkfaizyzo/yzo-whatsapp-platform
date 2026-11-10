@@ -30,12 +30,12 @@ import {
   sendVerificationOtpEmail,
 } from "../../auth/email.service.js";
 import { createAuditLog } from "../../audit/audit.service.js";
-import { createSuperAdminNotification } from "../../superadmin-notifications/superAdminNotificationService.js";
+import { createSuperAdminNotification } from "../../superadmin-notifications/superadminNotification.service.js";
 import { emitToSuperAdmin } from "../../../lib/socket.js";
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // CUSTOM ERROR
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 class AuthError extends Error {
   constructor(message, statusCode = 400) {
     super(message);
@@ -44,9 +44,9 @@ class AuthError extends Error {
   }
 }
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // CONSTANTS & HELPERS
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 const SAFE_TENANT_SELECT = {
   id: true,
   email: true,
@@ -114,9 +114,9 @@ const notifySRAdmin = async (type, title, message, metadata) => {
   }
 };
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 1. SIGNUP (Email + Password)
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const signupService = async ({
   email,
   password,
@@ -124,14 +124,14 @@ export const signupService = async ({
   ip,
   userAgent,
 }) => {
-  // ── reCAPTCHA ──
+  // -- reCAPTCHA --
   const captchaOk = await verifyRecaptcha(recaptchaToken, "signup");
   if (!captchaOk) throw new AuthError("reCAPTCHA verification failed", 403);
 
-  // ── Normalize ──
+  // -- Normalize --
   const normalizedEmail = email.toLowerCase().trim();
 
-  // ── Check existence across all actor tables ──
+  // -- Check existence across all actor tables --
   const { tenant, user, superAdmin } =
     await checkEmailAcrossActors(normalizedEmail);
 
@@ -154,10 +154,10 @@ export const signupService = async ({
     );
   }
 
-  // ── Hash password ──
+  // -- Hash password --
   const hashedPassword = await hashPassword(password);
 
-  // ── Create tenant ──
+  // -- Create tenant --
   const newTenant = await prisma.tenant.create({
     data: {
       email: normalizedEmail,
@@ -170,10 +170,10 @@ export const signupService = async ({
     select: { ...SAFE_TENANT_SELECT, password: true },
   });
 
-  // ── Issue tokens ──
+  // -- Issue tokens --
   const tokens = await issueTokens(newTenant);
 
-  // ── Audit + Notify (non-blocking) ──
+  // -- Audit + Notify (non-blocking) --
   logAuth({
     actorId: newTenant.id,
     actorType: "TENANT",
@@ -200,9 +200,9 @@ export const signupService = async ({
   };
 };
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 2. LOGIN (Email or Username + Password)
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const loginService = async ({
   identifier,
   password,
@@ -210,11 +210,11 @@ export const loginService = async ({
   ip,
   userAgent,
 }) => {
-  // ── reCAPTCHA ──
+  // -- reCAPTCHA --
   const captchaOk = await verifyRecaptcha(recaptchaToken, "login");
   if (!captchaOk) throw new AuthError("reCAPTCHA verification failed", 403);
 
-  // ── Detect identifier type ──
+  // -- Detect identifier type --
   const trimmed = identifier.trim();
   const isEmail = trimmed.includes("@");
 
@@ -230,12 +230,12 @@ export const loginService = async ({
     },
   });
 
-  // ── Not found ──
+  // -- Not found --
   if (!tenant) {
     throw new AuthError("Invalid credentials", 401);
   }
 
-  // ── OAuth-only account (no password set) ──
+  // -- OAuth-only account (no password set) --
   if (!tenant.password) {
     const provider = tenant.authProvider || "social";
     throw new AuthError(
@@ -244,7 +244,7 @@ export const loginService = async ({
     );
   }
 
-  // ── Verify password ──
+  // -- Verify password --
   const passwordMatch = await comparePassword(password, tenant.password);
   if (!passwordMatch) {
     logAuth({
@@ -261,7 +261,7 @@ export const loginService = async ({
     throw new AuthError("Invalid credentials", 401);
   }
 
-  // ── Status checks ──
+  // -- Status checks --
   if (tenant.status === "BLOCKED") {
     throw new AuthError(
       "Your account has been suspended. Please contact support.",
@@ -281,17 +281,17 @@ export const loginService = async ({
     );
   }
 
-  // ── Issue tokens ──
+  // -- Issue tokens --
   const tokens = await issueTokens(tenant);
 
-  // ── Legacy guard: NULL username ──
+  // -- Legacy guard: NULL username --
   const requiresUsername = !tenant.username;
 
-  // ── Onboarding gate ──
+  // -- Onboarding gate --
   const requiresOnboarding =
     tenant.status === "ONBOARDING" || tenant.status === "APPROVED";
 
-  // ── Audit ──
+  // -- Audit --
   logAuth({
     actorId: tenant.id,
     actorType: "TENANT",
@@ -314,14 +314,14 @@ export const loginService = async ({
   };
 };
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 3. LOGOUT
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const logoutService = async ({ refreshToken, tenantId }) => {
   try {
     await deleteRefreshToken(refreshToken);
   } catch {
-    // Token already deleted or invalid — still return success
+    // Token already deleted or invalid � still return success
   }
 
   logAuth({
@@ -336,27 +336,27 @@ export const logoutService = async ({ refreshToken, tenantId }) => {
   return { message: "Logged out successfully" };
 };
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 4. REFRESH TOKEN
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const refreshTokenService = async ({ refreshToken }) => {
-  // ── Find in DB ──
+  // -- Find in DB --
   const tokenRecord = await findRefreshToken(refreshToken, "TENANT");
   if (!tokenRecord || tokenRecord.isRevoked) {
     throw new AuthError("Invalid or expired refresh token", 401);
   }
 
-  // ── Verify JWT signature + expiry ──
+  // -- Verify JWT signature + expiry --
   let decoded;
   try {
     decoded = verifyRefreshToken(refreshToken);
   } catch {
-    // JWT expired or tampered — clean up DB
+    // JWT expired or tampered � clean up DB
     await deleteRefreshToken(refreshToken).catch(() => {});
     throw new AuthError("Invalid or expired refresh token", 401);
   }
 
-  // ── Verify tenant still exists and is active ──
+  // -- Verify tenant still exists and is active --
   const tenant = await prisma.tenant.findFirst({
     where: { id: decoded.id, deletedAt: null },
     select: { ...SAFE_TENANT_SELECT },
@@ -372,17 +372,17 @@ export const refreshTokenService = async ({ refreshToken }) => {
     throw new AuthError("Account is no longer active", 403);
   }
 
-  // ── Rotate tokens ──
+  // -- Rotate tokens --
   await deleteRefreshToken(refreshToken).catch(() => {});
   const tokens = await issueTokens(tenant);
 
   return tokens;
 };
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 5. OAUTH SIGNUP (Google / Facebook)
 //    Creates account if new, auto-logins if existing
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const oauthSignupService = async ({
   email,
   firstName,
@@ -393,20 +393,20 @@ export const oauthSignupService = async ({
   ip,
   userAgent,
 }) => {
-  // ── reCAPTCHA ──
+  // -- reCAPTCHA --
   const captchaOk = await verifyRecaptcha(recaptchaToken, "signup");
   if (!captchaOk) throw new AuthError("reCAPTCHA verification failed", 403);
 
   const normalizedEmail = email.toLowerCase().trim();
 
-  // ── Check if tenant already exists ──
+  // -- Check if tenant already exists --
   const existingTenant = await prisma.tenant.findFirst({
     where: { email: normalizedEmail, deletedAt: null },
     select: { ...SAFE_TENANT_SELECT, status: true },
   });
 
   if (existingTenant) {
-    // ── Auto-login existing tenant ──
+    // -- Auto-login existing tenant --
     if (existingTenant.status === "BLOCKED") {
       throw new AuthError(
         "Your account has been suspended. Please contact support.",
@@ -433,7 +433,7 @@ export const oauthSignupService = async ({
     };
   }
 
-  // ── Check other actor tables ──
+  // -- Check other actor tables --
   const { user, superAdmin } = await checkEmailAcrossActors(normalizedEmail);
 
   if (user) {
@@ -446,7 +446,7 @@ export const oauthSignupService = async ({
     throw new AuthError("An account with this email already exists.", 409);
   }
 
-  // ── Create new ONBOARDING tenant ──
+  // -- Create new ONBOARDING tenant --
   const newTenant = await prisma.tenant.create({
     data: {
       email: normalizedEmail,
@@ -466,7 +466,7 @@ export const oauthSignupService = async ({
 
   const tokens = await issueTokens(newTenant);
 
-  // ── Audit + Notify ──
+  // -- Audit + Notify --
   logAuth({
     actorId: newTenant.id,
     actorType: "TENANT",
@@ -494,10 +494,10 @@ export const oauthSignupService = async ({
   };
 };
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 6. OAUTH LOGIN (Google / Facebook)
-//    Existing accounts only — 404 if not found
-// ═══════════════════════════════════════════════════════════
+//    Existing accounts only � 404 if not found
+// -----------------------------------------------------------
 export const oauthLoginService = async ({
   email,
   provider, // "GOOGLE" | "FACEBOOK"
@@ -519,7 +519,7 @@ export const oauthLoginService = async ({
     );
   }
 
-  // ── Status checks ──
+  // -- Status checks --
   if (tenant.status === "BLOCKED") {
     throw new AuthError(
       "Your account has been suspended. Please contact support.",
@@ -533,7 +533,7 @@ export const oauthLoginService = async ({
     throw new AuthError("Your account has been deactivated.", 403);
   }
 
-  // ── Issue tokens ──
+  // -- Issue tokens --
   const tokens = await issueTokens(tenant);
   const requiresOnboarding =
     tenant.status === "ONBOARDING" || tenant.status === "APPROVED";
@@ -559,9 +559,9 @@ export const oauthLoginService = async ({
   };
 };
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 7. FORGOT PASSWORD
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const forgotPasswordService = async ({ email, ip, userAgent }) => {
   const normalizedEmail = email.toLowerCase().trim();
 
@@ -570,7 +570,7 @@ export const forgotPasswordService = async ({ email, ip, userAgent }) => {
     select: { id: true, email: true, status: true, isActive: true },
   });
 
-  // ── Always return success (don't reveal if email exists) ──
+  // -- Always return success (don't reveal if email exists) --
   if (!tenant) {
     return {
       message:
@@ -578,7 +578,7 @@ export const forgotPasswordService = async ({ email, ip, userAgent }) => {
     };
   }
 
-  // ── Don't send for blocked/inactive accounts ──
+  // -- Don't send for blocked/inactive accounts --
   if (tenant.status === "BLOCKED" || !tenant.isActive) {
     return {
       message:
@@ -586,10 +586,10 @@ export const forgotPasswordService = async ({ email, ip, userAgent }) => {
     };
   }
 
-  // ── Generate token (plain for email, hash for DB) ──
+  // -- Generate token (plain for email, hash for DB) --
   const { token: plainToken, hash, expiresAt } = generateResetToken();
 
-  // ── Store hash in DB ──
+  // -- Store hash in DB --
   await prisma.tenant.update({
     where: { id: tenant.id },
     data: {
@@ -598,12 +598,12 @@ export const forgotPasswordService = async ({ email, ip, userAgent }) => {
     },
   });
 
-  // ── Send email with plain token ──
+  // -- Send email with plain token --
   try {
     await sendPasswordResetEmail(normalizedEmail, plainToken, "TENANT");
   } catch (err) {
     console.error("[forgotPassword] Email send failed:", err.message);
-    // Don't throw — don't reveal email delivery failures
+    // Don't throw � don't reveal email delivery failures
   }
 
   logAuth({
@@ -623,19 +623,19 @@ export const forgotPasswordService = async ({ email, ip, userAgent }) => {
   };
 };
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 8. RESET PASSWORD
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const resetPasswordService = async ({
   token,
   newPassword,
   ip,
   userAgent,
 }) => {
-  // ── Hash the incoming plain token ──
+  // -- Hash the incoming plain token --
   const hashedToken = hashResetToken(token);
 
-  // ── Find tenant by hashed token + valid expiry ──
+  // -- Find tenant by hashed token + valid expiry --
   const tenant = await prisma.tenant.findFirst({
     where: {
       resetToken: hashedToken,
@@ -649,10 +649,10 @@ export const resetPasswordService = async ({
     throw new AuthError("Invalid or expired reset token", 400);
   }
 
-  // ── Hash new password ──
+  // -- Hash new password --
   const hashedPassword = await hashPassword(newPassword);
 
-  // ── Update password + clear reset fields ──
+  // -- Update password + clear reset fields --
   await prisma.tenant.update({
     where: { id: tenant.id },
     data: {
@@ -662,7 +662,7 @@ export const resetPasswordService = async ({
     },
   });
 
-  // ── Revoke all existing refresh tokens (force re-login) ──
+  // -- Revoke all existing refresh tokens (force re-login) --
   await prisma.refreshToken.deleteMany({
     where: { tenantId: tenant.id },
   });
@@ -681,9 +681,9 @@ export const resetPasswordService = async ({
   return { message: "Password has been reset successfully. Please log in." };
 };
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 9. CHECK USERNAME AVAILABILITY
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const checkUsernameService = async ({ username }) => {
   const formatError = validateUsernameFormat(username);
   if (formatError) {
@@ -694,25 +694,25 @@ export const checkUsernameService = async ({ username }) => {
   return { available };
 };
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 10. USERNAME SUGGESTIONS
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const usernameSuggestionsService = async ({ firstName, lastName }) => {
   const suggestions = await generateSuggestions(firstName, lastName);
   return { suggestions };
 };
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 11. UPDATE PROFILE (Onboarding Step 2)
 //     firstName + lastName + username
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const updateProfileService = async ({
   tenantId,
   firstName,
   lastName,
   username,
 }) => {
-  // ── Validate username ──
+  // -- Validate username --
   const formatError = validateUsernameFormat(username);
   if (formatError) {
     throw new AuthError(formatError, 422);
@@ -725,7 +725,7 @@ export const updateProfileService = async ({
     throw new AuthError("This username is already taken", 409);
   }
 
-  // ── Update tenant ──
+  // -- Update tenant --
   const updated = await prisma.tenant.update({
     where: { id: tenantId },
     data: {
@@ -750,9 +750,9 @@ export const updateProfileService = async ({
   return { tenant: sanitizeTenant(updated) };
 };
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 12. VERIFY EMAIL OTP (Onboarding Step 3)
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const verifyEmailOtpService = async ({ tenantId, otp }) => {
   const tenant = await prisma.tenant.findFirst({
     where: { id: tenantId, deletedAt: null },
@@ -782,7 +782,7 @@ export const verifyEmailOtpService = async ({ tenantId, otp }) => {
     throw new AuthError("OTP has expired. Please request a new one.", 400);
   }
 
-  // ── Attempt limiting ──
+  // -- Attempt limiting --
   const MAX_OTP_ATTEMPTS = 3;
   if (tenant.otpAttempts >= MAX_OTP_ATTEMPTS) {
     throw new AuthError(
@@ -806,7 +806,7 @@ export const verifyEmailOtpService = async ({ tenantId, otp }) => {
     );
   }
 
-  // ── Mark verified + advance step ──
+  // -- Mark verified + advance step --
   const updated = await prisma.tenant.update({
     where: { id: tenantId },
     data: {
@@ -831,9 +831,9 @@ export const verifyEmailOtpService = async ({ tenantId, otp }) => {
   return { tenant: sanitizeTenant(updated) };
 };
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 13. RESEND OTP
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const resendOtpService = async ({ tenantId }) => {
   const tenant = await prisma.tenant.findFirst({
     where: { id: tenantId, deletedAt: null },
@@ -850,7 +850,7 @@ export const resendOtpService = async ({ tenantId }) => {
     throw new AuthError("Email is already verified", 400);
   }
 
-  // ── Rate limit: don't resend if last OTP is still fresh (< 60s old) ──
+  // -- Rate limit: don't resend if last OTP is still fresh (< 60s old) --
   if (tenant.otpExpiresAt) {
     const otpAge = tenant.otpExpiresAt.getTime() - getOTPExpiry().getTime();
     // getOTPExpiry() returns now + 10min. If stored expiry is close to that,
@@ -860,7 +860,7 @@ export const resendOtpService = async ({ tenantId }) => {
     }
   }
 
-  // ── Generate + store + send ──
+  // -- Generate + store + send --
   const plainOtp = generateOTP();
   const hashedOtp = hashOTP(plainOtp);
   const expiry = getOTPExpiry();
@@ -883,9 +883,9 @@ export const resendOtpService = async ({ tenantId }) => {
   return { message: "Verification OTP sent to your email" };
 };
 
-// ═══════════════════════════════════════════════════════════
-// 14. UPDATE ONBOARDING STEP (Generic, Steps 4–7)
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
+// 14. UPDATE ONBOARDING STEP (Generic, Steps 4�7)
+// -----------------------------------------------------------
 export const updateOnboardingStepService = async ({ tenantId, step }) => {
   const tenant = await prisma.tenant.findFirst({
     where: { id: tenantId, deletedAt: null },
@@ -894,7 +894,7 @@ export const updateOnboardingStepService = async ({ tenantId, step }) => {
 
   if (!tenant) throw new AuthError("Tenant not found", 404);
 
-  // ── Validate step progression ──
+  // -- Validate step progression --
   const targetStep = Number(step);
   if (targetStep < 1 || targetStep > 7 || !Number.isInteger(targetStep)) {
     throw new AuthError("Invalid onboarding step", 422);
@@ -908,10 +908,10 @@ export const updateOnboardingStepService = async ({ tenantId, step }) => {
     );
   }
 
-  // ── Determine new status ──
+  // -- Determine new status --
   const updateData = { onboardingStep: targetStep };
 
-  // Final step → transition to ACTIVE
+  // Final step ? transition to ACTIVE
   if (targetStep >= 7 && tenant.status === "ONBOARDING") {
     updateData.status = "ACTIVE";
   }
@@ -934,9 +934,9 @@ export const updateOnboardingStepService = async ({ tenantId, step }) => {
   return { tenant: sanitizeTenant(updated) };
 };
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 15. SET PASSWORD (OAuth users setting password for first time)
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const setPasswordService = async ({ tenantId, newPassword }) => {
   const tenant = await prisma.tenant.findFirst({
     where: { id: tenantId, deletedAt: null },
@@ -971,9 +971,9 @@ export const setPasswordService = async ({ tenantId, newPassword }) => {
   return { message: "Password set successfully" };
 };
 
-// ═══════════════════════════════════════════════════════════
-// 16. SET USERNAME (Legacy guard — NULL username users)
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
+// 16. SET USERNAME (Legacy guard � NULL username users)
+// -----------------------------------------------------------
 export const setUsernameService = async ({ tenantId, username }) => {
   const tenant = await prisma.tenant.findFirst({
     where: { id: tenantId, deletedAt: null },
@@ -982,12 +982,12 @@ export const setUsernameService = async ({ tenantId, username }) => {
 
   if (!tenant) throw new AuthError("Tenant not found", 404);
 
-  // ── Only for tenants with NULL username ──
+  // -- Only for tenants with NULL username --
   if (tenant.username) {
     throw new AuthError("Username is already set and cannot be changed", 400);
   }
 
-  // ── Validate ──
+  // -- Validate --
   const formatError = validateUsernameFormat(username);
   if (formatError) throw new AuthError(formatError, 422);
 

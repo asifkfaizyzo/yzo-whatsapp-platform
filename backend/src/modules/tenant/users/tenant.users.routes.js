@@ -1,11 +1,9 @@
 // backend/src/modules/tenant/users/tenant.users.routes.js (do not remove this comment)
 import express from "express";
 import * as tenantController from "./tenant.users.controller.js";
-import {
-  verifyTenant,
-  requireApprovedTenant,
-} from "../../../middlewares/auth.tenant.js";
-import validate from "../../../middlewares/validate.middleware.js";
+import { authenticate } from "../../../middleware/authenticate.js";
+import { requireTenant } from "../../../middleware/requireTenant.js";
+import validate from "../../../middleware/validate.js";
 import {
   createUserSchema,
   updateUserSchema,
@@ -16,41 +14,36 @@ const router = express.Router();
 
 router.post(
   "/create-user",
-  verifyTenant,
-  requireApprovedTenant,
+  authenticate, requireTenant,
   validate(createUserSchema),
   tenantController.createUser,
 );
-router.get("/get-all-users", verifyTenant, tenantController.getUsersByTenant);
+router.get("/get-all-users", authenticate, requireTenant, tenantController.getUsersByTenant);
 router.get(
   "/get-user/:id",
-  verifyTenant,
+  authenticate, requireTenant,
   validate(userIdParamSchema),
   tenantController.getUserById,
 );
 router.put(
   "/update-user/:id",
-  verifyTenant,
-  requireApprovedTenant,
+  authenticate, requireTenant,
   validate(updateUserSchema),
   tenantController.updateUserById,
 );
 router.patch(
   "/users/:id/deactivate",
-  verifyTenant,
-  requireApprovedTenant,
+  authenticate, requireTenant,
   tenantController.deactivateUserById,
 );
 router.patch(
   "/users/:id/reactivate",
-  verifyTenant,
-  requireApprovedTenant,
+  authenticate, requireTenant,
   tenantController.reactivateUserById,
 );
 router.delete(
   "/delete-user/:id",
-  verifyTenant,
-  requireApprovedTenant,
+  authenticate, requireTenant,
   validate(userIdParamSchema),
   tenantController.deleteUserById,
 );

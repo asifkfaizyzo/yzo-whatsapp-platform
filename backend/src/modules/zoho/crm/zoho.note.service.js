@@ -17,7 +17,7 @@ export async function logMessageAsZohoNote(tenantId, contactId, message) {
     });
 
     if (!tenant || tenant.zoho?.zohoConnectionStatus !== "CONNECTED") {
-      return; // Silent bypass — avoid decryptions/errors for unconnected tenants
+      return; // Silent bypass � avoid decryptions/errors for unconnected tenants
     }
 
     const prefs = await getTenantZohoPreferences(tenantId);
@@ -38,7 +38,7 @@ export async function logMessageAsZohoNote(tenantId, contactId, message) {
     if (!mapping) return;
 
     const direction =
-      message.direction === "INBOUND" ? "📥 From Customer" : "📤 From Agent";
+      message.direction === "INBOUND" ? "?? From Customer" : "?? From Agent";
     const senderLabel =
       message.senderType === "CONTACT"
         ? "Customer"
@@ -79,7 +79,7 @@ export async function logMessageAsZohoNote(tenantId, contactId, message) {
       data: {
         data: [
           {
-            Note_Title: `${direction} — ${new Date().toLocaleDateString("en-IN")}`,
+            Note_Title: `${direction} � ${new Date().toLocaleDateString("en-IN")}`,
             Note_Content: noteContent.substring(0, 5000),
           },
         ],
@@ -87,11 +87,11 @@ export async function logMessageAsZohoNote(tenantId, contactId, message) {
     });
 
     console.log(
-      `📝 [ZohoNote] Logged ${message.direction} message for contact ${contactId} → Zoho ${zohoModule}`,
+      `?? [ZohoNote] Logged ${message.direction} message for contact ${contactId} ? Zoho ${zohoModule}`,
     );
   } catch (error) {
     console.error(
-      `❌ [ZohoNote] Failed for contact ${contactId}:`,
+      `? [ZohoNote] Failed for contact ${contactId}:`,
       error.response?.data || error.message,
     );
   }

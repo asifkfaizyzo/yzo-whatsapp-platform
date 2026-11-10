@@ -6,7 +6,7 @@
  */
 
 export const META_ERROR_CODES = {
-  // ── 1. Invalid Recipient / Number Issues (Non-recoverable) ──
+  // -- 1. Invalid Recipient / Number Issues (Non-recoverable) --
   131026: {
     category: "INVALID_NUMBER",
     title: "Receiver is not registered on WhatsApp",
@@ -42,7 +42,7 @@ export const META_ERROR_CODES = {
     isRecoverable: true,
   },
 
-  // ── 2. 24-Hour Messaging Policy & Conversation Window ──
+  // -- 2. 24-Hour Messaging Policy & Conversation Window --
   131047: {
     category: "POLICY_VIOLATION",
     title: "24-hour messaging window closed",
@@ -62,7 +62,7 @@ export const META_ERROR_CODES = {
     isRecoverable: false,
   },
 
-  // ── 3. Throughput & Messaging Tier Limits ──
+  // -- 3. Throughput & Messaging Tier Limits --
   130429: {
     category: "RATE_LIMIT",
     title: "Rate limit or 24-hour tier quota exceeded",
@@ -81,7 +81,7 @@ export const META_ERROR_CODES = {
     isRecoverable: true,
   },
 
-  // ── 4. Template & Parameter Mismatches ──
+  // -- 4. Template & Parameter Mismatches --
   132000: {
     category: "TEMPLATE_ERROR",
     title: "Template parameter count mismatch",
@@ -118,7 +118,7 @@ export const META_ERROR_CODES = {
     isRecoverable: true,
   },
 
-  // ── 5. Authentication & Permissions ──
+  // -- 5. Authentication & Permissions --
   190: {
     category: "AUTH_ERROR",
     title: "Access token expired or invalidated",

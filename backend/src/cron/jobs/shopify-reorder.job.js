@@ -8,7 +8,7 @@ import { orderWebhookQueue } from "../queues/order-webhook.queue.js";
  * reorder reminder messages for each.
  */
 export const runShopifyReorderReminders = async () => {
-  console.log("\n🔄 [ReorderReminder] Starting daily reorder scan...");
+  console.log("\n?? [ReorderReminder] Starting daily reorder scan...");
 
   try {
     // 1. Get all tenants with Shopify connected + reorder enabled
@@ -24,7 +24,7 @@ export const runShopifyReorderReminders = async () => {
     });
 
     if (shopifyTenants.length === 0) {
-      console.log("⏭️ [ReorderReminder] No tenants with reorder enabled.");
+      console.log("?? [ReorderReminder] No tenants with reorder enabled.");
       return;
     }
 
@@ -34,7 +34,7 @@ export const runShopifyReorderReminders = async () => {
       const { tenantId, postPurchaseReorderDays } = config;
       const days = postPurchaseReorderDays || 30;
 
-      // 2. Calculate the target date window (±1 day to catch edge cases)
+      // 2. Calculate the target date window (�1 day to catch edge cases)
       const targetDateStart = new Date();
       targetDateStart.setDate(targetDateStart.getDate() - days - 1);
       targetDateStart.setHours(0, 0, 0, 0);
@@ -80,9 +80,9 @@ export const runShopifyReorderReminders = async () => {
     }
 
     console.log(
-      `✅ [ReorderReminder] Enqueued ${totalEnqueued} reorder reminders.`,
+      `? [ReorderReminder] Enqueued ${totalEnqueued} reorder reminders.`,
     );
   } catch (err) {
-    console.error("❌ [ReorderReminder] Error:", err.message);
+    console.error("? [ReorderReminder] Error:", err.message);
   }
 };

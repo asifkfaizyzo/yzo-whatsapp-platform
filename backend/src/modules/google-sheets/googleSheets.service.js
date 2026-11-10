@@ -3,7 +3,7 @@ import { google } from "googleapis";
 import { getOAuth2Client } from "../../config/google.sheets.js";
 import prisma from "../../config/prisma.js";
 
-// ── Helper: Convert column number to letter (1→A, 26→Z, 27→AA) ──
+// -- Helper: Convert column number to letter (1?A, 26?Z, 27?AA) --
 const getColumnLetter = (num) => {
   let letter = "";
   while (num > 0) {
@@ -14,7 +14,7 @@ const getColumnLetter = (num) => {
   return letter;
 };
 
-// ── 🆕 Sync current field config & native dropdown validations to Google Sheet (CRASH-PROOF) ──
+// -- ?? Sync current field config & native dropdown validations to Google Sheet (CRASH-PROOF) --
 export const syncFieldsToSheet = async (tenantId) => {
   try {
     const sheetId = await getOrCreateLeadSheetId(tenantId);
@@ -40,7 +40,7 @@ export const syncFieldsToSheet = async (tenantId) => {
     const sheetCols =
       targetSheet?.properties?.gridProperties?.columnCount || 26;
 
-    // 🏷️ FORCE RENAME DOCUMENT IN GOOGLE DRIVE TO "SudoReply..."
+    // ??? FORCE RENAME DOCUMENT IN GOOGLE DRIVE TO "SudoReply..."
     try {
       const conn = await prisma.googleSheetConnection.findUnique({
         where: { tenantId },
@@ -57,7 +57,7 @@ export const syncFieldsToSheet = async (tenantId) => {
           requestBody: { name: "SudoReply Lead & Order Status Tracking" },
         });
         console.log(
-          `[GoogleSheets Sync] 🏷️ Document renamed to "SudoReply Lead & Order Status Tracking"`,
+          `[GoogleSheets Sync] ??? Document renamed to "SudoReply Lead & Order Status Tracking"`,
         );
       }
     } catch (renameErr) {
@@ -87,7 +87,7 @@ export const syncFieldsToSheet = async (tenantId) => {
     // 4. Build formatting requests
     const requests = [];
 
-    // 🎨 A. Style Header Row ONLY (Row 1: Dark Navy Background, Bold White Text)
+    // ?? A. Style Header Row ONLY (Row 1: Dark Navy Background, Bold White Text)
     requests.push({
       repeatCell: {
         range: {
@@ -113,7 +113,7 @@ export const syncFieldsToSheet = async (tenantId) => {
       },
     });
 
-    // 🧹 B. RESET DATA ROWS (Row 2 downwards) to Plain White Background + Dark Text
+    // ?? B. RESET DATA ROWS (Row 2 downwards) to Plain White Background + Dark Text
     requests.push({
       repeatCell: {
         range: {
@@ -140,19 +140,19 @@ export const syncFieldsToSheet = async (tenantId) => {
       },
     });
 
-    // 📋 C. Process Data Validations for every column
+    // ?? C. Process Data Validations for every column
     // for (let i = 0; i < activeFields.length; i++) {
     //   if (i >= sheetCols) break;
     //   const field = activeFields[i];
 
     //   if (field.fieldType === 'dropdown') {
 
-    // 📋 C. Process Data Formats & Validations for every column
+    // ?? C. Process Data Formats & Validations for every column
     for (let i = 0; i < activeFields.length; i++) {
       if (i >= sheetCols) break;
       const field = activeFields[i];
 
-      // 🔒  FORCE TEXT FORMAT for Phone, Order ID, Text columns to prevent scientific notation (9.19E+11)
+      // ??  FORCE TEXT FORMAT for Phone, Order ID, Text columns to prevent scientific notation (9.19E+11)
       if (
         field.fieldType === "phone" ||
         field.fieldType === "text" ||
@@ -221,7 +221,7 @@ export const syncFieldsToSheet = async (tenantId) => {
           });
         }
       } else {
-        // 🧹 EXPLICITLY CLEAR dropdown arrows/rules for non-dropdown fields (Order ID, Text, Amount, Phone)
+        // ?? EXPLICITLY CLEAR dropdown arrows/rules for non-dropdown fields (Order ID, Text, Amount, Phone)
         requests.push({
           setDataValidation: {
             range: {
@@ -236,7 +236,7 @@ export const syncFieldsToSheet = async (tenantId) => {
       }
     }
 
-    // 📏 D. Auto-set comfortable column widths so users don't need to manually resize
+    // ?? D. Auto-set comfortable column widths so users don't need to manually resize
     for (let i = 0; i < activeFields.length; i++) {
       const field = activeFields[i];
       let width = 160;
@@ -271,7 +271,7 @@ export const syncFieldsToSheet = async (tenantId) => {
     }
 
     console.log(
-      `[GoogleSheets Sync] ✅ Successfully synced ${activeFields.length} headers & reset data formatting!`,
+      `[GoogleSheets Sync] ? Successfully synced ${activeFields.length} headers & reset data formatting!`,
     );
 
     return {
@@ -288,7 +288,7 @@ export const syncFieldsToSheet = async (tenantId) => {
   }
 };
 
-// ── Helper: Get Google Sheets Client for a Tenant ────────────────
+// -- Helper: Get Google Sheets Client for a Tenant ----------------
 export const getSheetsClientForTenant = async (tenantId) => {
   const conn = await prisma.googleSheetConnection.findUnique({
     where: { tenantId },
@@ -307,11 +307,11 @@ export const getSheetsClientForTenant = async (tenantId) => {
   return google.sheets({ version: "v4", auth: oauth2Client });
 };
 
-// ══════════════════════════════════════════════════════════════
-// 🆕 SECTION: CUSTOM FIELD MANAGEMENT
-// ══════════════════════════════════════════════════════════════
+// --------------------------------------------------------------
+// ?? SECTION: CUSTOM FIELD MANAGEMENT
+// --------------------------------------------------------------
 
-// ── 🆕 NEW: Seed 8 default fields if not already present ──
+// -- ?? NEW: Seed 8 default fields if not already present --
 export const seedDefaultFields = async (tenantId) => {
   const existing = await prisma.sheetField.findMany({ where: { tenantId } });
 
@@ -444,7 +444,7 @@ export const seedDefaultFields = async (tenantId) => {
   }
 };
 
-// ── 🆕 NEW: Get all fields for a tenant (auto-seeds defaults first) ──
+// -- ?? NEW: Get all fields for a tenant (auto-seeds defaults first) --
 export const getFieldsForTenant = async (tenantId) => {
   await seedDefaultFields(tenantId);
   return await prisma.sheetField.findMany({
@@ -453,7 +453,7 @@ export const getFieldsForTenant = async (tenantId) => {
   });
 };
 
-// ── 🆕 NEW: Get only ACTIVE fields (for building sheet rows) ──
+// -- ?? NEW: Get only ACTIVE fields (for building sheet rows) --
 export const getActiveFieldsForTenant = async (tenantId) => {
   await seedDefaultFields(tenantId);
   return await prisma.sheetField.findMany({
@@ -462,7 +462,7 @@ export const getActiveFieldsForTenant = async (tenantId) => {
   });
 };
 
-// ── 🆕 NEW: Add a custom field (appended AFTER all defaults at 9+) ──
+// -- ?? NEW: Add a custom field (appended AFTER all defaults at 9+) --
 export const addField = async (
   tenantId,
   { fieldName, fieldType, options, defaultValue, isRequired },
@@ -510,8 +510,8 @@ export const addField = async (
   return newField;
 };
 
-// ── 🆕 NEW: Update a field ──
-// ── 🆕 Update a field (Handles custom & default columns) ──
+// -- ?? NEW: Update a field --
+// -- ?? Update a field (Handles custom & default columns) --
 export const updateField = async (
   fieldId,
   tenantId,
@@ -565,7 +565,7 @@ export const updateField = async (
   return updated;
 };
 
-// ── 🆕 NEW: Toggle a field ON/OFF ──
+// -- ?? NEW: Toggle a field ON/OFF --
 export const toggleField = async (fieldId, tenantId, isActive) => {
   const field = await prisma.sheetField.findFirst({
     where: { id: fieldId, tenantId },
@@ -591,7 +591,7 @@ export const toggleField = async (fieldId, tenantId, isActive) => {
   return updated;
 };
 
-// ── 🆕 NEW: Delete a custom field ──
+// -- ?? NEW: Delete a custom field --
 export const deleteField = async (fieldId, tenantId) => {
   const field = await prisma.sheetField.findFirst({
     where: { id: fieldId, tenantId },
@@ -616,7 +616,7 @@ export const deleteField = async (fieldId, tenantId) => {
   return deleted;
 };
 
-// ── 🆕 NEW: Reorder fields ──
+// -- ?? NEW: Reorder fields --
 export const reorderFields = async (tenantId, fieldOrders) => {
   const updates = fieldOrders.map(({ fieldId, columnOrder }) =>
     prisma.sheetField.updateMany({
@@ -635,7 +635,7 @@ export const reorderFields = async (tenantId, fieldOrders) => {
   return await getFieldsForTenant(tenantId);
 };
 
-// ── Helper: Find or Create Default Tracking Sheet via Drive API ──
+// -- Helper: Find or Create Default Tracking Sheet via Drive API --
 export const getOrCreateLeadSheetId = async (tenantId, authClient = null) => {
   let client = authClient;
   if (!client) {
@@ -661,7 +661,7 @@ export const getOrCreateLeadSheetId = async (tenantId, authClient = null) => {
   if (res.data.files && res.data.files.length > 0) {
     const existingFile = res.data.files[0];
 
-    // 🔄 Auto-rename old "YZO" sheet to "SudoReply" in Google Drive
+    // ?? Auto-rename old "YZO" sheet to "SudoReply" in Google Drive
     if (existingFile.name.includes("YZO")) {
       try {
         await drive.files.update({
@@ -669,7 +669,7 @@ export const getOrCreateLeadSheetId = async (tenantId, authClient = null) => {
           requestBody: { name: "SudoReply Lead & Order Status Tracking" },
         });
         console.log(
-          `[GoogleSheets] 🏷️ Auto-renamed existing sheet to "SudoReply Lead & Order Status Tracking"`,
+          `[GoogleSheets] ??? Auto-renamed existing sheet to "SudoReply Lead & Order Status Tracking"`,
         );
       } catch (renameErr) {
         console.warn(
@@ -693,7 +693,7 @@ export const getOrCreateLeadSheetId = async (tenantId, authClient = null) => {
 
   const spreadsheetId = spreadsheet.data.spreadsheetId;
 
-  // ✅ NEW — Dynamic headers from DB
+  // ? NEW � Dynamic headers from DB
   // Seed default fields if this is first time
   await seedDefaultFields(tenantId);
 
@@ -711,7 +711,7 @@ export const getOrCreateLeadSheetId = async (tenantId, authClient = null) => {
     requestBody: { values: headers },
   });
 
-  // 🆕 Group all dropdown validation rules into a single batch update payload (Optimized)
+  // ?? Group all dropdown validation rules into a single batch update payload (Optimized)
   const validationRequests = [];
 
   for (let i = 0; i < activeFields.length; i++) {
@@ -766,7 +766,7 @@ export const getOrCreateLeadSheetId = async (tenantId, authClient = null) => {
   return spreadsheetId;
 };
 
-// ── OAuth: 1. Generate Auth URL ─────────────────────────────────
+// -- OAuth: 1. Generate Auth URL ---------------------------------
 export const getAuthUrl = (tenantId, userId, returnUrl = null) => {
   const oauth2Client = getOAuth2Client();
 
@@ -787,7 +787,7 @@ export const getAuthUrl = (tenantId, userId, returnUrl = null) => {
   });
 };
 
-// ── OAuth: 2. Handle Google Callback ────────────────────────────
+// -- OAuth: 2. Handle Google Callback ----------------------------
 export const handleCallback = async (code, stateOrTenantId, rawUserId) => {
   let tenantId = stateOrTenantId;
   let userId = rawUserId || null;
@@ -858,7 +858,7 @@ export const handleCallback = async (code, stateOrTenantId, rawUserId) => {
   return connection;
 };
 
-// ── OAuth: 3. Connection Status ────────────────────────────────
+// -- OAuth: 3. Connection Status --------------------------------
 export const getConnectionStatus = async (tenantId) => {
   if (!tenantId) return { isConnected: false, status: "disconnected" };
 
@@ -893,7 +893,7 @@ export const getConnectionStatus = async (tenantId) => {
   };
 };
 
-// ── OAuth: 4. Disconnect ───────────────────────────────────────
+// -- OAuth: 4. Disconnect ---------------------------------------
 export const disconnect = async (tenantId) => {
   const connection = await prisma.googleSheetConnection.findUnique({
     where: { tenantId },
@@ -917,7 +917,7 @@ export const disconnect = async (tenantId) => {
   });
 };
 
-// ── 5. Extract Sheet ID from a Google Sheet URL ────────────────
+// -- 5. Extract Sheet ID from a Google Sheet URL ----------------
 export const extractSheetId = (urlOrId) => {
   if (!urlOrId) return null;
   if (!urlOrId.includes("/")) return urlOrId.trim();
@@ -925,7 +925,7 @@ export const extractSheetId = (urlOrId) => {
   return match ? match[1] : null;
 };
 
-// ── 6. Read all rows from a Google Sheet tab ───────────────────
+// -- 6. Read all rows from a Google Sheet tab -------------------
 export const readSheetData = async (
   tenantId,
   sheetId,
@@ -955,7 +955,7 @@ export const readSheetData = async (
   return { headers, dataRows };
 };
 
-// ── 7. Preview Sheet ───────────────────────────────────────────
+// -- 7. Preview Sheet -------------------------------------------
 export const previewSheet = async (
   tenantId,
   sheetUrlOrId,
@@ -975,7 +975,7 @@ export const previewSheet = async (
   };
 };
 
-// ── 8. Create & Launch Broadcast from Google Sheet ────────────
+// -- 8. Create & Launch Broadcast from Google Sheet ------------
 export const createBroadcastFromSheet = async ({
   tenantId,
   userId,
@@ -1098,7 +1098,7 @@ export const createBroadcastFromSheet = async ({
   await broadcastQueue.addBulk(jobs);
 
   console.log(
-    `🚀 Queued ${jobs.length} Google Sheet broadcast jobs for campaign ${broadcast.id}`,
+    `?? Queued ${jobs.length} Google Sheet broadcast jobs for campaign ${broadcast.id}`,
   );
 
   return {
@@ -1108,8 +1108,8 @@ export const createBroadcastFromSheet = async ({
   };
 };
 
-// ── 9. Log Lead & Order Status directly to Google Sheet (FIXED) ─────────
-// ── 9. Log Lead & Order Status directly to Google Sheet (FIXED) ─────────
+// -- 9. Log Lead & Order Status directly to Google Sheet (FIXED) ---------
+// -- 9. Log Lead & Order Status directly to Google Sheet (FIXED) ---------
 export async function logLeadStatusToSheet(tenantId, payload) {
   try {
     const sheets = await getSheetsClientForTenant(tenantId);
@@ -1137,7 +1137,7 @@ export async function logLeadStatusToSheet(tenantId, payload) {
     const rows = getRes.data.values || [];
     const headers = (rows[0] || []).map((h) => String(h).trim());
 
-    // 💡 Auto-check if required columns (Products, Delivery Location, etc.) are missing from Row 1 and add them
+    // ?? Auto-check if required columns (Products, Delivery Location, etc.) are missing from Row 1 and add them
     const requiredHeaders = [
       "Timestamp",
       "Contact Name",
@@ -1176,7 +1176,7 @@ export async function logLeadStatusToSheet(tenantId, payload) {
           requestBody: { values: [headers] },
         });
         console.log(
-          `[GoogleSheets] ➕ Auto-updated Row 1 headers to include missing columns: ${headers.join(", ")}`,
+          `[GoogleSheets] ? Auto-updated Row 1 headers to include missing columns: ${headers.join(", ")}`,
         );
       } catch (headerUpdateErr) {
         console.warn(
@@ -1298,12 +1298,12 @@ export async function logLeadStatusToSheet(tenantId, payload) {
     const existingRow =
       existingRowIndex > 0 ? rows[existingRowIndex - 1] : null;
 
-    // 3. Construct row values — wrapped safely in headers.map()
+    // 3. Construct row values � wrapped safely in headers.map()
     const newRowValues = headers.map((header, colIdx) => {
       const lh = header.toLowerCase();
 
       if (lh.includes("timestamp") || lh === "date") {
-        // 🔒 Keep original creation timestamp if updating an existing row
+        // ?? Keep original creation timestamp if updating an existing row
         if (
           existingRow &&
           existingRow[colIdx] &&
@@ -1345,7 +1345,7 @@ export async function logLeadStatusToSheet(tenantId, payload) {
           .trim()
           .replace(/[^0-9]/g, "");
 
-        // 🔒 Format with a space (+91 9911223344) to force Excel/CSV to keep it as Plain Text
+        // ?? Format with a space (+91 9911223344) to force Excel/CSV to keep it as Plain Text
         if (digits.length > 10) {
           const countryCode = digits.slice(0, digits.length - 10);
           const nationalNumber = digits.slice(digits.length - 10);
@@ -1368,7 +1368,7 @@ export async function logLeadStatusToSheet(tenantId, payload) {
       if (lh.includes("order id") || lh === "orderid")
         return payload["Order ID"] || payload.order_id || payload.orderId || "";
 
-      // 💳 STRICT PAYMENT FIELD MAPPING
+      // ?? STRICT PAYMENT FIELD MAPPING
       if (lh.includes("payment method") || lh.includes("pay method"))
         return (
           payload["Payment Method"] ||
@@ -1436,7 +1436,7 @@ export async function logLeadStatusToSheet(tenantId, payload) {
     // 4. Update existing row OR Append new row (RAW keeps phone numbers as literal text strings)
     if (existingRowIndex > 0) {
       console.log(
-        `[GoogleSheets] 🔄 Updating row #${existingRowIndex} for ${targetPhone}`,
+        `[GoogleSheets] ?? Updating row #${existingRowIndex} for ${targetPhone}`,
       );
       await sheets.spreadsheets.values.update({
         spreadsheetId,
@@ -1447,7 +1447,7 @@ export async function logLeadStatusToSheet(tenantId, payload) {
     } else {
       const nextRowIndex = Math.max(2, rows.length + 1);
       console.log(
-        `[GoogleSheets] ➕ Writing new row at #${nextRowIndex} for ${targetPhone}`,
+        `[GoogleSheets] ? Writing new row at #${nextRowIndex} for ${targetPhone}`,
       );
       await sheets.spreadsheets.values.update({
         spreadsheetId,
@@ -1457,10 +1457,10 @@ export async function logLeadStatusToSheet(tenantId, payload) {
       });
     }
 
-    console.log(`[GoogleSheets] ✅ Synced successfully for ${targetPhone}`);
+    console.log(`[GoogleSheets] ? Synced successfully for ${targetPhone}`);
   } catch (error) {
     console.error(
-      "❌ [logLeadStatusToSheet]:",
+      "? [logLeadStatusToSheet]:",
       error?.response?.data?.error || error.message,
     );
   }

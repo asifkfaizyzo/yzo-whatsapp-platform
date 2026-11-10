@@ -47,7 +47,7 @@ export async function getValidAccessToken(tenantId) {
     return decrypt(tenant.razorpayAccessToken);
   }
 
-  // Token needs refresh — acquire Redis distributed lock
+  // Token needs refresh � acquire Redis distributed lock
   const lockKey = `rzp_refresh:${tenantId}`;
   const acquiredLock = await redisConnection.set(
     lockKey,
@@ -121,7 +121,7 @@ export async function getValidAccessToken(tenantId) {
     return access_token;
   } catch (error) {
     console.error(
-      `❌ [RazorpayTokenService] Token refresh failed for tenant ${tenantId}:`,
+      `? [RazorpayTokenService] Token refresh failed for tenant ${tenantId}:`,
       error.response?.data || error.message,
     );
 

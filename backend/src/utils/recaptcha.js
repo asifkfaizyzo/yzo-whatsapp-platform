@@ -9,9 +9,9 @@ const MIN_SCORE = 0.5; // reCAPTCHA v3 score threshold (0.0 = bot, 1.0 = human)
  * Verify a reCAPTCHA v3 token with Google.
  *
  * Behavior:
- * - If RECAPTCHA_SECRET_KEY is not set → returns true (fail-open for dev)
- * - If Google API is unreachable → returns true (fail-open for availability)
- * - If score < 0.5 → returns false (likely bot)
+ * - If RECAPTCHA_SECRET_KEY is not set ? returns true (fail-open for dev)
+ * - If Google API is unreachable ? returns true (fail-open for availability)
+ * - If score < 0.5 ? returns false (likely bot)
  *
  * @param {string} token - The reCAPTCHA token from the frontend
  * @param {string} [action] - Optional action name to verify (e.g. "signup", "login")
@@ -53,7 +53,7 @@ export const verifyRecaptcha = async (token, action = null) => {
 
     return true;
   } catch (err) {
-    // Network error — fail-open to avoid blocking real users
+    // Network error � fail-open to avoid blocking real users
     console.error("reCAPTCHA verification failed:", err.message);
     return true;
   }

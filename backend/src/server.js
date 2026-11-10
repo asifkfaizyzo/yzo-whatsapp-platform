@@ -3,12 +3,12 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-// ✅ Environment variables check
+// ? Environment variables check
 const requiredEnvVars = ["DATABASE_URL", "ACCESS_SECRET", "REFRESH_SECRET"];
 const missingEnvs = requiredEnvVars.filter((key) => !process.env[key]);
 if (missingEnvs.length > 0) {
   console.error(
-    `❌ FATAL: Missing required environment variables: ${missingEnvs.join(", ")}`,
+    `? FATAL: Missing required environment variables: ${missingEnvs.join(", ")}`,
   );
   process.exit(1);
 }
@@ -57,22 +57,22 @@ startCleanupWorker();
 startAuditCleanupJob();
 startWebhookEventsCleanupJob();
 startZohoStaleTaskJob();
-startZohoWatchRenewalJob(); // ✅ Handled and running alongside workers
+startZohoWatchRenewalJob(); // ? Handled and running alongside workers
 initQuickReplyIndexes();
-console.log("👷 Background workers and cleanup tasks started successfully!");
+console.log("?? Background workers and cleanup tasks started successfully!");
 
 // Initialize Mediasoup for WebRTC Calling
 initializeMediasoup().catch((err) => {
-  console.error("❌ Failed to initialize Mediasoup:", err);
+  console.error("? Failed to initialize Mediasoup:", err);
   process.exit(1);
 });
 
 server.listen(port, () => {
   console.log(
-    `🚀 Server is running on http://localhost:${port} [Updated Enum Fix: ${new Date().toISOString()}]`,
+    `?? Server is running on http://localhost:${port} [Updated Enum Fix: ${new Date().toISOString()}]`,
   );
 
-  // ── Low Stock Alerts (every 1 hour) ──────────────────────────────────
+  // -- Low Stock Alerts (every 1 hour) ----------------------------------
   setInterval(
     () => {
       console.log("[Scheduler] Running Low Stock Check...");
@@ -82,9 +82,9 @@ server.listen(port, () => {
     },
     60 * 60 * 1000,
   );
-  console.log("⏰ [Cron] Low Stock Alerts scheduled (runs every 1 hour)");
+  console.log("? [Cron] Low Stock Alerts scheduled (runs every 1 hour)");
 
-  // ── Daily Business Summary (every 1 hour; service checks the hour) ──
+  // -- Daily Business Summary (every 1 hour; service checks the hour) --
   setInterval(
     () => {
       console.log("[Scheduler] Checking for Daily Summaries...");
@@ -94,9 +94,9 @@ server.listen(port, () => {
     },
     60 * 60 * 1000,
   );
-  console.log("⏰ [Cron] Daily Business Summary scheduled (runs every 1 hour)");
+  console.log("? [Cron] Daily Business Summary scheduled (runs every 1 hour)");
 
-  // ── Shopify Reorder Reminders (runs daily) ──
+  // -- Shopify Reorder Reminders (runs daily) --
   setInterval(
     () => {
       runShopifyReorderReminders().catch((err) =>
@@ -106,10 +106,10 @@ server.listen(port, () => {
     60 * 60 * 1000,
   );
   console.log(
-    "⏰ [Cron] Shopify Reorder Reminders scheduled (runs every 1 hour)",
+    "? [Cron] Shopify Reorder Reminders scheduled (runs every 1 hour)",
   );
 
-  // ── Shopify Win-Back Campaigns (runs daily) ──
+  // -- Shopify Win-Back Campaigns (runs daily) --
   setInterval(
     () => {
       runShopifyWinBackCampaign().catch((err) =>
@@ -119,17 +119,17 @@ server.listen(port, () => {
     60 * 60 * 1000,
   );
   console.log(
-    "⏰ [Cron] Shopify Win-Back Campaigns scheduled (runs every 1 hour)",
+    "? [Cron] Shopify Win-Back Campaigns scheduled (runs every 1 hour)",
   );
 });
 
-// ───────────── Graceful Shutdown for PM2 / Docker / Systemd ─────────────
+// ------------- Graceful Shutdown for PM2 / Docker / Systemd -------------
 const gracefulShutdown = async (signal) => {
-  console.log(`\n⚠️ Received ${signal}. Initiating graceful shutdown...`);
+  console.log(`\n?? Received ${signal}. Initiating graceful shutdown...`);
 
   // Stop accepting new incoming HTTP requests
   server.close(async () => {
-    console.log("🛑 HTTP server stopped.");
+    console.log("?? HTTP server stopped.");
     try {
       // Allow active BullMQ worker jobs to finish safely
       if (webhookWorker) await webhookWorker.close();
@@ -137,15 +137,15 @@ const gracefulShutdown = async (signal) => {
       if (broadcastWorker) await broadcastWorker.close();
       if (callMediaWorker) await callMediaWorker.close();
       if (zohoSyncWorker) await zohoSyncWorker.close();
-      console.log("👷 BullMQ workers closed successfully.");
+      console.log("?? BullMQ workers closed successfully.");
 
       // Safely close Redis connection
       await redisConnection.quit();
-      console.log("⚡ Redis connection closed.");
+      console.log("? Redis connection closed.");
 
       process.exit(0);
     } catch (err) {
-      console.error("❌ Error during graceful shutdown:", err);
+      console.error("? Error during graceful shutdown:", err);
       process.exit(1);
     }
   });

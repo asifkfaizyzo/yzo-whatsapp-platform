@@ -72,7 +72,7 @@ const formatMessageText = (templateText, paramsArray) => {
   return formatted;
 };
 
-// Simulate delivery status flow for Sandbox Demo (Sent → Delivered → Read)
+// Simulate delivery status flow for Sandbox Demo (Sent ? Delivered ? Read)
 const simulateRecipientReceipt = (
   tenantId,
   broadcastId,
@@ -167,11 +167,11 @@ export const processBroadcastCampaign = async (
 
   if (delayMs > 0) {
     console.log(
-      `⏰ Scheduled ${jobs.length} broadcast recipient jobs for campaign ${broadcastId} (executing in ${Math.round(delayMs / 1000)} seconds)`,
+      `? Scheduled ${jobs.length} broadcast recipient jobs for campaign ${broadcastId} (executing in ${Math.round(delayMs / 1000)} seconds)`,
     );
   } else {
     console.log(
-      `🚀 Queued ${jobs.length} broadcast recipient jobs for campaign ${broadcastId}`,
+      `?? Queued ${jobs.length} broadcast recipient jobs for campaign ${broadcastId}`,
     );
   }
 };

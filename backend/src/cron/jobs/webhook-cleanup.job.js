@@ -28,6 +28,6 @@ export const startWebhookEventsCleanupJob = () => {
   });
 
   console.log(
-    "[WebhookCleanup] Job scheduled — runs daily at 3:00 AM (7-day retention)",
+    "[WebhookCleanup] Job scheduled � runs daily at 3:00 AM (7-day retention)",
   );
 };

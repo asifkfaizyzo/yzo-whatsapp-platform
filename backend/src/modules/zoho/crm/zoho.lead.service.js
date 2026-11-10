@@ -44,7 +44,7 @@ export async function createZohoLead(tenantId, contact) {
 
     if (existingMapping) {
       console.log(
-        `ℹ️ [ZohoLead] Contact ${contact.id} already mapped to Zoho. Skipping lead creation.`,
+        `?? [ZohoLead] Contact ${contact.id} already mapped to Zoho. Skipping lead creation.`,
       );
       return existingMapping.providerContactId;
     }
@@ -108,7 +108,7 @@ export async function createZohoLead(tenantId, contact) {
       });
 
       console.log(
-        `🎯 [ZohoLead] Created Lead "${contact.name}" (${zohoLeadId})`,
+        `?? [ZohoLead] Created Lead "${contact.name}" (${zohoLeadId})`,
       );
       return zohoLeadId;
     }
@@ -116,7 +116,7 @@ export async function createZohoLead(tenantId, contact) {
     return null;
   } catch (error) {
     console.error(
-      `❌ [ZohoLead] Failed for contact ${contact.id}:`,
+      `? [ZohoLead] Failed for contact ${contact.id}:`,
       error.response?.data || error.message,
     );
     return null;

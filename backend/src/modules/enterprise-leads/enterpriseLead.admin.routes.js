@@ -8,12 +8,13 @@ import {
   activateTenant,
   deleteLead,
 } from "./enterpriseLead.controller.js";
-import { verifySuperAdmin } from "../../middlewares/auth.superAdmin.js";
+import { authenticate } from "../../middleware/authenticate.js";
+import { requireSRAdmin } from "../../middleware/requireSRAdmin.js";
 
 const router = Router();
 
 // Apply Super Admin Authentication to all admin lead routes
-router.use(verifySuperAdmin);
+router.use(authenticate, requireSRAdmin);
 
 router.get("/", getLeads);
 router.get("/:id", getLead);

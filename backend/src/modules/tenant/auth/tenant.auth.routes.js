@@ -1,7 +1,7 @@
 // backend/src/modules/tenant/auth/tenant.auth.routes.js (do not remove this comment)
 
 import { Router } from "express";
-import * as ctrl from "./tenant.auth.controller.new.js";
+import * as ctrl from "./tenant.auth.controller.js";
 import { authenticate } from "../../../middleware/authenticate.js";
 import { requireTenant } from "../../../middleware/requireTenant.js";
 import { requireOnboarding } from "../../../middleware/requireOnboarding.js";
@@ -12,7 +12,7 @@ import {
   resetLimiter,
   usernameCheckLimiter,
 } from "../../../middleware/rateLimiter.js";
-import validate from "../../../middlewares/validate.middleware.js";
+import validate from "../../../middleware/validate.js";
 import {
   signupSchema,
   loginSchema,
@@ -31,7 +31,7 @@ import {
   verifyOtpSchema,
   onboardingStepSchema,
   setPasswordSchema,
-} from "./tenant.auth.schema.new.js";
+} from "./tenant.auth.schema.js";
 
 const router = Router();
 

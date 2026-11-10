@@ -264,7 +264,7 @@ export const adminReplyTicket = async (req, res) => {
     const { message, isInternal } = req.body;
     const reply = await adminReplyTicketService(
       req.params.ticketId,
-      req.superAdminId,
+      req.srAdminId,
       message,
       isInternal || false,
     );

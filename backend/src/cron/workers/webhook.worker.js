@@ -28,10 +28,10 @@ import {
 import { updateWooCommerceOrderStatus } from "../../modules/woocommerce/woocommerce.service.js";
 import { parseWooReviewRating } from "../../modules/woocommerce/woocommerce.orderLifecycle.js";
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // META MEDIA & AVATAR PERSISTENCE HELPER
 // Downloads ephemeral CDN links (fbcdn.net) to local storage
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 export const downloadMetaMediaFromUrl = async ({
   url,
   type,
@@ -98,7 +98,7 @@ export const downloadMetaMediaFromUrl = async ({
     };
   } catch (err) {
     console.warn(
-      `⚠️ Meta media download failed for ${url}, falling back to original URL:`,
+      `?? Meta media download failed for ${url}, falling back to original URL:`,
       err.message,
     );
     return {
@@ -110,11 +110,11 @@ export const downloadMetaMediaFromUrl = async ({
   }
 };
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // UNIFIED ZOHO AUTO-SYNC TRIGGER (Preference-scoped)
 // Routes newly created contacts to EITHER Contacts OR Leads
-// based on tenant's syncDestination preference — never both.
-// ─────────────────────────────────────────────────────────────
+// based on tenant's syncDestination preference � never both.
+// -------------------------------------------------------------
 const triggerZohoAutoSyncForNewContact = async (tenantId, contact) => {
   try {
     const { getTenantZohoPreferences, autoSyncContactToZoho } =
@@ -127,24 +127,24 @@ const triggerZohoAutoSyncForNewContact = async (tenantId, contact) => {
       const { createZohoLead } =
         await import("../../modules/zoho/crm/zoho.lead.service.js");
       createZohoLead(tenantId, contact).catch((err) => {
-        console.error("⚠️ [WebhookWorker] createZohoLead failed:", err.message);
+        console.error("?? [WebhookWorker] createZohoLead failed:", err.message);
       });
     } else {
       autoSyncContactToZoho(tenantId, contact.id).catch((err) => {
         console.error(
-          "⚠️ [WebhookWorker] autoSyncContactToZoho failed:",
+          "?? [WebhookWorker] autoSyncContactToZoho failed:",
           err.message,
         );
       });
     }
   } catch (err) {
-    console.error("⚠️ [WebhookWorker] Zoho trigger error:", err.message);
+    console.error("?? [WebhookWorker] Zoho trigger error:", err.message);
   }
 };
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // FACEBOOK MESSENGER & INSTAGRAM PROCESSOR
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 export const processMetaPageOrInstagramJob = async (job, body) => {
   const isInstagram = body.object === "instagram";
   const channel = isInstagram ? "INSTAGRAM" : "MESSENGER";
@@ -173,7 +173,7 @@ export const processMetaPageOrInstagramJob = async (job, body) => {
 
     if (!tenant) {
       console.warn(
-        `⚠️ [Meta Webhook] No tenant found for ${channel} entry ID: ${entryId}`,
+        `?? [Meta Webhook] No tenant found for ${channel} entry ID: ${entryId}`,
       );
       continue;
     }
@@ -186,7 +186,7 @@ export const processMetaPageOrInstagramJob = async (job, body) => {
 
     if (!isActive) {
       console.log(
-        `🚫 [Meta Webhook] Ignored for tenant ${tenant.id} - inactive subscription: ${subStatus}`,
+        `?? [Meta Webhook] Ignored for tenant ${tenant.id} - inactive subscription: ${subStatus}`,
       );
       continue;
     }
@@ -197,7 +197,7 @@ export const processMetaPageOrInstagramJob = async (job, body) => {
       // 1. Echo Event Filtering (Ignore messages sent by Page/Agent)
       if (messagingEvent.message?.is_echo) {
         console.log(
-          `ℹ️ [Meta Webhook] Skipping echo event for message ${messagingEvent.message?.mid}`,
+          `?? [Meta Webhook] Skipping echo event for message ${messagingEvent.message?.mid}`,
         );
         continue;
       }
@@ -206,7 +206,7 @@ export const processMetaPageOrInstagramJob = async (job, body) => {
       if (messagingEvent.message?.is_deleted) {
         const mid = messagingEvent.message.mid;
         console.log(
-          `🗑️ [Meta Webhook] Handling Instagram deleted message: ${mid}`,
+          `??? [Meta Webhook] Handling Instagram deleted message: ${mid}`,
         );
         await prisma.message.updateMany({
           where: { wamid: mid },
@@ -229,7 +229,7 @@ export const processMetaPageOrInstagramJob = async (job, body) => {
         const mids = messagingEvent.delivery.mids || [];
         if (mids.length > 0) {
           console.log(
-            `📬 [Meta Webhook] Messenger delivery receipt for mids:`,
+            `?? [Meta Webhook] Messenger delivery receipt for mids:`,
             mids,
           );
           await prisma.message.updateMany({
@@ -253,7 +253,7 @@ export const processMetaPageOrInstagramJob = async (job, body) => {
         if (channel === "INSTAGRAM" && messagingEvent.read.mid) {
           const mid = messagingEvent.read.mid;
           console.log(
-            `👁️ [Meta Webhook] Instagram read receipt for mid: ${mid}`,
+            `??? [Meta Webhook] Instagram read receipt for mid: ${mid}`,
           );
           await prisma.message.updateMany({
             where: { wamid: mid, direction: "OUTBOUND" },
@@ -268,7 +268,7 @@ export const processMetaPageOrInstagramJob = async (job, body) => {
           const watermark = new Date(messagingEvent.read.watermark);
           const senderId = String(messagingEvent.sender?.id || "");
           console.log(
-            `👁️ [Meta Webhook] Messenger read receipt watermark: ${watermark.toISOString()} for sender: ${senderId}`,
+            `??? [Meta Webhook] Messenger read receipt watermark: ${watermark.toISOString()} for sender: ${senderId}`,
           );
 
           const contact = await prisma.contact.findFirst({
@@ -316,7 +316,7 @@ export const processMetaPageOrInstagramJob = async (job, body) => {
         const isNew = await isNewWebhookEvent(`msg:${messageId}`);
         if (!isNew) {
           console.log(
-            `⚠️ [Dedup] Skipping duplicate ${channel} message: ${messageId}`,
+            `?? [Dedup] Skipping duplicate ${channel} message: ${messageId}`,
           );
           continue;
         }
@@ -349,7 +349,7 @@ export const processMetaPageOrInstagramJob = async (job, body) => {
         if (attachment) {
           if (attachment.type === "ephemeral" || !attachment.payload?.url) {
             mediaUrl = null;
-            text = "[Disappearing media — cannot be retrieved]";
+            text = "[Disappearing media � cannot be retrieved]";
             type = "TEXT";
           } else {
             const downloaded = await downloadMetaMediaFromUrl({
@@ -435,7 +435,7 @@ export const processMetaPageOrInstagramJob = async (job, body) => {
               }
             } catch (err) {
               console.warn(
-                `⚠️ Profile fetch failed for ${senderId}:`,
+                `?? Profile fetch failed for ${senderId}:`,
                 err.message,
               );
             }
@@ -471,7 +471,7 @@ export const processMetaPageOrInstagramJob = async (job, body) => {
           },
         });
 
-        // ── Preference-scoped Zoho auto-sync for new social contacts ──
+        // -- Preference-scoped Zoho auto-sync for new social contacts --
         if (isNewContact) {
           await triggerZohoAutoSyncForNewContact(tenant.id, contact);
         }
@@ -525,11 +525,11 @@ export const processMetaPageOrInstagramJob = async (job, body) => {
   }
 };
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // WOOCOMMERCE COD VERIFICATION BUTTON HANDLER
 // Button IDs: CONFIRM_COD_{orderNumber}_{wooOrderId}
 //             CANCEL_COD_{orderNumber}_{wooOrderId}
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 const processWooCodButtonReply = async ({ tenantId, contact, buttonId }) => {
   const isConfirm = buttonId.startsWith("CONFIRM_COD_");
   const isCancel = buttonId.startsWith("CANCEL_COD_");
@@ -540,7 +540,7 @@ const processWooCodButtonReply = async ({ tenantId, contact, buttonId }) => {
   const lastUnderscore = remainder.lastIndexOf("_");
 
   if (lastUnderscore === -1) {
-    console.warn(`⚠️ [Woo COD] Unparseable button id: ${buttonId}`);
+    console.warn(`?? [Woo COD] Unparseable button id: ${buttonId}`);
     return;
   }
 
@@ -548,7 +548,7 @@ const processWooCodButtonReply = async ({ tenantId, contact, buttonId }) => {
   const wooOrderId = remainder.slice(lastUnderscore + 1);
 
   if (!orderNumber || !wooOrderId) {
-    console.warn(`⚠️ [Woo COD] Missing orderNumber/wooOrderId in: ${buttonId}`);
+    console.warn(`?? [Woo COD] Missing orderNumber/wooOrderId in: ${buttonId}`);
     return;
   }
 
@@ -558,10 +558,10 @@ const processWooCodButtonReply = async ({ tenantId, contact, buttonId }) => {
     : `Customer cancelled COD order #${orderNumber} via WhatsApp`;
 
   console.log(
-    `🧾 [Woo COD] ${isConfirm ? "CONFIRM" : "CANCEL"} order #${orderNumber} (WC #${wooOrderId}) → ${newStatus}`,
+    `?? [Woo COD] ${isConfirm ? "CONFIRM" : "CANCEL"} order #${orderNumber} (WC #${wooOrderId}) ? ${newStatus}`,
   );
 
-  // 1) Update live WooCommerce order (central backend — no PHP on tenant stores)
+  // 1) Update live WooCommerce order (central backend � no PHP on tenant stores)
   await updateWooCommerceOrderStatus(tenantId, wooOrderId, newStatus, note);
 
   // 2) Mirror status on local ecommerceOrder row (best-effort)
@@ -582,16 +582,16 @@ const processWooCodButtonReply = async ({ tenantId, contact, buttonId }) => {
       },
     });
   } catch (dbErr) {
-    // Schema field names may differ slightly across envs — don't block the flow
+    // Schema field names may differ slightly across envs � don't block the flow
     console.warn(
-      `⚠️ [Woo COD] Local ecommerceOrder mirror skipped: ${dbErr.message}`,
+      `?? [Woo COD] Local ecommerceOrder mirror skipped: ${dbErr.message}`,
     );
   }
 
   // 3) WhatsApp confirmation reply (dual-mode via sendMessageService)
   const replyText = isConfirm
-    ? `✅ Thank you! Your COD order *#${orderNumber}* has been confirmed and will be processed shortly.`
-    : `❌ Your COD order *#${orderNumber}* has been cancelled as requested. If this was a mistake, please reply here and we’ll help.`;
+    ? `? Thank you! Your COD order *#${orderNumber}* has been confirmed and will be processed shortly.`
+    : `? Your COD order *#${orderNumber}* has been cancelled as requested. If this was a mistake, please reply here and we�ll help.`;
 
   await sendMessageService({
     contactId: contact.id,
@@ -601,12 +601,12 @@ const processWooCodButtonReply = async ({ tenantId, contact, buttonId }) => {
     text: replyText,
   });
 
-  console.log(`✅ [Woo COD] Order #${orderNumber} handled → ${newStatus}`);
+  console.log(`? [Woo COD] Order #${orderNumber} handled ? ${newStatus}`);
 };
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // MAIN JOB PROCESSOR
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 export const processWebhookJob = async (job) => {
   const body = job.data;
   if (!body) return;
@@ -656,9 +656,9 @@ export const processWebhookJob = async (job) => {
     if (_r) tenant = { ..._r, ..._r.whatsapp, ..._r.subscription };
   }
 
-  // ═══════════════════════════════════════════════════════════
+  // -----------------------------------------------------------
   // Handle WhatsApp Calls Webhooks (Phase 2)
-  // ═══════════════════════════════════════════════════════════
+  // -----------------------------------------------------------
   const isCallEvent =
     change?.field === "calls" ||
     change?.field === "call_recordings" ||
@@ -682,7 +682,7 @@ export const processWebhookJob = async (job) => {
 
   if (isCallEvent) {
     console.log(
-      `📞 [WebhookWorker] Processing Call Event (Field: ${change?.field}) for Tenant: ${tenant?.id || "none"}`,
+      `?? [WebhookWorker] Processing Call Event (Field: ${change?.field}) for Tenant: ${tenant?.id || "none"}`,
     );
     await handleCallEvents(value, tenant);
     if (!value?.messages) return; // if it only contains call data, return.
@@ -693,9 +693,9 @@ export const processWebhookJob = async (job) => {
     return;
   }
 
-  // ═══════════════════════════════════════════════════════════
+  // -----------------------------------------------------------
   // A0. Handle Template Status Updates (Meta approval/rejection)
-  // ═══════════════════════════════════════════════════════════
+  // -----------------------------------------------------------
   const isTemplateStatusEvent =
     change?.field === "message_template_status_update" ||
     (value?.event && value?.message_template_name);
@@ -715,13 +715,13 @@ export const processWebhookJob = async (job) => {
 
     if (!isNew) {
       console.log(
-        `⚠️ [Dedup] Skipping duplicate template status event: ${templateEventId}`,
+        `?? [Dedup] Skipping duplicate template status event: ${templateEventId}`,
       );
       return;
     }
 
     console.log(
-      `📋 [Webhook] Processing template status update: "${templateName}" (${language}) -> ${event} [WABA: ${wabaId}]`,
+      `?? [Webhook] Processing template status update: "${templateName}" (${language}) -> ${event} [WABA: ${wabaId}]`,
     );
 
     // 1. Find Tenant by whatsappWabaId
@@ -777,7 +777,7 @@ export const processWebhookJob = async (job) => {
       });
 
       console.log(
-        `✅ Template "${template.name}" status updated to ${newStatus} for tenant ${tenant.id}`,
+        `? Template "${template.name}" status updated to ${newStatus} for tenant ${tenant.id}`,
       );
 
       // Emit live socket event to tenant room
@@ -810,16 +810,16 @@ export const processWebhookJob = async (job) => {
       }
     } else {
       console.warn(
-        `⚠️ Template "${templateName}" (${language}) not found in DB for WABA ${wabaId}`,
+        `?? Template "${templateName}" (${language}) not found in DB for WABA ${wabaId}`,
       );
     }
 
     return; // template status handled, stop here
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // A. Handle Delivery Status Receipts (unchanged - working ✅)
-  // ═══════════════════════════════════════════════════════════
+  // -----------------------------------------------------------
+  // A. Handle Delivery Status Receipts (unchanged - working ?)
+  // -----------------------------------------------------------
   if (statusUpdate) {
     const wamid = statusUpdate.id;
     const status = statusUpdate.status;
@@ -828,11 +828,11 @@ export const processWebhookJob = async (job) => {
     const isNew = await isNewWebhookEvent(statusEventId);
 
     if (!isNew) {
-      console.log(`⚠️ [Dedup] Skipping duplicate status: ${statusEventId}`);
+      console.log(`?? [Dedup] Skipping duplicate status: ${statusEventId}`);
       return;
     }
 
-    console.log(`✅ [Dedup] Processing NEW status: ${statusEventId}`);
+    console.log(`? [Dedup] Processing NEW status: ${statusEventId}`);
 
     const recipient = await prisma.broadcastRecipient.findUnique({
       where: { wamid },
@@ -885,7 +885,7 @@ export const processWebhookJob = async (job) => {
           errObj?.title ||
           "Meta Send Failure";
         console.error(
-          `❌ Meta webhook reported delivery failure for wamid ${wamid} (code ${errObj?.code}): ${updateData.errorMessage}`,
+          `? Meta webhook reported delivery failure for wamid ${wamid} (code ${errObj?.code}): ${updateData.errorMessage}`,
         );
 
         if (currentStatus !== "FAILED") {
@@ -944,7 +944,7 @@ export const processWebhookJob = async (job) => {
         status: broadcast.status,
       });
     } else {
-      // ── Handle 1-on-1 Message Status Receipt ──
+      // -- Handle 1-on-1 Message Status Receipt --
       const messageToUpdate = await prisma.message.findUnique({
         where: { wamid },
         include: { conversation: true },
@@ -999,34 +999,34 @@ export const processWebhookJob = async (job) => {
       }
     }
 
-    return; // ✅ status handled, stop here
+    return; // ? status handled, stop here
   }
 
-  // ═══════════════════════════════════════════════════════════
+  // -----------------------------------------------------------
   // B. Handle Incoming Messages (TEXT + MEDIA)
-  // ═══════════════════════════════════════════════════════════
+  // -----------------------------------------------------------
   if (message) {
     const messageId = message.id;
-    console.log("📥 [META WEBHOOK INBOUND WAMID]:", messageId);
+    console.log("?? [META WEBHOOK INBOUND WAMID]:", messageId);
 
-    // ── Idempotency check ──────────────────────────────────
+    // -- Idempotency check ----------------------------------
     const isNew = await isNewWebhookEvent(`msg:${messageId}`);
     if (!isNew) {
-      console.log(`⚠️ [Dedup] Skipping duplicate message: ${messageId}`);
+      console.log(`?? [Dedup] Skipping duplicate message: ${messageId}`);
       return;
     }
-    console.log(`✅ [Dedup] Processing NEW message: ${messageId}`);
+    console.log(`? [Dedup] Processing NEW message: ${messageId}`);
 
     // Reuse outer context tenant setup to bypass duplicate db hits
     if (!tenant) {
-      console.log(`⚠️ No tenant found for phoneId: ${phoneId}`);
+      console.log(`?? No tenant found for phoneId: ${phoneId}`);
       return;
     }
 
     const customerPhone = message.from;
     const messageType = message.type; // "text"|"image"|"video"|"audio"|"document"|"sticker"
 
-    // ── Check subscription ─────────────────────────────────
+    // -- Check subscription ---------------------------------
     const subStatus = tenant.subscriptionStatus;
     const isActive =
       subStatus === "active" ||
@@ -1035,12 +1035,12 @@ export const processWebhookJob = async (job) => {
 
     if (!isActive) {
       console.log(
-        `🚫 Webhook ignored for tenant ${tenant.id} - inactive subscription: ${subStatus}`,
+        `?? Webhook ignored for tenant ${tenant.id} - inactive subscription: ${subStatus}`,
       );
       return;
     }
 
-    // ── Find or create contact ─────────────────────────────
+    // -- Find or create contact -----------------------------
     const normalizedPhone = `+${customerPhone.replace(/^\+/, "")}`;
 
     let contact = await prisma.contact.findFirst({
@@ -1059,12 +1059,12 @@ export const processWebhookJob = async (job) => {
           whatsappId: normalizedPhone.replace(/^\+/, "").slice(-10),
         },
       });
-      console.log(`🆕 New contact: ${contact.name} (${normalizedPhone})`);
+      console.log(`?? New contact: ${contact.name} (${normalizedPhone})`);
     } else {
-      console.log(`♻️ Existing contact: ${contact.name} (${normalizedPhone})`);
+      console.log(`?? Existing contact: ${contact.name} (${normalizedPhone})`);
     }
 
-    // ── Extract message content based on type ─────────────
+    // -- Extract message content based on type -------------
     let text = null;
     let type = "TEXT";
     let mediaUrl = null;
@@ -1078,7 +1078,7 @@ export const processWebhookJob = async (job) => {
     let locName = null;
     let locAddress = null;
 
-    // ── Handle Call Permission Reply ──────────────────────
+    // -- Handle Call Permission Reply ----------------------
     if (
       messageType === "interactive" &&
       message.interactive?.type === "call_permission_reply"
@@ -1087,18 +1087,18 @@ export const processWebhookJob = async (job) => {
       return;
     }
 
-    // ── Handle Voicemail (audio with wacid prefix) ───────
+    // -- Handle Voicemail (audio with wacid prefix) -------
     if (messageType === "audio" && messageId.startsWith("wacid.")) {
-      console.log(`🎙️ [Webhook] Voicemail received for wacid: ${messageId}`);
+      console.log(`??? [Webhook] Voicemail received for wacid: ${messageId}`);
       return;
     }
 
-    // ── TEXT ───────────────────────────────────────────────
+    // -- TEXT -----------------------------------------------
     if (messageType === "text") {
       text = message.text?.body;
       type = "TEXT";
 
-      // ── IMAGE ──────────────────────────────────────────────
+      // -- IMAGE ----------------------------------------------
     } else if (messageType === "image") {
       const media = message.image;
       caption = media.caption || null;
@@ -1119,12 +1119,12 @@ export const processWebhookJob = async (job) => {
         mediaName = downloaded.fileName;
         mediaSize = downloaded.fileSize;
       } catch (err) {
-        console.error(`❌ Image download failed:`, err.message);
+        console.error(`? Image download failed:`, err.message);
         text = "[Image - download failed]";
         type = "TEXT";
       }
 
-      // ── VIDEO ──────────────────────────────────────────────
+      // -- VIDEO ----------------------------------------------
     } else if (messageType === "video") {
       const media = message.video;
       caption = media.caption || null;
@@ -1145,12 +1145,12 @@ export const processWebhookJob = async (job) => {
         mediaName = downloaded.fileName;
         mediaSize = downloaded.fileSize;
       } catch (err) {
-        console.error(`❌ Video download failed:`, err.message);
+        console.error(`? Video download failed:`, err.message);
         text = "[Video - download failed]";
         type = "TEXT";
       }
 
-      // ── AUDIO ──────────────────────────────────────────────
+      // -- AUDIO ----------------------------------------------
     } else if (messageType === "audio") {
       const media = message.audio;
       mediaMimeType = media.mime_type;
@@ -1170,12 +1170,12 @@ export const processWebhookJob = async (job) => {
         mediaName = downloaded.fileName;
         mediaSize = downloaded.fileSize;
       } catch (err) {
-        console.error(`❌ Audio download failed:`, err.message);
+        console.error(`? Audio download failed:`, err.message);
         text = "[Audio - download failed]";
         type = "TEXT";
       }
 
-      // ── DOCUMENT ───────────────────────────────────────────
+      // -- DOCUMENT -------------------------------------------
     } else if (messageType === "document") {
       const media = message.document;
       caption = media.caption || null;
@@ -1196,12 +1196,12 @@ export const processWebhookJob = async (job) => {
         mediaName = media.filename || downloaded.fileName;
         mediaSize = downloaded.fileSize;
       } catch (err) {
-        console.error(`❌ Document download failed:`, err.message);
+        console.error(`? Document download failed:`, err.message);
         text = `[Document: ${media.filename || "file"} - download failed]`;
         type = "TEXT";
       }
 
-      // ── STICKER ────────────────────────────────────────────
+      // -- STICKER --------------------------------------------
     } else if (messageType === "sticker") {
       const media = message.sticker;
       mediaMimeType = media.mime_type;
@@ -1221,12 +1221,12 @@ export const processWebhookJob = async (job) => {
         mediaName = downloaded.fileName;
         mediaSize = downloaded.fileSize;
       } catch (err) {
-        console.error(`❌ Sticker download failed:`, err.message);
+        console.error(`? Sticker download failed:`, err.message);
         text = "[Sticker]";
         type = "TEXT";
       }
 
-      // ── LOCATION ───────────────────────────────────────────
+      // -- LOCATION -------------------------------------------
     } else if (messageType === "location") {
       const loc = message.location;
       type = "LOCATION";
@@ -1241,10 +1241,10 @@ export const processWebhookJob = async (job) => {
           : locAddress || locName || "Location Shared";
 
       console.log(
-        `📍 Location received: lat=${loc.latitude}, lng=${loc.longitude}, text="${text}"`,
+        `?? Location received: lat=${loc.latitude}, lng=${loc.longitude}, text="${text}"`,
       );
 
-      // ── CONTACTS ───────────────────────────────────────────
+      // -- CONTACTS -------------------------------------------
     } else if (messageType === "contacts") {
       const sharedContacts = message.contacts || [];
       text = sharedContacts
@@ -1262,17 +1262,17 @@ export const processWebhookJob = async (job) => {
             .map((phone) => phone.phone || phone.wa_id)
             .filter(Boolean);
 
-          return `👤 Contact shared: ${name}${
-            phoneNumbers.length ? `\n📞 ${phoneNumbers.join(", ")}` : ""
+          return `?? Contact shared: ${name}${
+            phoneNumbers.length ? `\n?? ${phoneNumbers.join(", ")}` : ""
           }`;
         })
         .join("\n\n");
       if (!text) {
-        text = "👤 Contact shared: Unknown";
+        text = "?? Contact shared: Unknown";
       }
       type = "TEXT";
 
-      // ── INTERACTIVE (Button / List replies) ─────────────────
+      // -- INTERACTIVE (Button / List replies) -----------------
     } else if (messageType === "interactive") {
       const interactiveType = message.interactive?.type;
 
@@ -1280,20 +1280,20 @@ export const processWebhookJob = async (job) => {
         text = message.interactive.button_reply.title;
         type = "TEXT";
         console.log(
-          `🖱️ Button clicked: "${text}" (id: ${message.interactive.button_reply.id})`,
+          `??? Button clicked: "${text}" (id: ${message.interactive.button_reply.id})`,
         );
       } else if (interactiveType === "list_reply") {
         text = message.interactive.list_reply.title;
         type = "TEXT";
         console.log(
-          `📋 List selected: "${text}" (id: ${message.interactive.list_reply.id})`,
+          `?? List selected: "${text}" (id: ${message.interactive.list_reply.id})`,
         );
       } else {
-        console.log(`ℹ️ Unknown interactive type: ${interactiveType}`);
+        console.log(`?? Unknown interactive type: ${interactiveType}`);
         return;
       }
 
-      // ── ORDER (WhatsApp Cart / Commerce) ───────────────────
+      // -- ORDER (WhatsApp Cart / Commerce) -------------------
     } else if (messageType === "order") {
       const orderPayload = message.order;
       const catalogId =
@@ -1313,27 +1313,27 @@ export const processWebhookJob = async (job) => {
       const formattedItems = items
         .map(
           (it) =>
-            `• *${it.product_retailer_id}* (x${it.quantity}) — ${it.currency || currency} ${it.item_price}`,
+            `� *${it.product_retailer_id}* (x${it.quantity}) � ${it.currency || currency} ${it.item_price}`,
         )
         .join("\n");
-      text = `🛍️ *Order Placed #${orderNumber}*\n\n📦 *Items:*\n${formattedItems}\n\n💰 *Total:* ${currency} ${totalAmount.toFixed(2)}${customerNote ? `\n\n📝 *Note:* ${customerNote}` : ""}`;
+      text = `??? *Order Placed #${orderNumber}*\n\n?? *Items:*\n${formattedItems}\n\n?? *Total:* ${currency} ${totalAmount.toFixed(2)}${customerNote ? `\n\n?? *Note:* ${customerNote}` : ""}`;
       type = "ORDER";
 
       console.log(
-        `🛍️ [ORDER WEBHOOK] Received order ${orderNumber} with ${items.length} items. Total: ${currency} ${totalAmount}`,
+        `??? [ORDER WEBHOOK] Received order ${orderNumber} with ${items.length} items. Total: ${currency} ${totalAmount}`,
       );
     } else {
-      console.log(`ℹ️ Unsupported message type: ${messageType} - skipping`);
+      console.log(`?? Unsupported message type: ${messageType} - skipping`);
       return;
     }
 
-    // ── Skip if nothing to save ────────────────────────────
+    // -- Skip if nothing to save ----------------------------
     if (!text && !mediaUrl && !locLatitude) {
-      console.log(`⚠️ No content extracted from message type: ${messageType}`);
+      console.log(`?? No content extracted from message type: ${messageType}`);
       return;
     }
 
-    // ── Save message via service ───────────────────────────
+    // -- Save message via service ---------------------------
     const result = await handleIncomingMessage({
       contactId: contact.id,
       tenantId: tenant.id,
@@ -1352,7 +1352,7 @@ export const processWebhookJob = async (job) => {
       wamid: messageId,
     });
 
-    // ── Phase 4: Log message as Zoho Note ──
+    // -- Phase 4: Log message as Zoho Note --
     try {
       const { logMessageAsZohoNote } =
         await import("../../modules/zoho/crm/zoho.note.service.js");
@@ -1372,12 +1372,12 @@ export const processWebhookJob = async (job) => {
       }).catch(() => {});
     } catch (_) {}
 
-    // ── Preference-scoped Zoho auto-sync for new WhatsApp contacts ──
+    // -- Preference-scoped Zoho auto-sync for new WhatsApp contacts --
     if (isNewContact) {
       await triggerZohoAutoSyncForNewContact(tenant.id, contact);
     }
 
-    // ── WooCommerce Review Rating Detection ──
+    // -- WooCommerce Review Rating Detection --
     const reviewRating = parseWooReviewRating(text);
     if (reviewRating !== null) {
       const customerDigits = String(contact.phone || "").replace(/\D/g, "");
@@ -1420,12 +1420,12 @@ export const processWebhookJob = async (job) => {
           data: { reviewRating, reviewReceivedAt: new Date() },
         });
         console.log(
-          `⭐ [WooCommerce] Saved ${reviewRating}/5 review for order #${reviewOrder.orderNumber}`,
+          `? [WooCommerce] Saved ${reviewRating}/5 review for order #${reviewOrder.orderNumber}`,
         );
       }
     }
 
-    // ── WooCommerce COD Verification (CONFIRM_COD_ / CANCEL_COD_) ──
+    // -- WooCommerce COD Verification (CONFIRM_COD_ / CANCEL_COD_) --
     if (
       messageType === "interactive" &&
       message.interactive?.type === "button_reply"
@@ -1443,14 +1443,14 @@ export const processWebhookJob = async (job) => {
           });
         } catch (codErr) {
           console.error(
-            `❌ [Woo COD] Button handler failed for ${codButtonId}:`,
+            `? [Woo COD] Button handler failed for ${codButtonId}:`,
             codErr.message,
           );
         }
       }
     }
 
-    // ── Socket: emit to tenant room ────────────────────────
+    // -- Socket: emit to tenant room ------------------------
     emitToTenant(tenant.id, "new_message", {
       conversationId: result.conversation.id,
       message: {
@@ -1474,7 +1474,7 @@ export const processWebhookJob = async (job) => {
       },
     });
 
-    // ── Save + Emit notification ───────────────────────────
+    // -- Save + Emit notification ---------------------------
     const notifMessage = text
       ? text.substring(0, 100)
       : `Sent a ${type.toLowerCase()}`;
@@ -1507,12 +1507,12 @@ export const processWebhookJob = async (job) => {
           metadata: tenantNotif.metadata,
         },
       });
-      console.log(`📤 Tenant notif saved+emitted: ${tenantNotif.id}`);
+      console.log(`?? Tenant notif saved+emitted: ${tenantNotif.id}`);
     } catch (err) {
-      console.error("❌ Tenant notification failed:", err.message);
+      console.error("? Tenant notification failed:", err.message);
     }
 
-    // ── Socket: emit to assigned user ──────────────────────
+    // -- Socket: emit to assigned user ----------------------
     if (contact.assignedTo) {
       emitToUser(contact.assignedTo, "new_message", {
         conversationId: result.conversation.id,
@@ -1558,15 +1558,15 @@ export const processWebhookJob = async (job) => {
             metadata: userNotif.metadata,
           },
         });
-        console.log(`📤 User notif saved+emitted to: ${contact.assignedTo}`);
+        console.log(`?? User notif saved+emitted to: ${contact.assignedTo}`);
       } catch (err) {
-        console.error("❌ User notification failed:", err.message);
+        console.error("? User notification failed:", err.message);
       }
     } else {
-      console.log(`ℹ️ Contact unassigned - tenant room notified only`);
+      console.log(`?? Contact unassigned - tenant room notified only`);
     }
 
-    // ── Save Order in DB & Trigger Order Flow (if messageType === 'order') ──
+    // -- Save Order in DB & Trigger Order Flow (if messageType === 'order') --
     if (messageType === "order") {
       try {
         const orderPayload = message.order;
@@ -1630,7 +1630,7 @@ export const processWebhookJob = async (job) => {
             },
           });
           console.log(
-            `✅ [ORDER UPDATED] Existing Order #${createdOrder.orderNumber} updated with items (ID: ${createdOrder.id})`,
+            `? [ORDER UPDATED] Existing Order #${createdOrder.orderNumber} updated with items (ID: ${createdOrder.id})`,
           );
         } else {
           const orderMatch = text ? text.match(/#([A-Z0-9_-]+)/) : null;
@@ -1671,11 +1671,11 @@ export const processWebhookJob = async (job) => {
             },
           });
           console.log(
-            `✅ [ORDER CREATED] New Order #${createdOrder.orderNumber} saved (ID: ${createdOrder.id})`,
+            `? [ORDER CREATED] New Order #${createdOrder.orderNumber} saved (ID: ${createdOrder.id})`,
           );
         }
 
-        // ── Phase 4: Create Zoho Deal from order ──
+        // -- Phase 4: Create Zoho Deal from order --
         try {
           const { createZohoDealFromOrder } =
             await import("../../modules/zoho/crm/zoho.deal.service.js");
@@ -1698,23 +1698,23 @@ export const processWebhookJob = async (job) => {
         );
       } catch (orderErr) {
         console.error(
-          "❌ Failed to create order or trigger order flow:",
+          "? Failed to create order or trigger order flow:",
           orderErr,
         );
       }
     }
 
-    console.log(`✅ Message processed: type=${type}, contact=${contact.name}`);
+    console.log(`? Message processed: type=${type}, contact=${contact.name}`);
   }
 };
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // DOWNLOAD WHATSAPP MEDIA
 // Step 1: Get download URL from media ID
 // Step 2: Download file with auth header
 // Step 3: Save to tenant-isolated folder
 // Step 4: Return permanent public URL
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 const downloadWhatsAppMedia = async ({
   mediaId,
   mimeType,
@@ -1723,7 +1723,7 @@ const downloadWhatsAppMedia = async ({
   contactId,
   accessToken,
 }) => {
-  // ── Step 1: Get temporary download URL ──────────────────
+  // -- Step 1: Get temporary download URL ------------------
   const metaRes = await fetch(`https://graph.facebook.com/v23.0/${mediaId}`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
@@ -1740,7 +1740,7 @@ const downloadWhatsAppMedia = async ({
     throw new Error("No download URL returned from Meta API");
   }
 
-  // ── Step 2: Build save path ──────────────────────────────
+  // -- Step 2: Build save path ------------------------------
   const saveDir = path.join(
     process.cwd(),
     "uploads",
@@ -1753,7 +1753,7 @@ const downloadWhatsAppMedia = async ({
 
   fs.mkdirSync(saveDir, { recursive: true });
 
-  // ── Step 3: Build filename ───────────────────────────────
+  // -- Step 3: Build filename -------------------------------
   const ext = getExtFromMime(mimeType);
   const baseName = fileName
     ? path
@@ -1766,7 +1766,7 @@ const downloadWhatsAppMedia = async ({
   const uniqueFileName = `${Date.now()}_${baseName}${ext}`;
   const localPath = path.join(saveDir, uniqueFileName);
 
-  // ── Step 4: Download file ────────────────────────────────
+  // -- Step 4: Download file --------------------------------
   await new Promise((resolve, reject) => {
     const urlObj = new URL(downloadUrl);
     const protocol = urlObj.protocol === "https:" ? https : http;
@@ -1818,11 +1818,11 @@ const downloadWhatsAppMedia = async ({
     request.end();
   });
 
-  // ── Step 5: Get file size ────────────────────────────────
+  // -- Step 5: Get file size --------------------------------
   const stats = fs.statSync(localPath);
   const fileSize = stats.size;
 
-  // ── Step 6: Build permanent public URL ──────────────────
+  // -- Step 6: Build permanent public URL ------------------
   const relativePath = path
     .join(
       "uploads",
@@ -1842,7 +1842,7 @@ const downloadWhatsAppMedia = async ({
       ? `${process.env.BASE_URL.replace(/\/+$/, "")}/${relativePath}`
       : relativePath;
 
-  console.log(`✅ Media saved: ${localPath} (${fileSize} bytes)`);
+  console.log(`? Media saved: ${localPath} (${fileSize} bytes)`);
 
   return {
     publicUrl,
@@ -1852,9 +1852,9 @@ const downloadWhatsAppMedia = async ({
   };
 };
 
-// ─────────────────────────────────────────────────────────────
-// MIME TYPE → FILE EXTENSION
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
+// MIME TYPE ? FILE EXTENSION
+// -------------------------------------------------------------
 const MIME_TO_EXT = {
   "image/jpeg": ".jpg",
   "image/jpg": ".jpg",
@@ -1886,9 +1886,9 @@ const getExtFromMime = (mimeType) => {
   return MIME_TO_EXT[mimeType] || MIME_TO_EXT[baseMime] || ".bin";
 };
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // WORKER STARTUP (unchanged)
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 export const startWebhookWorker = () => {
   const worker = new Worker(QUEUE_NAME_WEBHOOK, processWebhookJob, {
     connection: redisConnection,
@@ -1896,11 +1896,11 @@ export const startWebhookWorker = () => {
   });
 
   worker.on("completed", (job) => {
-    console.log(`✅ Webhook Job ${job.id} processed successfully`);
+    console.log(`? Webhook Job ${job.id} processed successfully`);
   });
 
   worker.on("failed", async (job, err) => {
-    console.error(`❌ Webhook Job ${job?.id} failed:`, err.message);
+    console.error(`? Webhook Job ${job?.id} failed:`, err.message);
 
     if (job && job.attemptsMade >= job.opts.attempts) {
       try {
@@ -1924,14 +1924,14 @@ export const startWebhookWorker = () => {
         );
 
         console.warn(
-          `📮 [DLQ] Job ${job.id} moved to DLQ after ${job.attemptsMade} attempts`,
+          `?? [DLQ] Job ${job.id} moved to DLQ after ${job.attemptsMade} attempts`,
         );
       } catch (dlqError) {
-        console.error(`⚠️ [DLQ] Failed to push to DLQ:`, dlqError.message);
+        console.error(`?? [DLQ] Failed to push to DLQ:`, dlqError.message);
       }
     }
   });
 
-  console.log("👷 Webhook worker started with DLQ support");
+  console.log("?? Webhook worker started with DLQ support");
   return worker;
 };

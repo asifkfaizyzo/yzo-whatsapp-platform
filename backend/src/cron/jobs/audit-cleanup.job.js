@@ -17,5 +17,5 @@ export const startAuditCleanupJob = () => {
     }
   });
 
-  console.log("[AuditCleanup] Job scheduled — runs daily at 2:00 AM");
+  console.log("[AuditCleanup] Job scheduled � runs daily at 2:00 AM");
 };

@@ -5,7 +5,7 @@ import { sendMessageService } from "../messages/message.service.js";
 import { emitToTenant } from "../../lib/socket.js";
 
 /**
- * 1. 🆕 NEW ORDER ALERT
+ * 1. ?? NEW ORDER ALERT
  * Triggered instantly from WooCommerce webhook
  */
 export async function sendNewOrderAdminAlert(
@@ -30,32 +30,32 @@ export async function sendNewOrderAdminAlert(
     // 1. Send silent in-app badge notification to Dashboard
     emitToTenant(tenantId, "notification", {
       title: "New order from woocomm store",
-      message: `Order #${wooOrderId} • ${customerName} • ₹${total}`,
+      message: `Order #${wooOrderId} � ${customerName} � ?${total}`,
       type: "WOO_ORDER_ALERT",
       silent: true, // No sound
     });
 
     // 2. Send WhatsApp Utility Message to Store Manager
-    const messageBody = `🆕 *NEW ORDER RECEIVED!*\n\n*Order:* #${wooOrderId}\n*Customer:* ${customerName}\n*Amount:* ₹${total}\n*Items:* ${items.length} item(s)\n\n🔗 Manage in Sudo Reply dashboard.`;
+    const messageBody = `?? *NEW ORDER RECEIVED!*\n\n*Order:* #${wooOrderId}\n*Customer:* ${customerName}\n*Amount:* ?${total}\n*Items:* ${items.length} item(s)\n\n?? Manage in Sudo Reply dashboard.`;
 
     await sendSystemWhatsApp(tenantId, phoneToAlert, messageBody);
     console.log(
-      `🔔 [Woo Alert] New Order #${wooOrderId} alert sent to ${phoneToAlert}`,
+      `?? [Woo Alert] New Order #${wooOrderId} alert sent to ${phoneToAlert}`,
     );
   } catch (error) {
     console.error(
-      `❌ [Woo Alert] Failed to send new order alert:`,
+      `? [Woo Alert] Failed to send new order alert:`,
       error.message,
     );
   }
 }
 
 /**
- * 2. ⚠️ LOW INVENTORY ALERT
+ * 2. ?? LOW INVENTORY ALERT
  * Polled by background worker (e.g., every 30 mins)
  */
 export async function processLowStockAlerts() {
-  console.log("📦 [Woo Alert] Scanning for low inventory...");
+  console.log("?? [Woo Alert] Scanning for low inventory...");
 
   const connections = await prisma.wooCommerceConnection.findMany({
     where: { lowStockAlert: true },
@@ -91,7 +91,7 @@ export async function processLowStockAlerts() {
           : conn.lowStockAlertCache
         : {};
       let alertSent = false;
-      let alertMsg = `⚠️ *LOW STOCK ALERT*\n\nThe following products have ${conn.lowStockThreshold} or fewer units remaining:\n\n`;
+      let alertMsg = `?? *LOW STOCK ALERT*\n\nThe following products have ${conn.lowStockThreshold} or fewer units remaining:\n\n`;
 
       const now = Date.now();
       const OneDayMs = 24 * 60 * 60 * 1000;
@@ -100,14 +100,14 @@ export async function processLowStockAlerts() {
         const lastAlerted = cache[p.id] || 0;
         // Anti-spam: Only alert if we haven't alerted for this product in 24 hours
         if (now - lastAlerted > OneDayMs) {
-          alertMsg += `• ${p.name} (SKU: ${p.sku || "N/A"})\n  *Stock:* ${p.stock_quantity} left\n\n`;
+          alertMsg += `� ${p.name} (SKU: ${p.sku || "N/A"})\n  *Stock:* ${p.stock_quantity} left\n\n`;
           cache[p.id] = now;
           alertSent = true;
         }
       }
 
       if (alertSent) {
-        alertMsg += `💡 Please restock soon!`;
+        alertMsg += `?? Please restock soon!`;
         await sendSystemWhatsApp(conn.tenantId, phoneToAlert, alertMsg);
 
         // Save updated cache
@@ -117,12 +117,12 @@ export async function processLowStockAlerts() {
         });
 
         console.log(
-          `🔔 [Woo Alert] Low stock alert sent to ${phoneToAlert} for store ${storeUrl}`,
+          `?? [Woo Alert] Low stock alert sent to ${phoneToAlert} for store ${storeUrl}`,
         );
       }
     } catch (err) {
       console.error(
-        `❌ [Woo Alert] Low stock scan failed for tenant ${conn.tenantId}:`,
+        `? [Woo Alert] Low stock scan failed for tenant ${conn.tenantId}:`,
         err.message,
       );
     }
@@ -130,11 +130,11 @@ export async function processLowStockAlerts() {
 }
 
 /**
- * 3. 📊 DAILY BUSINESS SUMMARY
+ * 3. ?? DAILY BUSINESS SUMMARY
  * Polled by background worker (every hour, triggers at target local hour)
  */
 export async function processDailyBusinessSummary() {
-  console.log("📊 [Woo Alert] Checking for daily business summaries...");
+  console.log("?? [Woo Alert] Checking for daily business summaries...");
 
   const connections = await prisma.wooCommerceConnection.findMany({
     where: { dailySummaryAlert: true },
@@ -182,7 +182,7 @@ export async function processDailyBusinessSummary() {
         ).length;
         const onlineCount = orders.length - codCount;
 
-        const msg = `📊 *DAILY BUSINESS SUMMARY*\n\n*Store:* ${conn.tenant.tenantName}\n*Total Orders:* ${orders.length}\n*Total Revenue:* ₹${totalRevenue.toLocaleString()}\n\n💳 *Payment Split:*\n• Prepaid: ${onlineCount}\n• COD: ${codCount}\n\nHave a great evening!`;
+        const msg = `?? *DAILY BUSINESS SUMMARY*\n\n*Store:* ${conn.tenant.tenantName}\n*Total Orders:* ${orders.length}\n*Total Revenue:* ?${totalRevenue.toLocaleString()}\n\n?? *Payment Split:*\n� Prepaid: ${onlineCount}\n� COD: ${codCount}\n\nHave a great evening!`;
 
         await sendSystemWhatsApp(conn.tenantId, phoneToAlert, msg);
 
@@ -192,12 +192,12 @@ export async function processDailyBusinessSummary() {
         });
 
         console.log(
-          `🔔 [Woo Alert] Daily summary sent to ${phoneToAlert} for tenant ${conn.tenantId}`,
+          `?? [Woo Alert] Daily summary sent to ${phoneToAlert} for tenant ${conn.tenantId}`,
         );
       }
     } catch (err) {
       console.error(
-        `❌ [Woo Alert] Daily summary failed for tenant ${conn.tenantId}:`,
+        `? [Woo Alert] Daily summary failed for tenant ${conn.tenantId}:`,
         err.message,
       );
     }

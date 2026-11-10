@@ -1,8 +1,8 @@
 // backend/src/lib/utils/signed.url.js (do not remove this comment)
-//→ URL only works for 1 hour ✅
-//→ Signature cannot be faked ✅
-//→ Cannot access other tenant files ✅
-//→ Even if URL leaked = expires soon ✅
+//? URL only works for 1 hour ?
+//? Signature cannot be faked ?
+//? Cannot access other tenant files ?
+//? Even if URL leaked = expires soon ?
 
 import crypto from "crypto";
 
@@ -10,7 +10,7 @@ const SECRET =
   process.env.MEDIA_SIGN_SECRET || "your_media_secret_key_min_32_chars";
 const EXPIRY = 60 * 60; // 1 hour
 
-// ── Generate Signed URL ──────────────────────────────────────
+// -- Generate Signed URL --------------------------------------
 export const generateSignedUrl = (filePath, tenantId) => {
   const expires = Math.floor(Date.now() / 1000) + EXPIRY;
   const payload = `${filePath}:${tenantId}:${expires}`;
@@ -35,7 +35,7 @@ export const generateSignedUrl = (filePath, tenantId) => {
   return relativeUrl;
 };
 
-// ── Verify Signed URL ────────────────────────────────────────
+// -- Verify Signed URL ----------------------------------------
 export const verifySignedUrl = (filePath, tenantId, expires, signature) => {
   // 1. Check expiry
   const now = Math.floor(Date.now() / 1000);

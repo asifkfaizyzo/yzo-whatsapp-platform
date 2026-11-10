@@ -10,7 +10,7 @@
  * This separation means:
  * - authenticate is stateless and fast (no DB call)
  * - Guards load only the entity they need (no over-fetching)
- * - Fixes the old bug where verifyTenant flattened all 1:1 relations
+ * - Fixes the old bug where authenticate, requireTenant flattened all 1:1 relations
  *   (including secrets like whatsappAccessToken) onto req.tenant
  *
  * Sets on req:

@@ -14,7 +14,7 @@ const validate = (schema) => (req, res, next) => {
     return next();
   }
 
-  // ✅ Zod v4 uses result.error.issues not result.error.errors
+  // ? Zod v4 uses result.error.issues not result.error.errors
   const issues = result.error.issues || result.error.errors || [];
 
   const errors = issues.map((e) => ({

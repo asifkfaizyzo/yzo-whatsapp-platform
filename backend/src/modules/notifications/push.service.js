@@ -5,9 +5,9 @@ const EXPO_RECEIPTS_URL = "https://exp.host/--/api/v2/push/getReceipts";
 class PushService {
   constructor() {
     this.accessToken = process.env.EXPO_ACCESS_TOKEN || null;
-    console.log("🔔 Push notification service initialized (Expo Push API)");
+    console.log("?? Push notification service initialized (Expo Push API)");
     if (this.accessToken) {
-      console.log("🔔 Expo access token loaded ✅");
+      console.log("?? Expo access token loaded ?");
     }
   }
 
@@ -38,13 +38,13 @@ class PushService {
       }
 
       if (!this.isValidExpoToken(token)) {
-        console.warn(`⚠️ Invalid Expo push token: ${token?.substring(0, 20)}`);
+        console.warn(`?? Invalid Expo push token: ${token?.substring(0, 20)}`);
         return { success: false, message: "Invalid push token format" };
       }
 
       if (process.env.NODE_ENV === "development") {
         console.log("========================================");
-        console.log("🔔 PUSH NOTIFICATION");
+        console.log("?? PUSH NOTIFICATION");
         console.log(`Token: ${token.substring(0, 30)}...`);
         console.log(`Title: ${title}`);
         console.log(`Body:  ${body}`);
@@ -72,7 +72,7 @@ class PushService {
       const ticket = result?.data;
 
       if (ticket?.status === "error") {
-        console.error("🔔 Expo push error:", ticket.message);
+        console.error("?? Expo push error:", ticket.message);
         return {
           success: false,
           message: ticket.message,
@@ -80,10 +80,10 @@ class PushService {
         };
       }
 
-      console.log(`🔔 Push sent to ${token.substring(0, 30)}...`);
+      console.log(`?? Push sent to ${token.substring(0, 30)}...`);
       return { success: true, message: "Push sent", ticketId: ticket?.id };
     } catch (error) {
-      console.error("🔔 Push send error:", error.message);
+      console.error("?? Push send error:", error.message);
       return { success: false, message: error.message };
     }
   }
@@ -138,11 +138,11 @@ class PushService {
       }
 
       console.log(
-        `🔔 Bulk push: ${results.sent} sent, ${results.failed} failed`,
+        `?? Bulk push: ${results.sent} sent, ${results.failed} failed`,
       );
       return { success: true, ...results };
     } catch (error) {
-      console.error("🔔 Bulk push error:", error.message);
+      console.error("?? Bulk push error:", error.message);
       return { success: false, message: error.message };
     }
   }
@@ -161,14 +161,14 @@ class PushService {
       const result = await response.json();
       return result?.data;
     } catch (error) {
-      console.error("🔔 Receipt check error:", error.message);
+      console.error("?? Receipt check error:", error.message);
       return null;
     }
   }
 }
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // CHECK IF USER WANTS THIS NOTIFICATION TYPE
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 export const shouldSendPush = async (userId, notificationType) => {
   if (!userId) return false;
   try {
@@ -188,7 +188,7 @@ export const shouldSendPush = async (userId, notificationType) => {
 
     return true;
   } catch {
-    return true; // fail open — better to send than miss
+    return true; // fail open � better to send than miss
   }
 };
 

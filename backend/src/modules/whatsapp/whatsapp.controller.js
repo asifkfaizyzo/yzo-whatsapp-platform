@@ -1073,7 +1073,7 @@ export const sendLocation = async (req, res) => {
     const { to, latitude, longitude, name, address, conversationId } = req.body;
 
     const tenantId = req.tenantId;
-    const userType = req.userType;
+    const userType = req.actorType;
 
     // ── Identify sender ──────────────────────────────────────
     // Same pattern as sendMessage in message.controller.js

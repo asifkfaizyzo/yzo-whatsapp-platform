@@ -9,7 +9,7 @@ import {
   buildTemplateComponents,
   inferHeaderTypeFromComponents,
 } from "./template.service.js";
-import { validateTemplateMediaSize } from "../../middlewares/upload.template.js";
+import { validateTemplateMediaSize } from "../../middleware/uploadTemplate.js";
 import { sendTemplateStatusEmail } from "../auth/email.service.js";
 
 // ── Valid values ────────────────────────────────────────────────────────────

@@ -9,7 +9,8 @@ import {
   updateGSTSettings,
 } from "./superadmin.controller.js";
 
-import { verifySuperAdmin } from "../../middlewares/auth.superAdmin.js";
+import { authenticate } from "../../middleware/authenticate.js";
+import { requireSRAdmin } from "../../middleware/requireSRAdmin.js";
 
 import {
   createSuperAdminSchema,
@@ -24,7 +25,7 @@ import {
   refreshTokenSchema,
   logoutSchema,
 } from "../auth/auth.schema.js";
-import validate from "../../middlewares/validate.middleware.js";
+import validate from "../../middleware/validate.js";
 
 const router = express.Router();
 
@@ -32,7 +33,7 @@ const router = express.Router();
 //SuperAdmin Auth Routes
 router.post(
   "/create",
-  verifySuperAdmin,
+  authenticate, requireSRAdmin,
   validate(createSuperAdminSchema),
   superAdminController.createSuperAdmin,
 );
@@ -68,57 +69,57 @@ router.post(
 );
 
 // 🔥 Protected Route
-router.get("/profile", verifySuperAdmin, (req, res) => {
+router.get("/profile", authenticate, requireSRAdmin, (req, res) => {
   return res.status(200).json({
     success: true,
     message: "Middleware working properly",
-    superAdmin: req.superAdmin,
+    superAdmin: req.srAdmin,
   });
 });
 
 //Tenant Management
 router.post(
   "/register-tenant",
-  verifySuperAdmin,
+  authenticate, requireSRAdmin,
   validate(registerTenantSchema),
   superAdminController.registerTenant,
 );
 
 router.get(
   "/get-all-tenants",
-  verifySuperAdmin,
+  authenticate, requireSRAdmin,
   superAdminController.getAllTenants,
 );
 
 router.get(
   "/get-tenant/:id",
-  verifySuperAdmin,
+  authenticate, requireSRAdmin,
   validate(superAdminIdParamSchema),
   superAdminController.getTenantById,
 );
 
 router.put(
   "/update-tenant/:id",
-  verifySuperAdmin,
+  authenticate, requireSRAdmin,
   validate(updateTenantByAdminSchema),
   superAdminController.updateTenantById,
 );
 
 router.patch(
   "/deactivate-tenant/:id",
-  verifySuperAdmin,
+  authenticate, requireSRAdmin,
   superAdminController.deactivateTenant,
 );
 
 router.patch(
   "/reactivate-tenant/:id",
-  verifySuperAdmin,
+  authenticate, requireSRAdmin,
   superAdminController.reactivateTenant,
 );
 
 router.delete(
   "/delete-tenant/:id",
-  verifySuperAdmin,
+  authenticate, requireSRAdmin,
   validate(superAdminIdParamSchema),
   superAdminController.deleteTenantById,
 );
@@ -126,43 +127,43 @@ router.delete(
 // Tenant Status
 router.patch(
   "/approve-tenant/:id",
-  verifySuperAdmin,
+  authenticate, requireSRAdmin,
   validate(superAdminIdParamSchema),
   superAdminController.approveTenant,
 );
 
 router.patch(
   "/block-tenant/:id",
-  verifySuperAdmin,
+  authenticate, requireSRAdmin,
   validate(superAdminIdParamSchema),
   superAdminController.blockTenant,
 );
 
 router.patch(
   "/unblock-tenant/:id",
-  verifySuperAdmin,
+  authenticate, requireSRAdmin,
   superAdminController.unblockTenant,
 );
 
 // Tenant User Control
 router.patch(
   "/users/:id/deactivate",
-  verifySuperAdmin,
+  authenticate, requireSRAdmin,
   superAdminController.deactivateUser,
 );
 
 router.patch(
   "/users/:id/reactivate",
-  verifySuperAdmin,
+  authenticate, requireSRAdmin,
   superAdminController.reactivateUser,
 );
 
 // ── Revenue Routes ──
-router.get("/revenue/payments", verifySuperAdmin, getAllPayments);
-router.get("/revenue/tenant/:id", verifySuperAdmin, getTenantBilling);
+router.get("/revenue/payments", authenticate, requireSRAdmin, getAllPayments);
+router.get("/revenue/tenant/:id", authenticate, requireSRAdmin, getTenantBilling);
 router.get(
   "/revenue/invoice/:paymentId",
-  verifySuperAdmin,
+  authenticate, requireSRAdmin,
   adminDownloadInvoice,
 );
 
@@ -170,33 +171,33 @@ router.get(
 // GST / TAX SETTINGS
 // ══════════════════════════════════════
 // ── GST / Tax Settings Routes ──
-router.get("/settings/tax", verifySuperAdmin, getGSTSettings);
-router.put("/settings/tax", verifySuperAdmin, updateGSTSettings);
+router.get("/settings/tax", authenticate, requireSRAdmin, getGSTSettings);
+router.put("/settings/tax", authenticate, requireSRAdmin, updateGSTSettings);
 
 // ══════════════════════════════════════
 // OPERATIONAL PLATFORM REPORTS
 // ══════════════════════════════════════
 import * as reportsController from "./reports.controller.js";
 
-router.get("/reports/kpis", verifySuperAdmin, reportsController.getReportKPIs);
+router.get("/reports/kpis", authenticate, requireSRAdmin, reportsController.getReportKPIs);
 router.get(
   "/reports/messages",
-  verifySuperAdmin,
+  authenticate, requireSRAdmin,
   reportsController.getReportMessages,
 );
 router.get(
   "/reports/delivery",
-  verifySuperAdmin,
+  authenticate, requireSRAdmin,
   reportsController.getReportDelivery,
 );
 router.get(
   "/reports/tenants",
-  verifySuperAdmin,
+  authenticate, requireSRAdmin,
   reportsController.getReportTenants,
 );
 router.get(
   "/reports/system-health",
-  verifySuperAdmin,
+  authenticate, requireSRAdmin,
   reportsController.getReportSystemHealth,
 );
 

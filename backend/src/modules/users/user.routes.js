@@ -7,8 +7,9 @@ import {
   generateRefreshToken,
 } from "../auth/jwt.service.js";
 import { forgotPasswordUser, resetPasswordUser } from "./user.controller.js";
-import { verifyTenantOrUser } from "../../middlewares/auth.verifyTenantOrUser.js";
-import { verifyUser } from "../../middlewares/auth.user.js";
+import { authenticate } from "../../middleware/authenticate.js";
+import { requireTenantOrUser } from "../../middleware/requireTenantOrUser.js";
+import { requireUser } from "../../middleware/requireUser.js";
 import {
   loginSchema,
   forgotPasswordSchema,
@@ -18,7 +19,7 @@ import {
   changePasswordSchema,
   googleLoginSchema,
 } from "../auth/auth.schema.js";
-import validate from "../../middlewares/validate.middleware.js";
+import validate from "../../middleware/validate.js";
 
 const router = express.Router();
 
@@ -51,47 +52,47 @@ router.post(
 // ═════════════════════════════════════════
 // USER PROFILE ROUTES
 // ═════════════════════════════════════════
-router.get("/me", verifyUser, userController.getUserProfile);
-router.put("/change-password", verifyUser, userController.updateUserPassword);
+router.get("/me", authenticate, requireUser, userController.getUserProfile);
+router.put("/change-password", authenticate, requireUser, userController.updateUserPassword);
 
 // ═════════════════════════════════════════
 // CONTACTS
 // ═════════════════════════════════════════
 router.get(
   "/my-assigned-contacts",
-  verifyUser,
+  authenticate, requireUser,
   userController.getMyAssignedContacts,
 );
 
 // ═════════════════════════════════════════
 // 🆕 AGENT AVAILABILITY
 // ═════════════════════════════════════════
-router.patch("/availability", verifyUser, userController.updateAvailability);
+router.patch("/availability", authenticate, requireUser, userController.updateAvailability);
 
 // ═════════════════════════════════════════
 // 🆕 DASHBOARD STATS
 // ═════════════════════════════════════════
-router.get("/dashboard-stats", verifyUser, userController.getDashboardStats);
+router.get("/dashboard-stats", authenticate, requireUser, userController.getDashboardStats);
 
 // ═════════════════════════════════════════
 // 🆕 GLOBAL UNREAD BADGE
 // ═════════════════════════════════════════
-router.get("/unread-count", verifyUser, userController.getUnreadBadgeCount);
+router.get("/unread-count", authenticate, requireUser, userController.getUnreadBadgeCount);
 
 // ═════════════════════════════════════════
 // 🆕 PUSH TOKEN
 // ═════════════════════════════════════════
-router.post("/push-token", verifyUser, userController.registerPushToken);
-router.delete("/push-token", verifyUser, userController.clearPushToken);
+router.post("/push-token", authenticate, requireUser, userController.registerPushToken);
+router.delete("/push-token", authenticate, requireUser, userController.clearPushToken);
 
 router.get(
   "/notification-preferences",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   userController.getNotificationPreferences,
 );
 router.patch(
   "/notification-preferences",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   userController.updateNotificationPreferences,
 );
 

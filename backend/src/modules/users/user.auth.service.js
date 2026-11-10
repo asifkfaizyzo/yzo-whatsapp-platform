@@ -21,9 +21,9 @@ import { verifyRefreshToken } from "../auth/jwt.service.js";
 import { sendPasswordResetEmail } from "../auth/email.service.js";
 import { createAuditLog } from "../audit/audit.service.js";
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // CUSTOM ERROR
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 class AuthError extends Error {
   constructor(message, statusCode = 400) {
     super(message);
@@ -32,9 +32,9 @@ class AuthError extends Error {
   }
 }
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // CONSTANTS & HELPERS
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 const SAFE_USER_SELECT = {
   id: true,
   name: true,
@@ -72,7 +72,7 @@ const issueTokens = async (user) => {
 const logAuth = (fields) =>
   createAuditLog({ module: "AUTH", ...fields }).catch(() => {});
 
-// ── Tenant status check helper ──
+// -- Tenant status check helper --
 const checkParentTenant = async (tenantId) => {
   const tenant = await prisma.tenant.findFirst({
     where: { id: tenantId, deletedAt: null },
@@ -113,9 +113,9 @@ const checkParentTenant = async (tenantId) => {
   return tenant;
 };
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 1. LOGIN (Email or Username + Password)
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const loginService = async ({
   identifier,
   password,
@@ -123,11 +123,11 @@ export const loginService = async ({
   ip,
   userAgent,
 }) => {
-  // ── reCAPTCHA ──
+  // -- reCAPTCHA --
   const captchaOk = await verifyRecaptcha(recaptchaToken, "login");
   if (!captchaOk) throw new AuthError("reCAPTCHA verification failed", 403);
 
-  // ── Detect identifier type ──
+  // -- Detect identifier type --
   const trimmed = identifier.trim();
   const isEmail = trimmed.includes("@");
 
@@ -143,7 +143,7 @@ export const loginService = async ({
     },
   });
 
-  // ── Not found ──
+  // -- Not found --
   if (!user) {
     logAuth({
       actorId: "UNKNOWN",
@@ -151,14 +151,14 @@ export const loginService = async ({
       actorName: "Unknown",
       actorEmail: isEmail ? trimmed : "N/A",
       action: "LOGIN_FAILED",
-      description: `Failed agent login — ${isEmail ? "email" : "username"} not found`,
+      description: `Failed agent login � ${isEmail ? "email" : "username"} not found`,
       ipAddress: ip,
       userAgent,
     });
     throw new AuthError("Invalid credentials", 401);
   }
 
-  // ── Deactivated user ──
+  // -- Deactivated user --
   if (!user.isActive) {
     logAuth({
       actorId: user.id,
@@ -177,10 +177,10 @@ export const loginService = async ({
     );
   }
 
-  // ── Parent tenant check ──
+  // -- Parent tenant check --
   await checkParentTenant(user.tenantId);
 
-  // ── Verify password ──
+  // -- Verify password --
   const passwordMatch = await comparePassword(password, user.password);
   if (!passwordMatch) {
     logAuth({
@@ -197,13 +197,13 @@ export const loginService = async ({
     throw new AuthError("Invalid credentials", 401);
   }
 
-  // ── Issue tokens ──
+  // -- Issue tokens --
   const tokens = await issueTokens(user);
 
-  // ── Legacy guard ──
+  // -- Legacy guard --
   const requiresUsername = !user.username;
 
-  // ── Audit ──
+  // -- Audit --
   logAuth({
     actorId: user.id,
     actorType: "USER",
@@ -223,9 +223,9 @@ export const loginService = async ({
   };
 };
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 2. LOGOUT
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const logoutService = async ({ refreshToken, userId, tenantId }) => {
   try {
     await deleteRefreshToken(refreshToken);
@@ -245,17 +245,17 @@ export const logoutService = async ({ refreshToken, userId, tenantId }) => {
   return { message: "Logged out successfully" };
 };
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 3. REFRESH TOKEN
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const refreshTokenService = async ({ refreshToken }) => {
-  // ── Find in DB ──
+  // -- Find in DB --
   const tokenRecord = await findRefreshToken(refreshToken, "USER");
   if (!tokenRecord || tokenRecord.isRevoked) {
     throw new AuthError("Invalid or expired refresh token", 401);
   }
 
-  // ── Verify JWT ──
+  // -- Verify JWT --
   let decoded;
   try {
     decoded = verifyRefreshToken(refreshToken);
@@ -264,7 +264,7 @@ export const refreshTokenService = async ({ refreshToken }) => {
     throw new AuthError("Invalid or expired refresh token", 401);
   }
 
-  // ── Verify user still exists and active ──
+  // -- Verify user still exists and active --
   const user = await prisma.user.findFirst({
     where: { id: decoded.id, deletedAt: null },
     select: { ...SAFE_USER_SELECT, tenantId: true },
@@ -280,7 +280,7 @@ export const refreshTokenService = async ({ refreshToken }) => {
     throw new AuthError("Agent account is deactivated", 403);
   }
 
-  // ── Verify parent tenant ──
+  // -- Verify parent tenant --
   try {
     await checkParentTenant(user.tenantId);
   } catch (err) {
@@ -288,16 +288,16 @@ export const refreshTokenService = async ({ refreshToken }) => {
     throw err;
   }
 
-  // ── Rotate tokens ──
+  // -- Rotate tokens --
   await deleteRefreshToken(refreshToken).catch(() => {});
   const tokens = await issueTokens(user);
 
   return tokens;
 };
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 4. FORGOT PASSWORD
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const forgotPasswordService = async ({ email, ip, userAgent }) => {
   const normalizedEmail = email.toLowerCase().trim();
 
@@ -306,14 +306,14 @@ export const forgotPasswordService = async ({ email, ip, userAgent }) => {
     select: { id: true, email: true, isActive: true, tenantId: true },
   });
 
-  // ── Always return same message ──
+  // -- Always return same message --
   const genericMessage =
     "If an account with this email exists, a password reset link has been sent.";
 
   if (!user) return { message: genericMessage };
   if (!user.isActive) return { message: genericMessage };
 
-  // ── Generate token ──
+  // -- Generate token --
   const { token: plainToken, hash, expiresAt } = generateResetToken();
 
   await prisma.user.update({
@@ -344,9 +344,9 @@ export const forgotPasswordService = async ({ email, ip, userAgent }) => {
   return { message: genericMessage };
 };
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 5. RESET PASSWORD
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const resetPasswordService = async ({
   token,
   newPassword,
@@ -379,7 +379,7 @@ export const resetPasswordService = async ({
     },
   });
 
-  // ── Revoke all sessions ──
+  // -- Revoke all sessions --
   await prisma.refreshToken.deleteMany({
     where: { userId: user.id },
   });
@@ -398,9 +398,9 @@ export const resetPasswordService = async ({
   return { message: "Password has been reset successfully. Please log in." };
 };
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 6. GOOGLE LOGIN (existing agents only)
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const googleLoginService = async ({
   email,
   ip,
@@ -427,10 +427,10 @@ export const googleLoginService = async ({
     );
   }
 
-  // ── Parent tenant check ──
+  // -- Parent tenant check --
   await checkParentTenant(user.tenantId);
 
-  // ── Issue tokens ──
+  // -- Issue tokens --
   const tokens = await issueTokens(user);
 
   logAuth({
@@ -451,9 +451,9 @@ export const googleLoginService = async ({
   };
 };
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 7. SET USERNAME (Legacy guard)
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const setUsernameService = async ({ userId, username }) => {
   const user = await prisma.user.findFirst({
     where: { id: userId, deletedAt: null },

@@ -6,7 +6,7 @@
  * Uses express-rate-limit (already installed).
  * Apply these to specific routes in the route files.
  *
- * Old config was 100 requests per 15 minutes on auth routes — way too
+ * Old config was 100 requests per 15 minutes on auth routes � way too
  * generous. New config is tighter and differentiated by endpoint type.
  */
 
@@ -29,7 +29,7 @@ export const authLimiter = rateLimit({
 
 /**
  * Signup endpoint specifically.
- * 5 signups per hour per IP — prevents mass account creation.
+ * 5 signups per hour per IP � prevents mass account creation.
  */
 export const signupLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
@@ -44,7 +44,7 @@ export const signupLimiter = rateLimit({
 
 /**
  * OTP verification endpoint.
- * 10 attempts per 15 minutes per IP — prevents brute-forcing OTP codes.
+ * 10 attempts per 15 minutes per IP � prevents brute-forcing OTP codes.
  */
 export const otpLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -59,7 +59,7 @@ export const otpLimiter = rateLimit({
 
 /**
  * Password reset endpoint.
- * 3 requests per hour per IP — prevents email bombing.
+ * 3 requests per hour per IP � prevents email bombing.
  */
 export const resetLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
@@ -74,7 +74,7 @@ export const resetLimiter = rateLimit({
 
 /**
  * Username check endpoint.
- * 30 requests per minute per IP — allows real-time typing checks
+ * 30 requests per minute per IP � allows real-time typing checks
  * but prevents abuse.
  */
 export const usernameCheckLimiter = rateLimit({

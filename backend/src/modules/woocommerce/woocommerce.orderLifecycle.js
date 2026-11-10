@@ -238,7 +238,7 @@ export const buildWooCustomerWelcomeTemplateParameters = ({
 };
 
 export const buildWooCustomerWelcomeMessage = ({ customerName, storeName }) =>
-  `👋 Welcome to *${storeName}*, *${customerName}*! We're glad you're here.`;
+  `?? Welcome to *${storeName}*, *${customerName}*! We're glad you're here.`;
 
 const formatStatus = (status) =>
   String(status || "pending")
@@ -265,13 +265,13 @@ export const buildWooOrderLifecycleMessage = ({
   checkoutPaymentUrl,
 }) => {
   if (isNewOrder) {
-    return `🎉 *Order Confirmation!*\n\nHi *${customerName}*,\nYour order *#${orderNumber}* has been received!\n\n📦 *Items:* ${lineItems || "WooCommerce Items"}\n💰 *Total:* ${currency} ${total}\n💳 *Payment method:* ${paymentMethod}\n💳 *Payment status:* ${formatStatus(paymentStatus)}`;
+    return `?? *Order Confirmation!*\n\nHi *${customerName}*,\nYour order *#${orderNumber}* has been received!\n\n?? *Items:* ${lineItems || "WooCommerce Items"}\n?? *Total:* ${currency} ${total}\n?? *Payment method:* ${paymentMethod}\n?? *Payment status:* ${formatStatus(paymentStatus)}`;
   }
 
   const changes = [];
   if (previousStatus && previousStatus !== String(status).toLowerCase()) {
     changes.push(
-      `Order status: *${formatStatus(previousStatus)}* → *${formatStatus(status)}*`,
+      `Order status: *${formatStatus(previousStatus)}* ? *${formatStatus(status)}*`,
     );
   } else if (!previousStatus && status) {
     changes.push(`Order status: *${formatStatus(status)}*`);
@@ -281,7 +281,7 @@ export const buildWooOrderLifecycleMessage = ({
     previousPaymentStatus !== String(paymentStatus).toLowerCase()
   ) {
     changes.push(
-      `Payment status: *${formatStatus(previousPaymentStatus)}* → *${formatStatus(paymentStatus)}*`,
+      `Payment status: *${formatStatus(previousPaymentStatus)}* ? *${formatStatus(paymentStatus)}*`,
     );
   }
 
@@ -329,11 +329,11 @@ export const buildWooOrderLifecycleMessage = ({
       "Your order has been refunded. Refund timing depends on your payment provider.",
     "on-hold": "Your order is on hold.",
     failed: checkoutPaymentUrl
-      ? `Your payment failed. Complete your payment here:\n🔗 ${checkoutPaymentUrl}`
+      ? `Your payment failed. Complete your payment here:\n?? ${checkoutPaymentUrl}`
       : "Your payment failed. Please contact the store for help completing your order.",
   };
 
-  return `📦 *Order Update*\n\nHi *${customerName}*, order *#${orderNumber}* was updated.\n${changes.join("\n")}\n\n${statusCopy[normalizedStatus] || "We will keep you updated."}`;
+  return `?? *Order Update*\n\nHi *${customerName}*, order *#${orderNumber}* was updated.\n${changes.join("\n")}\n\n${statusCopy[normalizedStatus] || "We will keep you updated."}`;
 };
 
 export const parseWooReviewRating = (text) => {
@@ -406,7 +406,7 @@ export async function handleWooCommerceReviewReply({
   // 3. Draft response message
   let replyText = "";
   if (rating && rating >= 4) {
-    replyText = `Thank you so much for your ${rating}-star rating! 🌟 We're thrilled you enjoyed your order #${order.orderNumber || order.externalOrderId}. If you have a moment, please share your experience with friends!`;
+    replyText = `Thank you so much for your ${rating}-star rating! ?? We're thrilled you enjoyed your order #${order.orderNumber || order.externalOrderId}. If you have a moment, please share your experience with friends!`;
   } else if (rating && rating <= 3) {
     replyText = `Thank you for your feedback on order #${order.orderNumber || order.externalOrderId}. We're sorry to hear it wasn't a 5-star experience. A team member will reach out shortly to assist you.`;
   } else {

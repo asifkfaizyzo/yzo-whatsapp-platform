@@ -757,7 +757,7 @@ export const cancelBroadcast = async (req, res) => {
       },
     });
 
-    console.log(`🚫 Campaign ${id} was CANCELLED by tenant admin.`);
+    console.log(`?? Campaign ${id} was CANCELLED by tenant admin.`);
 
     emitToTenant(tenantId, "broadcast_update", {
       broadcastId: id,

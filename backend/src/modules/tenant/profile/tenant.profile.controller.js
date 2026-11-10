@@ -94,8 +94,8 @@ export const updateTenantProfile = async (req, res) => {
     const tenantId = req.tenant?.id;
     const meta = extractRequestMeta(req);
 
-    console.log("📥 Update profile - tenantId:", tenantId);
-    console.log("📥 Update profile - body:", req.body);
+    console.log("?? Update profile - tenantId:", tenantId);
+    console.log("?? Update profile - body:", req.body);
 
     if (!tenantId) {
       return res.status(401).json({

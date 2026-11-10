@@ -12,7 +12,7 @@ const redisOptions = {
   retryStrategy(times) {
     const delay = Math.min(times * 100, 3000);
     console.warn(
-      `⚠️ Redis connection lost. Retrying in ${delay}ms (attempt ${times})...`,
+      `?? Redis connection lost. Retrying in ${delay}ms (attempt ${times})...`,
     );
     return delay;
   },
@@ -24,11 +24,11 @@ export const redisConnection = redisUrl
   : new Redis(redisOptions);
 
 redisConnection.on("connect", () => {
-  console.log("⚡ Connected to Redis successfully");
+  console.log("? Connected to Redis successfully");
 });
 
 redisConnection.on("error", (err) => {
-  console.error("❌ Redis Connection Error:", err.message);
+  console.error("? Redis Connection Error:", err.message);
 });
 
 export default redisConnection;

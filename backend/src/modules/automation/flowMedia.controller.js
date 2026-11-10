@@ -70,7 +70,7 @@ export const uploadFlowMedia = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("❌ uploadFlowMedia error:", error);
+    console.error("? uploadFlowMedia error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to upload media",

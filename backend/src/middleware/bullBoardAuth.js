@@ -13,7 +13,7 @@ export const bullBoardAuth = (req, res, next) => {
   if (!pass) {
     if (process.env.NODE_ENV === "production") {
       console.error(
-        "❌ BULL_BOARD_PASSWORD is not configured in production environment variables.",
+        "? BULL_BOARD_PASSWORD is not configured in production environment variables.",
       );
       return res
         .status(503)

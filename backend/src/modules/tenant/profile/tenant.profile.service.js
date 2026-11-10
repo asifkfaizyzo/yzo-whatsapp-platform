@@ -43,12 +43,12 @@ export const updateTenantPasswordService = async (
     data: { password: hashedPassword },
   });
 
-  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  console.log("🔍 STEP 1 - Reached audit log section");
-  console.log("🔍 tenant.id      :", tenant.id);
-  console.log("🔍 tenant.email   :", tenant.email);
-  console.log("🔍 tenant.tenantName:", tenant.tenantName);
-  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  console.log("?????????????????????????????????????");
+  console.log("?? STEP 1 - Reached audit log section");
+  console.log("?? tenant.id      :", tenant.id);
+  console.log("?? tenant.email   :", tenant.email);
+  console.log("?? tenant.tenantName:", tenant.tenantName);
+  console.log("?????????????????????????????????????");
 
   try {
     const auditPayload = {
@@ -63,21 +63,21 @@ export const updateTenantPasswordService = async (
     };
 
     console.log(
-      "🔍 STEP 2 - Audit payload:",
+      "?? STEP 2 - Audit payload:",
       JSON.stringify(auditPayload, null, 2),
     );
 
     const auditResult = await createAuditLog(auditPayload);
 
     console.log(
-      "✅ STEP 3 - Audit log created:",
+      "? STEP 3 - Audit log created:",
       auditResult?.id ?? auditResult,
     );
   } catch (auditError) {
-    console.error("❌ STEP 3 - Audit log FAILED");
-    console.error("❌ Error message :", auditError.message);
-    console.error("❌ Error code    :", auditError.code);
-    console.error("❌ Full error    :", auditError);
+    console.error("? STEP 3 - Audit log FAILED");
+    console.error("? Error message :", auditError.message);
+    console.error("? Error code    :", auditError.code);
+    console.error("? Full error    :", auditError);
   }
 
   return { message: "Password updated successfully" };

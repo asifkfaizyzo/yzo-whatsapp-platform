@@ -8,7 +8,7 @@
  * onboarding endpoints. Blocks ACTIVE/APPROVED tenants (they
  * shouldn't be re-onboarding) and BLOCKED tenants.
  *
- * This replaces the old verifyOnboarding middleware which relied
+ * This replaces the old authenticate, requireOnboarding middleware which relied
  * on a separate onboarding_token cookie. In the new system, tenants
  * get real JWT tokens from signup (step 1), so no special token needed.
  *

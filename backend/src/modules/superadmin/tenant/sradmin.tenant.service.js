@@ -1,11 +1,11 @@
 // backend/src/modules/superadmin/tenant/sradmin.tenant.service.js (do not remove this comment)
 
 import prisma from "../../../config/prisma.js";
-import { createAuditLog } from "../../../services/audit.service.js";
-import { revokeAllTenantTokens, revokeAllTokens } from "../../../services/session.service.new.js";
-import { createSuperAdminNotification } from "../../../services/superAdminNotificationService.js";
+import { createAuditLog } from "../../audit/audit.service.js";
+import { revokeAllTenantTokens, revokeAllTokens } from "../../../services/session.service.js";
+import { createSuperAdminNotification } from "../../superadmin-notifications/superadminNotification.service.js";
 
-// ── Safe select: never leak passwords or tokens ──
+// -- Safe select: never leak passwords or tokens --
 const SAFE_TENANT_SELECT = {
   id: true,
   name: true,
@@ -36,9 +36,9 @@ const SAFE_USER_SELECT = {
   createdAt: true,
 };
 
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
 // LIST TENANTS (paginated, filterable)
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
 export const getAllTenantsService = async ({ page, limit, search, status, isActive }) => {
   const where = {};
 
@@ -76,9 +76,9 @@ export const getAllTenantsService = async ({ page, limit, search, status, isActi
   };
 };
 
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
 // GET TENANT BY ID (detailed view)
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
 export const getTenantByIdService = async (id) => {
   const tenant = await prisma.tenant.findUnique({
     where: { id },
@@ -100,9 +100,9 @@ export const getTenantByIdService = async (id) => {
   return tenant;
 };
 
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
 // UPDATE TENANT
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
 export const updateTenantService = async (id, data, actor, meta) => {
   const existing = await prisma.tenant.findUnique({ where: { id } });
   if (!existing) {
@@ -166,9 +166,9 @@ export const updateTenantService = async (id, data, actor, meta) => {
   return updated;
 };
 
-// ═══════════════════════════════════════════════════════════════
-// APPROVE TENANT (PENDING → ONBOARDING)
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
+// APPROVE TENANT (PENDING ? ONBOARDING)
+// ---------------------------------------------------------------
 export const approveTenantService = async (id, actor, meta) => {
   const tenant = await prisma.tenant.findUnique({ where: { id } });
   if (!tenant) {
@@ -196,7 +196,7 @@ export const approveTenantService = async (id, actor, meta) => {
     actorEmail: actor.email,
     action: "APPROVE_TENANT",
     module: "TENANT_MANAGEMENT",
-    description: `Approved tenant "${tenant.name}" — status changed PENDING → ONBOARDING`,
+    description: `Approved tenant "${tenant.name}" � status changed PENDING ? ONBOARDING`,
     targetId: id,
     targetType: "TENANT",
     targetName: tenant.name,
@@ -207,9 +207,9 @@ export const approveTenantService = async (id, actor, meta) => {
   return updated;
 };
 
-// ═══════════════════════════════════════════════════════════════
-// BLOCK TENANT (any status → BLOCKED + revoke all sessions)
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
+// BLOCK TENANT (any status ? BLOCKED + revoke all sessions)
+// ---------------------------------------------------------------
 export const blockTenantService = async (id, reason, actor, meta) => {
   const tenant = await prisma.tenant.findUnique({ where: { id } });
   if (!tenant) {
@@ -271,9 +271,9 @@ export const blockTenantService = async (id, reason, actor, meta) => {
   return updated;
 };
 
-// ═══════════════════════════════════════════════════════════════
-// UNBLOCK TENANT (BLOCKED → ACTIVE or ONBOARDING)
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
+// UNBLOCK TENANT (BLOCKED ? ACTIVE or ONBOARDING)
+// ---------------------------------------------------------------
 export const unblockTenantService = async (id, actor, meta) => {
   const tenant = await prisma.tenant.findUnique({ where: { id } });
   if (!tenant) {
@@ -289,8 +289,8 @@ export const unblockTenantService = async (id, actor, meta) => {
   }
 
   // Determine correct status to restore:
-  // If onboarding was never completed → ONBOARDING
-  // If onboarding was complete → ACTIVE
+  // If onboarding was never completed ? ONBOARDING
+  // If onboarding was complete ? ACTIVE
   const restoredStatus = tenant.onboardingStep >= 5 ? "ACTIVE" : "ONBOARDING";
 
   const updated = await prisma.tenant.update({
@@ -306,7 +306,7 @@ export const unblockTenantService = async (id, actor, meta) => {
     actorEmail: actor.email,
     action: "UNBLOCK_TENANT",
     module: "TENANT_MANAGEMENT",
-    description: `Unblocked tenant "${tenant.name}" — status restored to ${restoredStatus}`,
+    description: `Unblocked tenant "${tenant.name}" � status restored to ${restoredStatus}`,
     targetId: id,
     targetType: "TENANT",
     targetName: tenant.name,
@@ -318,9 +318,9 @@ export const unblockTenantService = async (id, actor, meta) => {
   return updated;
 };
 
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
 // DEACTIVATE TENANT (soft disable, keeps status)
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
 export const deactivateTenantService = async (id, actor, meta) => {
   const tenant = await prisma.tenant.findUnique({ where: { id } });
   if (!tenant) {
@@ -362,9 +362,9 @@ export const deactivateTenantService = async (id, actor, meta) => {
   return updated;
 };
 
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
 // REACTIVATE TENANT
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
 export const reactivateTenantService = async (id, actor, meta) => {
   const tenant = await prisma.tenant.findUnique({ where: { id } });
   if (!tenant) {
@@ -403,9 +403,9 @@ export const reactivateTenantService = async (id, actor, meta) => {
   return updated;
 };
 
-// ═══════════════════════════════════════════════════════════════
-// DELETE TENANT (soft delete — cascade deactivation)
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
+// DELETE TENANT (soft delete � cascade deactivation)
+// ---------------------------------------------------------------
 export const deleteTenantService = async (id, actor, meta) => {
   const tenant = await prisma.tenant.findUnique({
     where: { id },
@@ -459,9 +459,9 @@ export const deleteTenantService = async (id, actor, meta) => {
   return { id, deleted: true };
 };
 
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
 // DEACTIVATE USER (SRAdmin moderation on a specific agent)
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
 export const deactivateUserService = async (id, actor, meta) => {
   const user = await prisma.user.findUnique({
     where: { id },
@@ -508,9 +508,9 @@ export const deactivateUserService = async (id, actor, meta) => {
   return updated;
 };
 
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
 // REACTIVATE USER
-// ═══════════════════════════════════════════════════════════════
+// ---------------------------------------------------------------
 export const reactivateUserService = async (id, actor, meta) => {
   const user = await prisma.user.findUnique({
     where: { id },
@@ -531,7 +531,7 @@ export const reactivateUserService = async (id, actor, meta) => {
 
   // Don't reactivate if parent tenant is blocked
   if (user.tenant?.status === "BLOCKED") {
-    const err = new Error("Cannot reactivate agent — parent tenant is blocked");
+    const err = new Error("Cannot reactivate agent � parent tenant is blocked");
     err.status = 400;
     throw err;
   }

@@ -14,8 +14,8 @@
  * For onboarding endpoints, use requireOnboarding instead.
  *
  * Sets on req:
- *   req.tenant   — full Tenant record (without 1:1 relation secrets)
- *   req.tenantId — tenant's database ID
+ *   req.tenant   � full Tenant record (without 1:1 relation secrets)
+ *   req.tenantId � tenant's database ID
  */
 
 import prisma from "../config/prisma.js";
@@ -29,7 +29,7 @@ export const requireTenant = async (req, res, next) => {
   try {
     const tenant = await prisma.tenant.findUnique({
       where: { id: req.actorId },
-      // Select only safe fields — do NOT include auth, whatsapp, zoho, subscription secrets
+      // Select only safe fields � do NOT include auth, whatsapp, zoho, subscription secrets
       select: {
         id: true,
         tenantName: true,

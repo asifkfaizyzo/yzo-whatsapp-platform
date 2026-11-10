@@ -24,15 +24,15 @@ export const connect = async (req, res) => {
       webhookSecret,
     });
 
-    // 🆕 Auto-trigger initial product catalog sync (non-blocking)
+    // ?? Auto-trigger initial product catalog sync (non-blocking)
     syncAllProducts(tenantId)
       .then((result) => {
         console.log(
-          `🚀 [Connect] Initial product sync completed: ${result.totalSynced} products`,
+          `?? [Connect] Initial product sync completed: ${result.totalSynced} products`,
         );
       })
       .catch((err) => {
-        console.error("⚠️ [Connect] Initial product sync failed:", err.message);
+        console.error("?? [Connect] Initial product sync failed:", err.message);
       });
 
     return res.json({
@@ -98,7 +98,7 @@ export const disconnect = async (req, res) => {
   }
 };
 
-// ── Back-in-Stock Subscription Endpoints ──
+// -- Back-in-Stock Subscription Endpoints --
 
 export const subscribeBackInStock = async (req, res) => {
   try {
@@ -180,7 +180,7 @@ export const getBackInStockSubscriptions = async (req, res) => {
   }
 };
 
-// ── Category 5: Bulk Customer Sync Endpoint ──
+// -- Category 5: Bulk Customer Sync Endpoint --
 
 export const triggerCustomerSync = async (req, res) => {
   try {
@@ -200,7 +200,7 @@ export const triggerCustomerSync = async (req, res) => {
     });
   } catch (error) {
     console.error(
-      "❌ [Shopify Controller] Bulk customer sync error:",
+      "? [Shopify Controller] Bulk customer sync error:",
       error.message,
     );
     return res.status(500).json({ success: false, message: error.message });

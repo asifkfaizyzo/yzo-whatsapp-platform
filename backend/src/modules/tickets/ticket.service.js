@@ -9,18 +9,18 @@ import {
 } from "../../lib/socket.js";
 import { createAuditLog } from "../audit/audit.service.js";
 
-// ── Generate Ticket Number ──
+// -- Generate Ticket Number --
 const generateTicketNumber = async () => {
   const count = await prisma.ticket.count();
   const number = String(count + 1).padStart(4, "0");
   return `TKT-${number}`;
 };
 
-// ══════════════════════════════════════════
+// ------------------------------------------
 // TENANT SERVICES
-// ══════════════════════════════════════════
+// ------------------------------------------
 
-// ── Create Ticket (Tenant → SuperAdmin) ──
+// -- Create Ticket (Tenant ? SuperAdmin) --
 export const createTenantTicketService = async (tenantId, data) => {
   const ticketNumber = await generateTicketNumber();
 
@@ -33,7 +33,7 @@ export const createTenantTicketService = async (tenantId, data) => {
     select: { email: true },
   });
 
-  console.log("📧 Tenant ticket — SuperAdmin email:", superAdmin?.email);
+  console.log("?? Tenant ticket � SuperAdmin email:", superAdmin?.email);
 
   const ticket = await prisma.ticket.create({
     data: {
@@ -49,13 +49,13 @@ export const createTenantTicketService = async (tenantId, data) => {
     },
   });
 
-  // ── Zoho Integration Hook: Sync Ticket to Zoho CRM Cases ──
+  // -- Zoho Integration Hook: Sync Ticket to Zoho CRM Cases --
   try {
     const { syncTicketToZohoCase } =
       await import("../zoho/crm/zoho.case.service.js");
     syncTicketToZohoCase(tenantId, ticket.id).catch((err) => {
       console.error(
-        `⚠️ [ZohoCase] Background sync skipped/failed for Ticket ${ticket.ticketNumber}:`,
+        `?? [ZohoCase] Background sync skipped/failed for Ticket ${ticket.ticketNumber}:`,
         err.message,
       );
     });
@@ -63,7 +63,7 @@ export const createTenantTicketService = async (tenantId, data) => {
     // Zoho module not connected or active
   }
 
-  // ✅ LOG audit log
+  // ? LOG audit log
   await createAuditLog({
     actorId: tenantId,
     actorType: "TENANT",
@@ -84,11 +84,11 @@ export const createTenantTicketService = async (tenantId, data) => {
     },
   });
 
-  // ── Notify SuperAdmin ──
+  // -- Notify SuperAdmin --
   const notification = await prisma.superAdminNotification.create({
     data: {
       type: "new_ticket",
-      title: "🎫 New Ticket Raised",
+      title: "?? New Ticket Raised",
       message: `${tenant.tenantName} raised a ticket: "${data.title}"`,
       metadata: {
         ticketId: ticket.id,
@@ -101,10 +101,10 @@ export const createTenantTicketService = async (tenantId, data) => {
 
   emitToSuperAdmin("superadmin_notification", { notification });
 
-  // ── Email SuperAdmin ──
+  // -- Email SuperAdmin --
   await sendTicketEmail({
     to: superAdmin?.email,
-    subject: `New Ticket ${ticketNumber} — ${data.title}`,
+    subject: `New Ticket ${ticketNumber} � ${data.title}`,
     ticketNumber,
     title: data.title,
     description: data.description,
@@ -116,7 +116,7 @@ export const createTenantTicketService = async (tenantId, data) => {
   return ticket;
 };
 
-// ── Get All Tickets for Tenant (own tickets) ──
+// -- Get All Tickets for Tenant (own tickets) --
 export const getTenantTicketsService = async (tenantId) => {
   return await prisma.ticket.findMany({
     where: { tenantId, raisedBy: "TENANT" },
@@ -140,7 +140,7 @@ export const getTenantTicketsService = async (tenantId) => {
   });
 };
 
-// ── Get Single Ticket Detail (Tenant own ticket) ──
+// -- Get Single Ticket Detail (Tenant own ticket) --
 export const getTenantTicketDetailService = async (ticketId, tenantId) => {
   return await prisma.ticket.findFirst({
     where: { id: ticketId, tenantId },
@@ -155,7 +155,7 @@ export const getTenantTicketDetailService = async (ticketId, tenantId) => {
   });
 };
 
-// ── Tenant Reply to Own Ticket (→ SuperAdmin) ──
+// -- Tenant Reply to Own Ticket (? SuperAdmin) --
 export const tenantReplyTicketService = async (ticketId, tenantId, message) => {
   const ticket = await prisma.ticket.findFirst({
     where: { id: ticketId, tenantId },
@@ -171,7 +171,7 @@ export const tenantReplyTicketService = async (ticketId, tenantId, message) => {
     select: { email: true },
   });
 
-  console.log("📧 Tenant reply — SuperAdmin email:", superAdmin?.email);
+  console.log("?? Tenant reply � SuperAdmin email:", superAdmin?.email);
 
   const ticketMessage = await prisma.ticketMessage.create({
     data: {
@@ -191,7 +191,7 @@ export const tenantReplyTicketService = async (ticketId, tenantId, message) => {
   const notification = await prisma.superAdminNotification.create({
     data: {
       type: "ticket_reply",
-      title: "💬 Ticket Reply",
+      title: "?? Ticket Reply",
       message: `${tenant.tenantName} replied on ticket ${ticket.ticketNumber}`,
       metadata: { ticketId, ticketNumber: ticket.ticketNumber, tenantId },
     },
@@ -211,7 +211,7 @@ export const tenantReplyTicketService = async (ticketId, tenantId, message) => {
   return ticketMessage;
 };
 
-// ── Tenant Close Own Ticket ──
+// -- Tenant Close Own Ticket --
 export const closeTenantTicketService = async (ticketId, tenantId) => {
   return await prisma.ticket.updateMany({
     where: { id: ticketId, tenantId },
@@ -219,13 +219,13 @@ export const closeTenantTicketService = async (ticketId, tenantId) => {
   });
 };
 
-// ══════════════════════════════════════════
+// ------------------------------------------
 // USER SERVICES
-// ══════════════════════════════════════════
+// ------------------------------------------
 
-// ── Create Ticket (User → Tenant) ──
+// -- Create Ticket (User ? Tenant) --
 export const createUserTicketService = async (userId, tenantId, data) => {
-  console.log("🎫 createUserTicket called:", { userId, tenantId, data });
+  console.log("?? createUserTicket called:", { userId, tenantId, data });
 
   const ticketNumber = await generateTicketNumber();
 
@@ -239,8 +239,8 @@ export const createUserTicketService = async (userId, tenantId, data) => {
     select: { tenantName: true, email: true },
   });
 
-  console.log("📧 User ticket — Tenant email:", tenant?.email);
-  console.log("👤 User found:", user);
+  console.log("?? User ticket � Tenant email:", tenant?.email);
+  console.log("?? User found:", user);
 
   const ticket = await prisma.ticket.create({
     data: {
@@ -257,13 +257,13 @@ export const createUserTicketService = async (userId, tenantId, data) => {
     },
   });
 
-  // ── Zoho Integration Hook: Sync Ticket to Zoho CRM Cases ──
+  // -- Zoho Integration Hook: Sync Ticket to Zoho CRM Cases --
   try {
     const { syncTicketToZohoCase } =
       await import("../zoho/crm/zoho.case.service.js");
     syncTicketToZohoCase(tenantId, ticket.id).catch((err) => {
       console.error(
-        `⚠️ [ZohoCase] Background sync skipped/failed for Ticket ${ticket.ticketNumber}:`,
+        `?? [ZohoCase] Background sync skipped/failed for Ticket ${ticket.ticketNumber}:`,
         err.message,
       );
     });
@@ -271,7 +271,7 @@ export const createUserTicketService = async (userId, tenantId, data) => {
     // Zoho module not connected or active
   }
 
-  // ✅ LOG audit log
+  // ? LOG audit log
   await createAuditLog({
     actorId: userId,
     actorType: "USER",
@@ -292,13 +292,13 @@ export const createUserTicketService = async (userId, tenantId, data) => {
     },
   });
 
-  // ── Notify Tenant (DB + Socket) ──
+  // -- Notify Tenant (DB + Socket) --
   await prisma.notification.create({
     data: {
       tenantId,
       userId: null,
       type: "new_ticket",
-      title: "🎫 New Ticket Raised",
+      title: "?? New Ticket Raised",
       message: `${user.name} raised a ticket: "${data.title}"`,
       metadata: {
         ticketId: ticket.id,
@@ -316,7 +316,7 @@ export const createUserTicketService = async (userId, tenantId, data) => {
     raisedBy: user.name,
   });
 
-  // ── Email Tenant ──
+  // -- Email Tenant --
   await sendTicketEmail({
     to: tenant?.email,
     subject: `New Ticket ${ticketNumber} from ${user.name}`,
@@ -331,7 +331,7 @@ export const createUserTicketService = async (userId, tenantId, data) => {
   return ticket;
 };
 
-// ── Get All Tickets for User ──
+// -- Get All Tickets for User --
 export const getUserTicketsService = async (userId) => {
   return await prisma.ticket.findMany({
     where: { userId, raisedBy: "USER" },
@@ -354,7 +354,7 @@ export const getUserTicketsService = async (userId) => {
   });
 };
 
-// ── Get Single Ticket Detail (User) ──
+// -- Get Single Ticket Detail (User) --
 export const getUserTicketDetailService = async (ticketId, userId) => {
   return await prisma.ticket.findFirst({
     where: { id: ticketId, userId },
@@ -369,14 +369,14 @@ export const getUserTicketDetailService = async (ticketId, userId) => {
   });
 };
 
-// ── User Reply to Ticket (→ Tenant) ──
+// -- User Reply to Ticket (? Tenant) --
 export const userReplyTicketService = async (
   ticketId,
   userId,
   tenantId,
   message,
 ) => {
-  console.log("💬 userReply:", { ticketId, userId, tenantId, message });
+  console.log("?? userReply:", { ticketId, userId, tenantId, message });
 
   const ticket = await prisma.ticket.findFirst({
     where: { id: ticketId, userId },
@@ -393,7 +393,7 @@ export const userReplyTicketService = async (
     select: { email: true, tenantName: true },
   });
 
-  console.log("📧 User reply — Tenant email:", tenant?.email);
+  console.log("?? User reply � Tenant email:", tenant?.email);
 
   const ticketMessage = await prisma.ticketMessage.create({
     data: {
@@ -410,13 +410,13 @@ export const userReplyTicketService = async (
     data: { status: "IN_PROGRESS", updatedAt: new Date() },
   });
 
-  // ── Notify Tenant (DB + Socket) ──
+  // -- Notify Tenant (DB + Socket) --
   await prisma.notification.create({
     data: {
       tenantId,
       userId: null,
       type: "ticket_reply",
-      title: "💬 Ticket Reply",
+      title: "?? Ticket Reply",
       message: `${user.name} replied on ticket ${ticket.ticketNumber}`,
       metadata: { ticketId, ticketNumber: ticket.ticketNumber },
       isRead: false,
@@ -430,7 +430,7 @@ export const userReplyTicketService = async (
     from: user.name,
   });
 
-  // ── Email Tenant ──
+  // -- Email Tenant --
   await sendTicketEmail({
     to: tenant?.email,
     subject: `Reply on Ticket ${ticket.ticketNumber} from ${user.name}`,
@@ -443,11 +443,11 @@ export const userReplyTicketService = async (
   return ticketMessage;
 };
 
-// ══════════════════════════════════════════
+// ------------------------------------------
 // TENANT MANAGING USER TICKETS
-// ══════════════════════════════════════════
+// ------------------------------------------
 
-// ── Get All User Tickets for Tenant ──
+// -- Get All User Tickets for Tenant --
 export const getTenantUserTicketsService = async (tenantId) => {
   return await prisma.ticket.findMany({
     where: { tenantId, raisedBy: "USER" },
@@ -463,7 +463,7 @@ export const getTenantUserTicketsService = async (tenantId) => {
   });
 };
 
-// ── Tenant Reply to User Ticket (→ User) ──
+// -- Tenant Reply to User Ticket (? User) --
 export const tenantReplyUserTicketService = async (
   ticketId,
   tenantId,
@@ -480,7 +480,7 @@ export const tenantReplyUserTicketService = async (
     select: { tenantName: true },
   });
 
-  console.log("📧 Tenant reply to user — User email:", ticket.user?.email);
+  console.log("?? Tenant reply to user � User email:", ticket.user?.email);
 
   const ticketMessage = await prisma.ticketMessage.create({
     data: {
@@ -497,13 +497,13 @@ export const tenantReplyUserTicketService = async (
     data: { status: "IN_PROGRESS", updatedAt: new Date() },
   });
 
-  // ── Notify User (DB + Socket) ──
+  // -- Notify User (DB + Socket) --
   await prisma.notification.create({
     data: {
       tenantId,
       userId: ticket.user.id,
       type: "ticket_reply",
-      title: "💬 Reply on Your Ticket",
+      title: "?? Reply on Your Ticket",
       message: `${tenant.tenantName} replied on ticket ${ticket.ticketNumber}`,
       metadata: { ticketId, ticketNumber: ticket.ticketNumber },
       isRead: false,
@@ -517,7 +517,7 @@ export const tenantReplyUserTicketService = async (
     from: tenant.tenantName,
   });
 
-  // ── Email User ──
+  // -- Email User --
   await sendTicketEmail({
     to: ticket.user?.email,
     subject: `Reply on your Ticket ${ticket.ticketNumber}`,
@@ -530,7 +530,7 @@ export const tenantReplyUserTicketService = async (
   return ticketMessage;
 };
 
-// ── Tenant Escalate User Ticket to SuperAdmin ──
+// -- Tenant Escalate User Ticket to SuperAdmin --
 export const escalateTicketService = async (ticketId, tenantId) => {
   const ticket = await prisma.ticket.findFirst({
     where: { id: ticketId, tenantId },
@@ -546,14 +546,14 @@ export const escalateTicketService = async (ticketId, tenantId) => {
     select: { email: true },
   });
 
-  console.log("📧 Escalate — SuperAdmin email:", superAdmin?.email);
+  console.log("?? Escalate � SuperAdmin email:", superAdmin?.email);
 
   const updated = await prisma.ticket.update({
     where: { id: ticketId },
     data: { isEscalated: true, updatedAt: new Date() },
   });
 
-  // ✅ LOG audit log
+  // ? LOG audit log
   await createAuditLog({
     actorId: tenantId,
     actorType: "TENANT",
@@ -575,7 +575,7 @@ export const escalateTicketService = async (ticketId, tenantId) => {
   const notification = await prisma.superAdminNotification.create({
     data: {
       type: "ticket_escalated",
-      title: "⚠️ Ticket Escalated",
+      title: "?? Ticket Escalated",
       message: `${tenant.tenantName} escalated ticket ${ticket.ticketNumber} to SuperAdmin`,
       metadata: {
         ticketId,
@@ -588,13 +588,13 @@ export const escalateTicketService = async (ticketId, tenantId) => {
 
   emitToSuperAdmin("superadmin_notification", { notification });
 
-  // ── Confirm to Tenant (DB + Socket) ──
+  // -- Confirm to Tenant (DB + Socket) --
   await prisma.notification.create({
     data: {
       tenantId,
       userId: null,
       type: "ticket_escalated",
-      title: "⚠️ Ticket Escalated",
+      title: "?? Ticket Escalated",
       message: `Ticket ${ticket.ticketNumber} has been escalated to SuperAdmin successfully`,
       metadata: { ticketId, ticketNumber: ticket.ticketNumber },
       isRead: false,
@@ -607,10 +607,10 @@ export const escalateTicketService = async (ticketId, tenantId) => {
     message: "Your ticket has been escalated to SuperAdmin successfully",
   });
 
-  // ── Email SuperAdmin ──
+  // -- Email SuperAdmin --
   await sendTicketEmail({
     to: superAdmin?.email,
-    subject: `⚠️ Escalated Ticket ${ticket.ticketNumber}`,
+    subject: `?? Escalated Ticket ${ticket.ticketNumber}`,
     ticketNumber: ticket.ticketNumber,
     title: ticket.title,
     description: `Ticket escalated by ${tenant.tenantName}`,
@@ -620,7 +620,7 @@ export const escalateTicketService = async (ticketId, tenantId) => {
   return updated;
 };
 
-// ── Tenant Resolve User Ticket ──
+// -- Tenant Resolve User Ticket --
 export const resolveTenantUserTicketService = async (ticketId, tenantId) => {
   const ticket = await prisma.ticket.findFirst({
     where: { id: ticketId, tenantId },
@@ -634,14 +634,14 @@ export const resolveTenantUserTicketService = async (ticketId, tenantId) => {
   });
 
   if (ticket.user) {
-    console.log("📧 Resolve — User email:", ticket.user?.email);
+    console.log("?? Resolve � User email:", ticket.user?.email);
 
     await prisma.notification.create({
       data: {
         tenantId,
         userId: ticket.user.id,
         type: "ticket_resolved",
-        title: "✅ Ticket Resolved",
+        title: "? Ticket Resolved",
         message: `Your ticket ${ticket.ticketNumber} has been resolved`,
         metadata: { ticketId, ticketNumber: ticket.ticketNumber },
         isRead: false,
@@ -657,7 +657,7 @@ export const resolveTenantUserTicketService = async (ticketId, tenantId) => {
 
     await sendTicketEmail({
       to: ticket.user?.email,
-      subject: `✅ Ticket ${ticket.ticketNumber} Resolved`,
+      subject: `? Ticket ${ticket.ticketNumber} Resolved`,
       ticketNumber: ticket.ticketNumber,
       title: ticket.title,
       description: "Your ticket has been resolved by the support team.",
@@ -668,11 +668,11 @@ export const resolveTenantUserTicketService = async (ticketId, tenantId) => {
   return updated;
 };
 
-// ══════════════════════════════════════════
+// ------------------------------------------
 // SUPERADMIN SERVICES
-// ══════════════════════════════════════════
+// ------------------------------------------
 
-// ── Get All Tickets (SuperAdmin) ──
+// -- Get All Tickets (SuperAdmin) --
 export const getAllTicketsService = async (filters = {}) => {
   const where = {};
   if (filters.status) where.status = filters.status;
@@ -696,7 +696,7 @@ export const getAllTicketsService = async (filters = {}) => {
   });
 };
 
-// ── Get Single Ticket Detail (SuperAdmin) ──
+// -- Get Single Ticket Detail (SuperAdmin) --
 export const getAdminTicketDetailService = async (ticketId) => {
   return await prisma.ticket.findUnique({
     where: { id: ticketId },
@@ -708,7 +708,7 @@ export const getAdminTicketDetailService = async (ticketId) => {
   });
 };
 
-// ── SuperAdmin Reply ──
+// -- SuperAdmin Reply --
 export const adminReplyTicketService = async (
   ticketId,
   superAdminId,
@@ -740,15 +740,15 @@ export const adminReplyTicketService = async (
   });
 
   if (!isInternal) {
-    console.log("📧 Admin reply — Tenant email:", ticket.tenant?.email);
+    console.log("?? Admin reply � Tenant email:", ticket.tenant?.email);
 
-    // ── Notify + Email Tenant ──
+    // -- Notify + Email Tenant --
     await prisma.notification.create({
       data: {
         tenantId: ticket.tenant.id,
         userId: null,
         type: "ticket_reply",
-        title: "💬 Ticket Reply from Support",
+        title: "?? Ticket Reply from Support",
         message: `Support Team replied on ticket ${ticket.ticketNumber}`,
         metadata: { ticketId, ticketNumber: ticket.ticketNumber },
         isRead: false,
@@ -771,16 +771,16 @@ export const adminReplyTicketService = async (
       raisedBy: "Support Team",
     });
 
-    // ── If raised by USER → also notify + email User ──
+    // -- If raised by USER ? also notify + email User --
     if (ticket.raisedBy === "USER" && ticket.user) {
-      console.log("📧 Admin reply — User email:", ticket.user?.email);
+      console.log("?? Admin reply � User email:", ticket.user?.email);
 
       await prisma.notification.create({
         data: {
           tenantId: ticket.tenant.id,
           userId: ticket.user.id,
           type: "ticket_reply",
-          title: "💬 Reply on Your Ticket",
+          title: "?? Reply on Your Ticket",
           message: `Support Team replied on ticket ${ticket.ticketNumber}`,
           metadata: { ticketId, ticketNumber: ticket.ticketNumber },
           isRead: false,
@@ -808,7 +808,7 @@ export const adminReplyTicketService = async (
   return ticketMessage;
 };
 
-// ── SuperAdmin Change Status ──
+// -- SuperAdmin Change Status --
 export const updateTicketStatusService = async (ticketId, status) => {
   const ticket = await prisma.ticket.findUnique({
     where: { id: ticketId },
@@ -825,14 +825,14 @@ export const updateTicketStatusService = async (ticketId, status) => {
   });
 
   if (status === "RESOLVED" || status === "CLOSED") {
-    console.log("📧 Status update — Tenant email:", ticket.tenant?.email);
+    console.log("?? Status update � Tenant email:", ticket.tenant?.email);
 
     await prisma.notification.create({
       data: {
         tenantId: ticket.tenant.id,
         userId: null,
         type: "ticket_status_updated",
-        title: `🔄 Ticket ${status}`,
+        title: `?? Ticket ${status}`,
         message: `Ticket ${ticket.ticketNumber} is now ${status.toLowerCase()}`,
         metadata: { ticketId, ticketNumber: ticket.ticketNumber, status },
         isRead: false,
@@ -847,7 +847,7 @@ export const updateTicketStatusService = async (ticketId, status) => {
 
     await sendTicketEmail({
       to: ticket.tenant?.email,
-      subject: `Ticket ${ticket.ticketNumber} — ${status}`,
+      subject: `Ticket ${ticket.ticketNumber} � ${status}`,
       ticketNumber: ticket.ticketNumber,
       title: ticket.title,
       description: `Your ticket status has been updated to ${status}.`,
@@ -855,14 +855,14 @@ export const updateTicketStatusService = async (ticketId, status) => {
     });
 
     if (ticket.raisedBy === "USER" && ticket.user) {
-      console.log("📧 Status update — User email:", ticket.user?.email);
+      console.log("?? Status update � User email:", ticket.user?.email);
 
       await prisma.notification.create({
         data: {
           tenantId: ticket.tenant.id,
           userId: ticket.user.id,
           type: "ticket_status_updated",
-          title: `🔄 Ticket ${status}`,
+          title: `?? Ticket ${status}`,
           message: `Your ticket ${ticket.ticketNumber} is now ${status.toLowerCase()}`,
           metadata: { ticketId, ticketNumber: ticket.ticketNumber, status },
           isRead: false,
@@ -877,7 +877,7 @@ export const updateTicketStatusService = async (ticketId, status) => {
 
       await sendTicketEmail({
         to: ticket.user?.email,
-        subject: `Your Ticket ${ticket.ticketNumber} — ${status}`,
+        subject: `Your Ticket ${ticket.ticketNumber} � ${status}`,
         ticketNumber: ticket.ticketNumber,
         title: ticket.title,
         description: `Your ticket has been ${status.toLowerCase()} by the support team.`,
@@ -889,7 +889,7 @@ export const updateTicketStatusService = async (ticketId, status) => {
   return updated;
 };
 
-// ── SuperAdmin Change Priority ──
+// -- SuperAdmin Change Priority --
 export const updateTicketPriorityService = async (ticketId, priority) => {
   return await prisma.ticket.update({
     where: { id: ticketId },

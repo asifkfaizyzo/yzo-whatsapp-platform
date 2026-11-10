@@ -1,11 +1,12 @@
 // backend/src/modules/contacts/contact.routes.js (do not remove this comment)
 
 import express from "express";
-import { verifyTenantOrUser } from "../../middlewares/auth.verifyTenantOrUser.js";
-import { verifyTenant } from "../../middlewares/auth.tenant.js";
+import { authenticate } from "../../middleware/authenticate.js";
+import { requireTenantOrUser } from "../../middleware/requireTenantOrUser.js";
+import { requireTenant } from "../../middleware/requireTenant.js";
 import { upload } from "../../config/multer.js";
-import validate from "../../middlewares/validate.middleware.js";
-import { checkSubscriptionAccess } from "../../middlewares/subscription.access.js";
+import validate from "../../middleware/validate.js";
+import { checkSubscriptionAccess } from "../../middleware/subscriptionAccess.js";
 // import prisma from '../../config/prisma.js';
 
 // ✅ All controllers from contact.controller.js
@@ -52,14 +53,14 @@ const router = express.Router();
 // ===================== CSV GUIDELINES & SAMPLE =====================
 router.get(
   "/import-guidelines",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   checkSubscriptionAccess,
   getImportGuidelinesController,
 );
 
 router.get(
   "/sample-csv",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   checkSubscriptionAccess,
   downloadSampleCSVController,
 );
@@ -67,7 +68,7 @@ router.get(
 // ===================== CONTACT CRUD =====================
 router.post(
   "/create-contact",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   checkSubscriptionAccess,
   validate(createContactSchema),
   createContactController,
@@ -75,21 +76,21 @@ router.post(
 
 router.get(
   "/get-all-contacts",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   checkSubscriptionAccess,
   getAllContactsController,
 );
 
 router.get(
   "/by-user/:userId",
-  verifyTenant,
+  authenticate, requireTenant,
   checkSubscriptionAccess,
   getContactsByUser,
 );
 
 router.post(
   "/import",
-  verifyTenant,
+  authenticate, requireTenant,
   checkSubscriptionAccess,
   upload.single("file"),
   importContactsController,
@@ -97,7 +98,7 @@ router.post(
 
 router.get(
   "/get-contact/:id",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   checkSubscriptionAccess,
   validate(contactIdParamSchema),
   getContactByIdController,
@@ -105,7 +106,7 @@ router.get(
 
 router.put(
   "/update-contact/:id",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   checkSubscriptionAccess,
   validate(updateContactSchema),
   updateContactController,
@@ -113,7 +114,7 @@ router.put(
 
 router.delete(
   "/delete-contact/:id",
-  verifyTenant,
+  authenticate, requireTenant,
   checkSubscriptionAccess,
   validate(contactIdParamSchema),
   deleteContactController,
@@ -121,7 +122,7 @@ router.delete(
 
 router.post(
   "/bulk-delete",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   checkSubscriptionAccess,
   validate(bulkDeleteContactsSchema),
   bulkDeleteContactsController,
@@ -129,7 +130,7 @@ router.post(
 
 router.patch(
   "/block-contact/:id",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   checkSubscriptionAccess,
   validate(contactIdParamSchema),
   blockContactController,
@@ -137,7 +138,7 @@ router.patch(
 
 router.patch(
   "/unblock-contact/:id",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   checkSubscriptionAccess,
   validate(contactIdParamSchema),
   unblockContactController,
@@ -145,7 +146,7 @@ router.patch(
 
 router.post(
   "/bulk-delete",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   checkSubscriptionAccess,
   validate(bulkDeleteContactsSchema),
   bulkDeleteContactsController,
@@ -154,7 +155,7 @@ router.post(
 // ===================== PRIORITY ASSIGNMENT =====================
 router.patch(
   "/assign-by-priority",
-  verifyTenant,
+  authenticate, requireTenant,
   checkSubscriptionAccess,
   assignContactsByPriority,
 );
@@ -163,24 +164,24 @@ router.patch(
 // Add tag to contact
 router.post(
   "/:contactId/tags",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   checkSubscriptionAccess,
   addTagToContactController,
 );
 
 // Delete tag from contact
-// router.delete('/:contactId/tags/:tagId', verifyTenantOrUser, removeTagFromContact);
+// router.delete('/:contactId/tags/:tagId', authenticate, requireTenantOrUser, removeTagFromContact);
 // ✅ TEST - Remove middleware temporarily
 router.delete(
   "/:contactId/tags/:tagId",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   checkSubscriptionAccess,
   removeTagFromContactController,
 );
 // ===================== PHONE CONTACT IMPORT =====================
 router.post(
   "/import-phone",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   checkSubscriptionAccess,
   importPhoneContactsController,
 );

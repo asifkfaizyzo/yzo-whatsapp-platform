@@ -5,7 +5,7 @@ import { decrypt } from "../../lib/crypto.js";
 import redisConnection from "../../config/redis.js";
 import { createNotification } from "../notifications/notification.service.js";
 
-// ── In-Memory Multi-Worker Tenant Razorpay Cache with Redis Invalidation ──
+// -- In-Memory Multi-Worker Tenant Razorpay Cache with Redis Invalidation --
 const localRazorpayCache = new Map();
 const RZP_CACHE_TTL_MS = 60 * 1000; // 60-second TTL
 
@@ -14,7 +14,7 @@ const rzpSubClient = redisConnection.duplicate();
 rzpSubClient.subscribe("cache:invalidate:rzp", (err) => {
   if (err)
     console.error(
-      "❌ Failed to subscribe to cache:invalidate:rzp:",
+      "? Failed to subscribe to cache:invalidate:rzp:",
       err.message,
     );
 });
@@ -22,7 +22,7 @@ rzpSubClient.subscribe("cache:invalidate:rzp", (err) => {
 rzpSubClient.on("message", (channel, tenantId) => {
   if (channel === "cache:invalidate:rzp" && tenantId) {
     localRazorpayCache.delete(tenantId);
-    console.log(`🧹 Flushed local Razorpay cache for tenant ${tenantId}`);
+    console.log(`?? Flushed local Razorpay cache for tenant ${tenantId}`);
   }
 });
 
@@ -35,7 +35,7 @@ export const invalidateTenantRazorpayCache = async (tenantId) => {
   try {
     await redisConnection.publish("cache:invalidate:rzp", tenantId);
   } catch (err) {
-    console.error("❌ Failed to publish cache:invalidate:rzp:", err.message);
+    console.error("? Failed to publish cache:invalidate:rzp:", err.message);
   }
 };
 
@@ -84,7 +84,7 @@ export const createTenantRazorpayInstance = async (tenantId) => {
         });
       } catch (tokenErr) {
         console.warn(
-          `⚠️ [RazorpayOAuth] Failed to decrypt access token for tenant ${tenantId}:`,
+          `?? [RazorpayOAuth] Failed to decrypt access token for tenant ${tenantId}:`,
           tokenErr.message,
         );
       }
@@ -130,7 +130,7 @@ export const createTenantRazorpayInstance = async (tenantId) => {
         const remaining = response.headers?.["x-rate-limit-remaining"];
         if (remaining !== undefined && Number(remaining) < 50) {
           console.warn(
-            `⚠️ [Razorpay Rate Limit Alert] Only ${remaining} calls remaining in platform master pool!`,
+            `?? [Razorpay Rate Limit Alert] Only ${remaining} calls remaining in platform master pool!`,
           );
         }
         return response;
@@ -205,7 +205,7 @@ export const createOrderPaymentLink = async ({ order, tenant, contact }) => {
     });
 
     console.log(
-      `💳 Created Razorpay Payment Link (${paymentLink.id}) for Order #${order.orderNumber}: ${paymentLink.short_url}`,
+      `?? Created Razorpay Payment Link (${paymentLink.id}) for Order #${order.orderNumber}: ${paymentLink.short_url}`,
     );
     return { paymentLink, order: updatedOrder };
   } catch (error) {
@@ -215,7 +215,7 @@ export const createOrderPaymentLink = async ({ order, tenant, contact }) => {
       error.message ||
       JSON.stringify(error);
     console.error(
-      `❌ Payment link creation failed for Order #${order.orderNumber}:`,
+      `? Payment link creation failed for Order #${order.orderNumber}:`,
       errorDetail,
       {
         statusCode: error.statusCode,
@@ -249,7 +249,7 @@ export const createOrderPaymentLink = async ({ order, tenant, contact }) => {
       try {
         await createNotification({
           tenantId: tenant.id,
-          title: "⚠️ Razorpay Authorization Revoked / Invalid",
+          title: "?? Razorpay Authorization Revoked / Invalid",
           message: `Failed to create payment link for Order #${order.orderNumber}. Razorpay access was revoked or invalid. Switched checkout to Cash on Delivery.`,
           type: "SYSTEM",
         });
@@ -263,7 +263,7 @@ export const createOrderPaymentLink = async ({ order, tenant, contact }) => {
       // If COD is enabled, fallback automatically
       if (tenant.enableCod) {
         console.warn(
-          `⚠️ Falling back Order #${order.orderNumber} to COD due to Razorpay authentication error`,
+          `?? Falling back Order #${order.orderNumber} to COD due to Razorpay authentication error`,
         );
         const codOrder = await prisma.order.update({
           where: { id: order.id },
@@ -305,7 +305,7 @@ export const resendOrderPaymentLink = async ({ orderId, tenantId }) => {
 
   if (isExpired || !order.paymentLinkUrl) {
     console.log(
-      `🔄 Payment link expired/missing for Order #${order.orderNumber}. Generating fresh link...`,
+      `?? Payment link expired/missing for Order #${order.orderNumber}. Generating fresh link...`,
     );
     return await createOrderPaymentLink({
       order,
@@ -342,7 +342,7 @@ export const cancelOrderPaymentLink = async ({ orderId, tenantId }) => {
       const rzp = await createTenantRazorpayInstance(tenantId);
       await rzp.paymentLink.cancel(order.razorpayPaymentLinkId);
       console.log(
-        `🚫 Cancelled Razorpay Payment Link ${order.razorpayPaymentLinkId} on Razorpay`,
+        `?? Cancelled Razorpay Payment Link ${order.razorpayPaymentLinkId} on Razorpay`,
       );
     } catch (err) {
       console.warn(
@@ -422,7 +422,7 @@ export const initiateRefund = async (
   });
 
   console.log(
-    `💰 Refund initiated (${refund.id}) for Order #${order.orderNumber}. Full refund: ${isFullRefund}`,
+    `?? Refund initiated (${refund.id}) for Order #${order.orderNumber}. Full refund: ${isFullRefund}`,
   );
   return { refund, order: updatedOrder };
 };

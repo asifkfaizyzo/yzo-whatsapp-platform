@@ -26,9 +26,9 @@ const calcPctChange = (current, previous) => {
   return Number((((current - previous) / previous) * 100).toFixed(1));
 };
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // 1. PERFORMANCE KPIS
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 export const getReportKPIsService = async ({ startDate, endDate }) => {
   const { start, end, prevStart, prevEnd } = getPeriodDates(startDate, endDate);
 
@@ -271,9 +271,9 @@ export const getReportKPIsService = async ({ startDate, endDate }) => {
   };
 };
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // 2. MESSAGE VOLUME & TRENDS
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 export const getReportMessagesService = async ({ startDate, endDate }) => {
   const { start, end } = getPeriodDates(startDate, endDate);
 
@@ -417,9 +417,9 @@ export const getReportMessagesService = async ({ startDate, endDate }) => {
   };
 };
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // 3. DELIVERY PERFORMANCE
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 export const getReportDeliveryService = async ({ startDate, endDate }) => {
   const { start, end } = getPeriodDates(startDate, endDate);
 
@@ -618,9 +618,9 @@ export const getReportDeliveryService = async ({ startDate, endDate }) => {
   };
 };
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // 4. TENANT ACTIVITY & USAGE
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 export const getReportTenantsService = async ({
   startDate,
   endDate,
@@ -747,9 +747,9 @@ export const getReportTenantsService = async ({
   };
 };
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // 5. SYSTEM HEALTH
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 export const getReportSystemHealthService = async () => {
   // Query tenants that have configured whatsappPhoneId
   const tenantsWithWabaRaw = await prisma.tenant.findMany({

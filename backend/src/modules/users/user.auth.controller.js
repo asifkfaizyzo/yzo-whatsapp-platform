@@ -10,11 +10,11 @@ import {
   resetPasswordService,
   googleLoginService,
   setUsernameService,
-} from "./user.auth.service.new.js";
+} from "./user.auth.service.js";
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // HELPERS
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 const COOKIE_OPTIONS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
@@ -45,7 +45,7 @@ const getIp = (req) =>
 
 const getUserAgent = (req) => req.get("user-agent") || null;
 
-// ── Google Verification ──
+// -- Google Verification --
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const verifyGoogleCredential = async (credential) => {
@@ -63,9 +63,9 @@ const verifyGoogleCredential = async (credential) => {
   return { email: payload.email };
 };
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // ERROR HANDLER WRAPPER
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 const handle = (fn) => async (req, res) => {
   try {
     await fn(req, res);
@@ -78,9 +78,9 @@ const handle = (fn) => async (req, res) => {
   }
 };
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 1. LOGIN
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const login = handle(async (req, res) => {
   const { identifier, password, recaptchaToken } = req.body;
 
@@ -101,9 +101,9 @@ export const login = handle(async (req, res) => {
   });
 });
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 2. LOGOUT
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const logout = handle(async (req, res) => {
   const refreshToken =
     req.cookies?.user_refreshToken || req.body?.refreshToken;
@@ -121,9 +121,9 @@ export const logout = handle(async (req, res) => {
   return success(res, null, "Logged out successfully");
 });
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 3. REFRESH TOKEN
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const refresh = handle(async (req, res) => {
   const refreshToken =
     req.cookies?.user_refreshToken || req.body?.refreshToken;
@@ -141,9 +141,9 @@ export const refresh = handle(async (req, res) => {
   });
 });
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 4. FORGOT PASSWORD
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const forgotPassword = handle(async (req, res) => {
   const { email } = req.body;
 
@@ -156,9 +156,9 @@ export const forgotPassword = handle(async (req, res) => {
   return success(res, null, result.message);
 });
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 5. RESET PASSWORD
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const resetPassword = handle(async (req, res) => {
   const { token, newPassword } = req.body;
 
@@ -172,9 +172,9 @@ export const resetPassword = handle(async (req, res) => {
   return success(res, null, result.message);
 });
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 6. GOOGLE LOGIN
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const googleLogin = handle(async (req, res) => {
   const { credential } = req.body;
 
@@ -194,9 +194,9 @@ export const googleLogin = handle(async (req, res) => {
   });
 });
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // 7. SET USERNAME (Legacy guard)
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const setUsername = handle(async (req, res) => {
   const { username } = req.body;
   const userId = req.actorId;

@@ -1,33 +1,34 @@
 // backend/src/modules/tenant/contacts/tenant.contacts.routes.js (do not remove this comment)
 import express from "express";
 import * as tenantController from "./tenant.contacts.controller.js";
-import { verifyTenant } from "../../../middlewares/auth.tenant.js";
+import { authenticate } from "../../../middleware/authenticate.js";
+import { requireTenant } from "../../../middleware/requireTenant.js";
 
 const router = express.Router();
 
 router.patch(
   "/assign-contact/:contactId",
-  verifyTenant,
+  authenticate, requireTenant,
   tenantController.assignContactController,
 );
 router.patch(
   "/re-assign-contacts/:contactId",
-  verifyTenant,
+  authenticate, requireTenant,
   tenantController.reassignContactController,
 );
 router.patch(
   "/unassign-contact/:contactId",
-  verifyTenant,
+  authenticate, requireTenant,
   tenantController.unassignContactController,
 );
 router.get(
   "/unassigned-contacts",
-  verifyTenant,
+  authenticate, requireTenant,
   tenantController.getUnassigned,
 );
 router.patch(
   "/assign-multiple",
-  verifyTenant,
+  authenticate, requireTenant,
   tenantController.assignMultipleContacts,
 );
 

@@ -4,7 +4,7 @@ import flowService from "./flow.service.js";
 import { checkLimitAccess } from "../../lib/plan.limits.js";
 
 const flowController = {
-  // ── GET /api/flows ──
+  // -- GET /api/flows --
   getAllFlows: async (req, res) => {
     try {
       const tenantId = req.tenantId;
@@ -16,7 +16,7 @@ const flowController = {
     }
   },
 
-  // ── GET /api/flows/:id ──
+  // -- GET /api/flows/:id --
   getFlow: async (req, res) => {
     try {
       const tenantId = req.tenantId;
@@ -33,7 +33,7 @@ const flowController = {
     }
   },
 
-  // ── POST /api/flows ──
+  // -- POST /api/flows --
   createFlow: async (req, res) => {
     try {
       const tenantId = req.tenantId;
@@ -55,10 +55,10 @@ const flowController = {
     }
   },
 
-  // ── PUT /api/flows/:id ──
+  // -- PUT /api/flows/:id --
   saveFlow: async (req, res) => {
     try {
-      console.log("📥 saveFlow controller hit");
+      console.log("?? saveFlow controller hit");
       console.log("   flowId  :", req.params.id);
       console.log("   body keys:", Object.keys(req.body));
       console.log("   nodes count:", req.body.nodes?.length);
@@ -71,13 +71,13 @@ const flowController = {
       );
       res.json({ success: true, data: flow });
     } catch (error) {
-      console.error("❌ saveFlow controller error:", error); // ⭐ ADD THIS
-      console.error("❌ error message:", error.message); // ⭐ ADD THIS
+      console.error("? saveFlow controller error:", error); // ? ADD THIS
+      console.error("? error message:", error.message); // ? ADD THIS
       res.status(500).json({ success: false, message: error.message });
     }
   },
 
-  // ── DELETE /api/flows/:id ──
+  // -- DELETE /api/flows/:id --
   deleteFlow: async (req, res) => {
     try {
       const tenantId = req.tenantId;
@@ -88,7 +88,7 @@ const flowController = {
     }
   },
 
-  // ── PATCH /api/flows/:id/toggle ──
+  // -- PATCH /api/flows/:id/toggle --
   toggleFlow: async (req, res) => {
     try {
       const tenantId = req.tenantId;
@@ -104,8 +104,8 @@ const flowController = {
     }
   },
 
-  // ── PATCH /api/flows/:id/set-default ──
-  // ── PATCH /api/flows/:id/set-default ──
+  // -- PATCH /api/flows/:id/set-default --
+  // -- PATCH /api/flows/:id/set-default --
   setDefault: async (req, res) => {
     try {
       const tenantId = req.tenantId;
@@ -116,7 +116,7 @@ const flowController = {
     }
   },
 
-  // ── PATCH /api/flows/:id/unset-default ──
+  // -- PATCH /api/flows/:id/unset-default --
   unsetDefault: async (req, res) => {
     try {
       const tenantId = req.tenantId;
@@ -127,7 +127,7 @@ const flowController = {
     }
   },
 
-  // ── GET /api/flows/:id/keywords ──
+  // -- GET /api/flows/:id/keywords --
   getKeywords: async (req, res) => {
     try {
       const tenantId = req.tenantId;
@@ -138,24 +138,24 @@ const flowController = {
     }
   },
 
-  // ── POST /api/flows/:id/keywords ──
+  // -- POST /api/flows/:id/keywords --
   addKeywords: async (req, res) => {
     try {
       const tenantId = req.tenantId;
       const flowId = req.params.id;
 
-      // ⭐ DEBUG - see exactly what's coming in
-      console.log("🔍 Content-Type:", req.headers["content-type"]);
-      console.log("🔍 Full req.body:", JSON.stringify(req.body));
-      console.log("🔍 keywords value:", req.body.keywords);
-      console.log("🔍 typeof keywords:", typeof req.body.keywords);
+      // ? DEBUG - see exactly what's coming in
+      console.log("?? Content-Type:", req.headers["content-type"]);
+      console.log("?? Full req.body:", JSON.stringify(req.body));
+      console.log("?? keywords value:", req.body.keywords);
+      console.log("?? typeof keywords:", typeof req.body.keywords);
 
       const { keywords } = req.body;
 
-      console.log("📋 req.body:", req.body);
-      console.log("📋 keywords:", keywords);
+      console.log("?? req.body:", req.body);
+      console.log("?? keywords:", keywords);
 
-      // ⭐ VALIDATE
+      // ? VALIDATE
       if (!keywords || !Array.isArray(keywords) || keywords.length === 0) {
         return res.status(400).json({
           success: false,
@@ -170,7 +170,7 @@ const flowController = {
     }
   },
 
-  // ── DELETE /api/flows/keywords/:keywordId ──
+  // -- DELETE /api/flows/keywords/:keywordId --
   removeKeyword: async (req, res) => {
     try {
       const tenantId = req.tenantId;
@@ -181,7 +181,7 @@ const flowController = {
     }
   },
 
-  // ── GET /api/flows/keywords/all ──
+  // -- GET /api/flows/keywords/all --
   getAllKeywords: async (req, res) => {
     try {
       const tenantId = req.tenantId;

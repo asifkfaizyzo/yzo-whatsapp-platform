@@ -178,7 +178,7 @@ export const processCallMediaJob = async (job) => {
 
     if (tenantId) {
       console.log(
-        `📢 [Socket] Emitting call_recording_ready to tenant ${tenantId} for ${wacid}`,
+        `?? [Socket] Emitting call_recording_ready to tenant ${tenantId} for ${wacid}`,
       );
       emitToTenant(tenantId, "call_recording_ready", {
         wacid,
@@ -234,7 +234,7 @@ export const processCallMediaJob = async (job) => {
 
     if (tenantId) {
       console.log(
-        `📢 [Socket] Emitting call_transcript_ready to tenant ${tenantId} for ${wacid}`,
+        `?? [Socket] Emitting call_transcript_ready to tenant ${tenantId} for ${wacid}`,
       );
       emitToTenant(tenantId, "call_transcript_ready", {
         wacid,
@@ -246,7 +246,7 @@ export const processCallMediaJob = async (job) => {
   }
 
   console.log(
-    `✅ [CallMediaWorker] Downloaded and persisted ${type} for call ${wacid}`,
+    `? [CallMediaWorker] Downloaded and persisted ${type} for call ${wacid}`,
   );
 };
 
@@ -257,7 +257,7 @@ export const startCallMediaWorker = () => {
   });
 
   worker.on("failed", async (job, err) => {
-    console.error(`❌ [CallMediaWorker] Job ${job.id} failed:`, err.message);
+    console.error(`? [CallMediaWorker] Job ${job.id} failed:`, err.message);
     if (job.attemptsMade >= job.opts.attempts) {
       // Mark as failed in DB
       try {
@@ -278,6 +278,6 @@ export const startCallMediaWorker = () => {
     }
   });
 
-  console.log("👷 CallMedia Worker initialized");
+  console.log("?? CallMedia Worker initialized");
   return worker;
 };
