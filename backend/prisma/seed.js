@@ -228,6 +228,79 @@ async function main() {
   console.log("\n✅ Platform Settings (GST) seeded");
 
   // ══════════════════════════════════════
+  // Step 3.1: Seed Demo Tenant + Agent + Subscription
+  // ══════════════════════════════════════
+  const demoEmail = process.env.DEMO_TENANT_EMAIL || "demo@sudoreply.com";
+  const demoPass = process.env.DEMO_TENANT_PASSWORD || "Demo@1234";
+  const demoHashedPw = await bcrypt.hash(demoPass, 10);
+
+  const demoTenant = await prisma.tenant.upsert({
+    where: { email: demoEmail },
+    update: {},
+    create: {
+      email: demoEmail,
+      password: demoHashedPw,
+      firstName: "Demo",
+      lastName: "Tenant",
+      username: "demo_tenant",
+      tenantName: "Demo Corp",
+      phone: "+919876543210",
+      websiteUrl: "https://democorp.com",
+      companySize: "11-50",
+      useCase: "Testing and development",
+      status: "ACTIVE",
+      isActive: true,
+      isEmailVerified: true,
+      onboardingStep: 5,
+      onboardingCompleted: true,
+    },
+  });
+  console.log(`✅ Demo Tenant seeded: ${demoTenant.email} (ACTIVE, onboarded)`);
+
+  // Demo agent user under the tenant
+  const agentEmail = process.env.DEMO_AGENT_EMAIL || "agent@sudoreply.com";
+  const agentPass = process.env.DEMO_AGENT_PASSWORD || "Agent@1234";
+  const agentHashedPw = await bcrypt.hash(agentPass, 10);
+
+  const demoAgent = await prisma.user.upsert({
+    where: { email: agentEmail },
+    update: {},
+    create: {
+      tenantId: demoTenant.id,
+      name: "Demo Agent",
+      email: agentEmail,
+      password: agentHashedPw,
+      role: "AGENT",
+      isActive: true,
+    },
+  });
+  console.log(`✅ Demo Agent seeded: ${demoAgent.email}`);
+
+  // Link demo tenant to Growth plan
+  const growthPlan = await prisma.subscriptionPlan.findUnique({
+    where: { name: "Growth" },
+  });
+
+  if (growthPlan) {
+    await prisma.tenantSubscription.upsert({
+      where: { tenantId: demoTenant.id },
+      update: {},
+      create: {
+        tenantId: demoTenant.id,
+        planId: growthPlan.id,
+        currentPlan: "Growth",
+        planStatus: "ACTIVE",
+        subscriptionStatus: "ACTIVE",
+        hasUsedTrial: true,
+        planPeriodEnd: new Date(
+          Date.now() + 365 * 24 * 60 * 60 * 1000,
+        ),
+      },
+    });
+    console.log(`✅ Demo Tenant linked to Growth plan`);
+  }
+
+  // ══════════════════════════════════════
   // Resolve tenant (used by Steps 3.5, 4, 5)
   // ══════════════════════════════════════
   const tenant = await prisma.tenant.findFirst();
