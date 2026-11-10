@@ -13,7 +13,23 @@ import BusinessDetails from "./comps/BusinessDetails";
 //  When true: all API calls are skipped, forms just advance steps,
 //  and a dummy user is seeded into the auth store so route guards pass.
 // ═══════════════════════════════════════════════════════════════════
-const MOCK_SIGNUP = false;
+const MOCK_SIGNUP = true;
+
+// ── Step Component Maps ──
+const REGULAR_STEPS = [
+  { key: "create-account", Component: CreateAccount, hasBack: false },
+  { key: "email-otp", Component: EmailOTP, hasBack: true },
+  { key: "profile-setup", Component: ProfileSetup, hasBack: true },
+  { key: "company-details", Component: CompanyDetails, hasBack: true },
+  { key: "business-details", Component: BusinessDetails, hasBack: true },
+];
+
+const OAUTH_STEPS = [
+  { key: "create-account", Component: CreateAccount, hasBack: false },
+  { key: "oauth-setup", Component: OAuthSetup, hasBack: false },
+  { key: "company-details", Component: CompanyDetails, hasBack: true },
+  { key: "business-details", Component: BusinessDetails, hasBack: true },
+];
 
 const benefits = [
   {
@@ -42,45 +58,10 @@ export default function SignupPage() {
     handleOAuthStart,
   } = useSignupStepper({ mockMode: MOCK_SIGNUP });
 
-  /* ── Step → Component router ── */
-  const renderStep = () => {
-    const common = {
-      mockMode: MOCK_SIGNUP,
-      meta: currentMeta,
-      userData,
-      onContinue: nextStep,
-    };
-
-    if (isOAuth) {
-      switch (step) {
-        case 1:
-          return <CreateAccount {...common} onOAuth={handleOAuthStart} />;
-        case 2:
-          return <OAuthSetup {...common} />;
-        case 3:
-          return <CompanyDetails {...common} onBack={goBack} />;
-        case 4:
-          return <BusinessDetails {...common} onBack={goBack} />;
-        default:
-          return null;
-      }
-    }
-
-    switch (step) {
-      case 1:
-        return <CreateAccount {...common} onOAuth={handleOAuthStart} />;
-      case 2:
-        return <EmailOTP {...common} onBack={goBack} />;
-      case 3:
-        return <ProfileSetup {...common} onBack={goBack} />;
-      case 4:
-        return <CompanyDetails {...common} onBack={goBack} />;
-      case 5:
-        return <BusinessDetails {...common} onBack={goBack} />;
-      default:
-        return null;
-    }
-  };
+  // ── Dynamic Step Component Resolution ──
+  const activeStepList = isOAuth ? OAUTH_STEPS : REGULAR_STEPS;
+  const currentStepConfig = activeStepList[step - 1] || activeStepList[0];
+  const StepComponent = currentStepConfig.Component;
 
   return (
     <div className="min-h-screen bg-[#f8fafc] flex flex-col lg:flex-row font-sans">
@@ -174,17 +155,18 @@ export default function SignupPage() {
           />
         </div>
 
+        {/* Logo Header */}
         <div className="relative z-10">
           <Link to="/" className="inline-flex items-center">
             <img
               src="/sudo2.png"
               alt="SudoReply Logo"
-              className="w-14 h-14 object-contain filter drop-shadow-md brightness-110"
+              className="h-24 w-auto object-contain filter drop-shadow-md brightness-110"
             />
           </Link>
         </div>
 
-        <div className="relative z-10 my-auto py-12">
+        <div className="relative z-10 my-auto py-10">
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-blue-200/80">
             SudoReply Workspace
           </p>
@@ -224,7 +206,7 @@ export default function SignupPage() {
             <img
               src="/sudo2.png"
               alt="SudoReply Logo"
-              className="w-14 h-14 object-contain"
+              className="h-16 w-auto object-contain"
             />
           </Link>
           <h1 className="text-[1.75rem] font-bold text-slate-900 tracking-tight">
@@ -236,7 +218,7 @@ export default function SignupPage() {
           </p>
         </div>
 
-        <div className="w-full max-w-[440px]">
+        <div className="w-full max-w-[480px]">
           <div className="bg-white rounded-3xl border border-slate-100 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_24px_48px_-16px_rgba(15,23,42,0.08)] p-8 sm:p-10">
             {/* ── Stepper progress bar ── */}
             <div className="mb-8">
@@ -264,12 +246,19 @@ export default function SignupPage() {
               </div>
             )}
 
-            {/* ── Step content ── */}
+            {/* ── Dynamic Step Render ── */}
             <div
               className="space-y-4 sr-animate-fade-in-slide"
               key={`${step}-${isOAuth}`}
             >
-              {renderStep()}
+              <StepComponent
+                mockMode={MOCK_SIGNUP}
+                meta={currentMeta}
+                userData={userData}
+                onContinue={nextStep}
+                onBack={currentStepConfig.hasBack ? goBack : undefined}
+                onOAuth={handleOAuthStart}
+              />
             </div>
           </div>
         </div>
@@ -297,7 +286,7 @@ function CheckIcon() {
   );
 }
 
-/* ── Self-contained styles (same convention as old Register.jsx) ── */
+/* ── Self-contained styles ── */
 const AUTH_STYLES = `
 @keyframes sr-fade-in-slide { from { opacity: 0; transform: translateY(14px);} to { opacity: 1; transform: translateY(0);} }
 @keyframes sr-drift-a { 0%,100% { transform: translate(0,0) rotate(0deg);} 50% { transform: translate(6px,-10px) rotate(1.5deg);} }
@@ -327,8 +316,6 @@ const AUTH_STYLES = `
 .sr-input.sr-input-error { border-color: #dc2626; }
 .sr-input.sr-input-error:focus { box-shadow: 0 0 0 4px rgba(220,38,38,0.1); }
 .sr-input.sr-textarea { height: auto; padding-top: 12px; padding-bottom: 12px; resize: none; }
-
-.sr-strength-bar { transition: width 0.35s cubic-bezier(0.16,1,0.3,1), background-color 0.35s ease; }
 
 .sr-btn-primary {
   background: #125fe2; color: #fff; border-radius: 12px; height: 46px;
