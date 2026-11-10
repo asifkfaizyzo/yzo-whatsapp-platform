@@ -28,27 +28,27 @@ const schema = z.object({
 
 // ── Password rule checker ──
 const PASSWORD_RULES = [
-  { key: "length",  label: "8+ characters",    test: (pw) => pw.length >= 8 },
-  { key: "upper",   label: "Uppercase letter",  test: (pw) => /[A-Z]/.test(pw) },
-  { key: "number",  label: "Number",            test: (pw) => /[0-9]/.test(pw) },
-  { key: "special", label: "Special character",  test: (pw) => /[!@#$%^&*]/.test(pw) },
+  { key: "length",  label: "8+ chars",  test: (pw) => pw.length >= 8 },
+  { key: "upper",   label: "Uppercase", test: (pw) => /[A-Z]/.test(pw) },
+  { key: "number",  label: "Number",    test: (pw) => /[0-9]/.test(pw) },
+  { key: "special", label: "Symbol",    test: (pw) => /[!@#$%^&*]/.test(pw) },
 ];
 
 function PasswordRulePill({ valid, text }) {
   return (
     <span
-      className={`inline-flex items-center gap-1 px-2.5 py-[3px] rounded-full border text-[11px] font-medium whitespace-nowrap transition-colors duration-200 ${
+      className={`inline-flex items-center gap-1 px-2 py-[3px] rounded-full border text-[11px] font-medium whitespace-nowrap transition-colors duration-200 ${
         valid
           ? "border-emerald-300 bg-emerald-50 text-emerald-600"
           : "border-slate-200 bg-slate-50 text-slate-400"
       }`}
     >
       {valid ? (
-        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+        <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
         </svg>
       ) : (
-        <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-slate-300" />
       )}
       {text}
     </span>
@@ -248,17 +248,17 @@ export default function CreateAccount({
           <FormError message={errors.password?.message} />
 
           {/* ── Inline password rule pills ── */}
-          {pw && (
-            <div className="mt-2.5 flex flex-nowrap gap-1.5 overflow-x-auto sr-animate-fade-in-slide">
-              {PASSWORD_RULES.map((rule) => (
-                <PasswordRulePill
-                  key={rule.key}
-                  valid={rule.test(pw)}
-                  text={rule.label}
-                />
-              ))}
-            </div>
-          )}
+{pw && (
+  <div className="mt-2.5 flex items-center gap-1.5 sr-animate-fade-in-slide">
+    {PASSWORD_RULES.map((rule) => (
+      <PasswordRulePill
+        key={rule.key}
+        valid={rule.test(pw)}
+        text={rule.label}
+      />
+    ))}
+  </div>
+)}
         </div>
 
         <button
