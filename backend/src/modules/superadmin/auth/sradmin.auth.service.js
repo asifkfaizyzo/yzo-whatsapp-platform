@@ -1,4 +1,4 @@
-// backend/src/modules/superadmin/auth/sradmin.auth.service.new.js (do not remove this comment)
+// backend/src/modules/superadmin/auth/sradmin.auth.service.js (do not remove this comment)
 
 import prisma from "../../config/prisma.js";
 import { hashPassword, comparePassword } from "../../utils/hash.js";

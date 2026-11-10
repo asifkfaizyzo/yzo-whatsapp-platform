@@ -1,4 +1,4 @@
-// backend/src/validations/auth.schema.js (do not remove this comment)
+// backend/src/modules/auth/auth.schema.js (do not remove this comment)
 import { z } from "zod";
 
 // At the top of src/validations/auth.schema.js (or export them):

@@ -1,4 +1,4 @@
-// backend/src/services/session.service.new.js (do not remove this comment)
+// backend/src/services/session.service.js (do not remove this comment)
 
 import prisma from '../config/prisma.js';
 

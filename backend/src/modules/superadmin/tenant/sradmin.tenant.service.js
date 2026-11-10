@@ -1,4 +1,4 @@
-// backend/src/modules/superadmin/tenant/sradmin.tenant.service.new.js (do not remove this comment)
+// backend/src/modules/superadmin/tenant/sradmin.tenant.service.js (do not remove this comment)
 
 import prisma from "../../../config/prisma.js";
 import { createAuditLog } from "../../../services/audit.service.js";

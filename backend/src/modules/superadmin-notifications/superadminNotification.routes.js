@@ -1,4 +1,4 @@
-// backend/src/modules/superadmin-notifications/superAdminNotificationRoutes.js (do not remove this comment)
+// backend/src/modules/superadmin-notifications/superadminNotification.routes.js (do not remove this comment)
 
 import { Router } from "express";
 import {

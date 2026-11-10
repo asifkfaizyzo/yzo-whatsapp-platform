@@ -1,4 +1,4 @@
-// backend/src/modules/superadmin-notifications/superAdminNotificationController.js (do not remove this comment)
+// backend/src/modules/superadmin-notifications/superadminNotification.controller.js (do not remove this comment)
 
 import * as notificationService from "./superadminNotification.service.js";
 

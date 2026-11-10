@@ -1,4 +1,4 @@
-// backend/src/cron/workers/zohoSyncWorker.js (do not remove this comment)
+// backend/src/cron/workers/zoho-sync.worker.js (do not remove this comment)
 
 import { Worker } from "bullmq";
 import { QUEUE_NAME_ZOHO_SYNC } from "../queues/zoho-sync.queue.js";

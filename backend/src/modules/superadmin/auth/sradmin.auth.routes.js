@@ -1,4 +1,4 @@
-// backend/src/modules/superadmin/auth/sradmin.auth.routes.new.js (do not remove this comment)
+// backend/src/modules/superadmin/auth/sradmin.auth.routes.js (do not remove this comment)
 
 import { Router } from "express";
 import * as ctrl from "./sradmin.auth.controller.new.js";

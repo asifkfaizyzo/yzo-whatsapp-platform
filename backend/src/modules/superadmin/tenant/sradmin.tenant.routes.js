@@ -1,4 +1,4 @@
-// backend/src/modules/superadmin/tenant/sradmin.tenant.routes.new.js (do not remove this comment)
+// backend/src/modules/superadmin/tenant/sradmin.tenant.routes.js (do not remove this comment)
 
 import { Router } from "express";
 import { authenticate } from "../../../middleware/authenticate.js";

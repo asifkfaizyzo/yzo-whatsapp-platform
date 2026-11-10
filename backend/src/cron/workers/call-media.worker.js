@@ -1,4 +1,4 @@
-// backend/src/cron/workers/callMediaWorker.js (do not remove this comment)
+// backend/src/cron/workers/call-media.worker.js (do not remove this comment)
 import { Worker } from "bullmq";
 import { QUEUE_NAME_CALL_MEDIA } from "../queues/call-media.queue.js";
 import { redisConnection } from "../../config/redis.js";

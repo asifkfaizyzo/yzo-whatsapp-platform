@@ -1,4 +1,4 @@
-// backend/src/modules/superadmin/tenant/sradmin.tenant.controller.new.js (do not remove this comment)
+// backend/src/modules/superadmin/tenant/sradmin.tenant.controller.js (do not remove this comment)
 
 import { success, error, validationError } from "../../../utils/response.js";
 import { extractRequestMeta } from "../../../lib/utils/request.meta.js";

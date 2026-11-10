@@ -1,4 +1,4 @@
-// backend/src/modules/tenant/auth/tenant.auth.controller.new.js (do not remove this comment)
+// backend/src/modules/tenant/auth/tenant.auth.controller.js (do not remove this comment)
 
 import { OAuth2Client } from "google-auth-library";
 import axios from "axios";

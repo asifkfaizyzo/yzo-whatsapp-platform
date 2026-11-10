@@ -1,4 +1,4 @@
-// backend/src/validations/user.schema.js (do not remove this comment)
+// backend/src/modules/users/user.schema.js (do not remove this comment)
 import { z } from "zod";
 import { emailRule, passwordRule } from "../auth/auth.schema.js";
 

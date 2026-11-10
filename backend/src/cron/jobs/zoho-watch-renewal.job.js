@@ -1,4 +1,4 @@
-// backend/src/cron/jobs/zohoWatchRenewalJob.js (do not remove this comment)
+// backend/src/cron/jobs/zoho-watch-renewal.job.js (do not remove this comment)
 
 import cron from "node-cron";
 import prisma from "../../config/prisma.js";

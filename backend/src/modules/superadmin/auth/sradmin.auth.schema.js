@@ -1,4 +1,4 @@
-// backend/src/modules/superadmin/auth/sradmin.auth.schema.new.js (do not remove this comment)
+// backend/src/modules/superadmin/auth/sradmin.auth.schema.js (do not remove this comment)
 
 import { z } from "zod";
 

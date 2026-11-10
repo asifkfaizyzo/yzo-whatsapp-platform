@@ -1,4 +1,4 @@
-// backend/src/cron/workers/cleanupWorker.js (do not remove this comment)
+// backend/src/cron/jobs/abandoned-accounts.job.js (do not remove this comment)
 
 import prisma from "../../config/prisma.js";
 

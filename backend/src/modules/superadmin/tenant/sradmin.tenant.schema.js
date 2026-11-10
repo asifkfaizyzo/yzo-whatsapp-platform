@@ -1,4 +1,4 @@
-// backend/src/modules/superadmin/tenant/sradmin.tenant.schema.new.js (do not remove this comment)
+// backend/src/modules/superadmin/tenant/sradmin.tenant.schema.js (do not remove this comment)
 
 import { z } from "zod";
 

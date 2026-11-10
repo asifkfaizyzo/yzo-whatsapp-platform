@@ -1,4 +1,4 @@
-// backend/src/middlewares/auth.bull.board.js (do not remove this comment)
+// backend/src/middlewares/auth.bullBoard.js (do not remove this comment)
 import crypto from "crypto";
 
 /**

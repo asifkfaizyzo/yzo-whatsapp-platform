@@ -1,4 +1,4 @@
-// backend/src/modules/tenant/auth/tenant.auth.routes.new.js (do not remove this comment)
+// backend/src/modules/tenant/auth/tenant.auth.routes.js (do not remove this comment)
 
 import { Router } from "express";
 import * as ctrl from "./tenant.auth.controller.new.js";

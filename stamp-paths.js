@@ -7,7 +7,7 @@ const CONFIG = {
   projectRoot: 'Q:/YourZeroesAndOnes/SudoReply/yzo-whatsapp-platform',
   // Target directories relative to projectRoot
   targets: [
-    'sudo-reply-mobile/src'
+    'backend/src'
   ],
   // Directories/files to skip entirely
   ignore: [

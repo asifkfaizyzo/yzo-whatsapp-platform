@@ -1,4 +1,4 @@
-// backend/src/modules/superadmin/auth/sradmin.auth.controller.new.js (do not remove this comment)
+// backend/src/modules/superadmin/auth/sradmin.auth.controller.js (do not remove this comment)
 
 import { success, error } from "../../utils/response.js";
 import {

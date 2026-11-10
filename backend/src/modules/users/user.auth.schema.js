@@ -1,4 +1,4 @@
-// backend/src/modules/users/user.auth.schema.new.js (do not remove this comment)
+// backend/src/modules/users/user.auth.schema.js (do not remove this comment)
 
 import { z } from "zod";
 

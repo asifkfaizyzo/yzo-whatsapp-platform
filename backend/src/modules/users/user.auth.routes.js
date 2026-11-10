@@ -1,4 +1,4 @@
-// backend/src/modules/users/user.auth.routes.new.js (do not remove this comment)
+// backend/src/modules/users/user.auth.routes.js (do not remove this comment)
 
 import { Router } from "express";
 import * as ctrl from "./user.auth.controller.new.js";

@@ -1,4 +1,4 @@
-// backend/src/cron/jobs/shopifyWinBackJob.js (do not remove this comment)
+// backend/src/cron/jobs/shopify-win-back.job.js (do not remove this comment)
 
 import prisma from "../../config/prisma.js";
 import { orderWebhookQueue } from "../queues/order-webhook.queue.js";

@@ -1,4 +1,4 @@
-// backend/src/cron/jobs/zohoStaleTaskJob.js (do not remove this comment)
+// backend/src/cron/jobs/zoho-stale-task.job.js (do not remove this comment)
 
 import cron from "node-cron";
 import { scanAndCreateStaleTasks } from "../../modules/zoho/crm/zoho.task.service.js";

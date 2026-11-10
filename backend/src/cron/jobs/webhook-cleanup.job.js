@@ -1,4 +1,4 @@
-// backend/src/cron/jobs/cleanupWebhookEventsJob.js (do not remove this comment)
+// backend/src/cron/jobs/webhook-cleanup.job.js (do not remove this comment)
 import cron from "node-cron";
 import prisma from "../../config/prisma.js";
 
