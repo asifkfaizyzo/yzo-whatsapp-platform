@@ -1,4 +1,4 @@
-// tenant-web/src/pages/auth/Signup/comps/CompanyDetails.jsx
+// tenant-web/src/pages/auth/Signup/comps/CompanyDetails.jsx (do not remove this comment)
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,14 +9,16 @@ import {
   Loader2,
   ArrowRight,
   ArrowLeft,
+  AlertCircle,
 } from "lucide-react";
 import FormError from "../../../../components/FormError";
 import { updateOnboardingStep } from "../../../../api/auth";
 
 const schema = z.object({
-  tenantName: z.string().min(2, "Company name must be at least 2 characters"),
+  tenantName: z.string().min(2, "Company name must be at least 2 characters").max(40, "Company name must be under 40 characters"),
   websiteUrl: z
     .string()
+    .max(255, "URL must be under 255 characters")
     .optional()
     .or(z.literal(""))
     .refine((val) => {
@@ -77,74 +79,89 @@ export default function CompanyDetails({
 
   return (
     <>
-      <div>
-        <h2 className="text-[1.6rem] font-bold text-slate-900 tracking-tight">
+      {/* Header */}
+      <div className="text-center mb-4">
+        <h2 className="text-[1.3rem] font-bold text-slate-900 tracking-tight">
           {meta.title}
         </h2>
-        <p className="text-sm text-slate-500 mt-1.5">{meta.subtitle}</p>
+        <p className="text-[0.78rem] text-slate-400 mt-0.5">
+          {meta.subtitle}
+        </p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+      <form
+        onSubmit={handleSubmit(onSubmit)}
+        className={`space-y-3 transition-opacity duration-200 ${
+          isLoading ? "opacity-70" : ""
+        }`}
+      >
+        {/* Error banner */}
         {error && (
-          <div className="rounded-xl bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-600 font-medium">
-            {error}
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 border border-red-100 text-red-600 text-[0.78rem] sr-animate-fade-in-slide">
+            <AlertCircle size={14} className="shrink-0" />
+            <span>{error}</span>
           </div>
         )}
 
+        {/* ── Company name ── */}
         <div>
-          <label className="block text-sm font-medium text-slate-600 mb-1.5">
-            Company name <span className="text-red-500">*</span>
+          <label className="block text-[0.78rem] font-medium text-slate-600 mb-1">
+            Company name <span className="text-red-400">*</span>
           </label>
-          <div className="relative">
-            <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
-              <Building2 className="h-4 w-4" />
-            </span>
+          <div className="sr-input-wrap relative">
+            <Building2 size={16} className="sr-input-icon absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 transition-colors duration-200 pointer-events-none" />
             <input
-              className={`sr-input pl-10 pr-3.5 ${errors.tenantName ? "sr-input-error" : ""}`}
+              className={`sr-input w-full h-[44px] pl-10 pr-3.5 rounded-xl border bg-white text-[0.875rem] text-slate-900 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-[#125fe2]/20 focus:border-[#125fe2] transition-all duration-200 ${
+                errors.tenantName ? "border-red-300" : "border-slate-200"
+              }`}
               type="text"
-              placeholder="Acme Corp"
+              placeholder="Company Ltd"
+              maxLength={40}
               {...register("tenantName")}
             />
           </div>
           <FormError message={errors.tenantName?.message} />
         </div>
 
+        {/* ── Website URL ── */}
         <div>
-          <label className="block text-sm font-medium text-slate-600 mb-1.5">
+          <label className="block text-[0.78rem] font-medium text-slate-600 mb-1">
             Website URL
           </label>
-          <div className="relative">
-            <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
-              <Globe className="h-4 w-4" />
-            </span>
+          <div className="sr-input-wrap relative">
+            <Globe size={16} className="sr-input-icon absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 transition-colors duration-200 pointer-events-none" />
             <input
-              className={`sr-input pl-10 pr-3.5 ${errors.websiteUrl ? "sr-input-error" : ""}`}
+              className={`sr-input w-full h-[44px] pl-10 pr-3.5 rounded-xl border bg-white text-[0.875rem] text-slate-900 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-[#125fe2]/20 focus:border-[#125fe2] transition-all duration-200 ${
+                errors.websiteUrl ? "border-red-300" : "border-slate-200"
+              }`}
               type="text"
               placeholder="https://company.com"
+              maxLength={255}
               {...register("websiteUrl")}
             />
           </div>
           <FormError message={errors.websiteUrl?.message} />
         </div>
 
-        <div className="flex gap-4 mt-2">
+        {/* ── Navigation ── */}
+        <div className="flex gap-2.5 mt-1">
           <button
             type="button"
             onClick={onBack}
-            className="sr-btn-secondary flex-1 justify-center items-center flex gap-2"
+            className="flex-1 h-[44px] rounded-xl border border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 flex items-center justify-center gap-2 text-[0.84rem] font-medium text-slate-600 transition-all duration-150"
           >
-            <ArrowLeft className="h-4 w-4" /> Back
+            <ArrowLeft size={16} /> Back
           </button>
           <button
             type="submit"
             disabled={isLoading}
-            className="sr-btn-primary flex-1 justify-center items-center flex gap-2"
+            className="sr-btn-primary-gradient flex-1 flex items-center justify-center gap-2"
           >
             {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 size={16} className="animate-spin" />
             ) : (
               <>
-                Continue <ArrowRight className="h-4 w-4" />
+                Continue <ArrowRight size={15} />
               </>
             )}
           </button>

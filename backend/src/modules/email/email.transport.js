@@ -29,7 +29,7 @@ const sesClient = new SESv2Client({
 
 // ── Nodemailer Transport (Nodemailer 8 requires SESv2) ──
 const transporter = nodemailer.createTransport({
-  SES: { client: sesClient, aws: { SendEmailCommand } },
+  SES: { sesClient, SendEmailCommand },
 });
 
 // ── Verified sender address ──

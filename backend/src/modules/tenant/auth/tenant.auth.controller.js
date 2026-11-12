@@ -65,11 +65,37 @@ const getUserAgent = (req) => req.get("user-agent") || null;
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const verifyGoogleCredential = async (credential) => {
-  const ticket = await googleClient.verifyIdToken({
-    idToken: credential,
-    audience: process.env.GOOGLE_CLIENT_ID,
-  });
-  const payload = ticket.getPayload();
+  let payload;
+
+  if (credential.startsWith("ya29.")) {
+    // ── Access token → verify via tokeninfo, then fetch profile ──
+    const { data: tokenInfo } = await axios.get(
+      "https://oauth2.googleapis.com/tokeninfo",
+      { params: { access_token: credential } }
+    );
+    if (tokenInfo.audience !== process.env.GOOGLE_CLIENT_ID) {
+      throw new Error("Invalid Google access token audience");
+    }
+    // tokeninfo doesn't return email/name for access tokens → fetch userinfo
+    const { data: userInfo } = await axios.get(
+      "https://www.googleapis.com/oauth2/v2/userinfo",
+      { params: { access_token: credential } }
+    );
+    payload = {
+      email: userInfo.email,
+      given_name: userInfo.given_name,
+      family_name: userInfo.family_name,
+      sub: userInfo.id,
+    };
+  } else {
+    // ── ID token (JWT) → verify signature locally ──
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    payload = ticket.getPayload();
+  }
+
   if (!payload.email) {
     throw new Error("Google account does not have an email address");
   }

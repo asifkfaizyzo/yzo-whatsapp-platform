@@ -43,6 +43,11 @@ class AuthError extends Error {
 }
 
 // -----------------------------------------------------------
+// ENV GUARD
+// -----------------------------------------------------------
+const isDev = process.env.NODE_ENV !== "production";
+
+// -----------------------------------------------------------
 // CONSTANTS & HELPERS
 // -----------------------------------------------------------
 const SAFE_TENANT_SELECT = {
@@ -125,7 +130,11 @@ const checkEmailAcrossActors = async (email) => {
 };
 
 const logAuth = (fields) =>
-  createAuditLog({ module: "AUTH", ...fields }).catch(() => {});
+  createAuditLog({
+    module: "AUTH",
+    actorName: fields.actorName || fields.actorEmail || "unknown",
+    ...fields,
+  }).catch(() => {});
 
 const notifySRAdmin = async (type, title, message, metadata) => {
   try {
@@ -826,7 +835,7 @@ export const updateProfileService = async ({
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       username: username.toLowerCase().trim(),
-      onboardingStep: 2,
+      onboardingStep: 4,
     },
     select: { ...SAFE_TENANT_SELECT, ...SUBSCRIPTION_INCLUDE },
   });
@@ -868,36 +877,42 @@ export const verifyEmailOtpService = async ({ tenantId, otp }) => {
     return { message: "Email already verified", alreadyVerified: true };
   }
 
-  if (!tenant.otpHash || !tenant.otpExpiresAt) {
-    throw new AuthError("No OTP found. Please request a new one.", 400);
-  }
+  // -- Dev fallback: accept "0000" when SES sandbox blocks emails --
+  // Must be checked BEFORE expiry/attempt/hash validation
+  const isDevBypass = isDev && otp === "0000";
 
-  if (new Date() > tenant.otpExpiresAt) {
-    throw new AuthError("OTP has expired. Please request a new one.", 400);
-  }
+  if (!isDevBypass) {
+    if (!tenant.otpHash || !tenant.otpExpiresAt) {
+      throw new AuthError("No OTP found. Please request a new one.", 400);
+    }
 
-  // -- Attempt limiting --
-  const MAX_OTP_ATTEMPTS = 3;
-  if (tenant.otpAttempts >= MAX_OTP_ATTEMPTS) {
-    throw new AuthError(
-      "Too many failed attempts. Please request a new OTP.",
-      429,
-    );
-  }
+    if (new Date() > tenant.otpExpiresAt) {
+      throw new AuthError("OTP has expired. Please request a new one.", 400);
+    }
 
-  const isValid = verifyOTP(otp, tenant.otpHash);
-  if (!isValid) {
-    await prisma.tenant.update({
-      where: { id: tenantId },
-      data: { otpAttempts: { increment: 1 } },
-    });
-    const remaining = MAX_OTP_ATTEMPTS - tenant.otpAttempts - 1;
-    throw new AuthError(
-      remaining > 0
-        ? `Invalid OTP. ${remaining} attempt${remaining === 1 ? "" : "s"} remaining.`
-        : "Too many failed attempts. Please request a new OTP.",
-      400,
-    );
+    // -- Attempt limiting --
+    const MAX_OTP_ATTEMPTS = 3;
+    if (tenant.otpAttempts >= MAX_OTP_ATTEMPTS) {
+      throw new AuthError(
+        "Too many failed attempts. Please request a new OTP.",
+        429,
+      );
+    }
+
+    const isValid = verifyOTP(otp, tenant.otpHash);
+    if (!isValid) {
+      await prisma.tenant.update({
+        where: { id: tenantId },
+        data: { otpAttempts: { increment: 1 } },
+      });
+      const remaining = MAX_OTP_ATTEMPTS - tenant.otpAttempts - 1;
+      throw new AuthError(
+        remaining > 0
+          ? `Invalid OTP. ${remaining} attempt${remaining === 1 ? "" : "s"} remaining.`
+          : "Too many failed attempts. Please request a new OTP.",
+        400,
+      );
+    }
   }
 
   // -- Mark verified + advance step --
@@ -967,11 +982,17 @@ export const resendOtpService = async ({ tenantId }) => {
   try {
     await sendVerificationOtpEmail(tenant.email, plainOtp);
   } catch (err) {
-    console.error("[resendOtp] Email send failed:", err.message);
-    throw new AuthError(
-      "Failed to send verification email. Please try again.",
-      500,
-    );
+    if (isDev) {
+      console.error("[resendOtp] Email send failed (sandbox?):", err.message);
+      console.log(`[DEV] 🔑 Real OTP: ${plainOtp} | Fallback: 0000`);
+      // Don't throw — user can enter 0000 or the real OTP from console
+    } else {
+      console.error("[resendOtp] Email send failed:", err.message);
+      throw new AuthError(
+        "Failed to send verification email. Please try again.",
+        500,
+      );
+    }
   }
 
   return { message: "Verification OTP sent to your email" };

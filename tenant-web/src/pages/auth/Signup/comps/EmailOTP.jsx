@@ -1,25 +1,23 @@
-// tenant-web/src/pages/auth/Signup/comps/EmailOTP.jsx
-import { useState, useEffect, useRef } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+// tenant-web/src/pages/auth/Signup/comps/EmailOTP.jsx (do not remove this comment)
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
-  Lock,
   Loader2,
-  ArrowRight,
   ArrowLeft,
   CheckCircle2,
-  XCircle,
+  AlertCircle,
+  Mail,
 } from "lucide-react";
-import FormError from "../../../../components/FormError";
 import { verifyEmailOtpNew, resendOtp } from "../../../../api/auth";
 
-const schema = z.object({
-  otpCode: z
-    .string()
-    .length(4, "Code must be exactly 4 digits")
-    .regex(/^\d+$/, "Numbers only"),
-});
+const OTP_LENGTH = 4;
+
+// ── Mask email: jane.doe@company.com → j****e@company.com ──
+function maskEmail(email) {
+  if (!email || !email.includes("@")) return email || "your email";
+  const [local, domain] = email.split("@");
+  if (local.length <= 2) return `${local[0]}***@${domain}`;
+  return `${local[0]}${"*".repeat(Math.max(1, local.length - 2))}${local[local.length - 1]}@${domain}`;
+}
 
 export default function EmailOTP({
   mockMode,
@@ -28,112 +26,167 @@ export default function EmailOTP({
   onContinue,
   onBack,
 }) {
+  const [digits, setDigits] = useState(() => Array(OTP_LENGTH).fill(""));
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [cooldown, setCooldown] = useState(0);
-  const [status, setStatus] = useState(null);
+  const [status, setStatus] = useState(null); // null | 'verifying' | 'success' | 'error'
+  const [shake, setShake] = useState(false);
+  const inputRefs = useRef([]);
   const hasSubmitted = useRef(false);
 
-  const {
-    register,
-    handleSubmit,
-    watch,
-    setValue,
-    formState: { errors },
-  } = useForm({
-    resolver: zodResolver(schema),
-    defaultValues: { otpCode: "" },
-  });
+  const code = digits.join("");
+  const isComplete = code.length === OTP_LENGTH;
 
-  const otp = watch("otpCode");
+  // ── Autofocus first input on mount ──
+  useEffect(() => {
+    inputRefs.current[0]?.focus();
+  }, []);
 
+  // ── Resend cooldown tick ──
   useEffect(() => {
     if (cooldown <= 0) return;
     const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
     return () => clearTimeout(t);
   }, [cooldown]);
 
-  // ── Auto-validate when 4 digits entered ──
-  useEffect(() => {
-    if (!otp || otp.length !== 4 || hasSubmitted.current) return;
-    if (!/^\d{4}$/.test(otp)) return;
+  // ── Submit OTP ──
+  const submitCode = useCallback(
+    async (fullCode) => {
+      if (hasSubmitted.current) return;
+      hasSubmitted.current = true;
+      setStatus("verifying");
+      setError("");
+      setIsLoading(true);
 
-    hasSubmitted.current = true;
-    setStatus("verifying");
-    setError("");
-    setIsLoading(true);
-
-    if (mockMode) {
-      setTimeout(() => {
-        setIsLoading(false);
-        setStatus("success");
+      if (mockMode) {
         setTimeout(() => {
-          onContinue({ otpCode: otp });
-        }, 800);
-      }, 600);
-      return;
-    }
+          setIsLoading(false);
+          setStatus("success");
+          setTimeout(() => onContinue({ otpCode: fullCode }), 700);
+        }, 600);
+        return;
+      }
 
-    verifyEmailOtpNew(otp)
-      .then((result) => {
+      try {
+        const result = await verifyEmailOtpNew(fullCode);
         setIsLoading(false);
         if (result.success) {
           setStatus("success");
-          setTimeout(() => onContinue({ otpCode: otp }), 800);
+          setTimeout(() => onContinue({ otpCode: fullCode }), 700);
         } else {
           setStatus("error");
-          setError(result.message || "Invalid code.");
+          setError(result.message || "Invalid code. Please try again.");
+          setShake(true);
+          setTimeout(() => setShake(false), 450);
           hasSubmitted.current = false;
+          // Clear digits + refocus first
+          setDigits(Array(OTP_LENGTH).fill(""));
+          setTimeout(() => inputRefs.current[0]?.focus(), 100);
         }
-      })
-      .catch(() => {
+      } catch {
         setIsLoading(false);
         setStatus("error");
         setError("Verification failed. Please try again.");
+        setShake(true);
+        setTimeout(() => setShake(false), 450);
         hasSubmitted.current = false;
-      });
-    return;
-  }, [otp, mockMode, onContinue]);
+        setDigits(Array(OTP_LENGTH).fill(""));
+        setTimeout(() => inputRefs.current[0]?.focus(), 100);
+      }
+    },
+    [mockMode, onContinue]
+  );
 
+  // ── Auto-submit when all digits filled ──
   useEffect(() => {
-    if (status === "error" && otp.length < 4) {
-      setStatus(null);
-      hasSubmitted.current = false;
+    if (isComplete && !hasSubmitted.current && status !== "success") {
+      submitCode(code);
     }
-  }, [otp, status]);
+  }, [isComplete, code, submitCode, status]);
 
-  const onSubmit = async (data) => {
-    if (hasSubmitted.current) return;
-    setError("");
-    setStatus("verifying");
-    setIsLoading(true);
-    hasSubmitted.current = true;
-
-    if (mockMode) {
-      setTimeout(() => {
-        setIsLoading(false);
-        setStatus("success");
-        setTimeout(() => onContinue(data), 800);
-      }, 600);
+  // ── Per-box handlers ──
+  const handleChange = (index, value) => {
+    // Only digits
+    const cleaned = value.replace(/\D/g, "");
+    if (!cleaned) {
+      // Backspace cleared it
+      const next = [...digits];
+      next[index] = "";
+      setDigits(next);
+      // Clear error state when user starts editing again
+      if (status === "error") {
+        setStatus(null);
+        setError("");
+      }
       return;
     }
-    try {
-      const result = await verifyEmailOtpNew(data.otpCode);
-      setIsLoading(false);
-      if (result.success) {
-        setStatus("success");
-        setTimeout(() => onContinue(data), 800);
-      } else {
-        setStatus("error");
-        setError(result.message || "Invalid code.");
-        hasSubmitted.current = false;
+
+    // If user typed multiple chars (e.g. mobile autofill), distribute
+    if (cleaned.length > 1) {
+      const chars = cleaned.slice(0, OTP_LENGTH - index).split("");
+      const next = [...digits];
+      chars.forEach((c, i) => {
+        if (index + i < OTP_LENGTH) next[index + i] = c;
+      });
+      setDigits(next);
+      const nextFocus = Math.min(index + chars.length, OTP_LENGTH - 1);
+      inputRefs.current[nextFocus]?.focus();
+      if (status === "error") {
+        setStatus(null);
+        setError("");
       }
-    } catch (err) {
-      setIsLoading(false);
-      setStatus("error");
-      setError("Verification failed. Please try again.");
-      hasSubmitted.current = false;
+      return;
     }
+
+    // Single digit
+    const next = [...digits];
+    next[index] = cleaned;
+    setDigits(next);
+    if (status === "error") {
+      setStatus(null);
+      setError("");
+    }
+    // Auto-advance
+    if (index < OTP_LENGTH - 1) {
+      inputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleKeyDown = (index, e) => {
+    if (e.key === "Backspace") {
+      if (!digits[index] && index > 0) {
+        // Jump to previous and clear it
+        e.preventDefault();
+        const next = [...digits];
+        next[index - 1] = "";
+        setDigits(next);
+        inputRefs.current[index - 1]?.focus();
+      }
+    } else if (e.key === "ArrowLeft" && index > 0) {
+      e.preventDefault();
+      inputRefs.current[index - 1]?.focus();
+    } else if (e.key === "ArrowRight" && index < OTP_LENGTH - 1) {
+      e.preventDefault();
+      inputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handlePaste = (e) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, OTP_LENGTH);
+    if (!pasted) return;
+    const next = Array(OTP_LENGTH).fill("");
+    pasted.split("").forEach((c, i) => {
+      next[i] = c;
+    });
+    setDigits(next);
+    if (status === "error") {
+      setStatus(null);
+      setError("");
+    }
+    const focusIdx = Math.min(pasted.length, OTP_LENGTH - 1);
+    inputRefs.current[focusIdx]?.focus();
   };
 
   const handleResend = () => {
@@ -142,123 +195,119 @@ export default function EmailOTP({
     setStatus(null);
     setError("");
     hasSubmitted.current = false;
-    setValue("otpCode", "");
+    setDigits(Array(OTP_LENGTH).fill(""));
+    setTimeout(() => inputRefs.current[0]?.focus(), 100);
     if (mockMode) return;
     resendOtp().catch(() => {
       setError("Failed to resend code. Please try again.");
     });
   };
 
+  // ── Visual state per box ──
+  const boxClass = (idx) => {
+    const base =
+      "w-[52px] h-[56px] rounded-xl border-[1.5px] bg-white text-center text-[1.4rem] font-semibold text-slate-900 tabular-nums transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#125fe2]/20";
+    if (status === "success") {
+      return `${base} border-emerald-400 bg-emerald-50/50 text-emerald-700`;
+    }
+    if (status === "error") {
+      return `${base} border-red-400 bg-red-50/40`;
+    }
+    if (digits[idx]) {
+      return `${base} border-[#125fe2]`;
+    }
+    return `${base} border-slate-200 focus:border-[#125fe2]`;
+  };
+
   return (
-    <>
-      <div>
-        <h2 className="text-[1.6rem] font-bold text-slate-900 tracking-tight">
+    <div className="flex flex-col items-center justify-center min-h-[300px] py-2">
+      {/* Header */}
+      <div className="text-center mb-5">
+        <div className="mx-auto mb-3 w-12 h-12 rounded-full bg-[#125fe2]/10 flex items-center justify-center">
+          <Mail size={22} className="text-[#125fe2]" />
+        </div>
+        <h2 className="text-[1.3rem] font-bold text-slate-900 tracking-tight">
           {meta.title}
         </h2>
-        <p className="text-sm text-slate-500 mt-1.5">{meta.subtitle}</p>
+        <p className="text-[0.78rem] text-slate-400 mt-1">
+          Enter the 4-digit code sent to
+          <br />
+          <span className="font-medium text-slate-600">
+            {userData?.email}
+          </span>
+        </p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-        {error && (
-          <div className="rounded-xl bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-600 font-medium flex items-center gap-2">
-            <XCircle className="h-4 w-4 shrink-0" />
-            {error}
-          </div>
-        )}
-
-        {status === "success" && (
-          <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-700 font-medium flex items-center gap-2 sr-animate-fade-in-slide">
-            <CheckCircle2 className="h-4 w-4 shrink-0" />
-            Code verified! Redirecting...
-          </div>
-        )}
-
-        <div>
-          <label className="block text-sm font-medium text-slate-600 mb-1.5">
-            Verification Code <span className="text-red-500">*</span>
-          </label>
-          <div className="relative">
-            <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
-              {status === "success" ? (
-                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-              ) : status === "error" ? (
-                <XCircle className="h-4 w-4 text-red-500" />
-              ) : (
-                <Lock className="h-4 w-4" />
-              )}
-            </span>
-            <input
-              className={`sr-input pl-10 pr-3.5 text-center font-mono tracking-[0.5em] ${
-                errors.otpCode || status === "error"
-                  ? "sr-input-error"
-                  : status === "success"
-                    ? "!border-emerald-400 !bg-emerald-50/30"
-                    : ""
-              }`}
-              type="text"
-              inputMode="numeric"
-              maxLength={4}
-              placeholder="0000"
-              autoFocus
-              disabled={status === "success" || status === "verifying"}
-              {...register("otpCode")}
-            />
-            {status === "verifying" && (
-              <span className="absolute inset-y-0 right-0 pr-3.5 flex items-center">
-                <Loader2 className="h-4 w-4 animate-spin text-[#125fe2]" />
-              </span>
-            )}
-          </div>
-          <FormError message={errors.otpCode?.message} />
-          <p className="mt-2 text-xs text-slate-500">
-            We've sent a 4-digit code to{" "}
-            <span className="font-medium text-slate-700">
-              {userData.email || "your email"}
-            </span>
-            .
-          </p>
+      {/* Error banner */}
+      {error && (
+        <div className="flex items-center gap-2 px-3 py-2 mb-3 rounded-lg bg-red-50 border border-red-100 text-red-600 text-[0.78rem] sr-animate-fade-in-slide">
+          <AlertCircle size={14} className="shrink-0" />
+          <span>{error}</span>
         </div>
+      )}
 
-        <div className="flex justify-end">
+      {/* Success banner */}
+      {status === "success" && (
+        <div className="flex items-center gap-2 px-3 py-2 mb-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-[0.78rem] sr-animate-fade-in-slide">
+          <CheckCircle2 size={14} className="shrink-0" />
+          <span>Verified! Redirecting…</span>
+        </div>
+      )}
+
+      {/* OTP boxes */}
+      <div
+        className={`flex justify-center gap-2.5 mb-4 ${shake ? "sr-shake" : ""}`}
+        onPaste={handlePaste}
+      >
+        {digits.map((digit, idx) => (
+          <input
+            key={idx}
+            ref={(el) => (inputRefs.current[idx] = el)}
+            type="text"
+            inputMode="numeric"
+            autoComplete={idx === 0 ? "one-time-code" : "off"}
+            maxLength={1}
+            value={digit}
+            onChange={(e) => handleChange(idx, e.target.value)}
+            onKeyDown={(e) => handleKeyDown(idx, e)}
+            disabled={status === "success" || status === "verifying"}
+            className={boxClass(idx)}
+          />
+        ))}
+      </div>
+
+      {/* Verifying state */}
+      {status === "verifying" && (
+        <div className="flex items-center justify-center gap-2 mb-4 text-[0.78rem] text-slate-500">
+          <Loader2 size={14} className="animate-spin text-[#125fe2]" />
+          <span>Verifying…</span>
+        </div>
+      )}
+
+      {/* Resend */}
+      <div className="text-center mb-5">
+        <p className="text-[0.75rem] text-slate-400">
+          Didn't receive the code?{" "}
           <button
             type="button"
             onClick={handleResend}
-            disabled={cooldown > 0 || isLoading}
-            className="text-xs text-slate-500 hover:text-slate-700 hover:underline font-medium disabled:opacity-50"
+            disabled={cooldown > 0 || isLoading || status === "success"}
+            className="sr-link-underline font-semibold text-[#125fe2] hover:text-[#0e4bc0] disabled:text-slate-400 disabled:cursor-not-allowed disabled:no-underline"
           >
-            {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend Code"}
+            {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend code"}
           </button>
-        </div>
+        </p>
+      </div>
 
-        <div className="flex gap-4 mt-2">
-          <button
-            type="button"
-            onClick={onBack}
-            disabled={status === "verifying" || status === "success"}
-            className="sr-btn-secondary flex-1 justify-center items-center flex gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" /> Back
-          </button>
-          <button
-            type="submit"
-            disabled={
-              isLoading ||
-              otp?.length !== 4 ||
-              status === "success" ||
-              status === "verifying"
-            }
-            className="sr-btn-primary flex-1 justify-center items-center flex gap-2"
-          >
-            {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <>
-                Verify <ArrowRight className="h-4 w-4" />
-              </>
-            )}
-          </button>
-        </div>
-      </form>
-    </>
+      {/* Back button */}
+      <button
+        type="button"
+        onClick={onBack}
+        disabled={status === "verifying" || status === "success"}
+        className="w-full h-[44px] rounded-xl border border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 flex items-center justify-center gap-2 text-[0.84rem] font-medium text-slate-600 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        <ArrowLeft size={16} /> Back
+      </button>
+    </div>
   );
 }

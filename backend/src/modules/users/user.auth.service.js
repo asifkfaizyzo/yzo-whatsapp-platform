@@ -70,7 +70,11 @@ const issueTokens = async (user) => {
 };
 
 const logAuth = (fields) =>
-  createAuditLog({ module: "AUTH", ...fields }).catch(() => {});
+  createAuditLog({
+    module: "AUTH",
+    actorName: fields.actorName || fields.actorEmail || "unknown",
+    ...fields,
+  }).catch(() => {});
 
 // -- Tenant status check helper --
 const checkParentTenant = async (tenantId) => {

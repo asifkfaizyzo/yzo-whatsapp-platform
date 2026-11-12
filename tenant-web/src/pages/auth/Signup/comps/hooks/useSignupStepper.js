@@ -1,5 +1,5 @@
-// tenant-web/src/pages/auth/Signup/comps/hooks/useSignupStepper.js
-import { useState, useEffect, useCallback } from "react";
+// tenant-web/src/pages/auth/Signup/comps/hooks/useSignupStepper.js (do not remove this comment)
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../../../../../store/useAuthStore";
 
@@ -54,6 +54,9 @@ const OAUTH_STEPS = [
   },
 ];
 
+// Both flows have exactly 2 pre-onboarding steps (account creation + verification/credentials)
+const PRE_ONBOARDING_COUNT = 2;
+
 export function useSignupStepper({ mockMode }) {
   const navigate = useNavigate();
   const { login, user, isAuthenticated, isHydrated } = useAuthStore();
@@ -65,6 +68,11 @@ export function useSignupStepper({ mockMode }) {
   const steps = isOAuth ? OAUTH_STEPS : EMAIL_STEPS;
   const totalSteps = steps.length;
   const currentMeta = steps[step - 1] || steps[0];
+
+  // ── Pre-onboarding visibility flags ──
+  const isPreOnboarding = step <= PRE_ONBOARDING_COUNT;
+  const visibleStep = isPreOnboarding ? 0 : step - PRE_ONBOARDING_COUNT;
+  const visibleTotalSteps = totalSteps - PRE_ONBOARDING_COUNT;
 
   // ── Mock mode: seed auth store so ProtectedRoute lets us through ──
   useEffect(() => {
@@ -82,12 +90,24 @@ export function useSignupStepper({ mockMode }) {
     }
   }, [mockMode, isAuthenticated, login]);
 
-  // ── Real mode: resume onboarding from stored user ──
+  // ── Real mode: resume onboarding from stored user (once, on hydration) ──
+  const hasResumed = useRef(false);
   useEffect(() => {
+    if (hasResumed.current) return;
     if (!mockMode && isHydrated && isAuthenticated && user) {
+      hasResumed.current = true;
       if (user.onboardingCompleted) {
         navigate("/dashboard", { replace: true });
-      } else if (user.onboardingStep) {
+        return;
+      }
+
+      // Detect OAuth users from persisted authProvider
+      const oauthProviders = ["GOOGLE", "FACEBOOK"];
+      if (oauthProviders.includes(user.authProvider)) {
+        setIsOAuth(true);
+      }
+
+      if (user.onboardingStep) {
         setStep(user.onboardingStep);
       }
     }
@@ -97,8 +117,6 @@ export function useSignupStepper({ mockMode }) {
     (data = {}) => {
       setUserData((prev) => ({ ...prev, ...data }));
       if (data.resumeStep) {
-        // Resuming onboarding — jump to the saved step (at least 2,
-        // since step 1 = account creation which is already done)
         const target = Math.min(Math.max(data.resumeStep, 2), totalSteps);
         setStep(target);
       } else if (step < totalSteps) {
@@ -106,13 +124,17 @@ export function useSignupStepper({ mockMode }) {
       } else {
         // ── Last step done ──
         if (mockMode) {
-          // Mark mock user as onboarded so ProtectedRoute
-          // doesn't redirect /select-plan back to /signup
           const currentUser = useAuthStore.getState().user;
-          useAuthStore.getState().login(
-            { ...currentUser, onboardingCompleted: true, onboardingStep: totalSteps },
-            useAuthStore.getState().accessToken,
-          );
+          useAuthStore
+            .getState()
+            .login(
+              {
+                ...currentUser,
+                onboardingCompleted: true,
+                onboardingStep: totalSteps,
+              },
+              useAuthStore.getState().accessToken,
+            );
         }
         navigate("/select-plan");
       }
@@ -139,6 +161,9 @@ export function useSignupStepper({ mockMode }) {
     totalSteps,
     currentMeta,
     isOAuth,
+    isPreOnboarding,
+    visibleStep,
+    visibleTotalSteps,
     userData,
     nextStep,
     goBack,

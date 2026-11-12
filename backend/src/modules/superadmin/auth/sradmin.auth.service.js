@@ -63,7 +63,11 @@ const issueTokens = async (admin) => {
 };
 
 const logAuth = (fields) =>
-  createAuditLog({ module: "AUTH", ...fields }).catch(() => {});
+  createAuditLog({
+    module: "AUTH",
+    actorName: fields.actorName || fields.actorEmail || "unknown",
+    ...fields,
+  }).catch(() => {});
 
 // -----------------------------------------------------------
 // 1. CREATE SRADMIN (by existing SRAdmin)

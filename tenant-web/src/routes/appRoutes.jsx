@@ -1,7 +1,6 @@
 // tenant-web/src/routes/appRoutes.jsx (do not remove this comment)
 import { Navigate, Route, Routes } from "react-router-dom";
-import Login from "../pages/auth/Login";
-import SignupPage from "../pages/auth/Signup/SignupPage";
+import AuthShell from "../pages/auth/AuthShell";
 import ForgotPassword from "../pages/auth/ForgotPassword";
 import MainLayout from "../layouts/MainLayout";
 import LandingPage from "../pages/Home";
@@ -54,14 +53,14 @@ function App() {
       <Routes>
         {/* Public Routes */}
         <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={<Login />} />
 
-        {/* ── NEW: Signup flow ── */}
+        {/* ── Unified Auth Shell (Login ↔ Signup with smooth transitions) ── */}
+        <Route path="/login" element={<AuthShell mode="login" />} />
         <Route
           path="/signup"
           element={
             <ProtectedRoute>
-              <SignupPage />
+              <AuthShell mode="signup" />
             </ProtectedRoute>
           }
         />

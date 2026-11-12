@@ -3,7 +3,7 @@
 import prisma from "../../config/prisma.js";
 
 const CLEANUP_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours
-const ABANDONMENT_THRESHOLD_HOURS = 24;
+const ABANDONMENT_THRESHOLD_HOURS = 360;
 
 export const startCleanupWorker = () => {
   const cleanAbandonedAccounts = async () => {

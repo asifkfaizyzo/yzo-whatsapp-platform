@@ -13,6 +13,7 @@ import {
   Check,
   X,
   Sparkles,
+  AlertCircle,
 } from "lucide-react";
 import FormError from "../../../../components/FormError";
 import {
@@ -23,8 +24,8 @@ import {
 import { useAuthStore } from "../../../../store/useAuthStore";
 
 const schema = z.object({
-  firstName: z.string().min(1, "First name is required"),
-  lastName: z.string().min(1, "Last name is required"),
+  firstName: z.string().min(1, "First name is required").max(20, "First name must be under 20 characters"),
+  lastName: z.string().min(1, "Last name is required").max(20, "Last name must be under 20 characters"),
   username: z
     .string()
     .min(4, "Username must be at least 4 characters")
@@ -204,51 +205,67 @@ export default function ProfileSetup({
 
   return (
     <>
-      <div>
-        <h2 className="text-[1.6rem] font-bold text-slate-900 tracking-tight">
+      {/* Header */}
+      <div className="text-center mb-4">
+        <h2 className="text-[1.3rem] font-bold text-slate-900 tracking-tight">
           {meta.title}
         </h2>
-        <p className="text-sm text-slate-500 mt-1.5">{meta.subtitle}</p>
+        <p className="text-[0.78rem] text-slate-400 mt-0.5">{meta.subtitle}</p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+      <form
+        onSubmit={handleSubmit(onSubmit)}
+        className={`space-y-3 transition-opacity duration-200 ${
+          isLoading ? "opacity-70" : ""
+        }`}
+      >
+        {/* Error banner */}
         {error && (
-          <div className="rounded-xl bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-600 font-medium">
-            {error}
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 border border-red-100 text-red-600 text-[0.78rem] sr-animate-fade-in-slide">
+            <AlertCircle size={14} className="shrink-0" />
+            <span>{error}</span>
           </div>
         )}
 
         {/* ── First + Last Name ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-sm font-medium text-slate-600 mb-1.5">
-              First name <span className="text-red-500">*</span>
+            <label className="block text-[0.78rem] font-medium text-slate-600 mb-1">
+              First name <span className="text-red-400">*</span>
             </label>
-            <div className="relative">
-              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
-                <User className="h-4 w-4" />
-              </span>
+            <div className="sr-input-wrap relative">
+              <User
+                size={16}
+                className="sr-input-icon absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 transition-colors duration-200 pointer-events-none"
+              />
               <input
-                className={`sr-input pl-10 pr-3.5 ${errors.firstName ? "sr-input-error" : ""}`}
+                className={`sr-input w-full h-[44px] pl-10 pr-3 rounded-xl border bg-white text-[0.875rem] text-slate-900 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-[#125fe2]/20 focus:border-[#125fe2] transition-all duration-200 ${
+                  errors.firstName ? "border-red-300" : "border-slate-200"
+                }`}
                 type="text"
-                placeholder="Jane"
+                placeholder="Firstname"
+                maxLength={20}
                 {...register("firstName")}
               />
             </div>
             <FormError message={errors.firstName?.message} />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-600 mb-1.5">
-              Last name <span className="text-red-500">*</span>
+            <label className="block text-[0.78rem] font-medium text-slate-600 mb-1">
+              Last name <span className="text-red-400">*</span>
             </label>
-            <div className="relative">
-              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
-                <User className="h-4 w-4" />
-              </span>
+            <div className="sr-input-wrap relative">
+              <User
+                size={16}
+                className="sr-input-icon absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 transition-colors duration-200 pointer-events-none"
+              />
               <input
-                className={`sr-input pl-10 pr-3.5 ${errors.lastName ? "sr-input-error" : ""}`}
+                className={`sr-input w-full h-[44px] pl-10 pr-3 rounded-xl border bg-white text-[0.875rem] text-slate-900 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-[#125fe2]/20 focus:border-[#125fe2] transition-all duration-200 ${
+                  errors.lastName ? "border-red-300" : "border-slate-200"
+                }`}
                 type="text"
-                placeholder="Doe"
+                placeholder="Lastname"
+                maxLength={20}
                 {...register("lastName")}
               />
             </div>
@@ -258,49 +275,54 @@ export default function ProfileSetup({
 
         {/* ── Username ── */}
         <div>
-          <label className="block text-sm font-medium text-slate-600 mb-1.5">
-            Username <span className="text-red-500">*</span>
+          <label className="block text-[0.78rem] font-medium text-slate-600 mb-1">
+            Username <span className="text-red-400">*</span>
           </label>
-          <div className="relative">
-            <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
-              <AtSign className="h-4 w-4" />
-            </span>
+          <div className="sr-input-wrap relative">
+            <AtSign
+              size={16}
+              className="sr-input-icon absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 transition-colors duration-200 pointer-events-none"
+            />
             <input
-              className={`sr-input pl-10 pr-10 ${errors.username ? "sr-input-error" : ""}`}
+              className={`sr-input w-full h-[44px] pl-10 pr-10 rounded-xl border bg-white text-[0.875rem] text-slate-900 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-[#125fe2]/20 focus:border-[#125fe2] transition-all duration-200 ${
+                errors.username ? "border-red-300" : "border-slate-200"
+              }`}
               type="text"
-              placeholder="jane_doe"
+              placeholder="@user_name"
+              maxLength={20}
               {...register("username")}
             />
             {usernameStatus && (
               <span className="absolute inset-y-0 right-0 pr-3.5 flex items-center">
                 {usernameStatus === "checking" && (
-                  <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                  <Loader2 size={15} className="animate-spin text-slate-300" />
                 )}
                 {usernameStatus === "available" && (
-                  <Check className="h-4 w-4 text-emerald-500" />
+                  <Check size={15} className="text-emerald-500" />
                 )}
                 {usernameStatus === "taken" && (
-                  <X className="h-4 w-4 text-red-500" />
+                  <X size={15} className="text-red-400" />
                 )}
               </span>
             )}
           </div>
           <FormError message={errors.username?.message} />
+
           {usernameStatus === "taken" && (
-            <p className="mt-1 text-xs text-red-500 font-medium">
+            <p className="mt-1 text-[0.72rem] text-red-500 font-medium">
               Username already taken. Try one of these:
             </p>
           )}
 
           {/* ── Suggestion chips ── */}
           {suggestions.length > 0 && (
-            <div className="mt-2.5 sr-animate-fade-in-slide">
+            <div className="mt-2 sr-animate-fade-in-slide">
               {usernameStatus !== "taken" && (
-                <p className="flex items-center gap-1 text-xs text-slate-500 mb-1.5">
-                  <Sparkles className="h-3 w-3 text-amber-400" />
+                <p className="flex items-center gap-1 text-[0.7rem] text-slate-400 mb-1.5">
+                  <Sparkles size={11} className="text-amber-400" />
                   Generated for you
                   {suggestionsLoading && (
-                    <Loader2 className="h-3 w-3 animate-spin ml-1" />
+                    <Loader2 size={11} className="animate-spin ml-0.5" />
                   )}
                 </p>
               )}
@@ -312,10 +334,10 @@ export default function ProfileSetup({
                     onClick={() =>
                       setValue("username", s, { shouldValidate: true })
                     }
-                    className={`px-2.5 py-1 text-xs font-medium rounded-full border transition-colors ${
+                    className={`px-2.5 py-1 text-[0.72rem] font-medium rounded-full border transition-all duration-150 ${
                       username === s
-                        ? "border-[#125fe2] bg-[#125fe2] text-white"
-                        : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-[#125fe2] hover:text-white hover:border-[#125fe2]"
+                        ? "border-[#125fe2] bg-[#125fe2] text-white shadow-sm"
+                        : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-[#125fe2]/5 hover:text-[#125fe2] hover:border-[#125fe2]/30"
                     }`}
                   >
                     @{s}
@@ -327,24 +349,24 @@ export default function ProfileSetup({
         </div>
 
         {/* ── Navigation ── */}
-        <div className="flex gap-4 mt-2">
+        <div className="flex gap-2.5 mt-1">
           <button
             type="button"
             onClick={onBack}
-            className="sr-btn-secondary flex-1 justify-center items-center flex gap-2"
+            className="flex-1 h-[44px] rounded-xl border border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 flex items-center justify-center gap-2 text-[0.84rem] font-medium text-slate-600 transition-all duration-150"
           >
-            <ArrowLeft className="h-4 w-4" /> Back
+            <ArrowLeft size={16} /> Back
           </button>
           <button
             type="submit"
             disabled={isLoading}
-            className="sr-btn-primary flex-1 justify-center items-center flex gap-2"
+            className="sr-btn-primary-gradient flex-1 flex items-center justify-center gap-2"
           >
             {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 size={16} className="animate-spin" />
             ) : (
               <>
-                Continue <ArrowRight className="h-4 w-4" />
+                Continue <ArrowRight size={15} />
               </>
             )}
           </button>
