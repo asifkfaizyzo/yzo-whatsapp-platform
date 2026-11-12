@@ -1,7 +1,7 @@
 // backend/src/cron/jobs/expiry-reminders.job.js (do not remove this comment)
 import cron from "node-cron";
 import prisma from "../../config/prisma.js";
-import { sendExpiryReminderEmail } from "../../modules/auth/email.service.js";
+import { sendExpiryReminderEmail } from "../../modules/email/index.js";
 
 const processExpiryReminders = async () => {
   const timestamp = new Date().toISOString();

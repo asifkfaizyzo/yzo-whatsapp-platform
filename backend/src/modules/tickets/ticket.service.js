@@ -1,7 +1,13 @@
 // backend/src/modules/tickets/ticket.service.js (do not remove this comment)
 
 import prisma from "../../config/prisma.js";
-import { sendTicketEmail } from "../auth/email.service.js";
+import {
+  sendTicketEmail,
+  sendTicketReplyEmail,
+  sendTicketEscalatedEmail,
+  sendTicketResolvedEmail,
+  sendTicketStatusUpdateEmail,
+} from "../email/index.js";
 import {
   emitToTenant,
   emitToSuperAdmin,
@@ -102,9 +108,7 @@ export const createTenantTicketService = async (tenantId, data) => {
   emitToSuperAdmin("superadmin_notification", { notification });
 
   // -- Email SuperAdmin --
-  await sendTicketEmail({
-    to: superAdmin?.email,
-    subject: `New Ticket ${ticketNumber} � ${data.title}`,
+  await sendTicketEmail(superAdmin?.email, {
     ticketNumber,
     title: data.title,
     description: data.description,
@@ -199,9 +203,7 @@ export const tenantReplyTicketService = async (ticketId, tenantId, message) => {
 
   emitToSuperAdmin("superadmin_notification", { notification });
 
-  await sendTicketEmail({
-    to: superAdmin?.email,
-    subject: `Reply on Ticket ${ticket.ticketNumber}`,
+  await sendTicketReplyEmail(superAdmin?.email, {
     ticketNumber: ticket.ticketNumber,
     title: ticket.title,
     description: message,
@@ -317,9 +319,7 @@ export const createUserTicketService = async (userId, tenantId, data) => {
   });
 
   // -- Email Tenant --
-  await sendTicketEmail({
-    to: tenant?.email,
-    subject: `New Ticket ${ticketNumber} from ${user.name}`,
+  await sendTicketEmail(tenant?.email, {
     ticketNumber,
     title: data.title,
     description: data.description,
@@ -431,9 +431,7 @@ export const userReplyTicketService = async (
   });
 
   // -- Email Tenant --
-  await sendTicketEmail({
-    to: tenant?.email,
-    subject: `Reply on Ticket ${ticket.ticketNumber} from ${user.name}`,
+  await sendTicketReplyEmail(tenant?.email, {
     ticketNumber: ticket.ticketNumber,
     title: ticket.title,
     description: message,
@@ -518,9 +516,7 @@ export const tenantReplyUserTicketService = async (
   });
 
   // -- Email User --
-  await sendTicketEmail({
-    to: ticket.user?.email,
-    subject: `Reply on your Ticket ${ticket.ticketNumber}`,
+  await sendTicketReplyEmail(ticket.user?.email, {
     ticketNumber: ticket.ticketNumber,
     title: ticket.title,
     description: message,
@@ -608,9 +604,7 @@ export const escalateTicketService = async (ticketId, tenantId) => {
   });
 
   // -- Email SuperAdmin --
-  await sendTicketEmail({
-    to: superAdmin?.email,
-    subject: `?? Escalated Ticket ${ticket.ticketNumber}`,
+  await sendTicketEscalatedEmail(superAdmin?.email, {
     ticketNumber: ticket.ticketNumber,
     title: ticket.title,
     description: `Ticket escalated by ${tenant.tenantName}`,
@@ -655,9 +649,7 @@ export const resolveTenantUserTicketService = async (ticketId, tenantId) => {
       message: "Your ticket has been resolved.",
     });
 
-    await sendTicketEmail({
-      to: ticket.user?.email,
-      subject: `? Ticket ${ticket.ticketNumber} Resolved`,
+    await sendTicketResolvedEmail(ticket.user?.email, {
       ticketNumber: ticket.ticketNumber,
       title: ticket.title,
       description: "Your ticket has been resolved by the support team.",
@@ -762,9 +754,7 @@ export const adminReplyTicketService = async (
       from: "Support Team",
     });
 
-    await sendTicketEmail({
-      to: ticket.tenant?.email,
-      subject: `Reply on Ticket ${ticket.ticketNumber}`,
+    await sendTicketReplyEmail(ticket.tenant?.email, {
       ticketNumber: ticket.ticketNumber,
       title: ticket.title,
       description: message,
@@ -794,9 +784,7 @@ export const adminReplyTicketService = async (
         from: "Support Team",
       });
 
-      await sendTicketEmail({
-        to: ticket.user?.email,
-        subject: `Update on your Ticket ${ticket.ticketNumber}`,
+      await sendTicketReplyEmail(ticket.user?.email, {
         ticketNumber: ticket.ticketNumber,
         title: ticket.title,
         description: message,
@@ -845,13 +833,12 @@ export const updateTicketStatusService = async (ticketId, status) => {
       status,
     });
 
-    await sendTicketEmail({
-      to: ticket.tenant?.email,
-      subject: `Ticket ${ticket.ticketNumber} � ${status}`,
+    await sendTicketStatusUpdateEmail(ticket.tenant?.email, {
       ticketNumber: ticket.ticketNumber,
       title: ticket.title,
       description: `Your ticket status has been updated to ${status}.`,
       raisedBy: "Support Team",
+      status,
     });
 
     if (ticket.raisedBy === "USER" && ticket.user) {
@@ -875,13 +862,12 @@ export const updateTicketStatusService = async (ticketId, status) => {
         status,
       });
 
-      await sendTicketEmail({
-        to: ticket.user?.email,
-        subject: `Your Ticket ${ticket.ticketNumber} � ${status}`,
+      await sendTicketStatusUpdateEmail(ticket.user?.email, {
         ticketNumber: ticket.ticketNumber,
         title: ticket.title,
         description: `Your ticket has been ${status.toLowerCase()} by the support team.`,
         raisedBy: "Support Team",
+        status,
       });
     }
   }

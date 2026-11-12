@@ -1,5 +1,6 @@
-// tenant-web/src/pages/auth/Signup/comps/ProfileSetup.jsx
-import { useState, useEffect, useMemo } from "react";
+// tenant-web/src/pages/auth/Signup/comps/ProfileSetup.jsx (do not remove this comment)
+
+import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -11,9 +12,15 @@ import {
   ArrowLeft,
   Check,
   X,
+  Sparkles,
 } from "lucide-react";
 import FormError from "../../../../components/FormError";
-import { checkUsername, updateOnboardingProfile } from "../../../../api/auth";
+import {
+  checkUsername,
+  updateOnboardingProfile,
+  getUsernameSuggestions,
+} from "../../../../api/auth";
+import { useAuthStore } from "../../../../store/useAuthStore";
 
 const schema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -22,28 +29,24 @@ const schema = z.object({
     .string()
     .min(4, "Username must be at least 4 characters")
     .max(30, "Username must be under 30 characters")
-    .regex(
-      /^[a-z0-9_]+$/,
-      "Lowercase letters, numbers, and underscores only",
-    ),
+    .regex(/^[a-z0-9_]+$/, "Lowercase letters, numbers, and underscores only"),
 });
 
-// ── Build username suggestions from first + last name ──
-function buildSuggestions(first = "", last = "") {
-  const f = first.toLowerCase().replace(/[^a-z0-9]/g, "");
-  const l = last.toLowerCase().replace(/[^a-z0-9]/g, "");
-  if (!f && !l) return [];
-  if (!l) return [`${f}_01`, `${f}123`, `the_${f}`].filter((s) => s.length >= 4);
-  if (!f) return [`${l}_01`, `${l}123`].filter((s) => s.length >= 4);
-
-  const candidates = [
-    `${f}_${l}`,
-    `${f}${l}`,
-    `${f}_${l[0]}`,
-    `${f[0]}_${l}`,
-    `${f}${l}99`,
-  ];
-  return [...new Set(candidates)].filter((s) => s.length >= 4);
+// ── Parse email prefix into name parts (client-side mirror) ──
+function parseEmailName(email) {
+  if (!email) return { firstName: "", lastName: "" };
+  const local = email.split("@")[0].toLowerCase();
+  const stripped = local.replace(/\d+$/, "");
+  if (!stripped) return { firstName: "", lastName: "" };
+  const parts = stripped.split(/[._-]+/).filter(Boolean);
+  const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+  if (parts.length >= 2) {
+    return {
+      firstName: cap(parts[0]),
+      lastName: cap(parts.slice(1).join(" ")),
+    };
+  }
+  return { firstName: cap(parts[0] || ""), lastName: "" };
 }
 
 export default function ProfileSetup({
@@ -55,8 +58,21 @@ export default function ProfileSetup({
 }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const [usernameStatus, setUsernameStatus] = useState(null); // null | "checking" | "available" | "taken"
-  const [backendSuggestions, setBackendSuggestions] = useState([]);
+  const [usernameStatus, setUsernameStatus] = useState(null);
+  const [suggestions, setSuggestions] = useState([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+
+  // ── Read tenant from auth store (has email + any OAuth names) ──
+  const tenant = useAuthStore((s) => s.tenant);
+  const storeEmail = tenant?.email || userData?.email || "";
+  const storeFirstName = tenant?.firstName || userData?.firstName || "";
+  const storeLastName = tenant?.lastName || userData?.lastName || "";
+
+  // ── Derive initial names: OAuth/store first, email-parsed fallback ──
+  const initialNames =
+    storeFirstName || storeLastName
+      ? { firstName: storeFirstName, lastName: storeLastName }
+      : parseEmailName(storeEmail);
 
   const {
     register,
@@ -67,8 +83,8 @@ export default function ProfileSetup({
   } = useForm({
     resolver: zodResolver(schema),
     defaultValues: {
-      firstName: userData.firstName || "",
-      lastName: userData.lastName || "",
+      firstName: initialNames.firstName,
+      lastName: initialNames.lastName,
       username: "",
     },
   });
@@ -77,45 +93,87 @@ export default function ProfileSetup({
   const lastName = watch("lastName");
   const username = watch("username");
 
-  // ── Live suggestions generated from firstName + lastName ──
-  const nameSuggestions = useMemo(
-    () => buildSuggestions(firstName, lastName),
-    [firstName, lastName],
+  // ── Fetch 3 suggestions from backend ──
+  const fetchSuggestions = useCallback(
+    async (fn, ln, email) => {
+      if (mockMode) {
+        const f = (fn || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+        const l = (ln || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+        const base =
+          f || email?.split("@")[0]?.replace(/[^a-z0-9]/g, "") || "user";
+        setSuggestions(
+          [`${base}_${l || "01"}`, `${base}123`, `${base}_hq`]
+            .filter((s) => s.length >= 4)
+            .slice(0, 3),
+        );
+        return;
+      }
+
+      setSuggestionsLoading(true);
+      const res = await getUsernameSuggestions(fn, ln, email);
+      if (res.success && res.data?.suggestions?.length > 0) {
+        setSuggestions(res.data.suggestions);
+      }
+      setSuggestionsLoading(false);
+    },
+    [mockMode],
   );
 
-  // ── Username duplication check ──
+  // ── On mount: auto-fill names + fetch initial suggestions ──
+  useEffect(() => {
+    if (initialNames.firstName) setValue("firstName", initialNames.firstName);
+    if (initialNames.lastName) setValue("lastName", initialNames.lastName);
+
+    const timer = setTimeout(() => {
+      fetchSuggestions(
+        initialNames.firstName,
+        initialNames.lastName,
+        storeEmail,
+      );
+    }, 400);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Re-fetch suggestions when names change (debounced) ──
+  useEffect(() => {
+    if (!firstName && !lastName) return;
+    const timer = setTimeout(() => {
+      fetchSuggestions(firstName, lastName, storeEmail);
+    }, 700);
+    return () => clearTimeout(timer);
+  }, [firstName, lastName, storeEmail, fetchSuggestions]);
+
+  // ── Username duplication check (debounced) ──
   useEffect(() => {
     if (!username || username.length < 4 || !/^[a-z0-9_]+$/.test(username)) {
       setUsernameStatus(null);
-      setBackendSuggestions([]);
       return;
     }
 
-    // Mock mode: skip backend check — treat as available immediately
     if (mockMode) {
       setUsernameStatus("available");
       return;
     }
 
-    // Real mode: debounced backend duplication check
     setUsernameStatus("checking");
     const timer = setTimeout(async () => {
-      const res = await checkUsername(username);
+      const res = await checkUsername(username, storeEmail);
       if (res.success) {
         if (res.data?.available) {
           setUsernameStatus("available");
-          setBackendSuggestions([]);
         } else {
           setUsernameStatus("taken");
-          setBackendSuggestions(res.data?.suggestions || []);
+          if (res.data?.suggestions?.length > 0) {
+            setSuggestions(res.data.suggestions);
+          }
         }
       } else {
         setUsernameStatus(null);
       }
     }, 500);
-
     return () => clearTimeout(timer);
-  }, [username, mockMode]);
+  }, [username, mockMode, storeEmail]);
 
   const onSubmit = async (data) => {
     setError("");
@@ -144,12 +202,6 @@ export default function ProfileSetup({
     setIsLoading(false);
   };
 
-  // Show backend suggestions if username is taken, otherwise name-based suggestions
-  const displaySuggestions =
-    usernameStatus === "taken" && backendSuggestions.length > 0
-      ? backendSuggestions
-      : nameSuggestions;
-
   return (
     <>
       <div>
@@ -166,6 +218,7 @@ export default function ProfileSetup({
           </div>
         )}
 
+        {/* ── First + Last Name ── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-600 mb-1.5">
@@ -203,6 +256,7 @@ export default function ProfileSetup({
           </div>
         </div>
 
+        {/* ── Username ── */}
         <div>
           <label className="block text-sm font-medium text-slate-600 mb-1.5">
             Username <span className="text-red-500">*</span>
@@ -238,14 +292,20 @@ export default function ProfileSetup({
             </p>
           )}
 
-          {/* ── Suggestion chips (from first+last name, or backend alternatives) ── */}
-          {displaySuggestions.length > 0 && (
+          {/* ── Suggestion chips ── */}
+          {suggestions.length > 0 && (
             <div className="mt-2.5 sr-animate-fade-in-slide">
               {usernameStatus !== "taken" && (
-                <p className="text-xs text-slate-500 mb-1.5">Suggestions:</p>
+                <p className="flex items-center gap-1 text-xs text-slate-500 mb-1.5">
+                  <Sparkles className="h-3 w-3 text-amber-400" />
+                  Generated for you
+                  {suggestionsLoading && (
+                    <Loader2 className="h-3 w-3 animate-spin ml-1" />
+                  )}
+                </p>
               )}
               <div className="flex flex-wrap gap-1.5">
-                {displaySuggestions.map((s) => (
+                {suggestions.map((s) => (
                   <button
                     key={s}
                     type="button"
@@ -266,6 +326,7 @@ export default function ProfileSetup({
           )}
         </div>
 
+        {/* ── Navigation ── */}
         <div className="flex gap-4 mt-2">
           <button
             type="button"

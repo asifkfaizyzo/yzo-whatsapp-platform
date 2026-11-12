@@ -98,7 +98,13 @@ export default function CreateAccount({
     try {
       const result = await signupWithEmail(data.email, data.password);
       if (result.success) {
-        onContinue(data);
+        const resData = result.data?.data;
+        if (resData?.isResuming) {
+          // Account already exists mid-onboarding — jump to correct step
+          onContinue({ ...data, resumeStep: resData.onboardingStep });
+        } else {
+          onContinue(data);
+        }
       } else {
         setError(result.message || "Signup failed. Please try again.");
       }

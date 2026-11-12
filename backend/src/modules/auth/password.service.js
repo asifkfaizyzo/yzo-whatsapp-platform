@@ -1,11 +1,8 @@
 // backend/src/modules/auth/password.service.js (do not remove this comment)
 import bcrypt from "bcrypt";
 import prisma from "../../config/prisma.js";
-import {
-  generateResetToken,
-  getResetTokenExpiry,
-  sendPasswordResetEmail,
-} from "./email.service.js";
+import { sendPasswordResetEmail } from "../email/index.js";
+import { generateResetToken, getResetTokenExpiry } from "./auth.utils.js";
 import { createAuditLog } from "../audit/audit.service.js";
 
 // ===================== FORGOT PASSWORD (Shared) =====================

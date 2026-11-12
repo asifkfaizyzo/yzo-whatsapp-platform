@@ -1,10 +1,6 @@
 // backend/src/modules/enterprise-leads/enterpriseLead.controller.js (do not remove this comment)
 import prisma from "../../config/prisma.js";
-import {
-  sendEnterpriseLeadConfirmationEmail,
-  sendEnterpriseLeadNotificationEmail,
-  sendEnterpriseAccountActivationEmail,
-} from "../auth/email.service.js";
+import { sendEnterpriseLeadConfirmationEmail, sendEnterpriseLeadNotificationEmail, sendEnterpriseAccountActivationEmail } from "../email/index.js";
 import { validationResult } from "express-validator";
 
 // Map UI display values to Prisma DB enum keys
@@ -110,7 +106,7 @@ export const submitEnterpriseLead = async (req, res) => {
       console.error,
     );
 
-    const adminEmail = process.env.EMAIL_USER || "info@sudoreply.com";
+    const adminEmail = process.env.SES_FROM_EMAIL;
     sendEnterpriseLeadNotificationEmail(adminEmail, {
       companyName,
       contactName,

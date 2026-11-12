@@ -1,0 +1,36 @@
+// backend/prisma/schema/email.prisma (do not remove this comment)
+// Email audit trail — logs every outbound email (success + failure)
+
+enum EmailCategory {
+  AUTH
+  BILLING
+  NOTIFICATION
+  SYSTEM
+}
+
+enum EmailStatus {
+  SENT
+  FAILED
+}
+
+model EmailLog {
+  id                String        @id @default(cuid())
+  tenantId          String?
+  to                String
+  from              String
+  subject           String
+  category          EmailCategory
+  status            EmailStatus
+  providerMessageId String?       // SES MessageId for delivery tracking
+  errorMessage      String?       // error details if FAILED
+  metadata          Json?         // flexible: templateName, ticketNumber, invoiceNumber, etc.
+  sentAt            DateTime?     // when SES accepted the email
+  createdAt         DateTime      @default(now())
+
+  tenant            Tenant?       @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, createdAt])
+  @@index([status])
+  @@index([category])
+  @@map("email_logs")
+}

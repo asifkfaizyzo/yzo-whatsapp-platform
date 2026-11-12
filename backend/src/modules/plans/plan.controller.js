@@ -11,7 +11,7 @@ import path from "path";
 import fs from "fs";
 import prisma from "../../config/prisma.js";
 import { generateInvoicePDF } from "./invoice.service.js";
-import { sendInvoiceEmail } from "../auth/email.service.js";
+import { sendInvoiceEmail } from "../email/index.js";
 
 import { createSuperAdminNotification } from "../superadmin-notifications/superadminNotification.service.js";
 import { emitToSuperAdmin } from "../../lib/socket.js";
@@ -702,12 +702,14 @@ export const verifyPaymentAndActivate = async (req, res) => {
           where: { id: payment.id },
           data: { invoiceUrl: fileUrl },
         });
-        await sendInvoiceEmail(
-          tenant.email,
-          tenant.tenantName,
+        await sendInvoiceEmail(tenant.email, {
           invoiceNumber,
-          filePath,
-        );
+          amount: totalAmount,
+          planName: plan.name,
+          periodEnd: periodEnd.toLocaleDateString(),
+          pdfPath: filePath,
+          tenantName: tenant.tenantName,
+        });
       })
       .catch((err) => {
         console.error("? Invoice generation error:", err);

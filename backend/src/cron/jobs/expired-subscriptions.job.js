@@ -1,40 +1,9 @@
 // backend/src/cron/jobs/expired-subscriptions.job.js (do not remove this comment)
 import cron from "node-cron";
 import prisma from "../../config/prisma.js";
-import {
-  sendSubscriptionExpiredEmail,
-  sendDataDeletionWarningEmail,
-} from "../../modules/auth/email.service.js";
-import nodemailer from "nodemailer";
+import { sendSubscriptionExpiredEmail, sendDataDeletionWarningEmail, sendSystemDeletionConfirmation } from "../../modules/email/index.js";
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
 
-const sendSystemDeletionConfirmation = async (email, companyName) => {
-  try {
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) return;
-    await transporter.sendMail({
-      from: `"SudoReply System" <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: "Data Deletion Confirmed - SudoReply",
-      html: `
-        <div style="font-family: Arial, sans-serif; padding: 20px;">
-          <h2>Workspace Data Deleted</h2>
-          <p>Hi ${companyName},</p>
-          <p>Under our 90-day subscription expiry policies, your workspace feature configuration and contacts data have been permanently deleted from our servers.</p>
-          <p>Please note that your legal billing history and invoice summaries are retained permanently for tax and compliance requirements.</p>
-        </div>
-      `,
-    });
-  } catch (err) {
-    console.error("Data deletion confirmation email error:", err);
-  }
-};
 
 export const checkExpiredSubscriptions = async () => {
   const timestamp = new Date().toISOString();

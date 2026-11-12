@@ -27,6 +27,7 @@ import { startAuditCleanupJob } from "./cron/jobs/audit-cleanup.job.js";
 import { startWebhookEventsCleanupJob } from "./cron/jobs/webhook-cleanup.job.js";
 import { initQuickReplyIndexes } from "./scripts/initQuickReplyIndexes.js";
 import { startZohoSyncWorker } from "./cron/workers/zoho-sync.worker.js";
+import { startEmailWorker } from "./cron/workers/email.worker.js";
 import { startZohoStaleTaskJob } from "./cron/jobs/zoho-stale-task.job.js";
 import { startZohoWatchRenewalJob } from "./cron/jobs/zoho-watch-renewal.job.js";
 import { initializeMediasoup } from "./lib/mediasoup/mediasoup.service.js";
@@ -53,6 +54,7 @@ const orderWebhookWorker = startOrderWebhookWorker();
 const broadcastWorker = startBroadcastWorker();
 const callMediaWorker = startCallMediaWorker();
 const zohoSyncWorker = startZohoSyncWorker();
+const emailWorker = startEmailWorker();
 startCleanupWorker();
 startAuditCleanupJob();
 startWebhookEventsCleanupJob();
@@ -137,6 +139,7 @@ const gracefulShutdown = async (signal) => {
       if (broadcastWorker) await broadcastWorker.close();
       if (callMediaWorker) await callMediaWorker.close();
       if (zohoSyncWorker) await zohoSyncWorker.close();
+      if (emailWorker) await emailWorker.close();
       console.log("?? BullMQ workers closed successfully.");
 
       // Safely close Redis connection

@@ -12,7 +12,7 @@ const EMAIL_STEPS = [
   {
     label: "Verify email",
     title: "Verify your email",
-    subtitle: "We've sent a 6-digit code to your inbox.",
+    subtitle: "We've sent a 4-digit code to your inbox.",
   },
   {
     label: "Profile",
@@ -96,7 +96,12 @@ export function useSignupStepper({ mockMode }) {
   const nextStep = useCallback(
     (data = {}) => {
       setUserData((prev) => ({ ...prev, ...data }));
-      if (step < totalSteps) {
+      if (data.resumeStep) {
+        // Resuming onboarding — jump to the saved step (at least 2,
+        // since step 1 = account creation which is already done)
+        const target = Math.min(Math.max(data.resumeStep, 2), totalSteps);
+        setStep(target);
+      } else if (step < totalSteps) {
         setStep((s) => s + 1);
       } else {
         // ── Last step done ──

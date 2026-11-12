@@ -18,6 +18,7 @@ import {
   validateUsernameFormat,
   isUsernameAvailable,
   generateSuggestions,
+  parseEmailForName,            
 } from "../../../utils/username.js";
 import {
   saveRefreshToken,
@@ -25,10 +26,7 @@ import {
   findRefreshToken,
 } from "../../auth/refreshToken.service.js";
 import { verifyRefreshToken } from "../../auth/jwt.service.js";
-import {
-  sendPasswordResetEmail,
-  sendVerificationOtpEmail,
-} from "../../auth/email.service.js";
+import { sendPasswordResetEmail, sendVerificationOtpEmail } from "../../email/index.js";
 import { createAuditLog } from "../../audit/audit.service.js";
 import { createSuperAdminNotification } from "../../superadmin-notifications/superadminNotification.service.js";
 import { emitToSuperAdmin } from "../../../lib/socket.js";
@@ -160,6 +158,53 @@ export const signupService = async ({
     await checkEmailAcrossActors(normalizedEmail);
 
   if (tenant) {
+    // ── Auto-resume incomplete onboarding instead of blocking ──
+    const fullTenant = await prisma.tenant.findFirst({
+      where: { id: tenant.id, deletedAt: null },
+      select: {
+        ...SAFE_TENANT_SELECT,
+        password: true,
+        onboardingCompleted: true,
+        ...SUBSCRIPTION_INCLUDE,
+      },
+    });
+
+    if (
+      fullTenant &&
+      fullTenant.status === "ONBOARDING" &&
+      !fullTenant.onboardingCompleted
+    ) {
+      // Verify password if the account has one (email signup)
+      if (fullTenant.password) {
+        const match = await comparePassword(password, fullTenant.password);
+        if (!match) {
+          throw new AuthError("Invalid credentials", 401);
+        }
+      }
+
+      // Re-issue tokens and resume
+      const tokens = await issueTokens(fullTenant);
+
+      logAuth({
+        actorId: fullTenant.id,
+        actorType: "TENANT",
+        actorEmail: normalizedEmail,
+        action: "LOGIN_SUCCESS",
+        description: "Tenant resumed onboarding via signup",
+        ipAddress: ip,
+        userAgent,
+        tenantId: fullTenant.id,
+      });
+
+      return {
+        tenant: sanitizeTenant(fullTenant),
+        ...tokens,
+        requiresOnboarding: true,
+        isResuming: true,
+        onboardingStep: fullTenant.onboardingStep,
+      };
+    }
+
     throw new AuthError(
       "An account with this email already exists. Please log in.",
       409,
@@ -713,21 +758,41 @@ export const resetPasswordService = async ({
 // -----------------------------------------------------------
 // 9. CHECK USERNAME AVAILABILITY
 // -----------------------------------------------------------
-export const checkUsernameService = async ({ username }) => {
+export const checkUsernameService = async ({ username, email }) => {
   const formatError = validateUsernameFormat(username);
   if (formatError) {
     return { available: false, reason: formatError };
   }
 
   const available = await isUsernameAvailable(username);
-  return { available };
+  if (available) {
+    return { available: true };
+  }
+
+  // Username taken — generate 3 alternatives for the frontend
+  const suggestions = await generateSuggestions("", "", email || "");
+  return { available: false, suggestions };
 };
 
 // -----------------------------------------------------------
 // 10. USERNAME SUGGESTIONS
 // -----------------------------------------------------------
-export const usernameSuggestionsService = async ({ firstName, lastName }) => {
-  const suggestions = await generateSuggestions(firstName, lastName);
+export const usernameSuggestionsService = async ({
+  firstName,
+  lastName,
+  email,
+}) => {
+  let fn = firstName;
+  let ln = lastName;
+
+  // If names are empty but email is provided, derive from email
+  if ((!fn || !fn.trim()) && (!ln || !ln.trim()) && email) {
+    const parsed = parseEmailForName(email);
+    fn = parsed.firstName;
+    ln = parsed.lastName;
+  }
+
+  const suggestions = await generateSuggestions(fn, ln, email);
   return { suggestions };
 };
 

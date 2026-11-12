@@ -13,7 +13,7 @@ import {
   findRefreshToken,
 } from "../../auth/refreshToken.service.js";
 import { verifyRefreshToken } from "../../auth/jwt.service.js";
-import { sendPasswordResetEmail } from "../../auth/email.service.js";
+import { sendPasswordResetEmail } from "../../email/index.js";
 import { createAuditLog } from "../../audit/audit.service.js";
 
 // -----------------------------------------------------------

@@ -367,11 +367,11 @@ export const updateOnboardingStep = async (step, data) => {
   }
 };
 
-// GET /tenant/auth/check-username?q=xxx
-export const checkUsername = async (username) => {
+// GET /tenant/auth/check-username?q=xxx&email=xxx
+export const checkUsername = async (username, email) => {
   try {
     const response = await api.get("/auth/check-username", {
-      params: { username },
+      params: { username, email },                  // ← added email
     });
     return { success: true, data: response.data.data };
   } catch (error) {
@@ -382,11 +382,11 @@ export const checkUsername = async (username) => {
   }
 };
 
-// GET /tenant/auth/username-suggestions?firstName=x&lastName=y
-export const getUsernameSuggestions = async (firstName, lastName) => {
+// GET /tenant/auth/username-suggestions?firstName=x&lastName=y&email=z
+export const getUsernameSuggestions = async (firstName, lastName, email) => {
   try {
     const response = await api.get("/auth/username-suggestions", {
-      params: { firstName, lastName },
+      params: { firstName, lastName, email },       // ← added email
     });
     return { success: true, data: response.data.data };
   } catch (error) {

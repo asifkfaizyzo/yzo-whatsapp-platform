@@ -3,7 +3,7 @@ import crypto from "crypto";
 import prisma from "../../../config/prisma.js";
 import { calculateGST } from "../../../lib/billing.js";
 import { generateInvoicePDF } from "../../plans/invoice.service.js";
-import { sendInvoiceEmail } from "../../auth/email.service.js";
+import { sendInvoiceEmail } from "../../email/index.js";
 
 import { createSuperAdminNotification } from "../../superadmin-notifications/superadminNotification.service.js";
 import { createNotification } from "../../notifications/notification.service.js";

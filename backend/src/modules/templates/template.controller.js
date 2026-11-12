@@ -10,7 +10,7 @@ import {
   inferHeaderTypeFromComponents,
 } from "./template.service.js";
 import { validateTemplateMediaSize } from "../../middleware/uploadTemplate.js";
-import { sendTemplateStatusEmail } from "../auth/email.service.js";
+import { sendTemplateStatusEmail } from "../email/index.js";
 
 // ── Valid values ────────────────────────────────────────────────────────────
 const VALID_HEADER_TYPES = [

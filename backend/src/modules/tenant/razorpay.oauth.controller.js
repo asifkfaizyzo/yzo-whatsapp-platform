@@ -97,7 +97,7 @@ async function provisionSubMerchantWebhook(
 
   const payload = {
     url: webhookUrl,
-    alert_email: alertEmail || process.env.EMAIL_USER || "info@sudoreply.com",
+    alert_email: alertEmail || process.env.SES_FROM_EMAIL || "info@sudoreply.com",
     secret: webhookSecret,
     events: {
       "payment_link.paid": true,

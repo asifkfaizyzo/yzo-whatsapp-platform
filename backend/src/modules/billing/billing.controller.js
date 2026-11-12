@@ -2,14 +2,14 @@
 import prisma from "../../config/prisma.js";
 import { generateInvoicePDFFromModel } from "../plans/invoice.service.js";
 import {
+  sendReactivationConfirmedEmail,
   sendCancellationConfirmedEmail,
   sendCancellationAdminAlertEmail,
-  sendReactivationConfirmedEmail,
   sendPauseAdminAlertEmail,
   sendResumeAdminAlertEmail,
   sendSubscriptionPausedEmail,
   sendSubscriptionResumedEmail,
-} from "../auth/email.service.js";
+} from "../email/index.js";
 import { createAuditLog } from "../audit/audit.service.js";
 import { extractRequestMeta } from "../../lib/utils/request.meta.js";
 import { razorpay } from "../../config/razorpay.js";
@@ -166,9 +166,7 @@ export const cancelSubscription = async (req, res) => {
       });
 
       sendCancellationAdminAlertEmail(
-        process.env.ADMIN_EMAIL ||
-          process.env.EMAIL_USER ||
-          "info@sudoreply.com",
+        process.env.SES_FROM_EMAIL,
         {
           companyName: tenant.tenantName || "Tenant Company",
           email: tenant.email,
@@ -318,12 +316,10 @@ export const reactivateSubscription = async (req, res) => {
       console.warn("Reactivation confirmation email error:", emailErr.message);
     }
 
-    return res
-      .status(200)
-      .json({
-        success: true,
-        message: "Subscription reactivated successfully",
-      });
+    return res.status(200).json({
+      success: true,
+      message: "Subscription reactivated successfully",
+    });
   } catch (error) {
     console.error("Reactivate subscription error:", error);
     return res
@@ -417,7 +413,7 @@ export const pauseSubscription = async (req, res) => {
 
     // 4. Admin Alert Email
     const adminEmail =
-      process.env.ADMIN_EMAIL || process.env.EMAIL_USER || "info@sudoreply.com";
+      process.env.SES_FROM_EMAIL;
     sendPauseAdminAlertEmail(adminEmail, {
       companyName: tenant.tenantName,
       tenantEmail: tenant.email,
@@ -546,7 +542,7 @@ export const resumeSubscription = async (req, res) => {
 
     // 4. Admin Alert Email
     const adminEmail =
-      process.env.ADMIN_EMAIL || process.env.EMAIL_USER || "info@sudoreply.com";
+      process.env.SES_FROM_EMAIL;
     sendResumeAdminAlertEmail(adminEmail, {
       companyName: tenant.tenantName,
       tenantEmail: tenant.email,
@@ -687,12 +683,10 @@ export const getBillingOverview = async (req, res) => {
     return res.status(200).json({ success: true, data: formattedTenant });
   } catch (error) {
     console.error("Get billing overview error:", error);
-    return res
-      .status(500)
-      .json({
-        success: false,
-        message: "Server error fetching billing details",
-      });
+    return res.status(500).json({
+      success: false,
+      message: "Server error fetching billing details",
+    });
   }
 };
 

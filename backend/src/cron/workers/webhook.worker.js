@@ -13,7 +13,7 @@ import { isNewWebhookEvent } from "../../lib/idempotency.js";
 import { dlqQueue } from "../queues/dlq.queue.js";
 import { generateSignedUrl } from "../../lib/utils/signed.url.js";
 import { decrypt } from "../../lib/crypto.js";
-import { sendTemplateStatusEmail } from "../../modules/auth/email.service.js";
+import { sendTemplateStatusEmail } from "../../modules/email/index.js";
 import flowEngine from "../../modules/automation/flowEngine.service.js";
 import fs from "fs";
 import path from "path";

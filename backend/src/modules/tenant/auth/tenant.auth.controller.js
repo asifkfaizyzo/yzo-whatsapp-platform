@@ -136,9 +136,11 @@ export const signup = handle(async (req, res) => {
       tenant: buildUserPayload(result.tenant),
       accessToken: result.accessToken,
       requiresOnboarding: result.requiresOnboarding,
+      isResuming: result.isResuming || false,
+      onboardingStep: result.onboardingStep || 1,
     },
-    "Account created successfully",
-    201,
+    result.isResuming ? "Resuming onboarding" : "Account created successfully",
+    result.isResuming ? 200 : 201,
   );
 });
 
@@ -360,9 +362,12 @@ export const resetPassword = handle(async (req, res) => {
 // 11. CHECK USERNAME
 // -----------------------------------------------------------
 export const checkUsername = handle(async (req, res) => {
-  const { q, username } = req.query;
+  const { q, username, email } = req.query;       // ← added email
 
-  const result = await checkUsernameService({ username: q || username });
+  const result = await checkUsernameService({
+    username: q || username,
+    email,                                          // ← pass through
+  });
 
   return success(res, result);
 });
@@ -371,9 +376,13 @@ export const checkUsername = handle(async (req, res) => {
 // 12. USERNAME SUGGESTIONS
 // -----------------------------------------------------------
 export const usernameSuggestions = handle(async (req, res) => {
-  const { firstName, lastName } = req.query;
+  const { firstName, lastName, email } = req.query; // ← added email
 
-  const result = await usernameSuggestionsService({ firstName, lastName });
+  const result = await usernameSuggestionsService({
+    firstName,
+    lastName,
+    email,                                          // ← pass through
+  });
 
   return success(res, result);
 });

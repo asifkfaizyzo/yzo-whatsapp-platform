@@ -4,7 +4,7 @@ model Tenant {
   id          String   @id @default(cuid())
   tenantName  String?
   email       String?  @unique
-  username    String    @unique   
+  username    String?   @unique   
   password    String?
   resetToken       String?
   resetTokenExpiry DateTime?
@@ -61,6 +61,7 @@ model Tenant {
   cancellationSurvey    CancellationSurvey?
   dataDeletions         TenantDataDeletion[]
   auditLogs         AuditLog[] @relation("TenantAuditLogs")
+  emailLogs         EmailLog[]
   googleSheetConnection GoogleSheetConnection?
   sheetFields           SheetField[]
   shopifyConnection     ShopifyConnection?

@@ -93,24 +93,68 @@ export const validateUsername = async (username) => {
 };
 
 /**
- * Generate available username suggestions from a person's name.
- * Returns up to 4 available suggestions.
+ * Parse an email address into firstName / lastName.
+ *   "john.doe123@gmail.com"  → { firstName: "John", lastName: "Doe" }
+ *   "munnasif11@gmail.com"   → { firstName: "Munnasif", lastName: "" }
+ *   "j.doe@gmail.com"        → { firstName: "J", lastName: "Doe" }
+ *
+ * @param {string} email
+ * @returns {{ firstName: string, lastName: string }}
+ */
+export const parseEmailForName = (email) => {
+  if (!email || typeof email !== "string") {
+    return { firstName: "", lastName: "" };
+  }
+
+  const local = email.split("@")[0].toLowerCase();
+  if (!local) return { firstName: "", lastName: "" };
+
+  // Strip trailing digits so "munnasif11" → "munnasif"
+  const stripped = local.replace(/\d+$/, "");
+  if (!stripped) return { firstName: "", lastName: "" };
+
+  // Split on common separators: dot, underscore, hyphen
+  const parts = stripped.split(/[._-]+/).filter(Boolean);
+  const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+  if (parts.length >= 2) {
+    return {
+      firstName: cap(parts[0]),
+      lastName: cap(parts.slice(1).join(" ")),
+    };
+  }
+
+  return { firstName: cap(parts[0] || ""), lastName: "" };
+};
+
+/**
+ * Generate exactly 3 available username suggestions.
+ *
+ * Priority order:
+ *   1. Email prefix (most recognisable to the user)
+ *   2. Name-based combos (first_last, firstlast, etc.)
+ *   3. Numeric fallbacks (first_42, first789, etc.)
  *
  * @param {string} firstName
  * @param {string} lastName
- * @returns {Promise<string[]>}
+ * @param {string} [email]
+ * @returns {Promise<string[]>} Up to 3 available usernames
  */
-export const generateSuggestions = async (firstName = "", lastName = "") => {
+export const generateSuggestions = async (
+  firstName = "",
+  lastName = "",
+  email = "",
+) => {
   const first = firstName.toLowerCase().trim().replace(/[^a-z0-9]/g, "");
   const last = lastName.toLowerCase().trim().replace(/[^a-z0-9]/g, "");
+  const emailPrefix = email
+    ? email.split("@")[0].toLowerCase().replace(/[^a-z0-9_]/g, "")
+    : "";
 
-  if (!first) return [];
-
-  // Build candidate list in priority order
   const candidates = [];
   const seen = new Set();
 
-  const addCandidate = (c) => {
+  const add = (c) => {
     const clean = c.toLowerCase().replace(/[^a-z0-9_]/g, "");
     if (clean.length >= USERNAME_MIN_LENGTH && !seen.has(clean)) {
       seen.add(clean);
@@ -118,27 +162,48 @@ export const generateSuggestions = async (firstName = "", lastName = "") => {
     }
   };
 
-  // Priority patterns
-  if (last) {
-    addCandidate(`${first}_${last}`);
-    addCandidate(`${first}${last}`);
-    addCandidate(`${first}_${last.charAt(0)}`);
-    addCandidate(`${first.charAt(0)}_${last}`);
-    addCandidate(`${first}${last.charAt(0)}`);
-  }
-  addCandidate(first);
-  addCandidate(`${first}_${Math.floor(Math.random() * 90 + 10)}`);
-  addCandidate(`${first}${Math.floor(Math.random() * 90 + 10)}`);
-  addCandidate(`${first}_${Math.floor(Math.random() * 900 + 100)}`);
+  // ── Priority 1: email prefix ──
+  if (emailPrefix) add(emailPrefix);
 
-  // Check availability, return first 4
+  // ── Priority 2: name combos ──
+  if (first && last) {
+    add(`${first}_${last}`);
+    add(`${first}${last}`);
+    add(`${first}_${last.charAt(0)}`);
+    add(`${first.charAt(0)}_${last}`);
+  }
+  if (first) add(first);
+  if (last && !first) add(last);
+
+  // ── Priority 3: numeric fallbacks ──
+  const base = first || emailPrefix || last || "user";
+  for (let i = 0; i < 6; i++) {
+    add(`${base}_${Math.floor(Math.random() * 90 + 10)}`);
+    add(`${base}${Math.floor(Math.random() * 900 + 100)}`);
+  }
+
+  // ── Pick first 3 available ──
   const available = [];
   for (const candidate of candidates) {
-    if (available.length >= 4) break;
+    if (available.length >= 3) break;
     if (await isUsernameAvailable(candidate)) {
       available.push(candidate);
     }
   }
 
-  return available;
+  // ── Safety net: if still < 3, brute-force random suffixes ──
+  let attempts = 0;
+  while (available.length < 3 && attempts < 30) {
+    attempts++;
+    const suffix = Math.floor(Math.random() * 9000 + 1000);
+    const candidate = `${base}${suffix}`;
+    if (!seen.has(candidate) && candidate.length >= USERNAME_MIN_LENGTH) {
+      seen.add(candidate);
+      if (await isUsernameAvailable(candidate)) {
+        available.push(candidate);
+      }
+    }
+  }
+
+  return available.slice(0, 3);
 };

@@ -1,48 +1,14 @@
 // backend/src/modules/admin-subscriptions/adminSubscription.controller.js (do not remove this comment)
 import crypto from "crypto";
 import prisma from "../../config/prisma.js";
-import nodemailer from "nodemailer";
 import { calculateGST } from "../../lib/billing.js";
-import { sendInvoiceEmail } from "../auth/email.service.js";
+import { sendStatusUpdateEmail, sendInvoiceEmail } from "../email/index.js";
 import { generateInvoicePDFFromModel } from "../plans/invoice.service.js";
 import { createAuditLog } from "../audit/audit.service.js";
 import { extractRequestMeta } from "../../lib/utils/request.meta.js";
 import { razorpay } from "../plans/plan.controller.js";
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
 
-const sendStatusUpdateEmail = async (
-  email,
-  companyName,
-  status,
-  extraNote = "",
-) => {
-  try {
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) return;
-    await transporter.sendMail({
-      from: `"SudoReply System" <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: `Subscription status updated: ${status}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; padding: 20px;">
-          <h2>Subscription Notification</h2>
-          <p>Hi ${companyName},</p>
-          <p>We are writing to notify you that your subscription status on SudoReply has been updated to: <strong>${status}</strong>.</p>
-          ${extraNote ? `<p>${extraNote}</p>` : ""}
-          <p>If you have any questions, please reach out to info@sudoreply.com.</p>
-        </div>
-      `,
-    });
-  } catch (err) {
-    console.error("Error sending admin action status email:", err);
-  }
-};
 
 export const getSubscriptions = async (req, res) => {
   const page = parseInt(req.query.page) || 1;
@@ -346,7 +312,7 @@ export const updateSubscription = async (req, res) => {
       actorType: "SUPER_ADMIN",
       actorName: req.srAdmin?.name || "Super Admin",
       actorEmail:
-        req.srAdmin?.email || process.env.EMAIL_USER || "info@sudoreply.com",
+        req.srAdmin?.email || "info@sudoreply.com",
       action: "PLAN_CHANGED",
       module: "BILLING",
       description: `Subscription action "${action}" executed for tenant "${tenant.tenantName}"`,
@@ -356,12 +322,11 @@ export const updateSubscription = async (req, res) => {
       metadata: { action, extendDays, note },
     });
 
-    sendStatusUpdateEmail(
-      tenant.email,
-      tenant.tenantName || tenant.email,
-      updatedSub.subscriptionStatus,
-      notificationNote,
-    );
+    sendStatusUpdateEmail(tenant.email, {
+      tenantName: tenant.tenantName || tenant.email,
+      status: updatedSub.subscriptionStatus,
+      extraNote: notificationNote,
+    });
 
     return res.status(200).json({
       success: true,
@@ -607,9 +572,7 @@ export const manualPlanActivation = async (req, res) => {
           actorType: "SUPER_ADMIN",
           actorName: req.srAdmin?.name || "Super Admin",
           actorEmail:
-            req.srAdmin?.email ||
-            process.env.EMAIL_USER ||
-            "info@sudoreply.com",
+            req.srAdmin?.email || "info@sudoreply.com",
           action: "PLAN_ACTIVATED",
           module: "BILLING",
           description: `Manual offline plan activation for "${tenant.tenantName}" (${plan.name}) — Ref: ${paymentRef || "N/A"}, Total: ₹${gstCalc.totalAmount}`,

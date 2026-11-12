@@ -1,9 +1,6 @@
 // backend/src/modules/enquiries/enquiry.controller.js (do not remove this comment)
 import prisma from "../../config/prisma.js";
-import {
-  sendEnquiryConfirmationEmail,
-  sendEnquiryNotificationEmail,
-} from "../auth/email.service.js";
+import { sendEnquiryConfirmationEmail, sendEnquiryNotificationEmail } from "../email/index.js";
 import { validationResult } from "express-validator";
 
 // -- Public Enquiry Submission --
@@ -32,7 +29,7 @@ export const submitEnquiry = async (req, res) => {
 
     // Send emails (non-blocking)
     sendEnquiryConfirmationEmail(email, name).catch(console.error);
-    const adminEmail = process.env.EMAIL_USER || "info@sudoreply.com";
+    const adminEmail = process.env.SES_FROM_EMAIL;
     sendEnquiryNotificationEmail(adminEmail, {
       name,
       email,
