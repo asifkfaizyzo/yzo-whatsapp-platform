@@ -1,12 +1,18 @@
 // backend/src/modules/messages/message.routes.js (do not remove this comment)
 import express from "express";
 import * as messageController from "./message.controller.js";
-import { verifyUser } from "../../middlewares/auth.user.js";
 import { verifyTenantOrUser } from "../../middlewares/auth.verifyTenantOrUser.js";
 import { checkSubscriptionAccess } from "../../middlewares/subscription.access.js";
 import upload from "../../middlewares/upload.middleware.js";
+import { previewMessageMedia } from "./media.controller.js";
 
 const router = express.Router();
+
+router.get(
+  "/media/preview/:messageId",
+  verifyTenantOrUser,
+  previewMessageMedia,
+);
 
 // ── Incoming Message (test/internal simulation) — PROTECTED
 // Real incoming messages arrive via the authenticated Meta webhook (/api/webhook).
