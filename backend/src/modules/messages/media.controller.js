@@ -9,6 +9,159 @@ import {
   generateSignedUrl,
 } from "../../lib/utils/signed.url.js";
 
+const isPathInside = (parentPath, childPath) => {
+  const relativePath = path.relative(parentPath, childPath);
+  return (
+    relativePath === "" ||
+    (relativePath !== ".." &&
+      !relativePath.startsWith(`..${path.sep}`) &&
+      !path.isAbsolute(relativePath))
+  );
+};
+
+const resolveUploadFile = async (storedPath) => {
+  if (typeof storedPath !== "string" || !storedPath.trim()) {
+    throw Object.assign(new Error("Media file not found"), { status: 404 });
+  }
+
+  const uploadsRoot = await fs.promises.realpath(
+    path.resolve(process.cwd(), "uploads"),
+  );
+  const relativeUploadPath = storedPath
+    .replace(/\\/g, "/")
+    .replace(/^\/+/, "");
+  const candidatePath = path.resolve(process.cwd(), relativeUploadPath);
+  if (!isPathInside(uploadsRoot, candidatePath)) {
+    throw Object.assign(new Error("Access denied"), { status: 403 });
+  }
+
+  let realPath;
+  try {
+    realPath = await fs.promises.realpath(candidatePath);
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      throw Object.assign(new Error("Media file not found"), { status: 404 });
+    }
+    throw error;
+  }
+
+  if (!isPathInside(uploadsRoot, realPath)) {
+    throw Object.assign(new Error("Access denied"), { status: 403 });
+  }
+
+  const stat = await fs.promises.stat(realPath);
+  if (!stat.isFile()) {
+    throw Object.assign(new Error("Media file not found"), { status: 404 });
+  }
+  return { filePath: realPath, stat };
+};
+
+const isPdfFile = async (filePath) => {
+  const file = await fs.promises.open(filePath, "r");
+  try {
+    const header = Buffer.alloc(1024);
+    const { bytesRead } = await file.read(header, 0, header.length, 0);
+    return header.subarray(0, bytesRead).includes(Buffer.from("%PDF-"));
+  } finally {
+    await file.close();
+  }
+};
+
+const getContentDispositionFileName = (fileName) => {
+  const cleanName = String(fileName || "media").replace(/[\r\n]/g, "");
+  const safeName = cleanName.replace(/[^\x20-\x7E]|["\\]/g, "_");
+  const encodedName = encodeURIComponent(cleanName).replace(
+    /['()*]/g,
+    (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+  return `filename="${safeName}"; filename*=UTF-8''${encodedName}`;
+};
+
+export const previewMessageMedia = async (req, res) => {
+  try {
+    const message = await prisma.message.findUnique({
+      where: { id: req.params.messageId },
+      include: {
+        conversation: {
+          include: {
+            contact: { select: { assignedTo: true } },
+          },
+        },
+      },
+    });
+
+    if (
+      !message ||
+      message.conversation.tenantId !== req.tenantId ||
+      (req.actorType === "USER" &&
+        message.conversation.contact?.assignedTo !== req.userId)
+    ) {
+      return res.status(404).json({
+        success: false,
+        message: "Media not found",
+      });
+    }
+    if (message.isDeleted || !message.mediaUrl) {
+      return res.status(404).json({
+        success: false,
+        message: "Message has no available media",
+      });
+    }
+
+    const { filePath, stat } = await resolveUploadFile(message.mediaUrl);
+    const fileName = message.mediaName || path.basename(filePath);
+    const isDownload = req.query.download === "true";
+    const isPdf = await isPdfFile(filePath);
+
+    if (!isDownload && !isPdf) {
+      return res.status(415).json({
+        success: false,
+        message: "Preview is available for PDF files only. Download this file to view it.",
+      });
+    }
+
+    const contentType = isPdf
+      ? "application/pdf"
+      : message.mediaMimeType ||
+        mime.lookup(fileName) ||
+        "application/octet-stream";
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Content-Length", stat.size);
+    res.setHeader(
+      "Content-Disposition",
+      `${isDownload ? "attachment" : "inline"}; ${getContentDispositionFileName(fileName)}`,
+    );
+    res.setHeader("Cache-Control", "private, no-store");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+
+    const fileStream = fs.createReadStream(filePath);
+    fileStream.once("error", (error) => {
+      console.error("Message media preview stream failed:", error);
+      if (!res.headersSent) {
+        res.status(500).json({
+          success: false,
+          message: "Failed to read media file",
+        });
+      } else {
+        res.destroy(error);
+      }
+    });
+    fileStream.pipe(res);
+  } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({
+        success: false,
+        message: error.message,
+      });
+    }
+    console.error("Message media preview failed:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to load media file",
+    });
+  }
+};
+
 // ── Serve Media File via Signed URL ──────────────────────────
 export const serveMediaFile = async (req, res) => {
   try {
