@@ -108,14 +108,17 @@ const verifyGoogleCredential = async (credential) => {
 };
 
 const verifyFacebookToken = async (accessToken) => {
-  const { data } = await axios.get("https://graph.facebook.com/me", {
+  const { data } = await axios.get("https://graph.facebook.com/v26.0/me", {
     params: {
       access_token: accessToken,
-      fields: "id,email,first_name,last_name",
+      fields: "id,email,first_name,last_name,name",
     },
   });
+  console.log("[FB Profile]", JSON.stringify(data, null, 2));
   if (!data.email) {
-    throw new Error("Facebook account does not have an email address");
+    throw new Error(
+      `Facebook account does not have an email address. Profile returned: ${JSON.stringify(data)}`
+    );
   }
   return {
     email: data.email,

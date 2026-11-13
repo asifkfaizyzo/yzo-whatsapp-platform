@@ -22,7 +22,7 @@ export default function FacebookLoginButton({
         appId: import.meta.env.VITE_META_APP_ID,
         cookie: true,
         xfbml: true,
-        version: "v20.0",
+        version: "v26.0",
       });
     };
 

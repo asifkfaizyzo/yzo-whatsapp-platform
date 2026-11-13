@@ -63,7 +63,7 @@ export default function Login({ onSwitchMode }) {
         appId: import.meta.env.VITE_META_APP_ID,
         cookie: true,
         xfbml: true,
-        version: "v20.0",
+        version: "v26.0",
       });
     };
     if (!document.getElementById("facebook-jssdk")) {
@@ -166,26 +166,28 @@ export default function Login({ onSwitchMode }) {
 
     setIsSubmitting(true);
     window.FB.login(
-      async (response) => {
+      (response) => {
         if (!response.authResponse) {
           setFbError("Facebook login was cancelled.");
           setIsSubmitting(false);
           return;
         }
-        try {
-          const result = await loginWithFacebook(
-            response.authResponse.accessToken,
-          );
-          if (result.success) {
-            navigateAfterAuth(result.data?.data?.tenant);
-          } else {
-            setFbError(result.message || "Facebook login failed.");
+        (async () => {
+          try {
+            const result = await loginWithFacebook(
+              response.authResponse.accessToken,
+            );
+            if (result.success) {
+              navigateAfterAuth(result.data?.data?.tenant);
+            } else {
+              setFbError(result.message || "Facebook login failed.");
+            }
+          } catch (err) {
+            setFbError(err?.message || "Facebook login failed.");
+          } finally {
+            setIsSubmitting(false);
           }
-        } catch (err) {
-          setFbError(err?.message || "Facebook login failed.");
-        } finally {
-          setIsSubmitting(false);
-        }
+        })();
       },
       { config_id: import.meta.env.VITE_META_SSO_CONFIG_ID },
     );

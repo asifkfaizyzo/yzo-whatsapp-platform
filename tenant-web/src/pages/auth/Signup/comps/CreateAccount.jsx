@@ -219,7 +219,7 @@ export default function CreateAccount({
     }
 
     window.FB.login(
-      async (response) => {
+      (response) => {
         if (!response.authResponse) {
           setFbError("Facebook login was cancelled.");
           return;
@@ -237,27 +237,29 @@ export default function CreateAccount({
           }, 700);
           return;
         }
-        try {
-          const result = await signupWithFacebook(
-            response.authResponse.accessToken
-          );
-          if (result.success) {
-            const t = result.data?.data?.tenant || {};
-            onOAuth({
-              provider: "facebook",
-              email: t.email || "",
-              firstName: t.firstName || "",
-              lastName: t.lastName || "",
-            });
-          } else {
-            setFbError(result.message || "Facebook sign-up failed.");
+        (async () => {
+          try {
+            const result = await signupWithFacebook(
+              response.authResponse.accessToken
+            );
+            if (result.success) {
+              const t = result.data?.data?.tenant || {};
+              onOAuth({
+                provider: "facebook",
+                email: t.email || "",
+                firstName: t.firstName || "",
+                lastName: t.lastName || "",
+              });
+            } else {
+              setFbError(result.message || "Facebook sign-up failed.");
+            }
+          } catch (err) {
+            setFbError(err.message || "Something went wrong.");
           }
-        } catch (err) {
-          setFbError(err.message || "Something went wrong.");
-        }
-        setIsLoading(false);
+          setIsLoading(false);
+        })();
       },
-      { scope: "email,public_profile" }
+      { config_id: import.meta.env.VITE_META_SSO_CONFIG_ID }
     );
   };
 
