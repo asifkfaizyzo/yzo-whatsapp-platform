@@ -323,6 +323,8 @@ export const sendMediaMessage = [
 
       const { contactId } = req.params;
       const { caption, conversationId } = req.body;
+      const isVoiceNote =
+        req.body.isVoiceNote === true || req.body.isVoiceNote === "true";
       const file = req.file;
       const tenantId = req.tenantId;
 
@@ -379,6 +381,7 @@ export const sendMediaMessage = [
         senderType,
         file,
         caption,
+        isVoiceNote,
       });
 
       // ── Generate Signed URL ───────────────────────────────

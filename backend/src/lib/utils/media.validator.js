@@ -1,12 +1,19 @@
 // backend/src/lib/utils/media.validator.js (do not remove this comment)
 import { MEDIA_CONFIG, formatFileSize } from "../constants/media.config.js";
 
-export function detectMediaType(mimeType) {
-  if (!mimeType) return null;
+export function normalizeMimeType(mimeType) {
+  if (typeof mimeType !== "string") return "";
+  const normalizedMimeType = mimeType.split(";", 1)[0].trim().toLowerCase();
+  return normalizedMimeType === "image/jpg" ? "image/jpeg" : normalizedMimeType;
+}
 
-  if (mimeType.startsWith("image/")) return "IMAGE";
-  if (mimeType.startsWith("video/")) return "VIDEO";
-  if (mimeType.startsWith("audio/")) return "AUDIO";
+export function detectMediaType(mimeType) {
+  const normalizedMimeType = normalizeMimeType(mimeType);
+  if (!normalizedMimeType) return null;
+
+  if (normalizedMimeType.startsWith("image/")) return "IMAGE";
+  if (normalizedMimeType.startsWith("video/")) return "VIDEO";
+  if (normalizedMimeType.startsWith("audio/")) return "AUDIO";
 
   const docTypes = [
     "application/pdf",
@@ -19,7 +26,7 @@ export function detectMediaType(mimeType) {
     "text/plain",
   ];
 
-  if (docTypes.includes(mimeType)) return "FILE";
+  if (docTypes.includes(normalizedMimeType)) return "FILE";
 
   return null;
 }
@@ -29,7 +36,7 @@ export function getFileExtension(fileName) {
   return "." + fileName.split(".").pop().toLowerCase();
 }
 
-export function validateMedia(fileName, mimeType, fileSize, type) {
+export function validateMediaSize(fileSize, type) {
   const config = MEDIA_CONFIG[type];
 
   if (!config) {
@@ -51,7 +58,26 @@ export function validateMedia(fileName, mimeType, fileSize, type) {
     };
   }
 
-  if (!config.allowedTypes.includes(mimeType)) {
+  return { valid: true };
+}
+
+export function validateMedia(fileName, mimeType, fileSize, type) {
+  const config = MEDIA_CONFIG[type];
+  const normalizedMimeType = normalizeMimeType(mimeType);
+  const sizeValidation = validateMediaSize(fileSize, type);
+
+  if (!sizeValidation.valid) {
+    return sizeValidation;
+  }
+
+  if (!config) {
+    return {
+      valid: false,
+      error: "Invalid media type",
+    };
+  }
+
+  if (!config.allowedTypes.includes(normalizedMimeType)) {
     return {
       valid: false,
       error:

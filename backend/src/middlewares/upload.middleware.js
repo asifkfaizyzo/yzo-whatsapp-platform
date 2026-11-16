@@ -3,6 +3,7 @@
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { normalizeMimeType } from "../lib/utils/media.validator.js";
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -51,6 +52,8 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
+  const mimeType = normalizeMimeType(file.mimetype);
+  const isOutgoingMediaUpload = req.path.endsWith("/messages/media");
   const allowedMimes = [
     // Images
     "image/jpeg",
@@ -79,7 +82,11 @@ const fileFilter = (req, file, cb) => {
     "audio/webm",
   ];
 
-  if (allowedMimes.includes(file.mimetype)) {
+  if (
+    allowedMimes.includes(mimeType) ||
+    mimeType.startsWith("audio/") ||
+    (isOutgoingMediaUpload && mimeType === "application/octet-stream")
+  ) {
     cb(null, true);
   } else {
     cb(new Error(`Unsupported file type: ${file.mimetype}`), false);
