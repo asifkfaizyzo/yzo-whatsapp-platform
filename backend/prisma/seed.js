@@ -11,8 +11,8 @@ async function main() {
   // Step 0: Seed SuperAdmin
   // ══════════════════════════════════════
   const adminEmail =
-    process.env.SUPERADMIN_EMAIL || "ananthukrishna1963@gmail.com";
-  const adminPass = process.env.SUPERADMIN_PASSWORD || "Admin@123";
+    process.env.SUPERADMIN_EMAIL || "kiranspradeep2002@gmail.com";
+  const adminPass = process.env.SUPERADMIN_PASSWORD || "ACHUgopi@123";
   const hashedPassword = await bcrypt.hash(adminPass, 10);
 
   const superAdmin = await prisma.superAdmin.upsert({
@@ -269,8 +269,8 @@ async function main() {
       tenantId: demoTenant.id,
       name: "Demo Agent",
       email: agentEmail,
+      username: "demo_agent",
       password: agentHashedPw,
-      role: "AGENT",
       isActive: true,
     },
   });
@@ -290,7 +290,6 @@ async function main() {
         planId: growthPlan.id,
         currentPlan: "Growth",
         planStatus: "ACTIVE",
-        subscriptionStatus: "ACTIVE",
         hasUsedTrial: true,
         planPeriodEnd: new Date(
           Date.now() + 365 * 24 * 60 * 60 * 1000,
