@@ -243,19 +243,56 @@ export default function QuickReplies({ embedded = false }) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 20 * 1024 * 1024) {
-      toast.error("File size exceeds 20MB limit");
+    const mimeType = file.type.toLowerCase();
+    const extension = file.name.split(".").pop()?.toLowerCase();
+    const isImage =
+      ["image/jpeg", "image/png", "image/webp"].includes(mimeType) &&
+      ["jpg", "jpeg", "png", "webp"].includes(extension);
+    const isVideo =
+      (mimeType === "video/mp4" && extension === "mp4") ||
+      (mimeType === "video/3gpp" && extension === "3gp");
+    const isDocument = [
+      "pdf",
+      "doc",
+      "docx",
+      "xls",
+      "xlsx",
+      "txt",
+    ].includes(extension);
+
+    if (!isImage && !isVideo && !isDocument) {
+      toast.error("Choose a supported image, MP4/3GP video, or document");
+      e.target.value = "";
+      return;
+    }
+
+    const maxSize = isImage
+      ? 5 * 1024 * 1024
+      : isVideo
+        ? 16 * 1024 * 1024
+        : 20 * 1024 * 1024;
+    if (file.size > maxSize) {
+      toast.error(
+        `File size exceeds the ${isImage ? "5MB image" : isVideo ? "16MB video" : "20MB document"} limit`,
+      );
+      e.target.value = "";
       return;
     }
 
     setAttachmentFile(file);
     setFormData((prev) => ({ ...prev, removeMedia: false }));
 
-    if (file.type.startsWith("image/")) {
+    if (isImage) {
       setAttachmentPreview({
         url: URL.createObjectURL(file),
         name: file.name,
         type: "IMAGE",
+      });
+    } else if (isVideo) {
+      setAttachmentPreview({
+        url: URL.createObjectURL(file),
+        name: file.name,
+        type: "VIDEO",
       });
     } else {
       setAttachmentPreview({
@@ -1132,7 +1169,7 @@ export default function QuickReplies({ embedded = false }) {
                 {/* Attachment Dropzone */}
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Optional Media Attachment (Image, PDF, Document)
+                    Optional Media Attachment (Image, Video, Document)
                   </label>
 
                   {attachmentPreview ? (
@@ -1144,6 +1181,13 @@ export default function QuickReplies({ embedded = false }) {
                             src={attachmentPreview.url}
                             alt="Preview"
                             className="h-10 w-10 rounded-lg object-cover border border-slate-200"
+                          />
+                        ) : attachmentPreview.url &&
+                          attachmentPreview.type === "VIDEO" ? (
+                          <video
+                            src={attachmentPreview.url}
+                            controls
+                            className="h-10 w-16 rounded-lg border border-slate-200"
                           />
                         ) : (
                           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
@@ -1173,16 +1217,16 @@ export default function QuickReplies({ embedded = false }) {
                     <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 p-4 text-center hover:bg-slate-50 transition">
                       <UploadCloud size={24} className="text-slate-400" />
                       <span className="mt-1 text-xs font-medium text-slate-700">
-                        Click to upload image, PDF, or document
+                        Click to upload image, video, or document
                       </span>
                       <span className="text-[10px] text-slate-400">
-                        PNG, JPG, WEBP, PDF, DOCX up to 20MB
+                        JPG, PNG, WEBP (5MB), MP4/3GP (16MB), documents (20MB)
                       </span>
                       <input
                         type="file"
                         className="hidden"
                         onChange={handleFileChange}
-                        accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt"
+                        accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp,video/mp4,video/3gpp,.mp4,.3gp,application/pdf,.doc,.docx,.xls,.xlsx,.txt"
                       />
                     </label>
                   )}

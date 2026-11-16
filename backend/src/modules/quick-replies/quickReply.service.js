@@ -2,7 +2,7 @@
 import path from "path";
 import fs from "fs";
 import prisma from "../../config/prisma.js";
-import { detectQuickReplyMediaType } from "./quickReply.upload.js";
+import { validateQuickReplyMediaFile } from "./quickReply.upload.js";
 
 /**
  * Safely unlinks a file from disk without throwing errors
@@ -234,6 +234,16 @@ export const createQuickReply = async ({
     throw err;
   }
 
+  let validatedMedia = null;
+  if (file) {
+    try {
+      validatedMedia = validateQuickReplyMediaFile(file);
+    } catch (error) {
+      await safeUnlink(file.path);
+      throw error;
+    }
+  }
+
   let mediaUrl = null;
   let mediaName = null;
   let mediaSize = null;
@@ -248,8 +258,8 @@ export const createQuickReply = async ({
       );
     mediaName = file.originalname;
     mediaSize = file.size;
-    mediaMimeType = file.mimetype;
-    mediaType = detectQuickReplyMediaType(file.mimetype);
+    mediaMimeType = validatedMedia.mediaMimeType;
+    mediaType = validatedMedia.mediaType;
   }
 
   try {
@@ -339,6 +349,16 @@ export const updateQuickReply = async ({
     }
   }
 
+  let validatedMedia = null;
+  if (file) {
+    try {
+      validatedMedia = validateQuickReplyMediaFile(file);
+    } catch (error) {
+      await safeUnlink(file.path);
+      throw error;
+    }
+  }
+
   const targetScope = data.scope || existing.scope;
   const targetShortcut = data.shortcut || existing.shortcut;
 
@@ -416,8 +436,8 @@ export const updateQuickReply = async ({
       );
     updateData.mediaName = file.originalname;
     updateData.mediaSize = file.size;
-    updateData.mediaMimeType = file.mimetype;
-    updateData.mediaType = detectQuickReplyMediaType(file.mimetype);
+    updateData.mediaMimeType = validatedMedia.mediaMimeType;
+    updateData.mediaType = validatedMedia.mediaType;
   } else if (data.removeMedia) {
     oldFileToUnlink = existing.mediaUrl;
     updateData.mediaUrl = null;
