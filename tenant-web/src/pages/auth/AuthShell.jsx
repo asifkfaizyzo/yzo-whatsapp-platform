@@ -30,18 +30,23 @@ export default function AuthShell({ mode: initialModeProp }) {
     }
   }, [location.pathname]);
 
-  // Smooth mode transition
+  // Smooth mode transition (two-phase to prevent layout jitter)
   const handleSwitchMode = (targetMode) => {
     if (targetMode === activeMode || isTransitioning) return;
     setIsTransitioning(true);
 
     const targetPath = targetMode === "signup" ? "/signup" : "/login";
 
+    // Phase 1: swap content while still faded out
     setTimeout(() => {
       setActiveMode(targetMode);
       navigate(targetPath, { replace: true });
-      setIsTransitioning(false);
     }, 200);
+
+    // Phase 2: trigger fade-in after new content has painted
+    setTimeout(() => {
+      setIsTransitioning(false);
+    }, 250);
   };
 
   // Render the appropriate form based on active mode

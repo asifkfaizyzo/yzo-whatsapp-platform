@@ -21,6 +21,16 @@ import {
   setPasswordService,
   setUsernameService,
 } from "./tenant.auth.service.js";
+import { sendVerificationOtpEmail } from "../../email/index.js";
+import {
+  isRedisUp,
+  generatePendingToken,
+  generateOTP,
+  savePending,
+  saveOtp,
+  verifyOtp,
+  checkEmailRateLimit,
+} from "./pending-otp.store.js";
 
 // -----------------------------------------------------------
 // HELPERS
@@ -60,6 +70,8 @@ const getIp = (req) =>
   null;
 
 const getUserAgent = (req) => req.get("user-agent") || null;
+
+const isDev = process.env.NODE_ENV !== "production";
 
 // -- OAuth Verification --
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -113,15 +125,11 @@ const verifyFacebookToken = async (accessToken) => {
       access_token: accessToken,
       fields: "id,email,first_name,last_name,name",
     },
+    timeout: 10000,
   });
-  console.log("[FB Profile]", JSON.stringify(data, null, 2));
-  if (!data.email) {
-    throw new Error(
-      `Facebook account does not have an email address. Profile returned: ${JSON.stringify(data)}`
-    );
-  }
+
   return {
-    email: data.email,
+    email: data.email || null,
     firstName: data.first_name || "",
     lastName: data.last_name || "",
     providerId: data.id,
@@ -136,7 +144,7 @@ const handle = (fn) => async (req, res) => {
     await fn(req, res);
   } catch (err) {
     if (err.name === "AuthError") {
-      return error(res, err.message, err.statusCode);
+      return error(res, err.message, err.statusCode, err.code);
     }
     console.error(`[TenantAuth] ${err.message}`, err.stack);
     return error(res, "Internal server error", 500);
@@ -303,6 +311,107 @@ export const facebookSignup = handle(async (req, res) => {
     },
     result.isNew ? "Account created via Facebook" : "Logged in via Facebook",
     result.isNew ? 201 : 200,
+  );
+});
+
+// -----------------------------------------------------------
+// 6b. FACEBOOK SIGNUP — SEND OTP (no-email flow)
+// -----------------------------------------------------------
+export const facebookSendOtp = handle(async (req, res) => {
+  const { accessToken, email } = req.body;
+
+  if (!isRedisUp()) {
+    return error(res, "Service temporarily unavailable. Please try again later.", 503, "SERVICE_UNAVAILABLE");
+  }
+
+  const oauthData = await verifyFacebookToken(accessToken);
+  const normalizedEmail = email.toLowerCase().trim();
+
+  const allowed = await checkEmailRateLimit(normalizedEmail);
+  if (!allowed) {
+    return error(res, "Too many OTP requests for this email. Please try again later.", 429, "OTP_LOCKED");
+  }
+
+  const pendingToken = generatePendingToken();
+  const otp = generateOTP();
+
+  await savePending(pendingToken, {
+    providerId: oauthData.providerId,
+    firstName: oauthData.firstName,
+    lastName: oauthData.lastName,
+    email: normalizedEmail,
+  });
+  await saveOtp(pendingToken, otp);
+
+  try {
+    await sendVerificationOtpEmail(normalizedEmail, otp);
+  } catch (err) {
+    if (isDev) {
+      console.error("[facebookSendOtp] Email send failed:", err.message);
+      console.log(`[DEV] 🔑 Facebook signup OTP for ${normalizedEmail}: ${otp}`);
+    } else {
+      console.error("[facebookSendOtp] Email send failed:", err.message);
+    }
+  }
+
+  return success(res, { pendingToken }, "Verification code sent to your email");
+});
+
+// -----------------------------------------------------------
+// 6c. FACEBOOK SIGNUP — VERIFY OTP (no-email flow)
+// -----------------------------------------------------------
+export const facebookVerifyOtp = handle(async (req, res) => {
+  const { pendingToken, otp, accessToken, recaptchaToken } = req.body;
+
+  if (!isRedisUp()) {
+    return error(res, "Service temporarily unavailable. Please try again later.", 503, "SERVICE_UNAVAILABLE");
+  }
+
+  const result = await verifyOtp(pendingToken, otp);
+  if (!result.ok) {
+    const messages = {
+      OTP_EXPIRED: "Verification code has expired. Please start over.",
+      OTP_LOCKED: "Too many failed attempts. Please request a new code.",
+      OTP_INVALID: "Invalid verification code.",
+    };
+    return error(res, messages[result.error] || "Invalid code", 400, result.error);
+  }
+
+  const { pending } = result;
+  if (!pending) {
+    return error(res, "Session expired. Please start over.", 400, "PENDING_EXPIRED");
+  }
+
+  // Re-verify FB token — ensures it's still valid and matches the original
+  const oauthData = await verifyFacebookToken(accessToken);
+  if (oauthData.providerId !== pending.providerId) {
+    return error(res, "Facebook account mismatch. Please start over.", 400, "PROVIDER_MISMATCH");
+  }
+
+  // Complete signup with the OTP-verified email
+  const signupResult = await oauthSignupService({
+    email: pending.email,
+    firstName: pending.firstName || oauthData.firstName,
+    lastName: pending.lastName || oauthData.lastName,
+    provider: "FACEBOOK",
+    providerId: pending.providerId,
+    recaptchaToken,
+    ip: getIp(req),
+    userAgent: getUserAgent(req),
+  });
+
+  setRefreshCookie(res, signupResult.refreshToken);
+
+  return success(
+    res,
+    {
+      tenant: buildUserPayload(signupResult.tenant),
+      accessToken: signupResult.accessToken,
+      isNew: signupResult.isNew,
+      requiresOnboarding: signupResult.requiresOnboarding,
+    },
+    signupResult.isNew ? "Account created via Facebook" : "Logged in via Facebook",
+    signupResult.isNew ? 201 : 200,
   );
 });
 

@@ -35,6 +35,14 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
       return <Navigate to="/signup" replace />;      // ← was /register
     }
   } else if (user?.type === "TENANT" && user?.onboardingCompleted) {
+    // ✅ Setup gate: completed onboarding but missing newer fields
+    if (user?.setup?.isComplete === false) {
+      if (location.pathname !== "/signup") {
+        return <Navigate to="/signup" state={{ setupMode: true }} replace />;
+      }
+      return children;
+    }
+
     // ✅ Enterprise Pending check
     if (user?.planStatus === "enterprise_pending") {
       if (location.pathname !== "/enterprise-request") {

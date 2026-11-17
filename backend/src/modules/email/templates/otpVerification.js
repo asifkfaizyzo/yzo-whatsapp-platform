@@ -7,7 +7,7 @@ import { ICONS } from "./_icons.js";
  * Email verification OTP code.
  *
  * @param {Object} context
- * @param {string} context.otpCode - 6-digit OTP
+ * @param {string} context.otpCode - 4-digit OTP
  * @returns {{ subject: string, html: string }}
  */
 export default function otpVerification({ otpCode }) {

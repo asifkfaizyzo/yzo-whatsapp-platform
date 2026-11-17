@@ -25,6 +25,7 @@ export const login = async (email, password) => {
     return {
       success: false,
       message: error.response?.data?.message || "Login failed",
+      code: error.response?.data?.code || null,
     };
   }
 };
@@ -210,6 +211,7 @@ export const loginWithGoogle = async (credential) => {
     return {
       success: false,
       message: error.response?.data?.message || "Google sign-in failed",
+      code: error.response?.data?.code || null,
     };
   }
 };
@@ -232,6 +234,7 @@ export const loginWithFacebook = async (accessToken) => {
     return {
       success: false,
       message: error.response?.data?.message || "Facebook sign-in failed",
+      code: error.response?.data?.code || null,
     };
   }
 };
@@ -254,6 +257,7 @@ export const signupWithEmail = async (email, password) => {
     return {
       success: false,
       message: error.response?.data?.message || "Signup failed",
+      code: error.response?.data?.code || null,
     };
   }
 };
@@ -269,6 +273,7 @@ export const signupWithGoogle = async (credential) => {
     return {
       success: false,
       message: error.response?.data?.message || "Google signup failed",
+      code: error.response?.data?.code || null,
     };
   }
 };
@@ -284,6 +289,44 @@ export const signupWithFacebook = async (accessToken) => {
     return {
       success: false,
       message: error.response?.data?.message || "Facebook signup failed",
+      code: error.response?.data?.code || null,
+    };
+  }
+};
+
+// POST /tenant/auth/facebook-signup/send-otp
+export const facebookSendSignupOtp = async (accessToken, email) => {
+  try {
+    const response = await api.post("/auth/facebook-signup/send-otp", {
+      accessToken,
+      email,
+    });
+    return { success: true, data: response.data };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to send verification code",
+      code: error.response?.data?.code || null,
+    };
+  }
+};
+
+// POST /tenant/auth/facebook-signup/verify-otp
+export const facebookVerifySignupOtp = async (pendingToken, otp, accessToken) => {
+  try {
+    const response = await api.post("/auth/facebook-signup/verify-otp", {
+      pendingToken,
+      otp,
+      accessToken,
+    });
+    const { accessToken: token, tenant } = response.data.data;
+    useAuthStore.getState().login(tenant, token);
+    return { success: true, data: response.data };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Verification failed",
+      code: error.response?.data?.code || null,
     };
   }
 };

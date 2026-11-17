@@ -12,7 +12,7 @@ export const registerSuperAdmin = async (userData) => {
     });
 
     const registerData = response.data?.data;
-    const user = registerData?.user || registerData?.superAdmin;
+    const user = registerData?.user || registerData?.superAdmin || registerData?.srAdmin;
     if (registerData && user && registerData.accessToken) {
       useAdminAuthStore.getState().login(user, registerData.accessToken);
     }
@@ -29,9 +29,9 @@ export const registerSuperAdmin = async (userData) => {
 // Super Admin Login
 export const loginSuperAdmin = async (email, password) => {
   try {
-    const response = await api.post("/login", { email, password });
+    const response = await api.post("/login", { identifier: email, password });
     const loginData = response.data?.data;
-    const user = loginData?.user || loginData?.superAdmin;
+    const user = loginData?.user || loginData?.superAdmin || loginData?.srAdmin;
     if (loginData && user && loginData.accessToken) {
       useAdminAuthStore.getState().login(user, loginData.accessToken);
     }

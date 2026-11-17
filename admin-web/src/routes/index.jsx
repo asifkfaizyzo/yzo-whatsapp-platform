@@ -5,7 +5,7 @@ import LoginPage from "../pages/auth/LoginPage";
 import ForgotPasswordPage from "../pages/auth/ForgotPasswordPage";
 import AdminLayout from "../layouts/AdminLayout";
 import Dashboard from "../pages/dashboard/Dashboard";
-import Tenants from "../pages/dashboard/Tenants";
+import Tenants from "../pages/Tenants/TenantsPage";
 import Reports from "../pages/dashboard/Reports";
 import SubscriptionPlans from "../pages/dashboard/SubscriptionPlans";
 import Settings from "../pages/dashboard/Settings";

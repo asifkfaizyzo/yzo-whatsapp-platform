@@ -3,27 +3,71 @@
 import prisma from "../../../config/prisma.js";
 import { hashPassword } from "../../../utils/hash.js";
 import { createAuditLog } from "../../audit/audit.service.js";
-import { revokeAllTenantTokens, revokeAllTokens } from "../../../services/session.service.js";
+import {
+  revokeAllTenantTokens,
+  revokeAllTokens,
+} from "../../../services/session.service.js";
 import { createSuperAdminNotification } from "../../superadmin-notifications/superadminNotification.service.js";
 
 // -- Safe select: never leak passwords or tokens --
 const SAFE_TENANT_SELECT = {
   id: true,
-  name: true,
+  tenantName: true,
   email: true,
   username: true,
-  businessName: true,
+  firstName: true,
+  lastName: true,
   phone: true,
   address: true,
+  websiteUrl: true,
+  industry: true,
+  companySize: true,
+  country: true,
+  useCase: true,
+  timezone: true,
   logo: true,
   status: true,
   isActive: true,
   onboardingStep: true,
-  planId: true,
+  onboardingCompleted: true,
   createdAt: true,
   updatedAt: true,
-  plan: { select: { id: true, name: true, price: true, isActive: true } },
-  _count: { select: { users: true } },
+  subscription: {
+    select: {
+      planId: true,
+      currentPlan: true,
+      subscriptionStatus: true,
+      planStatus: true,
+      billingType: true,
+      planActivatedAt: true,
+      planPeriodStart: true,
+      planPeriodEnd: true,
+      cancelRequestedAt: true,
+      cancellationReason: true,
+      dataDeletionDate: true,
+      hasUsedTrial: true,
+      trialExtendedCount: true,
+      plan: {
+        select: {
+          id: true,
+          name: true,
+          monthlyPrice: true,
+          maxAgents: true,
+          maxCampaigns: true,
+          maxAutomations: true,
+        },
+      },
+    },
+  },
+  _count: {
+    select: {
+      users: true,
+      contacts: true,
+      broadcasts: true,
+      templates: true,
+      flows: true,
+    },
+  },
 };
 
 const SAFE_USER_SELECT = {
@@ -40,7 +84,13 @@ const SAFE_USER_SELECT = {
 // ---------------------------------------------------------------
 // LIST TENANTS (paginated, filterable)
 // ---------------------------------------------------------------
-export const getAllTenantsService = async ({ page, limit, search, status, isActive }) => {
+export const getAllTenantsService = async ({
+  page,
+  limit,
+  search,
+  status,
+  isActive,
+}) => {
   const where = {};
 
   if (status) where.status = status;
@@ -48,10 +98,11 @@ export const getAllTenantsService = async ({ page, limit, search, status, isActi
 
   if (search) {
     where.OR = [
-      { name: { contains: search, mode: "insensitive" } },
+      { tenantName: { contains: search, mode: "insensitive" } },
       { email: { contains: search, mode: "insensitive" } },
-      { businessName: { contains: search, mode: "insensitive" } },
       { username: { contains: search, mode: "insensitive" } },
+      { firstName: { contains: search, mode: "insensitive" } },
+      { lastName: { contains: search, mode: "insensitive" } },
     ];
   }
 
@@ -155,10 +206,10 @@ export const updateTenantService = async (id, data, actor, meta) => {
     actorEmail: actor.email,
     action: "UPDATE_TENANT",
     module: "TENANT_MANAGEMENT",
-    description: `Updated tenant "${existing.name}" (${id}). Fields: ${Object.keys(data).join(", ")}`,
+    description: `Updated tenant "${existing.tenantName || existing.email}" (${id}). Fields: ${Object.keys(data).join(", ")}`,
     targetId: id,
     targetType: "TENANT",
-    targetName: existing.name,
+    targetName: existing.tenantName || existing.email,
     ipAddress: meta?.ipAddress,
     userAgent: meta?.userAgent,
     metadata: { changes: data },
@@ -179,7 +230,9 @@ export const approveTenantService = async (id, actor, meta) => {
   }
 
   if (tenant.status !== "PENDING") {
-    const err = new Error(`Cannot approve tenant with status "${tenant.status}". Only PENDING tenants can be approved.`);
+    const err = new Error(
+      `Cannot approve tenant with status "${tenant.status}". Only PENDING tenants can be approved.`,
+    );
     err.status = 400;
     throw err;
   }
@@ -466,7 +519,10 @@ export const deleteTenantService = async (id, actor, meta) => {
 export const deactivateUserService = async (id, actor, meta) => {
   const user = await prisma.user.findUnique({
     where: { id },
-    select: { ...SAFE_USER_SELECT, tenant: { select: { id: true, name: true } } },
+    select: {
+      ...SAFE_USER_SELECT,
+      tenant: { select: { id: true, name: true } },
+    },
   });
 
   if (!user) {
@@ -515,7 +571,10 @@ export const deactivateUserService = async (id, actor, meta) => {
 export const reactivateUserService = async (id, actor, meta) => {
   const user = await prisma.user.findUnique({
     where: { id },
-    select: { ...SAFE_USER_SELECT, tenant: { select: { id: true, name: true, status: true } } },
+    select: {
+      ...SAFE_USER_SELECT,
+      tenant: { select: { id: true, name: true, status: true } },
+    },
   });
 
   if (!user) {
@@ -586,8 +645,12 @@ export const registerTenantService = async (data, actor, meta) => {
 
   // -- Check global email uniqueness --
   const [existingTenant, existingUser, existingSRAdmin] = await Promise.all([
-    prisma.tenant.findFirst({ where: { email: normalizedEmail, deletedAt: null } }),
-    prisma.user.findFirst({ where: { email: normalizedEmail, deletedAt: null } }),
+    prisma.tenant.findFirst({
+      where: { email: normalizedEmail, deletedAt: null },
+    }),
+    prisma.user.findFirst({
+      where: { email: normalizedEmail, deletedAt: null },
+    }),
     prisma.superAdmin.findFirst({ where: { email: normalizedEmail } }),
   ]);
 

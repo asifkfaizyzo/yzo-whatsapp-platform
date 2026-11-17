@@ -30,14 +30,16 @@ import { sendPasswordResetEmail, sendVerificationOtpEmail } from "../../email/in
 import { createAuditLog } from "../../audit/audit.service.js";
 import { createSuperAdminNotification } from "../../superadmin-notifications/superadminNotification.service.js";
 import { emitToSuperAdmin } from "../../../lib/socket.js";
+import { getSetupStatus } from "./tenant.setup.service.js";
 
 // -----------------------------------------------------------
 // CUSTOM ERROR
 // -----------------------------------------------------------
 class AuthError extends Error {
-  constructor(message, statusCode = 400) {
+  constructor(message, statusCode = 400, code = null) {
     super(message);
     this.statusCode = statusCode;
+    this.code = code;
     this.name = "AuthError";
   }
 }
@@ -95,6 +97,7 @@ const sanitizeTenant = (tenant) => {
     safe.planPeriodEnd = tenant.subscription.planPeriodEnd || null;
     safe.dataDeletionDate = tenant.subscription.dataDeletionDate || null;
   }
+  safe.setup = getSetupStatus(tenant);
   return safe;
 };
 
@@ -167,7 +170,6 @@ export const signupService = async ({
     await checkEmailAcrossActors(normalizedEmail);
 
   if (tenant) {
-    // ── Auto-resume incomplete onboarding instead of blocking ──
     const fullTenant = await prisma.tenant.findFirst({
       where: { id: tenant.id, deletedAt: null },
       select: {
@@ -178,20 +180,27 @@ export const signupService = async ({
       },
     });
 
+    // ── Refuse email signup on OAuth-only (no-password) accounts ──
+    if (fullTenant && !fullTenant.password) {
+      throw new AuthError(
+        "This email is registered with a social login. Please sign in with your social provider.",
+        409,
+        "OAUTH_ACCOUNT_EXISTS",
+      );
+    }
+
+    // ── Auto-resume incomplete onboarding ──
     if (
       fullTenant &&
       fullTenant.status === "ONBOARDING" &&
       !fullTenant.onboardingCompleted
     ) {
-      // Verify password if the account has one (email signup)
-      if (fullTenant.password) {
-        const match = await comparePassword(password, fullTenant.password);
-        if (!match) {
-          throw new AuthError("Invalid credentials", 401);
-        }
+      // Password is guaranteed to exist here (no-password rejected above)
+      const match = await comparePassword(password, fullTenant.password);
+      if (!match) {
+        throw new AuthError("Invalid credentials", 401);
       }
 
-      // Re-issue tokens and resume
       const tokens = await issueTokens(fullTenant);
 
       logAuth({
@@ -247,6 +256,28 @@ export const signupService = async ({
     },
     select: { ...SAFE_TENANT_SELECT, password: true, ...SUBSCRIPTION_INCLUDE },
   });
+
+  // -- Generate and send first verification OTP --
+  const plainOtp = generateOTP();
+  const hashedOtp = hashOTP(plainOtp);
+  const otpExpiry = getOTPExpiry();
+
+  await prisma.tenant.update({
+    where: { id: newTenant.id },
+    data: { otpHash: hashedOtp, otpExpiresAt: otpExpiry, otpAttempts: 0 },
+  });
+
+  try {
+    await sendVerificationOtpEmail(normalizedEmail, plainOtp);
+  } catch (err) {
+    if (isDev) {
+      console.error("[signup] OTP email send failed:", err.message);
+      console.log(`[DEV] 🔑 Signup OTP for ${normalizedEmail}: ${plainOtp}`);
+    } else {
+      console.error("[signup] OTP email send failed:", err.message);
+    }
+    // Don't throw — account is created, user can request a resend
+  }
 
   // -- Issue tokens --
   const tokens = await issueTokens(newTenant);
@@ -480,16 +511,47 @@ export const oauthSignupService = async ({
   const captchaOk = await verifyRecaptcha(recaptchaToken, "signup");
   if (!captchaOk) throw new AuthError("reCAPTCHA verification failed", 403);
 
-  const normalizedEmail = email.toLowerCase().trim();
+  const normalizedEmail = email ? email.toLowerCase().trim() : null;
+  const providerIdField = provider === "GOOGLE" ? "googleId" : "facebookId";
 
-  // -- Check if tenant already exists --
-  const existingTenant = await prisma.tenant.findFirst({
-    where: { email: normalizedEmail, deletedAt: null },
-    select: { ...SAFE_TENANT_SELECT, status: true, ...SUBSCRIPTION_INCLUDE },
-  });
+  const tenantSelect = {
+    ...SAFE_TENANT_SELECT,
+    password: true,
+    googleId: true,
+    facebookId: true,
+    status: true,
+    ...SUBSCRIPTION_INCLUDE,
+  };
+
+  // ── 1. Lookup by provider ID first (source of truth) ──
+  let existingTenant = null;
+
+  if (providerId) {
+    existingTenant = await prisma.tenant.findFirst({
+      where: { [providerIdField]: providerId, deletedAt: null },
+      select: tenantSelect,
+    });
+  }
+
+  // ── 2. Fallback: lookup by email ──
+  if (!existingTenant && normalizedEmail) {
+    existingTenant = await prisma.tenant.findFirst({
+      where: { email: normalizedEmail, deletedAt: null },
+      select: tenantSelect,
+    });
+  }
+
+  // ── 3. No email and no provider-ID match → need email from user ──
+  if (!existingTenant && !normalizedEmail) {
+    throw new AuthError(
+      "We couldn't get your email from Facebook. Please provide it manually.",
+      422,
+      "EMAIL_REQUIRED",
+    );
+  }
 
   if (existingTenant) {
-    // -- Auto-login existing tenant --
+    // -- Status checks --
     if (existingTenant.status === "BLOCKED") {
       throw new AuthError(
         "Your account has been suspended. Please contact support.",
@@ -502,14 +564,66 @@ export const oauthSignupService = async ({
         403,
       );
     }
+    if (!existingTenant.isActive) {
+      throw new AuthError(
+        "Your account has been deactivated. Please contact support.",
+        403,
+      );
+    }
 
-    const tokens = await issueTokens(existingTenant);
+    // -- Link rules --
+    const existingProviderId =
+      provider === "GOOGLE"
+        ? existingTenant.googleId
+        : existingTenant.facebookId;
+
+    // Same provider, different ID → reject
+    if (existingProviderId && existingProviderId !== providerId) {
+      throw new AuthError(
+        `This email is already linked to a different ${provider.toLowerCase()} account.`,
+        409,
+        "PROVIDER_MISMATCH",
+      );
+    }
+
+    const linkData = {};
+
+    // Link provider ID if not already set
+    if (!existingProviderId && providerId) {
+      if (provider === "GOOGLE") linkData.googleId = providerId;
+      else linkData.facebookId = providerId;
+    }
+
+    // Unverified LOCAL → provider proves email ownership
+    if (
+      existingTenant.authProvider === "LOCAL" &&
+      !existingTenant.isEmailVerified
+    ) {
+      linkData.password = null;
+      linkData.isEmailVerified = true;
+      linkData.authProvider = provider;
+    }
+
+    if (Object.keys(linkData).length > 0) {
+      await prisma.tenant.update({
+        where: { id: existingTenant.id },
+        data: linkData,
+      });
+    }
+
+    // Re-fetch with updated fields
+    const linkedTenant = await prisma.tenant.findFirst({
+      where: { id: existingTenant.id, deletedAt: null },
+      select: { ...SAFE_TENANT_SELECT, ...SUBSCRIPTION_INCLUDE },
+    });
+
+    const tokens = await issueTokens(linkedTenant);
     const requiresOnboarding =
-      existingTenant.status === "ONBOARDING" ||
-      existingTenant.status === "APPROVED";
+      linkedTenant.status === "ONBOARDING" ||
+      linkedTenant.status === "APPROVED";
 
     return {
-      tenant: sanitizeTenant(existingTenant),
+      tenant: sanitizeTenant(linkedTenant),
       ...tokens,
       isNew: false,
       requiresOnboarding,
@@ -579,7 +693,8 @@ export const oauthSignupService = async ({
 
 // -----------------------------------------------------------
 // 6. OAUTH LOGIN (Google / Facebook)
-//    Existing accounts only � 404 if not found
+//    Provider-ID-first lookup, then email fallback.
+//    Returns ACCOUNT_NOT_FOUND if no match.
 // -----------------------------------------------------------
 export const oauthLoginService = async ({
   email,
@@ -588,17 +703,50 @@ export const oauthLoginService = async ({
   ip,
   userAgent,
 }) => {
-  const normalizedEmail = email.toLowerCase().trim();
+  const normalizedEmail = email ? email.toLowerCase().trim() : null;
+  const providerIdField = provider === "GOOGLE" ? "googleId" : "facebookId";
 
-  const tenant = await prisma.tenant.findFirst({
-    where: { email: normalizedEmail, deletedAt: null },
-    select: { ...SAFE_TENANT_SELECT, ...SUBSCRIPTION_INCLUDE },
-  });
+  const tenantSelect = {
+    ...SAFE_TENANT_SELECT,
+    password: true,
+    googleId: true,
+    facebookId: true,
+    ...SUBSCRIPTION_INCLUDE,
+  };
 
+  let tenant = null;
+
+  // ── 1. Lookup by provider ID (source of truth) ──
+  if (providerId) {
+    tenant = await prisma.tenant.findFirst({
+      where: { [providerIdField]: providerId, deletedAt: null },
+      select: tenantSelect,
+    });
+  }
+
+  // ── 2. Fallback: lookup by email ──
+  if (!tenant && normalizedEmail) {
+    tenant = await prisma.tenant.findFirst({
+      where: { email: normalizedEmail, deletedAt: null },
+      select: tenantSelect,
+    });
+
+    // Link provider ID if found by email but not yet linked
+    if (tenant && !tenant[providerIdField] && providerId) {
+      await prisma.tenant.update({
+        where: { id: tenant.id },
+        data: { [providerIdField]: providerId },
+      });
+      tenant[providerIdField] = providerId;
+    }
+  }
+
+  // ── 3. No match ──
   if (!tenant) {
     throw new AuthError(
-      "No account found with this email. Please sign up first.",
+      "No account found. Please sign up first.",
       404,
+      "ACCOUNT_NOT_FOUND",
     );
   }
 
@@ -1071,12 +1219,14 @@ export const updateOnboardingStepService = async ({ tenantId, step, data = {} })
 export const setPasswordService = async ({ tenantId, newPassword }) => {
   const tenant = await prisma.tenant.findFirst({
     where: { id: tenantId, deletedAt: null },
-    select: { id: true, email: true, password: true },
+    select: { id: true, email: true, password: true, onboardingCompleted: true },
   });
 
   if (!tenant) throw new AuthError("Tenant not found", 404);
 
-  if (tenant.password) {
+  // Only block after onboarding is complete — during onboarding,
+  // retries are expected (e.g. after a failed profile step)
+  if (tenant.password && tenant.onboardingCompleted) {
     throw new AuthError(
       "Password is already set. Use forgot password to change it.",
       400,

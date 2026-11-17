@@ -65,7 +65,7 @@ api.interceptors.response.use(
           { withCredentials: true },
         );
 
-        const newAccessToken = response.data.accessToken;
+        const newAccessToken = response.data?.data?.accessToken || response.data?.accessToken;
         useAdminAuthStore.setState({ accessToken: newAccessToken });
 
         processQueue(null, newAccessToken);

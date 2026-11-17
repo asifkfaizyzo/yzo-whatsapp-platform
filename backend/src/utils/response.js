@@ -15,8 +15,10 @@ export const success = (res, data = null, message = "Success", statusCode = 200)
   return res.status(statusCode).json(payload);
 };
 
-export const error = (res, message = "Something went wrong", statusCode = 400) => {
-  return res.status(statusCode).json({ success: false, message });
+export const error = (res, message = "Something went wrong", statusCode = 400, code = null) => {
+  const payload = { success: false, message };
+  if (code) payload.code = code;
+  return res.status(statusCode).json(payload);
 };
 
 /**

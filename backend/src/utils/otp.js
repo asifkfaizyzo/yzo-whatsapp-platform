@@ -3,17 +3,18 @@
 import crypto from "crypto";
 
 /**
- * Generate a cryptographically random 6-digit OTP string.
- * @returns {string} e.g. "482917"
+ * Generate a cryptographically random 4-digit OTP string.
+ * Uses crypto.randomInt for secure randomness.
+ * @returns {string} e.g. "4829"
  */
 export const generateOTP = () => {
-  return Math.floor(1000 + Math.random() * 9000).toString();
+  return crypto.randomInt(1000, 10000).toString();
 };
 
 /**
  * Hash an OTP code for safe storage in the database.
  * Uses SHA-256 so the plaintext code is never persisted.
- * @param {string} code - The 6-digit OTP
+ * @param {string} code - The 4-digit OTP
  * @returns {string} Hex-encoded hash
  */
 export const hashOTP = (code) => {

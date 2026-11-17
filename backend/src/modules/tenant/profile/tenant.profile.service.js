@@ -173,19 +173,22 @@ export const updateTenantByIdService = async (
   if (data.timezone !== undefined) updateData.timezone = data.timezone;
   if (data.logo !== undefined) updateData.logo = data.logo;
 
-  if (data.email) {
+  // Email changes are restricted to super-admin actions only.
+  // Self-serve email changes require OTP verification (separate flow).
+  if (data.email && actor) {
+    const normalizedEmail = data.email.toLowerCase().trim();
     const [emailExistsInTenant, emailExistsInUser, emailExistsInSuperAdmin] =
       await Promise.all([
         prisma.tenant.findFirst({
-          where: { email: data.email, id: { not: tenantId } },
+          where: { email: normalizedEmail, id: { not: tenantId } },
         }),
-        prisma.user.findUnique({ where: { email: data.email } }),
-        prisma.superAdmin.findUnique({ where: { email: data.email } }),
+        prisma.user.findUnique({ where: { email: normalizedEmail } }),
+        prisma.superAdmin.findUnique({ where: { email: normalizedEmail } }),
       ]);
     if (emailExistsInTenant || emailExistsInUser || emailExistsInSuperAdmin) {
       throw new Error("Email already in use");
     }
-    updateData.email = data.email;
+    updateData.email = normalizedEmail;
   }
 
   if (Object.keys(updateData).length === 0) {

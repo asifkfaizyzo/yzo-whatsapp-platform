@@ -4,7 +4,7 @@ import { Router } from "express";
 import * as ctrl from "./tenant.auth.controller.js";
 import { authenticate } from "../../../middleware/authenticate.js";
 import { requireTenant } from "../../../middleware/requireTenant.js";
-import { requireOnboarding } from "../../../middleware/requireOnboarding.js";
+import { requireSetupAccess } from "../../../middleware/requireSetupAccess.js";
 import {
   authLimiter,
   signupLimiter,
@@ -22,6 +22,8 @@ import {
   facebookSignupSchema,
   googleLoginSchema,
   facebookLoginSchema,
+  facebookSendOtpSchema,
+  facebookVerifyOtpSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
   checkUsernameSchema,
@@ -85,6 +87,20 @@ router.post(
   ctrl.facebookLogin,
 );
 
+// ── Facebook No-Email OTP Flow ──
+router.post(
+  "/auth/facebook-signup/send-otp",
+  otpLimiter,
+  validate(facebookSendOtpSchema),
+  ctrl.facebookSendOtp,
+);
+router.post(
+  "/auth/facebook-signup/verify-otp",
+  authLimiter,
+  validate(facebookVerifyOtpSchema),
+  ctrl.facebookVerifyOtp,
+);
+
 // ── Password Reset ──
 router.post(
   "/forgot-password",
@@ -120,7 +136,7 @@ router.post(
 router.get(
   "/auth/check-username",
   authenticate,
-  requireOnboarding,
+  requireSetupAccess,
   usernameCheckLimiter,
   validate(checkUsernameSchema),
   ctrl.checkUsername,
@@ -129,7 +145,7 @@ router.get(
 router.get(
   "/auth/username-suggestions",
   authenticate,
-  requireOnboarding,
+  requireSetupAccess,
   validate(usernameSuggestionsSchema),
   ctrl.usernameSuggestions,
 );
@@ -137,7 +153,7 @@ router.get(
 router.put(
   "/auth/onboarding/profile",
   authenticate,
-  requireOnboarding,
+  requireSetupAccess,
   validate(profileSchema),
   ctrl.updateProfile,
 );
@@ -145,7 +161,7 @@ router.put(
 router.post(
   "/auth/onboarding/verify-email",
   authenticate,
-  requireOnboarding,
+  requireSetupAccess,
   otpLimiter,
   validate(verifyOtpSchema),
   ctrl.verifyEmailOtp,
@@ -154,7 +170,7 @@ router.post(
 router.post(
   "/auth/onboarding/resend-otp",
   authenticate,
-  requireOnboarding,
+  requireSetupAccess,
   otpLimiter,
   ctrl.resendOtp,
 );
@@ -162,7 +178,7 @@ router.post(
 router.put(
   "/auth/onboarding/step",
   authenticate,
-  requireOnboarding,
+  requireSetupAccess,
   validate(onboardingStepSchema),
   ctrl.updateOnboardingStep,
 );
@@ -170,7 +186,7 @@ router.put(
 router.put(
   "/auth/onboarding/set-password",
   authenticate,
-  requireOnboarding,
+  requireSetupAccess,
   validate(setPasswordSchema),
   ctrl.setPassword,
 );

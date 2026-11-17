@@ -54,25 +54,51 @@ const OAUTH_STEPS = [
   },
 ];
 
+const FB_EMAIL_STEP = {
+  label: "Verify email",
+  title: "We need your email",
+  subtitle:
+    "Facebook didn't share your email. Enter it below and we'll send a verification code.",
+};
+
 // Both flows have exactly 2 pre-onboarding steps (account creation + verification/credentials)
 const PRE_ONBOARDING_COUNT = 2;
 
-export function useSignupStepper({ mockMode }) {
+export function useSignupStepper({
+  mockMode,
+  isSetupMode = false,
+  effectiveTotal,
+}) {
   const navigate = useNavigate();
   const { login, user, isAuthenticated, isHydrated } = useAuthStore();
 
   const [step, setStep] = useState(1);
   const [isOAuth, setIsOAuth] = useState(false);
+  const [needsFbEmail, setNeedsFbEmail] = useState(false);
   const [userData, setUserData] = useState({});
 
-  const steps = isOAuth ? OAUTH_STEPS : EMAIL_STEPS;
+  const baseSteps = isOAuth ? OAUTH_STEPS : EMAIL_STEPS;
+  const steps =
+    isOAuth && needsFbEmail
+      ? [baseSteps[0], FB_EMAIL_STEP, ...baseSteps.slice(1)]
+      : baseSteps;
   const totalSteps = steps.length;
   const currentMeta = steps[step - 1] || steps[0];
 
   // ── Pre-onboarding visibility flags ──
-  const isPreOnboarding = step <= PRE_ONBOARDING_COUNT;
-  const visibleStep = isPreOnboarding ? 0 : step - PRE_ONBOARDING_COUNT;
-  const visibleTotalSteps = totalSteps - PRE_ONBOARDING_COUNT;
+  const preCount = isOAuth
+    ? needsFbEmail
+      ? 3
+      : PRE_ONBOARDING_COUNT
+    : PRE_ONBOARDING_COUNT;
+  const lastStep = effectiveTotal || totalSteps;
+  const isPreOnboarding = isSetupMode ? false : step <= preCount;
+  const visibleStep = isSetupMode
+    ? step
+    : isPreOnboarding
+      ? 0
+      : step - preCount;
+  const visibleTotalSteps = isSetupMode ? lastStep : totalSteps - preCount;
 
   // ── Mock mode: seed auth store so ProtectedRoute lets us through ──
   useEffect(() => {
@@ -94,8 +120,20 @@ export function useSignupStepper({ mockMode }) {
   const hasResumed = useRef(false);
   useEffect(() => {
     if (hasResumed.current) return;
-    if (!mockMode && isHydrated && isAuthenticated && user) {
+    if (!mockMode && isHydrated) {
       hasResumed.current = true;
+      if (!isAuthenticated || !user) return;
+
+      // Setup mode: completed onboarding, missing newer fields
+      if (isSetupMode) {
+        const oauthProviders = ["GOOGLE", "FACEBOOK"];
+        if (oauthProviders.includes(user.authProvider)) {
+          setIsOAuth(true);
+        }
+        setStep(1);
+        return;
+      }
+
       if (user.onboardingCompleted) {
         navigate("/dashboard", { replace: true });
         return;
@@ -105,13 +143,21 @@ export function useSignupStepper({ mockMode }) {
       const oauthProviders = ["GOOGLE", "FACEBOOK"];
       if (oauthProviders.includes(user.authProvider)) {
         setIsOAuth(true);
+        // OAuth skips email OTP steps (2-3), so backend step is offset by 1
+        // Backend 4 (profile) → frontend 3 (CompanyDetails)
+        // Backend 5 (company) → frontend 4 (BusinessDetails)
+        const adjustedStep = user.onboardingStep >= 3
+          ? user.onboardingStep - 1
+          : 2;
+        setStep(adjustedStep);
+        return;
       }
 
       if (user.onboardingStep) {
         setStep(user.onboardingStep);
       }
     }
-  }, [mockMode, isHydrated, isAuthenticated, user, navigate]);
+  }, [mockMode, isHydrated, isAuthenticated, user, navigate, isSetupMode]);
 
   const nextStep = useCallback(
     (data = {}) => {
@@ -119,32 +165,34 @@ export function useSignupStepper({ mockMode }) {
       if (data.resumeStep) {
         const target = Math.min(Math.max(data.resumeStep, 2), totalSteps);
         setStep(target);
-      } else if (step < totalSteps) {
+      } else if (step < lastStep) {
         setStep((s) => s + 1);
       } else {
         // ── Last step done ──
+        if (isSetupMode) {
+          navigate("/dashboard", { replace: true });
+          return;
+        }
         if (mockMode) {
           const currentUser = useAuthStore.getState().user;
-          useAuthStore
-            .getState()
-            .login(
-              {
-                ...currentUser,
-                onboardingCompleted: true,
-                onboardingStep: totalSteps,
-              },
-              useAuthStore.getState().accessToken,
-            );
+          useAuthStore.getState().login(
+            {
+              ...currentUser,
+              onboardingCompleted: true,
+              onboardingStep: totalSteps,
+            },
+            useAuthStore.getState().accessToken,
+          );
         }
         navigate("/select-plan");
       }
     },
-    [step, totalSteps, navigate, mockMode],
+    [step, lastStep, navigate, mockMode, isSetupMode],
   );
 
   const goBack = useCallback(() => {
     if (step <= 1) return;
-    if (step === 2 && isOAuth) {
+    if (!isSetupMode && step === 2 && isOAuth) {
       setIsOAuth(false);
     }
     setStep((s) => s - 1);
@@ -154,6 +202,13 @@ export function useSignupStepper({ mockMode }) {
     setIsOAuth(true);
     setUserData((prev) => ({ ...prev, ...providerData }));
     setStep(2);
+  }, []);
+
+  const handleFbEmailRequired = useCallback((data) => {
+    setIsOAuth(true);
+    setNeedsFbEmail(true);
+    setUserData((prev) => ({ ...prev, ...data }));
+    setStep(2); // fb-email-verify step
   }, []);
 
   return {
@@ -168,6 +223,8 @@ export function useSignupStepper({ mockMode }) {
     nextStep,
     goBack,
     handleOAuthStart,
+    handleFbEmailRequired,
+    needsFbEmail,
     setStep,
     setUserData,
   };

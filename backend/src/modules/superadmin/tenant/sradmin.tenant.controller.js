@@ -21,16 +21,16 @@ import {
   deleteTenantService,
   deactivateUserService,
   reactivateUserService,
-  registerTenantService ,
+  registerTenantService,
 } from "./sradmin.tenant.service.js";
 
-// -- Error wrapper (same pattern as Phase 5) --
+// -- Error wrapper --
 const handle = (fn) => async (req, res) => {
   try {
     await fn(req, res);
   } catch (err) {
     const statusCode = err.status || 500;
-    return res.status(statusCode).json(error(err.message, statusCode));
+    return error(res, err.message, statusCode);
   }
 };
 
@@ -40,94 +40,94 @@ const handle = (fn) => async (req, res) => {
 
 export const getAllTenants = handle(async (req, res) => {
   const parsed = listTenantsSchema.safeParse(req.query);
-  if (!parsed.success) return res.status(400).json(validationError(parsed.error));
+  if (!parsed.success) return validationError(res, parsed.error);
 
   const result = await getAllTenantsService(parsed.data);
-  return res.json(success("Tenants fetched", result));
+  return success(res, result, "Tenants fetched");
 });
 
 export const getTenantById = handle(async (req, res) => {
   const parsed = tenantIdParamSchema.safeParse(req.params);
-  if (!parsed.success) return res.status(400).json(validationError(parsed.error));
+  if (!parsed.success) return validationError(res, parsed.error);
 
   const tenant = await getTenantByIdService(parsed.data.id);
-  return res.json(success("Tenant fetched", tenant));
+  return success(res, tenant, "Tenant fetched");
 });
 
 export const updateTenant = handle(async (req, res) => {
   const paramParsed = tenantIdParamSchema.safeParse(req.params);
-  if (!paramParsed.success) return res.status(400).json(validationError(paramParsed.error));
+  if (!paramParsed.success) return validationError(res, paramParsed.error);
 
   const bodyParsed = updateTenantSchema.safeParse(req.body);
-  if (!bodyParsed.success) return res.status(400).json(validationError(bodyParsed.error));
+  if (!bodyParsed.success) return validationError(res, bodyParsed.error);
 
   const actor = req.srAdmin;
   const meta = extractRequestMeta(req);
   const updated = await updateTenantService(paramParsed.data.id, bodyParsed.data, actor, meta);
-  return res.json(success("Tenant updated", updated));
+  return success(res, updated, "Tenant updated");
 });
 
 export const approveTenant = handle(async (req, res) => {
   const parsed = tenantIdParamSchema.safeParse(req.params);
-  if (!parsed.success) return res.status(400).json(validationError(parsed.error));
+  if (!parsed.success) return validationError(res, parsed.error);
 
   const actor = req.srAdmin;
   const meta = extractRequestMeta(req);
   const result = await approveTenantService(parsed.data.id, actor, meta);
-  return res.json(success("Tenant approved � moved to ONBOARDING", result));
+  return success(res, result, "Tenant approved");
 });
 
 export const blockTenant = handle(async (req, res) => {
   const paramParsed = tenantIdParamSchema.safeParse(req.params);
-  if (!paramParsed.success) return res.status(400).json(validationError(paramParsed.error));
+  if (!paramParsed.success) return validationError(res, paramParsed.error);
 
   const bodyParsed = blockTenantSchema.safeParse(req.body);
-  if (!bodyParsed.success) return res.status(400).json(validationError(bodyParsed.error));
+  if (!bodyParsed.success) return validationError(res, bodyParsed.error);
 
   const actor = req.srAdmin;
   const meta = extractRequestMeta(req);
   const result = await blockTenantService(paramParsed.data.id, bodyParsed.data.reason, actor, meta);
-  return res.json(success("Tenant blocked and all sessions revoked", result));
+  return success(res, result, "Tenant blocked and all sessions revoked");
 });
 
 export const unblockTenant = handle(async (req, res) => {
   const parsed = tenantIdParamSchema.safeParse(req.params);
-  if (!parsed.success) return res.status(400).json(validationError(parsed.error));
+  if (!parsed.success) return validationError(res, parsed.error);
 
   const actor = req.srAdmin;
   const meta = extractRequestMeta(req);
   const result = await unblockTenantService(parsed.data.id, actor, meta);
-  return res.json(success("Tenant unblocked", result));
+  return success(res, result, "Tenant unblocked");
 });
 
 export const deactivateTenant = handle(async (req, res) => {
   const parsed = tenantIdParamSchema.safeParse(req.params);
-  if (!parsed.success) return res.status(400).json(validationError(parsed.error));
+  if (!parsed.success) return validationError(res, parsed.error);
 
   const actor = req.srAdmin;
   const meta = extractRequestMeta(req);
   const result = await deactivateTenantService(parsed.data.id, actor, meta);
-  return res.json(success("Tenant deactivated", result));
+  return success(res, result, "Tenant deactivated");
 });
 
 export const reactivateTenant = handle(async (req, res) => {
   const parsed = tenantIdParamSchema.safeParse(req.params);
-  if (!parsed.success) return res.status(400).json(validationError(parsed.error));
+  if (!parsed.success) return validationError(res, parsed.error);
 
   const actor = req.srAdmin;
   const meta = extractRequestMeta(req);
   const result = await reactivateTenantService(parsed.data.id, actor, meta);
-  return res.json(success("Tenant reactivated", result));
+  return success(res, result, "Tenant reactivated");
 });
 
 export const deleteTenant = handle(async (req, res) => {
   const parsed = tenantIdParamSchema.safeParse(req.params);
-  if (!parsed.success) return res.status(400).json(validationError(parsed.error));
+  if (!parsed.success) return validationError(res, parsed.error);
 
   const actor = req.srAdmin;
   const meta = extractRequestMeta(req);
   const result = await deleteTenantService(parsed.data.id, actor, meta);
-  return res.json(success("Tenant soft-deleted", result));
+  return success(res, result, "Tenant soft-deleted");
 });
 
 // ---------------------------------------------------------------
@@ -136,27 +136,27 @@ export const deleteTenant = handle(async (req, res) => {
 
 export const deactivateUser = handle(async (req, res) => {
   const parsed = userIdParamSchema.safeParse(req.params);
-  if (!parsed.success) return res.status(400).json(validationError(parsed.error));
+  if (!parsed.success) return validationError(res, parsed.error);
 
   const actor = req.srAdmin;
   const meta = extractRequestMeta(req);
   const result = await deactivateUserService(parsed.data.id, actor, meta);
-  return res.json(success("Agent deactivated", result));
+  return success(res, result, "Agent deactivated");
 });
 
 export const reactivateUser = handle(async (req, res) => {
   const parsed = userIdParamSchema.safeParse(req.params);
-  if (!parsed.success) return res.status(400).json(validationError(parsed.error));
+  if (!parsed.success) return validationError(res, parsed.error);
 
   const actor = req.srAdmin;
   const meta = extractRequestMeta(req);
   const result = await reactivateUserService(parsed.data.id, actor, meta);
-  return res.json(success("Agent reactivated", result));
+  return success(res, result, "Agent reactivated");
 });
 
 export const registerTenant = handle(async (req, res) => {
   const actor = req.srAdmin;
   const meta = extractRequestMeta(req);
   const result = await registerTenantService(req.body, actor, meta);
-  return res.status(201).json(success("Tenant registered successfully", result));
+  return success(res, result, "Tenant registered successfully", 201);
 });

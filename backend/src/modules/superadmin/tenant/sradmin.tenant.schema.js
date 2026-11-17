@@ -20,22 +20,29 @@ export const tenantIdParamSchema = z.object({
 
 // -- Update tenant fields --
 export const updateTenantSchema = z.object({
-  name: z.string().trim().min(1).max(100).optional(),
+  tenantName: z.string().trim().min(1).max(100).optional(),
+  firstName: z.string().trim().max(50).optional(),
+  lastName: z.string().trim().max(50).optional(),
   email: z.string().email().optional(),
   phone: z.string().trim().max(20).optional(),
-  businessName: z.string().trim().max(200).optional(),
   address: z.string().trim().max(500).optional(),
+  websiteUrl: z.string().trim().url().optional().or(z.literal("")),
+  industry: z.string().trim().max(100).optional(),
+  companySize: z.string().trim().max(100).optional(),
+  country: z.string().trim().max(100).optional(),
+  useCase: z.string().trim().max(500).optional(),
+  timezone: z.string().trim().max(50).optional(),
+  username: z
+    .string()
+    .min(4)
+    .regex(/^[a-z0-9_]+$/)
+    .optional(),
   planId: z.string().cuid().optional(),
   isActive: z.boolean().optional(),
   status: z
     .enum(["PENDING", "ONBOARDING", "ACTIVE", "APPROVED", "BLOCKED"])
     .optional(),
   onboardingStep: z.coerce.number().int().min(0).max(10).optional(),
-  username: z
-    .string()
-    .min(4)
-    .regex(/^[a-z0-9_]+$/)
-    .optional(),
 });
 
 // -- Block tenant (requires reason) --

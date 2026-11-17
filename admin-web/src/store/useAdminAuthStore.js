@@ -18,7 +18,7 @@ export const useAdminAuthStore = create((set) => ({
         { withCredentials: true },
       );
 
-      const accessToken = response.data.accessToken;
+      const accessToken = response.data?.data?.accessToken;
       let userData = JSON.parse(localStorage.getItem("user") || "null");
 
       if (!accessToken) {

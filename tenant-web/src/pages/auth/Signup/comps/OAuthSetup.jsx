@@ -1,4 +1,4 @@
-// tenant-web/src/pages/auth/Signup/comps/OAuthSetup.jsx
+// tenant-web/src/pages/auth/Signup/comps/OAuthSetup.jsx (do not remove this comment)
 import { useState, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -161,6 +161,8 @@ export default function OAuthSetup({ mockMode, meta, userData, onContinue }) {
     }
     try {
       const profileResult = await updateOnboardingProfile({
+        firstName: userData.firstName || "",
+        lastName: userData.lastName || "",
         username: data.username,
       });
       if (!profileResult.success) {
@@ -185,16 +187,24 @@ export default function OAuthSetup({ mockMode, meta, userData, onContinue }) {
       ? backendSuggestions
       : nameSuggestions;
 
+  // ── Fluid spacing values ──
+  const spaceY = "clamp(6px, 1.4vh, 14px)";
+  const smallGap = "clamp(4px, 1vh, 10px)";
+  const tinyGap = "clamp(2px, 0.5vh, 6px)";
+
   return (
     <>
-      <div>
-        <h2 className="text-[1.6rem] font-bold text-slate-900 tracking-tight">
+      <div style={{ marginBottom: spaceY }}>
+        <h2 className="text-[1.3rem] font-bold text-slate-900 tracking-tight">
           {meta.title}
         </h2>
-        <p className="text-sm text-slate-500 mt-1.5">{meta.subtitle}</p>
+        <p className="text-[0.78rem] text-slate-400 mt-0.5">{meta.subtitle}</p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+      <form
+        onSubmit={handleSubmit(onSubmit)}
+        style={{ display: "flex", flexDirection: "column", gap: spaceY }}
+      >
         {error && (
           <div className="rounded-xl bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-600 font-medium">
             {error}
@@ -202,7 +212,7 @@ export default function OAuthSetup({ mockMode, meta, userData, onContinue }) {
         )}
 
         {/* Prefilled provider info */}
-        <div className="rounded-xl bg-blue-50 border border-blue-100 px-4 py-3 text-sm text-blue-700">
+        <div className="rounded-xl bg-blue-50 border border-blue-100 px-3 py-2 text-[0.78rem] text-blue-700">
           Signed in as{" "}
           <span className="font-semibold">
             {userData.firstName} {userData.lastName}
@@ -212,7 +222,10 @@ export default function OAuthSetup({ mockMode, meta, userData, onContinue }) {
 
         {/* ── Username ── */}
         <div>
-          <label className="block text-sm font-medium text-slate-600 mb-1.5">
+          <label
+            className="block text-[0.78rem] font-medium text-slate-600"
+            style={{ marginBottom: tinyGap }}
+          >
             Username <span className="text-red-500">*</span>
           </label>
           <div className="relative">
@@ -241,15 +254,26 @@ export default function OAuthSetup({ mockMode, meta, userData, onContinue }) {
           </div>
           <FormError message={errors.username?.message} />
           {usernameStatus === "taken" && (
-            <p className="mt-1 text-xs text-red-500 font-medium">
+            <p
+              className="text-xs text-red-500 font-medium"
+              style={{ marginTop: tinyGap }}
+            >
               Username already taken. Try one of these:
             </p>
           )}
 
           {displaySuggestions.length > 0 && (
-            <div className="mt-2.5 sr-animate-fade-in-slide">
+            <div
+              className="sr-animate-fade-in-slide"
+              style={{ marginTop: smallGap }}
+            >
               {usernameStatus !== "taken" && (
-                <p className="text-xs text-slate-500 mb-1.5">Suggestions:</p>
+                <p
+                  className="text-xs text-slate-500"
+                  style={{ marginBottom: tinyGap }}
+                >
+                  Suggestions:
+                </p>
               )}
               <div className="flex flex-wrap gap-1.5">
                 {displaySuggestions.map((s) => (
@@ -275,7 +299,10 @@ export default function OAuthSetup({ mockMode, meta, userData, onContinue }) {
 
         {/* ── Password ── */}
         <div>
-          <label className="block text-sm font-medium text-slate-600 mb-1.5">
+          <label
+            className="block text-[0.78rem] font-medium text-slate-600"
+            style={{ marginBottom: tinyGap }}
+          >
             Password <span className="text-red-500">*</span>
           </label>
           <div className="relative">
@@ -305,7 +332,10 @@ export default function OAuthSetup({ mockMode, meta, userData, onContinue }) {
           <FormError message={errors.password?.message} />
 
           {pw && (
-            <div className="mt-2.5 flex items-center gap-1.5 sr-animate-fade-in-slide">
+            <div
+              className="flex items-center gap-1.5 sr-animate-fade-in-slide"
+              style={{ marginTop: smallGap }}
+            >
               {PASSWORD_RULES.map((rule) => (
                 <PasswordRulePill
                   key={rule.key}
@@ -319,7 +349,10 @@ export default function OAuthSetup({ mockMode, meta, userData, onContinue }) {
 
         {/* ── Confirm Password ── */}
         <div>
-          <label className="block text-sm font-medium text-slate-600 mb-1.5">
+          <label
+            className="block text-[0.78rem] font-medium text-slate-600"
+            style={{ marginBottom: tinyGap }}
+          >
             Confirm password <span className="text-red-500">*</span>
           </label>
           <div className="relative">
@@ -352,7 +385,8 @@ export default function OAuthSetup({ mockMode, meta, userData, onContinue }) {
         <button
           type="submit"
           disabled={isLoading}
-          className="sr-btn-primary w-full mt-2 flex gap-2 items-center justify-center"
+          className="sr-btn-primary w-full flex gap-2 items-center justify-center"
+          style={{ marginTop: tinyGap }}
         >
           {isLoading ? (
             <Loader2 className="h-4 w-4 animate-spin" />

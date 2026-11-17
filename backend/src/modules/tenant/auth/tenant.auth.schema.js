@@ -101,6 +101,34 @@ export const facebookLoginSchema = z.object({
 });
 
 // -----------------------------------------------------------
+// FACEBOOK NO-EMAIL OTP FLOW
+// -----------------------------------------------------------
+export const facebookSendOtpSchema = z.object({
+  body: z.object({
+    accessToken: z.string({
+      required_error: "Facebook access token is required",
+    }),
+    email: z
+      .string({ required_error: "Email is required" })
+      .email("Invalid email address"),
+  }),
+});
+
+export const facebookVerifyOtpSchema = z.object({
+  body: z.object({
+    pendingToken: z.string({ required_error: "Pending token is required" }),
+    otp: z
+      .string({ required_error: "OTP is required" })
+      .length(4, "OTP must be 4 digits")
+      .regex(/^\d{4}$/, "OTP must be numeric"),
+    accessToken: z.string({
+      required_error: "Facebook access token is required",
+    }),
+    recaptchaToken: recaptchaRule,
+  }),
+});
+
+// -----------------------------------------------------------
 // FORGOT PASSWORD
 // -----------------------------------------------------------
 export const forgotPasswordSchema = z.object({

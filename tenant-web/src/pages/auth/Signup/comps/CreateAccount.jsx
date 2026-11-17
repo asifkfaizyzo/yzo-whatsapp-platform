@@ -13,6 +13,7 @@ import {
   ArrowRight,
   AlertCircle,
   ShieldCheck,
+  X,
 } from "lucide-react";
 import FormError from "../../../../components/FormError";
 import {
@@ -32,10 +33,10 @@ const schema = z.object({
 });
 
 const PASSWORD_RULES = [
-  { key: "length",  label: "8+ chars",  test: (pw) => pw.length >= 8 },
-  { key: "upper",   label: "Uppercase", test: (pw) => /[A-Z]/.test(pw) },
-  { key: "number",  label: "Number",    test: (pw) => /[0-9]/.test(pw) },
-  { key: "special", label: "Symbol",    test: (pw) => /[!@#$%^&*]/.test(pw) },
+  { key: "length", label: "8+ chars", test: (pw) => pw.length >= 8 },
+  { key: "upper", label: "Uppercase", test: (pw) => /[A-Z]/.test(pw) },
+  { key: "number", label: "Number", test: (pw) => /[0-9]/.test(pw) },
+  { key: "special", label: "Symbol", test: (pw) => /[!@#$%^&*]/.test(pw) },
 ];
 
 function PasswordRulePill({ valid, text }) {
@@ -48,8 +49,18 @@ function PasswordRulePill({ valid, text }) {
       }`}
     >
       {valid ? (
-        <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+        <svg
+          className="h-3 w-3 shrink-0"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={3}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M5 13l4 4L19 7"
+          />
         </svg>
       ) : (
         <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-slate-300" />
@@ -64,6 +75,7 @@ export default function CreateAccount({
   meta,
   onContinue,
   onOAuth,
+  onFbEmailRequired,
   onSwitchMode,
 }) {
   const navigate = useNavigate();
@@ -76,6 +88,10 @@ export default function CreateAccount({
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [termsError, setTermsError] = useState(false);
 
+  // ── Floating error overlay state ──
+  const [errorDismissed, setErrorDismissed] = useState(true);
+  const errorTimerRef = useRef(null);
+
   const {
     register,
     handleSubmit,
@@ -87,6 +103,34 @@ export default function CreateAccount({
   });
 
   const pw = watch("password");
+
+  // ── Auto-show / auto-dismiss the floating error overlay ──
+  useEffect(() => {
+    const err = error || googleError || fbError;
+    if (err) {
+      setErrorDismissed(false);
+      clearTimeout(errorTimerRef.current);
+      errorTimerRef.current = setTimeout(() => {
+        setErrorDismissed(true);
+        setTimeout(() => {
+          setError("");
+          setGoogleError("");
+          setFbError("");
+        }, 300);
+      }, 5000);
+    }
+    return () => clearTimeout(errorTimerRef.current);
+  }, [error, googleError, fbError]);
+
+  const dismissError = useCallback(() => {
+    setErrorDismissed(true);
+    clearTimeout(errorTimerRef.current);
+    setTimeout(() => {
+      setError("");
+      setGoogleError("");
+      setFbError("");
+    }, 300);
+  }, []);
 
   const onSubmit = async (data) => {
     if (!agreedToTerms) {
@@ -192,14 +236,16 @@ export default function CreateAccount({
       window.google.accounts.id.prompt((notification) => {
         if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
           setGoogleError(
-            "Google sign-in was blocked. Check your browser settings."
+            "Google sign-in was blocked. Check your browser settings.",
           );
           setIsLoading(false);
           googleCallbackRef.current = null;
         }
       });
     } else {
-      setGoogleError("Google Sign-In is not available. Please refresh the page.");
+      setGoogleError(
+        "Google Sign-In is not available. Please refresh the page.",
+      );
       setIsLoading(false);
     }
   }, [agreedToTerms, mockMode, onOAuth]);
@@ -240,7 +286,7 @@ export default function CreateAccount({
         (async () => {
           try {
             const result = await signupWithFacebook(
-              response.authResponse.accessToken
+              response.authResponse.accessToken,
             );
             if (result.success) {
               const t = result.data?.data?.tenant || {};
@@ -249,6 +295,27 @@ export default function CreateAccount({
                 email: t.email || "",
                 firstName: t.firstName || "",
                 lastName: t.lastName || "",
+              });
+                        } else if (result.code === "EMAIL_REQUIRED") {
+              let firstName = "";
+              let lastName = "";
+              try {
+                const me = await new Promise((resolve, reject) => {
+                  window.FB.api(
+                    "/me",
+                    { fields: "first_name,last_name" },
+                    (res) => (res.error ? reject(res.error) : resolve(res)),
+                  );
+                });
+                firstName = me.first_name || "";
+                lastName = me.last_name || "";
+              } catch {
+                // Non-fatal: profile setup step can collect it later
+              }
+              onFbEmailRequired?.({
+                fbAccessToken: response.authResponse.accessToken,
+                firstName,
+                lastName,
               });
             } else {
               setFbError(result.message || "Facebook sign-up failed.");
@@ -259,7 +326,7 @@ export default function CreateAccount({
           setIsLoading(false);
         })();
       },
-      { config_id: import.meta.env.VITE_META_SSO_CONFIG_ID }
+      { config_id: import.meta.env.VITE_META_SSO_CONFIG_ID },
     );
   };
 
@@ -270,27 +337,56 @@ export default function CreateAccount({
 
   const unifiedError = error || googleError || fbError;
 
+  // ── Fluid spacing values ──
+  const spaceY = "clamp(6px, 1.4vh, 14px)";
+  const smallGap = "clamp(4px, 1vh, 10px)";
+  const tinyGap = "clamp(2px, 0.5vh, 6px)";
+  const sectionGap = "clamp(8px, 1.6vh, 16px)";
+
   return (
     <>
+    <style>{`
+      .sr-custom-scrollbar::-webkit-scrollbar { display: none; }
+      .sr-custom-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    `}</style>
+    <div className="relative">
+      {/* ── Floating error overlay (zero layout impact) ── */}
+      {unifiedError && (
+        <div
+          className={`absolute top-0 left-0 right-0 z-20 flex items-center gap-2 px-4 py-2.5 bg-red-50/95 backdrop-blur-sm border-b border-red-100 rounded-t-2xl transition-all duration-300 ease-out ${
+            !errorDismissed
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 -translate-y-full pointer-events-none"
+          }`}
+        >
+          <AlertCircle size={14} className="text-red-500 shrink-0" />
+          <span className="text-[0.78rem] text-red-600 flex-1 leading-snug">
+            {unifiedError}
+          </span>
+          <button
+            type="button"
+            onClick={dismissError}
+            className="text-red-300 hover:text-red-500 transition-colors shrink-0"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       {/* Header */}
-      <div className="text-center mb-4">
+      <div className="text-center" style={{ marginBottom: sectionGap }}>
         <h2 className="text-[1.3rem] font-bold text-slate-900 tracking-tight">
           {meta.title}
         </h2>
-        <p className="text-[0.78rem] text-slate-400 mt-0.5">
-          {meta.subtitle}
-        </p>
+        <p className="text-[0.78rem] text-slate-400 mt-0.5">{meta.subtitle}</p>
       </div>
 
       {/* OAuth */}
-      <div className="rounded-xl bg-slate-50/60 border border-slate-100 p-3 mb-3">
-        {unifiedError && (
-          <div className="flex items-center gap-2 px-3 py-2 mb-2.5 rounded-lg bg-red-50 border border-red-100 text-red-600 text-[0.78rem]">
-            <AlertCircle size={14} className="shrink-0" />
-            <span>{unifiedError}</span>
-          </div>
-        )}
-        <div className="flex flex-col items-center gap-2">
+      <div
+        className="rounded-xl bg-slate-50/60 border border-slate-100 p-3"
+        style={{ marginBottom: spaceY }}
+      >
+        <div className="flex flex-col items-center" style={{ gap: smallGap }}>
           <button
             type="button"
             onClick={handleFacebookClick}
@@ -309,10 +405,22 @@ export default function CreateAccount({
             className="w-full max-w-[360px] h-[44px] rounded-xl bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 flex items-center justify-center gap-2.5 text-[0.84rem] font-medium text-slate-700 transition-all duration-150 disabled:opacity-50"
           >
             <svg width="18" height="18" viewBox="0 0 24 24">
-              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
-              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
-              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+              <path
+                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
+                fill="#4285F4"
+              />
+              <path
+                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                fill="#34A853"
+              />
+              <path
+                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                fill="#FBBC05"
+              />
+              <path
+                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                fill="#EA4335"
+              />
             </svg>
             Continue with Google
           </button>
@@ -320,7 +428,7 @@ export default function CreateAccount({
       </div>
 
       {/* Divider */}
-      <div className="flex items-center gap-3 mb-3">
+      <div className="flex items-center gap-3" style={{ marginBottom: spaceY }}>
         <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
         <span className="text-[0.68rem] text-slate-300 font-medium uppercase tracking-wider">
           or Sign up with email
@@ -331,16 +439,23 @@ export default function CreateAccount({
       {/* Form */}
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className={`space-y-3 transition-opacity duration-200 ${
+        className={`transition-opacity duration-200 ${
           isLoading ? "opacity-70" : ""
         }`}
+        style={{ display: "flex", flexDirection: "column", gap: spaceY }}
       >
         <div>
-          <label className="block text-[0.78rem] font-medium text-slate-600 mb-1">
+          <label
+            className="block text-[0.78rem] font-medium text-slate-600"
+            style={{ marginBottom: tinyGap }}
+          >
             Work email <span className="text-red-400">*</span>
           </label>
           <div className="sr-input-wrap relative">
-            <Mail size={16} className="sr-input-icon absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 transition-colors duration-200 pointer-events-none" />
+            <Mail
+              size={16}
+              className="sr-input-icon absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 transition-colors duration-200 pointer-events-none"
+            />
             <input
               className={`sr-input w-full h-[44px] pl-10 pr-4 rounded-xl border bg-white text-[0.875rem] text-slate-900 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-[#125fe2]/20 focus:border-[#125fe2] transition-all duration-200 ${
                 errors.email ? "border-red-300" : "border-slate-200"
@@ -354,11 +469,17 @@ export default function CreateAccount({
         </div>
 
         <div>
-          <label className="block text-[0.78rem] font-medium text-slate-600 mb-1">
+          <label
+            className="block text-[0.78rem] font-medium text-slate-600"
+            style={{ marginBottom: tinyGap }}
+          >
             Password <span className="text-red-400">*</span>
           </label>
           <div className="sr-input-wrap relative">
-            <Lock size={16} className="sr-input-icon absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 transition-colors duration-200 pointer-events-none" />
+            <Lock
+              size={16}
+              className="sr-input-icon absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 transition-colors duration-200 pointer-events-none"
+            />
             <input
               className={`sr-input w-full h-[44px] pl-10 pr-11 rounded-xl border bg-white text-[0.875rem] text-slate-900 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-[#125fe2]/20 focus:border-[#125fe2] transition-all duration-200 ${
                 errors.password ? "border-red-300" : "border-slate-200"
@@ -380,9 +501,16 @@ export default function CreateAccount({
           <FormError message={errors.password?.message} />
 
           {pw && (
-            <div className="mt-2 flex items-center gap-1.5 sr-animate-fade-in-slide">
+            <div
+              className="flex items-center gap-1.5 sr-animate-fade-in-slide"
+              style={{ marginTop: smallGap }}
+            >
               {PASSWORD_RULES.map((rule) => (
-                <PasswordRulePill key={rule.key} valid={rule.test(pw)} text={rule.label} />
+                <PasswordRulePill
+                  key={rule.key}
+                  valid={rule.test(pw)}
+                  text={rule.label}
+                />
               ))}
             </div>
           )}
@@ -421,23 +549,42 @@ export default function CreateAccount({
                 stroke="currentColor"
                 strokeWidth={3.5}
               >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M5 13l4 4L19 7"
+                />
               </svg>
             </span>
             <span>
               I agree to the{" "}
-              <Link to="/terms" target="_blank" rel="noopener noreferrer" className="font-semibold text-[#125fe2] hover:underline" onClick={(e) => e.stopPropagation()}>
+              <Link
+                to="/terms"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-[#125fe2] hover:underline"
+                onClick={(e) => e.stopPropagation()}
+              >
                 Terms
               </Link>{" "}
               and{" "}
-              <Link to="/privacy" target="_blank" rel="noopener noreferrer" className="font-semibold text-[#125fe2] hover:underline" onClick={(e) => e.stopPropagation()}>
+              <Link
+                to="/privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-[#125fe2] hover:underline"
+                onClick={(e) => e.stopPropagation()}
+              >
                 Privacy
               </Link>
               . <span className="text-red-400">*</span>
             </span>
           </label>
           {termsError && (
-            <p className="mt-1 ml-6.5 text-[0.72rem] text-red-500 font-medium sr-animate-fade-in-slide">
+            <p
+              className="ml-6.5 text-[0.72rem] text-red-500 font-medium sr-animate-fade-in-slide"
+              style={{ marginTop: tinyGap }}
+            >
               You must accept the terms to continue.
             </p>
           )}
@@ -446,7 +593,8 @@ export default function CreateAccount({
         <button
           type="submit"
           disabled={isLoading}
-          className="sr-btn-primary-gradient w-full mt-1.5 flex items-center justify-center gap-2"
+          className="sr-btn-primary-gradient w-full flex items-center justify-center gap-2"
+          style={{ marginTop: tinyGap }}
         >
           {isLoading ? (
             <>
@@ -461,7 +609,10 @@ export default function CreateAccount({
       </form>
 
       {/* Footer */}
-      <div className="mt-3.5 flex flex-col items-center gap-2">
+      <div
+        className="flex flex-col items-center"
+        style={{ marginTop: sectionGap, gap: smallGap }}
+      >
         <div className="flex items-center gap-1.5 text-[0.66rem] text-slate-300">
           <ShieldCheck size={11} />
           <span>Encrypted · Your data stays safe</span>
@@ -477,6 +628,7 @@ export default function CreateAccount({
           </button>
         </p>
       </div>
+    </div>
     </>
   );
 }

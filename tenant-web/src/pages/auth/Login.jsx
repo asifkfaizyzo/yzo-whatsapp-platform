@@ -10,6 +10,7 @@ import {
   AlertCircle,
   ShieldCheck,
   ArrowRight,
+  X,
 } from "lucide-react";
 import {
   login as apiLogin,
@@ -30,9 +31,41 @@ export default function Login({ onSwitchMode }) {
   const [fbError, setFbError] = useState("");
   const googleCallbackRef = useRef(null);
 
+  // ── Floating error overlay state ──
+  const [errorDismissed, setErrorDismissed] = useState(true);
+  const errorTimerRef = useRef(null);
+
   useEffect(() => {
     if (location.state?.message) setGeneralError(location.state.message);
   }, [location.state]);
+
+  // ── Auto-show / auto-dismiss the floating error overlay ──
+  useEffect(() => {
+    const err = generalError || googleError || fbError;
+    if (err) {
+      setErrorDismissed(false);
+      clearTimeout(errorTimerRef.current);
+      errorTimerRef.current = setTimeout(() => {
+        setErrorDismissed(true);
+        setTimeout(() => {
+          setGeneralError("");
+          setGoogleError("");
+          setFbError("");
+        }, 300);
+      }, 5000);
+    }
+    return () => clearTimeout(errorTimerRef.current);
+  }, [generalError, googleError, fbError]);
+
+  const dismissError = useCallback(() => {
+    setErrorDismissed(true);
+    clearTimeout(errorTimerRef.current);
+    setTimeout(() => {
+      setGeneralError("");
+      setGoogleError("");
+      setFbError("");
+    }, 300);
+  }, []);
 
   // ── Google Identity Services init (returns ID token, not access token) ──
   useEffect(() => {
@@ -77,6 +110,8 @@ export default function Login({ onSwitchMode }) {
   const navigateAfterAuth = (tenant) => {
     if (tenant?.type === "TENANT" && !tenant?.onboardingCompleted) {
       navigate("/signup", { replace: true });
+    } else if (tenant?.type === "TENANT" && tenant?.setup?.isComplete === false) {
+      navigate("/signup", { state: { setupMode: true }, replace: true });
     } else {
       navigate("/dashboard", { replace: true });
     }
@@ -124,6 +159,11 @@ export default function Login({ onSwitchMode }) {
         const result = await loginWithGoogle(credential);
         if (result.success) {
           navigateAfterAuth(result.data?.data?.tenant);
+        } else if (result.code === "ACCOUNT_NOT_FOUND") {
+          navigate("/signup", {
+            state: { message: "No account found. Please sign up first." },
+            replace: true,
+          });
         } else {
           setGoogleError(result.message || "Google login failed.");
         }
@@ -179,6 +219,11 @@ export default function Login({ onSwitchMode }) {
             );
             if (result.success) {
               navigateAfterAuth(result.data?.data?.tenant);
+            } else if (result.code === "ACCOUNT_NOT_FOUND") {
+              navigate("/signup", {
+                state: { message: "No account found. Please sign up first." },
+                replace: true,
+              });
             } else {
               setFbError(result.message || "Facebook login failed.");
             }
@@ -195,11 +240,44 @@ export default function Login({ onSwitchMode }) {
 
   const unifiedError = generalError || googleError || fbError;
 
+  // ── Fluid spacing values ──
+  const spaceY = "clamp(6px, 1.4vh, 14px)";
+  const smallGap = "clamp(4px, 1vh, 10px)";
+  const tinyGap = "clamp(2px, 0.5vh, 6px)";
+  const sectionGap = "clamp(8px, 1.6vh, 16px)";
+  const cardPadding = "clamp(16px, 2.5vh, 32px)";
+
   return (
     <div className="w-full max-w-[420px] mx-auto sr-animate-fade-in-slide">
-      <div className="bg-white rounded-2xl shadow-[0_1px_3px_rgba(15,23,42,0.04),0_8px_32px_-8px_rgba(15,23,42,0.08)] border border-slate-100 p-6 sm:p-8">
+      <div
+        className="relative overflow-hidden bg-white rounded-2xl shadow-[0_1px_3px_rgba(15,23,42,0.04),0_8px_32px_-8px_rgba(15,23,42,0.08)] border border-slate-100"
+        style={{ padding: cardPadding }}
+      >
+        {/* ── Floating error overlay (zero layout impact) ── */}
+        {unifiedError && (
+          <div
+            className={`absolute top-0 left-0 right-0 z-20 flex items-center gap-2 px-4 py-2.5 bg-red-50/95 backdrop-blur-sm border-b border-red-100 rounded-t-2xl transition-all duration-300 ease-out ${
+              !errorDismissed
+                ? "opacity-100 translate-y-0"
+                : "opacity-0 -translate-y-full pointer-events-none"
+            }`}
+          >
+            <AlertCircle size={14} className="text-red-500 shrink-0" />
+            <span className="text-[0.78rem] text-red-600 flex-1 leading-snug">
+              {unifiedError}
+            </span>
+            <button
+              type="button"
+              onClick={dismissError}
+              className="text-red-300 hover:text-red-500 transition-colors shrink-0"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
+
         {/* Header */}
-        <div className="text-center mb-4">
+        <div className="text-center" style={{ marginBottom: sectionGap }}>
           <h1 className="text-[1.3rem] font-bold text-slate-900 tracking-tight">
             Welcome back
           </h1>
@@ -209,14 +287,14 @@ export default function Login({ onSwitchMode }) {
         </div>
 
         {/* OAuth */}
-        <div className="rounded-xl bg-slate-50/60 border border-slate-100 p-3 mb-3">
-          {unifiedError && (
-            <div className="flex items-center gap-2 px-3 py-2 mb-2.5 rounded-lg bg-red-50 border border-red-100 text-red-600 text-[0.78rem]">
-              <AlertCircle size={14} className="shrink-0" />
-              <span>{unifiedError}</span>
-            </div>
-          )}
-          <div className="flex flex-col items-center gap-2">
+        <div
+          className="rounded-xl bg-slate-50/60 border border-slate-100 p-3"
+          style={{ marginBottom: spaceY }}
+        >
+          <div
+            className="flex flex-col items-center"
+            style={{ gap: smallGap }}
+          >
             <button
               type="button"
               onClick={handleFacebookLogin}
@@ -263,7 +341,10 @@ export default function Login({ onSwitchMode }) {
         </div>
 
         {/* Divider */}
-        <div className="flex items-center gap-3 mb-3">
+        <div
+          className="flex items-center gap-3"
+          style={{ marginBottom: spaceY }}
+        >
           <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
           <span className="text-[0.68rem] text-slate-300 font-medium uppercase tracking-wider">
             or Sign in with email
@@ -274,12 +355,16 @@ export default function Login({ onSwitchMode }) {
         {/* Form */}
         <form
           onSubmit={handleSubmit}
-          className={`space-y-3 transition-opacity duration-200 ${
+          className={`transition-opacity duration-200 ${
             isSubmitting ? "opacity-70" : ""
           }`}
+          style={{ display: "flex", flexDirection: "column", gap: spaceY }}
         >
           <div>
-            <label className="block text-[0.78rem] font-medium text-slate-600 mb-1">
+            <label
+              className="block text-[0.78rem] font-medium text-slate-600"
+              style={{ marginBottom: tinyGap }}
+            >
               Email
             </label>
             <div className="sr-input-wrap relative">
@@ -299,7 +384,10 @@ export default function Login({ onSwitchMode }) {
           </div>
 
           <div>
-            <label className="block text-[0.78rem] font-medium text-slate-600 mb-1">
+            <label
+              className="block text-[0.78rem] font-medium text-slate-600"
+              style={{ marginBottom: tinyGap }}
+            >
               Password
             </label>
             <div className="sr-input-wrap relative">
@@ -339,7 +427,8 @@ export default function Login({ onSwitchMode }) {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="sr-btn-primary-gradient w-full mt-1.5 flex items-center justify-center gap-2"
+            className="sr-btn-primary-gradient w-full flex items-center justify-center gap-2"
+            style={{ marginTop: tinyGap }}
           >
             {isSubmitting ? (
               <>
@@ -352,7 +441,10 @@ export default function Login({ onSwitchMode }) {
         </form>
 
         {/* Footer */}
-        <div className="mt-3.5 flex flex-col items-center gap-2">
+        <div
+          className="flex flex-col items-center"
+          style={{ marginTop: sectionGap, gap: smallGap }}
+        >
           <div className="flex items-center gap-1.5 text-[0.66rem] text-slate-300">
             <ShieldCheck size={11} />
             <span>Encrypted · Your data stays safe</span>
