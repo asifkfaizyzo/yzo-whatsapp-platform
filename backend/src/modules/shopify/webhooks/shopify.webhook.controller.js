@@ -1,7 +1,6 @@
 // backend/src/modules/shopify/webhooks/shopify.webhook.controller.js (do not remove this comment)
 import crypto from "node:crypto";
 import prisma from "../../../config/prisma.js";
-import { decrypt } from "../../../lib/crypto.js";
 import { orderWebhookQueue } from "../../../cron/queues/order-webhook.queue.js";
 import { handleProductUpdateForBackInStock } from "../products/shopify.backInStock.service.js";
 import {
@@ -52,12 +51,64 @@ export const handleIncomingWebhook = async (req, res) => {
   if (cleanDomain && !cleanDomain.includes("."))
     cleanDomain = `${cleanDomain}.myshopify.com`;
 
-  // 1. ALWAYS log incoming webhook hit immediately
-  console.log(
-    `📥 [Shopify Webhook Received] Topic: '${topic}' | Shop: '${cleanDomain}'`,
-  );
-
   try {
+    if (!cleanDomain) {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "Missing Shopify shop domain header",
+        });
+    }
+
+    const rawSecret = process.env.SHOPIFY_API_SECRET;
+    if (!rawSecret) {
+      console.error(
+        "❌ [Shopify Webhook] SHOPIFY_API_SECRET is not configured",
+      );
+      return res
+        .status(500)
+        .json({ success: false, message: "Webhook verification is unavailable" });
+    }
+
+    if (!Buffer.isBuffer(req.rawBody)) {
+      console.error(
+        `❌ [Shopify Webhook] Raw request body unavailable for ${JSON.stringify(cleanDomain)}`,
+      );
+      return res
+        .status(500)
+        .json({ success: false, message: "Webhook verification is unavailable" });
+    }
+
+    if (!hmacHeader) {
+      return res
+        .status(401)
+        .json({ success: false, message: "Missing Shopify webhook signature" });
+    }
+
+    const expectedSignature = crypto
+      .createHmac("sha256", rawSecret)
+      .update(req.rawBody)
+      .digest("base64");
+    const receivedSignatureBuffer = Buffer.from(hmacHeader, "base64");
+    const expectedSignatureBuffer = Buffer.from(expectedSignature, "base64");
+
+    if (
+      receivedSignatureBuffer.length !== expectedSignatureBuffer.length ||
+      !crypto.timingSafeEqual(receivedSignatureBuffer, expectedSignatureBuffer)
+    ) {
+      console.warn(
+        `⚠️ [Shopify Webhook] HMAC signature mismatch for ${JSON.stringify(cleanDomain)} | ` +
+          `rawBodyBytes=${req.rawBody.length}`,
+      );
+      return res
+        .status(401)
+        .json({ success: false, message: "Invalid Shopify webhook signature" });
+    }
+    console.log(
+      `🔒 [Shopify Webhook] HMAC Signature Verified Successfully for ${JSON.stringify(cleanDomain)}`,
+    );
+
     if (!payload || typeof payload !== "object") {
       return res
         .status(400)
@@ -71,29 +122,22 @@ export const handleIncomingWebhook = async (req, res) => {
           message: "Missing Shopify webhook topic header",
         });
     }
-    if (!cleanDomain) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Missing Shopify shop domain header",
-        });
-    }
 
-    // 2. Resolve tenant connection from DB
+    console.log(
+      `📥 [Shopify Webhook Received] Topic: '${topic}' | Shop: '${JSON.stringify(cleanDomain)}'`,
+    );
+
+    // Resolve tenant only after the webhook signature is verified.
     const connection = await prisma.shopifyConnection.findFirst({
       where: { shopName: cleanDomain },
-      select: {
-        tenantId: true,
-        webhookSecret: true,
-      },
+      select: { tenantId: true },
     });
 
-    let tenantId = connection?.tenantId;
+    const tenantId = connection?.tenantId;
 
     if (!tenantId) {
       console.warn(
-        `⚠️ [Shopify Webhook] No active integration found for shop: ${cleanDomain}`,
+        `⚠️ [Shopify Webhook] Unknown shop ignored: ${JSON.stringify(cleanDomain)}`,
       );
       return res
         .status(200)
@@ -102,59 +146,6 @@ export const handleIncomingWebhook = async (req, res) => {
           message: "Shopify integration not found, ignored",
         });
     }
-
-    // 3. Verify Shopify's signature before accepting the event.
-    if (!hmacHeader) {
-      return res
-        .status(401)
-        .json({ success: false, message: "Missing Shopify webhook signature" });
-    }
-
-    const encryptedSecret = connection.webhookSecret;
-    const rawSecret = encryptedSecret
-      ? decrypt(encryptedSecret)
-      : process.env.SHOPIFY_API_SECRET;
-    if (!rawSecret) {
-      console.error(
-        `❌ [Shopify Webhook] No signing secret configured for ${cleanDomain}`,
-      );
-      return res
-        .status(503)
-        .json({
-          success: false,
-          message: "Shopify webhook signing secret is not configured",
-        });
-    }
-
-    const rawPayload =
-      req.rawBody ||
-      Buffer.from(
-        typeof req.body === "string" ? req.body : JSON.stringify(req.body),
-      );
-    const expectedSignature = crypto
-      .createHmac("sha256", rawSecret)
-      .update(rawPayload)
-      .digest("base64");
-    const receivedSignatureBuffer = Buffer.from(hmacHeader, "base64");
-    const expectedSignatureBuffer = Buffer.from(expectedSignature, "base64");
-
-    if (
-      receivedSignatureBuffer.length !== expectedSignatureBuffer.length ||
-      !crypto.timingSafeEqual(receivedSignatureBuffer, expectedSignatureBuffer)
-    ) {
-      console.warn(
-        `⚠️ [Shopify Webhook] HMAC signature mismatch for ${cleanDomain} | ` +
-          `rawBodyCaptured=${Buffer.isBuffer(req.rawBody)} | ` +
-          `rawBodyBytes=${Buffer.isBuffer(req.rawBody) ? req.rawBody.length : 0} | ` +
-          `signedBodyBytes=${rawPayload.length}`,
-      );
-      return res
-        .status(401)
-        .json({ success: false, message: "Invalid Shopify webhook signature" });
-    }
-    console.log(
-      `🔒 [Shopify Webhook] HMAC Signature Verified Successfully for ${cleanDomain}`,
-    );
 
     // 4. Format & override target phone for local dev testing safely
     const targetPhone = resolveCustomerPhone(payload);

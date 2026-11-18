@@ -767,6 +767,21 @@ export const processShopifyOrderLifecycle = async ({
       },
     };
 
+    // Product and inventory webhooks must not create EcommerceOrder records.
+const nonOrderTopics = [
+  "products/create",
+  "products/update",
+  "products/delete",
+  "inventory_levels/update",
+];
+
+if (nonOrderTopics.includes(topic)) {
+  console.log(
+    `⏭️ [ShopifyWorker] Skipping non-order webhook topic: ${topic}`,
+  );
+  return { success: true, ignored: true, topic };
+}
+
     const baseUpdate = { status, paymentMethod, paymentStatus };
     if (trackingInfo.length > 0) baseUpdate.trackingInfo = trackingInfo;
     if (topic !== "orders/edited") {

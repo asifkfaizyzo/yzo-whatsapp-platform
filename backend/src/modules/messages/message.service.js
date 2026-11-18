@@ -1196,7 +1196,57 @@ export const sendQuickReplyMessageService = async ({
     throw new Error("Quick reply not found or inactive");
   }
 
-  const messageText = text?.trim() ? text : quickReply.content;
+  // const messageText = text?.trim() ? text : quickReply.content;
+
+    const [contact, tenant, sender] = await Promise.all([
+    prisma.contact.findFirst({
+      where: { id: contactId, tenantId },
+      select: { name: true, phone: true },
+    }),
+    prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { tenantName: true },
+    }),
+    senderType === "USER"
+      ? prisma.user.findFirst({
+          where: { id: senderId, tenantId },
+          select: { name: true },
+        })
+      : Promise.resolve(null),
+  ]);
+
+  if (!contact) throw new Error("Contact not found");
+
+  const rawMessageText = text?.trim() ? text : quickReply.content;
+  const currentDate = new Date();
+  const messageText = (rawMessageText || "")
+    .replace(
+      /{{\s*(customer_name|customerName|contact_name|contactName)\s*}}/gi,
+      () => contact.name || "Customer",
+    )
+    .replace(
+      /{{\s*(contact_phone|contactPhone|customer_phone|customerPhone)\s*}}/gi,
+      () => contact.phone || "",
+    )
+    .replace(
+      /{{\s*(agent_name|agentName)\s*}}/gi,
+      () => sender?.name || tenant?.tenantName || "Agent",
+    )
+    .replace(
+      /{{\s*(company_name|companyName)\s*}}/gi,
+      () => tenant?.tenantName || "Our Company",
+    )
+    .replace(/{{\s*date\s*}}/gi, () => currentDate.toLocaleDateString())
+    .replace(
+      /{{\s*time\s*}}/gi,
+      () =>
+        currentDate.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+    );
+    // Add this line right after all the .replace() calls:
+  console.log("🔍 Quick Reply - messageText after replacement:", messageText);
 
   // Case 1: Has media and media is not explicitly detached by agent
   if (quickReply.mediaUrl && !detachMedia) {

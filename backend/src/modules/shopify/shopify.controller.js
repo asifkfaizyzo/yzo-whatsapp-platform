@@ -1,5 +1,6 @@
 // backend/src/modules/shopify/shopify.controller.js (do not remove this comment)
 import * as shopifyService from "./shopify.service.js";
+import axios from "axios";
 import * as backInStockService from "./products/shopify.backInStock.service.js";
 import { syncAllShopifyCustomers } from "./customers/shopify.customerSync.service.js";
 import { syncAllProducts } from "./products/shopify.productSync.service.js";
@@ -294,3 +295,102 @@ export async function updatePostPurchaseSettings(req, res) {
     return res.status(500).json({ success: false, message: err.message });
   }
 }
+
+// ===== START TEMPORARY SHOPIFY WEBHOOK DIAGNOSTIC =====
+
+export const diagnoseShopifyWebhooks = async (req, res) => {
+  let connection = null;
+  let stage = "starting";
+
+  try {
+    const tenantId = req.tenantId || req.tenant?.id || req.user?.tenantId;
+
+    if (!tenantId) {
+      return res.status(401).json({
+        success: false,
+        message: "Tenant ID is required",
+      });
+    }
+
+    connection = await prisma.shopifyConnection.findUnique({
+      where: { tenantId },
+      select: {
+        shopName: true,
+        status: true,
+        refreshToken: true,
+        accessTokenExpiresAt: true,
+        refreshTokenExpiresAt: true,
+      },
+    });
+
+    if (!connection || connection.status !== "active") {
+      return res.status(404).json({
+        success: false,
+        message: "No active Shopify connection found",
+      });
+    }
+
+    stage = "refreshing_or_getting_access_token";
+    const accessToken = await shopifyService.getShopifyAccessToken(tenantId);
+
+    stage = "fetching_webhook_subscriptions";
+    const apiVersion = process.env.SHOPIFY_API_VERSION || "2026-10";
+
+    const response = await axios.get(
+      `https://${connection.shopName}/admin/api/${apiVersion}/webhooks.json`,
+      {
+        headers: {
+          "X-Shopify-Access-Token": accessToken,
+          "Content-Type": "application/json",
+        },
+        timeout: 15000,
+      },
+    );
+
+    const webhooks = response.data?.webhooks || [];
+
+    return res.status(200).json({
+      success: true,
+      shop: connection.shopName,
+      apiVersion,
+      httpStatus: response.status,
+      totalSubscriptions: webhooks.length,
+      subscriptions: webhooks.map((hook) => ({
+        id: hook.id,
+        topic: hook.topic,
+        address: hook.address,
+      })),
+    });
+  } catch (error) {
+    console.error(
+  "[Temporary Shopify Webhook Diagnostic]",
+  {
+    shop: connection?.shopName || "Not resolved",
+    stage,
+    status: error.response?.status || null,
+    message: error.message,
+    shopifyOAuthError: error.response?.data?.error || null,
+    shopifyErrorDescription:
+      error.response?.data?.error_description || null,
+    shopifyErrors: error.response?.data?.errors || null,
+    hasRefreshToken: Boolean(connection?.refreshToken),
+    accessTokenExpiresAt:
+      connection?.accessTokenExpiresAt?.toISOString() || null,
+    refreshTokenExpiresAt:
+      connection?.refreshTokenExpiresAt?.toISOString() || null,
+  },
+);
+
+    return res.status(error.response?.status || 500).json({
+      success: false,
+      message: "Failed to fetch Shopify webhook subscriptions",
+      httpStatus: error.response?.status || null,
+      error:
+        typeof error.response?.data?.errors === "string"
+          ? error.response.data.errors
+          : error.message,
+    });
+  }
+};
+
+// ===== END TEMPORARY SHOPIFY WEBHOOK DIAGNOSTIC =====

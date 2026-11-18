@@ -184,15 +184,21 @@ export const getShopifyAccessToken = async (tenantId) => {
     }
 
     const response = await axios.post(
-      `https://${latestConnection.shopName}/admin/oauth/access_token`,
-      {
-        client_id: SHOPIFY_API_KEY,
-        client_secret: SHOPIFY_API_SECRET,
-        grant_type: "refresh_token",
-        refresh_token: decrypt(latestConnection.refreshToken),
-      },
-      { timeout: 10000 },
-    );
+  `https://${latestConnection.shopName}/admin/oauth/access_token`,
+  new URLSearchParams({
+    client_id: SHOPIFY_API_KEY,
+    client_secret: SHOPIFY_API_SECRET,
+    grant_type: "refresh_token",
+    refresh_token: decrypt(latestConnection.refreshToken),
+  }),
+  {
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "application/json",
+    },
+    timeout: 10000,
+  },
+);
 
     const {
       access_token: accessToken,

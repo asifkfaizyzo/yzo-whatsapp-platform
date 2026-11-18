@@ -18,6 +18,14 @@ router.use(verifyTenantOrUser);
 router.get("/oauth/url", shopifyOAuthController.getOAuthUrl);
 router.post("/connect", shopifyController.connect);
 router.get("/status", shopifyController.getStatus);
+
+// ===== START TEMPORARY SHOPIFY WEBHOOK DIAGNOSTIC =====
+router.get(
+  "/webhooks/diagnostic",
+  shopifyController.diagnoseShopifyWebhooks,
+);
+// ===== END TEMPORARY SHOPIFY WEBHOOK DIAGNOSTIC =====
+
 router.put(
   "/cart-recovery-settings",
   shopifyController.updateCartRecoverySettings,
