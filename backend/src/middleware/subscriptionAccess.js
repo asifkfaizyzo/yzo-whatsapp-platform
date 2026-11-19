@@ -1,4 +1,4 @@
-// backend/src/middleware/subscription.access.js (do not remove this comment)
+// backend/src/middleware/subscriptionAccess.js (do not remove this comment)
 import prisma from "../config/prisma.js";
 
 const ALLOWED_EXPIRED_ROUTES = [

@@ -1,83 +1,220 @@
 // backend/prisma/schema/billing.prisma (do not remove this comment)
-// Subscription plans, features, payments, invoices, and billing lifecycle
+// Subscription plans, entitlements, add-ons, usage metering, payments, invoices, billing lifecycle
 
+// ─────────────────────────────────────────────
+// SubscriptionPlan — V2 dynamic entitlement plans
+// ─────────────────────────────────────────────
 model SubscriptionPlan {
-  id           String     @id @default(cuid())
-  name         String     @unique
-  description  String?
+  id                      String         @id @default(cuid())
+  name                    String         @unique
+  description             String?        @db.Text
 
-  monthlyPrice Float
-  annualPrice  Float?
+  status                  PlanStatus     @default(ACTIVE)
+  planType                String         @default("REGULAR") // REGULAR | CUSTOM | PROMO
+  visibility              PlanVisibility @default(PUBLIC)
+  sortOrder               Int            @default(0)
+  badgeText               String?
+  customTenantId          String?        // set only when planType = CUSTOM
 
-  status       PlanStatus @default(ACTIVE)
-  isPopular    Boolean    @default(false)
+  // Pricing (null cycle price = cycle not offered)
+  monthlyPrice            Float          @default(0)
+  quarterlyPrice          Float?
+  annualPrice             Float?
+  originalPrice           Float?         // strikethrough price for promos
+  offerValidUntil         DateTime?
 
-  hasTrial              Boolean    @default(true)
-  trialDays             Int?       @default(14)
-  razorpayMonthlyPlanId String?
-  razorpayAnnualPlanId  String?
+  // Trial
+  hasTrial                Boolean        @default(false)
+  trialDays               Int            @default(14)
+  trialRequiresCard       Boolean        @default(false)
 
-  maxAgents      Int
-  maxBroadcasts  Int?
-  maxAutomations Int?
-  maxCampaigns   Int?
-  maxApiCalls    Int?
-  maxAiCredits   Int?
+  // Razorpay plan IDs — nulled on price change, lazily recreated
+  razorpayMonthlyPlanId   String?
+  razorpayQuarterlyPlanId String?
+  razorpayAnnualPlanId    String?
 
-  features     PlanFeature[]
-  integrations PlanIntegration[]
-  tenantSubscriptions TenantSubscription[] @relation("SubscriptionPlanLink")
+  // Dynamic entitlements — validated against backend/src/lib/entitlements/registry.js
+  // INT: -1 = unlimited, 0 = blocked, absent key = registry default
+  entitlements            Json           @default("{}")
+
+  tenantSubscriptions     TenantSubscription[] @relation("CurrentPlan")
+  pendingSubscriptions    TenantSubscription[] @relation("PendingPlan") // scheduled plan changes targeting this plan
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([status])
+  @@index([planType])
   @@map("subscription_plans")
 }
 
-model Feature {
-  id    String @id @default(cuid())
-  name  String @unique
+// ─────────────────────────────────────────────
+// TenantSubscription — platform subscription + merchant gateway
+// NOTE: merchant Razorpay sections (keys, OAuth, KYC) are the tenant's
+// OWN payment-collection config — unrelated to plan billing. Untouched.
+// Grace period = subscriptionStatus "payment_failed" + gracePeriodEnd in future.
+// ─────────────────────────────────────────────
+model TenantSubscription {
+  tenantId             String              @id @unique
+  tenant               Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  plans PlanFeature[]
+  // Plan
+  planId               String?
+  plan                 SubscriptionPlan?   @relation("CurrentPlan", fields: [planId], references: [id])
+  planActivatedAt      DateTime?
+  billingCycle         BillingCycle        @default(MONTHLY)
+  currentPlan          String?             // plan name snapshot for emails/display
+
+  // Scheduled plan change: applied at planPeriodEnd (no proration).
+  // Cleared when applied, cancelled by the tenant, or the subscription expires.
+  pendingPlanId        String?
+  pendingPlan          SubscriptionPlan?   @relation("PendingPlan", fields: [pendingPlanId], references: [id], onDelete: SetNull)
+  pendingBillingCycle  BillingCycle?
+
+  // Lifecycle
+  subscriptionStatus   SubscriptionStatus  @default(expired)
+  planPeriodStart      DateTime?
+  planPeriodEnd        DateTime?
+  cancelRequestedAt    DateTime?
+  cancellationReason   String?
+  reactivatedAt        DateTime?
+  freeUntilDate        DateTime?           // admin-granted free access until date
+  dataDeletionDate     DateTime?
+
+  // Grace period & debt
+  gracePeriodDays      Int?                // per-tenant override; null = PlatformSettings.defaultGraceDays
+  gracePeriodEnd       DateTime?
+  graceDebtDays        Int                 @default(0)
+  graceDebtPlanPrice   Float?              // monthly-equivalent price snapshot at block time
+
+  // SuperAdmin per-tenant entitlement overrides
+  customLimitsOverride Json?               @default("{}")
+
+  // Platform billing (how tenant pays US)
+  razorpayCustomerId     String?
+  razorpaySubscriptionId String?   @unique
+  autopayEnabled         Boolean   @default(false)
+  autopayMethod          String?
+
+  // Merchant gateway (how tenant collects from THEIR customers) — UNCHANGED
+  razorpayKeyId          String?
+  razorpayKeySecret      String?
+  razorpayWebhookSecret  String?
+  enableOnlinePayment    Boolean   @default(false)
+  enableCod              Boolean   @default(true)
+  defaultCurrency        String    @default("INR")
+  paymentLinkExpiryMins  Int       @default(30)
+  autoConfirmOnPayment   Boolean   @default(true)
+
+  // Razorpay Partner OAuth — UNCHANGED
+  razorpayAuthType       RazorpayAuthType      @default(DIRECT_KEYS)
+  razorpayAccountId      String?
+  razorpayAccessToken    String?
+  razorpayRefreshToken   String?
+  razorpayTokenExpiresAt DateTime?
+  razorpayWebhookId      String?
+  razorpayAccountStatus  RazorpayAccountStatus @default(DISCONNECTED)
+  razorpayKycStatus      RazorpayKycStatus     @default(PENDING)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@map("features")
-}
-
-model PlanFeature {
-  id        String           @id @default(cuid())
-
-  planId    String
-  plan      SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
-
-  featureId String
-  feature   Feature          @relation(fields: [featureId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-
-  @@unique([planId, featureId])
+  @@index([razorpayAccountId])
   @@index([planId])
-  @@index([featureId])
-  @@map("plan_features")
+  @@index([pendingPlanId])
+  @@index([subscriptionStatus])
+  @@map("tenant_subscription")
 }
 
-model PlanIntegration {
-  id     String           @id @default(cuid())
-  name   String
+// ─────────────────────────────────────────────
+// TenantUsage — per-cycle metering + top-up bonus pool
+// ─────────────────────────────────────────────
+model TenantUsage {
+  id          String   @id @default(cuid())
+  tenantId    String
+  periodStart DateTime
+  periodEnd   DateTime
+  key         String   // entitlement key (e.g. "maxBroadcasts")
+  used        Int      @default(0)
+  bonus       Int      @default(0) // from one-time top-ups; survives cycle rollover
 
-  planId String
-  plan   SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  createdAt DateTime @default(now())
-
-  @@unique([planId, name])
-  @@index([planId])
-  @@map("plan_integrations")
+  @@unique([tenantId, periodStart, periodEnd, key])
+  @@index([tenantId, key])
+  @@map("tenant_usages")
 }
 
+// ─────────────────────────────────────────────
+// PlanAddOn — purchasable entitlement boosters (admin-created, no seed)
+// ─────────────────────────────────────────────
+model PlanAddOn {
+  id               String       @id @default(cuid())
+  name             String
+  key              String       @unique
+  description      String?      @db.Text
+  type             AddOnType    @default(RECURRING)
+  billingCycle     BillingCycle @default(MONTHLY)
+  price            Float
+  isActive         Boolean      @default(true)
+  sortOrder        Int          @default(0)
+
+  // Entitlement payload — entitlementKey must exist in lib/entitlements/registry.js
+  entitlementKey   String
+  entitlementValue Json         // INT increment (e.g. 5000) or true (boolean)
+
+  razorpayPlanId   String?
+
+  tenantAddOns     TenantAddOn[]
+  payments         Payment[]
+  invoices         Invoice[]
+
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@index([isActive])
+  @@map("plan_add_ons")
+}
+
+// ─────────────────────────────────────────────
+// TenantAddOn — a tenant's purchased add-on (independent cycle)
+// ─────────────────────────────────────────────
+model TenantAddOn {
+  id                     String       @id @default(cuid())
+  tenantId               String
+  addOnId                String
+  status                 String       @default("active") // active | cancelled | expired
+  source                 String       @default("PURCHASE") // PURCHASE | ADMIN_GRANT
+  quantity               Int          @default(1)
+  startsAt               DateTime     @default(now())
+  expiresAt              DateTime?
+  razorpaySubscriptionId String?      @unique
+
+  tenant                 Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  addOn                  PlanAddOn    @relation(fields: [addOnId], references: [id])
+
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+
+  @@index([tenantId, status])
+  @@map("tenant_add_ons")
+}
+
+// ─────────────────────────────────────────────
+// TrialEmailRegistry — one trial per email, EVER.
+// Survives tenant deletion. Never cascade-deleted.
+// ─────────────────────────────────────────────
+model TrialEmailRegistry {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  usedAt    DateTime @default(now())
+
+  @@map("trial_email_registry")
+}
+
+// ─────────────────────────────────────────────
+// Payment — now covers plans, add-ons, and top-ups
+// ─────────────────────────────────────────────
 model Payment {
   id          String   @id @default(cuid())
   tenantId    String
@@ -89,7 +226,11 @@ model Payment {
   paymentType        String   @default("ONLINE")
   offlineReference   String?
 
-  planId       String
+  // What was purchased
+  purchaseType String     @default("PLAN") // PLAN | ADDON | TOPUP
+  planId       String?                     // plain string reference (no FK) — set when PLAN
+  addOnId      String?
+  addOn        PlanAddOn? @relation(fields: [addOnId], references: [id], onDelete: Restrict)
   planName     String
   billingType  String
 
@@ -111,18 +252,30 @@ model Payment {
   @@index([tenantId])
   @@index([status])
   @@index([offlineReference])
+  @@index([addOnId])
 
   tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  invoice Invoice?
 
   @@map("payments")
 }
 
+// ─────────────────────────────────────────────
+// Invoice
+// ─────────────────────────────────────────────
 model Invoice {
   id                   String        @id @default(uuid())
   tenantId             String
   invoiceNumber        String        @unique
+
+  purchaseType         String        @default("PLAN") // PLAN | ADDON | TOPUP
+  addOnId              String?
+  addOn                PlanAddOn?    @relation(fields: [addOnId], references: [id], onDelete: Restrict)
   planName             String
   amount               Decimal       @db.Decimal(10, 2)
+  billingCycle         BillingCycle? // PLAN: plan cycle | ADDON: add-on cycle | TOPUP: ONE_TIME
+  paymentId            String?       @unique
+  payment              Payment?      @relation(fields: [paymentId], references: [id], onDelete: SetNull)
 
   baseAmount           Decimal?      @db.Decimal(10, 2)
   gstEnabled           Boolean       @default(true)
@@ -142,6 +295,8 @@ model Invoice {
   updatedAt            DateTime      @updatedAt
   tenant               Tenant        @relation(fields: [tenantId], references: [id])
 
+  @@index([tenantId])
+  @@index([addOnId])
   @@map("invoices")
 }
 
@@ -176,4 +331,21 @@ model TenantDataDeletion {
   tenant               Tenant    @relation(fields: [tenantId], references: [id])
 
   @@map("tenant_data_deletions")
+}
+
+
+// Perpetual top-up / bonus credits. Never reset monthly; consumed only after the
+// plan's monthly base quota is spent (see lib/entitlements/usage.service.js).
+model TenantCreditPool {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  key       String
+  granted   Int      @default(0)
+  consumed  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, key])
+  @@map("tenant_credit_pools")
 }

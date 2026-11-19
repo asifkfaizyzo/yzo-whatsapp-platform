@@ -57,6 +57,10 @@ model Tenant {
   enterpriseLeads   EnterpriseLead[]
   quickReplies      QuickReply[]
   subscriptionReminders SubscriptionReminder[]
+  usages                TenantUsage[]
+  addOns                TenantAddOn[]
+  creditPools   TenantCreditPool[]
+  mediaAssets   MediaAsset[]
   invoices          Invoice[]
   cancellationSurvey    CancellationSurvey?
   dataDeletions         TenantDataDeletion[]
@@ -142,62 +146,3 @@ model TenantZoho {
   @@map("tenant_zoho")
 }
 
-// ─────────────────────────────────────────────
-// Subscription — plan, billing, Razorpay (platform + merchant)
-// ─────────────────────────────────────────────
-model TenantSubscription {
-  tenantId             String                @id @unique
-  tenant               Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  // Plan
-  planId               String?
-  plan                 SubscriptionPlan?     @relation("SubscriptionPlanLink", fields: [planId], references: [id])
-  planActivatedAt      DateTime?
-  billingType          String?               @default("monthly")
-  planStatus           String?               @default("inactive")
-
-  // Subscription lifecycle
-  subscriptionStatus   SubscriptionStatus    @default(trialing)
-  currentPlan          String?
-  planPeriodStart      DateTime?
-  planPeriodEnd        DateTime?
-  cancelRequestedAt    DateTime?
-  cancellationReason   String?
-  reactivatedAt        DateTime?
-  dataDeletionDate     DateTime?
-
-  // Trial
-  hasUsedTrial         Boolean   @default(false)
-  trialPlanId          String?
-  trialExtendedCount   Int       @default(0)
-  trialExtendedByAdmin String?
-
-  // Platform billing (how tenant pays US)
-  razorpayCustomerId     String?
-  razorpaySubscriptionId String?   @unique
-  autopayEnabled         Boolean   @default(false)
-  autopayMethod          String?
-
-  // Merchant gateway (how tenant collects from THEIR customers)
-  razorpayKeyId          String?
-  razorpayKeySecret      String?
-  razorpayWebhookSecret  String?
-  enableOnlinePayment    Boolean   @default(false)
-  enableCod              Boolean   @default(true)
-  defaultCurrency        String    @default("INR")
-  paymentLinkExpiryMins  Int       @default(30)
-  autoConfirmOnPayment   Boolean   @default(true)
-
-  // Razorpay Partner OAuth
-  razorpayAuthType       RazorpayAuthType      @default(DIRECT_KEYS)
-  razorpayAccountId      String?
-  razorpayAccessToken    String?
-  razorpayRefreshToken   String?
-  razorpayTokenExpiresAt DateTime?
-  razorpayWebhookId      String?
-  razorpayAccountStatus  RazorpayAccountStatus @default(DISCONNECTED)
-  razorpayKycStatus      RazorpayKycStatus     @default(PENDING)
-
-  @@index([razorpayAccountId])
-  @@map("tenant_subscription")
-}

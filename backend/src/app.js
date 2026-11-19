@@ -26,6 +26,8 @@ import sradminAuthRoutes from "./modules/superadmin/auth/sradmin.auth.routes.js"
 // NEW SRADMIN TENANT MANAGEMENT (Phase 9)
 // ═══════════════════════════════════════════════════════════════
 import sradminTenantRoutes from "./modules/superadmin/tenant/sradmin.tenant.routes.js";
+import sradminPlansRoutes from "./modules/superadmin/plans/sradmin.plans.routes.js";
+import sradminSubscriptionsRoutes from "./modules/superadmin/subscriptions/sradmin.subscriptions.routes.js";
 
 // ═══════════════════════════════════════════════════════════════
 // OLD SUPERADMIN ROUTES (revenue, GST, notifications, audit, etc.)
@@ -35,6 +37,8 @@ import sradminTenantRoutes from "./modules/superadmin/tenant/sradmin.tenant.rout
 import adminTicketRoutes from "./modules/tickets/ticket.admin.routes.js";
 import sradminRevenueRoutes from "./modules/superadmin/revenue/sradmin.revenue.routes.js";
 import sradminSettingsRoutes from "./modules/superadmin/settings/sradmin.settings.routes.js";
+import sradminAddOnsRoutes from "./modules/superadmin/addons/sradmin.addons.routes.js";
+import sradminSettingsPolicyRoutes from "./modules/superadmin/settings/sradmin.settings.policy.routes.js";
 import sradminReportRoutes from "./modules/superadmin/reports/sradmin.reports.routes.js";
 import adminSubscriptionsRoute from "./modules/admin-subscriptions/adminSubscription.routes.js";
 import enterpriseLeadAdminRoutes from "./modules/enterprise-leads/enterpriseLead.admin.routes.js";
@@ -279,17 +283,21 @@ app.use("/sradmin", sradminAuthRoutes);
 // NEW SRADMIN TENANT MANAGEMENT (Phase 9)
 // ═══════════════════════════════════════════════════════════════
 app.use("/sradmin/tenants", sradminTenantRoutes);
-
+app.use("/sradmin/plans", sradminPlansRoutes);
 // ═══════════════════════════════════════════════════════════════
 // OLD SUPERADMIN ROUTES (revenue, GST, notifications, audit, etc.)
 // Auth + tenant CRUD paths are shadowed by new routes above.
 // ═══════════════════════════════════════════════════════════════
 app.use("/sradmin", adminTicketRoutes);
 app.use("/sradmin", sradminRevenueRoutes);
+app.use("/sradmin/settings/subscription-policy", sradminSettingsPolicyRoutes);
 app.use("/sradmin/settings", sradminSettingsRoutes);
 app.use("/sradmin", sradminReportRoutes);
 app.use("/sradmin", enquiryRoutes);
 app.use("/sradmin/plans", planRoutes);
+app.use("/sradmin/addons", sradminAddOnsRoutes); 
+app.use("/sradmin/subscriptions", sradminSubscriptionsRoutes);
+
 app.use("/sradmin/billing", billingRoutes);
 app.use("/sradmin/google-sheets", googleSheetsRoutes);
 app.use("/sradmin/super-admin/notifications", superAdminNotificationRoutes);
