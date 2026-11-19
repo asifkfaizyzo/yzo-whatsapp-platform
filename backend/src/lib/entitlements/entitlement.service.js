@@ -33,7 +33,7 @@ export const getTenantSubscriptionContext = async (tenantId) => {
     prisma.tenantAddOn.findMany({
       where: {
         tenantId,
-        status: "active",
+        status: { in: ["active", "cancel_at_period_end"] },
         addOn: { type: "RECURRING" },
         OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
       },

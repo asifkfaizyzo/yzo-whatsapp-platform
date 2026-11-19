@@ -1,4 +1,4 @@
-// backend/src/modules/superadmin/reports.service.js (do not remove this comment)
+// backend/src/modules/superadmin/sradmin.reports.service.js (do not remove this comment)
 
 import prisma from "../../../config/prisma.js";
 
@@ -699,7 +699,7 @@ export const getReportTenantsService = async ({
       return {
         id: t.id,
         name: t.tenantName || t.email || "Unnamed Tenant",
-        plan: t.plan?.name || t.currentPlan || "Starter",
+        plan: t.subscription?.plan?.name || "Unassigned",
         messagesDispatched: totalMsgs,
         deliveryRate: deliveryPct, // null when 0 messages sent
         lastActive: latestMsg?.createdAt || t.updatedAt,
@@ -717,15 +717,17 @@ export const getReportTenantsService = async ({
     .sort((a, b) => b.messagesDispatched - a.messagesDispatched)
     .slice(0, 10);
 
-  const plans = await prisma.subscriptionPlan.findMany({
-    include: { _count: { select: { tenants: true } } },
+  const plans = await prisma.plan.findMany({
+    where: { status: { not: "DISCONTINUED" } },
+    orderBy: { sortOrder: "asc" },
+    include: { _count: { select: { subscriptions: true } } },
   });
 
   const totalTenantCount = tenants.length || 1;
   const planDistribution = plans.map((p) => ({
     name: p.name,
-    count: p._count.tenants,
-    pct: Number(((p._count.tenants / totalTenantCount) * 100).toFixed(1)),
+    count: p._count.subscriptions,
+    pct: Number(((p._count.subscriptions / totalTenantCount) * 100).toFixed(1)),
   }));
 
   const [newTenantsCount, churnedTenants] = await Promise.all([

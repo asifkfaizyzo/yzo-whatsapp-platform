@@ -75,7 +75,11 @@ export const loginUserService = async (data, meta = {}) => {
       status: true,
       isActive: true,
       subscription: {
-        select: { planId: true, planStatus: true, billingType: true },
+        select: {
+          planId: true,
+          subscriptionStatus: true,
+          billingCycle: true,
+        },
       },
     },
   });
@@ -163,9 +167,9 @@ export const loginUserService = async (data, meta = {}) => {
       type: "USER",
       status: tenant.status,
       isActive: safeUser.isActive,
-      planId: tenant.planId,
-      planStatus: tenant.planStatus,
-      billingType: tenant.billingType,
+      planId: tenant.planId || null,
+      subscriptionStatus: tenant.subscriptionStatus || "inactive",
+      billingCycle: tenant.billingCycle || null,
     },
   };
 };

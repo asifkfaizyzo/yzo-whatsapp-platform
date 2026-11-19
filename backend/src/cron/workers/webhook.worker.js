@@ -143,6 +143,37 @@ const triggerZohoAutoSyncForNewContact = async (tenantId, contact) => {
 };
 
 // -------------------------------------------------------------
+// SUBSCRIPTION OPERATIONAL HELPER (Includes Grace & Free-Until)
+// -------------------------------------------------------------
+const isTenantSubscriptionOperational = (tenant, now = new Date()) => {
+  if (!tenant) return false;
+  const subStatus = tenant.subscriptionStatus;
+  if (subStatus === "paused") return false;
+
+  if (tenant.freeUntilDate && new Date(tenant.freeUntilDate) > now) {
+    return true;
+  }
+
+  if (
+    subStatus === "active" ||
+    subStatus === "trialing" ||
+    subStatus === "cancel_at_period_end"
+  ) {
+    return true;
+  }
+
+  if (
+    subStatus === "payment_failed" &&
+    tenant.gracePeriodEnd &&
+    new Date(tenant.gracePeriodEnd) > now
+  ) {
+    return true;
+  }
+
+  return false;
+};
+
+// -------------------------------------------------------------
 // FACEBOOK MESSENGER & INSTAGRAM PROCESSOR
 // -------------------------------------------------------------
 export const processMetaPageOrInstagramJob = async (job, body) => {
@@ -179,10 +210,7 @@ export const processMetaPageOrInstagramJob = async (job, body) => {
     }
 
     const subStatus = tenant.subscriptionStatus;
-    const isActive =
-      subStatus === "active" ||
-      subStatus === "trialing" ||
-      subStatus === "cancel_at_period_end";
+    const isActive = isTenantSubscriptionOperational(tenant);
 
     if (!isActive) {
       console.log(
@@ -647,14 +675,6 @@ export const processWebhookJob = async (job) => {
     });
     if (_r) tenant = { ..._r, ..._r.whatsapp, ..._r.subscription };
   }
-  if (!tenant) {
-    // Fallback to configured tenant with WhatsApp phone ID
-    const _r = await prisma.tenant.findFirst({
-      where: { whatsapp: { whatsappPhoneId: { not: null } } },
-      include: _waInc,
-    });
-    if (_r) tenant = { ..._r, ..._r.whatsapp, ..._r.subscription };
-  }
 
   // -----------------------------------------------------------
   // Handle WhatsApp Calls Webhooks (Phase 2)
@@ -1028,10 +1048,7 @@ export const processWebhookJob = async (job) => {
 
     // -- Check subscription ---------------------------------
     const subStatus = tenant.subscriptionStatus;
-    const isActive =
-      subStatus === "active" ||
-      subStatus === "trialing" ||
-      subStatus === "cancel_at_period_end";
+    const isActive = isTenantSubscriptionOperational(tenant);
 
     if (!isActive) {
       console.log(

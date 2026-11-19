@@ -1,6 +1,7 @@
 // backend/src/modules/tenant/integrations/tenant.integrations.controller.js (do not remove this comment)
 import prisma from "../../../config/prisma.js";
 import { encrypt, decrypt } from "../../../lib/crypto.js";
+import { checkChannelAccess } from "../../../lib/entitlements/access.js";
 
 export const getWhatsappCredentials = async (req, res, next) => {
   try {
@@ -35,6 +36,16 @@ export const getWhatsappCredentials = async (req, res, next) => {
 export const updateWhatsappCredentials = async (req, res, next) => {
   try {
     const tenantId = req.tenant?.id;
+
+    const channelAccess = await checkChannelAccess(tenantId, "WHATSAPP");
+    if (!channelAccess.allowed) {
+      return res.status(channelAccess.statusCode).json({
+        error: channelAccess.code,
+        message: channelAccess.message,
+        details: channelAccess.details,
+      });
+    }
+
     const { phoneId, wabaId, accessToken, verifyToken, catalogId } = req.body;
 
     const updated = await prisma.tenantWhatsApp.upsert({
@@ -127,6 +138,28 @@ export const connectMetaChannels = async (req, res) => {
       instagramAccountId,
       instagramUsername,
     } = req.body;
+
+    if (facebookPageId || facebookPageAccessToken) {
+      const messengerAccess = await checkChannelAccess(tenantId, "MESSENGER");
+      if (!messengerAccess.allowed) {
+        return res.status(messengerAccess.statusCode).json({
+          error: messengerAccess.code,
+          message: messengerAccess.message,
+          details: messengerAccess.details,
+        });
+      }
+    }
+
+    if (instagramAccountId || instagramUsername) {
+      const instagramAccess = await checkChannelAccess(tenantId, "INSTAGRAM");
+      if (!instagramAccess.allowed) {
+        return res.status(instagramAccess.statusCode).json({
+          error: instagramAccess.code,
+          message: instagramAccess.message,
+          details: instagramAccess.details,
+        });
+      }
+    }
 
     const updateData = {};
     if (facebookPageId !== undefined)

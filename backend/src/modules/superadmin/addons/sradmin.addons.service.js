@@ -117,7 +117,9 @@ const getCountsByAddOn = async (ids) => {
   for (const r of rows) {
     const entry = (map[r.addOnId] ||= { active: 0, total: 0 });
     entry.total += r._count._all;
-    if (r.status === "active") entry.active += r._count._all;
+    if (r.status === "active" || r.status === "cancel_at_period_end") {
+      entry.active += r._count._all;
+    }
   }
   return map;
 };
@@ -141,7 +143,9 @@ const findAddOnOrThrow = async (id) => {
 };
 
 const countActiveHolders = (addOnId) =>
-  prisma.tenantAddOn.count({ where: { addOnId, status: "active" } });
+  prisma.tenantAddOn.count({
+    where: { addOnId, status: { in: ["active", "cancel_at_period_end"] } },
+  });
 
 const auditTarget = (addOn) => ({
   targetId: addOn.id,

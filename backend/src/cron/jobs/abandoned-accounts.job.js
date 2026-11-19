@@ -1,228 +1,76 @@
 // backend/src/cron/jobs/abandoned-accounts.job.js (do not remove this comment)
-
 import prisma from "../../config/prisma.js";
+import { deleteTenantsCompletely } from "../../utils/tenantDeletion.js";
 
-const CLEANUP_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours
-const ABANDONMENT_THRESHOLD_HOURS = 360;
+// Configuration
+const CLEANUP_INTERVAL = 24 * 60 * 60 * 1000; // Run once every 24 hours
+const ABANDONMENT_THRESHOLD_HOURS = 360; // Delete accounts abandoned for > 15 days
+
+const cleanAbandonedAccounts = async () => {
+  try {
+    const thresholdDate = new Date(
+      Date.now() - ABANDONMENT_THRESHOLD_HOURS * 60 * 60 * 1000,
+    );
+
+    // Find abandoned accounts that have zero payments/invoices and never activated
+    const abandonedTenants = await prisma.tenant.findMany({
+      where: {
+        AND: [
+          {
+            OR: [
+              { isEmailVerified: false },
+              {
+                status: "PENDING",
+                OR: [
+                  { subscription: { is: null } },
+                  { subscription: { subscriptionStatus: "expired" } },
+                ],
+              },
+              { status: "REJECTED" },
+            ],
+          },
+          {
+            updatedAt: {
+              lt: thresholdDate,
+            },
+          },
+          {
+            payments: {
+              none: {},
+            },
+          },
+          {
+            invoices: {
+              none: {},
+            },
+          },
+        ],
+      },
+      select: { id: true, email: true, tenantName: true },
+    });
+
+    if (abandonedTenants.length === 0) return;
+
+    const tenantIds = abandonedTenants.map((t) => t.id);
+
+    await deleteTenantsCompletely(tenantIds);
+
+    console.log(
+      `🧹 [Cleanup Worker] Removed ${abandonedTenants.length} abandoned/unverified tenant accounts:`,
+      abandonedTenants.map((t) => t.email).join(", "),
+    );
+  } catch (error) {
+    console.error(
+      "❌ [Cleanup Worker] Error cleaning abandoned accounts:",
+      error,
+    );
+  }
+};
 
 export const startCleanupWorker = () => {
-  const cleanAbandonedAccounts = async () => {
-    try {
-      console.log("?? Running abandoned accounts cleanup worker...");
-
-      const cutoffDate = new Date(
-        Date.now() - ABANDONMENT_THRESHOLD_HOURS * 60 * 60 * 1000,
-      );
-
-      // -------------------------------------------
-      // 1?? Find TRULY abandoned tenants
-      //    ? Onboarding not completed
-      //    ? Older than 24 hours
-      //    ? ZERO payments (SAFETY)
-      //    ? ZERO invoices (SAFETY)
-      // -------------------------------------------
-      const abandonedTenants = await prisma.tenant.findMany({
-        where: {
-          onboardingCompleted: false,
-          createdAt: { lt: cutoffDate },
-
-          // ??? Safety filters � protect paying customers
-          payments: { none: {} },
-          invoices: { none: {} },
-        },
-        select: {
-          id: true,
-          email: true,
-          tenantName: true,
-          createdAt: true,
-        },
-      });
-
-      if (abandonedTenants.length === 0) {
-        console.log("? No abandoned onboarding accounts to delete.");
-        return;
-      }
-
-      const tenantIds = abandonedTenants.map((t) => t.id);
-
-      console.log(
-        `?? Found ${tenantIds.length} truly abandoned accounts. ` +
-          `Deleting dependent records...`,
-      );
-
-      // -------------------------------------------
-      // 2?? Delete in correct order to satisfy
-      //    foreign key constraints
-      //    (matches YOUR schema exactly)
-      // -------------------------------------------
-      await prisma.$transaction([
-        // -- Auth --
-        prisma.userTagMapping.deleteMany({
-          where: { tenantId: { in: tenantIds } },
-        }),
-        prisma.refreshToken.deleteMany({
-          where: { tenantId: { in: tenantIds } },
-        }),
-
-        // -- Conversations & Messages --
-        prisma.message.deleteMany({
-          where: {
-            OR: [
-              { conversation: { tenantId: { in: tenantIds } } },
-              { conversation: { contact: { tenantId: { in: tenantIds } } } },
-            ],
-          },
-        }),
-        prisma.conversationActivity.deleteMany({
-          where: {
-            OR: [
-              { conversation: { tenantId: { in: tenantIds } } },
-              { conversation: { contact: { tenantId: { in: tenantIds } } } },
-            ],
-          },
-        }),
-        prisma.conversation.deleteMany({
-          where: {
-            OR: [
-              { tenantId: { in: tenantIds } },
-              { contact: { tenantId: { in: tenantIds } } },
-            ],
-          },
-        }),
-
-        // -- Broadcasts & Recipients --
-        prisma.broadcastRecipient.deleteMany({
-          where: {
-            OR: [
-              { broadcast: { tenantId: { in: tenantIds } } },
-              { contact: { tenantId: { in: tenantIds } } },
-            ],
-          },
-        }),
-        prisma.broadcastTag.deleteMany({
-          where: {
-            OR: [
-              { broadcast: { tenantId: { in: tenantIds } } },
-              { tag: { tenantId: { in: tenantIds } } },
-            ],
-          },
-        }),
-        prisma.broadcast.deleteMany({
-          where: { tenantId: { in: tenantIds } },
-        }),
-
-        // -- Templates --
-        prisma.template.deleteMany({
-          where: { tenantId: { in: tenantIds } },
-        }),
-
-        // -- Contacts & Tags --
-        prisma.contactTagMapping.deleteMany({
-          where: {
-            OR: [
-              { contact: { tenantId: { in: tenantIds } } },
-              { tag: { tenantId: { in: tenantIds } } },
-            ],
-          },
-        }),
-        prisma.contact.deleteMany({
-          where: { tenantId: { in: tenantIds } },
-        }),
-        prisma.tag.deleteMany({
-          where: { tenantId: { in: tenantIds } },
-        }),
-
-        // -- Chat Automation & Flows --
-        prisma.flowNode.deleteMany({
-          where: { flow: { tenantId: { in: tenantIds } } },
-        }),
-        prisma.keywordTrigger.deleteMany({
-          where: { tenantId: { in: tenantIds } },
-        }),
-        prisma.flow.deleteMany({
-          where: { tenantId: { in: tenantIds } },
-        }),
-        prisma.autoReopenConfig.deleteMany({
-          where: { tenantId: { in: tenantIds } },
-        }),
-
-        // -- Support Tickets --
-        prisma.ticketMessage.deleteMany({
-          where: {
-            OR: [
-              { ticket: { tenantId: { in: tenantIds } } },
-              { tenantId: { in: tenantIds } },
-            ],
-          },
-        }),
-        prisma.ticket.deleteMany({
-          where: { tenantId: { in: tenantIds } },
-        }),
-
-        // -- Notifications --
-        prisma.notification.deleteMany({
-          where: { tenantId: { in: tenantIds } },
-        }),
-
-        // -- Enterprise leads --
-        prisma.enterpriseLead.deleteMany({
-          where: { tenantId: { in: tenantIds } },
-        }),
-
-        // -- Subscription, Invoices & Payments --
-        prisma.subscriptionReminder.deleteMany({
-          where: { tenantId: { in: tenantIds } },
-        }),
-        prisma.cancellationSurvey.deleteMany({
-          where: { tenantId: { in: tenantIds } },
-        }),
-        prisma.tenantDataDeletion.deleteMany({
-          where: { tenantId: { in: tenantIds } },
-        }),
-        prisma.invoice.deleteMany({
-          where: { tenantId: { in: tenantIds } },
-        }),
-        prisma.payment.deleteMany({
-          where: { tenantId: { in: tenantIds } },
-        }),
-
-        // -- Audit logs ? unlink but preserve --
-        prisma.auditLog.updateMany({
-          where: { tenantId: { in: tenantIds } },
-          data: { tenantId: null },
-        }),
-
-        // -- Users --
-        prisma.user.deleteMany({
-          where: { tenantId: { in: tenantIds } },
-        }),
-
-        // -- Finally delete tenants --
-        prisma.tenant.deleteMany({
-          where: { id: { in: tenantIds } },
-        }),
-      ]);
-
-      // -------------------------------------------
-      // 3?? Log what was deleted
-      // -------------------------------------------
-      console.log(
-        `??? Successfully deleted ${tenantIds.length} abandoned accounts:`,
-      );
-      abandonedTenants.forEach((t) => {
-        const email = t.email || "no-email";
-        const name = t.tenantName || "no-name";
-        console.log(`   +- ${email} (${name}) � ${t.id}`);
-      });
-    } catch (error) {
-      console.error("? Failed to clean abandoned accounts:");
-      console.error("   Error:", error.message);
-    }
-  };
-
-  // Run every 24 hours
+  console.log(
+    "🕒 [Cleanup Worker] Initialized. Scanning for abandoned accounts every 24h.",
+  );
   setInterval(cleanAbandonedAccounts, CLEANUP_INTERVAL);
-
-  // Run once after startup (5 seconds delay)
   setTimeout(cleanAbandonedAccounts, 5000);
 };

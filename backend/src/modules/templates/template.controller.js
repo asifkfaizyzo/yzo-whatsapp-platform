@@ -11,6 +11,11 @@ import {
 } from "./template.service.js";
 import { validateTemplateMediaSize } from "../../middleware/uploadTemplate.js";
 import { sendTemplateStatusEmail } from "../email/index.js";
+import { checkStorageAccess } from "../../lib/entitlements/access.js";
+import {
+  registerMediaAsset,
+  markMediaAssetDeleted,
+} from "../../lib/entitlements/storage.service.js";
 
 // ── Valid values ────────────────────────────────────────────────────────────
 const VALID_HEADER_TYPES = [
@@ -245,6 +250,16 @@ export const createTemplate = async (req, res) => {
         await safeDeleteFile(uploadedFile.path);
         return res.status(400).json({ success: false, message: sizeError });
       }
+
+      const storageCheck = await checkStorageAccess(tenantId, uploadedFile.size);
+      if (!storageCheck.allowed) {
+        await safeDeleteFile(uploadedFile.path);
+        return res.status(storageCheck.status || 403).json({
+          success: false,
+          code: storageCheck.code,
+          message: storageCheck.message,
+        });
+      }
     }
 
     // Check tenant WhatsApp credentials
@@ -400,12 +415,12 @@ export const createTemplate = async (req, res) => {
 
     let template;
     if (existingTemplate && existingTemplate.status === "DELETED") {
-      // Clean up previous media file if any
+      // Mark previous MediaAsset soft-deleted for 14-day purge job if replaced
       if (
         existingTemplate.headerMediaUrl &&
         existingTemplate.headerMediaUrl !== headerMediaUrl
       ) {
-        await safeDeleteFile(existingTemplate.headerMediaUrl);
+        await markMediaAssetDeleted(tenantId, existingTemplate.headerMediaUrl);
       }
       template = await prisma.template.update({
         where: { id: existingTemplate.id },
@@ -414,6 +429,17 @@ export const createTemplate = async (req, res) => {
     } else {
       template = await prisma.template.create({
         data: templateData,
+      });
+    }
+
+    if (uploadedFile && headerMediaUrl) {
+      await registerMediaAsset({
+        tenantId,
+        kind: "TEMPLATE_HEADER",
+        url: headerMediaUrl,
+        fileName: uploadedFile.originalname,
+        mimeType: uploadedFile.mimetype,
+        sizeBytes: uploadedFile.size,
       });
     }
 
@@ -688,9 +714,9 @@ export const deleteTemplate = async (req, res) => {
       }
     }
 
-    // Clean up local media file (non-blocking)
+    // Start 14-day soft-delete clock on template header MediaAsset (purged by data-deletion.job.js)
     if (template.headerMediaUrl) {
-      await safeDeleteFile(template.headerMediaUrl);
+      await markMediaAssetDeleted(tenantId, template.headerMediaUrl);
     }
 
     // Soft delete locally

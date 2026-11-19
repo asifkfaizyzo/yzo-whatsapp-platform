@@ -40,7 +40,6 @@ import sradminSettingsRoutes from "./modules/superadmin/settings/sradmin.setting
 import sradminAddOnsRoutes from "./modules/superadmin/addons/sradmin.addons.routes.js";
 import sradminSettingsPolicyRoutes from "./modules/superadmin/settings/sradmin.settings.policy.routes.js";
 import sradminReportRoutes from "./modules/superadmin/reports/sradmin.reports.routes.js";
-import adminSubscriptionsRoute from "./modules/admin-subscriptions/adminSubscription.routes.js";
 import enterpriseLeadAdminRoutes from "./modules/enterprise-leads/enterpriseLead.admin.routes.js";
 import superAdminNotificationRoutes from "./modules/superadmin-notifications/superadminNotification.routes.js";
 import auditLogRoutes from "./modules/audit/audit.routes.js";
@@ -73,10 +72,15 @@ import notificationRoutes from "./modules/notifications/notification.routes.js";
 import userRoutes from "./modules/users/user.routes.js";
 
 // ═══════════════════════════════════════════════════════════════
+// NEW TENANT PLANS, BILLING & ADD-ONS ROUTES (Plans V2)
+// ═══════════════════════════════════════════════════════════════
+import tenantPlansRoutes from "./modules/tenant/plans/tenant.plans.routes.js";
+import tenantBillingRoutes from "./modules/tenant/billing/tenant.billing.routes.js";
+import tenantAddOnsRoutes from "./modules/tenant/addons/tenant.addons.routes.js";
+
+// ═══════════════════════════════════════════════════════════════
 // SHARED ROUTES (mounted on both /sradmin and /tenant)
 // ═══════════════════════════════════════════════════════════════
-import planRoutes from "./modules/plans/plan.routes.js";
-import billingRoutes from "./modules/billing/billing.routes.js";
 import enquiryRoutes from "./modules/enquiries/enquiry.routes.js";
 import enterpriseLeadRoutes from "./modules/enterprise-leads/enterpriseLead.routes.js";
 import googleSheetsRoutes from "./modules/google-sheets/googleSheets.routes.js";
@@ -294,14 +298,11 @@ app.use("/sradmin/settings/subscription-policy", sradminSettingsPolicyRoutes);
 app.use("/sradmin/settings", sradminSettingsRoutes);
 app.use("/sradmin", sradminReportRoutes);
 app.use("/sradmin", enquiryRoutes);
-app.use("/sradmin/plans", planRoutes);
-app.use("/sradmin/addons", sradminAddOnsRoutes); 
+app.use("/sradmin/addons", sradminAddOnsRoutes);
 app.use("/sradmin/subscriptions", sradminSubscriptionsRoutes);
 
-app.use("/sradmin/billing", billingRoutes);
 app.use("/sradmin/google-sheets", googleSheetsRoutes);
 app.use("/sradmin/super-admin/notifications", superAdminNotificationRoutes);
-app.use("/sradmin/admin/subscriptions", adminSubscriptionsRoute);
 app.use("/sradmin/superadmin/audit-logs", auditLogRoutes);
 app.use("/sradmin/dlq", dlqRoutes);
 app.use("/sradmin/register/enterprise-lead", enterpriseLeadRoutes);
@@ -324,8 +325,9 @@ app.use("/tenant/quick-replies", quickReplyRoutes);
 app.use("/tenant/orders", orderRoutes);
 app.use("/tenant/analytics", analyticsRoutes);
 app.use("/tenant/notifications", notificationRoutes);
-app.use("/tenant/plans", planRoutes);
-app.use("/tenant/billing", billingRoutes);
+app.use("/tenant/plans", tenantPlansRoutes);
+app.use("/tenant/billing/addons", tenantAddOnsRoutes);
+app.use("/tenant/billing", tenantBillingRoutes);
 app.use("/tenant/google-sheets", googleSheetsRoutes);
 app.use("/tenant/register/enterprise-lead", enterpriseLeadRoutes);
 app.use("/tenant", tenantProfileRoutes);

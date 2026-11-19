@@ -1028,6 +1028,13 @@ export const expireSubscriptionService = async (tenantId, { reason }, actor, met
       select: { id: true, razorpaySubscriptionId: true },
     });
 
+    if (recurringAddOns.length > 0) {
+      await tx.tenantAddOn.updateMany({
+        where: { id: { in: recurringAddOns.map((a) => a.id) } },
+        data: { status: "cancel_at_period_end", cancelledAt: now },
+      });
+    }
+
     return { tenant, sub, after, everPaid, retentionDays, graceDebtDays, recurringAddOns };
   });
 
@@ -1197,7 +1204,12 @@ export const grantAddOnService = async (tenantId, { addOnId, quantity, expiresAt
     }
 
     const existing = await tx.tenantAddOn.findFirst({
-      where: { tenantId, addOnId, status: "active", source: "ADMIN_GRANT" },
+      where: {
+        tenantId,
+        addOnId,
+        status: { in: ["active", "cancel_at_period_end"] },
+        source: "ADMIN_GRANT",
+      },
       select: { id: true },
     });
     if (existing) {
@@ -1243,10 +1255,12 @@ export const revokeAddOnService = async (tenantId, tenantAddOnId, { reason }, ac
     if (found.source !== "ADMIN_GRANT") {
       throw new HttpError(409, "Only admin-granted add-ons can be revoked here. Purchased add-ons are cancelled by the tenant.");
     }
-    if (found.status !== "active") throw new HttpError(409, `Add-on is already ${found.status}`);
+    if (!["active", "cancel_at_period_end"].includes(found.status)) {
+      throw new HttpError(409, `Add-on is already ${found.status}`);
+    }
     const row = await tx.tenantAddOn.update({
       where: { id: found.id },
-      data: { status: "cancelled", expiresAt: new Date() },
+      data: { status: "cancelled", cancelledAt: new Date(), expiresAt: new Date() },
       include: { addOn: { select: { id: true, name: true, key: true } } },
     });
     return { tenant, row };

@@ -51,6 +51,14 @@ import {
   subscriptionPaused,
   subscriptionResumed,
   systemDeletionConfirmation,
+  gracePeriodStarted,
+  gracePeriodEnding,
+  accountBlocked,
+  trialExpiring,
+  trialDeleted,
+  addonPurchased,
+  subscriptionExtended,
+  scheduledPlanChangeCancelled,
 } from "./templates/index.js";
 
 
@@ -801,5 +809,194 @@ export const sendSystemDeletionConfirmation = async (email, data) => {
     console.log("System deletion confirmation sent to:", email);
   } catch (err) {
     console.error("Error sending system deletion confirmation:", err.message);
+  }
+};
+
+/**
+ * Send notification when a paid subscription enters its grace period.
+ * Signature: (email, data) where data = { tenantName, planName, graceDays, gracePeriodEnd }
+ */
+export const sendGracePeriodStartedEmail = async (email, data) => {
+  try {
+    const { subject, html } = gracePeriodStarted(data);
+
+    await queueEmail({
+      to: email,
+      subject,
+      html,
+      category: "BILLING",
+      fromName: "SudoReply Billing",
+      metadata: { template: "grace_period_started", graceDays: data?.graceDays },
+    });
+
+    console.log("Grace period started email sent to:", email);
+  } catch (err) {
+    console.error("Error sending grace period started email:", err.message);
+  }
+};
+
+/**
+ * Send urgent reminder when grace period is about to end.
+ * Signature: (email, data) where data = { tenantName, planName, daysLeft, gracePeriodEnd }
+ */
+export const sendGracePeriodEndingEmail = async (email, data) => {
+  try {
+    const { subject, html } = gracePeriodEnding(data);
+
+    await queueEmail({
+      to: email,
+      subject,
+      html,
+      category: "BILLING",
+      fromName: "SudoReply Billing",
+      metadata: { template: "grace_period_ending", daysLeft: data?.daysLeft },
+    });
+
+    console.log("Grace period ending email sent to:", email);
+  } catch (err) {
+    console.error("Error sending grace period ending email:", err.message);
+  }
+};
+
+/**
+ * Send notification when an account is suspended/blocked by SuperAdmin.
+ * Signature: (email, data) where data = { tenantName, reason }
+ */
+export const sendAccountBlockedEmail = async (email, data) => {
+  try {
+    const { subject, html } = accountBlocked(data);
+
+    await queueEmail({
+      to: email,
+      subject,
+      html,
+      category: "SYSTEM",
+      fromName: "SudoReply Support",
+      metadata: { template: "account_blocked" },
+    });
+
+    console.log("Account blocked email sent to:", email);
+  } catch (err) {
+    console.error("Error sending account blocked email:", err.message);
+  }
+};
+
+/**
+ * Send reminder when a free trial is expiring soon.
+ * Signature: (email, data) where data = { tenantName, planName, daysLeft, trialEndsAt, retentionDays }
+ */
+export const sendTrialExpiringEmail = async (email, data) => {
+  try {
+    const { subject, html } = trialExpiring(data);
+
+    await queueEmail({
+      to: email,
+      subject,
+      html,
+      category: "BILLING",
+      fromName: "SudoReply",
+      metadata: { template: "trial_expiring", daysLeft: data?.daysLeft },
+    });
+
+    console.log("Trial expiring email sent to:", email);
+  } catch (err) {
+    console.error("Error sending trial expiring email:", err.message);
+  }
+};
+
+/**
+ * Send notification when an expired trial or workspace is permanently purged.
+ * Signature: (email, data) where data = { tenantName, deletionDate }
+ */
+export const sendTrialDeletedEmail = async (email, data) => {
+  try {
+    const { subject, html } = trialDeleted(data);
+
+    await queueEmail({
+      to: email,
+      subject,
+      html,
+      category: "BILLING",
+      fromName: "SudoReply",
+      metadata: { template: "trial_deleted" },
+    });
+
+    console.log("Trial deleted email sent to:", email);
+  } catch (err) {
+    console.error("Error sending trial deleted email:", err.message);
+  }
+};
+
+/**
+ * Send confirmation when a tenant purchases a recurring add-on or credit top-up.
+ * Signature: (email, data) where data = { tenantName, addonName, quantity, amount, invoiceNumber, pdfPath }
+ */
+export const sendAddonPurchasedEmail = async (email, data) => {
+  try {
+    const { subject, html } = addonPurchased(data);
+
+    const attachments = data?.pdfPath
+      ? [{ filename: `${data.invoiceNumber || "invoice"}.pdf`, path: data.pdfPath }]
+      : [];
+
+    await queueEmail({
+      to: email,
+      subject,
+      html,
+      category: "BILLING",
+      fromName: "SudoReply Billing",
+      attachments,
+      metadata: { template: "addon_purchased", addonName: data?.addonName },
+    });
+
+    console.log("Add-on purchased email sent to:", email);
+  } catch (err) {
+    console.error("Error sending addon purchased email:", err.message);
+  }
+};
+
+/**
+ * Send notification when SuperAdmin extends a tenant's subscription period.
+ * Signature: (email, data) where data = { tenantName, planName, daysAdded, newPeriodEnd, reason }
+ */
+export const sendSubscriptionExtendedEmail = async (email, data) => {
+  try {
+    const { subject, html } = subscriptionExtended(data);
+
+    await queueEmail({
+      to: email,
+      subject,
+      html,
+      category: "BILLING",
+      fromName: "SudoReply",
+      metadata: { template: "subscription_extended", daysAdded: data?.daysAdded },
+    });
+
+    console.log("Subscription extended email sent to:", email);
+  } catch (err) {
+    console.error("Error sending subscription extended email:", err.message);
+  }
+};
+
+/**
+ * Send notification when a scheduled plan change is cancelled because the target plan was discontinued.
+ * Signature: (email, data) where data = { tenantName, currentPlanName, discontinuedPlanName }
+ */
+export const sendScheduledPlanChangeCancelledEmail = async (email, data) => {
+  try {
+    const { subject, html } = scheduledPlanChangeCancelled(data);
+
+    await queueEmail({
+      to: email,
+      subject,
+      html,
+      category: "BILLING",
+      fromName: "SudoReply Billing",
+      metadata: { template: "scheduled_plan_change_cancelled" },
+    });
+
+    console.log("Scheduled plan change cancelled email sent to:", email);
+  } catch (err) {
+    console.error("Error sending scheduled plan change cancelled email:", err.message);
   }
 };

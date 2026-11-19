@@ -29,6 +29,14 @@ export { default as dataDeletionWarning } from "./dataDeletionWarning.js";
 export { default as cancellationConfirmed } from "./cancellationConfirmed.js";
 export { default as expiryReminder } from "./expiryReminder.js";
 export { default as statusUpdate } from "./statusUpdate.js";
+export { default as gracePeriodStarted } from "./gracePeriodStarted.js";
+export { default as gracePeriodEnding } from "./gracePeriodEnding.js";
+export { default as trialExpiring } from "./trialExpiring.js";
+export { default as trialDeleted } from "./trialDeleted.js";
+export { default as addonPurchased } from "./addonPurchased.js";
+export { default as subscriptionExtended } from "./subscriptionExtended.js";
+export { default as scheduledPlanChangeCancelled } from "./scheduledPlanChangeCancelled.js";
+
 
 // ── NOTIFICATION ──
 export { default as ticketCreated } from "./ticketCreated.js";
@@ -42,6 +50,7 @@ export { default as enterpriseLeadConfirmation } from "./enterpriseLeadConfirmat
 export { default as enterpriseLeadNotification } from "./enterpriseLeadNotification.js";
 export { default as enterpriseActivation } from "./enterpriseActivation.js";
 
+
 // ── SYSTEM ──
 export { default as tenantWelcome } from "./tenantWelcome.js";
 export { default as whatsappStatus } from "./whatsappStatus.js";
@@ -52,6 +61,7 @@ export { default as resumeAdminAlert } from "./resumeAdminAlert.js";
 export { default as subscriptionPaused } from "./subscriptionPaused.js";
 export { default as subscriptionResumed } from "./subscriptionResumed.js";
 export { default as systemDeletionConfirmation } from "./systemDeletionConfirmation.js";
+export { default as accountBlocked } from "./accountBlocked.js";
 
 // ── Dynamic Dispatch Map ──
 // Keys match the EmailCategory enum + action name for programmatic lookup.
@@ -84,11 +94,21 @@ import resumeAdminAlert from "./resumeAdminAlert.js";
 import subscriptionPaused from "./subscriptionPaused.js";
 import subscriptionResumed from "./subscriptionResumed.js";
 import systemDeletionConfirmation from "./systemDeletionConfirmation.js";
+import gracePeriodStarted from "./gracePeriodStarted.js";
+import gracePeriodEnding from "./gracePeriodEnding.js";
+import accountBlocked from "./accountBlocked.js";
+import trialExpiring from "./trialExpiring.js";
+import trialDeleted from "./trialDeleted.js";
+import addonPurchased from "./addonPurchased.js";
+import subscriptionExtended from "./subscriptionExtended.js";
+import scheduledPlanChangeCancelled from "./scheduledPlanChangeCancelled.js";
+
 
 export const EMAIL_TEMPLATES = {
   // Auth
   PASSWORD_RESET: passwordReset,
   OTP_VERIFICATION: otpVerification,
+
 
   // Billing
   INVOICE: invoice,
@@ -99,6 +119,14 @@ export const EMAIL_TEMPLATES = {
   CANCELLATION_CONFIRMED: cancellationConfirmed,
   EXPIRY_REMINDER: expiryReminder,
   STATUS_UPDATE: statusUpdate,
+  GRACE_PERIOD_STARTED: gracePeriodStarted,
+  GRACE_PERIOD_ENDING: gracePeriodEnding,
+  TRIAL_EXPIRING: trialExpiring,
+  TRIAL_DELETED: trialDeleted,
+  ADDON_PURCHASED: addonPurchased,
+  SUBSCRIPTION_EXTENDED: subscriptionExtended,
+  SCHEDULED_PLAN_CHANGE_CANCELLED: scheduledPlanChangeCancelled,
+
 
   // Notification
   TICKET_CREATED: ticketCreated,
@@ -112,6 +140,7 @@ export const EMAIL_TEMPLATES = {
   ENTERPRISE_LEAD_NOTIFICATION: enterpriseLeadNotification,
   ENTERPRISE_ACTIVATION: enterpriseActivation,
 
+
   // System
   TENANT_WELCOME: tenantWelcome,
   WHATSAPP_STATUS: whatsappStatus,
@@ -122,6 +151,7 @@ export const EMAIL_TEMPLATES = {
   SUBSCRIPTION_PAUSED: subscriptionPaused,
   SUBSCRIPTION_RESUMED: subscriptionResumed,
   SYSTEM_DELETION_CONFIRMATION: systemDeletionConfirmation,
+  ACCOUNT_BLOCKED: accountBlocked,
 };
 
 /**

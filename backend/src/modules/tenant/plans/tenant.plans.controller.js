@@ -6,6 +6,10 @@ import {
   startTrialService,
   schedulePlanChangeService,
   clearScheduledPlanChangeService,
+  createPlanOrderService,
+  verifyPlanOrderService,
+  createPlanSubscriptionService,
+  verifyPlanSubscriptionService,
 } from "./tenant.plans.service.js";
 import { sendSuccess } from "../../../utils/response.js";
 
@@ -104,6 +108,77 @@ export async function clearScheduledPlanChange(req, res, next) {
       extractAuditMeta(req)
     );
     return sendSuccess(res, data, "Scheduled plan change cancelled");
+  } catch (err) {
+    return next(err);
+  }
+}
+
+/**
+ * POST /tenant/plans/create-order
+ */
+export async function createPlanOrder(req, res, next) {
+  try {
+    const data = await createPlanOrderService(req.tenant.id, req.body);
+    return sendSuccess(res, data, "Payment order created successfully", 201);
+  } catch (err) {
+    return next(err);
+  }
+}
+
+/**
+ * POST /tenant/plans/verify-order
+ */
+export async function verifyPlanOrder(req, res, next) {
+  try {
+    const data = await verifyPlanOrderService(
+      req.tenant.id,
+      req.body,
+      extractAuditMeta(req)
+    );
+    return sendSuccess(
+      res,
+      data,
+      data.wasExtended
+        ? "Plan extended successfully"
+        : "Payment verified and plan activated successfully"
+    );
+  } catch (err) {
+    return next(err);
+  }
+}
+
+/**
+ * POST /tenant/plans/create-subscription
+ */
+export async function createPlanSubscription(req, res, next) {
+  try {
+    const data = await createPlanSubscriptionService(req.tenant.id, req.body);
+    return sendSuccess(
+      res,
+      data,
+      "Autopay subscription created successfully",
+      201
+    );
+  } catch (err) {
+    return next(err);
+  }
+}
+
+/**
+ * POST /tenant/plans/verify-subscription
+ */
+export async function verifyPlanSubscription(req, res, next) {
+  try {
+    const data = await verifyPlanSubscriptionService(
+      req.tenant.id,
+      req.body,
+      extractAuditMeta(req)
+    );
+    return sendSuccess(
+      res,
+      data,
+      "Subscription verified and autopay activated successfully"
+    );
   } catch (err) {
     return next(err);
   }

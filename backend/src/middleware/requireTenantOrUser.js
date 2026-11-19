@@ -23,6 +23,8 @@ import prisma from "../config/prisma.js";
 import { error } from "../utils/response.js";
 
 const PAYMENT_ROUTES = [
+  "/tenant/plans",
+  "/tenant/billing",
   "/plans/create-order",
   "/plans/verify-payment",
   "/plans/public",
@@ -52,12 +54,14 @@ export const requireTenantOrUser = async (req, res, next) => {
           subscription: {
             select: {
               planId: true,
-              planStatus: true,
-              billingType: true,
+              billingCycle: true,
               subscriptionStatus: true,
-              currentPlan: true,
               planPeriodStart: true,
               planPeriodEnd: true,
+              gracePeriodEnd: true,
+              freeUntilDate: true,
+              pendingPlanId: true,
+              pendingBillingCycle: true,
             },
           },
         },

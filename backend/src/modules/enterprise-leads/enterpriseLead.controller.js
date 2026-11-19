@@ -87,17 +87,11 @@ export const submitEnterpriseLead = async (req, res) => {
       },
     });
 
-    // 2️⃣ Update the Tenant: planStatus = 'enterprise_pending', onboardingStep = 6
+    // 2️⃣ Update the Tenant: onboardingStep = 6
     await prisma.tenant.update({
       where: { id: tenantId },
       data: {
         onboardingStep: 6,
-      },
-    });
-    await prisma.tenantSubscription.update({
-      where: { tenantId },
-      data: {
-        planStatus: "enterprise_pending",
       },
     });
 
@@ -122,7 +116,7 @@ export const submitEnterpriseLead = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      status: "enterprise_pending",
+      status: "pending",
       data: lead,
     });
   } catch (error) {
@@ -144,11 +138,11 @@ export const resetEnterpriseLead = async (req, res) => {
       where: { tenantId, status: "pending" },
     });
 
-    // 2️⃣ Reset plan status to inactive or none
-    await prisma.tenantSubscription.update({
+    // 2️⃣ Reset subscription status to inactive
+    await prisma.tenantSubscription.updateMany({
       where: { tenantId },
       data: {
-        planStatus: "inactive", // or none, inactive is default in schema.prisma
+        subscriptionStatus: "inactive",
       },
     });
     const updatedTenant = await prisma.tenant.findUnique({
@@ -434,10 +428,14 @@ export const activateTenant = async (req, res) => {
           status: "APPROVED", // Force APPROVED status so they can bypass restrictions
         },
       }),
-      prisma.tenantSubscription.update({
+      prisma.tenantSubscription.upsert({
         where: { tenantId: lead.tenantId },
-        data: {
-          planStatus: "enterprise_active",
+        update: {
+          subscriptionStatus: "active",
+        },
+        create: {
+          tenantId: lead.tenantId,
+          subscriptionStatus: "active",
         },
       }),
     ]);

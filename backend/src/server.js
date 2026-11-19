@@ -23,6 +23,7 @@ import { startCallMediaWorker } from "./cron/workers/call-media.worker.js";
 import { startCleanupWorker } from "./cron/jobs/abandoned-accounts.job.js";
 import "./cron/jobs/expired-subscriptions.job.js";
 import "./cron/jobs/expiry-reminders.job.js";
+import "./cron/jobs/data-deletion.job.js";
 import { startAuditCleanupJob } from "./cron/jobs/audit-cleanup.job.js";
 import { startWebhookEventsCleanupJob } from "./cron/jobs/webhook-cleanup.job.js";
 import { initQuickReplyIndexes } from "./scripts/initQuickReplyIndexes.js";

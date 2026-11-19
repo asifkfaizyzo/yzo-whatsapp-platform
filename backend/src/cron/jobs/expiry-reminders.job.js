@@ -1,128 +1,191 @@
 // backend/src/cron/jobs/expiry-reminders.job.js (do not remove this comment)
 import cron from "node-cron";
 import prisma from "../../config/prisma.js";
-import { sendExpiryReminderEmail } from "../../modules/email/index.js";
+import {
+  sendExpiryReminderEmail,
+  sendTrialExpiringEmail,
+  sendGracePeriodEndingEmail,
+} from "../../modules/email/index.js";
 
-const processExpiryReminders = async () => {
-  const timestamp = new Date().toISOString();
-  console.log(`[${timestamp}] -- CRON: Starting Expiry Reminders Job --`);
+const PAID_REMINDER_DAYS = [15, 7, 3, 1];
+const TRIAL_REMINDER_DAYS = [3, 1];
+const GRACE_REMINDER_DAYS = [2, 1];
+
+const getDayRange = (now, daysAhead) => {
+  const targetStart = new Date(now);
+  targetStart.setDate(targetStart.getDate() + daysAhead);
+  targetStart.setHours(0, 0, 0, 0);
+
+  const targetEnd = new Date(targetStart);
+  targetEnd.setHours(23, 59, 59, 999);
+
+  return { targetStart, targetEnd };
+};
+
+export const processExpiryReminders = async () => {
+  console.log("[CRON] Starting V2 subscription, trial & grace reminders check...");
+  const now = new Date();
+  const dedupeSince = new Date(now.getTime() - 20 * 60 * 60 * 1000);
 
   try {
-    // 1. Find tenants who are active or trialing
-    const activeTenants = await prisma.tenant.findMany({
-      where: {
-        subscription: {
-          subscriptionStatus: {
-            in: ["active", "trialing", "cancel_at_period_end"],
+    // ── 1. Paid Active Subscription Expiry Reminders (15d, 7d, 3d, 1d) ──
+    for (const daysLeft of PAID_REMINDER_DAYS) {
+      const { targetStart, targetEnd } = getDayRange(now, daysLeft);
+      const reminderType = `EXPIRY_${daysLeft}D`;
+
+      const expiringActiveSubs = await prisma.tenantSubscription.findMany({
+        where: {
+          subscriptionStatus: "active",
+          autopayEnabled: false,
+          planPeriodEnd: {
+            gte: targetStart,
+            lte: targetEnd,
           },
         },
-      },
-      include: { subscription: true },
-    });
+        include: {
+          tenant: true,
+          plan: true,
+        },
+      });
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+      for (const sub of expiringActiveSubs) {
+        if (!sub.tenant?.email) continue;
 
-    for (const raw of activeTenants) {
-      const tenant = { ...raw, ...raw.subscription };
-      try {
-        if (!tenant.planPeriodEnd) continue;
+        const existingReminder = await prisma.subscriptionReminder.findFirst({
+          where: {
+            tenantId: sub.tenantId,
+            reminderType,
+            sentAt: { gte: dedupeSince },
+          },
+        });
+        if (existingReminder) continue;
 
-        const planEnd = new Date(tenant.planPeriodEnd);
-        planEnd.setHours(0, 0, 0, 0);
+        const planName = sub.plan?.name || sub.currentPlan || "Active Plan";
 
-        // Calculate daysRemaining
-        const diffTime = planEnd.getTime() - today.getTime();
-        const daysRemaining = Math.round(diffTime / (1000 * 60 * 60 * 24));
+        await sendExpiryReminderEmail({
+          toEmail: sub.tenant.email,
+          tenantName: sub.tenant.tenantName,
+          planName,
+          daysLeft,
+          expiryDate: sub.planPeriodEnd,
+        });
 
-        let reminderType = null;
-        let emailSubject = "";
-        let templateName = "";
-
-        const isTrialing = tenant.subscriptionStatus === "trialing";
-
-        if (daysRemaining === 15 && !isTrialing) {
-          reminderType = "15_days_before";
-          emailSubject = "Your plan expires in 15 days";
-          templateName = "expiry_reminder_15";
-        } else if (daysRemaining === 7 && !isTrialing) {
-          reminderType = "7_days_before";
-          emailSubject = "7 days left on your subscription";
-          templateName = "expiry_reminder_7";
-        } else if (daysRemaining === 3) {
-          reminderType = "3_days_before";
-          emailSubject = isTrialing
-            ? "Your 14-day free trial ends in 3 days"
-            : "Only 3 days left to renew";
-          templateName = "expiry_reminder_3";
-        } else if (daysRemaining === 1) {
-          reminderType = "1_day_before";
-          emailSubject = isTrialing
-            ? "Your free trial ends tomorrow"
-            : "Last chance � expires tomorrow";
-          templateName = "expiry_reminder_1";
-        }
-
-        if (reminderType) {
-          // Check if reminder was already recorded for this period
-          const existingReminder = await prisma.subscriptionReminder.findFirst({
-            where: {
-              tenantId: tenant.id,
-              reminderType,
-              sentAt: {
-                gte: new Date(Date.now() - 48 * 3600000),
-              },
-            },
-          });
-
-          if (!existingReminder) {
-            const frontendUrl = process.env.FRONTEND_URLS
-              ? process.env.FRONTEND_URLS.split(",")[1]
-              : "http://localhost:5174";
-
-            await sendExpiryReminderEmail(
-              tenant.email,
-              templateName,
-              emailSubject,
-              {
-                tenantName: tenant.tenantName || tenant.email,
-                planName: tenant.currentPlan || "Active Plan",
-                expiryDate: tenant.planPeriodEnd.toLocaleDateString(),
-                daysRemaining,
-                isTrialing,
-                autopayEnabled: tenant.autopayEnabled,
-                billingLink: `${frontendUrl}/settings/billing`,
-                resubscribeLink: `${frontendUrl}/plans`,
-              },
-            );
-
-            await prisma.subscriptionReminder.create({
-              data: {
-                tenantId: tenant.id,
-                reminderType,
-              },
-            });
-
-            console.log(
-              `[${timestamp}] Sent ${reminderType} reminder to tenant ${tenant.id} (${tenant.email})`,
-            );
-          }
-        }
-      } catch (innerErr) {
-        console.error(
-          `[${timestamp}] Error processing tenant ${tenant.id}:`,
-          innerErr,
-        );
+        await prisma.subscriptionReminder.create({
+          data: {
+            tenantId: sub.tenantId,
+            reminderType,
+          },
+        });
       }
     }
-  } catch (err) {
-    console.error(`[${timestamp}] Expiry reminders job failed:`, err);
+
+    // ── 2. Free Trial Expiry Reminders (3d, 1d) ──
+    for (const daysLeft of TRIAL_REMINDER_DAYS) {
+      const { targetStart, targetEnd } = getDayRange(now, daysLeft);
+      const reminderType = `TRIAL_EXPIRY_${daysLeft}D`;
+
+      const expiringTrials = await prisma.tenantSubscription.findMany({
+        where: {
+          subscriptionStatus: "trialing",
+          planPeriodEnd: {
+            gte: targetStart,
+            lte: targetEnd,
+          },
+        },
+        include: {
+          tenant: true,
+          plan: true,
+        },
+      });
+
+      for (const sub of expiringTrials) {
+        if (!sub.tenant?.email) continue;
+
+        const existingReminder = await prisma.subscriptionReminder.findFirst({
+          where: {
+            tenantId: sub.tenantId,
+            reminderType,
+            sentAt: { gte: dedupeSince },
+          },
+        });
+        if (existingReminder) continue;
+
+        const planName = sub.plan?.name || sub.currentPlan || "Free Trial";
+
+        await sendTrialExpiringEmail({
+          toEmail: sub.tenant.email,
+          tenantName: sub.tenant.tenantName,
+          planName,
+          daysRemaining: daysLeft,
+          trialEndsAt: sub.planPeriodEnd,
+        });
+
+        await prisma.subscriptionReminder.create({
+          data: {
+            tenantId: sub.tenantId,
+            reminderType,
+          },
+        });
+      }
+    }
+
+    // ── 3. Grace Period Ending Reminders (2d, 1d before gracePeriodEnd) ──
+    for (const daysLeft of GRACE_REMINDER_DAYS) {
+      const { targetStart, targetEnd } = getDayRange(now, daysLeft);
+      const reminderType = `GRACE_ENDING_${daysLeft}D`;
+
+      const endingGraceSubs = await prisma.tenantSubscription.findMany({
+        where: {
+          subscriptionStatus: "payment_failed",
+          gracePeriodEnd: {
+            gte: targetStart,
+            lte: targetEnd,
+          },
+        },
+        include: {
+          tenant: true,
+          plan: true,
+        },
+      });
+
+      for (const sub of endingGraceSubs) {
+        if (!sub.tenant?.email) continue;
+
+        const existingReminder = await prisma.subscriptionReminder.findFirst({
+          where: {
+            tenantId: sub.tenantId,
+            reminderType,
+            sentAt: { gte: dedupeSince },
+          },
+        });
+        if (existingReminder) continue;
+
+        const planName = sub.plan?.name || sub.currentPlan || "Subscription";
+
+        await sendGracePeriodEndingEmail({
+          toEmail: sub.tenant.email,
+          tenantName: sub.tenant.tenantName,
+          planName,
+          daysRemaining: daysLeft,
+          gracePeriodEnd: sub.gracePeriodEnd,
+        });
+
+        await prisma.subscriptionReminder.create({
+          data: {
+            tenantId: sub.tenantId,
+            reminderType,
+          },
+        });
+      }
+    }
+
+    console.log("[CRON] Finished processing V2 expiry & grace reminders.");
+  } catch (error) {
+    console.error("[CRON] Error processing expiry reminders:", error);
   }
 };
 
-// Schedule cron to run daily at 08:00 AM
-cron.schedule("0 8 * * *", () => {
-  processExpiryReminders();
-});
+// Schedule to run every day at 08:00 AM server time
+cron.schedule("0 8 * * *", processExpiryReminders);
 
 export default processExpiryReminders;

@@ -11,6 +11,7 @@ import {
 import upload from "../../middleware/upload.js";
 import { emitToTenant } from "../../lib/socket.js";
 import { generateSignedUrl } from "../../lib/utils/signed.url.js";
+import { checkStorageAccess } from "../../lib/entitlements/access.js";
 import fs from "fs";
 import path from "path";
 
@@ -55,6 +56,19 @@ export const incomingMessageController = async (req, res) => {
     // }
 
     if (req.file) {
+      const storageCheck = await checkStorageAccess(tenantId, req.file.size);
+      if (!storageCheck.allowed) {
+        if (fs.existsSync(req.file.path)) {
+          fs.unlinkSync(req.file.path);
+        }
+        return res.status(storageCheck.status || 403).json({
+          success: false,
+          code: storageCheck.code,
+          error: storageCheck.message,
+          message: storageCheck.message,
+        });
+      }
+
       let filePath = req.file.path.replace(/\\/g, "/");
 
       // ✅ If file went to temp folder, move it to proper inbound path
@@ -367,6 +381,18 @@ export const sendMediaMessage = [
         return res.status(401).json({
           success: false,
           error: "Unable to identify sender",
+        });
+      }
+
+      // ── Check storage quota ───────────────────────────────
+      const storageCheck = await checkStorageAccess(tenantId, file.size);
+      if (!storageCheck.allowed) {
+        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+        return res.status(storageCheck.status || 403).json({
+          success: false,
+          code: storageCheck.code,
+          error: storageCheck.message,
+          message: storageCheck.message,
         });
       }
 

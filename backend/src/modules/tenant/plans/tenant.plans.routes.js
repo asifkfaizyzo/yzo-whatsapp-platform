@@ -1,12 +1,16 @@
 // backend/src/modules/tenant/plans/tenant.plans.routes.js (do not remove this comment)
 import { Router } from "express";
-import authenticate from "../../../middleware/auth.middleware.js";
+import authenticate from "../../../middleware/authenticate.js";
 import requireTenant from "../../../middleware/requireTenant.js";
-import { HttpError } from "../../../utils/httpError.js";
+import { HttpError } from "../../../lib/utils/http.error.js";
 import {
   publicPlanParamSchema,
   startTrialSchema,
   schedulePlanChangeSchema,
+  createPlanOrderSchema,
+  verifyPlanOrderSchema,
+  createPlanSubscriptionSchema,
+  verifyPlanSubscriptionSchema,
 } from "./tenant.plans.schema.js";
 import {
   listPublicPlans,
@@ -15,6 +19,10 @@ import {
   startTrial,
   schedulePlanChange,
   clearScheduledPlanChange,
+  createPlanOrder,
+  verifyPlanOrder,
+  createPlanSubscription,
+  verifyPlanSubscription,
 } from "./tenant.plans.controller.js";
 
 const router = Router();
@@ -85,6 +93,40 @@ router.delete(
   authenticate,
   requireTenant,
   clearScheduledPlanChange
+);
+
+// ── One-Time Order Checkout (Plan + Optional Bundled Add-Ons) ───
+router.post(
+  "/create-order",
+  authenticate,
+  requireTenant,
+  validateRequest({ body: createPlanOrderSchema }),
+  createPlanOrder
+);
+
+router.post(
+  "/verify-order",
+  authenticate,
+  requireTenant,
+  validateRequest({ body: verifyPlanOrderSchema }),
+  verifyPlanOrder
+);
+
+// ── Recurring Autopay Subscription Checkout ─────────────────────
+router.post(
+  "/create-subscription",
+  authenticate,
+  requireTenant,
+  validateRequest({ body: createPlanSubscriptionSchema }),
+  createPlanSubscription
+);
+
+router.post(
+  "/verify-subscription",
+  authenticate,
+  requireTenant,
+  validateRequest({ body: verifyPlanSubscriptionSchema }),
+  verifyPlanSubscription
 );
 
 export default router;

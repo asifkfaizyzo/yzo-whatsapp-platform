@@ -68,16 +68,30 @@ const SAFE_TENANT_SELECT = {
   createdAt: true,
 };
 
+// Include V2 subscription fields alongside tenant queries
 const SUBSCRIPTION_INCLUDE = {
   subscription: {
     select: {
       planId: true,
-      planStatus: true,
       subscriptionStatus: true,
-      currentPlan: true,
-      hasUsedTrial: true,
+      billingCycle: true,
+      isFreeTrial: true,
+      isComplimentary: true,
+      planPeriodStart: true,
       planPeriodEnd: true,
+      gracePeriodEnd: true,
+      cancelAtPeriodEnd: true,
+      pendingPlanId: true,
+      pendingBillingCycle: true,
       dataDeletionDate: true,
+      plan: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          type: true,
+        },
+      },
     },
   },
 };
@@ -90,12 +104,20 @@ const sanitizeTenant = (tenant) => {
   }
   if (tenant.subscription) {
     safe.planId = tenant.subscription.planId || null;
-    safe.planStatus = tenant.subscription.planStatus || null;
+    safe.planName = tenant.subscription.plan?.name || null;
+    safe.planSlug = tenant.subscription.plan?.slug || null;
     safe.subscriptionStatus = tenant.subscription.subscriptionStatus || null;
-    safe.currentPlan = tenant.subscription.currentPlan || null;
-    safe.hasUsedTrial = tenant.subscription.hasUsedTrial || false;
+    safe.billingCycle = tenant.subscription.billingCycle || null;
+    safe.isFreeTrial = Boolean(tenant.subscription.isFreeTrial);
+    safe.isComplimentary = Boolean(tenant.subscription.isComplimentary);
+    safe.planPeriodStart = tenant.subscription.planPeriodStart || null;
     safe.planPeriodEnd = tenant.subscription.planPeriodEnd || null;
+    safe.gracePeriodEnd = tenant.subscription.gracePeriodEnd || null;
+    safe.cancelAtPeriodEnd = Boolean(tenant.subscription.cancelAtPeriodEnd);
+    safe.pendingPlanId = tenant.subscription.pendingPlanId || null;
+    safe.pendingBillingCycle = tenant.subscription.pendingBillingCycle || null;
     safe.dataDeletionDate = tenant.subscription.dataDeletionDate || null;
+    safe.subscription = tenant.subscription;
   }
   safe.setup = getSetupStatus(tenant);
   return safe;

@@ -56,12 +56,14 @@ export const requireTenant = async (req, res, next) => {
         subscription: {
           select: {
             planId: true,
-            planStatus: true,
-            billingType: true,
+            billingCycle: true,
             subscriptionStatus: true,
-            currentPlan: true,
             planPeriodStart: true,
             planPeriodEnd: true,
+            gracePeriodEnd: true,
+            freeUntilDate: true,
+            pendingPlanId: true,
+            pendingBillingCycle: true,
           },
         },
       },

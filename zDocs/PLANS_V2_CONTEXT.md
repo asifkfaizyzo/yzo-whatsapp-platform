@@ -904,24 +904,26 @@ Get-ChildItem -Recurse -Include *.js backend\src | Select-String -Pattern "modul
 
 
 
----
 ## 14. Implementation Progress Log
 
 | Phase | Scope | Status | Completed | Notes |
 | :--- | :--- | :--- | :--- | :--- |
 | P1 | Schema (`plans_v2_schema`) | ✅ DONE | 2026-11-18 | Migration `20261118074054_plans_v2_schema` applied; `prisma validate` passes |
-| P2 | Entitlement engine (`lib/entitlements/*`) | ✅ DELIVERED | 2026-11-18 | `registry.js`, `entitlement.service.js`, `usage.service.js`, `access.js`; errata 1–4 resolved in P3E |
-| P3A | SuperAdmin — Plans module | ✅ DELIVERED | 2026-11-18 | `sradmin.plans.*` (4 files) + `lib/utils/http.error.js` + audit retrofit; mounted at `/sradmin/plans` |
-| P3B | SuperAdmin — Add-ons + subscription policy + audit helper | ✅ DELIVERED | 2026-11-18 | `sradmin.addons.*` (4 files), `sradmin.settings.*` policy endpoints, `lib/utils/admin.audit.js`; migration `20261118093653_audit_actions_plans_v2` |
+| P2 | Entitlement engine (`lib/entitlements/*`) | ✅ DONE | 2026-11-18 | `registry.js`, `entitlement.service.js`, `usage.service.js`, `access.js`; errata 1–4 resolved in P3E |
+| P3A | SuperAdmin — Plans module | ✅ DONE | 2026-11-18 | `sradmin.plans.*` (4 files) + `lib/utils/http.error.js` + audit retrofit; mounted at `/sradmin/plans` |
+| P3B | SuperAdmin — Add-ons + subscription policy + audit helper | ✅ DONE | 2026-11-18 | `sradmin.addons.*` (4 files), `sradmin.settings.*` policy endpoints, `lib/utils/admin.audit.js`; migration `20261118093653_audit_actions_plans_v2` |
 | P3D | Schema amendment (`plans_v2_amendments`) | ✅ DONE | 2026-11-18 | Migration `20261118095806_plans_v2_amendments` (`pendingPlanId`, `pendingBillingCycle`, `Invoice.billingCycle`/`paymentId`, `TenantAddOn.source`, 20 `AuditAction` values) |
-| P3C | SuperAdmin — Subscriptions module + PDF generator | ✅ DELIVERED | 2026-11-18 | `sradmin.subscriptions.*` (4 files), `lib/invoice.js`, `deletePlanService` pending guard; mounted at `/sradmin/subscriptions` |
+| P3C | SuperAdmin — Subscriptions module + PDF generator | ✅ DONE | 2026-11-18 | `sradmin.subscriptions.*` (4 files), `lib/invoice.js`, `deletePlanService` pending guard; mounted at `/sradmin/subscriptions` |
 | P3E | Entitlement engine hardening | ✅ DONE | 2026-11-18 | Atomic `consumeQuota`, `TenantCreditPool` (`bonus` dropped), monthly anchored usage windows, live storage counter + `MediaAsset` ledger, ctx-based checks, top-up grants; migration `20261118104510_entitlement_engine_hardening` |
-| P4A | Tenant Plans catalog, instant trial & scheduled plan change | ⬜ NEXT | — | `lib/billingPeriod.js` + `tenant.plans.*` (Part 1) |
-| P4B | Tenant Plan checkout & verification (orders + autopay + signup add-ons) | ⬜ | — | `tenant.plans.*` (Part 2) |
-| P4C | Tenant Add-ons/Top-ups commerce & Tenant Billing management | ⬜ | — | `tenant.addons.*` + `tenant.billing.*` |
-| P4D | Razorpay webhook rewrite & route cutover (`app.js`) | ⬜ | — | `razorpay.webhook.controller.js` + mount `/tenant/*` + unmount V1 routes |
-| P5 | Enforcement, middleware, upload quota wiring & cron jobs | ⬜ | — | `subscriptionAccess.js`, cron jobs, 14-day media purge job, email templates, upload controllers |
-| P6 | V1 purge & end-to-end verification | ⬜ | — | Delete old `modules/plans`, `modules/billing`, `modules/admin-subscriptions`, `lib/plan.limits.js`; full grep & smoke suite |
+| P4A | Tenant Plans catalog, instant trial & scheduled plan change | ✅ DONE | 2026-11-18 | `lib/billingPeriod.js` + `tenant.plans.*` (catalog, promo slug lookup, cardless trial, scheduled period-end change) |
+| P4B | Tenant Plan checkout & verification (orders + autopay + signup add-ons) | ✅ DONE | 2026-11-18 | `tenant.plans.service.js` (`create-order`, `verify-payment`, `create-subscription`, `verify-subscription`, bundled signup add-ons, grace debt rules) |
+| P4C | Tenant Add-ons/Top-ups commerce & Tenant Billing management | ✅ DONE | 2026-11-18 | `tenant.addons.*` + `tenant.billing.*` + `entitlement.service.js` (`cancel_at_period_end` add-on entitlement window) |
+| P4D | Razorpay webhook rewrite & route cutover (`app.js`) | ✅ DONE | 2026-11-18 | `razorpay.webhook.controller.js` V2 rewrite (`PLAN | ADDON | TOPUP`) + `app.js` cutover to `/tenant/plans`, `/tenant/billing/addons`, `/tenant/billing` |
+| P5A | Access & Auth Middleware + Webhook Gating | ✅ DONE | 2026-11-18 | `subscriptionAccess.js`, `requireTenant.js`, `requireTenantOrUser.js`, `webhook.worker.js` |
+| P5B | Feature, Quota & Storage Enforcement Across Tenant Controllers/Services | ✅ DONE | 2026-11-18 | `flow.controller.js`, `broadcast.controller.js`, `tenant.users.service.js`, `user.service.js`, `tenant.profile.controller.js`, `enterpriseLead.controller.js`, `flowMedia.controller.js`, `template.controller.js`, `message.controller.js` |
+| P5C | SuperAdmin Services, Integrations, Auth & Email Templates | ✅ DONE | 2026-11-18 | `tenant.integrations.controller.js`, `tenant.auth.service.js`, `sradmin.tenant.service.js`, `sradmin.revenue.service.js`, `sradmin.reports.service.js`, 9 new email templates in `modules/email/templates/*`, `modules/email/index.js` |
+| P5D | Cron Jobs, Storage Alignment & Data/Media Deletion Engine | ✅ DONE | 2026-11-18 | `lib/entitlements/access.js`, `lib/entitlements/usage.service.js`, `utils/tenantDeletion.js`, `expired-subscriptions.job.js`, `expiry-reminders.job.js`, `abandoned-accounts.job.js`, `data-deletion.job.js` (7/90d tenant purge + 14d soft-deleted media purge), `server.js` |
+| P6 | V1 purge & end-to-end verification | ✅ DONE | 2026-11-18 | Deleted `lib/plan.limits.js`, `modules/plans/*`, `modules/billing/*`, `modules/admin-subscriptions/*`; completed V2 `razorpay.webhook.controller.js` cutover; 0 V1 grep matches; `prisma validate` & `prisma generate` passed |
 
 ### Phase 1 — Schema Amendments Applied
 
@@ -947,3 +949,28 @@ Get-ChildItem -Recurse -Include *.js backend\src | Select-String -Pattern "modul
 - `/sradmin/addons`: full CRUD, status toggle, full-list reorder for `RECURRING` and `ONE_TIME_TOPUP` add-ons.
 - `/sradmin/settings/subscription-policy`: `GET`/`PUT` for `defaultGraceDays`, `trialRetentionDays`, `paidRetentionDays`.
 - `/sradmin/subscriptions`: list, detail (with effective entitlements + usage + credit pools), `extend`, `extend-trial`, `change-plan` (`IMMEDIATE | AT_PERIOD_END | CLEAR_PENDING`), `manual-activate` (with GST invoice + PDF + idempotency key `OFFLINE:<tenantId>:<ref>`), `pause`, `reactivate`, `expire`, `limits`, `grace`, `free-until`, `addons/grant` (recurring + top-up), `addons/:tenantAddOnId/revoke`.
+
+### Phase 4A–4D — Tenant Billing & Webhook Summary
+
+- `lib/billingPeriod.js`: shared cycle math (`MONTHLY`, `QUARTERLY`, `ANNUAL`), same-plan mid-cycle extension preservation (`planPeriodStart` kept), grace debt forgiveness/deduction, lazy Razorpay plan creation with stale-ID recovery.
+- `/tenant/plans`: public/catalog listing, promo slug resolution (`HIDDEN_LINK_ONLY`), instant cardless trial (`TrialEmailRegistry`), scheduled period-end plan change, one-time order checkout + verification (with optional bundled signup add-ons), autopay subscription checkout + verification.
+- `/tenant/billing/addons`: catalog + active/cancelled recurring add-ons + credit pools, one-time & recurring add-on order/autopay checkout, cancel-at-period-end (entitlements stay active until `expiresAt`).
+- `/tenant/billing`: current subscription + effective entitlements + usage summary + credit pools, cancel/resume subscription, paginated invoices & payments, invoice PDF download.
+- `razorpay.webhook.controller.js`: unified V2 webhook processor handling `order.paid`, `payment.failed`, `subscription.activated`, `subscription.charged`, `subscription.cancelled`, `subscription.halted` (grace entry with `gracePeriodEnd` and `graceDebtPlanPrice`), `subscription.paused`, `subscription.resumed`, and `refund.processed` (`Invoice.status = "refunded"`).
+
+### Phase 5A–5D — Enforcement, Lifecycle Cron & Storage Deletion Summary
+
+- `middleware/subscriptionAccess.js`: attaches `req.entitlements` (from `getTenantEntitlements`) and `req.subscription = req.entitlements.subscription`; enforces `freeUntilDate` bypass, `trialing` / `active` / `cancel_at_period_end` date bounds, and `payment_failed` grace period access (`req.inGracePeriod = true`).
+- `cron/workers/webhook.worker.js`: gates inbound WhatsApp webhooks by `isTenantEntitled` + `checkChannelAccess(tenantId, "WHATSAPP")`, and gates automation trigger dispatching via `enforceAndConsumeQuota(tenantId, "automationTriggersPerMonth", 1)`.
+- Feature, static limit, metered quota, and storage checks wired across flows (`maxAutomations`), broadcasts (`broadcastEnabled`, `broadcastScheduleEnabled`, `clickTrackingEnabled`, `autoRetryEnabled`, `messagingSpeed`), team seats (`maxAgents`), contacts (`maxContacts`), tags (`maxTags`), custom attributes (`maxAttributes`), integrations (`integrationsEnabled`, `maxIntegrations`), enterprise leads (custom plan metadata), and media uploads (`maxStorageMb` + `MediaAsset` ledger for `flowMedia` and `template` headers + `message` attachments).
+- Lifecycle cron jobs:
+  - `expired-subscriptions.job.js`: executes scheduled `pendingPlanId` switches when autopay is enabled, transitions overdue `trialing` / `active` / `cancel_at_period_end` / `payment_failed` (past `gracePeriodEnd`) subscriptions to `expired`, computes `dataDeletionDate` (`trialRetentionDays` 7d vs `paidRetentionDays` 90d from `PlatformSettings`), and marks active recurring `TenantAddOn` rows as `cancel_at_period_end`.
+  - `expiry-reminders.job.js`: sends 3-day / 1-day trial and paid plan expiry reminders, grace period ending reminders, and 2-day pre-deletion warnings.
+  - `abandoned-accounts.job.js`: purges `none` / `pending_payment` accounts older than 7 days via `deleteTenantsCompletely` (preserving `TrialEmailRegistry`).
+  - `data-deletion.job.js`: purges expired tenant workspace data & VPS media directories past `dataDeletionDate` (`purgeTenantWorkspaceData`, preserving tenant shell + billing/invoice history) and hard-deletes soft-deleted `Message` media and `MediaAsset` files older than 14 days.
+
+### Phase 6 — V1 Purge & Verification Summary
+
+- Deleted legacy V1 files (`backend/src/lib/plan.limits.js`, `backend/src/modules/plans/*`, `backend/src/modules/billing/*`, `backend/src/modules/admin-subscriptions/*`).
+- Verified zero remaining V1 references across `backend/src` (`Select-String` case-sensitive sweep returned 0 matches).
+- `npx prisma validate` and `npx prisma generate` verified clean.

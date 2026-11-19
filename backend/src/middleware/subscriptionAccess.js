@@ -1,5 +1,8 @@
 // backend/src/middleware/subscriptionAccess.js (do not remove this comment)
 import prisma from "../config/prisma.js";
+import { getInvoiceSettings } from "../lib/invoice.js";
+
+const DAY_MS = 86_400_000;
 
 const ALLOWED_EXPIRED_ROUTES = [
   "/sradmin/billing",
@@ -17,6 +20,19 @@ const ALLOWED_EXPIRED_ROUTES = [
   "/tenant/checkout",
   "/sradmin/checkout",
 ];
+
+const isAllowedBillingOrProfileRoute = (fullPath = "") =>
+  ALLOWED_EXPIRED_ROUTES.some((route) => fullPath.startsWith(route)) ||
+  fullPath.includes("/billing/invoices/") ||
+  fullPath.includes("/plans/billing");
+
+const computeRetentionDeletionDate = async (lastPaymentDate, now) => {
+  const settings = await getInvoiceSettings().catch(() => null);
+  const retentionDays = lastPaymentDate
+    ? Number(settings?.paidRetentionDays) || 90
+    : Number(settings?.trialRetentionDays) || 7;
+  return new Date(now.getTime() + retentionDays * DAY_MS);
+};
 
 export const checkSubscriptionAccess = async (req, res, next) => {
   if (!req.tenantId) {
@@ -39,7 +55,9 @@ export const checkSubscriptionAccess = async (req, res, next) => {
             subscriptionStatus: true,
             planPeriodEnd: true,
             razorpaySubscriptionId: true,
-            planStatus: true,
+            gracePeriodEnd: true,
+            freeUntilDate: true,
+            lastPaymentDate: true,
             dataDeletionDate: true,
           },
         },
@@ -53,63 +71,105 @@ export const checkSubscriptionAccess = async (req, res, next) => {
       });
     }
 
-    const tenant = { ...tenantRow, ...tenantRow.subscription };
-    let status = tenant.subscriptionStatus;
+    const sub = tenantRow.subscription || {};
+    let status = sub.subscriptionStatus || "inactive";
     const now = new Date();
 
-    // 1. Trial Expiration Check (with Synchronized 24h Grace Window for Autopay)
+    // 0. Free-Until Override (grants full operational access unless admin-paused)
+    if (
+      status !== "paused" &&
+      sub.freeUntilDate &&
+      new Date(sub.freeUntilDate) > now
+    ) {
+      return next();
+    }
+
+    // 1. Trial Expiration Check (with 24h buffer for Autopay webhook arrival)
     if (status === "trialing") {
-      const trialEnd =
-        tenant.planPeriodEnd ||
-        new Date(new Date(tenant.createdAt).getTime() + 14 * 86400000);
+      const trialEnd = sub.planPeriodEnd
+        ? new Date(sub.planPeriodEnd)
+        : new Date(new Date(tenantRow.createdAt).getTime() + 14 * DAY_MS);
 
       if (trialEnd < now) {
-        // If Autopay is active, allow 24h grace window for webhook renewal processing
-        if (tenant.razorpaySubscriptionId) {
-          const gracePeriodEnd = new Date(trialEnd.getTime() + 24 * 3600000);
-          if (now < gracePeriodEnd) {
-            return next(); // In grace window, allow request through
+        if (sub.razorpaySubscriptionId) {
+          const autopayBufferEnd = new Date(
+            trialEnd.getTime() + 24 * 3_600_000,
+          );
+          if (now < autopayBufferEnd) {
+            return next();
           }
         }
 
-        // Grace window expired or no autopay -> self-heal expire atomically
-        await prisma.tenantSubscription.updateMany({
-          where: {
-            tenantId: tenant.id,
-            subscriptionStatus: "trialing",
-            planPeriodEnd: { lt: now },
-          },
-          data: {
-            subscriptionStatus: "expired",
-            planStatus: "inactive",
-            dataDeletionDate: new Date(now.getTime() + 90 * 86400000),
-          },
-        });
+        const dataDeletionDate = await computeRetentionDeletionDate(
+          sub.lastPaymentDate,
+          now,
+        );
+
+        await prisma.$transaction([
+          prisma.tenantSubscription.updateMany({
+            where: {
+              tenantId: tenantRow.id,
+              subscriptionStatus: "trialing",
+              planPeriodEnd: { lt: now },
+            },
+            data: {
+              subscriptionStatus: "expired",
+              dataDeletionDate,
+            },
+          }),
+          prisma.tenantAddOn.updateMany({
+            where: {
+              tenantId: tenantRow.id,
+              status: "active",
+            },
+            data: {
+              status: "cancel_at_period_end",
+              cancelledAt: now,
+            },
+          }),
+        ]);
         status = "expired";
       }
     }
 
-    // 2. Cancel at Period End Expiration Check
+    // 2. Cancel-at-Period-End Expiration Check
     if (
       status === "cancel_at_period_end" &&
-      tenant.planPeriodEnd &&
-      new Date(tenant.planPeriodEnd) < now
+      sub.planPeriodEnd &&
+      new Date(sub.planPeriodEnd) < now
     ) {
-      await prisma.tenantSubscription.updateMany({
-        where: {
-          tenantId: tenant.id,
-          subscriptionStatus: "cancel_at_period_end",
-          planPeriodEnd: { lt: now },
-        },
-        data: {
-          subscriptionStatus: "expired",
-          planStatus: "inactive",
-          dataDeletionDate: new Date(now.getTime() + 90 * 86400000),
-        },
-      });
+      const dataDeletionDate = await computeRetentionDeletionDate(
+        sub.lastPaymentDate,
+        now,
+      );
+
+      await prisma.$transaction([
+        prisma.tenantSubscription.updateMany({
+          where: {
+            tenantId: tenantRow.id,
+            subscriptionStatus: "cancel_at_period_end",
+            planPeriodEnd: { lt: now },
+          },
+          data: {
+            subscriptionStatus: "expired",
+            dataDeletionDate,
+          },
+        }),
+        prisma.tenantAddOn.updateMany({
+          where: {
+            tenantId: tenantRow.id,
+            status: "active",
+          },
+          data: {
+            status: "cancel_at_period_end",
+            cancelledAt: now,
+          },
+        }),
+      ]);
       status = "expired";
     }
 
+    // 3. Standard Active Operational Statuses
     if (
       status === "active" ||
       status === "trialing" ||
@@ -118,32 +178,32 @@ export const checkSubscriptionAccess = async (req, res, next) => {
       return next();
     }
 
+    // 4. Grace Period (payment_failed with active gracePeriodEnd)
     if (status === "payment_failed") {
-      const fullPath = req.originalUrl;
-      const isAllowed =
-        ALLOWED_EXPIRED_ROUTES.some((route) => fullPath.startsWith(route)) ||
-        fullPath.includes("/billing/invoices/") ||
-        fullPath.includes("/plans/billing");
+      if (sub.gracePeriodEnd && new Date(sub.gracePeriodEnd) > now) {
+        req.inGracePeriod = true;
+        req.gracePeriodEnd = sub.gracePeriodEnd;
+        return next();
+      }
 
-      if (isAllowed) return next();
+      if (isAllowedBillingOrProfileRoute(req.originalUrl)) {
+        return next();
+      }
 
       return res.status(403).json({
         success: false,
         code: "PAYMENT_FAILED",
         message:
-          "Your recent subscription renewal payment failed. Please update your payment method to continue.",
+          "Your recent subscription renewal payment failed and your grace period has ended. Please update your payment method or renew your plan to continue.",
         redirect: "/billing",
       });
     }
 
+    // 5. Expired Subscription
     if (status === "expired") {
-      const fullPath = req.originalUrl;
-      const isAllowed =
-        ALLOWED_EXPIRED_ROUTES.some((route) => fullPath.startsWith(route)) ||
-        fullPath.includes("/billing/invoices/") ||
-        fullPath.includes("/plans/billing");
-
-      if (isAllowed) return next();
+      if (isAllowedBillingOrProfileRoute(req.originalUrl)) {
+        return next();
+      }
 
       return res.status(403).json({
         success: false,
@@ -154,22 +214,21 @@ export const checkSubscriptionAccess = async (req, res, next) => {
       });
     }
 
+    // 6. Paused Subscription (read-only GET allowed; writes blocked except billing/plans)
     if (status === "paused") {
-      // Allow all read-only GET requests (Analytics, Dashboard, Contacts, Templates, Flows, Settings, etc.)
       if (req.method === "GET") {
         return next();
       }
 
-      // Allow subscription management and billing routes
-      const fullPath = req.originalUrl;
-      const isAllowed =
-        ALLOWED_EXPIRED_ROUTES.some((route) => fullPath.startsWith(route)) ||
+      const fullPath = req.originalUrl || "";
+      if (
+        isAllowedBillingOrProfileRoute(fullPath) ||
         fullPath.includes("/billing") ||
-        fullPath.includes("/plans");
+        fullPath.includes("/plans")
+      ) {
+        return next();
+      }
 
-      if (isAllowed) return next();
-
-      // Block active outbound write/send actions while paused
       return res.status(403).json({
         success: false,
         code: "SUBSCRIPTION_PAUSED",
@@ -179,13 +238,19 @@ export const checkSubscriptionAccess = async (req, res, next) => {
       });
     }
 
-    // Deny by default � any unknown or null status does NOT get access
-    console.warn(`[checkSubscriptionAccess] Unknown subscription status "${status}" for tenant ${req.tenantId}. Denying access.`);
+    // 7. Inactive / None / Unknown -> allow billing & plan selection routes, deny others
+    if (isAllowedBillingOrProfileRoute(req.originalUrl)) {
+      return next();
+    }
+
+    console.warn(
+      `[checkSubscriptionAccess] Non-active subscription status "${status}" for tenant ${req.tenantId}. Denying access.`,
+    );
     return res.status(403).json({
       success: false,
-      code: 'SUBSCRIPTION_UNKNOWN',
-      message: 'Your account does not have an active subscription.',
-      redirect: '/plans'
+      code: "SUBSCRIPTION_UNKNOWN",
+      message: "Your account does not have an active subscription.",
+      redirect: "/plans",
     });
   } catch (error) {
     console.error("Subscription access middleware error:", error);
