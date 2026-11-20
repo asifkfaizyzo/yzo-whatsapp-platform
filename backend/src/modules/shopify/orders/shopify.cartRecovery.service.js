@@ -69,12 +69,19 @@ function renderMessage(template, vars) {
 // HELPER: Fetch product image from Shopify Admin API if missing
 // ─────────────────────────────────────────────────────────────
 
-async function fetchShopifyProductImage(tenantId, productId, variantId) {
+async function fetchShopifyProductImage(tenantId, storeId, productId, variantId) {
   if (!productId && !variantId) return null;
 
   try {
-    const shopifyConn = await prisma.shopifyConnection.findFirst({
-      where: { tenantId },
+        const shopifyConn = await prisma.shopifyConnection.findFirst({
+      where: {
+        tenantId,
+        store: {
+          id: storeId,
+          status: "active",
+          redactedAt: null,
+        },
+      },
       select: { shopName: true, accessToken: true },
     });
 
@@ -141,12 +148,19 @@ async function fetchShopifyProductImage(tenantId, productId, variantId) {
   return null;
 }
 
-async function fetchAbandonedCheckoutCustomer(tenantId, checkoutId) {
+async function fetchAbandonedCheckoutCustomer(tenantId, storeId, checkoutId) {
   const numericCheckoutId = String(checkoutId).match(/(?:^|\/)(\d+)$/)?.[1];
   if (!numericCheckoutId) return null;
 
-  const shopifyConn = await prisma.shopifyConnection.findFirst({
-    where: { tenantId },
+   const shopifyConn = await prisma.shopifyConnection.findFirst({
+    where: {
+      tenantId,
+      store: {
+        id: storeId,
+        status: "active",
+        redactedAt: null,
+      },
+    },
     select: { shopName: true, accessToken: true },
   });
   if (!shopifyConn?.accessToken) return null;
@@ -284,6 +298,8 @@ function extractCheckoutData(payload) {
     checkoutUrl: payload.abandoned_checkout_url || "",
     completedAt: payload.completed_at || null,
     orderId: payload.order_id || null,
+    shopifyCustomerId:
+    payload.customer?.id != null ? String(payload.customer.id) : null,
   };
 }
 
@@ -291,12 +307,13 @@ function extractCheckoutData(payload) {
 // HELPER: Check if checkout already converted to an order
 // ─────────────────────────────────────────────────────────────
 
-async function isCheckoutConverted(tenantId, checkoutId, customerPhone) {
+async function isCheckoutConverted(tenantId, storeId, checkoutId, customerPhone) {
   // 1. Check if a real order exists for this checkout
   const existingCartOrder = await prisma.ecommerceOrder.findFirst({
     where: {
       tenantId,
       source: "SHOPIFY",
+      shopifyStoreId: storeId,
       externalOrderId: checkoutId,
     },
     select: { cartStatus: true, status: true },
@@ -314,12 +331,13 @@ async function isCheckoutConverted(tenantId, checkoutId, customerPhone) {
   if (customerPhone) {
     const cleanPhone = customerPhone.replace(/[^\d+]/g, "");
     const recentOrder = await prisma.ecommerceOrder.findFirst({
-      where: {
+           where: {
         tenantId,
         source: "SHOPIFY",
+        shopifyStoreId: storeId,
         customerPhone: { contains: cleanPhone },
         cartStatus: "converted",
-        updatedAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }, // within 7 days
+        updatedAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
       },
       select: { id: true },
     });
@@ -361,10 +379,26 @@ function buildReminderMessage(tier, cartData, settings) {
 // STEP A: Handle checkouts/update webhook → save + schedule
 // ─────────────────────────────────────────────────────────────
 
-export async function handleCheckoutUpdate(tenantId, payload) {
-  console.log(
-    `🛒 [Cart Recovery] Processing checkout update for tenant ${tenantId}`,
-  );
+export async function handleCheckoutUpdate(tenantId, storeId, payload) {
+    const activeStore = await prisma.shopifyStore.findFirst({
+    where: {
+      id: storeId,
+      tenantId,
+      status: "active",
+      redactedAt: null,
+    },
+    select: {
+      id: true,
+      shopDomain: true,
+    },
+  });
+
+  if (!activeStore) {
+    console.warn(
+      `[Cart Recovery] Ignoring checkout for invalid or inactive store ${storeId}`,
+    );
+    return { skipped: true, reason: "invalid_shopify_store" };
+  }
 
   // 1. Parse checkout data
   const checkout = extractCheckoutData(payload);
@@ -372,8 +406,9 @@ export async function handleCheckoutUpdate(tenantId, payload) {
   // 1b. If product image URL is missing, auto-fetch from Shopify Admin API
   if (!checkout.productImageUrl && checkout.lineItems?.[0]) {
     const firstItem = checkout.lineItems[0];
-    const fetchedImg = await fetchShopifyProductImage(
+        const fetchedImg = await fetchShopifyProductImage(
       tenantId,
+      storeId,
       firstItem.productId,
       firstItem.variantId,
     );
@@ -409,8 +444,9 @@ export async function handleCheckoutUpdate(tenantId, payload) {
 
   if (checkout.customerName === "Customer" || !checkout.customerEmail) {
     try {
-      const customerDetails = await fetchAbandonedCheckoutCustomer(
+           const customerDetails = await fetchAbandonedCheckoutCustomer(
         tenantId,
+        storeId,
         checkout.checkoutId,
       );
       if (customerDetails) {
@@ -446,16 +482,24 @@ export async function handleCheckoutUpdate(tenantId, payload) {
   }
 
   // 4. Load Shopify connection settings
-  const shopifyConn = await prisma.shopifyConnection.findFirst({
-    where: { tenantId },
-    select: {
-      shopName: true,
-      cartRecoveryEnabled: true,
-      cartReminder1Enabled: true,
-      cartReminder24Enabled: true,
-      cartReminder48Enabled: true,
+  // 4. Load Shopify connection settings
+const shopifyConn = await prisma.shopifyConnection.findFirst({
+  where: {
+    tenantId,
+    store: {
+      id: storeId,
+      status: "active",
+      redactedAt: null,
     },
-  });
+  },
+  select: {
+    shopName: true,
+    cartRecoveryEnabled: true,
+    cartReminder1Enabled: true,
+    cartReminder24Enabled: true,
+    cartReminder48Enabled: true,
+  },
+});
 
   if (shopifyConn && shopifyConn.cartRecoveryEnabled === false) {
     console.log(
@@ -475,8 +519,16 @@ export async function handleCheckoutUpdate(tenantId, payload) {
 
   const existingCart = await prisma.ecommerceOrder.findUnique({
     where: orderKey,
-    select: { customerName: true, customerEmail: true },
+    select: { shopifyStoreId: true,customerName: true, customerEmail: true },
   });
+
+  if (existingCart && existingCart.shopifyStoreId !== storeId) {
+  console.warn(
+    `[Cart Recovery] Skipping checkout ${checkout.checkoutId}: store ownership mismatch.`,
+  );
+  return { skipped: true, reason: "checkout_store_ownership_mismatch" };
+}
+
   const customerName =
     checkout.customerName !== "Customer"
       ? checkout.customerName
@@ -498,6 +550,8 @@ export async function handleCheckoutUpdate(tenantId, payload) {
       cartReminder1SentAt: null,
       cartReminder24SentAt: null,
       cartReminder48SentAt: null,
+      shopifyStoreId: storeId,
+      ...(checkout.shopifyCustomerId? { shopifyCustomerId: checkout.shopifyCustomerId }: {}),
     },
     create: {
       tenantId,
@@ -517,6 +571,8 @@ export async function handleCheckoutUpdate(tenantId, payload) {
       cartReminder1SentAt: null,
       cartReminder24SentAt: null,
       cartReminder48SentAt: null,
+      shopifyStoreId: storeId,
+      shopifyCustomerId: checkout.shopifyCustomerId || null,
     },
   });
 
@@ -538,6 +594,8 @@ export async function handleCheckoutUpdate(tenantId, payload) {
     productSummary: checkout.productSummary,
     productImageUrl: checkout.productImageUrl,
     checkoutUrl: checkout.checkoutUrl,
+    storeId,
+    shopifyCustomerId: checkout.shopifyCustomerId,
   });
 
   return {
@@ -565,6 +623,8 @@ export async function scheduleCartReminders(data) {
     productSummary,
     productImageUrl,
     checkoutUrl,
+    storeId,
+    shopifyCustomerId,
   } = data;
 
   const jobData = {
@@ -582,6 +642,8 @@ export async function scheduleCartReminders(data) {
     checkoutUrl,
     source: "SHOPIFY",
     tier: null, // will be set per job
+    storeId,
+    shopifyCustomerId,
   };
 
   // ── Auto-detect: short delays in dev, real delays in prod ──
@@ -628,7 +690,7 @@ export async function scheduleCartReminders(data) {
       continue;
     }
 
-    const jobId = `shopify_cart_${tier}_${tenantId}_${checkoutId}`;
+    const jobId = `shopify_cart_${tier}_${tenantId}_${storeId}_${checkoutId}`;
 
     try {
       const existingJob = await orderWebhookQueue.getJob(jobId);
@@ -697,7 +759,26 @@ export async function processCartReminder(data) {
     productImageUrl,
     checkoutUrl,
     tier,
+    storeId,
+    shopifyCustomerId,
   } = data;
+
+  const activeStore = await prisma.shopifyStore.findFirst({
+  where: {
+    id: storeId,
+    tenantId,
+    status: "active",
+    redactedAt: null,
+  },
+  select: { id: true },
+});
+
+if (!activeStore) {
+  console.warn(
+    `[Cart Recovery] Skipping reminder for inactive store ${storeId}`,
+  );
+  return { skipped: true, reason: "invalid_shopify_store" };
+}
 
   console.log(
     `🛒 [Cart Recovery] Processing ${tier} reminder for checkout ${checkoutId} (tenant ${tenantId})`,
@@ -706,6 +787,7 @@ export async function processCartReminder(data) {
   // 1. CRITICAL: Re-check if cart already converted
   const isConverted = await isCheckoutConverted(
     tenantId,
+    storeId,
     checkoutId,
     customerPhone,
   );
@@ -715,11 +797,16 @@ export async function processCartReminder(data) {
     );
 
     // Mark cart as converted in DB
-    await prisma.ecommerceOrder
-      .updateMany({
-        where: { tenantId, source: "SHOPIFY", externalOrderId: checkoutId },
-        data: { cartStatus: "converted" },
-      })
+   await prisma.ecommerceOrder
+  .updateMany({
+    where: {
+      tenantId,
+      source: "SHOPIFY",
+      shopifyStoreId: storeId,
+      externalOrderId: checkoutId,
+    },
+    data: { cartStatus: "converted" },
+  })
       .catch(() => {});
 
     return { skipped: true, reason: "already_converted", tier };
@@ -738,10 +825,11 @@ export async function processCartReminder(data) {
     return { skipped: true, reason: "unknown_tier" };
   }
 
-  const existingCart = await prisma.ecommerceOrder.findFirst({
+ const existingCart = await prisma.ecommerceOrder.findFirst({
     where: {
       tenantId,
       source: "SHOPIFY",
+      shopifyStoreId: storeId,
       externalOrderId: checkoutId,
     },
     select: { [sentField]: true, cartStatus: true, customerName: true },
@@ -767,7 +855,14 @@ export async function processCartReminder(data) {
   // 3. Load settings
   const shopifyConn = await prisma.shopifyConnection
     .findFirst({
-      where: { tenantId },
+       where: {
+      tenantId,
+      store: {
+        id: storeId,
+        status: "active",
+        redactedAt: null,
+      },
+    },
       select: {
         shopName: true,
         cartReminder1Text: true,
@@ -864,6 +959,44 @@ export async function processCartReminder(data) {
     return { skipped: true, reason: "contact_not_found" };
   }
 
+  // Final ownership check immediately before sending
+const sendStoreCheck = await prisma.shopifyStore.findFirst({
+  where: {
+    id: storeId,
+    tenantId,
+    status: "active",
+    redactedAt: null,
+  },
+  select: { id: true },
+});
+
+if (!sendStoreCheck) {
+  console.warn(
+    `[Cart Recovery] Store became inactive before sending reminder: ${storeId}`,
+  );
+  return { skipped: true, reason: "store_inactive_before_send" };
+}
+
+const sendCartCheck = await prisma.ecommerceOrder.findFirst({
+  where: {
+    tenantId,
+    source: "SHOPIFY",
+    shopifyStoreId: storeId,
+    externalOrderId: checkoutId,
+  },
+  select: { id: true, cartStatus: true },
+});
+
+if (
+  !sendCartCheck ||
+  ["converted", "recovered"].includes(sendCartCheck.cartStatus)
+) {
+  console.warn(
+    `[Cart Recovery] Cart ownership/status changed before sending: ${checkoutId}`,
+  );
+  return { skipped: true, reason: "cart_invalid_before_send" };
+}
+
   console.log(
     `💬 [Cart Recovery] Sending ${tier} reminder to ${cleanPhone}...`,
   );
@@ -940,6 +1073,7 @@ export async function processCartReminder(data) {
     where: {
       tenantId,
       source: "SHOPIFY",
+      shopifyStoreId: storeId,
       externalOrderId: checkoutId,
     },
     data: {
@@ -958,14 +1092,14 @@ export async function processCartReminder(data) {
 // STEP D: Cancel pending reminders when order placed
 // ─────────────────────────────────────────────────────────────
 
-export async function cancelCartReminders(tenantId, checkoutId) {
+export async function cancelCartReminders(tenantId, storeId, checkoutId) {
   if (!checkoutId) return;
 
   const tiers = ["1h", "24h", "48h"];
   let cancelled = 0;
 
   for (const tier of tiers) {
-    const jobId = `shopify_cart_${tier}_${tenantId}_${checkoutId}`;
+    const jobId = `shopify_cart_${tier}_${tenantId}_${storeId}_${checkoutId}`;
     try {
       const job = await orderWebhookQueue.getJob(jobId);
       if (job) {
@@ -995,6 +1129,7 @@ export async function cancelCartReminders(tenantId, checkoutId) {
       where: {
         tenantId,
         source: "SHOPIFY",
+        shopifyStoreId: storeId,
         externalOrderId: checkoutId,
         cartStatus: "abandoned",
       },

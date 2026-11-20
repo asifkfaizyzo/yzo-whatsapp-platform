@@ -48,6 +48,11 @@ model EcommerceOrder {
   tenantId        String
   tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  // Shopify store and customer ownership
+  shopifyStoreId    String?
+  shopifyStore      ShopifyStore? @relation(fields: [shopifyStoreId], references: [id], onDelete: SetNull)
+  shopifyCustomerId String?
+
   source          String   @default("WOOCOMMERCE")
   externalOrderId String
   orderNumber     String
@@ -86,6 +91,8 @@ model EcommerceOrder {
   cartRecoveryId       String?
 
   @@unique([tenantId, source, externalOrderId])
+  @@index([shopifyStoreId, shopifyCustomerId])
+  @@index([tenantId, source, shopifyStoreId])
   @@index([tenantId, cartRecoveryId])
   @@index([tenantId, customerPhone])
   @@index([tenantId, createdAt])

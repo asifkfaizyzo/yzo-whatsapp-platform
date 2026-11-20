@@ -53,6 +53,7 @@ model Tenant {
   googleSheetConnection GoogleSheetConnection?
   sheetFields           SheetField[]
   shopifyConnection     ShopifyConnection?
+  shopifyStores         ShopifyStore[]
   shopifyProducts       ShopifyProduct[]
   woocommerceConnection WooCommerceConnection?
   ecommerceOrders       EcommerceOrder[]

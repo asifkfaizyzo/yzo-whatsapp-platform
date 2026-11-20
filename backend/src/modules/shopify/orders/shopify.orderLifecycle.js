@@ -323,6 +323,7 @@ export const recordShopifyEvent = async (tenantId, orderId, eventType) => {
 // ─────────────────────────────────────────────────────────────
 export const logShopifyOrderToSheet = async ({
   tenantId,
+  storeId,
   customerName,
   customerPhone,
   orderNumber,
@@ -386,10 +387,11 @@ export const logShopifyOrderToSheet = async ({
 
     if (!finalNumber && cleanOrderId) {
       try {
-        const dbOrder = await prisma.ecommerceOrder.findFirst({
+                const dbOrder = await prisma.ecommerceOrder.findFirst({
           where: {
             tenantId,
             source: "SHOPIFY",
+            shopifyStoreId: storeId,
             OR: [
               { orderNumber: cleanOrderId },
               { externalOrderId: cleanOrderId.replace("#", "") },
@@ -442,6 +444,7 @@ export const logShopifyOrderToSheet = async ({
 export const processShopifyPaymentReminderJob = async (data) => {
   const {
     tenantId,
+    storeId,
     externalOrderId,
     orderNumber,
     customerPhone,
@@ -450,8 +453,13 @@ export const processShopifyPaymentReminderJob = async (data) => {
     currency,
   } = data;
 
-  const currentOrder = await prisma.ecommerceOrder.findFirst({
-    where: { tenantId, source: "SHOPIFY", externalOrderId },
+    const currentOrder = await prisma.ecommerceOrder.findFirst({
+    where: {
+      tenantId,
+      source: "SHOPIFY",
+      shopifyStoreId: storeId,
+      externalOrderId,
+    },
   });
 
   if (
@@ -497,6 +505,7 @@ export const processShopifyPaymentReminderJob = async (data) => {
 // ─────────────────────────────────────────────────────────────
 export const processShopifyOrderLifecycle = async ({
   tenantId,
+  storeId,
   topic,
   shopDomain,
   payload,
@@ -506,6 +515,27 @@ export const processShopifyOrderLifecycle = async ({
   );
 
   if (!payload) return { ignored: true, reason: "empty_payload" };
+  const normalizedShopDomain = String(shopDomain || "")
+    .trim()
+    .toLowerCase();
+
+  const activeShopifyStore = await prisma.shopifyStore.findFirst({
+    where: {
+      id: storeId,
+      tenantId,
+      shopDomain: normalizedShopDomain,
+      status: "active",
+      redactedAt: null,
+    },
+    select: { id: true },
+  });
+
+  if (!activeShopifyStore) {
+    console.warn(
+      `[ShopifyWorker] Ignoring event: invalid or inactive store ${normalizedShopDomain}`,
+    );
+    return { ignored: true, reason: "invalid_shopify_store" };
+  }
 
   // 1. Root Order Parsing & Normalization
   const rootOrder = payload.order || payload.order_edit || payload;
@@ -532,6 +562,7 @@ export const processShopifyOrderLifecycle = async ({
       where: {
         tenantId,
         source: "SHOPIFY",
+        shopifyStoreId: storeId,
         externalOrderId,
       },
       select: { id: true },
@@ -539,18 +570,25 @@ export const processShopifyOrderLifecycle = async ({
 
     if (!orderRecord) {
       console.warn(
-        `⚠️ [Shopify] Cannot save tracking for unsynced order ${externalOrderId}`,
+        `⚠️ [Shopify] Cannot save tracking for unsynced Shopify order ${externalOrderId} in store ${storeId}`,
       );
       return { success: true, ignored: true, reason: "order_not_synced" };
     }
 
-    await prisma.ecommerceOrder.update({
-      where: { id: orderRecord.id },
+    await prisma.ecommerceOrder.updateMany({
+      where: {
+        id: orderRecord.id,
+        tenantId,
+        source: "SHOPIFY",
+        shopifyStoreId: storeId,
+      },
       data: { trackingInfo },
     });
+
     console.log(
       `✅ [Shopify] Saved ${trackingInfo.length} tracking record(s) for order ${externalOrderId}`,
     );
+
     return {
       success: true,
       type: "SHOPIFY_FULFILLMENT_TRACKING",
@@ -689,12 +727,8 @@ export const processShopifyOrderLifecycle = async ({
         where: {
           tenantId,
           source: "SHOPIFY",
-          OR: [
-            { externalOrderId: String(externalOrderId) },
-            { orderNumber: orderNumber },
-            { orderNumber: `#${String(externalOrderId)}` },
-            { orderNumber: String(externalOrderId) },
-          ],
+          shopifyStoreId: storeId,
+          externalOrderId: String(externalOrderId),
         },
         orderBy: { updatedAt: "desc" },
       });
@@ -710,10 +744,12 @@ export const processShopifyOrderLifecycle = async ({
             ? existing.orderNumber
             : `#${existing.orderNumber}`;
         }
+
         if (!total || total === 0) {
           const t = parseFloat(existing.total ?? 0);
           if (!Number.isNaN(t) && t > 0) total = t;
         }
+
         if (
           (!customerPhone || customerPhone === "+") &&
           existing.customerPhone
@@ -722,10 +758,13 @@ export const processShopifyOrderLifecycle = async ({
             ? existing.customerPhone
             : `+${String(existing.customerPhone).replace(/[^\d]/g, "")}`;
         }
+
         if (customerName === "Customer" && existing.customerName)
           customerName = existing.customerName;
+
         if (!customerEmail && existing.customerEmail)
           customerEmail = existing.customerEmail;
+
         if (
           (!itemsList || itemsList === "Order updated") &&
           existing.lineItems
@@ -734,6 +773,7 @@ export const processShopifyOrderLifecycle = async ({
             const existingItems = Array.isArray(existing.lineItems)
               ? existing.lineItems
               : JSON.parse(existing.lineItems);
+
             if (Array.isArray(existingItems) && existingItems.length > 0) {
               itemsList = existingItems
                 .map(
@@ -744,6 +784,7 @@ export const processShopifyOrderLifecycle = async ({
             }
           } catch (_) {}
         }
+
         console.log(
           `🧾 [Shopify] orders/edited enriched from DB order ${existing.orderNumber || existing.externalOrderId}`,
         );
@@ -768,22 +809,50 @@ export const processShopifyOrderLifecycle = async ({
     };
 
     // Product and inventory webhooks must not create EcommerceOrder records.
-const nonOrderTopics = [
-  "products/create",
-  "products/update",
-  "products/delete",
-  "inventory_levels/update",
-];
+    const nonOrderTopics = [
+      "products/create",
+      "products/update",
+      "products/delete",
+      "inventory_levels/update",
+    ];
 
-if (nonOrderTopics.includes(topic)) {
-  console.log(
-    `⏭️ [ShopifyWorker] Skipping non-order webhook topic: ${topic}`,
-  );
-  return { success: true, ignored: true, topic };
-}
+    if (nonOrderTopics.includes(topic)) {
+      console.log(
+        `⏭️ [ShopifyWorker] Skipping non-order webhook topic: ${topic}`,
+      );
+      return { success: true, ignored: true, topic };
+    }
 
-    const baseUpdate = { status, paymentMethod, paymentStatus };
-    if (trackingInfo.length > 0) baseUpdate.trackingInfo = trackingInfo;
+    // Protect historical orders and orders belonging to another store.
+    const existingOrder = await prisma.ecommerceOrder.findUnique({
+      where: orderKey,
+      select: { id: true, shopifyStoreId: true },
+    });
+
+    if (existingOrder && existingOrder.shopifyStoreId !== storeId) {
+      console.warn(
+        `[ShopifyWorker] Skipping order ${externalOrderId}: existing store ownership does not match.`,
+      );
+      return {
+        ignored: true,
+        reason: "order_store_ownership_mismatch",
+      };
+    }
+
+    const baseUpdate = {
+      status,
+      paymentMethod,
+      paymentStatus,
+      shopifyStoreId: storeId,
+      ...(customerObj?.id != null
+        ? { shopifyCustomerId: String(customerObj.id) }
+        : {}),
+    };
+
+    if (trackingInfo.length > 0) {
+      baseUpdate.trackingInfo = trackingInfo;
+    }
+
     if (topic !== "orders/edited") {
       Object.assign(baseUpdate, {
         total,
@@ -818,6 +887,9 @@ if (nonOrderTopics.includes(topic)) {
       update: baseUpdate,
       create: {
         tenantId,
+        shopifyStoreId: storeId,
+        shopifyCustomerId:
+          customerObj?.id != null ? String(customerObj.id) : null,
         source: "SHOPIFY",
         externalOrderId,
         orderNumber,
@@ -834,6 +906,7 @@ if (nonOrderTopics.includes(topic)) {
         ...(trackingInfo.length > 0 ? { trackingInfo } : {}),
       },
     });
+
     console.log(
       `✅ [ShopifyWorker] EcommerceOrder stored in DB (ID: ${orderRecord.id})`,
     );
@@ -855,7 +928,7 @@ if (nonOrderTopics.includes(topic)) {
       console.log(
         `🛒 [Shopify Lifecycle] Received ${topic} for tenant ${tenantId}`,
       );
-      const result = await handleCheckoutUpdate(tenantId, payload);
+      const result = await handleCheckoutUpdate(tenantId, storeId, payload);
       return { success: true, type: "SHOPIFY_CHECKOUT", result };
     }
 
@@ -865,12 +938,12 @@ if (nonOrderTopics.includes(topic)) {
       const checkoutId =
         payload.checkout_id || rootOrder.checkout_id || externalOrderId;
       if (checkoutId) {
-        cancelCartReminders(tenantId, String(checkoutId)).catch((err) =>
-          console.warn(
-            "⚠️ [Shopify] Failed to cancel cart reminders:",
-            err.message,
-          ),
-        );
+        cancelCartReminders(tenantId, storeId, String(checkoutId)).catch((err) =>
+  console.warn(
+    "⚠️ [Shopify] Failed to cancel cart reminders:",
+    err.message,
+  ),
+);
       }
       if (
         await isShopifyEventDuplicate(
@@ -922,6 +995,7 @@ if (nonOrderTopics.includes(topic)) {
 
       await logShopifyOrderToSheet({
         tenantId,
+        storeId,
         customerName,
         customerPhone,
         orderNumber,
@@ -943,6 +1017,7 @@ if (nonOrderTopics.includes(topic)) {
           "shopify-payment-reminder",
           {
             tenantId,
+            storeId,
             externalOrderId,
             orderNumber,
             customerPhone,
@@ -1044,6 +1119,7 @@ if (nonOrderTopics.includes(topic)) {
 
         await logShopifyOrderToSheet({
           tenantId,
+          storeId,
           customerName,
           customerPhone,
           orderNumber,
@@ -1091,6 +1167,7 @@ if (nonOrderTopics.includes(topic)) {
 
         await logShopifyOrderToSheet({
           tenantId,
+          storeId,
           customerName,
           customerPhone,
           orderNumber,
@@ -1137,6 +1214,7 @@ if (nonOrderTopics.includes(topic)) {
 
         await logShopifyOrderToSheet({
           tenantId,
+          storeId,
           customerName,
           customerPhone,
           orderNumber,
@@ -1219,6 +1297,7 @@ if (nonOrderTopics.includes(topic)) {
 
       await logShopifyOrderToSheet({
         tenantId,
+        storeId,
         customerName,
         customerPhone,
         orderNumber,
@@ -1287,6 +1366,7 @@ if (nonOrderTopics.includes(topic)) {
 
       await logShopifyOrderToSheet({
         tenantId,
+        storeId,
         customerName,
         customerPhone,
         orderNumber,
@@ -1350,6 +1430,7 @@ if (nonOrderTopics.includes(topic)) {
 
       await logShopifyOrderToSheet({
         tenantId,
+        storeId,
         customerName,
         customerPhone,
         orderNumber,
@@ -1430,6 +1511,7 @@ if (nonOrderTopics.includes(topic)) {
 
       await logShopifyOrderToSheet({
         tenantId,
+        storeId,
         customerName,
         customerPhone,
         orderNumber,
@@ -1453,10 +1535,25 @@ if (nonOrderTopics.includes(topic)) {
       // ── POST-PURCHASE: Schedule review + cross-sell on delivery ──
       if (eventSubType === "delivered" && orderRecord) {
         try {
-          await prisma.ecommerceOrder.update({
-            where: { id: orderRecord.id },
+          const deliveredUpdate = await prisma.ecommerceOrder.updateMany({
+            where: {
+              id: orderRecord.id,
+              tenantId,
+              source: "SHOPIFY",
+              shopifyStoreId: storeId,
+            },
             data: { deliveredAt: new Date() },
           });
+
+          if (deliveredUpdate.count === 0) {
+            console.warn(
+              `[PostPurchase] Skipping scheduling: order ${orderRecord.id} does not belong to this Shopify store.`,
+            );
+            return {
+              ignored: true,
+              reason: "order_store_ownership_mismatch",
+            };
+          }
 
           const shopifyConfig = await prisma.shopifyConnection.findUnique({
             where: { tenantId },
@@ -1488,9 +1585,34 @@ if (nonOrderTopics.includes(topic)) {
     // ── 5.x CUSTOMER DATA SYNC + NEW CUSTOMER GREETING ─────
     case "customers/create":
     case "customers/update": {
-      // Always sync name, phone, email, tags, orders_count, total_spent, address, created_at
+      // Resolve the exact Shopify store before syncing customer data.
       try {
-        await syncShopifyCustomer(tenantId, payload);
+        const normalizedShopDomain = String(shopDomain || "")
+          .trim()
+          .toLowerCase();
+
+        if (!normalizedShopDomain) {
+          throw new Error("Shopify webhook is missing its shop domain");
+        }
+
+        const shopifyStore = await prisma.shopifyStore.findFirst({
+          where: {
+            shopDomain: normalizedShopDomain,
+            tenantId,
+            status: "active",
+            redactedAt: null,
+          },
+          select: { id: true },
+        });
+
+        if (!shopifyStore) {
+          throw new Error(
+            `Active Shopify store not found for ${normalizedShopDomain}`,
+          );
+        }
+
+        await syncShopifyCustomer(tenantId, shopifyStore.id, payload);
+
         console.log(`✅ [Shopify] Customer data synced for topic '${topic}'`);
       } catch (syncErr) {
         console.error(

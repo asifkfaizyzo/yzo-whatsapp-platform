@@ -127,15 +127,35 @@ export const handleIncomingWebhook = async (req, res) => {
       `📥 [Shopify Webhook Received] Topic: '${topic}' | Shop: '${JSON.stringify(cleanDomain)}'`,
     );
 
-    // Resolve tenant only after the webhook signature is verified.
-    const connection = await prisma.shopifyConnection.findFirst({
-      where: { shopName: cleanDomain },
-      select: { tenantId: true },
-    });
+    // Resolve and verify the connected Shopify store after HMAC verification.
+const connection = await prisma.shopifyConnection.findFirst({
+  where: { shopName: cleanDomain },
+  select: {
+    tenantId: true,
+    store: {
+      select: {
+        id: true,
+        tenantId: true,
+        shopDomain: true,
+        status: true,
+        redactedAt: true,
+      },
+    },
+  },
+});
 
-    const tenantId = connection?.tenantId;
+const tenantId = connection?.tenantId;
+const store = connection?.store;
+const storeId = store?.id;
 
-    if (!tenantId) {
+if (
+  !tenantId ||
+  !storeId ||
+  store.tenantId !== tenantId ||
+  store.shopDomain !== cleanDomain ||
+  store.status !== "active" ||
+  store.redactedAt
+) {
       console.warn(
         `⚠️ [Shopify Webhook] Unknown shop ignored: ${JSON.stringify(cleanDomain)}`,
       );
@@ -173,6 +193,7 @@ export const handleIncomingWebhook = async (req, res) => {
         provider: "SHOPIFY",
         type: "SHOPIFY",
         tenantId,
+        storeId,
         topic,
         event: topic,
         eventType: topic,

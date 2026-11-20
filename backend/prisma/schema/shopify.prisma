@@ -6,6 +6,9 @@ model ShopifyConnection {
   tenantId              String   @unique
   tenant                Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  storeId               String?  @unique
+  store                 ShopifyStore? @relation(fields: [storeId], references: [id])
+
   shopName              String
   accessToken           String   @db.Text
   accessTokenExpiresAt DateTime?
@@ -41,6 +44,53 @@ model ShopifyConnection {
   postPurchaseWinBackDays       Int      @default(90)
 
   @@map("shopify_connections")
+}
+
+// Durable Shopify store identity — retained after connection disconnect
+model ShopifyStore {
+  id              String   @id @default(cuid())
+  shopifyShopId   String?  @unique
+  shopDomain      String   @unique
+
+  tenantId        String?
+  tenant          Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+
+  connection      ShopifyConnection?
+  customerMappings ShopifyCustomerMapping[]
+  orders           EcommerceOrder[]
+
+  status          String   @default("active")
+  disconnectedAt DateTime?
+  redactedAt      DateTime?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([tenantId])
+  @@map("shopify_stores")
+}
+
+// Store-specific Shopify customer identity mapping
+model ShopifyCustomerMapping {
+  id                String   @id @default(cuid())
+
+  storeId           String
+  store             ShopifyStore @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  tenantId          String
+  contactId         String
+  contact           Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  shopifyCustomerId String
+  lastSyncedAt      DateTime?
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([storeId, shopifyCustomerId])
+  @@index([tenantId])
+  @@index([contactId])
+  @@map("shopify_customer_mappings")
 }
 
 model ShopifyProduct {
