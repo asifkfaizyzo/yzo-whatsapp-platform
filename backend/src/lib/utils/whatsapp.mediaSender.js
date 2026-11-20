@@ -1,7 +1,10 @@
 // backend/src/lib/utils/whatsapp.mediaSender.js (do not remove this comment)
 
 import fs from "fs";
+import path from "path";
 import { decrypt } from "../crypto.js";
+import { normalizeMimeType } from "./media.validator.js";
+import { processWhatsAppAudio } from "./audio.converter.js";
 
 /**
  * Uploads media to Meta and sends it via WhatsApp
@@ -13,15 +16,26 @@ export const sendWhatsAppMedia = async ({
   file, // { path, originalname, mimetype, size }
   caption,
   mediaType, // 'IMAGE' | 'VIDEO' | 'AUDIO' | 'FILE'
+  isVoiceNote = false,
+  audioAlreadyProcessed = false,
 }) => {
   const accessToken = decrypt(tenant.whatsappAccessToken);
   const phoneId = tenant.whatsappPhoneId;
   const cleanPhone = contactPhone.replace("+", "");
 
-  // -- Step 1: Upload media to Meta --
-  const fileBuffer = fs.readFileSync(file.path);
+  const uploadFile =
+    mediaType === "AUDIO" && !audioAlreadyProcessed
+      ? await processWhatsAppAudio(file, isVoiceNote)
+      : { ...file, mimetype: normalizeMimeType(file.mimetype) };
 
-  let uploadMimeType = file.mimetype || "application/octet-stream";
+  // ── Step 1: Upload media to Meta ──
+  const resolvedFilePath = path.isAbsolute(uploadFile.path)
+    ? uploadFile.path
+    : path.resolve(process.cwd(), uploadFile.path);
+  const fileBuffer = fs.readFileSync(resolvedFilePath);
+
+  let uploadMimeType =
+    normalizeMimeType(uploadFile.mimetype) || "application/octet-stream";
   const metaAllowedTypes = [
     "audio/aac",
     "audio/mp4",
@@ -45,16 +59,21 @@ export const sendWhatsAppMedia = async ({
   ];
 
   if (!metaAllowedTypes.includes(uploadMimeType)) {
-    if (uploadMimeType.startsWith("audio/")) uploadMimeType = "audio/ogg";
-    else if (uploadMimeType.startsWith("image/")) uploadMimeType = "image/jpeg";
-    else if (uploadMimeType.startsWith("video/")) uploadMimeType = "video/mp4";
-    else uploadMimeType = "application/pdf";
+    if (uploadMimeType.startsWith("audio/")) {
+      throw new Error(`Unsupported WhatsApp audio MIME type: ${uploadMimeType}`);
+    } else if (uploadMimeType.startsWith("image/")) {
+      uploadMimeType = "image/jpeg";
+    } else if (uploadMimeType.startsWith("video/")) {
+      uploadMimeType = "video/mp4";
+    } else {
+      uploadMimeType = "application/pdf";
+    }
   }
 
   const blob = new Blob([fileBuffer], { type: uploadMimeType });
 
   const formData = new globalThis.FormData();
-  formData.append("file", blob, file.originalname);
+  formData.append("file", blob, uploadFile.originalname);
   formData.append("messaging_product", "whatsapp");
 
   const uploadRes = await fetch(
@@ -95,15 +114,18 @@ export const sendWhatsAppMedia = async ({
   ];
   if (
     waType === "audio" &&
-    file.mimetype &&
-    !supportedAudioMimeTypes.some((m) => file.mimetype.includes(m))
+    !supportedAudioMimeTypes.includes(uploadMimeType)
   ) {
-    waType = "document";
+    throw new Error(`Unsupported WhatsApp audio MIME type: ${uploadMimeType}`);
   }
 
   const mediaPayload = { id: mediaId };
-  if (waType === "document" && file.originalname) {
-    mediaPayload.filename = file.originalname;
+  if (waType === "audio" && isVoiceNote) {
+    mediaPayload.voice = true;
+  }
+
+  if (waType === "document" && uploadFile.originalname) {
+    mediaPayload.filename = uploadFile.originalname;
   }
   if (
     (waType === "image" || waType === "video" || waType === "document") &&

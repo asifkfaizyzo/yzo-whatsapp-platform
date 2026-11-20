@@ -7,6 +7,7 @@ import { logActivity } from "../activity/activity.service.js";
 import {
   validateMedia,
   detectMediaType,
+  normalizeMimeType,
 } from "../../lib/utils/media.validator.js";
 import { createNotification } from "../notifications/notification.service.js";
 import flowEngine from "../automation/flowEngine.service.js";
@@ -14,10 +15,11 @@ import { emitToTenant, emitToUser } from "../../lib/socket.js";
 import fs from "fs";
 import path from "path";
 import { trackUsage } from "../quick-replies/quickReply.service.js";
-import { convertWebmToOggOpus } from "../../lib/utils/audio.converter.js";
+import { processWhatsAppAudio } from "../../lib/utils/audio.converter.js";
+import { sendWhatsAppMedia } from "../../lib/utils/whatsapp.mediaSender.js";
 import pushService, {
   shouldSendPush,
-} from "../../modules/notifications/push.service.js";
+} from "../notifications/push.service.js";
 
 const CLOSED_STATUSES = ["RESOLVED", "CLOSED"];
 
@@ -812,8 +814,10 @@ export const sendMediaMessageService = async ({
   senderType,
   file,
   caption,
+  isVoiceNote = false,
 }) => {
-  const mediaType = detectMediaType(file.mimetype);
+  const mediaMimeType = normalizeMimeType(file.mimetype);
+  const mediaType = detectMediaType(mediaMimeType);
 
   if (!mediaType) {
     if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
@@ -822,7 +826,7 @@ export const sendMediaMessageService = async ({
 
   const validation = validateMedia(
     file.originalname,
-    file.mimetype,
+    mediaMimeType,
     file.size,
     mediaType,
   );
@@ -924,28 +928,23 @@ export const sendMediaMessageService = async ({
     waMessageId = `mock_wamid_${Date.now()}`;
     msgStatus = "sent";
   } else if (tenant?.whatsappPhoneId && tenant?.whatsappAccessToken) {
+    let whatsappFile = file;
     try {
-      const isVoiceNote = file.mimetype === "audio/webm";
-      if (isVoiceNote) {
-        const originalPath = file.path;
-        const convertedFile = await convertWebmToOggOpus(
-          file.path,
-          file.originalname,
-        );
-        fs.unlinkSync(originalPath);
-        file = { ...file, ...convertedFile };
+      if (mediaType === "AUDIO") {
+        whatsappFile = await processWhatsAppAudio(file, isVoiceNote);
       }
 
       const result = await sendWhatsAppMedia({
         tenant,
         contactPhone: contact.phone,
-        file,
+        file: whatsappFile,
         caption,
         mediaType,
         isVoiceNote,
+        audioAlreadyProcessed: mediaType === "AUDIO",
       });
 
-      waMessageId = result?.messages?.[0]?.id || null;
+      waMessageId = result?.waMessageId || null;
 
       if (!waMessageId) {
         msgStatus = "failed";
@@ -956,6 +955,15 @@ export const sendMediaMessageService = async ({
       console.error("?? WhatsApp API media send failed:", waError.message);
       msgStatus = "failed";
       failureReason = waError.message;
+    } finally {
+      if (mediaType === "AUDIO" && whatsappFile.path !== file.path) {
+        await fs.promises.rm(whatsappFile.path, { force: true }).catch((err) => {
+          console.warn(
+            `Failed to remove temporary converted audio "${whatsappFile.path}":`,
+            err.message,
+          );
+        });
+      }
     }
   } else {
     msgStatus = "failed";
@@ -984,7 +992,7 @@ export const sendMediaMessageService = async ({
       mediaUrl,
       mediaName: file.originalname,
       mediaSize: file.size,
-      mediaMimeType: file.mimetype,
+      mediaMimeType,
       status: msgStatus,
       isRead: false,
       wamid: waMessageId,
@@ -1000,144 +1008,8 @@ export const sendMediaMessageService = async ({
   return { ...message, conversationId };
 };
 
-// -- WhatsApp Media Send Helper --------------------------------
-const sendWhatsAppMedia = async ({
-  tenant,
-  contactPhone,
-  file,
-  caption,
-  mediaType,
-  isVoiceNote = false,
-}) => {
-  const accessToken = decrypt(tenant.whatsappAccessToken);
-  const phoneId = tenant.whatsappPhoneId;
-  const cleanPhone = contactPhone.replace("+", "");
-
-  const resolvedFilePath = path.isAbsolute(file.path)
-    ? file.path
-    : path.resolve(process.cwd(), file.path);
-  const fileBuffer = fs.readFileSync(resolvedFilePath);
-
-  let uploadMimeType = file.mimetype || "application/octet-stream";
-
-  const metaAllowedTypes = [
-    "audio/aac",
-    "audio/mp4",
-    "audio/mpeg",
-    "audio/amr",
-    "audio/ogg",
-    "audio/opus",
-    "image/jpeg",
-    "image/png",
-    "image/webp",
-    "video/mp4",
-    "video/3gpp",
-    "application/pdf",
-    "text/plain",
-    "application/msword",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "application/vnd.ms-excel",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "application/vnd.ms-powerpoint",
-    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-  ];
-
-  if (!metaAllowedTypes.includes(uploadMimeType)) {
-    throw new Error(`Unsupported WhatsApp media MIME type: ${uploadMimeType}`);
-  }
-
-  const blob = new Blob([fileBuffer], { type: uploadMimeType });
-  const formData = new globalThis.FormData();
-
-  formData.append("file", blob, file.originalname);
-  formData.append("messaging_product", "whatsapp");
-
-  const uploadRes = await fetch(
-    `https://graph.facebook.com/v18.0/${phoneId}/media`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: formData,
-    },
-  );
-
-  if (!uploadRes.ok) {
-    const err = await uploadRes.json();
-    throw new Error(
-      `Media upload failed: ${err.error?.message || JSON.stringify(err)}`,
-    );
-  }
-
-  const { id: mediaId } = await uploadRes.json();
-
-  const typeMap = {
-    IMAGE: "image",
-    VIDEO: "video",
-    AUDIO: "audio",
-    FILE: "document",
-  };
-
-  let waType = typeMap[mediaType] || "document";
-
-  const supportedAudioMimeTypes = [
-    "audio/aac",
-    "audio/mp4",
-    "audio/mpeg",
-    "audio/amr",
-    "audio/ogg",
-  ];
-
-  if (
-    waType === "audio" &&
-    file.mimetype &&
-    !supportedAudioMimeTypes.some((mime) => file.mimetype.includes(mime))
-  ) {
-    waType = "document";
-  }
-
-  const mediaPayload = { id: mediaId };
-
-  if (waType === "audio" && isVoiceNote) {
-    mediaPayload.voice = true;
-  }
-
-  if (waType === "document" && file.originalname) {
-    mediaPayload.filename = file.originalname;
-  }
-
-  if (["image", "video", "document"].includes(waType) && caption) {
-    mediaPayload.caption = caption;
-  }
-
-  const sendRes = await fetch(
-    `https://graph.facebook.com/v18.0/${phoneId}/messages`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        recipient_type: "individual",
-        to: cleanPhone,
-        type: waType,
-        [waType]: mediaPayload,
-      }),
-    },
-  );
-
-  if (!sendRes.ok) {
-    const err = await sendRes.json();
-    throw new Error(`WhatsApp send failed: ${err.error?.message}`);
-  }
-
-  return sendRes.json();
-};
-
-// -------------------------------------------------------------
+// ── WhatsApp Media Send Helper ────────────────────────────────
+// ─────────────────────────────────────────────────────────────
 // DELETE MESSAGE  (Soft delete)
 // -------------------------------------------------------------
 export const deleteMessageService = async ({

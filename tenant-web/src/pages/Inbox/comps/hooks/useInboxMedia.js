@@ -298,6 +298,7 @@ export const useInboxMedia = ({ activeChatId, activeChat }) => {
       formData.append("file", file);
       formData.append("conversationId", activeChatId);
       formData.append("caption", "");
+      formData.append("isVoiceNote", "true");
       const res = await sendMediaMessage(
         activeChat.contact.id,
         formData,

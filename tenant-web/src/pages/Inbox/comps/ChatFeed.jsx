@@ -287,8 +287,10 @@ export default function ChatFeed({
                       setPreviewImageModal({
                         type: "FILE",
                         url: getMediaUrl(msg.mediaUrl),
+                        messageId: msg.id,
                         name: msg.mediaName,
                         caption: msg.caption,
+                        mimeType: msg.mediaMimeType,
                       })
                     }
                     className="flex items-center gap-2 p-2 bg-white/60 hover:bg-white/90 rounded-lg mb-1 min-w-[180px] transition cursor-pointer group shadow-sm"

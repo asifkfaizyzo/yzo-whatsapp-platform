@@ -6,8 +6,18 @@ import { requireUser } from "../../middleware/requireUser.js";
 import { requireTenantOrUser } from "../../middleware/requireTenantOrUser.js";
 import { checkSubscriptionAccess } from "../../middleware/subscriptionAccess.js";
 import upload from "../../middleware/upload.js";
+import { verifyTenantOrUser } from "../../middlewares/auth.verifyTenantOrUser.js";
+import { checkSubscriptionAccess } from "../../middlewares/subscription.access.js";
+import upload from "../../middlewares/upload.middleware.js";
+import { previewMessageMedia } from "./media.controller.js";
 
 const router = express.Router();
+
+router.get(
+  "/media/preview/:messageId",
+  verifyTenantOrUser,
+  previewMessageMedia,
+);
 
 // ── Incoming Message (test/internal simulation) — PROTECTED
 // Real incoming messages arrive via the authenticated Meta webhook (/api/webhook).

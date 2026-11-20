@@ -485,8 +485,10 @@ export default function ContactPanel({
                           setPreviewImageModal({
                             type: "FILE",
                             url: getMediaUrl(item.mediaUrl),
+                            messageId: item.id,
                             name: item.mediaName,
                             caption: item.caption,
+                            mimeType: item.mediaMimeType,
                           })
                         }
                         className="p-2.5 rounded-xl border border-slate-200 bg-[#F0F2F5] hover:bg-emerald-50 transition cursor-pointer flex items-center gap-2.5 group"
