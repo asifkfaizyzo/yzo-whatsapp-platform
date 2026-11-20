@@ -1,10 +1,9 @@
 // backend/src/modules/tenant/plans/tenant.plans.service.js (do not remove this comment)
 import crypto from "crypto";
 import { Prisma, AuditAction, AuditModule } from "@prisma/client";
-import env from "../../../config/env.js";
 import prisma from "../../../config/prisma.js";
 import razorpay from "../../../config/razorpay.js";
-import { ENTITLEMENT_ARRAY } from "../../../config/entitlements.config.js";
+import { ENTITLEMENT_ARRAY } from "../../../lib/entitlements/registry.js";
 import { grantCredits } from "../../../lib/entitlements/usage.service.js";
 import { calculateGST as rawCalculateGST } from "../../../lib/billing.js";
 import {
@@ -25,8 +24,8 @@ import {
 import { logTenantAudit } from "../../audit/tenant.audit.js";
 import { createSuperAdminNotification } from "../../superadmin-notifications/superadminNotification.service.js";
 import { sendInvoiceEmail } from "../../email/index.js";
-import { HttpError } from "../../../utils/httpError.js";
-import logger from "../../../utils/logger.js";
+import { HttpError } from "../../../lib/utils/http.error.js";
+import logger from "../../../config/logger.js";
 
 const getGSTSettings = getInvoiceSettings;
 
@@ -41,7 +40,9 @@ async function calculateGST(amount) {
     taxAmount,
     totalAmount: Number(res.totalAmount ?? 0),
     gstRegistered:
-      res.gstRegistered !== undefined ? Boolean(res.gstRegistered) : taxRate > 0,
+      res.gstRegistered !== undefined
+        ? Boolean(res.gstRegistered)
+        : taxRate > 0,
     taxLabel: res.taxLabel || "GST",
     currency: res.currency || "INR",
   };
@@ -51,11 +52,11 @@ async function calculateGST(amount) {
  * Constant-time HMAC-SHA256 signature check for Razorpay payloads.
  */
 export function verifyRazorpayHmac(payload, signature) {
-  if (!payload || !signature || !env.RAZORPAY_KEY_SECRET) {
+  if (!payload || !signature || !process.env.RAZORPAY_KEY_SECRET) {
     return false;
   }
   const expected = crypto
-    .createHmac("sha256", env.RAZORPAY_KEY_SECRET)
+    .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
     .update(payload)
     .digest("hex");
 
@@ -864,7 +865,7 @@ async function generateAndEmailInvoiceBestEffort(invoice, tenant, gstSettings) {
     const { filePath, fileUrl, url } = await generateInvoicePDF(
       invoice,
       tenant,
-      gstSettings
+      gstSettings,
     );
 
     if (tenant?.email) {
@@ -1073,7 +1074,7 @@ export async function createPlanOrderService(
     orderId: order.id,
     amount: order.amount,
     currency: order.currency,
-    key: env.RAZORPAY_KEY_ID,
+    key: process.env.RAZORPAY_KEY_ID,
     planId: plan.id,
     planName: plan.name,
     billingCycle,
@@ -1360,7 +1361,7 @@ export async function fulfillPlanOrderByOrderId({
           await grantCredits(tenantId, entitlementKey, totalCredits, tx);
         }
 
-                const topupInvoice = await tx.invoice.create({
+        const topupInvoice = await tx.invoice.create({
           data: {
             tenantId,
             invoiceNumber: bundledInvNumber,
@@ -1394,7 +1395,8 @@ export async function fulfillPlanOrderByOrderId({
           invoiceNumber: bundledInvNumber,
         });
       } else {
-        const addOnCycle = addOn?.billingCycle || bp.billingCycle || billingCycle;
+        const addOnCycle =
+          addOn?.billingCycle || bp.billingCycle || billingCycle;
         const addOnExpiresAt =
           addOnCycle === billingCycle
             ? activation.periodEnd
@@ -1775,7 +1777,7 @@ export async function createPlanSubscriptionService(
 
   return {
     subscriptionId: rzpSubscription.id,
-    key: env.RAZORPAY_KEY_ID,
+    key: process.env.RAZORPAY_KEY_ID,
     planId: plan.id,
     planName: plan.name,
     billingCycle,

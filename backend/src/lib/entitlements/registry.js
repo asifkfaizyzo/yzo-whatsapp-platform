@@ -327,6 +327,9 @@ export const ENTITLEMENT_REGISTRY = Object.freeze({
   }
 });
 
+export const ENTITLEMENT_MAP = ENTITLEMENT_REGISTRY;
+export const ENTITLEMENT_ARRAY = Object.freeze(Object.keys(ENTITLEMENT_REGISTRY));
+
 export const INTEGRATION_CATALOG = Object.freeze([
   "SHOPIFY",
   "WOOCOMMERCE",

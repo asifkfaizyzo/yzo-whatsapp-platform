@@ -11,16 +11,13 @@ import {
   createPlanSubscriptionService,
   verifyPlanSubscriptionService,
 } from "./tenant.plans.service.js";
-import { sendSuccess } from "../../../utils/response.js";
+import { success } from "../../../utils/response.js";
 
 function extractAuditMeta(req) {
   return {
     actorId: req.user?.id || req.tenant?.id || null,
     actorName:
-      req.user?.name ||
-      req.tenant?.businessName ||
-      req.tenant?.email ||
-      null,
+      req.user?.name || req.tenant?.businessName || req.tenant?.email || null,
     ipAddress: req.ip || req.headers["x-forwarded-for"] || null,
     userAgent: req.get("user-agent") || null,
   };
@@ -32,7 +29,7 @@ function extractAuditMeta(req) {
 export async function listPublicPlans(req, res, next) {
   try {
     const data = await listPublicPlansService();
-    return sendSuccess(res, data, "Public plans fetched successfully");
+    return success(res, data, "Public plans fetched successfully");
   } catch (err) {
     return next(err);
   }
@@ -44,7 +41,7 @@ export async function listPublicPlans(req, res, next) {
 export async function getPublicPlanById(req, res, next) {
   try {
     const data = await getPublicPlanByIdService(req.params.id);
-    return sendSuccess(res, data, "Plan fetched successfully");
+    return success(res, data, "Plan fetched successfully");
   } catch (err) {
     return next(err);
   }
@@ -56,7 +53,7 @@ export async function getPublicPlanById(req, res, next) {
 export async function listTenantPlans(req, res, next) {
   try {
     const data = await listTenantPlansService(req.tenant.id);
-    return sendSuccess(res, data, "Tenant plans fetched successfully");
+    return success(res, data, "Tenant plans fetched successfully");
   } catch (err) {
     return next(err);
   }
@@ -70,9 +67,9 @@ export async function startTrial(req, res, next) {
     const data = await startTrialService(
       req.tenant.id,
       req.body,
-      extractAuditMeta(req)
+      extractAuditMeta(req),
     );
-    return sendSuccess(res, data, "Free trial started successfully", 201);
+    return success(res, data, "Free trial started successfully", 201);
   } catch (err) {
     return next(err);
   }
@@ -86,12 +83,12 @@ export async function schedulePlanChange(req, res, next) {
     const data = await schedulePlanChangeService(
       req.tenant.id,
       req.body,
-      extractAuditMeta(req)
+      extractAuditMeta(req),
     );
-    return sendSuccess(
+    return success(
       res,
       data,
-      "Plan change scheduled for the end of your current billing period"
+      "Plan change scheduled for the end of your current billing period",
     );
   } catch (err) {
     return next(err);
@@ -105,9 +102,9 @@ export async function clearScheduledPlanChange(req, res, next) {
   try {
     const data = await clearScheduledPlanChangeService(
       req.tenant.id,
-      extractAuditMeta(req)
+      extractAuditMeta(req),
     );
-    return sendSuccess(res, data, "Scheduled plan change cancelled");
+    return success(res, data, "Scheduled plan change cancelled");
   } catch (err) {
     return next(err);
   }
@@ -119,7 +116,7 @@ export async function clearScheduledPlanChange(req, res, next) {
 export async function createPlanOrder(req, res, next) {
   try {
     const data = await createPlanOrderService(req.tenant.id, req.body);
-    return sendSuccess(res, data, "Payment order created successfully", 201);
+    return success(res, data, "Payment order created successfully", 201);
   } catch (err) {
     return next(err);
   }
@@ -133,14 +130,14 @@ export async function verifyPlanOrder(req, res, next) {
     const data = await verifyPlanOrderService(
       req.tenant.id,
       req.body,
-      extractAuditMeta(req)
+      extractAuditMeta(req),
     );
-    return sendSuccess(
+    return success(
       res,
       data,
       data.wasExtended
         ? "Plan extended successfully"
-        : "Payment verified and plan activated successfully"
+        : "Payment verified and plan activated successfully",
     );
   } catch (err) {
     return next(err);
@@ -153,12 +150,7 @@ export async function verifyPlanOrder(req, res, next) {
 export async function createPlanSubscription(req, res, next) {
   try {
     const data = await createPlanSubscriptionService(req.tenant.id, req.body);
-    return sendSuccess(
-      res,
-      data,
-      "Autopay subscription created successfully",
-      201
-    );
+    return success(res, data, "Autopay subscription created successfully", 201);
   } catch (err) {
     return next(err);
   }
@@ -172,12 +164,12 @@ export async function verifyPlanSubscription(req, res, next) {
     const data = await verifyPlanSubscriptionService(
       req.tenant.id,
       req.body,
-      extractAuditMeta(req)
+      extractAuditMeta(req),
     );
-    return sendSuccess(
+    return success(
       res,
       data,
-      "Subscription verified and autopay activated successfully"
+      "Subscription verified and autopay activated successfully",
     );
   } catch (err) {
     return next(err);

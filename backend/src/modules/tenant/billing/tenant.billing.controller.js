@@ -11,7 +11,7 @@ import {
   getTenantInvoicePdfByInvoiceIdService,
   getTenantInvoicePdfByPaymentIdService,
 } from "./tenant.billing.service.js";
-import { sendSuccess } from "../../../utils/response.js";
+import { success } from "../../../utils/response.js";
 
 function extractAuditMeta(req) {
   return {
@@ -32,7 +32,7 @@ function extractAuditMeta(req) {
 export async function getBillingOverview(req, res, next) {
   try {
     const data = await getBillingOverviewService(req.tenant.id);
-    return sendSuccess(res, data, "Billing overview fetched successfully");
+    return success(res, data, "Billing overview fetched successfully");
   } catch (err) {
     return next(err);
   }
@@ -48,7 +48,7 @@ export async function cancelSubscription(req, res, next) {
       req.body,
       extractAuditMeta(req)
     );
-    return sendSuccess(
+    return success(
       res,
       data,
       "Subscription cancelled. You will retain full access until the end of your current billing period."
@@ -67,7 +67,7 @@ export async function reactivateSubscription(req, res, next) {
       req.tenant.id,
       extractAuditMeta(req)
     );
-    return sendSuccess(res, data, "Subscription reactivated successfully");
+    return success(res, data, "Subscription reactivated successfully");
   } catch (err) {
     return next(err);
   }
@@ -82,7 +82,7 @@ export async function pauseSubscription(req, res, next) {
       req.tenant.id,
       extractAuditMeta(req)
     );
-    return sendSuccess(res, data, "Subscription paused successfully");
+    return success(res, data, "Subscription paused successfully");
   } catch (err) {
     return next(err);
   }
@@ -97,7 +97,7 @@ export async function resumeSubscription(req, res, next) {
       req.tenant.id,
       extractAuditMeta(req)
     );
-    return sendSuccess(res, data, "Subscription resumed successfully");
+    return success(res, data, "Subscription resumed successfully");
   } catch (err) {
     return next(err);
   }
@@ -109,7 +109,7 @@ export async function resumeSubscription(req, res, next) {
 export async function listTenantInvoices(req, res, next) {
   try {
     const data = await listTenantInvoicesService(req.tenant.id, req.query);
-    return sendSuccess(res, data, "Invoices fetched successfully");
+    return success(res, data, "Invoices fetched successfully");
   } catch (err) {
     return next(err);
   }
@@ -121,7 +121,7 @@ export async function listTenantInvoices(req, res, next) {
 export async function listTenantPayments(req, res, next) {
   try {
     const data = await listTenantPaymentsService(req.tenant.id, req.query);
-    return sendSuccess(res, data, "Payments fetched successfully");
+    return success(res, data, "Payments fetched successfully");
   } catch (err) {
     return next(err);
   }

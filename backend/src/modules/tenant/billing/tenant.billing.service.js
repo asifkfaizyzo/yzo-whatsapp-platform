@@ -2,7 +2,6 @@
 import fs from "fs";
 import path from "path";
 import { AuditAction, AuditModule } from "@prisma/client";
-import env from "../../../config/env.js";
 import prisma from "../../../config/prisma.js";
 import razorpay from "../../../config/razorpay.js";
 import { getUsageSummary } from "../../../lib/entitlements/usage.service.js";
@@ -31,7 +30,9 @@ async function calculateGST(amount) {
     taxAmount,
     totalAmount: Number(res.totalAmount ?? 0),
     gstRegistered:
-      res.gstRegistered !== undefined ? Boolean(res.gstRegistered) : taxRate > 0,
+      res.gstRegistered !== undefined
+        ? Boolean(res.gstRegistered)
+        : taxRate > 0,
     taxLabel: res.taxLabel || "GST",
     currency: res.currency || "INR",
   };
@@ -47,7 +48,7 @@ async function getGSTSettings() {
       settings?.gstPercent ??
       sample?.taxRate ??
       sample?.gstPercent ??
-      0
+      0,
   );
   const gstRegistered =
     settings?.gstRegistered !== undefined
@@ -62,9 +63,15 @@ async function getGSTSettings() {
   };
 }
 import { createSuperAdminNotification } from "../../superadmin-notifications/superadminNotification.service.js";
-import { sendEmail } from "../../email/index.js";
-import { HttpError } from "../../../utils/httpError.js";
-import logger from "../../../utils/logger.js";
+import {
+  sendCancellationConfirmedEmail,
+  sendCancellationAdminAlertEmail,
+  sendReactivationConfirmedEmail,
+  sendSubscriptionPausedEmail,
+  sendSubscriptionResumedEmail,
+} from "../../email/index.js";
+import { HttpError } from "../../../lib/utils/http.error.js";
+import logger from "../../../config/logger.js";
 
 /**
  * GET /tenant/billing/overview (and /tenant/billing/details)
@@ -150,8 +157,8 @@ export async function getBillingOverviewService(tenantId) {
 
   const isInGracePeriod = Boolean(
     sub?.subscriptionStatus === "payment_failed" &&
-      sub?.gracePeriodEnd &&
-      new Date(sub.gracePeriodEnd).getTime() > now.getTime()
+    sub?.gracePeriodEnd &&
+    new Date(sub.gracePeriodEnd).getTime() > now.getTime(),
   );
 
   let graceDaysRemaining = 0;
@@ -161,8 +168,7 @@ export async function getBillingOverviewService(tenantId) {
   }
 
   const isFreeOverrideActive = Boolean(
-    sub?.freeUntilDate &&
-      new Date(sub.freeUntilDate).getTime() > now.getTime()
+    sub?.freeUntilDate && new Date(sub.freeUntilDate).getTime() > now.getTime(),
   );
 
   let currentCyclePricing = null;
@@ -241,11 +247,14 @@ export async function getBillingOverviewService(tenantId) {
       entitlementKey: ta.addOn?.entitlementKey || null,
       amountPerUnit: ta.addOn?.amountPerUnit || 0,
       quantity: ta.quantity,
-      totalGranted: Number(ta.addOn?.amountPerUnit || 0) * Number(ta.quantity || 1),
+      totalGranted:
+        Number(ta.addOn?.amountPerUnit || 0) * Number(ta.quantity || 1),
       billingCycle: ta.addOn?.billingCycle || null,
       status: ta.status,
       source: ta.source,
-      autopayEnabled: Boolean(ta.razorpaySubscriptionId && ta.status === "active"),
+      autopayEnabled: Boolean(
+        ta.razorpaySubscriptionId && ta.status === "active",
+      ),
       startsAt: ta.startsAt,
       expiresAt: ta.expiresAt,
       cancelledAt: ta.cancelledAt,
@@ -278,7 +287,7 @@ export async function cancelSubscriptionService(
     priceFeedback = null,
     rating = null,
   },
-  meta = {}
+  meta = {},
 ) {
   const now = new Date();
 
@@ -300,7 +309,7 @@ export async function cancelSubscriptionService(
     throw new HttpError(
       400,
       "No subscription record found for this account.",
-      "SUBSCRIPTION_NOT_FOUND"
+      "SUBSCRIPTION_NOT_FOUND",
     );
   }
 
@@ -308,7 +317,7 @@ export async function cancelSubscriptionService(
     throw new HttpError(
       409,
       "Your subscription is already scheduled for cancellation at the end of the current period.",
-      "ALREADY_CANCEL_SCHEDULED"
+      "ALREADY_CANCEL_SCHEDULED",
     );
   }
 
@@ -320,7 +329,7 @@ export async function cancelSubscriptionService(
     throw new HttpError(
       409,
       "Your free trial is already scheduled to end on the expiry date.",
-      "ALREADY_CANCEL_SCHEDULED"
+      "ALREADY_CANCEL_SCHEDULED",
     );
   }
 
@@ -328,7 +337,7 @@ export async function cancelSubscriptionService(
     throw new HttpError(
       409,
       `Cannot cancel a subscription with status "${sub.subscriptionStatus}".`,
-      "INVALID_SUBSCRIPTION_STATE"
+      "INVALID_SUBSCRIPTION_STATE",
     );
   }
 
@@ -339,9 +348,7 @@ export async function cancelSubscriptionService(
   }
 
   const newStatus =
-    sub.subscriptionStatus === "trialing"
-      ? "trialing"
-      : "cancel_at_period_end";
+    sub.subscriptionStatus === "trialing" ? "trialing" : "cancel_at_period_end";
 
   const updatedSub = await prisma.$transaction(async (tx) => {
     const updated = await tx.tenantSubscription.update({
@@ -417,18 +424,18 @@ export async function cancelSubscriptionService(
 
   try {
     if (tenant.email) {
-      await sendEmail(tenant.email, "subscriptionCancelled", {
-        businessName: tenant.businessName,
+      await sendCancellationConfirmedEmail(tenant.email, {
+        tenantName: tenant.businessName || tenant.email,
         planName: planDisplayName,
         accessUntil: updatedSub.planPeriodEnd,
         reason,
       });
     }
 
-    const adminEmail = env.SUPER_ADMIN_EMAIL || env.SMTP_FROM_EMAIL;
+    const adminEmail = process.env.SUPER_ADMIN_EMAIL || process.env.SMTP_FROM_EMAIL;
     if (adminEmail) {
-      await sendEmail(adminEmail, "cancellationAdminNotification", {
-        businessName: tenant.businessName,
+      await sendCancellationAdminAlertEmail(adminEmail, {
+        companyName: tenant.businessName || tenant.email,
         tenantEmail: tenant.email,
         planName: planDisplayName,
         billingType: updatedSub.billingCycle,
@@ -501,7 +508,7 @@ export async function reactivateSubscriptionService(tenantId, meta = {}) {
     throw new HttpError(
       409,
       "Only subscriptions scheduled for cancellation at period end can be reactivated.",
-      "INVALID_SUBSCRIPTION_STATE"
+      "INVALID_SUBSCRIPTION_STATE",
     );
   }
 
@@ -512,7 +519,7 @@ export async function reactivateSubscriptionService(tenantId, meta = {}) {
     throw new HttpError(
       400,
       "Your billing period has already ended. Please renew or purchase a plan.",
-      "PERIOD_ALREADY_ENDED"
+      "PERIOD_ALREADY_ENDED",
     );
   }
 
@@ -554,8 +561,8 @@ export async function reactivateSubscriptionService(tenantId, meta = {}) {
 
   try {
     if (tenant.email) {
-      await sendEmail(tenant.email, "subscriptionReactivated", {
-        businessName: tenant.businessName,
+      await sendReactivationConfirmedEmail(tenant.email, {
+        tenantName: tenant.businessName || tenant.email,
         planName: planDisplayName,
         periodEnd: updatedSub.planPeriodEnd,
       });
@@ -610,7 +617,7 @@ export async function pauseSubscriptionService(tenantId, meta = {}) {
   if (
     !sub ||
     !["active", "trialing", "cancel_at_period_end"].includes(
-      sub.subscriptionStatus
+      sub.subscriptionStatus,
     )
   ) {
     throw new HttpError(
@@ -618,7 +625,7 @@ export async function pauseSubscriptionService(tenantId, meta = {}) {
       `Cannot pause a subscription with status "${
         sub?.subscriptionStatus || "none"
       }".`,
-      "INVALID_SUBSCRIPTION_STATE"
+      "INVALID_SUBSCRIPTION_STATE",
     );
   }
 
@@ -668,8 +675,8 @@ export async function pauseSubscriptionService(tenantId, meta = {}) {
 
   try {
     if (tenant.email) {
-      await sendEmail(tenant.email, "subscriptionPaused", {
-        businessName: tenant.businessName,
+      await sendSubscriptionPausedEmail(tenant.email, {
+        tenantName: tenant.businessName || tenant.email,
         planName: planDisplayName,
         periodEnd: updatedSub.planPeriodEnd,
       });
@@ -725,7 +732,7 @@ export async function resumeSubscriptionService(tenantId, meta = {}) {
     throw new HttpError(
       409,
       "Only paused subscriptions can be resumed.",
-      "INVALID_SUBSCRIPTION_STATE"
+      "INVALID_SUBSCRIPTION_STATE",
     );
   }
 
@@ -736,7 +743,7 @@ export async function resumeSubscriptionService(tenantId, meta = {}) {
     throw new HttpError(
       400,
       "Your billing period has ended while paused. Please renew or purchase a plan.",
-      "PERIOD_ALREADY_ENDED"
+      "PERIOD_ALREADY_ENDED",
     );
   }
 
@@ -744,7 +751,7 @@ export async function resumeSubscriptionService(tenantId, meta = {}) {
   if (sub.razorpaySubscriptionId && !sub.cancelRequestedAt) {
     try {
       const rzpSub = await razorpay.subscriptions.fetch(
-        sub.razorpaySubscriptionId
+        sub.razorpaySubscriptionId,
       );
       if (rzpSub.status === "paused") {
         await razorpay.subscriptions.resume(sub.razorpaySubscriptionId, {
@@ -763,7 +770,7 @@ export async function resumeSubscriptionService(tenantId, meta = {}) {
       throw new HttpError(
         502,
         "Could not resume autopay with payment gateway. Please try again or contact support.",
-        "PAYMENT_GATEWAY_ERROR"
+        "PAYMENT_GATEWAY_ERROR",
       );
     }
   }
@@ -771,8 +778,8 @@ export async function resumeSubscriptionService(tenantId, meta = {}) {
   const restoredStatus = sub.cancelRequestedAt
     ? "cancel_at_period_end"
     : sub.planActivatedAt
-    ? "active"
-    : "trialing";
+      ? "active"
+      : "trialing";
 
   const updatedSub = await prisma.tenantSubscription.update({
     where: { tenantId },
@@ -806,8 +813,8 @@ export async function resumeSubscriptionService(tenantId, meta = {}) {
 
   try {
     if (tenant.email) {
-      await sendEmail(tenant.email, "subscriptionResumed", {
-        businessName: tenant.businessName,
+      await sendSubscriptionResumedEmail(tenant.email, {
+        tenantName: tenant.businessName || tenant.email,
         planName: planDisplayName,
         periodEnd: updatedSub.planPeriodEnd,
       });
@@ -845,7 +852,7 @@ export async function resumeSubscriptionService(tenantId, meta = {}) {
  */
 export async function listTenantInvoicesService(
   tenantId,
-  { page = 1, limit = 20, status, purchaseType }
+  { page = 1, limit = 20, status, purchaseType },
 ) {
   const where = { tenantId };
   if (status) where.status = status;
@@ -879,7 +886,7 @@ export async function listTenantInvoicesService(
  */
 export async function listTenantPaymentsService(
   tenantId,
-  { page = 1, limit = 20, status, purchaseType }
+  { page = 1, limit = 20, status, purchaseType },
 ) {
   const where = { tenantId };
   if (status) where.status = status;
@@ -930,7 +937,7 @@ async function resolveInvoicePdfPath(invoice, tenant) {
  */
 export async function getTenantInvoicePdfByInvoiceIdService(
   tenantId,
-  invoiceIdOrNumber
+  invoiceIdOrNumber,
 ) {
   const [tenant, invoice] = await Promise.all([
     prisma.tenant.findUnique({ where: { id: tenantId } }),
@@ -958,7 +965,7 @@ export async function getTenantInvoicePdfByInvoiceIdService(
  */
 export async function getTenantInvoicePdfByPaymentIdService(
   tenantId,
-  paymentId
+  paymentId,
 ) {
   const [tenant, payment] = await Promise.all([
     prisma.tenant.findUnique({ where: { id: tenantId } }),
@@ -974,7 +981,7 @@ export async function getTenantInvoicePdfByPaymentIdService(
     throw new HttpError(
       404,
       "Completed payment record not found.",
-      "PAYMENT_NOT_FOUND"
+      "PAYMENT_NOT_FOUND",
     );
   }
 
@@ -1001,9 +1008,7 @@ export async function getTenantInvoicePdfByPaymentIdService(
           payment.metadata?.addOnName ||
           "SudoReply Subscription",
         planSlug:
-          payment.metadata?.planSlug ||
-          payment.metadata?.addOnSlug ||
-          null,
+          payment.metadata?.planSlug || payment.metadata?.addOnSlug || null,
         billingCycle: payment.billingCycle,
         purchaseType: payment.purchaseType || "PLAN",
         baseAmount: payment.baseAmount,
@@ -1022,7 +1027,7 @@ export async function getTenantInvoicePdfByPaymentIdService(
     throw new HttpError(
       404,
       "Invoice not found for this payment.",
-      "INVOICE_NOT_FOUND"
+      "INVOICE_NOT_FOUND",
     );
   }
 

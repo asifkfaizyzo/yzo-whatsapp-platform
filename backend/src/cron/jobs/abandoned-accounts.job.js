@@ -26,7 +26,6 @@ const cleanAbandonedAccounts = async () => {
                   { subscription: { subscriptionStatus: "expired" } },
                 ],
               },
-              { status: "REJECTED" },
             ],
           },
           {

@@ -2,7 +2,7 @@
 import { Router } from "express";
 import { authenticate } from "../../../middleware/authenticate.js";
 import { requireTenant } from "../../../middleware/requireTenant.js";
-import { HttpError } from "../../../utils/httpError.js";
+import { HttpError } from "../../../lib/utils/http.error.js";
 import {
   cancelSubscriptionSchema,
   listBillingInvoicesQuerySchema,
@@ -33,8 +33,8 @@ function validateRequest({ params, query, body }) {
           new HttpError(
             400,
             parsed.error.issues[0]?.message || "Invalid route parameters",
-            "VALIDATION_ERROR"
-          )
+            "VALIDATION_ERROR",
+          ),
         );
       }
       Object.assign(req.params, parsed.data);
@@ -47,8 +47,8 @@ function validateRequest({ params, query, body }) {
           new HttpError(
             400,
             parsed.error.issues[0]?.message || "Invalid query parameters",
-            "VALIDATION_ERROR"
-          )
+            "VALIDATION_ERROR",
+          ),
         );
       }
       req.query = parsed.data;
@@ -61,8 +61,8 @@ function validateRequest({ params, query, body }) {
           new HttpError(
             400,
             parsed.error.issues[0]?.message || "Invalid request body",
-            "VALIDATION_ERROR"
-          )
+            "VALIDATION_ERROR",
+          ),
         );
       }
       req.body = parsed.data;
@@ -82,13 +82,13 @@ router.get("/details", getBillingOverview);
 router.post(
   "/cancel",
   validateRequest({ body: cancelSubscriptionSchema }),
-  cancelSubscription
+  cancelSubscription,
 );
 
 router.post(
   "/cancel-autopay",
   validateRequest({ body: cancelSubscriptionSchema }),
-  cancelSubscription
+  cancelSubscription,
 );
 
 router.post("/reactivate", reactivateSubscription);
@@ -99,26 +99,26 @@ router.post("/resume", resumeSubscription);
 router.get(
   "/invoices",
   validateRequest({ query: listBillingInvoicesQuerySchema }),
-  listTenantInvoices
+  listTenantInvoices,
 );
 
 router.get(
   "/payments",
   validateRequest({ query: listBillingPaymentsQuerySchema }),
-  listTenantPayments
+  listTenantPayments,
 );
 
 // ── Invoice PDF Downloads ───────────────────────────────────────
 router.get(
   "/invoices/:invoiceId/download",
   validateRequest({ params: invoiceDownloadParamSchema }),
-  downloadInvoiceById
+  downloadInvoiceById,
 );
 
 router.get(
   "/payments/:paymentId/invoice",
   validateRequest({ params: paymentInvoiceParamSchema }),
-  downloadInvoiceByPaymentId
+  downloadInvoiceByPaymentId,
 );
 
 export default router;

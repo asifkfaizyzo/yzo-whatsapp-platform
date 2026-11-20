@@ -1,9 +1,9 @@
 // backend/src/lib/billingPeriod.js (do not remove this comment)
 import prisma from "../config/prisma.js";
 import razorpay from "../config/razorpay.js";
-import { calculateGST } from "../modules/superadmin/settings/sradmin.settings.service.js";
-import { HttpError } from "../utils/httpError.js";
-import logger from "../utils/logger.js";
+import { calculateGST } from "./billing.js";
+import { HttpError } from "./utils/http.error.js";
+import logger from "../config/logger.js";
 
 export const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -27,7 +27,9 @@ export function addMonthsUTC(date, months) {
   const targetMonth = d.getUTCMonth() + months;
   const year = d.getUTCFullYear() + Math.floor(targetMonth / 12);
   const month = ((targetMonth % 12) + 12) % 12;
-  const lastDayOfTargetMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  const lastDayOfTargetMonth = new Date(
+    Date.UTC(year, month + 1, 0),
+  ).getUTCDate();
   const day = Math.min(d.getUTCDate(), lastDayOfTargetMonth);
 
   return new Date(
@@ -38,8 +40,8 @@ export function addMonthsUTC(date, months) {
       d.getUTCHours(),
       d.getUTCMinutes(),
       d.getUTCSeconds(),
-      d.getUTCMilliseconds()
-    )
+      d.getUTCMilliseconds(),
+    ),
   );
 }
 
@@ -59,7 +61,7 @@ export function addCycleDuration(startDate, billingCycle) {
     throw new HttpError(
       400,
       `Unsupported recurring billing cycle "${billingCycle}".`,
-      "INVALID_BILLING_CYCLE"
+      "INVALID_BILLING_CYCLE",
     );
   }
   return addMonthsUTC(startDate, months);
@@ -85,7 +87,7 @@ export function getPlanPriceForCycle(plan, billingCycle) {
     throw new HttpError(
       400,
       `Unsupported billing cycle "${billingCycle}". Allowed: MONTHLY, QUARTERLY, ANNUAL.`,
-      "INVALID_BILLING_CYCLE"
+      "INVALID_BILLING_CYCLE",
     );
   }
 
@@ -93,7 +95,7 @@ export function getPlanPriceForCycle(plan, billingCycle) {
     throw new HttpError(
       400,
       `Billing cycle "${billingCycle}" is not available for the "${plan.name}" plan.`,
-      "BILLING_CYCLE_UNAVAILABLE"
+      "BILLING_CYCLE_UNAVAILABLE",
     );
   }
 
@@ -138,7 +140,7 @@ export function isPlanOfferExpired(plan, now = new Date()) {
  */
 export function assertPlanPurchasable(
   plan,
-  { isSamePlanRenewal = false, now = new Date() } = {}
+  { isSamePlanRenewal = false, now = new Date() } = {},
 ) {
   if (!plan) {
     throw new HttpError(404, "Plan not found.", "PLAN_NOT_FOUND");
@@ -148,7 +150,7 @@ export function assertPlanPurchasable(
     throw new HttpError(
       400,
       `The "${plan.name}" plan is discontinued and no longer available for purchase.`,
-      "PLAN_INACTIVE"
+      "PLAN_INACTIVE",
     );
   }
 
@@ -156,7 +158,7 @@ export function assertPlanPurchasable(
     throw new HttpError(
       403,
       `The "${plan.name}" plan requires administrator activation and cannot be purchased via self-checkout.`,
-      "PLAN_ADMIN_ONLY"
+      "PLAN_ADMIN_ONLY",
     );
   }
 
@@ -164,7 +166,7 @@ export function assertPlanPurchasable(
     throw new HttpError(
       400,
       `The promotional offer for "${plan.name}" has expired.`,
-      "PLAN_OFFER_EXPIRED"
+      "PLAN_OFFER_EXPIRED",
     );
   }
 }
@@ -196,7 +198,9 @@ export function computeActivationPeriod({
   if (sub?.subscriptionStatus === "payment_failed") {
     const graceStart = sub.planPeriodEnd ? new Date(sub.planPeriodEnd) : now;
     const graceCap = sub.gracePeriodEnd
-      ? new Date(Math.min(now.getTime(), new Date(sub.gracePeriodEnd).getTime()))
+      ? new Date(
+          Math.min(now.getTime(), new Date(sub.gracePeriodEnd).getTime()),
+        )
       : now;
     const elapsedMs = Math.max(0, graceCap.getTime() - graceStart.getTime());
     const elapsedDays = Math.ceil(elapsedMs / DAY_MS);
@@ -230,16 +234,21 @@ export function computeActivationPeriod({
 
   const isSameActivePlanCycle = Boolean(
     sub &&
-      sub.planId === newPlan.id &&
-      sub.billingCycle === billingCycle &&
-      ["active", "cancel_at_period_end"].includes(sub.subscriptionStatus) &&
-      sub.planPeriodEnd &&
-      new Date(sub.planPeriodEnd).getTime() > now.getTime()
+    sub.planId === newPlan.id &&
+    sub.billingCycle === billingCycle &&
+    ["active", "cancel_at_period_end"].includes(sub.subscriptionStatus) &&
+    sub.planPeriodEnd &&
+    new Date(sub.planPeriodEnd).getTime() > now.getTime(),
   );
 
   if (isSameActivePlanCycle) {
-    const periodStart = sub.planPeriodStart ? new Date(sub.planPeriodStart) : now;
-    const periodEnd = addCycleDuration(new Date(sub.planPeriodEnd), billingCycle);
+    const periodStart = sub.planPeriodStart
+      ? new Date(sub.planPeriodStart)
+      : now;
+    const periodEnd = addCycleDuration(
+      new Date(sub.planPeriodEnd),
+      billingCycle,
+    );
     return {
       periodStart,
       periodEnd,
@@ -297,14 +306,14 @@ const PLAN_RAZORPAY_CYCLE_CONFIG = Object.freeze({
 export async function getOrCreateRazorpayPlanForSubscriptionPlan(
   plan,
   billingCycle,
-  forceRecreate = false
+  forceRecreate = false,
 ) {
   const cfg = PLAN_RAZORPAY_CYCLE_CONFIG[billingCycle];
   if (!cfg) {
     throw new HttpError(
       400,
       `Unsupported autopay billing cycle "${billingCycle}".`,
-      "INVALID_BILLING_CYCLE"
+      "INVALID_BILLING_CYCLE",
     );
   }
 
@@ -318,7 +327,7 @@ export async function getOrCreateRazorpayPlanForSubscriptionPlan(
     throw new HttpError(
       400,
       "Recurring autopay cannot be created for a zero-price plan cycle.",
-      "INVALID_PLAN_PRICE"
+      "INVALID_PLAN_PRICE",
     );
   }
 
@@ -371,13 +380,13 @@ export async function getOrCreateRazorpayPlanForSubscriptionPlan(
  */
 export async function getOrCreateRazorpayPlanForAddOn(
   addOn,
-  forceRecreate = false
+  forceRecreate = false,
 ) {
   if (!addOn || addOn.type !== "RECURRING") {
     throw new HttpError(
       400,
       "Only RECURRING add-ons support Razorpay subscriptions.",
-      "INVALID_ADDON_TYPE"
+      "INVALID_ADDON_TYPE",
     );
   }
 
@@ -386,7 +395,7 @@ export async function getOrCreateRazorpayPlanForAddOn(
     throw new HttpError(
       400,
       `Add-on "${addOn.name}" has an invalid recurring cycle "${addOn.billingCycle}".`,
-      "INVALID_BILLING_CYCLE"
+      "INVALID_BILLING_CYCLE",
     );
   }
 
@@ -399,7 +408,7 @@ export async function getOrCreateRazorpayPlanForAddOn(
     throw new HttpError(
       400,
       "Recurring autopay cannot be created for a zero-price add-on.",
-      "INVALID_ADDON_PRICE"
+      "INVALID_ADDON_PRICE",
     );
   }
 
@@ -452,7 +461,7 @@ export async function getOrCreateRazorpayPlanForAddOn(
  */
 export async function cancelRazorpaySubscriptionBestEffort(
   razorpaySubscriptionId,
-  { atCycleEnd = false } = {}
+  { atCycleEnd = false } = {},
 ) {
   if (!razorpaySubscriptionId) {
     return { skipped: true };
@@ -465,7 +474,7 @@ export async function cancelRazorpaySubscriptionBestEffort(
     }
     await razorpay.subscriptions.cancel(
       razorpaySubscriptionId,
-      Boolean(atCycleEnd)
+      Boolean(atCycleEnd),
     );
     return { skipped: false, status: "cancelled" };
   } catch (err) {
@@ -480,3 +489,7 @@ export async function cancelRazorpaySubscriptionBestEffort(
     };
   }
 }
+
+// Aliases for billing period calculations
+export const calculatePeriodEnd = addCycleDuration;
+export const getMonthlyEquivalentPrice = monthlyEquivalent;

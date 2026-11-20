@@ -1,7 +1,7 @@
 // backend/src/modules/superadmin/revenue/sradmin.revenue.service.js (do not remove this comment)
 
 import prisma from "../../../config/prisma.js";
-import { NotFoundError } from "../../../utils/error.js";
+import { HttpError } from "../../../lib/utils/http.error.js";
 
 /**
  * Normalizes a subscription's recurring contribution to monthly equivalent (MRR).
@@ -345,7 +345,7 @@ export const getTenantBillingDetailService = async (tenantId) => {
   });
 
   if (!tenant) {
-    throw new NotFoundError("Tenant not found");
+    throw new HttpError(404, "Tenant not found");
   }
 
   const sub = tenant.subscription;
@@ -435,7 +435,7 @@ export const getInvoiceUrlService = async (paymentId) => {
   });
 
   if (!invoice) {
-    throw new NotFoundError("Invoice not found");
+    throw new HttpError(404, "Invoice not found");
   }
 
   return {

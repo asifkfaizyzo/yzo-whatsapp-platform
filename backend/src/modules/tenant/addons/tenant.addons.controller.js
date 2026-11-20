@@ -7,7 +7,7 @@ import {
   verifyAddOnSubscriptionService,
   cancelTenantAddOnService,
 } from "./tenant.addons.service.js";
-import { sendSuccess } from "../../../utils/response.js";
+import { success } from "../../../utils/response.js";
 
 function extractAuditMeta(req) {
   return {
@@ -28,7 +28,7 @@ function extractAuditMeta(req) {
 export async function listTenantAddOns(req, res, next) {
   try {
     const data = await listTenantAddOnsService(req.tenant.id);
-    return sendSuccess(res, data, "Add-ons and credit pools fetched successfully");
+    return success(res, data, "Add-ons and credit pools fetched successfully");
   } catch (err) {
     return next(err);
   }
@@ -40,7 +40,7 @@ export async function listTenantAddOns(req, res, next) {
 export async function createAddOnOrder(req, res, next) {
   try {
     const data = await createAddOnOrderService(req.tenant.id, req.body);
-    return sendSuccess(res, data, "Add-on payment order created successfully", 201);
+    return success(res, data, "Add-on payment order created successfully", 201);
   } catch (err) {
     return next(err);
   }
@@ -56,7 +56,7 @@ export async function verifyAddOnOrder(req, res, next) {
       req.body,
       extractAuditMeta(req)
     );
-    return sendSuccess(
+    return success(
       res,
       data,
       data.purchaseType === "TOPUP"
@@ -74,7 +74,7 @@ export async function verifyAddOnOrder(req, res, next) {
 export async function createAddOnSubscription(req, res, next) {
   try {
     const data = await createAddOnSubscriptionService(req.tenant.id, req.body);
-    return sendSuccess(
+    return success(
       res,
       data,
       "Recurring add-on subscription created successfully",
@@ -95,7 +95,7 @@ export async function verifyAddOnSubscription(req, res, next) {
       req.body,
       extractAuditMeta(req)
     );
-    return sendSuccess(
+    return success(
       res,
       data,
       "Recurring add-on verified and autopay activated successfully"
@@ -116,7 +116,7 @@ export async function cancelTenantAddOn(req, res, next) {
       req.body,
       extractAuditMeta(req)
     );
-    return sendSuccess(
+    return success(
       res,
       data,
       "Add-on cancelled. Your extra capacity remains active until the end of the current billing period."

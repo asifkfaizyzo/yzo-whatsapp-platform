@@ -2,7 +2,7 @@
 import { Router } from "express";
 import { authenticate } from "../../../middleware/authenticate.js";
 import { requireTenant } from "../../../middleware/requireTenant.js";
-import { HttpError } from "../../../utils/httpError.js";
+import { HttpError } from "../../../lib/utils/http.error.js";
 import {
   tenantAddOnIdParamSchema,
   createAddOnOrderSchema,
@@ -31,8 +31,8 @@ function validateRequest({ params, body }) {
           new HttpError(
             400,
             parsed.error.issues[0]?.message || "Invalid route parameters",
-            "VALIDATION_ERROR"
-          )
+            "VALIDATION_ERROR",
+          ),
         );
       }
       Object.assign(req.params, parsed.data);
@@ -45,8 +45,8 @@ function validateRequest({ params, body }) {
           new HttpError(
             400,
             parsed.error.issues[0]?.message || "Invalid request body",
-            "VALIDATION_ERROR"
-          )
+            "VALIDATION_ERROR",
+          ),
         );
       }
       req.body = parsed.data;
@@ -63,25 +63,25 @@ router.get("/", listTenantAddOns);
 router.post(
   "/create-order",
   validateRequest({ body: createAddOnOrderSchema }),
-  createAddOnOrder
+  createAddOnOrder,
 );
 
 router.post(
   "/verify-order",
   validateRequest({ body: verifyAddOnOrderSchema }),
-  verifyAddOnOrder
+  verifyAddOnOrder,
 );
 
 router.post(
   "/create-subscription",
   validateRequest({ body: createAddOnSubscriptionSchema }),
-  createAddOnSubscription
+  createAddOnSubscription,
 );
 
 router.post(
   "/verify-subscription",
   validateRequest({ body: verifyAddOnSubscriptionSchema }),
-  verifyAddOnSubscription
+  verifyAddOnSubscription,
 );
 
 router.post(
@@ -90,7 +90,7 @@ router.post(
     params: tenantAddOnIdParamSchema,
     body: cancelTenantAddOnSchema,
   }),
-  cancelTenantAddOn
+  cancelTenantAddOn,
 );
 
 export default router;

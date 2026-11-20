@@ -1,9 +1,8 @@
 // backend/src/modules/tenant/addons/tenant.addons.service.js (do not remove this comment)
 import { Prisma, AuditAction, AuditModule } from "@prisma/client";
-import env from "../../../config/env.js";
 import prisma from "../../../config/prisma.js";
 import razorpay from "../../../config/razorpay.js";
-import { ENTITLEMENT_MAP } from "../../../config/entitlements.config.js";
+import { ENTITLEMENT_MAP } from "../../../lib/entitlements/registry.js";
 import { grantCredits } from "../../../lib/entitlements/usage.service.js";
 import { calculateGST as rawCalculateGST } from "../../../lib/billing.js";
 import {
@@ -20,8 +19,8 @@ import { verifyRazorpayHmac } from "../plans/tenant.plans.service.js";
 import { logTenantAudit } from "../../audit/tenant.audit.js";
 import { createSuperAdminNotification } from "../../superadmin-notifications/superadminNotification.service.js";
 import { sendInvoiceEmail } from "../../email/index.js";
-import { HttpError } from "../../../utils/httpError.js";
-import logger from "../../../utils/logger.js";
+import { HttpError } from "../../../lib/utils/http.error.js";
+import logger from "../../../config/logger.js";
 
 const getGSTSettings = getInvoiceSettings;
 
@@ -36,7 +35,9 @@ async function calculateGST(amount) {
     taxAmount,
     totalAmount: Number(res.totalAmount ?? 0),
     gstRegistered:
-      res.gstRegistered !== undefined ? Boolean(res.gstRegistered) : taxRate > 0,
+      res.gstRegistered !== undefined
+        ? Boolean(res.gstRegistered)
+        : taxRate > 0,
     taxLabel: res.taxLabel || "GST",
     currency: res.currency || "INR",
   };
@@ -58,7 +59,7 @@ export function isBaseSubscriptionOperational(sub, now = new Date()) {
 
   if (
     ["active", "trialing", "cancel_at_period_end"].includes(
-      sub.subscriptionStatus
+      sub.subscriptionStatus,
     ) &&
     (!sub.planPeriodEnd ||
       new Date(sub.planPeriodEnd).getTime() > now.getTime())
@@ -82,7 +83,7 @@ function assertBaseSubscriptionOperational(sub, now = new Date()) {
     throw new HttpError(
       403,
       "An active base subscription is required to purchase add-ons or credit top-ups.",
-      "BASE_SUBSCRIPTION_INACTIVE"
+      "BASE_SUBSCRIPTION_INACTIVE",
     );
   }
 }
@@ -90,13 +91,13 @@ function assertBaseSubscriptionOperational(sub, now = new Date()) {
 async function generateAndEmailAddOnInvoiceBestEffort(
   invoice,
   tenant,
-  gstSettings
+  gstSettings,
 ) {
   try {
     const { filePath, fileUrl, url } = await generateInvoicePDF(
       invoice,
       tenant,
-      gstSettings
+      gstSettings,
     );
 
     if (tenant?.email) {
@@ -168,7 +169,7 @@ function formatAddOnWithTax(addOn, gstRef) {
 
 function formatTenantAddOnRow(row, now = new Date()) {
   const isExpiredByDate = Boolean(
-    row.expiresAt && new Date(row.expiresAt).getTime() <= now.getTime()
+    row.expiresAt && new Date(row.expiresAt).getTime() <= now.getTime(),
   );
   const isEffective =
     ["active", "cancel_at_period_end"].includes(row.status) && !isExpiredByDate;
@@ -182,7 +183,7 @@ function formatTenantAddOnRow(row, now = new Date()) {
     source: row.source,
     razorpaySubscriptionId: row.razorpaySubscriptionId,
     autopayEnabled: Boolean(
-      row.razorpaySubscriptionId && row.status === "active"
+      row.razorpaySubscriptionId && row.status === "active",
     ),
     startsAt: row.startsAt,
     expiresAt: row.expiresAt,
@@ -267,7 +268,7 @@ export async function listTenantAddOnsService(tenantId) {
  */
 export async function createAddOnOrderService(
   tenantId,
-  { addOnId, quantity = 1 }
+  { addOnId, quantity = 1 },
 ) {
   const now = new Date();
 
@@ -291,7 +292,7 @@ export async function createAddOnOrderService(
     throw new HttpError(
       404,
       "Add-on not found or is no longer available for purchase.",
-      "ADDON_NOT_AVAILABLE"
+      "ADDON_NOT_AVAILABLE",
     );
   }
 
@@ -300,7 +301,7 @@ export async function createAddOnOrderService(
     throw new HttpError(
       400,
       "Cannot create a payment order for a zero-price add-on.",
-      "INVALID_ADDON_PRICE"
+      "INVALID_ADDON_PRICE",
     );
   }
 
@@ -359,7 +360,7 @@ export async function createAddOnOrderService(
     orderId: order.id,
     amount: order.amount,
     currency: order.currency,
-    key: env.RAZORPAY_KEY_ID,
+    key: process.env.RAZORPAY_KEY_ID,
     addOnId: addOn.id,
     addOnName: addOn.name,
     addOnType: addOn.type,
@@ -408,14 +409,11 @@ export async function fulfillAddOnOrderByOrderId({
   }
 
   const targetPaymentPreview = existingPayments[0];
-  if (
-    expectedTenantId &&
-    targetPaymentPreview.tenantId !== expectedTenantId
-  ) {
+  if (expectedTenantId && targetPaymentPreview.tenantId !== expectedTenantId) {
     throw new HttpError(
       403,
       "This payment order does not belong to your account.",
-      "ORDER_TENANT_MISMATCH"
+      "ORDER_TENANT_MISMATCH",
     );
   }
 
@@ -437,7 +435,7 @@ export async function fulfillAddOnOrderByOrderId({
 
   const txResult = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw(
-      Prisma.sql`SELECT "id" FROM "payments" WHERE "id" = ${targetPaymentPreview.id} FOR UPDATE`
+      Prisma.sql`SELECT "id" FROM "payments" WHERE "id" = ${targetPaymentPreview.id} FOR UPDATE`,
     );
 
     const payment = await tx.payment.findUnique({
@@ -470,7 +468,7 @@ export async function fulfillAddOnOrderByOrderId({
     const entitlementKey =
       addOn?.entitlementKey || payment.metadata?.entitlementKey;
     const amountPerUnit = Number(
-      addOn?.amountPerUnit ?? payment.metadata?.amountPerUnit ?? 0
+      addOn?.amountPerUnit ?? payment.metadata?.amountPerUnit ?? 0,
     );
     const addOnName =
       addOn?.name || payment.metadata?.addOnName || "Plan Add-On";
@@ -503,14 +501,14 @@ export async function fulfillAddOnOrderByOrderId({
         throw new HttpError(
           400,
           "Invalid credit top-up configuration.",
-          "INVALID_TOPUP_CONFIG"
+          "INVALID_TOPUP_CONFIG",
         );
       }
       updatedPool = await grantCredits(
         tenantId,
         entitlementKey,
         totalCredits,
-        tx
+        tx,
       );
     } else {
       const cycle = addOn?.billingCycle || payment.billingCycle || "MONTHLY";
@@ -530,7 +528,7 @@ export async function fulfillAddOnOrderByOrderId({
       if (existingManualAddOn) {
         periodEnd = addCycleDuration(
           new Date(existingManualAddOn.expiresAt),
-          cycle
+          cycle,
         );
         tenantAddOnRecord = await tx.tenantAddOn.update({
           where: { id: existingManualAddOn.id },
@@ -610,7 +608,7 @@ export async function fulfillAddOnOrderByOrderId({
   await generateAndEmailAddOnInvoiceBestEffort(
     txResult.invoice,
     txResult.tenant,
-    gstSettings
+    gstSettings,
   );
 
   const actorName =
@@ -702,11 +700,11 @@ export async function fulfillAddOnOrderByOrderId({
 export async function verifyAddOnOrderService(
   tenantId,
   { razorpay_order_id, razorpay_payment_id, razorpay_signature },
-  meta = {}
+  meta = {},
 ) {
   const isValid = verifyRazorpayHmac(
     `${razorpay_order_id}|${razorpay_payment_id}`,
-    razorpay_signature
+    razorpay_signature,
   );
 
   if (!isValid) {
@@ -739,7 +737,7 @@ export async function verifyAddOnOrderService(
     throw new HttpError(
       400,
       "Payment verification failed — invalid signature.",
-      "INVALID_PAYMENT_SIGNATURE"
+      "INVALID_PAYMENT_SIGNATURE",
     );
   }
 
@@ -755,7 +753,7 @@ export async function verifyAddOnOrderService(
     throw new HttpError(
       404,
       "Matching add-on payment order was not found.",
-      "ORDER_NOT_FOUND"
+      "ORDER_NOT_FOUND",
     );
   }
 
@@ -768,7 +766,7 @@ export async function verifyAddOnOrderService(
  */
 export async function createAddOnSubscriptionService(
   tenantId,
-  { addOnId, quantity = 1 }
+  { addOnId, quantity = 1 },
 ) {
   const now = new Date();
 
@@ -792,7 +790,7 @@ export async function createAddOnSubscriptionService(
     throw new HttpError(
       404,
       "Add-on not found or is no longer available for purchase.",
-      "ADDON_NOT_AVAILABLE"
+      "ADDON_NOT_AVAILABLE",
     );
   }
 
@@ -800,7 +798,7 @@ export async function createAddOnSubscriptionService(
     throw new HttpError(
       400,
       "One-time credit top-ups must be purchased via create-order, not recurring subscriptions.",
-      "INVALID_ADDON_TYPE"
+      "INVALID_ADDON_TYPE",
     );
   }
 
@@ -809,7 +807,7 @@ export async function createAddOnSubscriptionService(
     throw new HttpError(
       400,
       "Recurring autopay cannot be created for a zero-price add-on.",
-      "INVALID_ADDON_PRICE"
+      "INVALID_ADDON_PRICE",
     );
   }
 
@@ -822,8 +820,8 @@ export async function createAddOnSubscriptionService(
     addOn.billingCycle === "ANNUAL"
       ? 5
       : addOn.billingCycle === "QUARTERLY"
-      ? 20
-      : 60;
+        ? 20
+        : 60;
 
   const subPayload = {
     plan_id: rzpPlanId,
@@ -848,16 +846,13 @@ export async function createAddOnSubscriptionService(
   try {
     rzpSubscription = await razorpay.subscriptions.create(subPayload);
   } catch (err) {
-    if (
-      err?.statusCode === 400 &&
-      err?.error?.code === "BAD_REQUEST_ERROR"
-    ) {
+    if (err?.statusCode === 400 && err?.error?.code === "BAD_REQUEST_ERROR") {
       logger.warn(
         "Stale Razorpay add-on plan ID detected — recreating and retrying",
         {
           addOnId: addOn.id,
           staleRzpPlanId: rzpPlanId,
-        }
+        },
       );
       rzpPlanId = await getOrCreateRazorpayPlanForAddOn(addOn, true);
       subPayload.plan_id = rzpPlanId;
@@ -869,7 +864,7 @@ export async function createAddOnSubscriptionService(
 
   return {
     subscriptionId: rzpSubscription.id,
-    key: env.RAZORPAY_KEY_ID,
+    key: process.env.RAZORPAY_KEY_ID,
     addOnId: addOn.id,
     addOnName: addOn.name,
     billingCycle: addOn.billingCycle,
@@ -904,11 +899,11 @@ export async function verifyAddOnSubscriptionService(
     addOnId,
     quantity = 1,
   },
-  meta = {}
+  meta = {},
 ) {
   const isValid = verifyRazorpayHmac(
     `${razorpay_payment_id}|${razorpay_subscription_id}`,
-    razorpay_signature
+    razorpay_signature,
   );
 
   if (!isValid) {
@@ -932,7 +927,7 @@ export async function verifyAddOnSubscriptionService(
     throw new HttpError(
       400,
       "Add-on subscription verification failed — invalid signature.",
-      "INVALID_PAYMENT_SIGNATURE"
+      "INVALID_PAYMENT_SIGNATURE",
     );
   }
 
@@ -981,7 +976,11 @@ export async function verifyAddOnSubscriptionService(
       throw new HttpError(404, "Tenant not found.", "TENANT_NOT_FOUND");
     }
     if (!addOn || addOn.type !== "RECURRING") {
-      throw new HttpError(404, "Recurring add-on not found.", "ADDON_NOT_FOUND");
+      throw new HttpError(
+        404,
+        "Recurring add-on not found.",
+        "ADDON_NOT_FOUND",
+      );
     }
 
     const lineBaseAmount =
@@ -1100,7 +1099,7 @@ export async function verifyAddOnSubscriptionService(
   await generateAndEmailAddOnInvoiceBestEffort(
     txResult.invoice,
     txResult.tenant,
-    gstSettings
+    gstSettings,
   );
 
   const actorName =
@@ -1147,7 +1146,8 @@ export async function verifyAddOnSubscriptionService(
       addOnName: txResult.addOn.name,
       entitlementKey: txResult.addOn.entitlementKey,
       quantity: txResult.quantity,
-      unitsGranted: Number(txResult.addOn.amountPerUnit || 0) * txResult.quantity,
+      unitsGranted:
+        Number(txResult.addOn.amountPerUnit || 0) * txResult.quantity,
       billingCycle: txResult.addOn.billingCycle,
       razorpaySubscriptionId: razorpay_subscription_id,
       expiresAt: txResult.tenantAddOnRecord.expiresAt,
@@ -1190,7 +1190,7 @@ export async function cancelTenantAddOnService(
   tenantId,
   tenantAddOnId,
   { reason } = {},
-  meta = {}
+  meta = {},
 ) {
   const now = new Date();
 
@@ -1214,33 +1214,33 @@ export async function cancelTenantAddOnService(
     throw new HttpError(
       409,
       `This add-on cannot be cancelled because its current status is "${tenantAddOn.status}".`,
-      "ADDON_ALREADY_CANCELLED"
+      "ADDON_ALREADY_CANCELLED",
     );
   }
 
   if (tenantAddOn.razorpaySubscriptionId) {
     const cancelRes = await cancelRazorpaySubscriptionBestEffort(
       tenantAddOn.razorpaySubscriptionId,
-      { atCycleEnd: true }
+      { atCycleEnd: true },
     );
     if (cancelRes.error) {
       await cancelRazorpaySubscriptionBestEffort(
         tenantAddOn.razorpaySubscriptionId,
-        { atCycleEnd: false }
+        { atCycleEnd: false },
       );
     }
   }
 
   const isAlreadyPastExpiry = Boolean(
     tenantAddOn.expiresAt &&
-      new Date(tenantAddOn.expiresAt).getTime() <= now.getTime()
+    new Date(tenantAddOn.expiresAt).getTime() <= now.getTime(),
   );
 
   const nextStatus = isAlreadyPastExpiry
     ? "expired"
     : tenantAddOn.expiresAt
-    ? "cancel_at_period_end"
-    : "cancelled";
+      ? "cancel_at_period_end"
+      : "cancelled";
 
   const updated = await prisma.tenantAddOn.update({
     where: { id: tenantAddOn.id },

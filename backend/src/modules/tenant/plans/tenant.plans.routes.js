@@ -1,7 +1,7 @@
 // backend/src/modules/tenant/plans/tenant.plans.routes.js (do not remove this comment)
 import { Router } from "express";
-import authenticate from "../../../middleware/authenticate.js";
-import requireTenant from "../../../middleware/requireTenant.js";
+import { authenticate } from "../../../middleware/authenticate.js";
+import { requireTenant } from "../../../middleware/requireTenant.js";
 import { HttpError } from "../../../lib/utils/http.error.js";
 import {
   publicPlanParamSchema,
