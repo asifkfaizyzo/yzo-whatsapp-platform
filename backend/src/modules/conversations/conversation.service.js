@@ -309,6 +309,23 @@ export const getMessages = async (params) => {
   // Step 5: Convert to chat order (old → new)
   const orderedMessages = actualMessages.reverse();
 
+  const shopifyStoreIds = [
+    ...new Set(
+      orderedMessages
+        .filter((msg) => msg.source === "SHOPIFY" && msg.shopifyStoreId)
+        .map((msg) => msg.shopifyStoreId),
+    ),
+  ];
+  const shopifyStores = shopifyStoreIds.length
+    ? await prisma.shopifyStore.findMany({
+        where: { id: { in: shopifyStoreIds }, tenantId },
+        select: { id: true, shopDomain: true },
+      })
+    : [];
+  const shopDomainByStoreId = new Map(
+    shopifyStores.map((store) => [store.id, store.shopDomain]),
+  );
+
   // Step 6: Format output
   const formattedMessages = orderedMessages.map((msg) => {
     // ✅ NEW: Generate signed URL if media exists
@@ -354,6 +371,12 @@ export const getMessages = async (params) => {
       type: msg.type || "TEXT",
       direction: msg.direction || null,
       senderType: msg.senderType || null,
+      source: msg.source || null,
+      shopifyStoreId: msg.shopifyStoreId || null,
+      shopDomain:
+        msg.source === "SHOPIFY" && msg.shopifyStoreId
+          ? shopDomainByStoreId.get(msg.shopifyStoreId) || null
+          : null,
       isRead: msg.isRead,
       status: msg.status || "sent",
       createdAt: msg.createdAt,

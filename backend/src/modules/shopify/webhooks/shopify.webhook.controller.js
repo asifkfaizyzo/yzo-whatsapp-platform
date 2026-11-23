@@ -127,6 +127,113 @@ export const handleIncomingWebhook = async (req, res) => {
       `📥 [Shopify Webhook Received] Topic: '${topic}' | Shop: '${JSON.stringify(cleanDomain)}'`,
     );
 
+        // Handle Shopify mandatory privacy webhooks separately.
+    const privacyTopics = [
+      "customers/data_request",
+      "customers/redact",
+      "shop/redact",
+    ];
+
+    if (privacyTopics.includes(topic)) {
+      const store = await prisma.shopifyStore.findUnique({
+        where: { shopDomain: cleanDomain },
+        select: {
+          id: true,
+          tenantId: true,
+          shopDomain: true,
+          shopifyShopId: true,
+        },
+      });
+
+      if (!store || !store.tenantId) {
+        console.warn(
+          `[Shopify Privacy] Store not found for privacy request: ${cleanDomain}`,
+        );
+        return res.status(200).json({
+          success: true,
+          message: "Privacy request acknowledged; store not found",
+        });
+      }
+
+      const payloadShopDomain = String(payload.shop_domain || "")
+        .trim()
+        .toLowerCase();
+
+      const payloadShopId = payload.shop_id
+        ? String(payload.shop_id)
+        : null;
+
+      if (
+        (payloadShopDomain && payloadShopDomain !== store.shopDomain) ||
+        (payloadShopId &&
+          store.shopifyShopId &&
+          payloadShopId !== String(store.shopifyShopId))
+      ) {
+        console.warn(
+          `[Shopify Privacy] Store identity mismatch for ${cleanDomain}`,
+        );
+        return res.status(200).json({
+          success: true,
+          message: "Privacy request acknowledged; identity mismatch",
+        });
+      }
+
+      const customerId =
+        topic === "shop/redact"
+          ? null
+          : payload.customer?.id
+            ? String(payload.customer.id)
+            : null;
+
+      if (topic !== "shop/redact" && !customerId) {
+        return res.status(400).json({
+          success: false,
+          message: "Missing Shopify customer ID",
+        });
+      }
+
+      const webhookId = req.headers["x-shopify-webhook-id"];
+
+      if (!webhookId) {
+        return res.status(400).json({
+          success: false,
+          message: "Missing Shopify webhook ID",
+        });
+      }
+
+      const jobId = `shopify_privacy_${store.id}_${topic.replace("/", "_")}_${String(webhookId).replace(/[^a-zA-Z0-9_-]/g, "")}`;
+
+      await orderWebhookQueue.add(
+        "shopify-privacy",
+        {
+          provider: "SHOPIFY",
+          type: "SHOPIFY_PRIVACY",
+          tenantId: store.tenantId,
+          storeId: store.id,
+          topic,
+          shopDomain: store.shopDomain,
+          customerId,
+        },
+        {
+          jobId,
+          attempts: 5,
+          backoff: {
+            type: "exponential",
+            delay: 10000,
+          },
+        },
+      );
+
+      console.log(
+        `[Shopify Privacy] Queued ${topic} for store ${store.id}`,
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: "Privacy request accepted",
+      });
+    }
+
     // Resolve and verify the connected Shopify store after HMAC verification.
 const connection = await prisma.shopifyConnection.findFirst({
   where: { shopName: cleanDomain },

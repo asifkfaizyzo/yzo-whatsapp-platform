@@ -51,6 +51,14 @@ const routeJob = async (job) => {
       await import("../../modules/woocommerce/woocommerce.cartRecovery.service.js");
     return processCartReminder(job.data);
   }
+
+  // Shopify mandatory privacy webhook jobs
+  if (job.name === "shopify-privacy") {
+    const { processShopifyPrivacyWebhook } =
+      await import("../../modules/shopify/webhooks/shopify.privacyWebhook.service.js");
+    return processShopifyPrivacyWebhook(job.data);
+  }
+  
   // All other order webhook jobs (orders/create, orders/updated, etc.)
   return processOrderWebhookJob(job);
 };

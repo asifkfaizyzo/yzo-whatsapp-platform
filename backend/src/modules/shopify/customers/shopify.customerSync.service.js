@@ -56,6 +56,18 @@ export const syncShopifyCustomer = async (tenantId, storeId, customerPayload) =>
       throw new Error("Active Shopify store not found for this tenant");
     }
 
+    const redaction = await tx.shopifyCustomerRedaction.findUnique({
+      where: {
+        storeId_shopifyCustomerId: {
+          storeId,
+          shopifyCustomerId: shopifyId,
+        },
+      },
+      select: { id: true },
+    });
+
+    if (redaction) return null;
+
     const firstName = customerPayload.first_name || "";
     const lastName = customerPayload.last_name || "";
     const fullName =

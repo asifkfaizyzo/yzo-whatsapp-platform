@@ -53,6 +53,38 @@ Checkout now:
 // HELPER: Render message template with variables
 // ─────────────────────────────────────────────────────────────
 
+const checkShopifyCartSendAllowed = async ({ tenantId, storeId, shopifyCustomerId }) => {
+  try {
+    const store = await prisma.shopifyStore.findFirst({
+      where: { id: storeId, tenantId, status: "active", redactedAt: null },
+      select: { id: true, tenantId: true, status: true, redactedAt: true },
+    });
+    if (
+      !store || store.id !== storeId || store.tenantId !== tenantId ||
+      store.status !== "active" || store.redactedAt !== null
+    ) {
+      return { skipped: true, reason: "shopify_store_missing_or_inactive" };
+    }
+
+    if (shopifyCustomerId != null) {
+      const tombstone = await prisma.shopifyCustomerRedaction.findUnique({
+        where: {
+          storeId_shopifyCustomerId: {
+            storeId,
+            shopifyCustomerId: String(shopifyCustomerId),
+          },
+        },
+        select: { id: true },
+      });
+      if (tombstone) return { skipped: true, reason: "customer_redacted" };
+    }
+
+    return null;
+  } catch {
+    return { skipped: true, reason: "shopify_redaction_check_failed" };
+  }
+};
+
 function renderMessage(template, vars) {
   let result = template || "";
   Object.keys(vars).forEach((key) => {
@@ -690,6 +722,16 @@ export async function scheduleCartReminders(data) {
       continue;
     }
 
+    const scheduleGuard = await checkShopifyCartSendAllowed({
+      tenantId,
+      storeId,
+      shopifyCustomerId,
+    });
+    if (scheduleGuard) {
+      console.warn(`[Cart Recovery] Skipping ${tier} reminder because Shopify redaction validation failed.`);
+      continue;
+    }
+
     const jobId = `shopify_cart_${tier}_${tenantId}_${storeId}_${checkoutId}`;
 
     try {
@@ -750,8 +792,6 @@ export async function processCartReminder(data) {
     checkoutId,
     cartOrderId,
     customerPhone,
-    customerName,
-    customerEmail,
     total,
     currency,
     lineItems,
@@ -779,6 +819,22 @@ if (!activeStore) {
   );
   return { skipped: true, reason: "invalid_shopify_store" };
 }
+
+  if (shopifyCustomerId != null) {
+    const redaction = await prisma.shopifyCustomerRedaction.findUnique({
+      where: {
+        storeId_shopifyCustomerId: {
+          storeId,
+          shopifyCustomerId: String(shopifyCustomerId),
+        },
+      },
+      select: { id: true },
+    });
+
+    if (redaction) {
+      return { skipped: true, reason: "customer_redacted" };
+    }
+  }
 
   console.log(
     `🛒 [Cart Recovery] Processing ${tier} reminder for checkout ${checkoutId} (tenant ${tenantId})`,
@@ -832,7 +888,13 @@ if (!activeStore) {
       shopifyStoreId: storeId,
       externalOrderId: checkoutId,
     },
-    select: { [sentField]: true, cartStatus: true, customerName: true },
+     select: {
+       [sentField]: true,
+       cartStatus: true,
+       customerPhone: true,
+       customerEmail: true,
+       customerName: true,
+     },
   });
 
   if (existingCart?.[sentField]) {
@@ -907,10 +969,7 @@ if (!activeStore) {
   };
 
   // 4. Build message
-  const resolvedName =
-    existingCart?.customerName && existingCart.customerName !== "Customer"
-      ? existingCart.customerName
-      : customerName || "Customer";
+  const resolvedName = existingCart?.customerName || "Customer";
 
   const cartData = {
     customerName: resolvedName,
@@ -926,7 +985,7 @@ if (!activeStore) {
 
   // 5. Apply DEV phone override if enabled
   const isProd = isProductionEnvironment();
-  let targetPhone = customerPhone;
+  let targetPhone = existingCart?.customerPhone;
 
   if (!isProd && process.env.SHOPIFY_OVERRIDE_PHONE_IN_DEV === "true") {
     targetPhone = process.env.META_TEST_PHONE || "+15556289708";
@@ -947,9 +1006,11 @@ if (!activeStore) {
 
   const { contact, conversation } = await getOrCreateShopifyContact({
     tenantId,
+    storeId,
+    shopifyCustomerId,
     customerPhone: cleanPhone,
     customerName: resolvedName,
-    customerEmail: customerEmail || "",
+    customerEmail: existingCart?.customerEmail || "",
   });
 
   if (!contact || !conversation) {
@@ -989,7 +1050,7 @@ const sendCartCheck = await prisma.ecommerceOrder.findFirst({
 
 if (
   !sendCartCheck ||
-  ["converted", "recovered"].includes(sendCartCheck.cartStatus)
+  sendCartCheck.cartStatus !== "abandoned"
 ) {
   console.warn(
     `[Cart Recovery] Cart ownership/status changed before sending: ${checkoutId}`,
@@ -1005,6 +1066,12 @@ if (
   if (!isProd) {
     // ── DEVELOPMENT: Send free-form text via sendMessageService ──
     // ✅ sendMessageService already saves to inbox, so NO saveShopifyInboxMessage needed
+    const textSendGuard = await checkShopifyCartSendAllowed({
+      tenantId,
+      storeId,
+      shopifyCustomerId,
+    });
+    if (textSendGuard) return textSendGuard;
     await sendMessageService({
       tenantId,
       contactId: contact.id,
@@ -1022,6 +1089,12 @@ if (
         if (cleanMediaUrl.startsWith("//"))
           cleanMediaUrl = `https:${cleanMediaUrl}`;
 
+        const imageSendGuard = await checkShopifyCartSendAllowed({
+          tenantId,
+          storeId,
+          shopifyCustomerId,
+        });
+        if (imageSendGuard) return imageSendGuard;
         await sendMessageService({
           tenantId,
           contactId: contact.id,
@@ -1055,16 +1128,23 @@ if (
       settings,
       contact,
       conversation,
+      storeId,
+      shopifyCustomerId,
     });
 
+    if (sentUsingTemplate?.skipped) return sentUsingTemplate;
+
     if (sentUsingTemplate) {
-      await saveShopifyInboxMessage({
+      const inboxResult = await saveShopifyInboxMessage({
         tenantId,
+        storeId,
+        shopifyCustomerId,
         conversation,
         contact,
         messageText: messageBody,
         orderRecord: null,
       });
+      if (inboxResult?.skipped) return inboxResult;
     }
   }
 
@@ -1161,6 +1241,8 @@ export async function cancelCartReminders(tenantId, storeId, checkoutId) {
 
 async function sendProductionCartTemplate({
   tenantId,
+  storeId,
+  shopifyCustomerId,
   customerPhone,
   tier,
   cartData,
@@ -1381,6 +1463,12 @@ async function sendProductionCartTemplate({
       },
     };
 
+    const templateSendGuard = await checkShopifyCartSendAllowed({
+      tenantId,
+      storeId,
+      shopifyCustomerId,
+    });
+    if (templateSendGuard) return templateSendGuard;
     const waResponse = await axios.post(
       `https://graph.facebook.com/v21.0/${phoneNumberId}/messages`,
       templatePayload,
@@ -1404,6 +1492,12 @@ async function sendProductionCartTemplate({
 
     // Last resort fallback: try text message
     try {
+      const fallbackSendGuard = await checkShopifyCartSendAllowed({
+        tenantId,
+        storeId,
+        shopifyCustomerId,
+      });
+      if (fallbackSendGuard) return fallbackSendGuard;
       await sendMessageService({
         tenantId,
         contactId: contact.id,

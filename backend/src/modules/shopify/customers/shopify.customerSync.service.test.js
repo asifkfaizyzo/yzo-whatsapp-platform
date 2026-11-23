@@ -11,7 +11,9 @@ const state = {
   },
   contacts: [],
   mappings: [],
+  redactions: [],
   contactCreateCalls: 0,
+  contactUpdateCalls: 0,
   mappingUpsertCalls: 0,
   lockCalls: 0,
   nextContactId: 1,
@@ -22,7 +24,9 @@ const locks = new Map();
 function resetState() {
   state.contacts = [];
   state.mappings = [];
+  state.redactions = [];
   state.contactCreateCalls = 0;
+  state.contactUpdateCalls = 0;
   state.mappingUpsertCalls = 0;
   state.lockCalls = 0;
   state.nextContactId = 1;
@@ -71,6 +75,19 @@ const prismaMock = {
           }
 
           return null;
+        },
+      },
+
+      shopifyCustomerRedaction: {
+        findUnique: async ({ where }) => {
+          const key = where.storeId_shopifyCustomerId;
+          return (
+            state.redactions.find(
+              (redaction) =>
+                redaction.storeId === key.storeId &&
+                redaction.shopifyCustomerId === key.shopifyCustomerId,
+            ) || null
+          );
         },
       },
 
@@ -161,6 +178,7 @@ const prismaMock = {
         },
 
         update: async ({ where, data }) => {
+          state.contactUpdateCalls++;
           const contact = state.contacts.find(
             (item) =>
               item.id === where.id &&
@@ -224,6 +242,78 @@ test("creates a contact and store-specific customer mapping", async () => {
   assert.equal(state.mappings[0].shopifyCustomerId, "12345");
   assert.equal(state.mappings[0].contactId, contact.id);
   assert.equal(state.lockCalls, 1);
+});
+
+test("an exact-store customer redaction prevents contact creation", async () => {
+  resetState();
+  state.redactions.push({
+    storeId: "test-store-1",
+    shopifyCustomerId: "12345",
+  });
+
+  const contact = await syncShopifyCustomer(
+    "test-tenant-1",
+    "test-store-1",
+    customerPayload,
+  );
+
+  assert.equal(contact, null);
+  assert.equal(state.contactCreateCalls, 0);
+  assert.equal(state.mappingUpsertCalls, 0);
+  assert.equal(state.contacts.length, 0);
+  assert.equal(state.lockCalls, 1);
+});
+
+test("an exact-store customer redaction prevents existing mapping and contact updates", async () => {
+  resetState();
+  const existingContact = {
+    id: "existing-contact-redacted",
+    tenantId: "test-tenant-1",
+    name: "Original Name",
+    email: null,
+    phone: "+00012345",
+    company: null,
+  };
+  const existingMapping = {
+    id: "existing-mapping-redacted",
+    storeId: "test-store-1",
+    tenantId: "test-tenant-1",
+    shopifyCustomerId: "12345",
+    contactId: existingContact.id,
+    contact: existingContact,
+    lastSyncedAt: "unchanged",
+  };
+  state.contacts.push(existingContact);
+  state.mappings.push(existingMapping);
+  state.redactions.push({ storeId: "test-store-1", shopifyCustomerId: "12345" });
+
+  const contact = await syncShopifyCustomer(
+    "test-tenant-1",
+    "test-store-1",
+    customerPayload,
+  );
+
+  assert.equal(contact, null);
+  assert.equal(state.mappingUpsertCalls, 0);
+  assert.equal(state.contactUpdateCalls, 0);
+  assert.equal(state.mappings[0].lastSyncedAt, "unchanged");
+  assert.equal(existingContact.name, "Original Name");
+});
+
+test("a tombstone for another store does not block this store's customer", async () => {
+  resetState();
+  state.redactions.push({ storeId: "another-store", shopifyCustomerId: "12345" });
+
+  const contact = await syncShopifyCustomer(
+    "test-tenant-1",
+    "test-store-1",
+    customerPayload,
+  );
+
+  assert.ok(contact);
+  assert.equal(state.contactCreateCalls, 1);
+  assert.equal(state.mappingUpsertCalls, 1);
+  assert.equal(state.mappings[0].storeId, "test-store-1");
 });
 
 test("rejects a store belonging to another tenant without writes", async () => {

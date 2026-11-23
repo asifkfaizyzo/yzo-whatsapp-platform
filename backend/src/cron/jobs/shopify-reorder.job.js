@@ -3,6 +3,33 @@
 import prisma from "../../config/prisma.js";
 import { orderWebhookQueue } from "../queues/order-webhook.queue.js";
 
+const canScheduleShopifyOrderReminder = async ({ tenantId, storeId, shopifyCustomerId }) => {
+  try {
+    const store = await prisma.shopifyStore.findFirst({
+      where: { id: storeId, tenantId, status: "active", redactedAt: null },
+      select: { id: true, tenantId: true, status: true, redactedAt: true },
+    });
+    if (
+      !store || store.id !== storeId || store.tenantId !== tenantId ||
+      store.status !== "active" || store.redactedAt !== null
+    ) return false;
+
+    if (shopifyCustomerId == null) return true;
+    const tombstone = await prisma.shopifyCustomerRedaction.findUnique({
+      where: {
+        storeId_shopifyCustomerId: {
+          storeId,
+          shopifyCustomerId: String(shopifyCustomerId),
+        },
+      },
+      select: { id: true },
+    });
+    return !tombstone;
+  } catch {
+    return false;
+  }
+};
+
 /**
  * Runs daily. Finds Shopify orders delivered N days ago and enqueues
  * reorder reminder messages for each.
@@ -17,9 +44,17 @@ export const runShopifyReorderReminders = async () => {
         status: "active",
         postPurchaseReorderEnabled: true,
       },
-      select: {
+        select: {
         tenantId: true,
         postPurchaseReorderDays: true,
+        store: {
+          select: {
+            id: true,
+            tenantId: true,
+            status: true,
+            redactedAt: true,
+          },
+        },
       },
     });
 
@@ -31,7 +66,27 @@ export const runShopifyReorderReminders = async () => {
     let totalEnqueued = 0;
 
     for (const config of shopifyTenants) {
-      const { tenantId, postPurchaseReorderDays } = config;
+           const {
+        tenantId,
+        postPurchaseReorderDays,
+        store,
+      } = config;
+
+      const storeId = store?.id;
+
+      if (
+        !store ||
+        !storeId ||
+        store.tenantId !== tenantId ||
+        store.status !== "active" ||
+        store.redactedAt
+      ) {
+        console.warn(
+          `[ReorderReminder] Skipping tenant ${tenantId}: no active Shopify store.`,
+        );
+        continue;
+      }
+
       const days = postPurchaseReorderDays || 30;
 
       // 2. Calculate the target date window (±1 day to catch edge cases)
@@ -48,6 +103,7 @@ export const runShopifyReorderReminders = async () => {
         where: {
           tenantId,
           source: "SHOPIFY",
+          shopifyStoreId: storeId,
           status: { in: ["completed", "delivered"] },
           deliveredAt: {
             gte: targetDateStart,
@@ -62,10 +118,18 @@ export const runShopifyReorderReminders = async () => {
       for (const order of eligibleOrders) {
         if (!order.customerPhone || order.customerPhone === "+") continue;
 
+        const canSchedule = await canScheduleShopifyOrderReminder({
+          tenantId,
+          storeId,
+          shopifyCustomerId: order.shopifyCustomerId,
+        });
+        if (!canSchedule) continue;
+
         await orderWebhookQueue.add(
           "shopify-reorder-reminder",
           {
-            tenantId,
+             tenantId,
+            storeId,
             ecommerceOrderId: order.id,
             orderNumber: order.orderNumber,
             customerPhone: order.customerPhone,

@@ -58,6 +58,7 @@ model ShopifyStore {
   connection      ShopifyConnection?
   customerMappings ShopifyCustomerMapping[]
   orders           EcommerceOrder[]
+  customerRedactions ShopifyCustomerRedaction[]
 
   status          String   @default("active")
   disconnectedAt DateTime?
@@ -91,6 +92,20 @@ model ShopifyCustomerMapping {
   @@index([tenantId])
   @@index([contactId])
   @@map("shopify_customer_mappings")
+}
+
+model ShopifyCustomerRedaction {
+  id                String       @id @default(cuid())
+  storeId           String
+  store             ShopifyStore @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  tenantId          String
+  shopifyCustomerId String
+  redactedAt        DateTime     @default(now())
+  createdAt         DateTime     @default(now())
+
+  @@unique([storeId, shopifyCustomerId])
+  @@index([tenantId])
+  @@map("shopify_customer_redactions")
 }
 
 model ShopifyProduct {
