@@ -69,194 +69,97 @@ const normalizeShopifyApiOrder = (shopifyOrder) => {
 const shopifyOrderLookupService = {
   // -----------------------------------------
   // Find a tenant's Shopify order by number, or latest by phone when no number is given
-  // ─────────────────────────────────────────
-  
-findOrder: async (tenantId, phone, orderNumber = null) => {
-  try {
-    console.log(
-      `🔎 SHOPIFY LOOKUP -> Tenant: "${tenantId}", Phone: "${phone}", Query: "${orderNumber}"`,
-    );
-
-    if (!tenantId) {
-      console.error(
-        "❌ shopifyOrderLookupService.findOrder requires a tenantId",
-      );
-      return null;
-    }
-
-    // Resolve and validate the tenant's active Shopify store.
-    const connection = await prisma.shopifyConnection.findFirst({
-      where: { tenantId, status: "active" },
-      select: {
-        shopName: true,
-        store: {
-          select: {
-            id: true,
-            tenantId: true,
-            shopDomain: true,
-            status: true,
-            redactedAt: true,
-          },
-        },
-      },
-    });
-
-    const store = connection?.store;
-
-    if (
-      !connection ||
-      !store ||
-      store.tenantId !== tenantId ||
-      store.status !== "active" ||
-      store.redactedAt ||
-      String(store.shopDomain).toLowerCase() !==
-        String(connection.shopName).toLowerCase()
-    ) {
-      console.warn(
-        `⚠️ No valid active Shopify store for tenant ${tenantId}`,
-      );
-      return null;
-    }
-
-    const storeId = store.id;
-
-    const shopName = String(store.shopDomain || "")
-      .trim()
-      .toLowerCase();
-
-    if (!/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(shopName)) {
-      console.error(
-        `❌ Invalid Shopify shop domain configured for tenant ${tenantId}`,
-      );
-      return null;
-    }
-
-    const cleanNum = orderNumber
-      ? String(orderNumber)
-          .trim()
-          .replace(/^#+\s*/, "")
-          .trim()
-      : "";
-
-    // Do not fall back to another order by phone when a specific order number was provided.
-    if (cleanNum) {
-      const searchVariants = [cleanNum, `#${cleanNum}`];
-
-      const order = await prisma.ecommerceOrder.findFirst({
-        where: {
-          tenantId,
-          source: "SHOPIFY",
-          shopifyStoreId: storeId,
-          orderNumber: { in: searchVariants },
-        },
-        orderBy: { createdAt: "desc" },
-      });
-
-      if (order) {
-        console.log(`✅ FOUND BY ORDER NUMBER: #${cleanNum}`);
-        return order;
   // -----------------------------------------
   findOrder: async (tenantId, phone, orderNumber = null) => {
     try {
       console.log(
-        `?? SHOPIFY LOOKUP -> Tenant: "${tenantId}", Phone: "${phone}", Query: "${orderNumber}"`,
+        `🔎 SHOPIFY LOOKUP -> Tenant: "${tenantId}", Phone: "${phone}", Query: "${orderNumber}"`,
       );
 
       if (!tenantId) {
         console.error(
-          "? shopifyOrderLookupService.findOrder requires a tenantId",
+          "❌ shopifyOrderLookupService.findOrder requires a tenantId",
         );
         return null;
       }
 
-      const apiVersion = process.env.SHOPIFY_API_VERSION || "2026-07";
-      const accessToken = await getShopifyAccessToken(tenantId);
-
-      const response = await axios.get(
-        `https://${shopName}/admin/api/${apiVersion}/orders.json`,
-        {
-          headers: { "X-Shopify-Access-Token": accessToken },
-          params: { status: "any", name: `#${cleanNum}`, limit: 250 },
-          timeout: 10000,
+      // Resolve and validate the tenant's active Shopify store.
+      const connection = await prisma.shopifyConnection.findFirst({
+        where: { tenantId, status: "active" },
+        select: {
+          shopName: true,
+          store: {
+            select: {
+              id: true,
+              tenantId: true,
+              shopDomain: true,
+              status: true,
+              redactedAt: true,
+            },
+          },
         },
-      );
+      });
 
-      const matchedOrder = (response.data?.orders || []).find(
-        (shopifyOrder) => {
-          const apiOrderNumber = String(
-            shopifyOrder.order_number || "",
-          ).trim();
-          const apiName = String(shopifyOrder.name || "")
-            .replace(/^#+\s*/, "")
-            .trim();
+      const store = connection?.store;
 
-          return apiOrderNumber === cleanNum || apiName === cleanNum;
-        },
-      );
-
-      if (matchedOrder) {
-        console.log(`✅ FOUND BY SHOPIFY API: #${cleanNum}`);
-        return normalizeShopifyApiOrder(matchedOrder);
+      if (
+        !connection ||
+        !store ||
+        store.tenantId !== tenantId ||
+        store.status !== "active" ||
+        store.redactedAt ||
+        String(store.shopDomain).toLowerCase() !==
+          String(connection.shopName).toLowerCase()
+      ) {
+        console.warn(
+          `⚠️ No valid active Shopify store for tenant ${tenantId}`,
+        );
+        return null;
       }
 
-      console.log(
-        `⚠️ Shopify order #${cleanNum} was not found for tenant ${tenantId}`,
-      );
-      return null;
-    }
+      const storeId = store.id;
+      const shopName = String(store.shopDomain || "")
+        .trim()
+        .toLowerCase();
 
-    // When no order number was provided, find the latest Shopify order for this phone.
-    if (phone) {
-      const normalizedPhone = String(phone).replace(/\D/g, "");
-      const nationalDigits =
-        normalizedPhone.length > 10
-          ? normalizedPhone.slice(-10)
-          : normalizedPhone;
+      if (!/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(shopName)) {
+        console.error(
+          `❌ Invalid Shopify shop domain configured for tenant ${tenantId}`,
+        );
+        return null;
+      }
 
-      if (nationalDigits) {
-        const phoneOrder = await prisma.ecommerceOrder.findFirst({
+      const cleanNum = orderNumber
+        ? String(orderNumber)
+            .trim()
+            .replace(/^#+\s*/, "")
+            .trim()
+        : "";
+
+      // 1. Look up by specific order number
+      if (cleanNum) {
+        const searchVariants = [cleanNum, `#${cleanNum}`];
+
+        const order = await prisma.ecommerceOrder.findFirst({
           where: {
             tenantId,
             source: "SHOPIFY",
             shopifyStoreId: storeId,
-            customerPhone: { contains: nationalDigits },
+            orderNumber: { in: searchVariants },
           },
           orderBy: { createdAt: "desc" },
         });
 
-        if (phoneOrder) {
-          console.log(
-            `✅ FOUND BY PHONE NUMBER: ${phoneOrder.orderNumber}`,
-          );
-          return phoneOrder;
         if (order) {
-          console.log(`? FOUND BY ORDER NUMBER: #${cleanNum}`);
+          console.log(`✅ FOUND BY ORDER NUMBER: #${cleanNum}`);
           return order;
         }
 
-        const apiVersion = process.env.SHOPIFY_API_VERSION || "2026-07";
-        const accessToken = await getShopifyAccessToken(tenantId);
-
-        const response = await axios.get(
-          `https://${shopName}/admin/api/${apiVersion}/orders.json`,
-          {
-            headers: { "X-Shopify-Access-Token": accessToken },
-            params: { status: "any", limit: 250 },
-            timeout: 10000,
-          },
-        if (connection) {
-          const shopName = String(connection.shopName || "")
-            .trim()
-            .toLowerCase();
-          if (!/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(shopName)) {
-            console.error(
-              `? Invalid Shopify shop domain configured for tenant ${tenantId}`,
-            );
-            return null;
-          }
-
+        // Fallback to Shopify Admin API
+        try {
           const apiVersion = process.env.SHOPIFY_API_VERSION || "2026-07";
           const accessToken = await getShopifyAccessToken(tenantId);
+
           const response = await axios.get(
             `https://${shopName}/admin/api/${apiVersion}/orders.json`,
             {
@@ -265,6 +168,7 @@ findOrder: async (tenantId, phone, orderNumber = null) => {
               timeout: 10000,
             },
           );
+
           const matchedOrder = (response.data?.orders || []).find(
             (shopifyOrder) => {
               const apiOrderNumber = String(
@@ -273,80 +177,56 @@ findOrder: async (tenantId, phone, orderNumber = null) => {
               const apiName = String(shopifyOrder.name || "")
                 .replace(/^#+\s*/, "")
                 .trim();
+
               return apiOrderNumber === cleanNum || apiName === cleanNum;
             },
           );
 
           if (matchedOrder) {
-            console.log(`? FOUND BY SHOPIFY API: #${cleanNum}`);
+            console.log(`✅ FOUND BY SHOPIFY API: #${cleanNum}`);
             return normalizeShopifyApiOrder(matchedOrder);
           }
-        } else {
-          console.warn(
-            `?? No active Shopify connection for tenant ${tenantId}`,
-          );
+        } catch (apiErr) {
+          console.warn(`⚠️ Shopify API order lookup error for #${cleanNum}:`, apiErr.message);
         }
 
         console.log(
-          `?? Shopify order #${cleanNum} was not found for tenant ${tenantId}`,
+          `⚠️ Shopify order #${cleanNum} was not found for tenant ${tenantId}`,
         );
+        return null;
+      }
 
-        const matchedOrder = (response.data?.orders || []).find(
-          (shopifyOrder) => {
-            const customer = shopifyOrder.customer || {};
-            const candidatePhones = [
-              customer.phone,
-              shopifyOrder.phone,
-              shopifyOrder.billing_address?.phone,
-              shopifyOrder.shipping_address?.phone,
-            ];
+      // 2. Look up latest order by customer phone
+      if (phone) {
+        const normalizedPhone = String(phone).replace(/\D/g, "");
+        const nationalDigits =
+          normalizedPhone.length > 10
+            ? normalizedPhone.slice(-10)
+            : normalizedPhone;
 
-            return candidatePhones.some((candidate) => {
-              const candidateDigits = String(candidate || "").replace(
-                /\D/g,
-                "",
         if (nationalDigits) {
           const phoneOrder = await prisma.ecommerceOrder.findFirst({
             where: {
               tenantId,
               source: "SHOPIFY",
+              shopifyStoreId: storeId,
               customerPhone: { contains: nationalDigits },
             },
             orderBy: { createdAt: "desc" },
           });
 
           if (phoneOrder) {
-            console.log(`? FOUND BY PHONE NUMBER: ${phoneOrder.orderNumber}`);
+            console.log(
+              `✅ FOUND BY PHONE NUMBER: ${phoneOrder.orderNumber}`,
+            );
             return phoneOrder;
           }
 
-          const connection = await prisma.shopifyConnection.findFirst({
-            where: { tenantId, status: "active" },
-            select: { shopName: true, accessToken: true },
-          });
-
-          if (connection) {
-            const shopName = String(connection.shopName || "")
-              .trim()
-              .toLowerCase();
-            if (!/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(shopName)) {
-              console.error(
-                `? Invalid Shopify shop domain configured for tenant ${tenantId}`,
-              );
-              return candidateDigits.endsWith(nationalDigits);
-            });
-          },
-        );
-
-        if (matchedOrder) {
-          console.log(
-            `✅ FOUND BY SHOPIFY API PHONE LOOKUP for tenant ${tenantId}`,
-          );
-          return normalizeShopifyApiOrder(matchedOrder);
-        }
-      }
+          // Fallback: Check Shopify API by phone
+          try {
             const apiVersion = process.env.SHOPIFY_API_VERSION || "2026-07";
             const accessToken = await getShopifyAccessToken(tenantId);
+
             const response = await axios.get(
               `https://${shopName}/admin/api/${apiVersion}/orders.json`,
               {
@@ -355,6 +235,7 @@ findOrder: async (tenantId, phone, orderNumber = null) => {
                 timeout: 10000,
               },
             );
+
             const matchedOrder = (response.data?.orders || []).find(
               (shopifyOrder) => {
                 const customer = shopifyOrder.customer || {};
@@ -364,11 +245,9 @@ findOrder: async (tenantId, phone, orderNumber = null) => {
                   shopifyOrder.billing_address?.phone,
                   shopifyOrder.shipping_address?.phone,
                 ];
+
                 return candidatePhones.some((candidate) => {
-                  const candidateDigits = String(candidate || "").replace(
-                    /\D/g,
-                    "",
-                  );
+                  const candidateDigits = String(candidate || "").replace(/\D/g, "");
                   return candidateDigits.endsWith(nationalDigits);
                 });
               },
@@ -376,37 +255,25 @@ findOrder: async (tenantId, phone, orderNumber = null) => {
 
             if (matchedOrder) {
               console.log(
-                `? FOUND BY SHOPIFY API PHONE LOOKUP for tenant ${tenantId}`,
+                `✅ FOUND BY SHOPIFY API PHONE LOOKUP for tenant ${tenantId}`,
               );
               return normalizeShopifyApiOrder(matchedOrder);
             }
-          } else {
-            console.warn(
-              `?? No active Shopify connection for tenant ${tenantId}`,
-            );
+          } catch (apiErr) {
+            console.warn(`⚠️ Shopify API phone order lookup error:`, apiErr.message);
           }
         }
       }
 
       console.log(
-        `?? Order lookup returned no results for Query: "${orderNumber}", Phone: "${phone}"`,
+        `⚠️ Order lookup returned no results for Query: "${orderNumber}", Phone: "${phone}"`,
       );
       return null;
     } catch (error) {
-      console.error("? shopifyOrderLookupService.findOrder error:", error);
+      console.error("❌ shopifyOrderLookupService.findOrder error:", error);
       return null;
     }
-
-    console.log(
-      `⚠️ Order lookup returned no results for Query: "${orderNumber}", Phone: "${phone}"`,
-    );
-    return null;
-  } catch (error) {
-    console.error("❌ shopifyOrderLookupService.findOrder error:", error);
-    return null;
-  }
-},
-
+  },
 
   // -----------------------------------------
   // Format tracking info from order JSON
@@ -471,27 +338,27 @@ findOrder: async (tenantId, phone, orderNumber = null) => {
     if (!order) return null;
 
     const statusMap = {
-      PENDING: "? Pending",
-      CONFIRMED: "? Confirmed",
-      PROCESSING: "?? Processing",
-      COMPLETED: "? Fulfilled",
-      SHIPPED: "?? Shipped",
-      OUT_FOR_DELIVERY: "?? Out for Delivery",
-      DELIVERED: "? Delivered",
-      CANCELLED: "? Cancelled",
-      REFUNDED: "?? Refunded",
-      FULFILLED: "? Fulfilled",
-      UNFULFILLED: "? Unfulfilled",
-      PARTIALLY_FULFILLED: "?? Partially Fulfilled",
+      PENDING: "⏳ Pending",
+      CONFIRMED: "✅ Confirmed",
+      PROCESSING: "📦 Processing",
+      COMPLETED: "✅ Fulfilled",
+      SHIPPED: "🚚 Shipped",
+      OUT_FOR_DELIVERY: "🛵 Out for Delivery",
+      DELIVERED: "🎉 Delivered",
+      CANCELLED: "❌ Cancelled",
+      REFUNDED: "💸 Refunded",
+      FULFILLED: "✅ Fulfilled",
+      UNFULFILLED: "⏳ Unfulfilled",
+      PARTIALLY_FULFILLED: "📦 Partially Fulfilled",
     };
 
     const paymentMap = {
-      PAID: "? Paid",
-      UNPAID: "? Unpaid",
-      PENDING: "? Pending",
-      CANCELLED: "? Cancelled",
-      REFUNDED: "?? Refunded",
-      PARTIALLY_REFUNDED: "?? Partially Refunded",
+      PAID: "✅ Paid",
+      UNPAID: "⏳ Unpaid",
+      PENDING: "⏳ Pending",
+      CANCELLED: "❌ Cancelled",
+      REFUNDED: "💸 Refunded",
+      PARTIALLY_REFUNDED: "💸 Partially Refunded",
     };
 
     const rawStatus = order.status || "Unknown";
@@ -530,7 +397,7 @@ findOrder: async (tenantId, phone, orderNumber = null) => {
               const name = item?.name || item?.title || `Item ${index + 1}`;
               const quantity = Number(item?.quantity) || 1;
               const price = Number(item?.price ?? item?.unitPrice ?? 0);
-              return `  � ${name} � ${quantity} � ${order.currency || "INR"} ${price.toFixed(2)}`;
+              return `  • ${name} × ${quantity} — ${order.currency || "INR"} ${price.toFixed(2)}`;
             })
             .join("\n")
         : "  No items found";
@@ -565,7 +432,7 @@ findOrder: async (tenantId, phone, orderNumber = null) => {
       return {
         lookupFound: false,
         order_number: "N/A",
-        order_status: "? Order Not Found",
+        order_status: "❌ Order Not Found",
         order_status_raw: "Not Found",
         payment_status: "N/A",
         payment_status_raw: "N/A",
@@ -580,7 +447,7 @@ findOrder: async (tenantId, phone, orderNumber = null) => {
         item_count: "0",
         customer_name: "N/A",
         orderNumber: "N/A",
-        orderStatus: "? Order Not Found",
+        orderStatus: "❌ Order Not Found",
         paymentStatus: "N/A",
         trackingNumber: "N/A",
         trackingUrl: "N/A",

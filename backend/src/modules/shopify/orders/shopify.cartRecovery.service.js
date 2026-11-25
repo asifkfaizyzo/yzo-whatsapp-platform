@@ -1,5 +1,4 @@
 // backend/src/modules/shopify/orders/shopify.cartRecovery.service.js (do not remove this comment)
-
 import axios from "axios";
 import prisma from "../../../config/prisma.js";
 import { decrypt } from "../../../lib/crypto.js";
@@ -16,38 +15,38 @@ import {
 // DEFAULT MESSAGE TEMPLATES (Tenant can override via settings)
 // -------------------------------------------------------------
 
-const DEFAULT_1H_TEMPLATE = `Hey {{customer_name}}! ??
+const DEFAULT_1H_TEMPLATE = `Hey {{customer_name}}! 👋
 
 You left something in your cart at {{store_name}}:
 
-?? {{product_summary}}
-?? Total: {{currency}} {{total_amount}}
+🛒 {{product_summary}}
+💰 Total: {{currency}} {{total_amount}}
 
 Complete your purchase before items sell out:
-?? {{checkout_url}}`;
+👉 {{checkout_url}}`;
 
-const DEFAULT_24H_TEMPLATE = `? *Your cart is about to expire!*
+const DEFAULT_24H_TEMPLATE = `⏰ *Your cart is about to expire!*
 
 Hi {{customer_name}}, here's what's waiting for you at {{store_name}}:
 
-?? {{product_summary}}
-?? Total: {{currency}} {{total_amount}}
+🛒 {{product_summary}}
+💰 Total: {{currency}} {{total_amount}}
 
-Almost sold out � buy now before it's gone:
-?? {{checkout_url}}`;
+Almost sold out — buy now before it's gone:
+👉 {{checkout_url}}`;
 
-const DEFAULT_48H_TEMPLATE = `?? *Special offer just for you!*
+const DEFAULT_48H_TEMPLATE = `🎁 *Special offer just for you!*
 
 Hi {{customer_name}}, we noticed you left items at {{store_name}}.
 
-?? {{product_summary}}
-?? Total: {{currency}} {{total_amount}}
+🛒 {{product_summary}}
+💰 Total: {{currency}} {{total_amount}}
 
 Use code *{{discount_code}}* for {{discount_label}} off to complete your order!
-??? Code: {{discount_code}}
+🏷️ Code: {{discount_code}}
 
 Checkout now:
-?? {{checkout_url}}`;
+👉 {{checkout_url}}`;
 
 // -------------------------------------------------------------
 // HELPER: Render message template with variables
@@ -73,7 +72,7 @@ async function fetchShopifyProductImage(tenantId, storeId, productId, variantId)
   if (!productId && !variantId) return null;
 
   try {
-        const shopifyConn = await prisma.shopifyConnection.findFirst({
+    const shopifyConn = await prisma.shopifyConnection.findFirst({
       where: {
         tenantId,
         store: {
@@ -97,7 +96,7 @@ async function fetchShopifyProductImage(tenantId, storeId, productId, variantId)
 
     const apiVersion = process.env.SHOPIFY_API_VERSION || "2024-10";
 
-    // Prefer the selected variant's image when the cart line identifies a variant.
+    // Prefer variant image
     if (variantId) {
       try {
         const varRes = await axios.get(
@@ -120,12 +119,12 @@ async function fetchShopifyProductImage(tenantId, storeId, productId, variantId)
         }
       } catch (err) {
         console.warn(
-          `?? [Cart Recovery] Could not fetch variant image from Shopify API: ${err.message}`,
+          `⚠️ [Cart Recovery] Could not fetch variant image from Shopify API: ${err.message}`,
         );
       }
     }
 
-    // Fall back to the product's primary image.
+    // Fall back to product image
     if (productId) {
       const prodRes = await axios.get(
         `https://${cleanShop}/admin/api/${apiVersion}/products/${productId}.json`,
@@ -141,7 +140,7 @@ async function fetchShopifyProductImage(tenantId, storeId, productId, variantId)
     }
   } catch (err) {
     console.warn(
-      `?? [Cart Recovery] Could not fetch product image from API: ${err.message}`,
+      `⚠️ [Cart Recovery] Could not fetch product image from API: ${err.message}`,
     );
   }
 
@@ -152,7 +151,7 @@ async function fetchAbandonedCheckoutCustomer(tenantId, storeId, checkoutId) {
   const numericCheckoutId = String(checkoutId).match(/(?:^|\/)(\d+)$/)?.[1];
   if (!numericCheckoutId) return null;
 
-   const shopifyConn = await prisma.shopifyConnection.findFirst({
+  const shopifyConn = await prisma.shopifyConnection.findFirst({
     where: {
       tenantId,
       store: {
@@ -299,7 +298,7 @@ function extractCheckoutData(payload) {
     completedAt: payload.completed_at || null,
     orderId: payload.order_id || null,
     shopifyCustomerId:
-    payload.customer?.id != null ? String(payload.customer.id) : null,
+      payload.customer?.id != null ? String(payload.customer.id) : null,
   };
 }
 
@@ -308,7 +307,6 @@ function extractCheckoutData(payload) {
 // -------------------------------------------------------------
 
 async function isCheckoutConverted(tenantId, storeId, checkoutId, customerPhone) {
-  // 1. Check if a real order exists for this checkout
   const existingCartOrder = await prisma.ecommerceOrder.findFirst({
     where: {
       tenantId,
@@ -327,11 +325,10 @@ async function isCheckoutConverted(tenantId, storeId, checkoutId, customerPhone)
     return true;
   }
 
-  // 2. Check if customer placed a different order recently (same phone, status processing/completed)
   if (customerPhone) {
     const cleanPhone = customerPhone.replace(/[^\d+]/g, "");
     const recentOrder = await prisma.ecommerceOrder.findFirst({
-           where: {
+      where: {
         tenantId,
         source: "SHOPIFY",
         shopifyStoreId: storeId,
@@ -376,11 +373,15 @@ function buildReminderMessage(tier, cartData, settings) {
 }
 
 // -------------------------------------------------------------
-// STEP A: Handle checkouts/update webhook ? save + schedule
+// STEP A: Handle checkouts/update webhook
 // -------------------------------------------------------------
 
 export async function handleCheckoutUpdate(tenantId, storeId, payload) {
-    const activeStore = await prisma.shopifyStore.findFirst({
+  console.log(
+    `🛒 [Cart Recovery] Processing checkout update for tenant ${tenantId} and store ${storeId}`,
+  );
+
+  const activeStore = await prisma.shopifyStore.findFirst({
     where: {
       id: storeId,
       tenantId,
@@ -399,18 +400,12 @@ export async function handleCheckoutUpdate(tenantId, storeId, payload) {
     );
     return { skipped: true, reason: "invalid_shopify_store" };
   }
-export async function handleCheckoutUpdate(tenantId, payload) {
-  console.log(
-    `?? [Cart Recovery] Processing checkout update for tenant ${tenantId}`,
-  );
 
-  // 1. Parse checkout data
   const checkout = extractCheckoutData(payload);
 
-  // 1b. If product image URL is missing, auto-fetch from Shopify Admin API
   if (!checkout.productImageUrl && checkout.lineItems?.[0]) {
     const firstItem = checkout.lineItems[0];
-        const fetchedImg = await fetchShopifyProductImage(
+    const fetchedImg = await fetchShopifyProductImage(
       tenantId,
       storeId,
       firstItem.productId,
@@ -424,12 +419,11 @@ export async function handleCheckoutUpdate(tenantId, payload) {
       if (checkout.lineItems[0])
         checkout.lineItems[0].imageUrl = cleanFetchedImg;
       console.log(
-        `?? [Cart Recovery] Auto-fetched product image from Shopify API: ${cleanFetchedImg}`,
+        `🖼️ [Cart Recovery] Auto-fetched product image from Shopify API: ${cleanFetchedImg}`,
       );
     }
   }
 
-  // Fallback placeholder if image API returns 401 or has no image
   if (!checkout.productImageUrl) {
     const fallbackImg =
       process.env.CART_PLACEHOLDER_IMAGE_URL ||
@@ -438,17 +432,16 @@ export async function handleCheckoutUpdate(tenantId, payload) {
     if (checkout.lineItems?.[0] && !checkout.lineItems[0].imageUrl) {
       checkout.lineItems[0].imageUrl = fallbackImg;
     }
-    console.log(`?? [Cart Recovery] Using fallback placeholder product image`);
   }
 
   if (!checkout.checkoutId) {
-    console.warn("?? [Cart Recovery] No checkout ID in payload, skipping");
+    console.warn("⚠️ [Cart Recovery] No checkout ID in payload, skipping");
     return { skipped: true, reason: "no_checkout_id" };
   }
 
   if (checkout.customerName === "Customer" || !checkout.customerEmail) {
     try {
-           const customerDetails = await fetchAbandonedCheckoutCustomer(
+      const customerDetails = await fetchAbandonedCheckoutCustomer(
         tenantId,
         storeId,
         checkout.checkoutId,
@@ -464,55 +457,50 @@ export async function handleCheckoutUpdate(tenantId, payload) {
       }
     } catch (error) {
       console.warn(
-        `?? [Cart Recovery] Could not fetch checkout customer details: ${error.message}`,
+        `⚠️ [Cart Recovery] Could not fetch checkout customer details: ${error.message}`,
       );
     }
   }
 
-  // 2. Skip if already completed/converted
   if (checkout.completedAt || checkout.orderId) {
     console.log(
-      `?? [Cart Recovery] Checkout ${checkout.checkoutId} already completed, skipping`,
+      `⏩ [Cart Recovery] Checkout ${checkout.checkoutId} already completed, skipping`,
     );
     return { skipped: true, reason: "already_completed" };
   }
 
-  // 3. Skip if no phone (can't send WhatsApp)
   if (!checkout.customerPhone) {
     console.warn(
-      `?? [Cart Recovery] Checkout ${checkout.checkoutId} has no phone, skipping`,
+      `⚠️ [Cart Recovery] Checkout ${checkout.checkoutId} has no phone, skipping`,
     );
     return { skipped: true, reason: "no_phone" };
   }
 
-  // 4. Load Shopify connection settings
-  // 4. Load Shopify connection settings
-const shopifyConn = await prisma.shopifyConnection.findFirst({
-  where: {
-    tenantId,
-    store: {
-      id: storeId,
-      status: "active",
-      redactedAt: null,
+  const shopifyConn = await prisma.shopifyConnection.findFirst({
+    where: {
+      tenantId,
+      store: {
+        id: storeId,
+        status: "active",
+        redactedAt: null,
+      },
     },
-  },
-  select: {
-    shopName: true,
-    cartRecoveryEnabled: true,
-    cartReminder1Enabled: true,
-    cartReminder24Enabled: true,
-    cartReminder48Enabled: true,
-  },
-});
+    select: {
+      shopName: true,
+      cartRecoveryEnabled: true,
+      cartReminder1Enabled: true,
+      cartReminder24Enabled: true,
+      cartReminder48Enabled: true,
+    },
+  });
 
   if (shopifyConn && shopifyConn.cartRecoveryEnabled === false) {
     console.log(
-      `?? [Cart Recovery] Cart recovery disabled for tenant ${tenantId}`,
+      `⏩ [Cart Recovery] Cart recovery disabled for tenant ${tenantId}`,
     );
     return { skipped: true, reason: "disabled" };
   }
 
-  // 5. Upsert abandoned cart and refresh any queued reminders with the latest checkout data.
   const orderKey = {
     tenantId_source_externalOrderId: {
       tenantId,
@@ -523,15 +511,15 @@ const shopifyConn = await prisma.shopifyConnection.findFirst({
 
   const existingCart = await prisma.ecommerceOrder.findUnique({
     where: orderKey,
-    select: { shopifyStoreId: true,customerName: true, customerEmail: true },
+    select: { shopifyStoreId: true, customerName: true, customerEmail: true },
   });
 
   if (existingCart && existingCart.shopifyStoreId !== storeId) {
-  console.warn(
-    `[Cart Recovery] Skipping checkout ${checkout.checkoutId}: store ownership mismatch.`,
-  );
-  return { skipped: true, reason: "checkout_store_ownership_mismatch" };
-}
+    console.warn(
+      `[Cart Recovery] Skipping checkout ${checkout.checkoutId}: store ownership mismatch.`,
+    );
+    return { skipped: true, reason: "checkout_store_ownership_mismatch" };
+  }
 
   const customerName =
     checkout.customerName !== "Customer"
@@ -550,12 +538,13 @@ const shopifyConn = await prisma.shopifyConnection.findFirst({
       currency: checkout.currency,
       lineItems: checkout.lineItems,
       cartStatus: "abandoned",
-      // Reset sent timestamps so re-testing and cart updates trigger reminders cleanly
       cartReminder1SentAt: null,
       cartReminder24SentAt: null,
       cartReminder48SentAt: null,
       shopifyStoreId: storeId,
-      ...(checkout.shopifyCustomerId? { shopifyCustomerId: checkout.shopifyCustomerId }: {}),
+      ...(checkout.shopifyCustomerId
+        ? { shopifyCustomerId: checkout.shopifyCustomerId }
+        : {}),
     },
     create: {
       tenantId,
@@ -581,10 +570,9 @@ const shopifyConn = await prisma.shopifyConnection.findFirst({
   });
 
   console.log(
-    `? [Cart Recovery] Abandoned cart saved (ID: ${cartOrder.id}, Checkout: ${checkout.checkoutId})`,
+    `💾 [Cart Recovery] Abandoned cart saved (ID: ${cartOrder.id}, Checkout: ${checkout.checkoutId})`,
   );
 
-  // 6. Schedule 3 delayed reminders
   await scheduleCartReminders({
     tenantId,
     checkoutId: checkout.checkoutId,
@@ -645,30 +633,28 @@ export async function scheduleCartReminders(data) {
     productImageUrl,
     checkoutUrl,
     source: "SHOPIFY",
-    tier: null, // will be set per job
+    tier: null,
     storeId,
     shopifyCustomerId,
   };
 
-  // -- Auto-detect: short delays in dev, real delays in prod --
   const isProd = isProductionEnvironment();
   const DELAYS = isProd
     ? {
-        "1h": 60 * 60 * 1000, // 1 hour
-        "24h": 24 * 60 * 60 * 1000, // 24 hours
-        "48h": 48 * 60 * 60 * 1000, // 48 hours
+        "1h": 60 * 60 * 1000,
+        "24h": 24 * 60 * 60 * 1000,
+        "48h": 48 * 60 * 60 * 1000,
       }
     : {
-        "1h": 10 * 1000, // 10 seconds (dev test)
-        "24h": 30 * 1000, // 30 seconds (dev test)
-        "48h": 60 * 1000, // 60 seconds (dev test)
+        "1h": 10 * 1000,
+        "24h": 30 * 1000,
+        "48h": 60 * 1000,
       };
 
   console.log(
-    `?? [Cart Recovery] Using ${isProd ? "PRODUCTION" : "DEV"} delays`,
+    `⏰ [Cart Recovery] Using ${isProd ? "PRODUCTION" : "DEV"} delays`,
   );
 
-  // Check which reminders are enabled
   const shopifyConn = await prisma.shopifyConnection
     .findFirst({
       where: { tenantId },
@@ -689,7 +675,7 @@ export async function scheduleCartReminders(data) {
   for (const [tier, delay] of Object.entries(DELAYS)) {
     if (!enabled[tier]) {
       console.log(
-        `?? [Cart Recovery] ${tier} reminder disabled for tenant ${tenantId}, skipping`,
+        `⏩ [Cart Recovery] ${tier} reminder disabled for tenant ${tenantId}, skipping`,
       );
       continue;
     }
@@ -702,19 +688,18 @@ export async function scheduleCartReminders(data) {
         const state = await existingJob.getState();
         if (state === "active") {
           console.log(
-            `? [Cart Recovery] ${tier} job active for ${checkoutId}, leaving active execution`,
+            `⏳ [Cart Recovery] ${tier} job active for ${checkoutId}, leaving active execution`,
           );
           continue;
         }
-        // Remove old job (delayed, waiting, completed, or failed) to reschedule freshly
         try {
           await existingJob.remove();
           console.log(
-            `??? [Cart Recovery] Removed existing ${tier} job (state=${state}) for ${checkoutId}`,
+            `🗑️ [Cart Recovery] Removed existing ${tier} job (state=${state}) for ${checkoutId}`,
           );
         } catch (rmErr) {
           console.warn(
-            `?? [Cart Recovery] Could not remove old job: ${rmErr.message}`,
+            `⚠️ [Cart Recovery] Could not remove old job: ${rmErr.message}`,
           );
         }
       }
@@ -732,11 +717,11 @@ export async function scheduleCartReminders(data) {
         },
       );
       console.log(
-        `?? [Cart Recovery] Scheduled ${tier} reminder for checkout ${checkoutId} (delay: ${delay}ms)`,
+        `⏰ [Cart Recovery] Scheduled ${tier} reminder for checkout ${checkoutId} (delay: ${delay}ms)`,
       );
     } catch (err) {
       console.error(
-        `? [Cart Recovery] Failed to schedule ${tier} reminder:`,
+        `❌ [Cart Recovery] Failed to schedule ${tier} reminder:`,
         err.message,
       );
       throw err;
@@ -768,27 +753,26 @@ export async function processCartReminder(data) {
   } = data;
 
   const activeStore = await prisma.shopifyStore.findFirst({
-  where: {
-    id: storeId,
-    tenantId,
-    status: "active",
-    redactedAt: null,
-  },
-  select: { id: true },
-});
+    where: {
+      id: storeId,
+      tenantId,
+      status: "active",
+      redactedAt: null,
+    },
+    select: { id: true },
+  });
 
-if (!activeStore) {
-  console.warn(
-    `[Cart Recovery] Skipping reminder for inactive store ${storeId}`,
-  );
-  return { skipped: true, reason: "invalid_shopify_store" };
-}
+  if (!activeStore) {
+    console.warn(
+      `[Cart Recovery] Skipping reminder for inactive store ${storeId}`,
+    );
+    return { skipped: true, reason: "invalid_shopify_store" };
+  }
 
   console.log(
-    `?? [Cart Recovery] Processing ${tier} reminder for checkout ${checkoutId} (tenant ${tenantId})`,
+    `⏰ [Cart Recovery] Processing ${tier} reminder for checkout ${checkoutId} (tenant ${tenantId})`,
   );
 
-  // 1. CRITICAL: Re-check if cart already converted
   const isConverted = await isCheckoutConverted(
     tenantId,
     storeId,
@@ -797,26 +781,24 @@ if (!activeStore) {
   );
   if (isConverted) {
     console.log(
-      `? [Cart Recovery] Checkout ${checkoutId} already converted, cancelling ${tier} reminder`,
+      `✅ [Cart Recovery] Checkout ${checkoutId} already converted, cancelling ${tier} reminder`,
     );
 
-    // Mark cart as converted in DB
-   await prisma.ecommerceOrder
-  .updateMany({
-    where: {
-      tenantId,
-      source: "SHOPIFY",
-      shopifyStoreId: storeId,
-      externalOrderId: checkoutId,
-    },
-    data: { cartStatus: "converted" },
-  })
+    await prisma.ecommerceOrder
+      .updateMany({
+        where: {
+          tenantId,
+          source: "SHOPIFY",
+          shopifyStoreId: storeId,
+          externalOrderId: checkoutId,
+        },
+        data: { cartStatus: "converted" },
+      })
       .catch(() => {});
 
     return { skipped: true, reason: "already_converted", tier };
   }
 
-  // 2. Check if this specific reminder was already sent (dedup)
   const sentFieldMap = {
     "1h": "cartReminder1SentAt",
     "24h": "cartReminder24SentAt",
@@ -825,11 +807,11 @@ if (!activeStore) {
 
   const sentField = sentFieldMap[tier];
   if (!sentField) {
-    console.warn(`?? [Cart Recovery] Unknown tier: ${tier}`);
+    console.warn(`⚠️ [Cart Recovery] Unknown tier: ${tier}`);
     return { skipped: true, reason: "unknown_tier" };
   }
 
- const existingCart = await prisma.ecommerceOrder.findFirst({
+  const existingCart = await prisma.ecommerceOrder.findFirst({
     where: {
       tenantId,
       source: "SHOPIFY",
@@ -841,7 +823,7 @@ if (!activeStore) {
 
   if (existingCart?.[sentField]) {
     console.log(
-      `?? [Cart Recovery] ${tier} reminder already sent for checkout ${checkoutId}`,
+      `⏩ [Cart Recovery] ${tier} reminder already sent for checkout ${checkoutId}`,
     );
     return { skipped: true, reason: "already_sent" };
   }
@@ -851,22 +833,21 @@ if (!activeStore) {
     existingCart?.cartStatus === "recovered"
   ) {
     console.log(
-      `?? [Cart Recovery] Cart ${checkoutId} is ${existingCart.cartStatus}, skipping ${tier} reminder`,
+      `⏩ [Cart Recovery] Cart ${checkoutId} is ${existingCart.cartStatus}, skipping ${tier} reminder`,
     );
     return { skipped: true, reason: "cart_status_" + existingCart.cartStatus };
   }
 
-  // 3. Load settings
   const shopifyConn = await prisma.shopifyConnection
     .findFirst({
-       where: {
-      tenantId,
-      store: {
-        id: storeId,
-        status: "active",
-        redactedAt: null,
+      where: {
+        tenantId,
+        store: {
+          id: storeId,
+          status: "active",
+          redactedAt: null,
+        },
       },
-    },
       select: {
         shopName: true,
         cartReminder1Text: true,
@@ -882,7 +863,6 @@ if (!activeStore) {
     })
     .catch(() => null);
 
-  // Check if this tier is still enabled
   const tierEnabledMap = {
     "1h": "cartReminder1Enabled",
     "24h": "cartReminder24Enabled",
@@ -890,7 +870,7 @@ if (!activeStore) {
   };
   if (shopifyConn && shopifyConn[tierEnabledMap[tier]] === false) {
     console.log(
-      `?? [Cart Recovery] ${tier} reminder now disabled for tenant ${tenantId}, skipping`,
+      `⏩ [Cart Recovery] ${tier} reminder now disabled for tenant ${tenantId}, skipping`,
     );
     return { skipped: true, reason: "tier_disabled" };
   }
@@ -910,7 +890,6 @@ if (!activeStore) {
     cartIncludeImage: shopifyConn?.cartIncludeImage !== false,
   };
 
-  // 4. Build message
   const resolvedName =
     existingCart?.customerName && existingCart.customerName !== "Customer"
       ? existingCart.customerName
@@ -928,21 +907,20 @@ if (!activeStore) {
 
   const messageBody = buildReminderMessage(tier, cartData, settings);
 
-  // 5. Apply DEV phone override if enabled
   const isProd = isProductionEnvironment();
   let targetPhone = customerPhone;
 
   if (!isProd && process.env.SHOPIFY_OVERRIDE_PHONE_IN_DEV === "true") {
     targetPhone = process.env.META_TEST_PHONE || "+15556289708";
     console.log(
-      `?? [Cart Recovery] DEV phone override active: ${customerPhone} -> ${targetPhone}`,
+      `🧪 [Cart Recovery] DEV phone override active: ${customerPhone} -> ${targetPhone}`,
     );
   }
 
   const cleanDigits = String(targetPhone || "").replace(/\D/g, "");
   if (!cleanDigits) {
     console.warn(
-      `?? [Cart Recovery] No phone for checkout ${checkoutId}, skipping ${tier} reminder`,
+      `⚠️ [Cart Recovery] No phone for checkout ${checkoutId}, skipping ${tier} reminder`,
     );
     return { skipped: true, reason: "no_phone" };
   }
@@ -958,57 +936,53 @@ if (!activeStore) {
 
   if (!contact || !conversation) {
     console.warn(
-      `?? [Cart Recovery] Could not find/create contact for checkout ${checkoutId}`,
+      `⚠️ [Cart Recovery] Could not find/create contact for checkout ${checkoutId}`,
     );
     return { skipped: true, reason: "contact_not_found" };
   }
 
-  // Final ownership check immediately before sending
-const sendStoreCheck = await prisma.shopifyStore.findFirst({
-  where: {
-    id: storeId,
-    tenantId,
-    status: "active",
-    redactedAt: null,
-  },
-  select: { id: true },
-});
+  const sendStoreCheck = await prisma.shopifyStore.findFirst({
+    where: {
+      id: storeId,
+      tenantId,
+      status: "active",
+      redactedAt: null,
+    },
+    select: { id: true },
+  });
 
-if (!sendStoreCheck) {
-  console.warn(
-    `[Cart Recovery] Store became inactive before sending reminder: ${storeId}`,
-  );
-  return { skipped: true, reason: "store_inactive_before_send" };
-}
+  if (!sendStoreCheck) {
+    console.warn(
+      `[Cart Recovery] Store became inactive before sending reminder: ${storeId}`,
+    );
+    return { skipped: true, reason: "store_inactive_before_send" };
+  }
 
-const sendCartCheck = await prisma.ecommerceOrder.findFirst({
-  where: {
-    tenantId,
-    source: "SHOPIFY",
-    shopifyStoreId: storeId,
-    externalOrderId: checkoutId,
-  },
-  select: { id: true, cartStatus: true },
-});
+  const sendCartCheck = await prisma.ecommerceOrder.findFirst({
+    where: {
+      tenantId,
+      source: "SHOPIFY",
+      shopifyStoreId: storeId,
+      externalOrderId: checkoutId,
+    },
+    select: { id: true, cartStatus: true },
+  });
 
-if (
-  !sendCartCheck ||
-  ["converted", "recovered"].includes(sendCartCheck.cartStatus)
-) {
-  console.warn(
-    `[Cart Recovery] Cart ownership/status changed before sending: ${checkoutId}`,
-  );
-  return { skipped: true, reason: "cart_invalid_before_send" };
-}
+  if (
+    !sendCartCheck ||
+    ["converted", "recovered"].includes(sendCartCheck.cartStatus)
+  ) {
+    console.warn(
+      `[Cart Recovery] Cart ownership/status changed before sending: ${checkoutId}`,
+    );
+    return { skipped: true, reason: "cart_invalid_before_send" };
+  }
 
   console.log(
-    `?? [Cart Recovery] Sending ${tier} reminder to ${cleanPhone}...`,
+    `📤 [Cart Recovery] Sending ${tier} reminder to ${cleanPhone}...`,
   );
 
-  // 6. Send message � DEV vs PROD branching
   if (!isProd) {
-    // -- DEVELOPMENT: Send free-form text via sendMessageService --
-    // ? sendMessageService already saves to inbox, so NO saveShopifyInboxMessage needed
     await sendMessageService({
       tenantId,
       contactId: contact.id,
@@ -1017,7 +991,6 @@ if (
       text: messageBody,
     });
 
-    // ? Send product image as a SEPARATE image message (with cleaned CDN URL)
     if (settings.cartIncludeImage && cartData.productImageUrl) {
       try {
         let cleanMediaUrl = String(cartData.productImageUrl)
@@ -1034,23 +1007,22 @@ if (
           type: "image",
           mediaUrl: cleanMediaUrl,
           fileUrl: cleanMediaUrl,
-          caption: `?? ${cartData.productSummary}\n?? ${cartData.currency} ${cartData.total?.toFixed(2)}`,
+          caption: `🛒 ${cartData.productSummary}\n💰 ${cartData.currency} ${cartData.total?.toFixed(2)}`,
         });
         console.log(
-          `?? [Cart Recovery] Product image sent for ${tier} reminder: ${cleanMediaUrl}`,
+          `🖼️ [Cart Recovery] Product image sent for ${tier} reminder: ${cleanMediaUrl}`,
         );
       } catch (imgErr) {
         console.warn(
-          `?? [Cart Recovery] Image send failed, skipping image: ${imgErr.message}`,
+          `⚠️ [Cart Recovery] Image send failed, skipping image: ${imgErr.message}`,
         );
       }
     }
 
     console.log(
-      `? [Cart Recovery] ${tier} reminder sent (DEV mode) to ${cleanPhone}`,
+      `✅ [Cart Recovery] ${tier} reminder sent (DEV mode) to ${cleanPhone}`,
     );
   } else {
-    // -- PRODUCTION: Send Meta-approved template --
     const sentUsingTemplate = await sendProductionCartTemplate({
       tenantId,
       customerPhone: cleanPhone,
@@ -1072,7 +1044,6 @@ if (
     }
   }
 
-  // 8. Mark reminder as sent in DB
   await prisma.ecommerceOrder.updateMany({
     where: {
       tenantId,
@@ -1086,7 +1057,7 @@ if (
   });
 
   console.log(
-    `? [Cart Recovery] ${tier} reminder completed for checkout ${checkoutId}`,
+    `✅ [Cart Recovery] ${tier} reminder completed for checkout ${checkoutId}`,
   );
 
   return { success: true, tier, checkoutId, to: cleanPhone };
@@ -1110,24 +1081,21 @@ export async function cancelCartReminders(tenantId, storeId, checkoutId) {
         await job.remove();
         cancelled++;
         console.log(
-          `??? [Cart Recovery] Cancelled ${tier} reminder job for checkout ${checkoutId}`,
+          `🗑️ [Cart Recovery] Cancelled ${tier} reminder job for checkout ${checkoutId}`,
         );
       }
     } catch (err) {
-      // Job might already be removed/completed/active � that's fine
       if (
         !err.message?.includes("not found") &&
         !err.message?.includes("locked")
       ) {
         console.warn(
-          `?? [Cart Recovery] Could not cancel ${tier} job ${jobId}: ${err.message}`,
+          `⚠️ [Cart Recovery] Could not cancel ${tier} job ${jobId}: ${err.message}`,
         );
       }
     }
   }
 
-  // Also cancel any cart record matching this checkout (by customer phone, if available)
-  // This handles cases where checkout ID differs but customer matches
   try {
     const cancelledJobs = await prisma.ecommerceOrder.updateMany({
       where: {
@@ -1144,17 +1112,17 @@ export async function cancelCartReminders(tenantId, storeId, checkoutId) {
 
     if (cancelledJobs.count > 0) {
       console.log(
-        `? [Cart Recovery] Marked ${cancelledJobs.count} cart(s) as 'recovered' for checkout ${checkoutId}`,
+        `✅ [Cart Recovery] Marked ${cancelledJobs.count} cart(s) as 'recovered' for checkout ${checkoutId}`,
       );
     }
   } catch (err) {
     console.warn(
-      `?? [Cart Recovery] Could not update cart status: ${err.message}`,
+      `⚠️ [Cart Recovery] Could not update cart status: ${err.message}`,
     );
   }
 
   console.log(
-    `??? [Cart Recovery] Cancelled ${cancelled} pending reminder job(s) for checkout ${checkoutId}`,
+    `🗑️ [Cart Recovery] Cancelled ${cancelled} pending reminder job(s) for checkout ${checkoutId}`,
   );
   return { cancelled };
 }
@@ -1191,12 +1159,11 @@ async function sendProductionCartTemplate({
 
     if (!phoneNumberId || !whatsappToken) {
       console.warn(
-        `?? [Cart Recovery] WhatsApp not connected for tenant ${tenantId}, using text fallback`,
+        `⚠️ [Cart Recovery] WhatsApp not connected for tenant ${tenantId}, using text fallback`,
       );
       throw new Error("WhatsApp sender is not connected");
     }
 
-    // Find approved template for this tier
     const templateNameMap = {
       "1h": [
         "cart_reminder_1h",
@@ -1251,12 +1218,11 @@ async function sendProductionCartTemplate({
 
     if (!approvedTemplate) {
       console.warn(
-        `?? [Cart Recovery] No APPROVED template for ${tier} (searched: ${namePatterns.join(", ")}), using text fallback`,
+        `⚠️ [Cart Recovery] No APPROVED template for ${tier} (searched: ${namePatterns.join(", ")}), using text fallback`,
       );
       throw new Error(`No approved WhatsApp template found for ${tier}`);
     }
 
-    // Map numbered template placeholders to the recovery message values.
     const bodyValues = [
       cartData.customerName || "Customer",
       cartData.productSummary || "items in your cart",
@@ -1296,10 +1262,8 @@ async function sendProductionCartTemplate({
       ? placeholderIndices.map((index) => bodyValues[index - 1] ?? "")
       : bodyValues.slice(0, bodyParamCount);
 
-    // Build components array
     const components = [];
 
-    // Image header (if template has it and tenant enabled images)
     if (
       settings.cartIncludeImage &&
       cartData.productImageUrl &&
@@ -1316,11 +1280,10 @@ async function sendProductionCartTemplate({
       });
     } else if (settings.cartIncludeImage && cartData.productImageUrl) {
       console.warn(
-        `?? [Cart Recovery] Template "${approvedTemplate.name}" has no IMAGE header; sending without product image`,
+        `⚠️ [Cart Recovery] Template "${approvedTemplate.name}" has no IMAGE header; sending without product image`,
       );
     }
 
-    // Body parameters
     if (bodyParams.length > 0) {
       components.push({
         type: "body",
@@ -1331,7 +1294,6 @@ async function sendProductionCartTemplate({
       });
     }
 
-    // CTA button (if template has one)
     const templateButtons = Array.isArray(approvedTemplate.buttons)
       ? approvedTemplate.buttons
       : [];
@@ -1397,16 +1359,15 @@ async function sendProductionCartTemplate({
     );
 
     console.log(
-      `? [Cart Recovery] Template "${approvedTemplate.name}" sent to ${cleanRecipientPhone} (WAMID: ${waResponse.data?.messages?.[0]?.id || "ok"})`,
+      `✅ [Cart Recovery] Template "${approvedTemplate.name}" sent to ${cleanRecipientPhone} (WAMID: ${waResponse.data?.messages?.[0]?.id || "ok"})`,
     );
     return true;
   } catch (err) {
     console.error(
-      `? [Cart Recovery] Template send failed for ${tier}:`,
+      `❌ [Cart Recovery] Template send failed for ${tier}:`,
       err.response?.data || err.message,
     );
 
-    // Last resort fallback: try text message
     try {
       await sendMessageService({
         tenantId,
@@ -1418,7 +1379,7 @@ async function sendProductionCartTemplate({
       return false;
     } catch (fallbackErr) {
       console.error(
-        `? [Cart Recovery] Fallback text also failed:`,
+        `❌ [Cart Recovery] Fallback text also failed:`,
         fallbackErr.message,
       );
       throw new Error(

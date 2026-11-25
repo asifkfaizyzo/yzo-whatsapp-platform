@@ -1,5 +1,8 @@
 // backend/src/modules/messages/message.service.js (do not remove this comment)
+import fs from "fs";
+import path from "path";
 import prisma from "../../config/prisma.js";
+import { GRAPH_BASE_URL } from "../../config/meta.js";
 import { decrypt } from "../../lib/crypto.js";
 import { getOrCreateConversation } from "../conversations/conversation.service.js";
 import { evaluateReopen } from "../auto-reopen/autoReopen.service.js";
@@ -12,14 +15,10 @@ import {
 import { createNotification } from "../notifications/notification.service.js";
 import flowEngine from "../automation/flowEngine.service.js";
 import { emitToTenant, emitToUser } from "../../lib/socket.js";
-import fs from "fs";
-import path from "path";
 import { trackUsage } from "../quick-replies/quickReply.service.js";
 import { processWhatsAppAudio } from "../../lib/utils/audio.converter.js";
 import { sendWhatsAppMedia } from "../../lib/utils/whatsapp.mediaSender.js";
-import pushService, {
-  shouldSendPush,
-} from "../notifications/push.service.js";
+import pushService, { shouldSendPush } from "../notifications/push.service.js";
 
 const CLOSED_STATUSES = ["RESOLVED", "CLOSED"];
 
@@ -34,11 +33,11 @@ const sendPushToAssignedAgent = async (
   messageType,
 ) => {
   try {
-    console.log(`?? sendPushToAssignedAgent: checking user ${assignedUserId}`);
+    console.log(`🔍 sendPushToAssignedAgent: checking user ${assignedUserId}`);
     const allowed = await shouldSendPush(assignedUserId, "new_message");
     if (!allowed) {
       console.log(
-        `?? sendPushToAssignedAgent: skipped (prefs/token) for ${assignedUserId}`,
+        `⏩ sendPushToAssignedAgent: skipped (prefs/token) for ${assignedUserId}`,
       );
       return;
     }
@@ -50,7 +49,7 @@ const sendPushToAssignedAgent = async (
 
     if (!agent?.pushToken) {
       console.log(
-        `?? sendPushToAssignedAgent: no pushToken for ${assignedUserId}`,
+        `⏩ sendPushToAssignedAgent: no pushToken for ${assignedUserId}`,
       );
       return;
     }
@@ -58,11 +57,11 @@ const sendPushToAssignedAgent = async (
     const previewText =
       messageText?.substring(0, 200) ||
       (messageType && messageType !== "TEXT"
-        ? `?? ${messageType.toLowerCase()} message`
+        ? `📎 ${messageType.toLowerCase()} message`
         : "New message");
 
     console.log(
-      `?? sendPushToAssignedAgent: sending to ${agent.pushToken.substring(0, 30)}...`,
+      `📲 sendPushToAssignedAgent: sending to ${agent.pushToken.substring(0, 30)}...`,
     );
     const result = await pushService.sendToDevice({
       token: agent.pushToken,
@@ -77,16 +76,16 @@ const sendPushToAssignedAgent = async (
       },
     });
     console.log(
-      `?? sendPushToAssignedAgent: result =`,
-      result.success ? "? sent" : `? ${result.message}`,
+      `📲 sendPushToAssignedAgent: result =`,
+      result.success ? "✅ sent" : `❌ ${result.message}`,
     );
   } catch (err) {
-    console.error("? Push to agent failed:", err.message);
+    console.error("❌ Push to agent failed:", err.message);
   }
 };
 
 // -------------------------------------------------------------
-// HANDLE INCOMING MESSAGE  (Contact ? Platform)
+// HANDLE INCOMING MESSAGE  (Contact → Platform)
 // -------------------------------------------------------------
 export const handleIncomingMessage = async ({
   contactId,
@@ -291,7 +290,7 @@ export const handleIncomingMessage = async ({
       updatedConversation.id,
       type,
     ).catch((err) => {
-      console.error("? Push notification error:", err.message);
+      console.error("❌ Push notification error:", err.message);
     });
   }
 
@@ -321,7 +320,7 @@ export const handleIncomingMessage = async ({
         notification: {
           id: `unassigned_${contact.id}_${Date.now()}`,
           type: "contact_waiting_assignment",
-          title: "?? New contact needs assignment",
+          title: "👤 New contact needs assignment",
           message: `${contact.name} is waiting to be assigned to an agent`,
           isRead: false,
           createdAt: new Date(),
@@ -342,7 +341,7 @@ export const handleIncomingMessage = async ({
       })
       .then((agents) => {
         console.log(
-          `?? Unassigned message � pushing to ${agents.length} agent(s)`,
+          `📢 Unassigned message — pushing to ${agents.length} agent(s)`,
         );
         agents.forEach((agent) => {
           sendPushToAssignedAgent(
@@ -352,12 +351,12 @@ export const handleIncomingMessage = async ({
             updatedConversation.id,
             type,
           ).catch((err) =>
-            console.error("? Push to unassigned agent failed:", err.message),
+            console.error("❌ Push to unassigned agent failed:", err.message),
           );
         });
       })
       .catch((err) =>
-        console.error("? Failed to fetch agents for push:", err.message),
+        console.error("❌ Failed to fetch agents for push:", err.message),
       );
   }
 
@@ -378,7 +377,7 @@ export const handleIncomingMessage = async ({
         },
       )
       .catch((err) => {
-        console.error("? Flow Engine error:", err);
+        console.error("❌ Flow Engine error:", err);
       });
   }
 
@@ -389,8 +388,6 @@ export const handleIncomingMessage = async ({
     reason,
   };
 };
-
-import { GRAPH_BASE_URL } from "../../config/meta.js";
 
 // -------------------------------------------------------------
 // SHARED META SENDER (Messenger & Instagram)
@@ -625,7 +622,7 @@ export const sendMetaMediaMessage = async ({
 };
 
 // -------------------------------------------------------------
-// SEND TEXT MESSAGE  (Tenant / Agent ? Contact)
+// SEND TEXT MESSAGE  (Tenant / Agent → Contact)
 // -------------------------------------------------------------
 export const sendMessageService = async ({
   contactId,
@@ -682,7 +679,7 @@ export const sendMessageService = async ({
       msgStatus = "sent";
     } catch (metaErr) {
       console.error(
-        `?? Meta ${conversation.channel} send failed:`,
+        `❌ Meta ${conversation.channel} send failed:`,
         metaErr.message,
       );
       msgStatus = "failed";
@@ -714,7 +711,7 @@ export const sendMessageService = async ({
       const responseData = await response.json();
 
       if (!response.ok) {
-        console.error("?? WhatsApp API Error:", responseData);
+        console.error("❌ WhatsApp API Error:", responseData);
         msgStatus = "failed";
         failureCode = responseData?.error?.code || null;
         failureReason = responseData?.error?.message || "Meta API Error";
@@ -729,11 +726,11 @@ export const sendMessageService = async ({
             responseData,
           );
         } else {
-          console.log("? WhatsApp message sent, wamid:", waMessageId);
+          console.log("✅ WhatsApp message sent, wamid:", waMessageId);
         }
       }
     } catch (waError) {
-      console.error("?? WhatsApp send failed:", waError.message);
+      console.error("❌ WhatsApp send failed:", waError.message);
       msgStatus = "failed";
       failureReason = waError.message;
     }
@@ -804,7 +801,7 @@ export const sendMessageService = async ({
 };
 
 // -------------------------------------------------------------
-// SEND MEDIA MESSAGE  (Tenant / Agent ? Contact)
+// SEND MEDIA MESSAGE  (Tenant / Agent → Contact)
 // -------------------------------------------------------------
 export const sendMediaMessageService = async ({
   contactId,
@@ -898,8 +895,6 @@ export const sendMediaMessageService = async ({
       waMessageId = metaRes.messageId;
       msgStatus = "sent";
 
-      // Meta Graph API does not support text and attachment in the same message.
-      // If a caption is provided, send it as an immediate follow-up text message.
       if (caption && caption.trim()) {
         try {
           await sendMetaMessage({
@@ -911,14 +906,14 @@ export const sendMediaMessageService = async ({
           });
         } catch (captionErr) {
           console.error(
-            `?? Failed to send caption follow-up for Meta ${conversation.channel}:`,
+            `❌ Failed to send caption follow-up for Meta ${conversation.channel}:`,
             captionErr.message,
           );
         }
       }
     } catch (metaErr) {
       console.error(
-        `?? Meta ${conversation.channel} media send failed:`,
+        `❌ Meta ${conversation.channel} media send failed:`,
         metaErr.message,
       );
       msgStatus = "failed";
@@ -952,7 +947,7 @@ export const sendMediaMessageService = async ({
         console.error("WhatsApp API response did not include a WAMID:", result);
       }
     } catch (waError) {
-      console.error("?? WhatsApp API media send failed:", waError.message);
+      console.error("❌ WhatsApp API media send failed:", waError.message);
       msgStatus = "failed";
       failureReason = waError.message;
     } finally {
@@ -1006,145 +1001,6 @@ export const sendMediaMessageService = async ({
   });
 
   return { ...message, conversationId };
-};
-
-// ── WhatsApp Media Send Helper ────────────────────────────────
-// ─────────────────────────────────────────────────────────────
-// -- WhatsApp Media Send Helper --------------------------------
-const sendWhatsAppMedia = async ({
-  tenant,
-  contactPhone,
-  file,
-  caption,
-  mediaType,
-  isVoiceNote = false,
-}) => {
-  const accessToken = decrypt(tenant.whatsappAccessToken);
-  const phoneId = tenant.whatsappPhoneId;
-  const cleanPhone = contactPhone.replace("+", "");
-
-  const resolvedFilePath = path.isAbsolute(file.path)
-    ? file.path
-    : path.resolve(process.cwd(), file.path);
-  const fileBuffer = fs.readFileSync(resolvedFilePath);
-
-  let uploadMimeType = file.mimetype || "application/octet-stream";
-
-  const metaAllowedTypes = [
-    "audio/aac",
-    "audio/mp4",
-    "audio/mpeg",
-    "audio/amr",
-    "audio/ogg",
-    "audio/opus",
-    "image/jpeg",
-    "image/png",
-    "image/webp",
-    "video/mp4",
-    "video/3gpp",
-    "application/pdf",
-    "text/plain",
-    "application/msword",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "application/vnd.ms-excel",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "application/vnd.ms-powerpoint",
-    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-  ];
-
-  if (!metaAllowedTypes.includes(uploadMimeType)) {
-    throw new Error(`Unsupported WhatsApp media MIME type: ${uploadMimeType}`);
-  }
-
-  const blob = new Blob([fileBuffer], { type: uploadMimeType });
-  const formData = new globalThis.FormData();
-
-  formData.append("file", blob, file.originalname);
-  formData.append("messaging_product", "whatsapp");
-
-  const uploadRes = await fetch(
-    `https://graph.facebook.com/v18.0/${phoneId}/media`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: formData,
-    },
-  );
-
-  if (!uploadRes.ok) {
-    const err = await uploadRes.json();
-    throw new Error(
-      `Media upload failed: ${err.error?.message || JSON.stringify(err)}`,
-    );
-  }
-
-  const { id: mediaId } = await uploadRes.json();
-
-  const typeMap = {
-    IMAGE: "image",
-    VIDEO: "video",
-    AUDIO: "audio",
-    FILE: "document",
-  };
-
-  let waType = typeMap[mediaType] || "document";
-
-  const supportedAudioMimeTypes = [
-    "audio/aac",
-    "audio/mp4",
-    "audio/mpeg",
-    "audio/amr",
-    "audio/ogg",
-  ];
-
-  if (
-    waType === "audio" &&
-    file.mimetype &&
-    !supportedAudioMimeTypes.some((mime) => file.mimetype.includes(mime))
-  ) {
-    waType = "document";
-  }
-
-  const mediaPayload = { id: mediaId };
-
-  if (waType === "audio" && isVoiceNote) {
-    mediaPayload.voice = true;
-  }
-
-  if (waType === "document" && file.originalname) {
-    mediaPayload.filename = file.originalname;
-  }
-
-  if (["image", "video", "document"].includes(waType) && caption) {
-    mediaPayload.caption = caption;
-  }
-
-  const sendRes = await fetch(
-    `https://graph.facebook.com/v18.0/${phoneId}/messages`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        messaging_product: "whatsapp",
-        recipient_type: "individual",
-        to: cleanPhone,
-        type: waType,
-        [waType]: mediaPayload,
-      }),
-    },
-  );
-
-  if (!sendRes.ok) {
-    const err = await sendRes.json();
-    throw new Error(`WhatsApp send failed: ${err.error?.message}`);
-  }
-
-  return sendRes.json();
 };
 
 // -------------------------------------------------------------
@@ -1289,13 +1145,13 @@ export const markConversationAsReadService = async ({
           if (!response.ok) {
             const errorData = await response.json();
             console.warn(
-              `?? Meta rejected read receipt for WAMID ${msg.wamid}:`,
+              `⚠️ Meta rejected read receipt for WAMID ${msg.wamid}:`,
               errorData,
             );
           }
         } catch (error) {
           console.error(
-            `?? Meta read receipt failed for WAMID ${msg.wamid}:`,
+            `❌ Meta read receipt failed for WAMID ${msg.wamid}:`,
             error.message,
           );
         }
@@ -1334,9 +1190,7 @@ export const sendQuickReplyMessageService = async ({
     throw new Error("Quick reply not found or inactive");
   }
 
-  // const messageText = text?.trim() ? text : quickReply.content;
-
-    const [contact, tenant, sender] = await Promise.all([
+  const [contact, tenant, sender] = await Promise.all([
     prisma.contact.findFirst({
       where: { id: contactId, tenantId },
       select: { name: true, phone: true },
@@ -1383,7 +1237,7 @@ export const sendQuickReplyMessageService = async ({
           minute: "2-digit",
         }),
     );
-    // Add this line right after all the .replace() calls:
+
   console.log("🔍 Quick Reply - messageText after replacement:", messageText);
 
   // Case 1: Has media and media is not explicitly detached by agent
@@ -1415,7 +1269,6 @@ export const sendQuickReplyMessageService = async ({
     const absoluteOutboundDir = path.join(process.cwd(), relativeOutboundDir);
     await fs.promises.mkdir(absoluteOutboundDir, { recursive: true });
 
-    const ext = path.extname(quickReply.mediaUrl) || "";
     const uniqueName = `${Date.now()}_qr_${path.basename(quickReply.mediaUrl)}`;
     const destinationPath = path.join(absoluteOutboundDir, uniqueName);
     const relativeDest = path
@@ -1472,7 +1325,7 @@ export const sendQuickReplyMessageService = async ({
 };
 
 // -------------------------------------------------------------
-// SEND TEMPLATE MESSAGE  (Tenant / Agent ? Contact via Meta)
+// SEND TEMPLATE MESSAGE  (Tenant / Agent → Contact via Meta)
 // -------------------------------------------------------------
 export const sendTemplateMessageService = async ({
   contactId,
@@ -1562,7 +1415,7 @@ export const sendTemplateMessageService = async ({
       const responseData = await response.json();
 
       if (!response.ok) {
-        console.error("?? WhatsApp Template API Error:", responseData);
+        console.error("❌ WhatsApp Template API Error:", responseData);
         msgStatus = "failed";
         failureReason =
           responseData?.error?.message || "Meta template send failed";
@@ -1572,11 +1425,11 @@ export const sendTemplateMessageService = async ({
           msgStatus = "failed";
           failureReason = "Meta accepted but returned no WAMID";
         } else {
-          console.log("? WhatsApp template sent, wamid:", waMessageId);
+          console.log("✅ WhatsApp template sent, wamid:", waMessageId);
         }
       }
     } catch (err) {
-      console.error("?? WhatsApp template send failed:", err.message);
+      console.error("❌ WhatsApp template send failed:", err.message);
       msgStatus = "failed";
       failureReason = err.message;
     }
