@@ -11,7 +11,7 @@ async function main() {
   // Step 0: Seed SuperAdmin
   // ══════════════════════════════════════
   const adminEmail =
-    process.env.SUPERADMIN_EMAIL || "ananthukrishna1963@gmail.com";
+    process.env.SUPERADMIN_EMAIL || "sr@admin.com";
   const adminPass = process.env.SUPERADMIN_PASSWORD || "Admin@123";
   const hashedPassword = await bcrypt.hash(adminPass, 10);
 

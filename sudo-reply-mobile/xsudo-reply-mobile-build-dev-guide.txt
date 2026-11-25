@@ -1,0 +1,391 @@
+# Sudo Reply Mobile — Build & Dev Guide
+# =====================================
+# Project       : sudo-reply-mobile
+# App name      : Sudo Reply
+# Android ID    : com.sudoreply.mobile
+# iOS Bundle ID : com.sudoreply.mobile
+# Expo owner    : your-zeros-and-ones
+# EAS project   : 6292ddf3-0f58-4832-9e8d-6e12f98b62f3
+# Backend port  : 5000
+# Metro port    : 8081
+# Scheme        : sudoreply
+# Stack         : Expo SDK 52 / React Native / TypeScript
+#
+# Windows project:
+# D:\yzo\yzo-whatsapp-platform\sudo-reply-mobile
+#
+# Backend project:
+# D:\yzo\yzo-whatsapp-platform\backend
+#
+# IMPORTANT:
+# This guide uses the Sudo Reply configuration previously established.
+# Confirm the current API URL, eas.json profiles, and app config before
+# creating a release build. Do not put secrets or service-account keys
+# into this file or commit them to Git.
+
+
+# ============================================================
+# PROJECT FOLDERS
+# ============================================================
+
+# Windows PowerShell — mobile app
+cd D:\yzo\yzo-whatsapp-platform\sudo-reply-mobile
+
+# Windows PowerShell — backend
+cd D:\yzo\yzo-whatsapp-platform\backend
+
+
+# ============================================================
+# IMPORTANT: API CONFIG — CHECK BEFORE RUNNING OR BUILDING
+# ============================================================
+
+# Sudo Reply has used:
+#   src/config/api.ts
+#   app.json -> expo.extra.apiUrl
+#
+# Keep the API URL in these locations consistent if both are used
+# by the app's runtime configuration.
+#
+# Android USB development:
+#   Use http://localhost:5000 when using adb reverse (see DAILY DEV).
+#
+# Physical Android/iPhone over Wi-Fi:
+#   Use http://YOUR_CURRENT_LAN_IP:5000
+#   Find the current Windows IP with: ipconfig
+#   Use the IPv4 address of the active Wi-Fi/Ethernet adapter.
+#
+# Production / EAS preview / production builds:
+#   Use the deployed HTTPS API URL configured for Sudo Reply.
+#
+# Previously recorded LAN URL (may be stale):
+#   http://192.168.29.69:5000
+#
+# Do not use the old LAN IP for a release build. Verify the live API
+# endpoint with the team before building a distributable app.
+
+
+# ============================================================
+# DAILY DEV — ANDROID USB (WINDOWS)
+# Use for normal JS/TS changes. No native rebuild is normally needed.
+# ============================================================
+
+# Terminal 1 — start the backend
+cd D:\yzo\yzo-whatsapp-platform\backend
+npm run dev
+
+# Terminal 2 — connect Android phone and forward ports
+adb devices
+
+# The device should appear with status "device".
+adb reverse tcp:8081 tcp:8081
+adb reverse tcp:5000 tcp:5000
+
+# Start Metro from the mobile project
+cd D:\yzo\yzo-whatsapp-platform\sudo-reply-mobile
+npx expo start --dev-client
+
+# Open Sudo Reply on the connected phone.
+# Ensure the development build is already installed.
+#
+# For USB development, configure the app API base URL as:
+#   http://localhost:5000
+
+eas build --profile development --platform android
+#
+# If Metro has stale cache:
+npx expo start --dev-client --clear
+
+
+# ============================================================
+# DAILY DEV — ANDROID WI-FI / LAN
+# ============================================================
+
+# 1. Find this computer's current LAN IPv4 address:
+ipconfig
+
+# 2. Ensure the phone and computer are on the same Wi-Fi network.
+#
+# 3. Configure the app's API URL in the applicable config:
+#    http://YOUR_CURRENT_LAN_IP:5000
+#
+# 4. Start the backend:
+cd D:\yzo\yzo-whatsapp-platform\backend
+npm run dev
+
+# 5. Start Metro:
+cd D:\yzo\yzo-whatsapp-platform\sudo-reply-mobile
+npx expo start --dev-client
+
+# Do not use localhost for a physical phone over Wi-Fi.
+# localhost on the phone refers to the phone itself.
+
+
+# ============================================================
+# FIRST-TIME / DEVELOPMENT BUILD — ANDROID
+# Use when a development client is not installed.
+# ============================================================
+
+cd D:\yzo\yzo-whatsapp-platform\sudo-reply-mobile
+
+# Install the Expo development client if it is not already installed:
+npx expo install expo-dev-client
+
+# Generate the Android native project:
+npx expo prebuild --platform android
+
+# Build and install on the connected Android device:
+npx expo run:android
+
+# Then start Metro:
+npx expo start --dev-client
+
+
+# ============================================================
+# REBUILD — ANDROID AFTER NATIVE CONFIG CHANGES
+# Use after changing app config, native plugins, permissions,
+# native dependencies, Firebase config, icons or splash screen.
+# ============================================================
+
+cd D:\yzo\yzo-whatsapp-platform\sudo-reply-mobile
+
+# Review changes before using --clean. It regenerates native files.
+npx expo prebuild --platform android --clean
+
+# Build and install:
+npx expo run:android
+
+# Forward ports for USB development:
+adb reverse tcp:8081 tcp:8081
+adb reverse tcp:5000 tcp:5000
+
+# Start Metro with a clean cache:
+npx expo start --dev-client --clear
+
+
+# ============================================================
+# EAS ONE-TIME SETUP / VERIFICATION
+# ============================================================
+
+cd D:\yzo\yzo-whatsapp-platform\sudo-reply-mobile
+
+# Install EAS CLI if needed:
+npm install -g eas-cli
+
+# Login:
+eas login
+
+# Confirm account:
+eas whoami
+
+# Configure EAS only if the project is not already configured:
+eas build:configure
+
+# The app's EAS project ID should be:
+# 6292ddf3-0f58-4832-9e8d-6e12f98b62f3
+#
+# Verify app.json/app.config.js contains the correct owner, slug,
+# Android package, iOS bundle identifier and EAS projectId.
+#
+# Do not replace an existing projectId with a new one.
+
+
+# ============================================================
+# EAS — ANDROID PREVIEW BUILD
+# Intended for tester distribution / direct installation.
+# ============================================================
+
+cd D:\yzo\yzo-whatsapp-platform\sudo-reply-mobile
+
+# Before building:
+# - Set the API URL to the deployed HTTPS Sudo Reply API.
+# - Check eas.json and confirm the "preview" profile produces an APK.
+# - Confirm the Android package is com.sudoreply.mobile.
+
+eas build --profile preview --platform android
+
+# When complete, open the EAS build link.
+# If the profile is configured for APK, download and install the APK.
+# The actual artifact type is controlled by eas.json.
+
+
+# ============================================================
+# EAS — ANDROID PRODUCTION BUILD (GOOGLE PLAY)
+# ============================================================
+
+cd D:\yzo\yzo-whatsapp-platform\sudo-reply-mobile
+
+# Before building:
+# - Set the API URL to the deployed HTTPS Sudo Reply API.
+# - Check the Android package: com.sudoreply.mobile
+# - Check the versionCode / autoIncrement configuration.
+# - Confirm the production profile in eas.json is configured for AAB.
+
+eas build --profile production --platform android
+
+# Download the generated .aab from the EAS build page.
+# Upload it to the correct Sudo Reply app in Google Play Console.
+#
+# For an existing Play Store app, versionCode must be higher than
+# the highest version code already uploaded.
+
+
+# ============================================================
+# EAS — IOS BUILD
+# Requires macOS / Apple Developer account for native iOS build work.
+# ============================================================
+
+cd sudo-reply-mobile
+
+# Internal testing build:
+eas build --profile preview --platform ios
+
+# App Store / TestFlight build:
+eas build --profile production --platform ios
+
+# Confirm the iOS bundle identifier is:
+# com.sudoreply.mobile
+#
+# Confirm the preview and production profiles in eas.json are
+# configured for the intended distribution method.
+
+
+# ============================================================
+# EAS CREDENTIALS
+# ============================================================
+
+# Inspect/manage Android signing credentials:
+eas credentials --platform android
+
+# Inspect/manage iOS signing credentials:
+eas credentials --platform ios
+
+# Keep signing credentials and passwords in an approved team vault.
+# Never commit keystores, passwords, provisioning profiles, or
+# credentials.json to Git.
+#
+# Do not generate a new Android keystore for an existing Play Store
+# app unless the team has confirmed that it is appropriate. The app
+# normally needs to retain its existing signing identity.
+
+
+# ============================================================
+# FIREBASE AND GOOGLE SERVICES
+# ============================================================
+
+# Expected Android Firebase config file:
+#   sudo-reply-mobile/google-services.json
+#
+# Check that it exists from the mobile project root:
+Test-Path .\google-services.json
+
+# If missing, obtain the Android configuration for the correct
+# Sudo Reply Firebase project from Firebase Console.
+#
+# Verify app config references the file correctly, commonly through
+# the Expo Google Services config plugin / googleServicesFile setting.
+#
+# Keep Firebase config handling consistent with the repository's
+# .gitignore and team policy. Do not expose service-account private
+# keys or upload them to public repositories.
+#
+# A Firebase client google-services.json is not the same as a
+# Firebase Admin service-account private key.
+
+
+# ============================================================
+# USEFUL EXPO / EAS COMMANDS
+# ============================================================
+
+# Check Expo project:
+npx expo config --type public
+
+# Run Expo diagnostics:
+npx expo-doctor
+
+# List recent EAS builds:
+eas build:list
+
+# View a build:
+eas build:view
+
+# Clear EAS build cache:
+eas build --clear-cache --profile preview --platform android
+
+# Start Metro with dev client and clear cache:
+npx expo start --dev-client --clear
+
+
+# ============================================================
+# WHEN TO RELOAD vs WHEN TO REBUILD
+# ============================================================
+
+# Usually just reload Metro:
+# - changed .ts / .tsx / .js / .jsx files
+# - changed screens, components, hooks or state
+# - changed API/service logic that does not require native changes
+#
+# Rebuild the native app when changing:
+# - app.json / app.config.js native configuration
+# - eas.json build configuration (when it changes native build output)
+# - native permissions or config plugins
+# - adding/removing a native dependency
+# - Firebase native configuration / google-services.json
+# - app scheme, Android package or iOS bundle identifier
+# - native icons, splash screen or notification configuration
+# - running prebuild --clean
+#
+# Changing only a JavaScript API URL generally does not require a
+# native rebuild, but restart Metro and ensure the runtime config
+# reads the updated value.
+
+
+# ============================================================
+# TROUBLESHOOTING
+# ============================================================
+
+# ADB shows no device:
+#   adb devices
+#   Enable Developer Options and USB debugging on the phone.
+#   Reconnect the USB cable and accept the debugging prompt.
+#
+# Android USB API calls fail:
+#   adb reverse tcp:5000 tcp:5000
+#   Confirm backend is running on port 5000.
+#   Confirm API URL is http://localhost:5000.
+#
+# Metro cannot connect to the phone:
+#   adb reverse tcp:8081 tcp:8081
+#   npx expo start --dev-client --clear
+#
+# API calls fail on physical phone over Wi-Fi:
+#   Do not use localhost.
+#   Use the computer's current LAN IPv4 address.
+#   Confirm both devices are on the same network.
+#   Confirm Windows Firewall permits the backend port.
+#
+# App says no development build is installed:
+#   npx expo run:android
+#   npx expo start --dev-client
+#
+# Changes are not reflecting:
+#   npx expo start --dev-client --clear
+#
+# Android native project is missing / malformed:
+#   npx expo prebuild --platform android
+#   npx expo run:android
+#
+# App opens but backend requests fail:
+#   Check src/config/api.ts.
+#   Check app.json -> expo.extra.apiUrl.
+#   Ensure the effective API URL is correct for USB, LAN or production.
+#
+# EAS build fails:
+#   npx expo-doctor
+#   eas build:list
+#   Check the full EAS build logs.
+#   Verify eas.json profile names and artifact settings.
+#   Verify Firebase config and signing credentials are available.
+#
+# IMPORTANT:
+# Do not run database reset/migration-destructive commands against
+# production while troubleshooting the mobile app.

@@ -37,13 +37,15 @@ export const ContactFormScreen: React.FC<Props> = ({ route, navigation }) => {
   const createMutation = useCreateContact();
   const updateMutation = useUpdateContact();
 
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
-  const [company, setCompany] = useState('');
-  const [countryCode, setCountryCode] = useState('+91');
+  const routeParams = (route.params as any) || {};
 
-  // Pre-fill form when editing
+  const [name, setName] = useState(routeParams.name || '');
+  const [phone, setPhone] = useState(routeParams.phone || '');
+  const [email, setEmail] = useState(routeParams.email || '');
+  const [company, setCompany] = useState(routeParams.company || '');
+  const [countryCode, setCountryCode] = useState(routeParams.countryCode || '+91');
+
+  // Pre-fill form when editing or when navigated with prefill params
   useEffect(() => {
     if (isEdit && existingContact) {
       setName(existingContact.name || '');
@@ -51,8 +53,31 @@ export const ContactFormScreen: React.FC<Props> = ({ route, navigation }) => {
       setEmail(existingContact.email || '');
       setCompany(existingContact.company || '');
       setCountryCode(existingContact.countryCode || '+91');
+    } else if (!isEdit && route.params) {
+      const p = route.params as any;
+      if (p.name !== undefined) setName(p.name);
+      if (p.phone !== undefined) {
+        const rawPhone = String(p.phone).trim();
+        if (rawPhone.startsWith('+91')) {
+          setCountryCode('+91');
+          setPhone(rawPhone.slice(3).replace(/\D/g, ''));
+        } else if (rawPhone.startsWith('+')) {
+          const match = rawPhone.replace(/[^\d+]/g, '').match(/^(\+\d{1,3})(\d+)$/);
+          if (match) {
+            setCountryCode(match[1]);
+            setPhone(match[2]);
+          } else {
+            setPhone(rawPhone.replace(/\D/g, ''));
+          }
+        } else {
+          setPhone(rawPhone.replace(/\D/g, ''));
+        }
+      }
+      if (p.email !== undefined) setEmail(p.email);
+      if (p.company !== undefined) setCompany(p.company);
+      if (p.countryCode !== undefined) setCountryCode(p.countryCode);
     }
-  }, [isEdit, existingContact]);
+  }, [isEdit, existingContact, route.params]);
 
   const isSaving = createMutation.isPending || updateMutation.isPending;
 

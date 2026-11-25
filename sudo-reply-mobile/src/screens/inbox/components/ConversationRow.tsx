@@ -23,6 +23,40 @@ const formatTimestamp = (dateStr?: string): string => {
   return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
 };
 
+const formatLastMessagePreview = (lastMsgObj: any): string => {
+  if (!lastMsgObj) return 'No messages';
+
+  const type = (lastMsgObj.type || 'TEXT').toUpperCase();
+  const text = lastMsgObj.text || lastMsgObj.caption || '';
+
+  if (type === 'AUDIO') {
+    return text ? `🎤 ${text}` : '🎤 Voice message';
+  }
+  if (type === 'IMAGE') {
+    return text ? `📷 ${text}` : '📷 Photo';
+  }
+  if (type === 'VIDEO') {
+    return text ? `🎥 ${text}` : '🎥 Video';
+  }
+  if (type === 'FILE' || type === 'DOCUMENT') {
+    return text ? `📄 ${text}` : '📄 Document';
+  }
+  if (type === 'LOCATION') {
+    return '📍 Location';
+  }
+  if (type === 'STICKER') {
+    return '🎨 Sticker';
+  }
+  if (type === 'CONTACT') {
+    return '👤 Contact';
+  }
+  if (type === 'ORDER') {
+    return text ? `🛍️ ${text}` : '🛍️ Order';
+  }
+
+  return text || 'No messages';
+};
+
 interface Props {
   item: any;
   onPress: () => void;
@@ -31,7 +65,7 @@ interface Props {
 export const ConversationRow: React.FC<Props> = ({ item, onPress }) => {
   const contactName = item.contact?.name || 'Unknown';
   const lastMsgObj = item.messages?.[0];
-  const lastMsg = lastMsgObj?.text || 'No messages';
+  const lastMsg = formatLastMessagePreview(lastMsgObj);
   const time = formatTimestamp(item.updatedAt);
   const agentName: string | undefined =
     item.assignedAgent?.name || item.agent?.name || item.assignee?.name || undefined;

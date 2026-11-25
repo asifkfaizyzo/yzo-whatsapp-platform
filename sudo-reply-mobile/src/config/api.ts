@@ -1,9 +1,9 @@
 // sudo-reply-mobile/src/config/api.ts
 const FALLBACK_URL = 'http://192.168.29.69:5000';
 // AFTER (production)
-// export const API_BASE_URL = 'https://api.sudoreply.com';
+export const API_BASE_URL = 'https://api.sudoreply.com';
 // BEFORE (local dev)
-export const API_BASE_URL = 'http://192.168.29.69:5000';
+// export const API_BASE_URL = 'http://192.168.29.69:5000';
 
 export const ENDPOINTS = {
   // ── Agent (User) Auth & Profile ── mounted at /tenant/user
