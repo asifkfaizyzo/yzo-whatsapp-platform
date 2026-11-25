@@ -58,6 +58,13 @@ const routeJob = async (job) => {
       await import("../../modules/shopify/webhooks/shopify.privacyWebhook.service.js");
     return processShopifyPrivacyWebhook(job.data);
   }
+
+    // Shopify customer data export jobs
+  if (job.name === "shopify-customer-data-export") {
+    const { processShopifyCustomerDataExport } =
+      await import("../../modules/shopify/webhooks/shopify.customerDataExport.service.js");
+    return processShopifyCustomerDataExport(job.data);
+  }
   
   // All other order webhook jobs (orders/create, orders/updated, etc.)
   return processOrderWebhookJob(job);

@@ -297,7 +297,6 @@ export async function updatePostPurchaseSettings(req, res) {
 }
 
 // ===== START TEMPORARY SHOPIFY WEBHOOK DIAGNOSTIC =====
-
 export const diagnoseShopifyWebhooks = async (req, res) => {
   let connection = null;
   let stage = "starting";
@@ -392,5 +391,4 @@ export const diagnoseShopifyWebhooks = async (req, res) => {
     });
   }
 };
-
 // ===== END TEMPORARY SHOPIFY WEBHOOK DIAGNOSTIC =====

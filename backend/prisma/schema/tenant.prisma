@@ -55,6 +55,7 @@ model Tenant {
   shopifyConnection     ShopifyConnection?
   shopifyStores         ShopifyStore[]
   shopifyProducts       ShopifyProduct[]
+  shopifyCustomerDataExports ShopifyCustomerDataExport[]
   woocommerceConnection WooCommerceConnection?
   ecommerceOrders       EcommerceOrder[]
   botFaqs               BotFaq[]

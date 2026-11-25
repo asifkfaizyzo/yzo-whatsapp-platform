@@ -5,6 +5,7 @@ import * as shopifyController from "./shopify.controller.js";
 import * as shopifyOAuthController from "./shopify.oauth.controller.js";
 import * as shopifyWebhookController from "./webhooks/shopify.webhook.controller.js";
 import * as shopifyProductController from "./products/shopify.product.controller.js";
+import * as shopifyCustomerDataExportController from "./webhooks/shopify.customerDataExport.controller.js";
 
 const router = express.Router();
 
@@ -43,6 +44,12 @@ router.delete("/disconnect", shopifyController.disconnect);
 
 // Category 5: bulk historical customer sync
 router.post("/sync-customers", shopifyController.triggerCustomerSync);
+
+// Shopify customer privacy export download
+router.get(
+  "/customer-data-exports/:exportId/download",
+  shopifyCustomerDataExportController.downloadShopifyCustomerDataExport,
+);
 
 // ── Category 6: Product Catalog Sync ──
 router.post("/products/sync", shopifyProductController.triggerProductSync);

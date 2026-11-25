@@ -5,7 +5,16 @@ import { afterEach, mock, test } from "node:test";
 const testSecret = "shopify-webhook-test-secret";
 const rawBody = Buffer.from('{"id":123,"name":"#123"}');
 const validPayload = { id: 123, name: "#123" };
-const knownConnection = { tenantId: "test-tenant" };
+const knownConnection = {
+  tenantId: "test-tenant",
+  store: {
+    id: "test-store",
+    tenantId: "test-tenant",
+    shopDomain: "known-shop.myshopify.com",
+    status: "active",
+    redactedAt: null,
+  },
+};
 
 const state = {
   connection: knownConnection,

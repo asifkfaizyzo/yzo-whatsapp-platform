@@ -213,6 +213,7 @@ export const handleIncomingWebhook = async (req, res) => {
           topic,
           shopDomain: store.shopDomain,
           customerId,
+          webhookId: String(webhookId),
         },
         {
           jobId,

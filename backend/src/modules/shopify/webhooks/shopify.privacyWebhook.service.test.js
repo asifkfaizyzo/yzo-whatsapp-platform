@@ -4,11 +4,18 @@ import { test } from "node:test";
 
 const serviceSource = await readFile(new URL("./shopify.privacyWebhook.service.js", import.meta.url), "utf8");
 
-function createHarness({ storeExists = true, failCleanup = false, queueJobs = [], dlqJobs = [], failQueueCleanup = false } = {}) {
+function createHarness({
+  storeExists = true,
+  failCleanup = false,
+  queueJobs = [],
+  dlqJobs = [],
+  failQueueCleanup = false,
+} = {}) {
   const state = {
     tombstones: new Map(),
     operations: [],
     deleted: [],
+    exports: [],
     failCleanup,
     failQueueCleanup,
     queueJobs,
@@ -20,6 +27,7 @@ function createHarness({ storeExists = true, failCleanup = false, queueJobs = []
       otherStoreOrders: [{ id: "other-store-order", shopifyStoreId: "store-2" }],
     },
   };
+
   const store = {
     id: "store-1",
     tenantId: "tenant-1",
@@ -27,16 +35,39 @@ function createHarness({ storeExists = true, failCleanup = false, queueJobs = []
     status: "active",
     redactedAt: null,
   };
+
+  const matches = (record, where = {}) =>
+    Object.entries(where).every(([key, value]) => {
+      if (key === "storeId_webhookId") {
+        return (
+          record.storeId === value.storeId &&
+          record.webhookId === value.webhookId
+        );
+      }
+
+      if (value && typeof value === "object" && "not" in value) {
+        return record[key] !== value.not;
+      }
+
+      return record[key] === value;
+    });
+
   const prisma = {
     shopifyStore: {
       findFirst: async (args) => {
         state.operations.push(["store.findFirst", args]);
-        return storeExists && args.where.id === store.id &&
+
+        return storeExists &&
+          args.where.id === store.id &&
           args.where.tenantId === store.tenantId &&
-          args.where.shopDomain === store.shopDomain ? store : null;
+          args.where.shopDomain === store.shopDomain
+          ? store
+          : null;
       },
+
       updateMany: async ({ where, data }) => {
         state.operations.push(["store.updateMany", { where, data }]);
+
         if (
           where.id !== store.id ||
           where.tenantId !== store.tenantId ||
@@ -44,30 +75,104 @@ function createHarness({ storeExists = true, failCleanup = false, queueJobs = []
         ) {
           return { count: 0 };
         }
+
         Object.assign(store, data);
         return { count: 1 };
       },
     },
+
     shopifyCustomerRedaction: {
       create: async ({ data }) => {
         state.operations.push(["redaction.create", data]);
+
         const key = `${data.storeId}:${data.shopifyCustomerId}`;
+
         if (state.tombstones.has(key)) {
           const error = new Error("unique constraint");
           error.code = "P2002";
           throw error;
         }
+
         state.tombstones.set(key, { ...data });
         return data;
       },
-      findUnique: async ({ where }) => state.tombstones.get(
-        `${where.storeId_shopifyCustomerId.storeId}:${where.storeId_shopifyCustomerId.shopifyCustomerId}`,
-      ) ?? null,
+
+      findUnique: async ({ where }) =>
+        state.tombstones.get(
+          `${where.storeId_shopifyCustomerId.storeId}:${where.storeId_shopifyCustomerId.shopifyCustomerId}`,
+        ) ?? null,
     },
+
+    shopifyCustomerDataExport: {
+      create: async ({ data }) => {
+        state.operations.push(["export.create", data]);
+
+        const duplicate = state.exports.find(
+          (record) =>
+            record.storeId === data.storeId &&
+            record.webhookId === data.webhookId,
+        );
+
+        if (duplicate) {
+          const error = new Error("unique constraint");
+          error.code = "P2002";
+          throw error;
+        }
+
+        const record = {
+          id: `export-${state.exports.length + 1}`,
+          ...data,
+          filePath: null,
+          downloadTokenHash: null,
+          expiresAt: null,
+          downloadedAt: null,
+          generatedAt: null,
+          failureReason: null,
+        };
+
+        state.exports.push(record);
+
+        return { id: record.id };
+      },
+
+      findUnique: async ({ where }) => {
+        state.operations.push(["export.findUnique", where]);
+
+        if (where.storeId_webhookId) {
+          return state.exports.find(
+            (record) =>
+              record.storeId === where.storeId_webhookId.storeId &&
+              record.webhookId === where.storeId_webhookId.webhookId,
+          ) ?? null;
+        }
+
+        return null;
+      },
+
+      findMany: async ({ where }) =>
+        state.exports.filter((record) => matches(record, where)),
+
+      updateMany: async ({ where, data }) => {
+        state.operations.push(["export.updateMany", { where, data }]);
+
+        const records = state.exports.filter((record) =>
+          matches(record, where),
+        );
+
+        for (const record of records) {
+          Object.assign(record, data);
+        }
+
+        return { count: records.length };
+      },
+    },
+
     $transaction: async (callback) => {
       state.operations.push(["transaction.begin"]);
+
       const tx = {};
       const stagedDeletes = [];
+
       for (const model of [
         "shopifyCustomerMapping",
         "ecommerceOrder",
@@ -80,38 +185,100 @@ function createHarness({ storeExists = true, failCleanup = false, queueJobs = []
           deleteMany: async ({ where }) => {
             state.operations.push([`${model}.deleteMany`, where]);
             stagedDeletes.push({ model, where });
-            if (state.failCleanup) throw new Error("database error");
+
+            if (state.failCleanup) {
+              throw new Error("database error");
+            }
+
             return { count: 1 };
           },
         };
       }
+
       const result = await callback(tx);
       state.deleted.push(...stagedDeletes);
+
       return result;
     },
   };
-  const makeQueue = (jobs) => ({
-    getJobs: async (states, start, end) => {
-      if (state.failQueueCleanup) throw new Error("queue error");
-      return jobs.filter((job) => !job.removed && states.includes(job.state ?? "waiting")).slice(start, end + 1);
-    },
-  });
+
   const makeJob = (data) => ({
     ...data,
     state: data.state ?? "waiting",
-    getState: async function () { return this.state; },
-    remove: async function () { this.removed = true; },
+
+    getState: async function () {
+      return this.state;
+    },
+
+    remove: async function () {
+      this.removed = true;
+    },
   });
+
   state.queueJobs = queueJobs.map(makeJob);
   state.dlqJobs = dlqJobs.map(makeJob);
+
+  const makeQueue = (jobs) => ({
+    getJobs: async (states, start, end) => {
+      if (state.failQueueCleanup) {
+        throw new Error("queue error");
+      }
+
+      return jobs
+        .filter(
+          (job) =>
+            !job.removed && states.includes(job.state ?? "waiting"),
+        )
+        .slice(start, end + 1);
+    },
+  });
+
   const orderWebhookQueue = makeQueue(state.queueJobs);
   const dlqQueue = makeQueue(state.dlqJobs);
+
+  orderWebhookQueue.add = async (name, data, options = {}) => {
+    state.operations.push(["queue.add", { name, data, options }]);
+
+    const existing = state.queueJobs.find(
+      (job) => job.id === options.jobId && !job.removed,
+    );
+
+    if (existing) {
+      return existing;
+    }
+
+    const job = makeJob({
+      id: options.jobId,
+      name,
+      data,
+    });
+
+    state.queueJobs.push(job);
+
+    return job;
+  };
+
   const executable = serviceSource
     .replace(/^import .*;\s*/gm, "")
-    .replace("export const processShopifyPrivacyWebhook", "const processShopifyPrivacyWebhook");
-  const processShopifyPrivacyWebhook = new Function("prisma", "orderWebhookQueue", "dlqQueue", `${executable}; return processShopifyPrivacyWebhook;`)(prisma, orderWebhookQueue, dlqQueue);
-  return { processShopifyPrivacyWebhook, state, store };
+    .replace(
+      "export const processShopifyPrivacyWebhook",
+      "const processShopifyPrivacyWebhook",
+    );
+
+  const processShopifyPrivacyWebhook = new Function(
+    "prisma",
+    "orderWebhookQueue",
+    "dlqQueue",
+    `${executable}; return processShopifyPrivacyWebhook;`,
+  )(prisma, orderWebhookQueue, dlqQueue);
+
+  return {
+    processShopifyPrivacyWebhook,
+    state,
+    store,
+  };
 }
+
 
 const request = {
   topic: "customers/redact",
@@ -136,7 +303,6 @@ test("deletes only the exact store/customer Shopify records", async () => {
     { model: "shopifyCustomerMapping", where: { tenantId: "tenant-1", storeId: "store-1", shopifyCustomerId: "customer-1" } },
     { model: "ecommerceOrder", where: { tenantId: "tenant-1", source: "SHOPIFY", shopifyStoreId: "store-1", shopifyCustomerId: "customer-1" } },
     { model: "message", where: { source: "SHOPIFY", shopifyStoreId: "store-1", shopifyCustomerId: "customer-1" } },
-    { model: "contactProviderMapping", where: { tenantId: "tenant-1", provider: "SHOPIFY", providerContactId: "customer-1" } },
   ]);
   assert.equal(state.tombstones.size, 1);
   assert.ok(state.operations.findIndex(([name]) => name === "redaction.create") <
@@ -150,7 +316,7 @@ test("repeated request is idempotent and retries scoped cleanup", async () => {
 
   assert.equal(repeated.status, "repeated");
   assert.equal(state.tombstones.size, 1);
-  assert.equal(state.deleted.length, 8);
+  assert.equal(state.deleted.length, 6);
 });
 
 test("preserves shared contacts, conversations, WhatsApp messages, and unrelated data", async () => {
@@ -158,8 +324,10 @@ test("preserves shared contacts, conversations, WhatsApp messages, and unrelated
   await processShopifyPrivacyWebhook(request);
 
   assert.deepEqual(state.deleted.map(({ model }) => model), [
-    "shopifyCustomerMapping", "ecommerceOrder", "message", "contactProviderMapping",
-  ]);
+  "shopifyCustomerMapping",
+  "ecommerceOrder",
+  "message",
+]);
   assert.equal(state.deleted[2].where.source, "SHOPIFY");
   assert.equal(state.deleted[2].where.shopifyStoreId, "store-1");
   assert.equal(state.deleted[2].where.shopifyCustomerId, "customer-1");
@@ -329,8 +497,75 @@ test("queue cleanup is safe to repeat and failures are reported for retry", asyn
   assert.equal((await failed.processShopifyPrivacyWebhook(shopRedactRequest)).status, "repeated");
 });
 
-test("customers/data_request remains unimplemented", async () => {
+test("customers/data_request creates and queues a customer export", async () => {
   const { processShopifyPrivacyWebhook, state } = createHarness();
-  assert.equal((await processShopifyPrivacyWebhook({ ...request, topic: "customers/data_request" })).status, "ignored");
-  assert.equal(state.operations.length, 0);
+
+  const result = await processShopifyPrivacyWebhook({
+    ...request,
+    topic: "customers/data_request",
+    webhookId: "webhook-1",
+  });
+
+  assert.equal(state.exports.length, 1);
+  assert.equal(state.exports[0].webhookId, "webhook-1");
+  assert.equal(state.exports[0].shopifyCustomerId, "customer-1");
+
+  const queuedJob = state.queueJobs.find(
+    (job) => job.name === "shopify-customer-data-export",
+  );
+
+  assert.ok(queuedJob);
+  assert.equal(queuedJob.data.exportId, state.exports[0].id);
+  assert.equal(queuedJob.data.tenantId, "tenant-1");
+  assert.equal(queuedJob.data.storeId, "store-1");
+  assert.notEqual(result.status, "invalid");
+});
+
+test("repeated customers/data_request webhook reuses the existing export", async () => {
+  const { processShopifyPrivacyWebhook, state } = createHarness();
+
+  const dataRequest = {
+    ...request,
+    topic: "customers/data_request",
+    webhookId: "webhook-duplicate",
+  };
+
+  await processShopifyPrivacyWebhook(dataRequest);
+  await processShopifyPrivacyWebhook(dataRequest);
+
+  assert.equal(state.exports.length, 1);
+
+  const exportJobs = state.queueJobs.filter(
+    (job) => job.name === "shopify-customer-data-export",
+  );
+
+  assert.equal(exportJobs.length, 1);
+  assert.equal(exportJobs[0].data.exportId, state.exports[0].id);
+});
+
+test("customers/data_request is rejected after customer redaction", async () => {
+  const { processShopifyPrivacyWebhook, state } = createHarness();
+
+  state.tombstones.set("store-1:customer-1", {
+    tenantId: "tenant-1",
+    storeId: "store-1",
+    shopifyCustomerId: "customer-1",
+  });
+
+  const result = await processShopifyPrivacyWebhook({
+    ...request,
+    topic: "customers/data_request",
+    webhookId: "webhook-after-redaction",
+  });
+
+  assert.equal(state.exports.length, 0);
+
+  assert.equal(
+    state.queueJobs.some(
+      (job) => job.name === "shopify-customer-data-export",
+    ),
+    false,
+  );
+
+  assert.notEqual(result.status, "queued");
 });

@@ -59,6 +59,7 @@ model ShopifyStore {
   customerMappings ShopifyCustomerMapping[]
   orders           EcommerceOrder[]
   customerRedactions ShopifyCustomerRedaction[]
+  dataExports ShopifyCustomerDataExport[]
 
   status          String   @default("active")
   disconnectedAt DateTime?
@@ -214,4 +215,36 @@ model BackInStockSubscription {
   @@index([tenantId, shopifyProductId, notified])
   @@index([tenantId, contactPhone])
   @@map("back_in_stock_subscriptions")
+}
+
+
+model ShopifyCustomerDataExport {
+  id                String   @id @default(cuid())
+
+  tenantId          String
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  storeId           String
+  store             ShopifyStore @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  shopifyCustomerId String
+  webhookId String
+
+  status            String   @default("PENDING")
+  processingStartedAt DateTime?
+  filePath          String?  @db.Text
+  downloadTokenHash String?  @unique
+  expiresAt         DateTime?
+  generatedAt       DateTime?
+  downloadedAt      DateTime?
+  failureReason     String?  @db.Text
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([tenantId, storeId, shopifyCustomerId])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("shopify_customer_data_exports")
+  @@unique([storeId, webhookId])
 }
