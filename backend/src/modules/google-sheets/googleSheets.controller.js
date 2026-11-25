@@ -1,13 +1,13 @@
 // backend/src/modules/google-sheets/googleSheets.controller.js (do not remove this comment)
 import * as googleSheetsService from "./googleSheets.service.js";
 
-// ── 1. Auth & Connection Handlers ──
+// -- 1. Auth & Connection Handlers --
 
 export const getAuthUrl = async (req, res) => {
   try {
     const tenantId = req.tenantId || req.tenant?.id;
     const userId = req.user?.id || req.tenant?.id;
-    // 💡 Capture caller frontend origin (e.g. http://localhost:5174)
+    // ?? Capture caller frontend origin (e.g. http://localhost:5174)
     const returnUrl = req.headers.referer || req.headers.origin;
     const url = googleSheetsService.getAuthUrl(tenantId, userId, returnUrl);
     return res.json({ success: true, data: { url } });
@@ -21,7 +21,7 @@ export const handleCallback = async (req, res) => {
     const { code, state } = req.query;
     const result = await googleSheetsService.handleCallback(code, state);
 
-    // 💡 Priority: Dynamic frontend caller URL → env variable → localhost:5174
+    // ?? Priority: Dynamic frontend caller URL ? env variable ? localhost:5174
     let targetOrigin = process.env.FRONTEND_URL || "http://localhost:5174";
 
     if (result?.returnUrl) {
@@ -33,14 +33,14 @@ export const handleCallback = async (req, res) => {
       }
     }
 
-    // ✅ CHANGED: redirect to Integrations page instead of Settings
+    // ? CHANGED: redirect to Integrations page instead of Settings
     return res.redirect(
       `${targetOrigin}/dashboard/integrations?app=google-sheets&sheet=connected`,
     );
   } catch (error) {
     console.error("OAuth Callback Error:", error);
     const targetOrigin = process.env.FRONTEND_URL || "http://localhost:5174";
-    // ✅ CHANGED: error also goes to Integrations page
+    // ? CHANGED: error also goes to Integrations page
     return res.redirect(
       `${targetOrigin}/dashboard/integrations?app=google-sheets&sheet=error`,
     );
@@ -67,7 +67,7 @@ export const disconnect = async (req, res) => {
   }
 };
 
-// ── 2. Custom Column Fields Handlers ──
+// -- 2. Custom Column Fields Handlers --
 
 export const getFields = async (req, res) => {
   try {
@@ -180,7 +180,7 @@ export const syncFields = async (req, res) => {
   }
 };
 
-// ── 3. Preview & Broadcast Handlers ──
+// -- 3. Preview & Broadcast Handlers --
 
 export const previewSheet = async (req, res) => {
   try {

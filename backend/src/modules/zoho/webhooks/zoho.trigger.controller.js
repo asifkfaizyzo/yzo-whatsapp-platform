@@ -95,7 +95,7 @@ export const triggerOutboundMessage = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("❌ [ZohoTrigger] Error sending message:", error);
+    console.error("? [ZohoTrigger] Error sending message:", error);
     return res.status(500).json({ success: false, message: error.message });
   }
 };

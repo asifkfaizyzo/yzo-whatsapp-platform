@@ -2,16 +2,17 @@
 
 import express from "express";
 import flowController from "./flow.controller.js";
-import { verifyTenantOrUser } from "../../middlewares/auth.verifyTenantOrUser.js";
-import { checkSubscriptionAccess } from "../../middlewares/subscription.access.js";
+import { authenticate } from "../../middleware/authenticate.js";
+import { requireTenantOrUser } from "../../middleware/requireTenantOrUser.js";
+import { checkSubscriptionAccess } from "../../middleware/subscriptionAccess.js";
 
 import flowMediaUpload from "../../config/upload.flowMedia.js";
 import { uploadFlowMedia } from "./flowMedia.controller.js";
-import { verifyTenant } from "../../middlewares/auth.tenant.js";
+import { requireTenant } from "../../middleware/requireTenant.js";
 
 const router = express.Router();
 
-router.use(verifyTenantOrUser);
+router.use(authenticate, requireTenantOrUser);
 router.use(checkSubscriptionAccess);
 
 router.get("/", flowController.getAllFlows);
@@ -32,7 +33,7 @@ router.delete("/keywords/:keywordId", flowController.removeKeyword);
 // Upload media for automation flow (image / video)
 router.post(
   "/media/upload",
-  verifyTenant,
+  authenticate, requireTenant,
   flowMediaUpload.single("file"),
   uploadFlowMedia,
 );

@@ -1,4 +1,4 @@
-// backend/src/cron/jobs/zohoWatchRenewalJob.js (do not remove this comment)
+// backend/src/cron/jobs/zoho-watch-renewal.job.js (do not remove this comment)
 
 import cron from "node-cron";
 import prisma from "../../config/prisma.js";
@@ -9,7 +9,7 @@ export const startZohoWatchRenewalJob = () => {
   // Run every 12 hours (at 00:30 and 12:30)
   cron.schedule("30 */12 * * *", async () => {
     console.log(
-      "🔄 [ZohoWatchJob] Starting automated webhook subscription renewals...",
+      "?? [ZohoWatchJob] Starting automated webhook subscription renewals...",
     );
 
     try {
@@ -25,25 +25,25 @@ export const startZohoWatchRenewalJob = () => {
         try {
           await subscribeToZohoNotifications(tenant.id);
           console.log(
-            `✅ [ZohoWatchJob] Renewed watch subscription for tenant ${tenant.id}`,
+            `? [ZohoWatchJob] Renewed watch subscription for tenant ${tenant.id}`,
           );
         } catch (err) {
           console.warn(
-            `⚠️ [ZohoWatchJob] Renewal skipped/failed for tenant ${tenant.id}:`,
+            `?? [ZohoWatchJob] Renewal skipped/failed for tenant ${tenant.id}:`,
             err.message,
           );
         }
       }
 
       console.log(
-        `✅ [ZohoWatchJob] Renewal pass completed for ${connectedTenants.length} tenants`,
+        `? [ZohoWatchJob] Renewal pass completed for ${connectedTenants.length} tenants`,
       );
     } catch (err) {
-      console.error("❌ [ZohoWatchJob] Job execution failed:", err.message);
+      console.error("? [ZohoWatchJob] Job execution failed:", err.message);
     }
   });
 
   console.log(
-    "🔄 [ZohoWatchJob] Scheduled — runs every 12 hours for subscription renewals",
+    "?? [ZohoWatchJob] Scheduled � runs every 12 hours for subscription renewals",
   );
 };

@@ -94,12 +94,12 @@ export const resendPaymentLinkHandler = async (req, res) => {
 
     // Send WhatsApp interactive payment CTA to customer if contact phone exists
     if (result.order?.contact?.phone) {
-      const payBody = `💳 *Payment Link for Order #${result.order.orderNumber}*\n\n💰 Total Amount: *${result.order.currency} ${Number(result.order.totalAmount).toFixed(2)}*\n\nPlease tap the button below to complete your payment:`;
+      const payBody = `?? *Payment Link for Order #${result.order.orderNumber}*\n\n?? Total Amount: *${result.order.currency} ${Number(result.order.totalAmount).toFixed(2)}*\n\nPlease tap the button below to complete your payment:`;
       await flowEngine.sendWhatsAppPaymentCTA(
         tenantId,
         result.order.contact.phone,
         {
-          headerText: "💳 Complete Payment",
+          headerText: "?? Complete Payment",
           bodyText: payBody,
           buttonText: "Pay Now",
           url: result.paymentLink.short_url,

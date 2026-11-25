@@ -6,7 +6,7 @@ import {
   generateRefreshToken,
 } from "../../auth/jwt.service.js";
 import { saveRefreshToken } from "../../auth/refreshToken.service.js";
-import { checkLimitAccess } from "../../../lib/plan.limits.js";
+import { checkLimitAccess } from "../../../lib/entitlements/access.js";
 
 export const createUserService = async (data, tenantId) => {
   const { name, email, password } = data;

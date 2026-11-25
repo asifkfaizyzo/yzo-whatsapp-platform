@@ -1,14 +1,15 @@
 // backend/src/modules/quick-replies/quickReply.routes.js (do not remove this comment)
 import express from "express";
 import * as quickReplyController from "./quickReply.controller.js";
-import { verifyTenantOrUser } from "../../middlewares/auth.verifyTenantOrUser.js";
-import { checkSubscriptionAccess } from "../../middlewares/subscription.access.js";
+import { authenticate } from "../../middleware/authenticate.js";
+import { requireTenantOrUser } from "../../middleware/requireTenantOrUser.js";
+import { checkSubscriptionAccess } from "../../middleware/subscriptionAccess.js";
 import uploadQuickReply from "./quickReply.upload.js";
 
 const router = express.Router();
 
 // Apply auth & subscription check on all quick reply endpoints
-router.use(verifyTenantOrUser, checkSubscriptionAccess);
+router.use(authenticate, requireTenantOrUser, checkSubscriptionAccess);
 
 // 1. Static and custom endpoints FIRST (prevents clash with /:id)
 router.get("/categories", quickReplyController.listCategories);

@@ -3,9 +3,9 @@
 import prisma from "../../config/prisma.js";
 import { decrypt } from "../../lib/crypto.js";
 
-// ─────────────────────────────────────────────────────────────
-// SEND LOCATION  (Agent/Tenant → Contact via WhatsApp)
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
+// SEND LOCATION  (Agent/Tenant ? Contact via WhatsApp)
+// -------------------------------------------------------------
 
 /**
  * Sends a location pin to a WhatsApp contact
@@ -35,7 +35,7 @@ export const sendLocationService = async ({
   senderId,
   senderType,
 }) => {
-  // ── Step 1: Get tenant WhatsApp credentials ───────────────
+  // -- Step 1: Get tenant WhatsApp credentials ---------------
   const tenantRow = await prisma.tenant.findUnique({
     where: { id: tenantId },
     select: {
@@ -46,13 +46,13 @@ export const sendLocationService = async ({
   });
   const tenant = tenantRow?.whatsapp || {};
 
-  // ── Step 2: Send to WhatsApp Cloud API ────────────────────
+  // -- Step 2: Send to WhatsApp Cloud API --------------------
   let waMessageId = null;
 
-  // ── MOCK MODE: skip real API call ─────────────────────────
+  // -- MOCK MODE: skip real API call -------------------------
   if (process.env.MOCK_WHATSAPP === "true") {
-    console.log("⚠️  MOCK_WHATSAPP=true → skipping real WhatsApp API call");
-    console.log("📍 Mock location send:", {
+    console.log("??  MOCK_WHATSAPP=true ? skipping real WhatsApp API call");
+    console.log("?? Mock location send:", {
       to,
       latitude,
       longitude,
@@ -61,14 +61,14 @@ export const sendLocationService = async ({
     });
     waMessageId = `mock_wamid_${Date.now()}`;
   } else {
-    // ── REAL MODE: check credentials ────────────────────────
+    // -- REAL MODE: check credentials ------------------------
     if (!tenant?.whatsappPhoneId || !tenant?.whatsappAccessToken) {
       const err = new Error("WhatsApp is not configured for this account");
       err.statusCode = 400;
       throw err;
     }
 
-    // ── Build payload ────────────────────────────────────────
+    // -- Build payload ----------------------------------------
     const waPayload = {
       messaging_product: "whatsapp",
       recipient_type: "individual",
@@ -100,18 +100,18 @@ export const sendLocationService = async ({
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error("⚠️ WhatsApp location send error:", errorData);
+        console.error("?? WhatsApp location send error:", errorData);
       } else {
         const responseData = await response.json();
         waMessageId = responseData?.messages?.[0]?.id || null;
-        console.log("✅ Location sent via WhatsApp, wamid:", waMessageId);
+        console.log("? Location sent via WhatsApp, wamid:", waMessageId);
       }
     } catch (waError) {
-      console.error("⚠️ WhatsApp location send failed:", waError.message);
+      console.error("?? WhatsApp location send failed:", waError.message);
     }
   }
 
-  // ── Step 3: Get or verify conversation ───────────────────
+  // -- Step 3: Get or verify conversation -------------------
   let savedMessage = null;
 
   if (conversationId) {
@@ -133,7 +133,7 @@ export const sendLocationService = async ({
       throw err;
     }
 
-    // ── Step 4: Save message to DB ───────────────────────────
+    // -- Step 4: Save message to DB ---------------------------
     savedMessage = await prisma.message.create({
       data: {
         conversationId,
@@ -157,7 +157,7 @@ export const sendLocationService = async ({
       data: { lastMessageAt: new Date() },
     });
 
-    console.log(`✅ Location message saved to DB: ${savedMessage.id}`);
+    console.log(`? Location message saved to DB: ${savedMessage.id}`);
   }
 
   return {

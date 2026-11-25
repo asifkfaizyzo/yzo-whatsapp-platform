@@ -1,490 +1,466 @@
 // tenant-web/src/pages/auth/Login.jsx (do not remove this comment)
-import { Link, useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
-import { useAuthStore } from "../../store/useAuthStore";
-import { login, loginWithGoogle, loginWithFacebook } from "../../api/auth";
-import { useFormHandler } from "../../hooks/useFormHandler";
-import { loginSchema } from "../../validations/auth.validation";
-import FormError from "../../components/FormError";
-import { GoogleLogin } from "@react-oauth/google";
-import FacebookLoginButton from "../../components/auth/FacebookLoginButton";
-import { Mail, Lock, Eye, EyeOff, Loader2 } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useNavigate, useLocation, Link } from "react-router-dom";
+import {
+  Eye,
+  EyeOff,
+  Mail,
+  Lock,
+  Loader2,
+  AlertCircle,
+  ShieldCheck,
+  ArrowRight,
+  X,
+} from "lucide-react";
+import {
+  login as apiLogin,
+  loginWithGoogle,
+  loginWithFacebook,
+} from "../../api/auth";
 
-const benefits = [
-  {
-    title: "Official WhatsApp Cloud API",
-    text: "Direct integration with Meta's official API for maximum reliability and green-tick eligibility.",
-  },
-  {
-    title: "Bulk WhatsApp Broadcasting",
-    text: "Send personalized campaign messages to thousands of contacts with a single click.",
-  },
-  {
-    title: "Multi-Agent Shared Inbox",
-    text: "Collaborate seamlessly. Assign chats, label contacts, and support customers together.",
-  },
-];
-
-export default function LoginPage() {
+export default function Login({ onSwitchMode }) {
   const navigate = useNavigate();
-  const { isAuthenticated, user, isHydrated } = useAuthStore();
+  const location = useLocation();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [generalError, setGeneralError] = useState("");
   const [googleError, setGoogleError] = useState("");
   const [fbError, setFbError] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const googleCallbackRef = useRef(null);
 
-  const handleGoogleSuccess = async (credentialResponse) => {
-    const result = await loginWithGoogle(credentialResponse.credential);
-    if (result.success) {
-      const tenantUser = result.data?.data?.user;
-      if (tenantUser?.type === "TENANT" && !tenantUser?.onboardingCompleted) {
-        navigate("/register");
-      } else {
-        navigate("/dashboard");
-      }
-    } else {
-      setGoogleError(result.message);
-    }
-  };
+  // ── Floating error overlay state ──
+  const [errorDismissed, setErrorDismissed] = useState(true);
+  const errorTimerRef = useRef(null);
 
-  const handleGoogleError = () => {
-    setGoogleError("Google Sign-In was unsuccessful. Please try again.");
-  };
-
-  const handleFacebookSuccess = async (accessToken) => {
-    const result = await loginWithFacebook(accessToken);
-    if (result.success) {
-      const tenantUser = result.data?.data?.user;
-      if (tenantUser?.type === "TENANT" && !tenantUser?.onboardingCompleted) {
-        navigate("/register");
-      } else {
-        navigate("/dashboard");
-      }
-    } else {
-      setFbError(result.message);
-    }
-  };
-
-  const handleFacebookError = (errorMsg) => {
-    setFbError(errorMsg);
-  };
-
-  // ✅ If already logged in, redirect away from login page
   useEffect(() => {
-    if (isHydrated && isAuthenticated && user) {
-      if (user.type === "TENANT" && !user.onboardingCompleted) {
-        navigate("/register", { replace: true });
-      } else {
-        navigate("/dashboard", { replace: true });
-      }
-    }
-  }, [isHydrated, isAuthenticated, user, navigate]);
+    if (location.state?.message) setGeneralError(location.state.message);
+  }, [location.state]);
 
-  const {
-    register,
-    onSubmit,
-    generalError,
-    formState: { errors, isSubmitting },
-  } = useFormHandler({
-    schema: loginSchema,
-    defaultValues: { email: "", password: "" },
-    onSubmitService: (data) => login(data.email, data.password),
-    onSuccess: (result) => {
-      // ← Navigate based on user type and onboarding step returned from login
-      const tenantUser = result?.data?.data?.user;
-      if (tenantUser?.type === "TENANT" && !tenantUser?.onboardingCompleted) {
-        navigate("/register");
+  // ── Auto-show / auto-dismiss the floating error overlay ──
+  useEffect(() => {
+    const err = generalError || googleError || fbError;
+    if (err) {
+      setErrorDismissed(false);
+      clearTimeout(errorTimerRef.current);
+      errorTimerRef.current = setTimeout(() => {
+        setErrorDismissed(true);
+        setTimeout(() => {
+          setGeneralError("");
+          setGoogleError("");
+          setFbError("");
+        }, 300);
+      }, 5000);
+    }
+    return () => clearTimeout(errorTimerRef.current);
+  }, [generalError, googleError, fbError]);
+
+  const dismissError = useCallback(() => {
+    setErrorDismissed(true);
+    clearTimeout(errorTimerRef.current);
+    setTimeout(() => {
+      setGeneralError("");
+      setGoogleError("");
+      setFbError("");
+    }, 300);
+  }, []);
+
+  // ── Google Identity Services init (returns ID token, not access token) ──
+  useEffect(() => {
+    const initGoogle = () => {
+      if (!window.google?.accounts?.id) return;
+      window.google.accounts.id.initialize({
+        client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+        callback: (response) => {
+          if (googleCallbackRef.current) {
+            googleCallbackRef.current(response.credential);
+          }
+        },
+      });
+    };
+    initGoogle();
+    // Retry if SDK hasn't loaded yet
+    if (!window.google?.accounts?.id) {
+      const t = setTimeout(initGoogle, 1000);
+      return () => clearTimeout(t);
+    }
+  }, []);
+
+  // ── Facebook SDK init ──
+  useEffect(() => {
+    if (window.FB) return;
+    window.fbAsyncInit = () => {
+      window.FB.init({
+        appId: import.meta.env.VITE_META_APP_ID,
+        cookie: true,
+        xfbml: true,
+        version: "v26.0",
+      });
+    };
+    if (!document.getElementById("facebook-jssdk")) {
+      const js = document.createElement("script");
+      js.id = "facebook-jssdk";
+      js.src = "https://connect.facebook.net/en_US/sdk.js";
+      document.head.appendChild(js);
+    }
+  }, []);
+
+  const navigateAfterAuth = (tenant) => {
+    if (tenant?.type === "TENANT" && !tenant?.onboardingCompleted) {
+      navigate("/signup", { replace: true });
+    } else if (tenant?.type === "TENANT" && tenant?.setup?.isComplete === false) {
+      navigate("/signup", { state: { setupMode: true }, replace: true });
+    } else {
+      navigate("/dashboard", { replace: true });
+    }
+  };
+
+  // ── Email login ──
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setGeneralError("");
+    setGoogleError("");
+    setFbError("");
+    if (!email || !password) {
+      setGeneralError("Please fill in all fields.");
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const result = await apiLogin(email, password);
+      if (result.success) {
+        const tenant = result.data?.data?.tenant;
+        navigateAfterAuth(tenant);
       } else {
-        navigate("/dashboard");
+        setGeneralError(result.message || "Login failed.");
       }
-    },
-  });
+    } catch (err) {
+      setGeneralError(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Login failed. Please try again.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // ── Google login (ID token via Identity Services) ──
+  const handleGoogleLogin = useCallback(() => {
+    setGeneralError("");
+    setGoogleError("");
+    setFbError("");
+    setIsSubmitting(true);
+
+    googleCallbackRef.current = async (credential) => {
+      try {
+        const result = await loginWithGoogle(credential);
+        if (result.success) {
+          navigateAfterAuth(result.data?.data?.tenant);
+        } else if (result.code === "ACCOUNT_NOT_FOUND") {
+          navigate("/signup", {
+            state: { message: "No account found. Please sign up first." },
+            replace: true,
+          });
+        } else {
+          setGoogleError(result.message || "Google login failed.");
+        }
+      } catch (err) {
+        setGoogleError(err?.message || "Google login failed.");
+      } finally {
+        setIsSubmitting(false);
+        googleCallbackRef.current = null;
+      }
+    };
+
+    if (window.google?.accounts?.id) {
+      window.google.accounts.id.prompt((notification) => {
+        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+          setGoogleError(
+            "Google sign-in was blocked. Check your browser settings.",
+          );
+          setIsSubmitting(false);
+          googleCallbackRef.current = null;
+        }
+      });
+    } else {
+      setGoogleError(
+        "Google Sign-In is not available. Please refresh the page.",
+      );
+      setIsSubmitting(false);
+    }
+  }, [navigate]);
+
+  // ── Facebook login (access token via FB SDK) ──
+  const handleFacebookLogin = useCallback(() => {
+    setGeneralError("");
+    setGoogleError("");
+    setFbError("");
+
+    if (!window.FB) {
+      setFbError("Facebook SDK not loaded. Please refresh the page.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    window.FB.login(
+      (response) => {
+        if (!response.authResponse) {
+          setFbError("Facebook login was cancelled.");
+          setIsSubmitting(false);
+          return;
+        }
+        (async () => {
+          try {
+            const result = await loginWithFacebook(
+              response.authResponse.accessToken,
+            );
+            if (result.success) {
+              navigateAfterAuth(result.data?.data?.tenant);
+            } else if (result.code === "ACCOUNT_NOT_FOUND") {
+              navigate("/signup", {
+                state: { message: "No account found. Please sign up first." },
+                replace: true,
+              });
+            } else {
+              setFbError(result.message || "Facebook login failed.");
+            }
+          } catch (err) {
+            setFbError(err?.message || "Facebook login failed.");
+          } finally {
+            setIsSubmitting(false);
+          }
+        })();
+      },
+      { config_id: import.meta.env.VITE_META_SSO_CONFIG_ID },
+    );
+  }, [navigate]);
+
+  const unifiedError = generalError || googleError || fbError;
+
+  // ── Fluid spacing values ──
+  const spaceY = "clamp(6px, 1.4vh, 14px)";
+  const smallGap = "clamp(4px, 1vh, 10px)";
+  const tinyGap = "clamp(2px, 0.5vh, 6px)";
+  const sectionGap = "clamp(8px, 1.6vh, 16px)";
+  const cardPadding = "clamp(16px, 2.5vh, 32px)";
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex flex-col lg:flex-row font-sans">
-      <style>{AUTH_STYLES}</style>
-
-      {/* Left panel */}
+    <div className="w-full max-w-[420px] mx-auto sr-animate-fade-in-slide">
       <div
-        className="hidden lg:flex w-5/12 min-h-screen p-12 text-white flex-col justify-between relative overflow-hidden"
-        style={{
-          background:
-            "linear-gradient(160deg, #0c3aa6 0%, #125fe2 46%, #1547a8 100%)",
-        }}
+        className="relative overflow-hidden bg-white rounded-2xl shadow-[0_1px_3px_rgba(15,23,42,0.04),0_8px_32px_-8px_rgba(15,23,42,0.08)] border border-slate-100"
+        style={{ padding: cardPadding }}
       >
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:28px_28px] pointer-events-none" />
-        <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-white/5 blur-[110px] pointer-events-none" />
-        <div className="absolute -bottom-40 -right-24 w-96 h-96 rounded-full bg-[#0c3aa6]/40 blur-[110px] pointer-events-none" />
-
-        {/* Message constellation — signature illustration */}
-        <div
-          className="absolute inset-0 pointer-events-none select-none"
-          aria-hidden="true"
-        >
+        {/* ── Floating error overlay (zero layout impact) ── */}
+        {unifiedError && (
           <div
-            className="absolute sr-bubble-a"
-            style={{
-              top: "14%",
-              left: "8%",
-              width: 92,
-              height: 34,
-              background: "rgba(255,255,255,0.07)",
-              borderRadius: "16px 16px 16px 4px",
-            }}
-          />
-          <div
-            className="absolute sr-bubble-b"
-            style={{
-              top: "22%",
-              left: "62%",
-              width: 70,
-              height: 28,
-              background: "rgba(255,255,255,0.10)",
-              borderRadius: "16px 16px 4px 16px",
-            }}
-          />
-          <div
-            className="absolute sr-bubble-c"
-            style={{
-              top: "38%",
-              left: "18%",
-              width: 56,
-              height: 24,
-              background: "rgba(255,255,255,0.06)",
-              borderRadius: "16px 16px 16px 4px",
-            }}
-          />
-          <div
-            className="absolute sr-bubble-a"
-            style={{
-              top: "46%",
-              left: "70%",
-              width: 84,
-              height: 30,
-              background: "rgba(255,255,255,0.08)",
-              borderRadius: "16px 16px 4px 16px",
-            }}
-          />
-          <div
-            className="absolute sr-bubble-b"
-            style={{
-              top: "62%",
-              left: "6%",
-              width: 64,
-              height: 26,
-              background: "rgba(255,255,255,0.06)",
-              borderRadius: "16px 16px 16px 4px",
-            }}
-          />
-          <div
-            className="absolute rounded-full bg-emerald-400 sr-pulse-dot"
-            style={{ top: "31%", left: "56%", width: 8, height: 8 }}
-          />
-          <div
-            className="absolute rounded-full bg-white/40 sr-pulse-dot"
-            style={{
-              top: "57%",
-              left: "24%",
-              width: 6,
-              height: 6,
-              animationDelay: "0.8s",
-            }}
-          />
-        </div>
-
-        <div className="relative z-10">
-          <Link to="/" className="inline-flex items-center">
-            <img
-              src="/sudo2.png"
-              alt="SudoReply Logo"
-              className="w-14 h-14 object-contain filter drop-shadow-md brightness-110"
-            />
-          </Link>
-        </div>
-
-        <div className="relative z-10 my-auto py-12">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-blue-200/80">
-            SudoReply Workspace
-          </p>
-          <h1 className="mt-4 text-4xl xl:text-[2.75rem] font-bold tracking-tight leading-[1.15]">
-            Scale your customer relationships on WhatsApp.
-          </h1>
-          <p className="mt-6 max-w-md text-[15px] leading-relaxed text-blue-100/70">
-            Enterprises rely on SudoReply to orchestrate bulk campaigns,
-            maintain shared team inboxes, and process customer interactions on
-            Meta's official WhatsApp Cloud API.
-          </p>
-        </div>
-
-        <div className="relative z-10 space-y-3">
-          {benefits.map((item) => (
-            <div
-              key={item.title}
-              className="rounded-2xl border border-white/10 bg-white/[0.06] p-4 backdrop-blur-md transition-colors duration-200 hover:bg-white/[0.09]"
+            className={`absolute top-0 left-0 right-0 z-20 flex items-center gap-2 px-4 py-2.5 bg-red-50/95 backdrop-blur-sm border-b border-red-100 rounded-t-2xl transition-all duration-300 ease-out ${
+              !errorDismissed
+                ? "opacity-100 translate-y-0"
+                : "opacity-0 -translate-y-full pointer-events-none"
+            }`}
+          >
+            <AlertCircle size={14} className="text-red-500 shrink-0" />
+            <span className="text-[0.78rem] text-red-600 flex-1 leading-snug">
+              {unifiedError}
+            </span>
+            <button
+              type="button"
+              onClick={dismissError}
+              className="text-red-300 hover:text-red-500 transition-colors shrink-0"
             >
-              <h3 className="font-semibold text-white text-sm flex items-center gap-2">
-                <CheckIcon />
-                {item.title}
-              </h3>
-              <p className="mt-1 text-[13px] text-blue-100/60 leading-relaxed pl-6">
-                {item.text}
-              </p>
-            </div>
-          ))}
-        </div>
-      </div>
+              <X size={14} />
+            </button>
+          </div>
+        )}
 
-      {/* Right panel */}
-      <div className="flex-1 flex flex-col justify-center items-center py-12 px-4 sm:px-6 lg:px-8">
-        {/* Mobile Logo Branding */}
-        <div className="flex flex-col items-center text-center lg:hidden mb-8">
-          <Link to="/" className="inline-flex items-center mb-4">
-            <img
-              src="/sudo2.png"
-              alt="SudoReply Logo"
-              className="w-14 h-14 object-contain"
-            />
-          </Link>
-          <h1 className="text-[1.75rem] font-bold text-slate-900 tracking-tight">
+        {/* Header */}
+        <div className="text-center" style={{ marginBottom: sectionGap }}>
+          <h1 className="text-[1.3rem] font-bold text-slate-900 tracking-tight">
             Welcome back
           </h1>
-          <p className="mt-2 text-sm text-slate-500 max-w-sm">
-            Access your WhatsApp broadcasting dashboard, view analytics, and
-            manage campaigns.
+          <p className="text-[0.78rem] text-slate-400 mt-0.5">
+            Sign in to your workspace
           </p>
         </div>
 
-        <div className="w-full max-w-[440px]">
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_24px_48px_-16px_rgba(15,23,42,0.08)] p-8 sm:p-10 sr-animate-fade-in-slide">
-            <h2 className="text-[1.6rem] font-bold text-slate-900 tracking-tight mb-6 text-center">
-              Login to your account
-            </h2>
-
-            {/* Social login */}
-            {googleError && (
-              <div className="mb-4 rounded-xl bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-600">
-                {googleError}
-              </div>
-            )}
-
-            {fbError && (
-              <div className="mb-4 rounded-xl bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-600">
-                {fbError}
-              </div>
-            )}
-
-            <div className="flex justify-center w-full">
-              <FacebookLoginButton
-                onSuccess={handleFacebookSuccess}
-                onError={handleFacebookError}
-                text="Log in with Facebook"
-              />
-            </div>
-
-            <div className="flex justify-center w-full mt-3">
-              <GoogleLogin
-                onSuccess={handleGoogleSuccess}
-                onError={handleGoogleError}
-                shape="pill"
-                theme="outline"
-                width="360px"
-                text="signin_with"
-                logo_alignment="center"
-              />
-            </div>
-
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-200"></div>
-              </div>
-              <div className="relative flex justify-center">
-                <span className="bg-white px-3 text-xs font-medium text-slate-400 tracking-wide">
-                  Or sign up with email
-                </span>
-              </div>
-            </div>
-
-            <p className="text-sm text-slate-500 text-center">
-              Use your email and password to continue.
-            </p>
-
-            {generalError && (
-              <div className="mt-6 rounded-xl bg-red-50 border border-red-100 px-4 py-3.5 text-sm text-red-600 font-medium">
-                {generalError}
-              </div>
-            )}
-
-            <form className="mt-7 space-y-5" onSubmit={onSubmit}>
-              {/* Email */}
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1.5">
-                  Work email
-                </label>
-                <div className="relative">
-                  <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
-                    <Mail className="h-4 w-4" />
-                  </span>
-                  <input
-                    className={`sr-input pl-10 pr-3.5 ${errors.email ? "sr-input-error" : ""}`}
-                    type="email"
-                    placeholder="admin@company.com"
-                    {...register("email")}
-                  />
-                </div>
-                <FormError message={errors.email?.message} />
-              </div>
-
-              {/* Password */}
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1.5">
-                  Password
-                </label>
-                <div className="relative">
-                  <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
-                    <Lock className="h-4 w-4" />
-                  </span>
-                  <input
-                    className={`sr-input pl-10 pr-11 ${errors.password ? "sr-input-error" : ""}`}
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    {...register("password")}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((v) => !v)}
-                    tabIndex={-1}
-                    aria-label={
-                      showPassword ? "Hide password" : "Show password"
-                    }
-                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </button>
-                </div>
-                <FormError message={errors.password?.message} />
-              </div>
-
-              {/* Remember me / Forgot password */}
-              <div className="flex items-center justify-between text-sm pt-1">
-                <label className="inline-flex items-center gap-2 text-slate-500 font-medium cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-slate-300 text-[#125fe2] focus:ring-2 focus:ring-[rgba(18,95,226,0.16)]"
-                  />
-                  Remember me
-                </label>
-                <Link
-                  to="/forgot-password"
-                  className="font-semibold text-[#125fe2] hover:text-[#0e4bc0] hover:underline underline-offset-2"
-                >
-                  Forgot password?
-                </Link>
-              </div>
-
-              {/* Submit Button */}
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="sr-btn-primary w-full mt-2 flex gap-2 items-center justify-center"
+        {/* OAuth */}
+        <div
+          className="rounded-xl bg-slate-50/60 border border-slate-100 p-3"
+          style={{ marginBottom: spaceY }}
+        >
+          <div
+            className="flex flex-col items-center"
+            style={{ gap: smallGap }}
+          >
+            <button
+              type="button"
+              onClick={handleFacebookLogin}
+              disabled={isSubmitting}
+              className="w-full max-w-[360px] h-[44px] rounded-xl bg-[#1877F2] hover:bg-[#166fe5] flex items-center justify-center gap-2.5 text-[0.84rem] font-medium text-white transition-all duration-150 disabled:opacity-50"
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="currentColor"
               >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Logging in...
-                  </>
-                ) : (
-                  "Login"
-                )}
-              </button>
-            </form>
-
-            {/* Switch Mode */}
-            <p className="mt-8 text-center text-sm text-slate-500">
-              Don't have an account?{" "}
-              <Link
-                to="/register"
-                className="font-semibold text-[#125fe2] hover:text-[#0e4bc0] hover:underline underline-offset-2"
-              >
-                Sign up
-              </Link>
-            </p>
+                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+              </svg>
+              Continue with Facebook
+            </button>
+            <button
+              type="button"
+              onClick={handleGoogleLogin}
+              disabled={isSubmitting}
+              className="w-full max-w-[360px] h-[44px] rounded-xl bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 flex items-center justify-center gap-2.5 text-[0.84rem] font-medium text-slate-700 transition-all duration-150 disabled:opacity-50"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24">
+                <path
+                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
+                  fill="#4285F4"
+                />
+                <path
+                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                  fill="#34A853"
+                />
+                <path
+                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                  fill="#FBBC05"
+                />
+                <path
+                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                  fill="#EA4335"
+                />
+              </svg>
+              Continue with Google
+            </button>
           </div>
+        </div>
+
+        {/* Divider */}
+        <div
+          className="flex items-center gap-3"
+          style={{ marginBottom: spaceY }}
+        >
+          <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
+          <span className="text-[0.68rem] text-slate-300 font-medium uppercase tracking-wider">
+            or Sign in with email
+          </span>
+          <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
+        </div>
+
+        {/* Form */}
+        <form
+          onSubmit={handleSubmit}
+          className={`transition-opacity duration-200 ${
+            isSubmitting ? "opacity-70" : ""
+          }`}
+          style={{ display: "flex", flexDirection: "column", gap: spaceY }}
+        >
+          <div>
+            <label
+              className="block text-[0.78rem] font-medium text-slate-600"
+              style={{ marginBottom: tinyGap }}
+            >
+              Email
+            </label>
+            <div className="sr-input-wrap relative">
+              <Mail
+                size={16}
+                className="sr-input-icon absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 transition-colors duration-200 pointer-events-none"
+              />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@company.com"
+                className="sr-input w-full h-[44px] pl-10 pr-4 rounded-xl border border-slate-200 bg-white text-[0.875rem] text-slate-900 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-[#125fe2]/20 focus:border-[#125fe2] transition-all duration-200"
+                disabled={isSubmitting}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label
+              className="block text-[0.78rem] font-medium text-slate-600"
+              style={{ marginBottom: tinyGap }}
+            >
+              Password
+            </label>
+            <div className="sr-input-wrap relative">
+              <Lock
+                size={16}
+                className="sr-input-icon absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 transition-colors duration-200 pointer-events-none"
+              />
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                className="sr-input w-full h-[44px] pl-10 pr-11 rounded-xl border border-slate-200 bg-white text-[0.875rem] text-slate-900 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-[#125fe2]/20 focus:border-[#125fe2] transition-all duration-200"
+                disabled={isSubmitting}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500 transition-colors"
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </div>
+
+          {/* Forgot password */}
+          <div className="flex items-center">
+            <Link
+              to="/forgot-password"
+              className="sr-link-underline text-[0.72rem] text-slate-400 hover:text-[#125fe2] font-medium"
+            >
+              Forgot password?
+            </Link>
+          </div>
+
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="sr-btn-primary-gradient w-full flex items-center justify-center gap-2"
+            style={{ marginTop: tinyGap }}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 size={16} className="animate-spin" /> Signing in…
+              </>
+            ) : (
+              "Sign in"
+            )}
+          </button>
+        </form>
+
+        {/* Footer */}
+        <div
+          className="flex flex-col items-center"
+          style={{ marginTop: sectionGap, gap: smallGap }}
+        >
+          <div className="flex items-center gap-1.5 text-[0.66rem] text-slate-300">
+            <ShieldCheck size={11} />
+            <span>Encrypted · Your data stays safe</span>
+          </div>
+          <p className="text-[0.78rem] text-slate-400">
+            Don't have an account?{" "}
+            <button
+              type="button"
+              onClick={() => onSwitchMode?.("signup")}
+              className="sr-switch-link text-[#125fe2] hover:text-[#0e4bc0] font-semibold inline-flex items-center gap-1"
+            >
+              Sign up <ArrowRight size={13} className="sr-switch-arrow" />
+            </button>
+          </p>
         </div>
       </div>
     </div>
   );
 }
-
-function CheckIcon() {
-  return (
-    <svg
-      className="h-4 w-4 text-emerald-300 stroke-[3px] shrink-0"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={3}
-        d="M5 13l4 4L19 7"
-      />
-    </svg>
-  );
-}
-
-// Shared inline styles for inputs, buttons, and motion — kept in this file so
-// there's nothing extra to import. Identical block is duplicated in
-// RegisterPage.jsx so each file stays fully self-contained.
-const AUTH_STYLES = `
-@keyframes sr-fade-in-slide { from { opacity: 0; transform: translateY(14px);} to { opacity: 1; transform: translateY(0);} }
-@keyframes sr-drift-a { 0%,100% { transform: translate(0,0) rotate(0deg);} 50% { transform: translate(6px,-10px) rotate(1.5deg);} }
-@keyframes sr-drift-b { 0%,100% { transform: translate(0,0) rotate(0deg);} 50% { transform: translate(-8px,8px) rotate(-1.5deg);} }
-@keyframes sr-drift-c { 0%,100% { transform: translate(0,0);} 50% { transform: translate(4px,10px);} }
-@keyframes sr-pulse-dot { 0%,100% { opacity: 0.35; } 50% { opacity: 1; } }
-
-.sr-animate-fade-in-slide { animation: sr-fade-in-slide 0.55s cubic-bezier(0.16,1,0.3,1) both; }
-.sr-bubble-a { animation: sr-drift-a 7s ease-in-out infinite; }
-.sr-bubble-b { animation: sr-drift-b 8.5s ease-in-out infinite; }
-.sr-bubble-c { animation: sr-drift-c 6.5s ease-in-out infinite; }
-.sr-pulse-dot { animation: sr-pulse-dot 2.4s ease-in-out infinite; }
-
-@media (prefers-reduced-motion: reduce) {
-  .sr-animate-fade-in-slide, .sr-bubble-a, .sr-bubble-b, .sr-bubble-c, .sr-pulse-dot { animation: none !important; }
-}
-
-.sr-input {
-  width: 100%; height: 46px; border-radius: 12px;
-  border: 1.5px solid #e6eaf1; background: #fff; color: #0f172a;
-  font-size: 0.9375rem;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-/* Horizontal padding is handled by Tailwind (pl-10 / pr-3.5 / pr-11) on each
-   input below — kept out of this rule so it can never win a specificity tie
-   against those utility classes and swallow the icon spacing. */
-.sr-input::placeholder { color: #94a3b8; }
-.sr-input:hover { border-color: #cbd5e1; }
-.sr-input:focus { outline: none; border-color: #125fe2; box-shadow: 0 0 0 4px rgba(18,95,226,0.16); }
-.sr-input.sr-input-error { border-color: #dc2626; }
-.sr-input.sr-input-error:focus { box-shadow: 0 0 0 4px rgba(220,38,38,0.1); }
-
-.sr-btn-primary {
-  background: #125fe2; color: #fff; border-radius: 12px; height: 46px;
-  font-weight: 600; font-size: 0.9375rem; letter-spacing: -0.01em;
-  transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
-  box-shadow: 0 1px 2px rgba(15,23,42,0.04);
-}
-.sr-btn-primary:hover:not(:disabled) { background: #0e4bc0; box-shadow: 0 8px 20px -6px rgba(18,95,226,0.45); }
-.sr-btn-primary:active:not(:disabled) { background: #0b3d9e; transform: scale(0.98); }
-.sr-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
-
-.sr-btn-secondary {
-  background: #fff; color: #475569; border: 1.5px solid #e6eaf1; border-radius: 12px;
-  height: 46px; font-weight: 600; font-size: 0.9375rem;
-  transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
-}
-.sr-btn-secondary:hover { border-color: #cbd5e1; color: #0f172a; background: #f8fafc; }
-`;

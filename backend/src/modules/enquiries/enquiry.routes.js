@@ -9,7 +9,8 @@ import {
   updateStatus,
   deleteEnquiry,
 } from "./enquiry.controller.js";
-import { verifySuperAdmin } from "../../middlewares/auth.superAdmin.js";
+import { authenticate } from "../../middleware/authenticate.js";
+import { requireSRAdmin } from "../../middleware/requireSRAdmin.js";
 
 const router = Router();
 
@@ -44,15 +45,15 @@ router.post(
 
 // ── Admin Routes (Protected by Super Admin Auth) ──
 // GET /api/admin/enquiries
-router.get("/admin/enquiries", verifySuperAdmin, getEnquiries);
+router.get("/admin/enquiries", authenticate, requireSRAdmin, getEnquiries);
 
 // GET /api/admin/enquiries/:id
-router.get("/admin/enquiries/:id", verifySuperAdmin, getEnquiry);
+router.get("/admin/enquiries/:id", authenticate, requireSRAdmin, getEnquiry);
 
 // PATCH /api/admin/enquiries/:id/status
-router.patch("/admin/enquiries/:id/status", verifySuperAdmin, updateStatus);
+router.patch("/admin/enquiries/:id/status", authenticate, requireSRAdmin, updateStatus);
 
 // DELETE /api/admin/enquiries/:id
-router.delete("/admin/enquiries/:id", verifySuperAdmin, deleteEnquiry);
+router.delete("/admin/enquiries/:id", authenticate, requireSRAdmin, deleteEnquiry);
 
 export default router;

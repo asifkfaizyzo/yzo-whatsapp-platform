@@ -56,7 +56,7 @@ export const handleTenantOrderWebhook = async (req, res) => {
 
     if (!tenant) {
       console.warn(
-        `⚠️ [OrderWebhook] Received webhook for non-existent tenant: ${tenantId}`,
+        `?? [OrderWebhook] Received webhook for non-existent tenant: ${tenantId}`,
       );
       return res
         .status(200)
@@ -65,7 +65,7 @@ export const handleTenantOrderWebhook = async (req, res) => {
 
     if (!tenant.razorpayWebhookSecret) {
       console.warn(
-        `⚠️ [OrderWebhook] Tenant ${tenantId} does not have a webhook secret configured`,
+        `?? [OrderWebhook] Tenant ${tenantId} does not have a webhook secret configured`,
       );
       return res
         .status(200)
@@ -75,7 +75,7 @@ export const handleTenantOrderWebhook = async (req, res) => {
     const signature = req.headers["x-razorpay-signature"];
     if (!signature) {
       console.warn(
-        `⚠️ [OrderWebhook] Missing x-razorpay-signature header from tenant ${tenantId}`,
+        `?? [OrderWebhook] Missing x-razorpay-signature header from tenant ${tenantId}`,
       );
       return res
         .status(400)
@@ -87,7 +87,7 @@ export const handleTenantOrderWebhook = async (req, res) => {
       webhookSecret = decrypt(tenant.razorpayWebhookSecret);
     } catch (decryptErr) {
       console.error(
-        `❌ [OrderWebhook] Failed to decrypt webhook secret for tenant ${tenantId}:`,
+        `? [OrderWebhook] Failed to decrypt webhook secret for tenant ${tenantId}:`,
         decryptErr.message,
       );
       return res
@@ -109,7 +109,7 @@ export const handleTenantOrderWebhook = async (req, res) => {
       !crypto.timingSafeEqual(sigBuffer, expectedBuffer)
     ) {
       console.warn(
-        `❌ [OrderWebhook] Signature mismatch for tenant ${tenantId}`,
+        `? [OrderWebhook] Signature mismatch for tenant ${tenantId}`,
       );
       return res
         .status(400)
@@ -145,11 +145,11 @@ export const handleTenantOrderWebhook = async (req, res) => {
     );
 
     console.log(
-      `📥 [OrderWebhook] Enqueued ${event} (ID: ${eventId}) for tenant ${tenantId}`,
+      `?? [OrderWebhook] Enqueued ${event} (ID: ${eventId}) for tenant ${tenantId}`,
     );
     return res.status(200).json({ status: "ok", received: true });
   } catch (error) {
-    console.error("❌ [OrderWebhook] Ingestion error:", error);
+    console.error("? [OrderWebhook] Ingestion error:", error);
     return res
       .status(500)
       .json({ success: false, error: "Webhook ingestion failed" });
@@ -193,7 +193,7 @@ export const handlePartnerWebhook = async (req, res) => {
         process.env.RAZORPAY_WEBHOOK_SECRET;
       if (!verificationSecret) {
         console.warn(
-          "⚠️ [PartnerWebhook] RAZORPAY_PARTNER_WEBHOOK_SECRET not configured on server",
+          "?? [PartnerWebhook] RAZORPAY_PARTNER_WEBHOOK_SECRET not configured on server",
         );
         return res
           .status(500)
@@ -205,7 +205,7 @@ export const handlePartnerWebhook = async (req, res) => {
     } else {
       if (!accountId) {
         console.warn(
-          "⚠️ [PartnerWebhook] Commerce webhook missing account_id in payload",
+          "?? [PartnerWebhook] Commerce webhook missing account_id in payload",
         );
         return res
           .status(400)
@@ -233,7 +233,7 @@ export const handlePartnerWebhook = async (req, res) => {
 
       if (!tenant) {
         console.warn(
-          `⚠️ [PartnerWebhook] Received commerce webhook for unknown sub-merchant: ${accountId}`,
+          `?? [PartnerWebhook] Received commerce webhook for unknown sub-merchant: ${accountId}`,
         );
         return res
           .status(200)
@@ -242,7 +242,7 @@ export const handlePartnerWebhook = async (req, res) => {
 
       if (!tenant.razorpayWebhookSecret) {
         console.warn(
-          `⚠️ [PartnerWebhook] Tenant ${tenant.id} does not have razorpayWebhookSecret configured`,
+          `?? [PartnerWebhook] Tenant ${tenant.id} does not have razorpayWebhookSecret configured`,
         );
         return res
           .status(200)
@@ -253,7 +253,7 @@ export const handlePartnerWebhook = async (req, res) => {
         verificationSecret = decrypt(tenant.razorpayWebhookSecret);
       } catch (decryptErr) {
         console.error(
-          `❌ [PartnerWebhook] Decryption failed for tenant ${tenant.id}:`,
+          `? [PartnerWebhook] Decryption failed for tenant ${tenant.id}:`,
           decryptErr.message,
         );
         return res
@@ -275,7 +275,7 @@ export const handlePartnerWebhook = async (req, res) => {
       sigBuffer.length !== expectedBuffer.length ||
       !crypto.timingSafeEqual(sigBuffer, expectedBuffer)
     ) {
-      console.warn(`❌ [PartnerWebhook] Invalid signature for event ${event}`);
+      console.warn(`? [PartnerWebhook] Invalid signature for event ${event}`);
       return res
         .status(400)
         .json({ success: false, error: "Invalid signature" });
@@ -283,7 +283,7 @@ export const handlePartnerWebhook = async (req, res) => {
 
     if (isPartnerLifecycleEvent) {
       console.log(
-        `📋 [PartnerWebhook] Partner Lifecycle Event: ${event} for account: ${accountId}`,
+        `?? [PartnerWebhook] Partner Lifecycle Event: ${event} for account: ${accountId}`,
       );
 
       if (accountId) {
@@ -309,14 +309,14 @@ export const handlePartnerWebhook = async (req, res) => {
 
             await createNotification({
               tenantId: targetTenant.id,
-              title: "🎉 Razorpay KYC Verified!",
+              title: "?? Razorpay KYC Verified!",
               message:
                 "Your Razorpay account KYC has been verified. 1-Click online payments are now fully active on your WhatsApp store!",
               type: "SYSTEM",
             }).catch(() => {});
 
             console.log(
-              `✅ [PartnerWebhook] Activated tenant ${targetTenant.id} (KYC verified)`,
+              `? [PartnerWebhook] Activated tenant ${targetTenant.id} (KYC verified)`,
             );
           } else if (event === "account.rejected") {
             await prisma.tenantSubscription.update({
@@ -369,11 +369,11 @@ export const handlePartnerWebhook = async (req, res) => {
     );
 
     console.log(
-      `📥 [PartnerWebhook] Enqueued ${event} (ID: ${eventId}) for tenant ${tenant.id}`,
+      `?? [PartnerWebhook] Enqueued ${event} (ID: ${eventId}) for tenant ${tenant.id}`,
     );
     return res.status(200).json({ status: "ok", received: true });
   } catch (error) {
-    console.error("❌ [PartnerWebhook] Ingestion error:", error);
+    console.error("? [PartnerWebhook] Ingestion error:", error);
     return res
       .status(500)
       .json({ success: false, error: "Partner webhook ingestion failed" });
@@ -550,7 +550,7 @@ const processWooCustomerCreated = async ({ tenantId, payload }) => {
 export const processOrderWebhookJob = async (job) => {
   const { name, data } = job;
 
-  // ─── 0. SHOPIFY: CART RECOVERY REMINDER DELAYED JOBS ─────────────────
+  // --- 0. SHOPIFY: CART RECOVERY REMINDER DELAYED JOBS -----------------
   if (
     name === "shopify-cart-1h" ||
     name === "shopify-cart-24h" ||
@@ -559,12 +559,12 @@ export const processOrderWebhookJob = async (job) => {
     return processCartReminder(data);
   }
 
-  // ─── 0. SHOPIFY: PAYMENT REMINDER DELAYED JOB ─────────────────────────
+  // --- 0. SHOPIFY: PAYMENT REMINDER DELAYED JOB -------------------------
   if (name === "shopify-payment-reminder") {
     return processShopifyPaymentReminderJob(data);
   }
 
-  // ─── 1. SHOPIFY WEBHOOK HANDLING ──────────────────────────────────────
+  // --- 1. SHOPIFY WEBHOOK HANDLING --------------------------------------
   if (
     name === "shopify-order" ||
     data?.type === "SHOPIFY" ||
@@ -573,7 +573,7 @@ export const processOrderWebhookJob = async (job) => {
     return processShopifyOrderLifecycle(data);
   }
 
-  // ─── 2. WOOCOMMERCE WEBHOOK HANDLING ──────────────────────────────────
+  // --- 2. WOOCOMMERCE WEBHOOK HANDLING ----------------------------------
   if (name === "woocommerce-order" || data?.type === "WOOCOMMERCE") {
     if (data?.topic === "customer.created") {
       console.log(
@@ -589,14 +589,14 @@ export const processOrderWebhookJob = async (job) => {
     }
 
     console.log(
-      "2️⃣ Worker picked up job! Job name:",
+      "2?? Worker picked up job! Job name:",
       name,
       "| TenantId:",
       data?.tenantId,
     );
     const { tenantId, topic, payload } = data;
     console.log(
-      `\n📦 [OrderWebhookWorker] Processing WooCommerce Order #${payload?.id} for tenant ${tenantId}`,
+      `\n?? [OrderWebhookWorker] Processing WooCommerce Order #${payload?.id} for tenant ${tenantId}`,
     );
 
     if (!topic || !topic.includes("order")) return { ignored: true };
@@ -711,11 +711,11 @@ export const processOrderWebhookJob = async (job) => {
     });
 
     console.log(
-      "🔍 [Woo Meta Keys Received]:",
+      "?? [Woo Meta Keys Received]:",
       payload?.meta_data?.map((m) => m.key),
     );
     console.log(
-      `🔗 [Tracking Engine Result] Order #${orderNumber}:`,
+      `?? [Tracking Engine Result] Order #${orderNumber}:`,
       trackingInfo,
     );
 
@@ -807,7 +807,7 @@ export const processOrderWebhookJob = async (job) => {
         reviewRequestedAt,
       },
     });
-    console.log("3️⃣ DB Upsert succeeded! Order ID in DB:", order.id);
+    console.log("3?? DB Upsert succeeded! Order ID in DB:", order.id);
 
     if (recoveryCartId) {
       const { cancelWooCartReminders } =
@@ -997,7 +997,7 @@ export const processOrderWebhookJob = async (job) => {
           );
         } catch (alertErr) {
           console.error(
-            "⚠️ [Woo Alert] New order admin alert failed:",
+            "?? [Woo Alert] New order admin alert failed:",
             alertErr.message,
           );
         }
@@ -1005,7 +1005,7 @@ export const processOrderWebhookJob = async (job) => {
 
       if (messageText && process.env.NODE_ENV !== "production") {
         console.log(
-          `🧪 [Worker] Development mock: order notification recorded in platform for ${customerPhone}`,
+          `?? [Worker] Development mock: order notification recorded in platform for ${customerPhone}`,
         );
       } else if (
         messageText &&
@@ -1087,17 +1087,17 @@ export const processOrderWebhookJob = async (job) => {
               },
             );
             console.log(
-              `✅ [Worker] WhatsApp order template accepted for ${cleanRecipientPhone} (message ID: ${waResponse.data?.messages?.[0]?.id || "unknown"})`,
+              `? [Worker] WhatsApp order template accepted for ${cleanRecipientPhone} (message ID: ${waResponse.data?.messages?.[0]?.id || "unknown"})`,
             );
           } catch (waErr) {
             console.error(
-              "⚠️ [Worker] WhatsApp template error:",
+              "?? [Worker] WhatsApp template error:",
               waErr.response?.data || waErr.message,
             );
           }
         } else {
           console.warn(
-            `⚠️ [Worker] WhatsApp order notification skipped for tenant ${tenantId}: WhatsApp is not connected`,
+            `?? [Worker] WhatsApp order notification skipped for tenant ${tenantId}: WhatsApp is not connected`,
           );
         }
       } else if (
@@ -1203,12 +1203,12 @@ export const processOrderWebhookJob = async (job) => {
     return { success: true, type: "WOOCOMMERCE", orderId: order.id };
   }
 
-  // ─── 3. RAZORPAY WEBHOOK HANDLING ─────────────────────────────────────
+  // --- 3. RAZORPAY WEBHOOK HANDLING -------------------------------------
   const { tenantId, eventId, event, payload } = job.data;
   const uniqueKey = `${event}_${eventId}`;
 
   console.log(
-    `\n💳 [OrderWebhookWorker] Processing event "${event}" (${uniqueKey}) for tenant ${tenantId}`,
+    `\n?? [OrderWebhookWorker] Processing event "${event}" (${uniqueKey}) for tenant ${tenantId}`,
   );
 
   try {
@@ -1223,7 +1223,7 @@ export const processOrderWebhookJob = async (job) => {
   } catch (err) {
     if (err.code === "P2002") {
       console.log(
-        `ℹ️ [OrderWebhook] Duplicate webhook event skipped: ${uniqueKey}`,
+        `?? [OrderWebhook] Duplicate webhook event skipped: ${uniqueKey}`,
       );
       return { duplicate: true };
     }
@@ -1267,13 +1267,13 @@ export const processOrderWebhookJob = async (job) => {
 
   if (!order) {
     console.warn(
-      `⚠️ [OrderWebhook] No matching order found for event ${event} (entity ID: ${eventId})`,
+      `?? [OrderWebhook] No matching order found for event ${event} (entity ID: ${eventId})`,
     );
     return { status: "ignored_no_order" };
   }
 
   console.log(
-    `📦 [OrderWebhook] Matched Order #${order.orderNumber} (ID: ${order.id})`,
+    `?? [OrderWebhook] Matched Order #${order.orderNumber} (ID: ${order.id})`,
   );
 
   try {
@@ -1281,7 +1281,7 @@ export const processOrderWebhookJob = async (job) => {
       case "payment_link.paid": {
         if (order.paymentStatus === "PAID") {
           console.log(
-            `ℹ️ [OrderWebhook] Order #${order.orderNumber} is already marked as PAID. Skipping duplicate webhook.`,
+            `?? [OrderWebhook] Order #${order.orderNumber} is already marked as PAID. Skipping duplicate webhook.`,
           );
           break;
         }
@@ -1294,7 +1294,7 @@ export const processOrderWebhookJob = async (job) => {
 
         if (paidPaise !== expectedPaise) {
           console.error(
-            `🚨 [OrderWebhook] Amount mismatch on Order #${order.orderNumber}! Expected ${expectedPaise} paise, got ${paidPaise} paise.`,
+            `?? [OrderWebhook] Amount mismatch on Order #${order.orderNumber}! Expected ${expectedPaise} paise, got ${paidPaise} paise.`,
           );
 
           await prisma.order.update({
@@ -1316,7 +1316,7 @@ export const processOrderWebhookJob = async (job) => {
 
           await createNotification({
             tenantId,
-            title: `🚨 Payment Mismatch: Order #${order.orderNumber}`,
+            title: `?? Payment Mismatch: Order #${order.orderNumber}`,
             message: `Customer paid ${paidPaise / 100} ${order.currency}, but order total is ${order.totalAmount} ${order.currency}. Action required.`,
             type: "ORDER",
           });
@@ -1336,7 +1336,7 @@ export const processOrderWebhookJob = async (job) => {
         });
 
         console.log(
-          `✅ [OrderWebhook] Order #${order.orderNumber} marked as PAID & CONFIRMED`,
+          `? [OrderWebhook] Order #${order.orderNumber} marked as PAID & CONFIRMED`,
         );
 
         try {
@@ -1365,7 +1365,7 @@ export const processOrderWebhookJob = async (job) => {
         if (order.paymentStatus !== "PAID") {
           if (paidPaise !== expectedPaise) {
             console.error(
-              `🚨 [OrderWebhook] Amount mismatch on payment.captured for Order #${order.orderNumber}!`,
+              `?? [OrderWebhook] Amount mismatch on payment.captured for Order #${order.orderNumber}!`,
             );
             await prisma.order.update({
               where: { id: order.id },
@@ -1391,7 +1391,7 @@ export const processOrderWebhookJob = async (job) => {
           });
 
           console.log(
-            `✅ [OrderWebhook] payment.captured: Order #${order.orderNumber} confirmed`,
+            `? [OrderWebhook] payment.captured: Order #${order.orderNumber} confirmed`,
           );
 
           try {
@@ -1418,7 +1418,7 @@ export const processOrderWebhookJob = async (job) => {
           paymentEntity?.error_reason ||
           "Payment failed";
         console.warn(
-          `❌ [OrderWebhook] Payment failed for Order #${order.orderNumber}: ${failureReason}`,
+          `? [OrderWebhook] Payment failed for Order #${order.orderNumber}: ${failureReason}`,
         );
 
         const updatedOrder = await prisma.order.update({
@@ -1444,7 +1444,7 @@ export const processOrderWebhookJob = async (job) => {
 
       case "payment_link.expired": {
         console.warn(
-          `⏰ [OrderWebhook] Payment link expired for Order #${order.orderNumber}`,
+          `? [OrderWebhook] Payment link expired for Order #${order.orderNumber}`,
         );
 
         const updatedOrder = await prisma.order.update({
@@ -1468,7 +1468,7 @@ export const processOrderWebhookJob = async (job) => {
 
       case "payment_link.cancelled": {
         console.log(
-          `🚫 [OrderWebhook] Payment link cancelled for Order #${order.orderNumber}`,
+          `?? [OrderWebhook] Payment link cancelled for Order #${order.orderNumber}`,
         );
 
         await prisma.order.update({
@@ -1536,7 +1536,7 @@ export const processOrderWebhookJob = async (job) => {
         const isFullRefund = refundAmountPaise >= totalPaise;
 
         console.log(
-          `💰 [OrderWebhook] Refund processed for Order #${order.orderNumber}. Full: ${isFullRefund}`,
+          `?? [OrderWebhook] Refund processed for Order #${order.orderNumber}. Full: ${isFullRefund}`,
         );
 
         const updatedOrder = await prisma.order.update({
@@ -1559,7 +1559,7 @@ export const processOrderWebhookJob = async (job) => {
           orderNumber: order.orderNumber,
         });
 
-        const refundMsg = `💰 *Refund Processed*\n\nA refund of ${order.currency} ${(refundAmountPaise / 100).toFixed(2)} for Order #${order.orderNumber} has been processed successfully. It should reflect in your account within 5-7 business days.`;
+        const refundMsg = `?? *Refund Processed*\n\nA refund of ${order.currency} ${(refundAmountPaise / 100).toFixed(2)} for Order #${order.orderNumber} has been processed successfully. It should reflect in your account within 5-7 business days.`;
         if (order.conversation && order.contact) {
           await flowEngine.sendBotTextMessage(
             order.conversation,
@@ -1573,7 +1573,7 @@ export const processOrderWebhookJob = async (job) => {
 
       case "refund.failed": {
         console.error(
-          `❌ [OrderWebhook] Refund failed for Order #${order.orderNumber}`,
+          `? [OrderWebhook] Refund failed for Order #${order.orderNumber}`,
         );
 
         await prisma.order.update({
@@ -1593,7 +1593,7 @@ export const processOrderWebhookJob = async (job) => {
 
         await createNotification({
           tenantId,
-          title: `❌ Refund Failed: Order #${order.orderNumber}`,
+          title: `? Refund Failed: Order #${order.orderNumber}`,
           message: `The refund of ${order.currency} ${order.totalAmount} failed. Gateway message: ${refundEntity?.error_description || "Unknown error"}.`,
           type: "ORDER",
         });
@@ -1601,13 +1601,13 @@ export const processOrderWebhookJob = async (job) => {
       }
 
       default:
-        console.log(`ℹ️ [OrderWebhook] Unhandled event type: ${event}`);
+        console.log(`?? [OrderWebhook] Unhandled event type: ${event}`);
     }
 
     return { success: true, event, orderId: order.id };
   } catch (processErr) {
     console.error(
-      `❌ [OrderWebhook] Error executing event ${event}:`,
+      `? [OrderWebhook] Error executing event ${event}:`,
       processErr,
     );
     throw processErr;
@@ -1624,7 +1624,7 @@ export const handleShopifyWebhook = async (req, res) => {
     const payload = req.body;
 
     console.log(
-      `📥 [ShopifyWebhook] Received topic: "${topic}" from domain: "${shop}"`,
+      `?? [ShopifyWebhook] Received topic: "${topic}" from domain: "${shop}"`,
     );
 
     await orderWebhookQueue.add(
@@ -1645,7 +1645,7 @@ export const handleShopifyWebhook = async (req, res) => {
 
     return res.status(200).send("Webhook received and queued");
   } catch (error) {
-    console.error("❌ [ShopifyWebhook] Ingestion error:", error);
+    console.error("? [ShopifyWebhook] Ingestion error:", error);
     return res.status(500).send("Webhook ingestion failed");
   }
 };

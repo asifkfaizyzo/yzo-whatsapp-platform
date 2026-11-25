@@ -7,23 +7,39 @@ import express from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import helmet from "helmet";
-import rateLimit from "express-rate-limit";
 import path from "path";
 
 // ═══════════════════════════════════════════════════════════════
 // CONFIG & MIDDLEWARE
 // ═══════════════════════════════════════════════════════════════
 import { serverAdapter } from "./config/bull.board.js";
-import { bullBoardAuth } from "./middlewares/auth.bullBoard.js";
-import { verifyTenantOrUser } from "./middlewares/auth.verifyTenantOrUser.js";
+import { bullBoardAuth } from "./middleware/bullBoardAuth.js";
 
 // ═══════════════════════════════════════════════════════════════
-// SUPERADMIN ROUTES
+// NEW AUTH ROUTES (Phase 5, 6, 7) — mounted FIRST, take precedence
 // ═══════════════════════════════════════════════════════════════
-import superadminRoutes from "./modules/superadmin/superadmin.routes.js";
+import tenantAuthRoutes from "./modules/tenant/auth/tenant.auth.routes.js";
+import userAuthRoutes from "./modules/users/user.auth.routes.js";
+import sradminAuthRoutes from "./modules/superadmin/auth/sradmin.auth.routes.js";
+
+// ═══════════════════════════════════════════════════════════════
+// NEW SRADMIN TENANT MANAGEMENT (Phase 9)
+// ═══════════════════════════════════════════════════════════════
+import sradminTenantRoutes from "./modules/superadmin/tenant/sradmin.tenant.routes.js";
+import sradminPlansRoutes from "./modules/superadmin/plans/sradmin.plans.routes.js";
+import sradminSubscriptionsRoutes from "./modules/superadmin/subscriptions/sradmin.subscriptions.routes.js";
+
+// ═══════════════════════════════════════════════════════════════
+// OLD SUPERADMIN ROUTES (revenue, GST, notifications, audit, etc.)
+// These handle everything NOT caught by the new routes above.
+// Phase 10 will remove auth + tenant CRUD from this file.
+// ═══════════════════════════════════════════════════════════════
 import adminTicketRoutes from "./modules/tickets/ticket.admin.routes.js";
-import revenueRoutes from "./modules/revenue/revenue.routes.js";
-import adminSubscriptionsRoute from "./modules/admin-subscriptions/adminSubscription.routes.js";
+import sradminRevenueRoutes from "./modules/superadmin/revenue/sradmin.revenue.routes.js";
+import sradminSettingsRoutes from "./modules/superadmin/settings/sradmin.settings.routes.js";
+import sradminAddOnsRoutes from "./modules/superadmin/addons/sradmin.addons.routes.js";
+import sradminSettingsPolicyRoutes from "./modules/superadmin/settings/sradmin.settings.policy.routes.js";
+import sradminReportRoutes from "./modules/superadmin/reports/sradmin.reports.routes.js";
 import enterpriseLeadAdminRoutes from "./modules/enterprise-leads/enterpriseLead.admin.routes.js";
 import superAdminNotificationRoutes from "./modules/superadmin-notifications/superadminNotification.routes.js";
 import auditLogRoutes from "./modules/audit/audit.routes.js";
@@ -32,9 +48,12 @@ import flowRoutes from "./modules/automation/flow.routes.js";
 import mediaRoutes from "./modules/messages/media.routes.js";
 
 // ═══════════════════════════════════════════════════════════════
-// TENANT ROUTES
+// OLD TENANT ROUTES (contacts, conversations, messages, etc.)
+// Auth paths handled by new tenantAuthRoutes above.
 // ═══════════════════════════════════════════════════════════════
-import tenantRoutes from "./modules/tenant/tenant.routes.js";
+import tenantUserRoutes from "./modules/tenant/users/tenant.users.routes.js";
+import tenantProfileRoutes from "./modules/tenant/profile/tenant.profile.routes.js";
+import tenantIntegrationRoutes from "./modules/tenant/integrations/tenant.integrations.routes.js";
 import contactRoutes from "./modules/contacts/contact.routes.js";
 import conversationRoutes from "./modules/conversations/conversation.routes.js";
 import messageRoutes from "./modules/messages/message.routes.js";
@@ -48,15 +67,20 @@ import analyticsRoutes from "./modules/analytics/analytics.routes.js";
 import notificationRoutes from "./modules/notifications/notification.routes.js";
 
 // ═══════════════════════════════════════════════════════════════
-// USER / AGENT ROUTES
+// OLD USER / AGENT ROUTES (non-auth paths)
 // ═══════════════════════════════════════════════════════════════
 import userRoutes from "./modules/users/user.routes.js";
 
 // ═══════════════════════════════════════════════════════════════
+// NEW TENANT PLANS, BILLING & ADD-ONS ROUTES (Plans V2)
+// ═══════════════════════════════════════════════════════════════
+import tenantPlansRoutes from "./modules/tenant/plans/tenant.plans.routes.js";
+import tenantBillingRoutes from "./modules/tenant/billing/tenant.billing.routes.js";
+import tenantAddOnsRoutes from "./modules/tenant/addons/tenant.addons.routes.js";
+
+// ═══════════════════════════════════════════════════════════════
 // SHARED ROUTES (mounted on both /sradmin and /tenant)
 // ═══════════════════════════════════════════════════════════════
-import planRoutes from "./modules/plans/plan.routes.js";
-import billingRoutes from "./modules/billing/billing.routes.js";
 import enquiryRoutes from "./modules/enquiries/enquiry.routes.js";
 import enterpriseLeadRoutes from "./modules/enterprise-leads/enterpriseLead.routes.js";
 import googleSheetsRoutes from "./modules/google-sheets/googleSheets.routes.js";
@@ -161,7 +185,6 @@ app.use("/admin/queues", bullBoardAuth, serverAdapter.getRouter());
 // ═══════════════════════════════════════════════════════════════
 // STATIC FILES
 // ═══════════════════════════════════════════════════════════════
-// Logos (public, CORS-friendly)
 app.use(
   "/uploads/logos",
   (req, res, next) => {
@@ -183,7 +206,6 @@ app.use(
   }),
 );
 
-// General uploads (invoices blocked, rest public)
 app.use(
   "/uploads",
   (req, res, next) => {
@@ -204,72 +226,42 @@ app.use(
 );
 
 // ═══════════════════════════════════════════════════════════════
-// RATE LIMITING (auth routes only)
+// RATE LIMITING — REMOVED from app level.
+// All auth routes now use route-level rateLimiter middleware
+// from backend/src/middleware/rateLimiter.js (Phase 3).
 // ═══════════════════════════════════════════════════════════════
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  message: {
-    success: false,
-    message: "Too many requests. Please try again after 15 minutes.",
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-// Superadmin auth
-app.use("/sradmin/login", authLimiter);
-app.use("/sradmin/create", authLimiter);
-
-// Tenant auth
-app.use("/tenant/login", authLimiter);
-app.use("/tenant/register", authLimiter);
-app.use("/tenant/forgot-password", authLimiter);
-app.use("/tenant/reset-password", authLimiter);
-
-// User/Agent auth
-app.use("/tenant/user/login", authLimiter);
 
 // ═══════════════════════════════════════════════════════════════
-// MEDIA ROUTES (signed-URL serving — must come before main mounts)
+// MEDIA ROUTES (signed-URL serving)
 // ═══════════════════════════════════════════════════════════════
 app.use("/sradmin/media", mediaRoutes);
 
 // ═══════════════════════════════════════════════════════════════
 // WEBHOOKS & OAUTH CALLBACKS (specific routes — must come first)
 // ═══════════════════════════════════════════════════════════════
-
-// Core webhook router
 app.use("/sradmin/webhook", webhookRoutes);
 
-// Flow automation
 app.use("/sradmin/flows", flowRoutes);
 app.use("/tenant/flows", flowRoutes);
 
-// WooCommerce direct webhook aliases
 app.post("/sradmin/webhooks/woocommerce", handleWooCommerceWebhook);
 app.post("/sradmin/woocommerce/webhook", handleWooCommerceWebhook);
 app.post("/tenant/webhooks/woocommerce", handleWooCommerceWebhook);
 app.post("/tenant/woocommerce/webhook", handleWooCommerceWebhook);
 
-// Razorpay OAuth callbacks
 app.get("/sradmin/auth/razorpay/callback", handleOAuthCallback);
 app.get("/tenant/auth/razorpay/callback", handleOAuthCallback);
 app.get("/auth/razorpay/callback", handleOAuthCallback);
 
-// Zoho OAuth callbacks
 app.get("/sradmin/zoho/callback", zohoCallbackHandler);
 app.get("/tenant/zoho/callback", zohoCallbackHandler);
 app.get("/auth/zoho/callback", zohoCallbackHandler);
 
-// Zoho webhook & trigger
 app.post("/sradmin/zoho/webhook", handleZohoWebhook);
 app.post("/sradmin/zoho/trigger/message", triggerOutboundMessage);
 
 // ═══════════════════════════════════════════════════════════════
 // LEGACY /api/* ALIASES — DO NOT RENAME
-// These are configured in third-party dashboards (Zoho, Razorpay,
-// WooCommerce stores). Removing them breaks production webhooks.
 // ═══════════════════════════════════════════════════════════════
 app.get("/api/zoho/callback", zohoCallbackHandler);
 app.post("/api/zoho/webhook", handleZohoWebhook);
@@ -285,26 +277,42 @@ app.use("/sradmin", publicRoutes);
 app.use("/tenant", publicRoutes);
 
 // ═══════════════════════════════════════════════════════════════
-// SUPERADMIN ROUTES (/sradmin/*)
+// NEW AUTH ROUTES — mounted BEFORE old routes (first match wins)
 // ═══════════════════════════════════════════════════════════════
-app.use("/sradmin", superadminRoutes);
+app.use("/tenant", tenantAuthRoutes);
+app.use("/tenant/user", userAuthRoutes);
+app.use("/sradmin", sradminAuthRoutes);
+
+// ═══════════════════════════════════════════════════════════════
+// NEW SRADMIN TENANT MANAGEMENT (Phase 9)
+// ═══════════════════════════════════════════════════════════════
+app.use("/sradmin/tenants", sradminTenantRoutes);
+app.use("/sradmin/plans", sradminPlansRoutes);
+// ═══════════════════════════════════════════════════════════════
+// OLD SUPERADMIN ROUTES (revenue, GST, notifications, audit, etc.)
+// Auth + tenant CRUD paths are shadowed by new routes above.
+// ═══════════════════════════════════════════════════════════════
 app.use("/sradmin", adminTicketRoutes);
-app.use("/sradmin", revenueRoutes);
+app.use("/sradmin", sradminRevenueRoutes);
+app.use("/sradmin/settings/subscription-policy", sradminSettingsPolicyRoutes);
+app.use("/sradmin/settings", sradminSettingsRoutes);
+app.use("/sradmin", sradminReportRoutes);
 app.use("/sradmin", enquiryRoutes);
-app.use("/sradmin/plans", planRoutes);
-app.use("/sradmin/billing", billingRoutes);
+app.use("/sradmin/addons", sradminAddOnsRoutes);
+app.use("/sradmin/subscriptions", sradminSubscriptionsRoutes);
+
 app.use("/sradmin/google-sheets", googleSheetsRoutes);
 app.use("/sradmin/super-admin/notifications", superAdminNotificationRoutes);
-app.use("/sradmin/admin/subscriptions", adminSubscriptionsRoute);
 app.use("/sradmin/superadmin/audit-logs", auditLogRoutes);
 app.use("/sradmin/dlq", dlqRoutes);
 app.use("/sradmin/register/enterprise-lead", enterpriseLeadRoutes);
 app.use("/sradmin/admin/enterprise-leads", enterpriseLeadAdminRoutes);
 
 // ═══════════════════════════════════════════════════════════════
-// TENANT ROUTES (/tenant/*)
+// OLD TENANT ROUTES (contacts, conversations, etc.)
+// Auth paths shadowed by new tenantAuthRoutes above.
 // ═══════════════════════════════════════════════════════════════
-app.use("/tenant", tenantRoutes);
+app.use("/tenant", tenantUserRoutes);
 app.use("/tenant", ticketRoutes);
 app.use("/tenant", enquiryRoutes);
 app.use("/tenant/contacts", contactRoutes);
@@ -317,18 +325,21 @@ app.use("/tenant/quick-replies", quickReplyRoutes);
 app.use("/tenant/orders", orderRoutes);
 app.use("/tenant/analytics", analyticsRoutes);
 app.use("/tenant/notifications", notificationRoutes);
-app.use("/tenant/plans", planRoutes);
-app.use("/tenant/billing", billingRoutes);
+app.use("/tenant/plans", tenantPlansRoutes);
+app.use("/tenant/billing/addons", tenantAddOnsRoutes);
+app.use("/tenant/billing", tenantBillingRoutes);
 app.use("/tenant/google-sheets", googleSheetsRoutes);
 app.use("/tenant/register/enterprise-lead", enterpriseLeadRoutes);
+app.use("/tenant", tenantProfileRoutes);
+app.use("/tenant", tenantIntegrationRoutes);
 
 // ═══════════════════════════════════════════════════════════════
-// USER / AGENT ROUTES (/tenant/user/*)
+// OLD USER / AGENT ROUTES (non-auth paths)
 // ═══════════════════════════════════════════════════════════════
 app.use("/tenant/user", userRoutes);
 
 // ═══════════════════════════════════════════════════════════════
-// INTEGRATION ROUTES (/tenant/*)
+// INTEGRATION ROUTES
 // ═══════════════════════════════════════════════════════════════
 app.use("/tenant/whatsapp", whatsappRoutes);
 app.use("/tenant/shopify", shopifyRoutes);

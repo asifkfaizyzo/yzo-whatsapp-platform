@@ -1,4 +1,4 @@
-// backend/src/validations/contact.schema.js (do not remove this comment)
+// backend/src/modules/contacts/contact.schema.js (do not remove this comment)
 import { z } from "zod";
 
 // ID parameter validation

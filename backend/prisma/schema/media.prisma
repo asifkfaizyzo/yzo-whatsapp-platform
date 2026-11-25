@@ -1,0 +1,25 @@
+// backend/prisma/schema/media.prisma (do not remove this comment)
+// Ledger for uploaded media that has no other owning row (flow media, template header media).
+// Message / QuickReply media is already sized on their own rows.
+
+enum MediaAssetKind {
+  FLOW_MEDIA
+  TEMPLATE_HEADER
+}
+
+model MediaAsset {
+  id        String         @id @default(cuid())
+  tenantId  String
+  tenant    Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  kind      MediaAssetKind
+  url       String
+  fileName  String
+  mimeType  String
+  sizeBytes Int
+  deletedAt DateTime?
+  createdAt DateTime       @default(now())
+
+  @@unique([tenantId, url])
+  @@index([deletedAt])
+  @@map("media_assets")
+}

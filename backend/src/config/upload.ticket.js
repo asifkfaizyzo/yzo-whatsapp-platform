@@ -4,7 +4,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 
-// ── Ensure ticket uploads folder exists ──
+// -- Ensure ticket uploads folder exists --
 const UPLOAD_DIR = "uploads/tickets";
 if (!fs.existsSync(UPLOAD_DIR)) {
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -22,7 +22,7 @@ const storage = multer.diskStorage({
   },
 });
 
-// ── Allowed MIME types ──
+// -- Allowed MIME types --
 const ALLOWED_MIMES = {
   // Images / Screenshots
   "image/jpeg": { label: "Image", ext: "JPG" },
@@ -57,6 +57,6 @@ export const ticketUpload = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 20 * 1024 * 1024, // 20MB — covers video/audio
+    fileSize: 20 * 1024 * 1024, // 20MB � covers video/audio
   },
 });

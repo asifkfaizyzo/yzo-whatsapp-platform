@@ -72,14 +72,14 @@ export async function processZohoWebhookEvent(body) {
         },
       });
 
-      // ── Handle Record Deletion in Zoho ──
+      // -- Handle Record Deletion in Zoho --
       if (operation === "delete") {
         if (mapping) {
           await prisma.contactProviderMapping.delete({
             where: { id: mapping.id },
           });
           console.log(
-            `🗑️ [ZohoWebhook] Removed mapping for deleted Zoho ${module} record ${recordId}`,
+            `??? [ZohoWebhook] Removed mapping for deleted Zoho ${module} record ${recordId}`,
           );
 
           emitToTenant(tenant.id, "zoho_contact_changed", {
@@ -92,14 +92,14 @@ export async function processZohoWebhookEvent(body) {
         continue;
       }
 
-      // ── Handle Insert / Update from Zoho ──
+      // -- Handle Insert / Update from Zoho --
       if (operation === "update" || operation === "insert") {
         // Loop prevention: check if this update was initiated by Sudo Reply
         const lockKeyRecord = `zoho_sync_lock:${recordId}`;
         const isLockedRecord = await redisConnection.get(lockKeyRecord);
         if (isLockedRecord) {
           console.log(
-            `🔒 [ZohoWebhook] Ignoring echoed update for record ${recordId} (loop prevention active)`,
+            `?? [ZohoWebhook] Ignoring echoed update for record ${recordId} (loop prevention active)`,
           );
           continue;
         }
@@ -114,7 +114,7 @@ export async function processZohoWebhookEvent(body) {
           zohoRecord = res?.data?.[0];
         } catch (fetchErr) {
           console.warn(
-            `⚠️ [ZohoWebhook] Failed to fetch updated ${module} record ${recordId}:`,
+            `?? [ZohoWebhook] Failed to fetch updated ${module} record ${recordId}:`,
             fetchErr.message,
           );
           continue;
@@ -132,9 +132,9 @@ export async function processZohoWebhookEvent(body) {
         const company =
           zohoRecord.Company || zohoRecord.Account_Name?.name || null;
 
-        // ═══════════════════════════════════════════════════
+        // ---------------------------------------------------
         // CASE 1: Contact is ALREADY Mapped in Sudo Reply
-        // ═══════════════════════════════════════════════════
+        // ---------------------------------------------------
         if (mapping && mapping.contact) {
           const lockKeyContact = `zoho_sync_lock:${mapping.contactId}`;
           const isLockedContact = await redisConnection.get(lockKeyContact);
@@ -165,7 +165,7 @@ export async function processZohoWebhookEvent(body) {
           });
 
           console.log(
-            `📥 [ZohoWebhook] Synced changes from Zoho to Sudo Reply Contact: "${updatedContact.name}"`,
+            `?? [ZohoWebhook] Synced changes from Zoho to Sudo Reply Contact: "${updatedContact.name}"`,
           );
 
           emitToTenant(tenant.id, "contact_updated", {
@@ -186,9 +186,9 @@ export async function processZohoWebhookEvent(body) {
             },
           });
 
-          // ═══════════════════════════════════════════════════
+          // ---------------------------------------------------
           // CASE 2: Brand NEW Contact Created in Zoho CRM
-          // ═══════════════════════════════════════════════════
+          // ---------------------------------------------------
         } else {
           let contact = null;
 
@@ -230,7 +230,7 @@ export async function processZohoWebhookEvent(body) {
             });
 
             console.log(
-              `🆕 [ZohoWebhook] Created NEW Contact in Sudo Reply from Zoho: "${fullName}" (${normalizedPhone || email})`,
+              `?? [ZohoWebhook] Created NEW Contact in Sudo Reply from Zoho: "${fullName}" (${normalizedPhone || email})`,
             );
 
             emitToTenant(tenant.id, "new_contact", {
@@ -291,7 +291,7 @@ export async function processZohoWebhookEvent(body) {
               },
             });
             console.log(
-              `🔗 [ZohoWebhook] Linked Zoho ${module} (${recordId}) ↔ Sudo Contact (${contact.id})`,
+              `?? [ZohoWebhook] Linked Zoho ${module} (${recordId}) ? Sudo Contact (${contact.id})`,
             );
           }
         }
@@ -300,7 +300,7 @@ export async function processZohoWebhookEvent(body) {
 
     return { status: "ok" };
   } catch (error) {
-    console.error("❌ [ZohoWebhook] Processing error:", error);
+    console.error("? [ZohoWebhook] Processing error:", error);
     throw error;
   }
 }

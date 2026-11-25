@@ -1,4 +1,4 @@
-// backend/src/cron/jobs/auditCleanupJob.js (do not remove this comment)
+// backend/src/cron/jobs/audit-cleanup.job.js (do not remove this comment)
 import cron from "node-cron";
 import { cleanupOldAuditLogsService } from "../../modules/audit/audit.service.js";
 
@@ -17,5 +17,5 @@ export const startAuditCleanupJob = () => {
     }
   });
 
-  console.log("[AuditCleanup] Job scheduled — runs daily at 2:00 AM");
+  console.log("[AuditCleanup] Job scheduled � runs daily at 2:00 AM");
 };

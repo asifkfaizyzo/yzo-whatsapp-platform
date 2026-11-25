@@ -19,7 +19,7 @@ function resolveCustomerPhone(order) {
     order.billing_address?.phone ||
     order.shipping_address?.phone ||
     order.phone ||
-    (order.first_name ? order.phone : null); // 🆕 customers/create has phone at root
+    (order.first_name ? order.phone : null); // ?? customers/create has phone at root
 
   let cleanPhone = rawPhone ? rawPhone.replace(/[^\d+]/g, "") : null;
   if (cleanPhone && !cleanPhone.startsWith("+")) {
@@ -50,6 +50,11 @@ export const handleIncomingWebhook = async (req, res) => {
     .toLowerCase();
   if (cleanDomain && !cleanDomain.includes("."))
     cleanDomain = `${cleanDomain}.myshopify.com`;
+
+  // 1. ALWAYS log incoming webhook hit immediately
+  console.log(
+    `?? [Shopify Webhook Received] Topic: '${topic}' | Shop: '${cleanDomain}'`,
+  );
 
   try {
     if (!cleanDomain) {
@@ -158,6 +163,7 @@ if (
 ) {
       console.warn(
         `⚠️ [Shopify Webhook] Unknown shop ignored: ${JSON.stringify(cleanDomain)}`,
+        `?? [Shopify Webhook] No active integration found for shop: ${cleanDomain}`,
       );
       return res
         .status(200)
@@ -166,6 +172,59 @@ if (
           message: "Shopify integration not found, ignored",
         });
     }
+
+    // 3. Verify Shopify's signature before accepting the event.
+    if (!hmacHeader) {
+      return res
+        .status(401)
+        .json({ success: false, message: "Missing Shopify webhook signature" });
+    }
+
+    const encryptedSecret = connection.webhookSecret;
+    const rawSecret = encryptedSecret
+      ? decrypt(encryptedSecret)
+      : process.env.SHOPIFY_API_SECRET;
+    if (!rawSecret) {
+      console.error(
+        `? [Shopify Webhook] No signing secret configured for ${cleanDomain}`,
+      );
+      return res
+        .status(503)
+        .json({
+          success: false,
+          message: "Shopify webhook signing secret is not configured",
+        });
+    }
+
+    const rawPayload =
+      req.rawBody ||
+      Buffer.from(
+        typeof req.body === "string" ? req.body : JSON.stringify(req.body),
+      );
+    const expectedSignature = crypto
+      .createHmac("sha256", rawSecret)
+      .update(rawPayload)
+      .digest("base64");
+    const receivedSignatureBuffer = Buffer.from(hmacHeader, "base64");
+    const expectedSignatureBuffer = Buffer.from(expectedSignature, "base64");
+
+    if (
+      receivedSignatureBuffer.length !== expectedSignatureBuffer.length ||
+      !crypto.timingSafeEqual(receivedSignatureBuffer, expectedSignatureBuffer)
+    ) {
+      console.warn(
+        `?? [Shopify Webhook] HMAC signature mismatch for ${cleanDomain} | ` +
+          `rawBodyCaptured=${Buffer.isBuffer(req.rawBody)} | ` +
+          `rawBodyBytes=${Buffer.isBuffer(req.rawBody) ? req.rawBody.length : 0} | ` +
+          `signedBodyBytes=${rawPayload.length}`,
+      );
+      return res
+        .status(401)
+        .json({ success: false, message: "Invalid Shopify webhook signature" });
+    }
+    console.log(
+      `?? [Shopify Webhook] HMAC Signature Verified Successfully for ${cleanDomain}`,
+    );
 
     // 4. Format & override target phone for local dev testing safely
     const targetPhone = resolveCustomerPhone(payload);
@@ -212,35 +271,35 @@ if (
     );
 
     console.log(
-      `⚡ [ShopifyWebhook] Queued '${topic}' job for Order #${payload.name || payload.id} in BullMQ`,
+      `? [ShopifyWebhook] Queued '${topic}' job for Order #${payload.name || payload.id} in BullMQ`,
     );
 
-    // 🆕 Handle products/update for Back-in-Stock alerts (async, non-blocking)
+    // ?? Handle products/update for Back-in-Stock alerts (async, non-blocking)
     if (topic === "products/update") {
       handleProductUpdateForBackInStock(tenantId, payload, cleanDomain)
         .then((result) => {
           if (result.triggered) {
             console.log(
-              `🔔 [BackInStock] Auto-broadcast triggered for: ${result.productTitle}`,
+              `?? [BackInStock] Auto-broadcast triggered for: ${result.productTitle}`,
             );
           }
         })
         .catch((err) => {
-          console.error("💥 [BackInStock] Async handler error:", err.message);
+          console.error("?? [BackInStock] Async handler error:", err.message);
         });
     }
 
-    // 🆕 Handle product catalog sync (async, non-blocking)
+    // ?? Handle product catalog sync (async, non-blocking)
     if (topic === "products/create" || topic === "products/update") {
       upsertProduct(tenantId, payload, cleanDomain, payload.currency || "INR")
         .then(() => {
           console.log(
-            `📦 [Product Sync] Upserted product: ${payload.title} (${payload.id})`,
+            `?? [Product Sync] Upserted product: ${payload.title} (${payload.id})`,
           );
         })
         .catch((err) => {
           console.error(
-            `💥 [Product Sync] Upsert error for product ${payload.id}:`,
+            `?? [Product Sync] Upsert error for product ${payload.id}:`,
             err.message,
           );
         });
@@ -249,11 +308,11 @@ if (
     if (topic === "products/delete") {
       markProductDeleted(tenantId, payload.id)
         .then(() => {
-          console.log(`🗑️ [Product Sync] Deleted product: ${payload.id}`);
+          console.log(`??? [Product Sync] Deleted product: ${payload.id}`);
         })
         .catch((err) => {
           console.error(
-            `💥 [Product Sync] Delete error for product ${payload.id}:`,
+            `?? [Product Sync] Delete error for product ${payload.id}:`,
             err.message,
           );
         });
@@ -263,7 +322,7 @@ if (
       .status(200)
       .json({ success: true, message: "Event accepted and queued" });
   } catch (error) {
-    console.error("💥 [ShopifyWebhook] Failed to accept event:", error);
+    console.error("?? [ShopifyWebhook] Failed to accept event:", error);
     return res
       .status(500)
       .json({ success: false, error: "Database/Queue Dispatch Failure" });

@@ -41,10 +41,10 @@ export async function sendZohoInvoiceToWhatsApp(
     const dueDate = invoice.Due_Date || "Due on receipt";
 
     const invoiceMsg =
-      `📄 *Invoice Received: ${subject}*\n\n` +
-      `💰 *Amount Due:* ₹${grandTotal.toFixed(2)}\n` +
-      `📅 *Due Date:* ${dueDate}\n` +
-      `📌 *Status:* ${status}\n\n` +
+      `?? *Invoice Received: ${subject}*\n\n` +
+      `?? *Amount Due:* ?${grandTotal.toFixed(2)}\n` +
+      `?? *Due Date:* ${dueDate}\n` +
+      `?? *Status:* ${status}\n\n` +
       `Please reply to this chat if you have any questions or need payment assistance.`;
 
     await sendMessageService({
@@ -56,12 +56,12 @@ export async function sendZohoInvoiceToWhatsApp(
     });
 
     console.log(
-      `📤 [ZohoInvoice] Sent Invoice ${invoiceId} (₹${grandTotal}) to WhatsApp contact ${contactId}`,
+      `?? [ZohoInvoice] Sent Invoice ${invoiceId} (?${grandTotal}) to WhatsApp contact ${contactId}`,
     );
     return { success: true, grandTotal, subject };
   } catch (error) {
     console.error(
-      `❌ [ZohoInvoice] Failed to dispatch invoice:`,
+      `? [ZohoInvoice] Failed to dispatch invoice:`,
       error.response?.data || error.message,
     );
     return { success: false, message: error.message };

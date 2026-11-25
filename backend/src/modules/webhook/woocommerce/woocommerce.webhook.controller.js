@@ -17,7 +17,7 @@ export const handleWooCommerceWebhook = async (req, res) => {
   const payload = req.body;
 
   console.log(
-    `🔔 [WooCommerceWebhook] Received event "${topic}" from source: ${source}`,
+    `?? [WooCommerceWebhook] Received event "${topic}" from source: ${source}`,
   );
   if (
     ["customer.created", "customer.login", "customer.logout"].includes(topic)
@@ -30,7 +30,7 @@ export const handleWooCommerceWebhook = async (req, res) => {
   try {
     // 1. Handshake verification ping from WooCommerce
     if (topic === "action.woocommerce_webhook_topic" || payload?.webhook_id) {
-      console.log("✅ [WooCommerceWebhook] Handshake ping verified.");
+      console.log("? [WooCommerceWebhook] Handshake ping verified.");
       return res
         .status(200)
         .json({ success: true, message: "Webhook ping verified" });
@@ -63,7 +63,7 @@ export const handleWooCommerceWebhook = async (req, res) => {
       if (connection) {
         tenantId = connection.tenantId;
         console.log(
-          `🔗 [WooCommerceWebhook] Resolved tenant: ${tenantId} via domain: "${cleanDomain}"`,
+          `?? [WooCommerceWebhook] Resolved tenant: ${tenantId} via domain: "${cleanDomain}"`,
         );
       }
     }
@@ -76,16 +76,16 @@ export const handleWooCommerceWebhook = async (req, res) => {
       if (allConnections.length === 1) {
         tenantId = allConnections[0].tenantId;
         console.log(
-          `ℹ️ [WooCommerceWebhook] Auto-assigned sole tenant: ${tenantId}`,
+          `?? [WooCommerceWebhook] Auto-assigned sole tenant: ${tenantId}`,
         );
       }
     }
 
-    console.log("1️⃣ Webhook hit! Resolved tenantId:", tenantId);
+    console.log("1?? Webhook hit! Resolved tenantId:", tenantId);
 
     if (!tenantId) {
       console.warn(
-        "⚠️ [WooCommerceWebhook] Unresolvable Tenant ID. Drop execution.",
+        "?? [WooCommerceWebhook] Unresolvable Tenant ID. Drop execution.",
       );
       return res
         .status(200)
@@ -128,13 +128,13 @@ export const handleWooCommerceWebhook = async (req, res) => {
     );
 
     console.log(
-      `⚡ [WooCommerceWebhook] Queued ${topic} job for customer/order #${payload.id} in BullMQ`,
+      `? [WooCommerceWebhook] Queued ${topic} job for customer/order #${payload.id} in BullMQ`,
     );
     return res
       .status(200)
       .json({ success: true, message: "Event accepted and queued" });
   } catch (error) {
-    console.error("💥 [WooCommerceWebhook] Controller Fatal Error:", error);
+    console.error("?? [WooCommerceWebhook] Controller Fatal Error:", error);
     // Returning 500 forces WooCommerce to attempt retry deliveries on failures
     return res
       .status(500)

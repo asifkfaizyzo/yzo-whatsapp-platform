@@ -60,12 +60,12 @@ api.interceptors.response.use(
 
       try {
         const response = await axios.post(
-          `${import.meta.env.VITE_API_URL}/sradmin/refresh-token`,
+          `${import.meta.env.VITE_API_URL}/sradmin/refresh`,
           {},
           { withCredentials: true },
         );
 
-        const newAccessToken = response.data.accessToken;
+        const newAccessToken = response.data?.data?.accessToken || response.data?.accessToken;
         useAdminAuthStore.setState({ accessToken: newAccessToken });
 
         processQueue(null, newAccessToken);

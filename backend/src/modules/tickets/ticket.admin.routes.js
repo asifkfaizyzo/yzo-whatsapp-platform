@@ -10,17 +10,18 @@ import {
   updateTicketPriority,
 } from "./ticket.controller.js";
 
-import { verifySuperAdmin } from "../../middlewares/auth.superAdmin.js";
+import { authenticate } from "../../middleware/authenticate.js";
+import { requireSRAdmin } from "../../middleware/requireSRAdmin.js";
 
 const router = express.Router();
 
-router.get("/tickets", verifySuperAdmin, getAllTickets);
-router.get("/tickets/:ticketId", verifySuperAdmin, getAdminTicketDetail);
-router.post("/tickets/:ticketId/reply", verifySuperAdmin, adminReplyTicket);
-router.patch("/tickets/:ticketId/status", verifySuperAdmin, updateTicketStatus);
+router.get("/tickets", authenticate, requireSRAdmin, getAllTickets);
+router.get("/tickets/:ticketId", authenticate, requireSRAdmin, getAdminTicketDetail);
+router.post("/tickets/:ticketId/reply", authenticate, requireSRAdmin, adminReplyTicket);
+router.patch("/tickets/:ticketId/status", authenticate, requireSRAdmin, updateTicketStatus);
 router.patch(
   "/tickets/:ticketId/priority",
-  verifySuperAdmin,
+  authenticate, requireSRAdmin,
   updateTicketPriority,
 );
 

@@ -18,14 +18,14 @@ const ENABLED_FIELDS = {
 };
 
 const DEFAULT_TEMPLATES = {
-  "1h": `Hi {{customer_name}}, you left items in your cart at {{store_name}}! 🛒
+  "1h": `Hi {{customer_name}}, you left items in your cart at {{store_name}}! ??
 
 {{product_summary}}
 Order total: {{currency}} {{total_amount}}
 
 Complete your purchase here:
 {{checkout_url}}`,
-  "24h": `Hi {{customer_name}}, your cart is waiting at {{store_name}}! ⏳
+  "24h": `Hi {{customer_name}}, your cart is waiting at {{store_name}}! ?
 
 {{product_summary}}
 Order total: {{currency}} {{total_amount}}

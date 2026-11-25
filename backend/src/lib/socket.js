@@ -6,7 +6,7 @@ import { registerCallSocketHandlers } from "../modules/whatsapp/call.socket.js";
 
 let io = null;
 
-// ── Online User Tracking (in-memory) ──
+// -- Online User Tracking (in-memory) --
 const onlineUsers = new Map();
 
 const addOnlineUser = (tenantId, userId) => {
@@ -15,7 +15,7 @@ const addOnlineUser = (tenantId, userId) => {
     onlineUsers.set(tenantId, new Set());
   }
   onlineUsers.get(tenantId).add(userId);
-  console.log(`🟢 User online: ${userId} (tenant ${tenantId})`);
+  console.log(`?? User online: ${userId} (tenant ${tenantId})`);
 };
 
 const removeOnlineUser = (tenantId, userId) => {
@@ -25,7 +25,7 @@ const removeOnlineUser = (tenantId, userId) => {
     set.delete(userId);
     if (set.size === 0) onlineUsers.delete(tenantId);
   }
-  console.log(`🔴 User offline: ${userId} (tenant ${tenantId})`);
+  console.log(`?? User offline: ${userId} (tenant ${tenantId})`);
 };
 
 export const isUserOnline = (tenantId, userId) => {
@@ -36,13 +36,13 @@ export const getOnlineUsers = (tenantId) => {
   return Array.from(onlineUsers.get(tenantId) || []);
 };
 
-// ── Conversation Presence & Live Typing ──
+// -- Conversation Presence & Live Typing --
 const conversationViewers = new Map();
 const conversationTyping = new Map();
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // SOCKET INITIALIZATION
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const initSocket = (server) => {
   io = new Server(server, {
     cors: {
@@ -77,7 +77,7 @@ export const initSocket = (server) => {
 
       next();
     } catch (err) {
-      console.warn(`⚠️ Socket auth rejected: ${err.message}`);
+      console.warn(`?? Socket auth rejected: ${err.message}`);
       return next(new Error("Unauthorized socket connection"));
     }
   });
@@ -85,7 +85,7 @@ export const initSocket = (server) => {
   // 2. Connection Handler
   io.on("connection", async (socket) => {
     console.log(
-      `🔌 Socket connected: ${socket.id} (${socket.userType} - ${socket.userId})`,
+      `?? Socket connected: ${socket.id} (${socket.userType} - ${socket.userId})`,
     );
 
     // Track online agents
@@ -98,7 +98,7 @@ export const initSocket = (server) => {
             await import("../modules/contacts/contact.queue.service.js");
           await processQueuedConversations(socket.tenantId);
         } catch (err) {
-          console.error("❌ Failed to process queue on user connect:", err);
+          console.error("? Failed to process queue on user connect:", err);
         }
       }, 2000);
     }
@@ -107,7 +107,7 @@ export const initSocket = (server) => {
     if (socket.tenantId) {
       socket.join(socket.tenantId);
       console.log(
-        `👤 Socket ${socket.id} automatically joined tenant room: ${socket.tenantId}`,
+        `?? Socket ${socket.id} automatically joined tenant room: ${socket.tenantId}`,
       );
     }
 
@@ -119,14 +119,14 @@ export const initSocket = (server) => {
         (socket.tenantId === targetId || socket.userType === "SUPERADMIN")
       ) {
         socket.join(targetId);
-        console.log(`👤 Socket ${socket.id} joined tenant room: ${targetId}`);
+        console.log(`?? Socket ${socket.id} joined tenant room: ${targetId}`);
       }
     });
 
     socket.on("join_superadmin", () => {
       if (socket.userType === "SUPERADMIN") {
         socket.join("superadmin_room");
-        console.log(`👑 Socket ${socket.id} joined superadmin room`);
+        console.log(`?? Socket ${socket.id} joined superadmin room`);
       }
     });
 
@@ -136,11 +136,11 @@ export const initSocket = (server) => {
         (socket.userId === userId || socket.userType === "TENANT")
       ) {
         socket.join(`user_${userId}`);
-        console.log(`👤 User ${userId} joined room`);
+        console.log(`?? User ${userId} joined room`);
       }
     });
 
-    // ── Conversation Presence & Live Typing ──
+    // -- Conversation Presence & Live Typing --
     const getUserInfo = () => ({
       userId: socket.userId,
       name:
@@ -278,10 +278,10 @@ export const initSocket = (server) => {
       }
     });
 
-    // ── WhatsApp WebRTC Calling ──
+    // -- WhatsApp WebRTC Calling --
     registerCallSocketHandlers(socket, io);
 
-    // ── Disconnect ──
+    // -- Disconnect --
     socket.on("disconnect", () => {
       if (socket.userType === "USER" && socket.tenantId && socket.userId) {
         removeOnlineUser(socket.tenantId, socket.userId);
@@ -316,25 +316,25 @@ export const initSocket = (server) => {
   return io;
 };
 
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 // EMIT FUNCTIONS
-// ═══════════════════════════════════════════════════════════
+// -----------------------------------------------------------
 export const getIO = () => io;
 
 export const emitToUser = (userId, event, data) => {
   if (!io) return;
   io.to(`user_${userId}`).emit(event, data);
-  console.log(`📤 USER EVENT: ${event} → user_${userId}`);
+  console.log(`?? USER EVENT: ${event} ? user_${userId}`);
 };
 
 export const emitToTenant = (tenantId, event, data) => {
   if (!io) return;
   io.to(tenantId).emit(event, data);
-  console.log(`📤 TENANT EVENT: ${event} → ${tenantId}`);
+  console.log(`?? TENANT EVENT: ${event} ? ${tenantId}`);
 };
 
 export const emitToSuperAdmin = (event, data) => {
   if (!io) return;
   io.to("superadmin_room").emit(event, data);
-  console.log(`📤 SUPERADMIN EVENT: ${event}`);
+  console.log(`?? SUPERADMIN EVENT: ${event}`);
 };

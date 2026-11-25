@@ -2,70 +2,71 @@
 import express from "express";
 import * as tenantController from "./tenant.integrations.controller.js";
 import * as razorpayOAuthController from "../razorpay.oauth.controller.js";
-import { verifyTenant } from "../../../middlewares/auth.tenant.js";
+import { authenticate } from "../../../middleware/authenticate.js";
+import { requireTenant } from "../../../middleware/requireTenant.js";
 
 const router = express.Router();
 
 // ── WhatsApp Credentials ──
 router.get(
   "/whatsapp-credentials",
-  verifyTenant,
+  authenticate, requireTenant,
   tenantController.getWhatsappCredentials,
 );
 router.put(
   "/whatsapp-credentials",
-  verifyTenant,
+  authenticate, requireTenant,
   tenantController.updateWhatsappCredentials,
 );
 
 // ── Meta (FB & IG) Channels ──
 router.get(
   "/meta-channels/status",
-  verifyTenant,
+  authenticate, requireTenant,
   tenantController.getMetaChannelsStatus,
 );
 router.post(
   "/meta-channels/connect",
-  verifyTenant,
+  authenticate, requireTenant,
   tenantController.connectMetaChannels,
 );
 router.delete(
   "/meta-channels/disconnect",
-  verifyTenant,
+  authenticate, requireTenant,
   tenantController.disconnectMetaChannels,
 );
 
 // ── Payment Gateway (Razorpay Direct) ──
 router.get(
   "/payment-gateway",
-  verifyTenant,
+  authenticate, requireTenant,
   tenantController.getPaymentGatewayConfig,
 );
 router.put(
   "/payment-gateway",
-  verifyTenant,
+  authenticate, requireTenant,
   tenantController.updatePaymentGatewayConfig,
 );
 router.post(
   "/payment-gateway/test",
-  verifyTenant,
+  authenticate, requireTenant,
   tenantController.testPaymentGatewayConnection,
 );
 
 // ── Payment Gateway (Razorpay OAuth) ──
 router.get(
   "/payment-gateway/oauth/url",
-  verifyTenant,
+  authenticate, requireTenant,
   razorpayOAuthController.getOAuthAuthorizeUrl,
 );
 router.get(
   "/payment-gateway/oauth/status",
-  verifyTenant,
+  authenticate, requireTenant,
   razorpayOAuthController.getOAuthStatus,
 );
 router.post(
   "/payment-gateway/oauth/disconnect",
-  verifyTenant,
+  authenticate, requireTenant,
   razorpayOAuthController.disconnectRazorpayOAuth,
 );
 

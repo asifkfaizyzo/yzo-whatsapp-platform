@@ -5,6 +5,11 @@ import { verifyTenantOrUser } from "../../middlewares/auth.verifyTenantOrUser.js
 import { checkSubscriptionAccess } from "../../middlewares/subscription.access.js";
 import upload from "../../middlewares/upload.middleware.js";
 import { previewMessageMedia } from "./media.controller.js";
+import { authenticate } from "../../middleware/authenticate.js";
+import { requireUser } from "../../middleware/requireUser.js";
+import { requireTenantOrUser } from "../../middleware/requireTenantOrUser.js";
+import { checkSubscriptionAccess } from "../../middleware/subscriptionAccess.js";
+import upload from "../../middleware/upload.js";
 
 const router = express.Router();
 
@@ -17,12 +22,12 @@ router.get(
 // ── Incoming Message (test/internal simulation) — PROTECTED
 // Real incoming messages arrive via the authenticated Meta webhook (/api/webhook).
 // This route is for internal testing only and must require authentication.
-router.post('/incoming', verifyTenantOrUser, upload.single("file"), messageController.incomingMessageController);
+router.post('/incoming', authenticate, requireTenantOrUser, upload.single("file"), messageController.incomingMessageController);
 
 //Send Message Tenant to contact
 router.post(
   "/contacts/:contactId/messages",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   checkSubscriptionAccess,
   messageController.sendMessage,
 );
@@ -30,14 +35,14 @@ router.post(
 //route for Tenant / Agent / → Contact
 router.post(
   "/contacts/:contactId/messages/media",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   checkSubscriptionAccess,
   ...messageController.sendMediaMessage,
 );
 //Delete message by messageId
 router.delete(
   "/:messageId",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   checkSubscriptionAccess,
   messageController.deleteMessageController,
 );
@@ -45,7 +50,7 @@ router.delete(
 // Send Template Message (Tenant / Agent → Contact)
 router.post(
   "/contacts/:contactId/messages/template",
-  verifyTenantOrUser,
+  authenticate, requireTenantOrUser,
   checkSubscriptionAccess,
   messageController.sendTemplateMessage,
 );

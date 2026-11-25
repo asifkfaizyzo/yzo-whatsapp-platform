@@ -1,7 +1,8 @@
 // backend/src/modules/messages/media.routes.js (do not remove this comment)
 
 import express from "express";
-import { verifyTenantOrUser } from "../../middlewares/auth.verifyTenantOrUser.js";
+import { authenticate } from "../../middleware/authenticate.js";
+import { requireTenantOrUser } from "../../middleware/requireTenantOrUser.js";
 import { serveMediaFile, refreshMediaUrl } from "./media.controller.js";
 
 const router = express.Router();
@@ -10,6 +11,6 @@ const router = express.Router();
 router.get("/serve", serveMediaFile);
 
 // Protected - needs auth token to refresh URL
-router.get("/refresh/:messageId", verifyTenantOrUser, refreshMediaUrl);
+router.get("/refresh/:messageId", authenticate, requireTenantOrUser, refreshMediaUrl);
 
 export default router;

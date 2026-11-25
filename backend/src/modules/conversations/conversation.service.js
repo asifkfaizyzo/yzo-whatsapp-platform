@@ -15,17 +15,17 @@ export const getOrCreateConversation = async (
   tenantId,
   channel = "WHATSAPP",
 ) => {
-  // 1️⃣ Check if conversation exists
+  // 1?? Check if conversation exists
   let conversation = await prisma.conversation.findUnique({
     where: { contactId },
   });
 
-  // 2️⃣ If exists → return it
+  // 2?? If exists ? return it
   if (conversation) {
     return conversation;
   }
 
-  // 3️⃣ If not → create new conversation
+  // 3?? If not ? create new conversation
   conversation = await prisma.conversation.create({
     data: {
       contactId,
@@ -40,7 +40,7 @@ export const getOrCreateConversation = async (
 
 //GET conversation by contactId
 export const getConversationByContact = async (contactId, tenantId) => {
-  // 1️⃣ Find conversation
+  // 1?? Find conversation
   const conversation = await prisma.conversation.findFirst({
     where: {
       contactId,
@@ -50,7 +50,7 @@ export const getConversationByContact = async (contactId, tenantId) => {
       contact: true,
       messages: {
         orderBy: {
-          createdAt: "asc", // oldest → newest (chat order)
+          createdAt: "asc", // oldest ? newest (chat order)
         },
       },
     },
@@ -74,7 +74,7 @@ export const getAssignedConversations = async ({
   channel,
 }) => {
   try {
-    console.log("🔥 SERVICE called with:", {
+    console.log("?? SERVICE called with:", {
       userId,
       tenantId,
       status,
@@ -92,7 +92,7 @@ export const getAssignedConversations = async ({
       whereClause.channel = channel;
     }
 
-    console.log("🔥 whereClause:", JSON.stringify(whereClause));
+    console.log("?? whereClause:", JSON.stringify(whereClause));
 
     if (status === "CLOSED") {
       whereClause.status = { in: ["CLOSED", "RESOLVED"] };
@@ -109,10 +109,10 @@ export const getAssignedConversations = async ({
       whereClause.contact = { assignedTo: null };
     }
 
-    console.log("🔥 Final whereClause:", JSON.stringify(whereClause));
-    console.log("🔥 About to query conversations...");
+    console.log("?? Final whereClause:", JSON.stringify(whereClause));
+    console.log("?? About to query conversations...");
 
-    // ── MAIN QUERY ──
+    // -- MAIN QUERY --
     const conversations = await prisma.conversation.findMany({
       where: whereClause,
       include: {
@@ -172,7 +172,7 @@ export const getAssignedConversations = async ({
       });
     }
 
-    // ✅ Get counts for status tabs
+    // ? Get counts for status tabs
     const allCount = await prisma.conversation.count({
       where: {
         tenantId,
@@ -204,7 +204,7 @@ export const getAssignedConversations = async ({
       },
     });
 
-    // ✅ Get omnichannel platform counts (All, WhatsApp, Messenger, Instagram)
+    // ? Get omnichannel platform counts (All, WhatsApp, Messenger, Instagram)
     const rawChannelCounts = await prisma.conversation.groupBy({
       by: ["channel"],
       where: {
@@ -231,7 +231,7 @@ export const getAssignedConversations = async ({
       channelCounts.ALL += c._count.id;
     });
 
-    console.log("🔥 Conversations found:", conversations.length);
+    console.log("?? Conversations found:", conversations.length);
 
     const total = await prisma.conversation.count({
       where: whereClause,
@@ -252,8 +252,8 @@ export const getAssignedConversations = async ({
       channelCounts,
     };
   } catch (error) {
-    console.error("❌ SERVICE ERROR message:", error.message);
-    console.error("❌ SERVICE ERROR stack:", error.stack);
+    console.error("? SERVICE ERROR message:", error.message);
+    console.error("? SERVICE ERROR stack:", error.stack);
     throw error;
   }
 };
@@ -307,12 +307,12 @@ export const getMessages = async (params) => {
   const hasMore = messages.length > limit;
   const actualMessages = hasMore ? messages.slice(0, limit) : messages;
 
-  // Step 5: Convert to chat order (old → new)
+  // Step 5: Convert to chat order (old ? new)
   const orderedMessages = actualMessages.reverse();
 
   // Step 6: Format output
   const formattedMessages = orderedMessages.map((msg) => {
-    // ✅ NEW: Generate signed URL if media exists
+    // ? NEW: Generate signed URL if media exists
     let signedMediaUrl = null;
 
     if (!msg.isDeleted && msg.mediaUrl) {
@@ -324,7 +324,7 @@ export const getMessages = async (params) => {
           const url = new URL(relativePath);
           relativePath = url.pathname.substring(1);
         } catch (err) {
-          console.error("❌ Invalid mediaUrl format:", relativePath);
+          console.error("? Invalid mediaUrl format:", relativePath);
           relativePath = null;
         }
       }
@@ -343,7 +343,7 @@ export const getMessages = async (params) => {
       if (relativePath && relativePath.startsWith("uploads/")) {
         signedMediaUrl = generateSignedUrl(relativePath, tenantId);
       } else {
-        console.warn("⚠️ Skipping invalid mediaUrl:", msg.mediaUrl);
+        console.warn("?? Skipping invalid mediaUrl:", msg.mediaUrl);
         signedMediaUrl = null;
       }
     }
@@ -359,18 +359,18 @@ export const getMessages = async (params) => {
       status: msg.status || "sent",
       createdAt: msg.createdAt,
 
-      // ✅ Deleted messages → null
+      // ? Deleted messages ? null
       text: msg.isDeleted ? null : msg.text,
-      mediaUrl: msg.isDeleted ? null : signedMediaUrl, // ✅ signed URL
+      mediaUrl: msg.isDeleted ? null : signedMediaUrl, // ? signed URL
       mediaName: msg.isDeleted ? null : msg.mediaName || null,
       mediaSize: msg.isDeleted ? null : msg.mediaSize || null,
       mediaMimeType: msg.isDeleted ? null : msg.mediaMimeType || null,
       caption: msg.isDeleted ? null : msg.caption || null,
 
-      // ⭐  Interactive Buttons
+      // ?  Interactive Buttons
       buttons: msg.isDeleted ? null : msg.buttons || null,
 
-      // 📍 Location fields
+      // ?? Location fields
       locLatitude: msg.locLatitude ?? null,
       locLongitude: msg.locLongitude ?? null,
       locName: msg.locName ?? null,
@@ -458,7 +458,7 @@ export const updateConversationStatus = async ({
   return updated;
 };
 
-// ── Archive Conversation ──────────────────────────────────
+// -- Archive Conversation ----------------------------------
 export const archiveConversation = async ({
   conversationId,
   tenantId,
@@ -503,7 +503,7 @@ export const archiveConversation = async ({
   return archived;
 };
 
-// ── Unarchive Conversation ────────────────────────────────
+// -- Unarchive Conversation --------------------------------
 export const unarchiveConversation = async ({
   conversationId,
   tenantId,
@@ -545,7 +545,7 @@ export const unarchiveConversation = async ({
   return unarchived;
 };
 
-// ── Delete Conversation (TENANT only) ────────────────────
+// -- Delete Conversation (TENANT only) --------------------
 export const deleteConversation = async ({
   conversationId,
   tenantId,
@@ -569,18 +569,18 @@ export const deleteConversation = async ({
     throw new Error("Conversation not found");
   }
 
-  // Hard delete — Prisma cascade will delete messages too
+  // Hard delete � Prisma cascade will delete messages too
   // (onDelete: Cascade is set on Message model)
   await prisma.conversation.delete({
     where: { id: conversationId },
   });
 
-  console.log("🗑️ Conversation hard deleted:", conversationId);
+  console.log("??? Conversation hard deleted:", conversationId);
 
   return { deleted: true, conversationId };
 };
 
-// ── Get Archived Conversations ────────────────────────────
+// -- Get Archived Conversations ----------------------------
 export const getArchivedConversations = async ({
   tenantId,
   userId,
@@ -591,10 +591,10 @@ export const getArchivedConversations = async ({
 
   const whereClause = {
     tenantId: tenantId,
-    isArchived: true, // ← only archived
+    isArchived: true, // ? only archived
   };
 
-  // If USER → only their assigned contacts
+  // If USER ? only their assigned contacts
   if (userId) {
     whereClause.contact = {
       assignedTo: userId,
@@ -666,18 +666,18 @@ export const getArchivedConversations = async ({
   };
 };
 
-// ──────────── Bulk Reassign Conversations ────────────────────────────
+// ------------ Bulk Reassign Conversations ----------------------------
 export const bulkReassignConversations = async ({
   tenantId,
   conversationIds,
-  newUserId, // renamed: agent → user
+  newUserId, // renamed: agent ? user
   performedBy, // tenant.id
   performedByName, // tenant.tenantName
   performedByEmail, // tenant.email
 }) => {
-  // ──────────────────────────────────────────
+  // ------------------------------------------
   // STEP 1: Validate new user belongs to tenant
-  // ──────────────────────────────────────────
+  // ------------------------------------------
   let targetUserName = null;
 
   if (newUserId) {
@@ -700,10 +700,10 @@ export const bulkReassignConversations = async ({
     targetUserName = user.name;
   }
 
-  // ──────────────────────────────────────────
+  // ------------------------------------------
   // STEP 2: Fetch selected conversations
   // Verify tenant boundary (security check)
-  // ──────────────────────────────────────────
+  // ------------------------------------------
   const conversations = await prisma.conversation.findMany({
     where: {
       id: { in: conversationIds },
@@ -723,31 +723,31 @@ export const bulkReassignConversations = async ({
     },
   });
 
-  // ──────────────────────────────────────────
-  // STEP 3: Guard — nothing valid found
-  // ──────────────────────────────────────────
+  // ------------------------------------------
+  // STEP 3: Guard � nothing valid found
+  // ------------------------------------------
   if (conversations.length === 0) {
     throw new Error("No valid conversations found for this organization");
   }
 
-  // ──────────────────────────────────────────
+  // ------------------------------------------
   // STEP 4: Extract unique contact IDs
-  // ──────────────────────────────────────────
+  // ------------------------------------------
   const contactIds = [...new Set(conversations.map((c) => c.contactId))];
 
-  // ──────────────────────────────────────────
+  // ------------------------------------------
   // STEP 5: Track previous user per conversation
   // Needed for audit log & activity log
-  // ──────────────────────────────────────────
+  // ------------------------------------------
   const previousUserMap = {};
   conversations.forEach((conv) => {
     previousUserMap[conv.id] = conv.assignedTo || null;
   });
 
-  // ──────────────────────────────────────────
+  // ------------------------------------------
   // STEP 6: Update Conversation.assignedTo
   // (your conversation model has assignedTo)
-  // ──────────────────────────────────────────
+  // ------------------------------------------
   await prisma.conversation.updateMany({
     where: {
       id: { in: conversationIds },
@@ -758,10 +758,10 @@ export const bulkReassignConversations = async ({
     },
   });
 
-  // ──────────────────────────────────────────
+  // ------------------------------------------
   // STEP 7: Update Contact.assignedTo
   // (contact model also has assignedTo + assignedAt)
-  // ──────────────────────────────────────────
+  // ------------------------------------------
   await prisma.contact.updateMany({
     where: {
       id: { in: contactIds },
@@ -773,10 +773,10 @@ export const bulkReassignConversations = async ({
     },
   });
 
-  // ──────────────────────────────────────────
+  // ------------------------------------------
   // STEP 8: Log activity per conversation
-  // Never crash if one fails → Promise.allSettled
-  // ──────────────────────────────────────────
+  // Never crash if one fails ? Promise.allSettled
+  // ------------------------------------------
   const activityPromises = conversations.map((conv) =>
     logActivity({
       conversationId: conv.id,
@@ -798,11 +798,11 @@ export const bulkReassignConversations = async ({
 
   await Promise.allSettled(activityPromises);
 
-  // ──────────────────────────────────────────
+  // ------------------------------------------
   // STEP 9: Notify the new user
-  // userId = newUserId → user sees it in their
+  // userId = newUserId ? user sees it in their
   // notification list (not tenant-wide)
-  // ──────────────────────────────────────────
+  // ------------------------------------------
   if (newUserId) {
     await createNotification({
       tenantId: tenantId,
@@ -820,7 +820,7 @@ export const bulkReassignConversations = async ({
       console.error("[BulkReassign] Notification failed:", err.message);
     });
 
-    // ── Push notification to reassigned agent (fire-and-forget) ──
+    // -- Push notification to reassigned agent (fire-and-forget) --
     prisma.user
       .findUnique({
         where: { id: newUserId },
@@ -846,19 +846,19 @@ export const bulkReassignConversations = async ({
       .catch(() => {});
   }
 
-  // ──────────────────────────────────────────
+  // ------------------------------------------
   // STEP 10: Audit log
   // action: BULK_REASSIGN (add to enum)
   // module: CONVERSATIONS (add to enum)
   // actorType: TENANT (SenderType enum)
-  // ──────────────────────────────────────────
+  // ------------------------------------------
   await createAuditLog({
     actorId: performedBy,
     actorType: "TENANT", // SenderType enum
     actorName: performedByName || "Admin",
     actorEmail: performedByEmail || "",
-    action: "BULK_REASSIGN", // ← add to AuditAction enum
-    module: "CONVERSATIONS", // ← add to AuditModule enum
+    action: "BULK_REASSIGN", // ? add to AuditAction enum
+    module: "CONVERSATIONS", // ? add to AuditModule enum
     description: newUserId
       ? `Admin bulk reassigned ${conversations.length} conversation(s) to user "${targetUserName}"`
       : `Admin bulk unassigned ${conversations.length} conversation(s)`,
@@ -876,11 +876,11 @@ export const bulkReassignConversations = async ({
     },
   });
 
-  // ──────────────────────────────────────────
+  // ------------------------------------------
   // STEP 11: Real-time socket event
   // All clients in this tenant receive this
   // Frontend uses it to refresh inbox
-  // ──────────────────────────────────────────
+  // ------------------------------------------
   emitToTenant(tenantId, "conversations_reassigned", {
     conversationIds: conversations.map((c) => c.id),
     newUserId: newUserId || null,
@@ -890,9 +890,9 @@ export const bulkReassignConversations = async ({
     count: conversations.length,
   });
 
-  // ──────────────────────────────────────────
+  // ------------------------------------------
   // STEP 12: Return summary
-  // ──────────────────────────────────────────
+  // ------------------------------------------
   return {
     reassignedCount: conversations.length,
     skippedCount: conversationIds.length - conversations.length,
@@ -909,13 +909,13 @@ export const markConversationAsRead = async ({ conversationId, tenantId }) => {
 
   if (!conversation) throw new Error("Conversation not found");
 
-  // ⭐ Only update if unread > 0 (skip unnecessary DB writes)
+  // ? Only update if unread > 0 (skip unnecessary DB writes)
   if (conversation.unreadCount > 0) {
     await prisma.conversation.update({
       where: { id: conversationId },
       data: {
         unreadCount: 0,
-        updatedAt: conversation.updatedAt, // ⭐ Keep original timestamp — prevents chat jump
+        updatedAt: conversation.updatedAt, // ? Keep original timestamp � prevents chat jump
       },
     });
 
@@ -938,7 +938,7 @@ export const markConversationAsRead = async ({ conversationId, tenantId }) => {
   return { success: true };
 };
 
-// ── Get Conversation Media, Links, and Docs ──────────────
+// -- Get Conversation Media, Links, and Docs --------------
 export const getConversationMedia = async ({
   conversationId,
   tenantId,
@@ -1088,7 +1088,7 @@ export const getConversationMedia = async ({
   };
 };
 
-// ── Toggle Pin / Unpin Conversation (Max 3 pinned per tenant) ──────────────
+// -- Toggle Pin / Unpin Conversation (Max 3 pinned per tenant) --------------
 export const togglePinConversation = async (conversationId, tenantId) => {
   const conversation = await prisma.conversation.findFirst({
     where: { id: conversationId, tenantId },

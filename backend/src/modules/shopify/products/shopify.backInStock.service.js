@@ -52,7 +52,7 @@ export const handleProductUpdateForBackInStock = async (
     }
 
     console.log(
-      `🔔 [BackInStock] "${productTitle}" (ID: ${productId}) is back in stock! ${subscriptions.length} subscribers.`,
+      `?? [BackInStock] "${productTitle}" (ID: ${productId}) is back in stock! ${subscriptions.length} subscribers.`,
     );
 
     // 3. Get or create contacts for subscribers
@@ -80,7 +80,7 @@ export const handleProductUpdateForBackInStock = async (
           contacts.push(created);
         } catch (err) {
           console.warn(
-            `🔔 [BackInStock] Contact creation failed for ${sub.contactPhone}:`,
+            `?? [BackInStock] Contact creation failed for ${sub.contactPhone}:`,
             err.message,
           );
         }
@@ -98,7 +98,7 @@ export const handleProductUpdateForBackInStock = async (
 
     if (!tenant?.whatsappPhoneId || !tenant?.whatsappAccessToken) {
       console.warn(
-        `🔔 [BackInStock] Tenant ${tenantId} has no WhatsApp config. Skipping.`,
+        `?? [BackInStock] Tenant ${tenantId} has no WhatsApp config. Skipping.`,
       );
       return { triggered: false, reason: "no_whatsapp_config" };
     }
@@ -140,13 +140,13 @@ export const handleProductUpdateForBackInStock = async (
 
     if (!template) {
       console.warn(
-        `🔔 [BackInStock] No usable template found for tenant ${tenantId}. Create a template first.`,
+        `?? [BackInStock] No usable template found for tenant ${tenantId}. Create a template first.`,
       );
       return { triggered: false, reason: "no_template" };
     }
 
     console.log(
-      `🔔 [BackInStock] Using template "${template.name}" (status: ${template.status}, mode: ${isDev ? "DEV" : "PROD"})`,
+      `?? [BackInStock] Using template "${template.name}" (status: ${template.status}, mode: ${isDev ? "DEV" : "PROD"})`,
     );
 
     // 6. Build product URL
@@ -215,7 +215,7 @@ export const handleProductUpdateForBackInStock = async (
     });
 
     console.log(
-      `🎉 [BackInStock] Auto-broadcast launched for "${productTitle}" to ${contacts.length} subscribers!`,
+      `?? [BackInStock] Auto-broadcast launched for "${productTitle}" to ${contacts.length} subscribers!`,
     );
 
     return {
@@ -225,7 +225,7 @@ export const handleProductUpdateForBackInStock = async (
       productTitle,
     };
   } catch (error) {
-    console.error("💥 [BackInStock] Error handling product update:", error);
+    console.error("?? [BackInStock] Error handling product update:", error);
     return { triggered: false, reason: "error", error: error.message };
   }
 };

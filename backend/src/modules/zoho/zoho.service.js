@@ -123,7 +123,7 @@ export async function handleOAuthCallback(queryParams, req) {
 
   if (oauthError) {
     console.error(
-      "❌ [ZohoOAuth] Authorization denied or failed:",
+      "? [ZohoOAuth] Authorization denied or failed:",
       oauthError,
       error_description,
     );
@@ -145,7 +145,7 @@ export async function handleOAuthCallback(queryParams, req) {
   const rawStateData = await redisConnection.get(redisKey);
 
   if (!rawStateData) {
-    console.error("❌ [ZohoOAuth] Invalid or expired OAuth state parameter");
+    console.error("? [ZohoOAuth] Invalid or expired OAuth state parameter");
     return {
       redirectUrl: `${frontendUrl}/dashboard/integrations?app=zoho&error=${encodeURIComponent(
         "OAuth session expired or invalid. Please try connecting again.",
@@ -190,7 +190,7 @@ export async function handleOAuthCallback(queryParams, req) {
     const tokenUrl = `https://${accountsDomain}/oauth/v2/token`;
 
     console.log(
-      `🔄 [ZohoOAuth] Exchanging code for tenant ${tenantId} via ${tokenUrl}`,
+      `?? [ZohoOAuth] Exchanging code for tenant ${tenantId} via ${tokenUrl}`,
     );
 
     const tokenResponse = await axios.post(tokenUrl, null, {
@@ -239,7 +239,7 @@ export async function handleOAuthCallback(queryParams, req) {
         },
       );
 
-      // 🎯 CAPTURE LIVE RATE LIMIT HEADERS IMMEDIATELY ON CONNECTION
+      // ?? CAPTURE LIVE RATE LIMIT HEADERS IMMEDIATELY ON CONNECTION
       if (userRes.headers) {
         await extractAndSaveRateLimits(tenantId, userRes.headers);
       }
@@ -251,7 +251,7 @@ export async function handleOAuthCallback(queryParams, req) {
       }
     } catch (userErr) {
       console.warn(
-        "⚠️ [ZohoOAuth] Could not fetch CurrentUser profile:",
+        "?? [ZohoOAuth] Could not fetch CurrentUser profile:",
         userErr.response?.data || userErr.message,
       );
     }
@@ -278,7 +278,7 @@ export async function handleOAuthCallback(queryParams, req) {
       existingTenant.zohoAccountId !== connectedUserId
     ) {
       console.log(
-        `⚠️ [ZohoOAuth] Tenant ${tenantId} switched Zoho accounts (${existingTenant.zohoAccountId} -> ${connectedUserId}). Clearing old ContactProviderMappings.`,
+        `?? [ZohoOAuth] Tenant ${tenantId} switched Zoho accounts (${existingTenant.zohoAccountId} -> ${connectedUserId}). Clearing old ContactProviderMappings.`,
       );
       await prisma.contactProviderMapping.deleteMany({
         where: { tenantId, provider: "ZOHO" },
@@ -322,7 +322,7 @@ export async function handleOAuthCallback(queryParams, req) {
 
     // Run plan detection + webhook subscriptions in background
     postConnectionSetup(tenantId).catch((err) => {
-      console.warn("⚠️ [ZohoOAuth] Post-connection setup failed:", err.message);
+      console.warn("?? [ZohoOAuth] Post-connection setup failed:", err.message);
     });
 
     emitToTenant(tenantId, "zoho_connection_updated", {
@@ -332,7 +332,7 @@ export async function handleOAuthCallback(queryParams, req) {
     });
 
     console.log(
-      `✅ [ZohoOAuth] Zoho successfully connected for tenant ${tenantId}`,
+      `? [ZohoOAuth] Zoho successfully connected for tenant ${tenantId}`,
     );
 
     return {
@@ -344,7 +344,7 @@ export async function handleOAuthCallback(queryParams, req) {
       error.response?.data?.error ||
       error.message ||
       "OAuth token exchange failed";
-    console.error("❌ [ZohoOAuth] Callback exchange error:", errorMsg);
+    console.error("? [ZohoOAuth] Callback exchange error:", errorMsg);
     return {
       redirectUrl: `${frontendUrl}/dashboard/integrations?app=zoho&error=${encodeURIComponent(errorMsg)}`,
     };
@@ -389,12 +389,12 @@ export async function getZohoConnectionStatus(tenantId) {
     }
   } catch (err) {
     console.warn(
-      "⚠️ [ZohoService] Failed to fetch rate limit from Redis:",
+      "?? [ZohoService] Failed to fetch rate limit from Redis:",
       err.message,
     );
   }
 
-  // 🚫 ZERO FAKE FALLBACKS — Only return real Zoho headers if they exist
+  // ?? ZERO FAKE FALLBACKS � Only return real Zoho headers if they exist
   const dcInfo = ZOHO_DC_MAP[(tenant.zohoDataCenter || "us").toLowerCase()];
 
   return {
@@ -425,7 +425,7 @@ export async function testZohoConnection(tenantId) {
   // Auto-subscribe/renew Zoho Webhook Watch whenever testing connection
   subscribeToZohoNotifications(tenantId).catch((err) => {
     console.warn(
-      "⚠️ [ZohoService] Auto-watch renewal on test failed:",
+      "?? [ZohoService] Auto-watch renewal on test failed:",
       err.message,
     );
   });
@@ -482,7 +482,7 @@ export async function disconnectZoho(tenantId, meta = {}) {
     await unsubscribeFromZohoNotifications(tenantId);
   } catch (err) {
     console.warn(
-      "⚠️ [ZohoOAuth] Failed to unsubscribe from notifications:",
+      "?? [ZohoOAuth] Failed to unsubscribe from notifications:",
       err.message,
     );
   }
@@ -503,11 +503,11 @@ export async function disconnectZoho(tenantId, meta = {}) {
         },
       );
       console.log(
-        `🗑️ [ZohoOAuth] Revoked refresh token on Zoho for tenant ${tenantId}`,
+        `??? [ZohoOAuth] Revoked refresh token on Zoho for tenant ${tenantId}`,
       );
     } catch (revokeErr) {
       console.warn(
-        "⚠️ [ZohoOAuth] Token revocation failed (ignoring):",
+        "?? [ZohoOAuth] Token revocation failed (ignoring):",
         revokeErr.message,
       );
     }
@@ -550,7 +550,7 @@ export async function disconnectZoho(tenantId, meta = {}) {
 }
 
 /**
- * Subscribe to Zoho CRM Contact & Lead change notifications (Zoho → Sudo Reply).
+ * Subscribe to Zoho CRM Contact & Lead change notifications (Zoho ? Sudo Reply).
  * Per Zoho V8 docs: channel_id (long), events (JSONArray), notify_url (String) are mandatory.
  */
 export async function subscribeToZohoNotifications(tenantId) {
@@ -559,7 +559,7 @@ export async function subscribeToZohoNotifications(tenantId) {
 
   if (!webhookUrl.startsWith("https://")) {
     console.warn(
-      `⚠️ [ZohoSetup] Zoho CRM Webhooks require HTTPS. Current: ${webhookUrl}`,
+      `?? [ZohoSetup] Zoho CRM Webhooks require HTTPS. Current: ${webhookUrl}`,
     );
     return { success: false, message: "HTTPS required for Zoho webhook" };
   }
@@ -600,13 +600,13 @@ export async function subscribeToZohoNotifications(tenantId) {
     });
 
     console.log(
-      `✅ [ZohoService] Watch registered for tenant ${tenantId} (channels: ${contactsChannelId}, ${leadsChannelId}) -> ${webhookUrl}`,
+      `? [ZohoService] Watch registered for tenant ${tenantId} (channels: ${contactsChannelId}, ${leadsChannelId}) -> ${webhookUrl}`,
     );
     return { success: true, data: response };
   } catch (error) {
     const errorData = error.response?.data;
     console.error(
-      `⚠️ [ZohoService] Watch rejected by Zoho:`,
+      `?? [ZohoService] Watch rejected by Zoho:`,
       JSON.stringify(errorData || error.message, null, 2),
     );
     return { success: false, message: error.message };
@@ -627,11 +627,11 @@ export async function unsubscribeFromZohoNotifications(tenantId) {
       url: `/crm/v7/actions/watch?channel_ids=${contactsChannelId},${leadsChannelId}`,
     });
     console.log(
-      `🗑️ [ZohoService] Watch subscriptions removed for tenant ${tenantId}`,
+      `??? [ZohoService] Watch subscriptions removed for tenant ${tenantId}`,
     );
   } catch (error) {
     console.warn(
-      `⚠️ [ZohoService] Could not remove watch:`,
+      `?? [ZohoService] Could not remove watch:`,
       error.response?.data?.message || error.message,
     );
   }
@@ -645,13 +645,13 @@ export async function postConnectionSetup(tenantId) {
   try {
     const plan = await detectZohoPlan(tenantId, true);
     console.log(
-      `📊 [ZohoSetup] Plan detected: ${plan.edition} for tenant ${tenantId}`,
+      `?? [ZohoSetup] Plan detected: ${plan.edition} for tenant ${tenantId}`,
     );
 
     // Emit live update to frontend so UI updates instantly without refresh!
     emitToTenant(tenantId, "zoho_plan_updated", plan);
   } catch (err) {
-    console.warn(`⚠️ [ZohoSetup] Plan detection failed:`, err.message);
+    console.warn(`?? [ZohoSetup] Plan detection failed:`, err.message);
   }
 
   // 2. Subscribe to Zoho notifications (for bidirectional sync)
@@ -659,7 +659,7 @@ export async function postConnectionSetup(tenantId) {
     await subscribeToZohoNotifications(tenantId);
   } catch (err) {
     console.warn(
-      `⚠️ [ZohoSetup] Notification subscription failed:`,
+      `?? [ZohoSetup] Notification subscription failed:`,
       err.message,
     );
   }

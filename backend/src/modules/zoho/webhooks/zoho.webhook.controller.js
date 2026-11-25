@@ -4,7 +4,7 @@ import { processZohoWebhookEvent } from "./zoho.webhook.service.js";
 
 /**
  * POST /sradmin/zoho/webhook
- * Public endpoint — receives Zoho CRM notification events.
+ * Public endpoint � receives Zoho CRM notification events.
  * Tenant identification is done via the `token` field in the notification payload
  * (set to tenantId during subscription creation).
  */
@@ -12,7 +12,7 @@ export const handleZohoWebhook = async (req, res) => {
   try {
     const body = req.body;
     console.log(
-      "📥 [ZohoWebhook] Inbound notification received:",
+      "?? [ZohoWebhook] Inbound notification received:",
       JSON.stringify(body),
     );
 
@@ -29,12 +29,12 @@ export const handleZohoWebhook = async (req, res) => {
     // Process in background (fire-and-forget)
     processZohoWebhookEvent(body).catch((err) => {
       console.error(
-        "❌ [ZohoWebhook] Background processing failed:",
+        "? [ZohoWebhook] Background processing failed:",
         err.message,
       );
     });
   } catch (error) {
-    console.error("❌ [ZohoWebhook] Ingestion error:", error);
+    console.error("? [ZohoWebhook] Ingestion error:", error);
     res.status(200).json({ status: "error" }); // Always return 200 to prevent Zoho retries
   }
 };

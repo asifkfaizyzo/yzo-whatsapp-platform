@@ -6,7 +6,7 @@ import { logLeadStatusToSheet } from "../modules/google-sheets/googleSheets.serv
 async function testConnection() {
   try {
     console.log(
-      "🔄 Searching for a tenant with an active Google Sheets connection...",
+      "?? Searching for a tenant with an active Google Sheets connection...",
     );
 
     // 1. Find a connected Google Sheets account in DB
@@ -15,14 +15,14 @@ async function testConnection() {
     });
 
     if (!connection) {
-      console.error("❌ No connected Google Sheet tenant found in DB!");
+      console.error("? No connected Google Sheet tenant found in DB!");
       console.error(
-        '👉 Please log in to your SaaS dashboard and click "Connect Google Sheets" first.',
+        '?? Please log in to your SaaS dashboard and click "Connect Google Sheets" first.',
       );
       process.exit(1);
     }
 
-    console.log(`🚀 Found connected Tenant ID: ${connection.tenantId}`);
+    console.log(`?? Found connected Tenant ID: ${connection.tenantId}`);
 
     // 2. Test logging a lead row
     const result = await logLeadStatusToSheet(connection.tenantId, {
@@ -35,9 +35,9 @@ async function testConnection() {
       notes: "Testing dynamic column reordering cleanly",
     });
 
-    console.log("✅ Result:", result);
+    console.log("? Result:", result);
   } catch (error) {
-    console.error("❌ Test failed:", error.message);
+    console.error("? Test failed:", error.message);
     console.error(error);
   } finally {
     process.exit(0);

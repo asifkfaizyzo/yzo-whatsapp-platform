@@ -8,9 +8,10 @@ import {
   sendTemplateMessageService,
   deleteMessageService,
 } from "./message.service.js";
-import upload from "../../middlewares/upload.middleware.js";
+import upload from "../../middleware/upload.js";
 import { emitToTenant } from "../../lib/socket.js";
 import { generateSignedUrl } from "../../lib/utils/signed.url.js";
+import { checkStorageAccess } from "../../lib/entitlements/access.js";
 import fs from "fs";
 import path from "path";
 
@@ -55,6 +56,19 @@ export const incomingMessageController = async (req, res) => {
     // }
 
     if (req.file) {
+      const storageCheck = await checkStorageAccess(tenantId, req.file.size);
+      if (!storageCheck.allowed) {
+        if (fs.existsSync(req.file.path)) {
+          fs.unlinkSync(req.file.path);
+        }
+        return res.status(storageCheck.status || 403).json({
+          success: false,
+          code: storageCheck.code,
+          error: storageCheck.message,
+          message: storageCheck.message,
+        });
+      }
+
       let filePath = req.file.path.replace(/\\/g, "/");
 
       // ✅ If file went to temp folder, move it to proper inbound path
@@ -184,7 +198,7 @@ export const sendMessage = async (req, res) => {
     const { contactId } = req.params;
     const { text, quickReplyId, detachMedia } = req.body;
     const tenantId = req.tenantId;
-    const senderType = req.userType;
+    const senderType = req.actorType;
 
     const senderId = senderType === "TENANT" ? req.tenant?.id : req.user?.id;
 
@@ -319,7 +333,7 @@ export const sendMediaMessage = [
       console.log("req.file:", req.file);
       console.log("req.params:", req.params);
       console.log("req.tenantId:", req.tenantId);
-      console.log("req.userType:", req.userType);
+      console.log("req.actorType:", req.actorType);
 
       const { contactId } = req.params;
       const { caption, conversationId } = req.body;
@@ -356,10 +370,10 @@ export const sendMediaMessage = [
       let senderId = null;
       let senderType = null;
 
-      if (req.userType === "TENANT" && req.tenant) {
+      if (req.actorType === "TENANT" && req.tenant) {
         senderId = req.tenant.id;
         senderType = "TENANT";
-      } else if (req.userType === "USER" && req.user) {
+      } else if (req.actorType === "USER" && req.user) {
         senderId = req.user.id;
         senderType = "USER";
       }
@@ -369,6 +383,18 @@ export const sendMediaMessage = [
         return res.status(401).json({
           success: false,
           error: "Unable to identify sender",
+        });
+      }
+
+      // ── Check storage quota ───────────────────────────────
+      const storageCheck = await checkStorageAccess(tenantId, file.size);
+      if (!storageCheck.allowed) {
+        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+        return res.status(storageCheck.status || 403).json({
+          success: false,
+          code: storageCheck.code,
+          error: storageCheck.message,
+          message: storageCheck.message,
         });
       }
 
@@ -464,11 +490,11 @@ export const deleteMessageController = async (req, res) => {
     let requesterRole = null;
     let tenantId = null;
 
-    if (req.userType === "TENANT") {
+    if (req.actorType === "TENANT") {
       requesterId = req.tenant.id;
       requesterRole = "TENANT";
       tenantId = req.tenant.id;
-    } else if (req.userType === "USER") {
+    } else if (req.actorType === "USER") {
       requesterId = req.user.id;
       requesterRole = "USER"; // ✅ matches deleteMessageService check
       tenantId = req.tenantId;
@@ -535,7 +561,7 @@ export const sendTemplateMessage = async (req, res) => {
     const { contactId } = req.params;
     const { templateId, params } = req.body;
     const tenantId = req.tenantId;
-    const senderType = req.userType;
+    const senderType = req.actorType;
 
     const senderId = senderType === "TENANT" ? req.tenant?.id : req.user?.id;
 

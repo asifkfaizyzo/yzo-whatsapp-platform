@@ -163,6 +163,7 @@ export const previewMessageMedia = async (req, res) => {
 };
 
 // ── Serve Media File via Signed URL ──────────────────────────
+// -- Serve Media File via Signed URL --------------------------
 export const serveMediaFile = async (req, res) => {
   try {
     const {
@@ -234,13 +235,13 @@ export const serveMediaFile = async (req, res) => {
     fileStream.pipe(res);
 
     fileStream.on("error", (err) => {
-      console.error("❌ File stream error:", err);
+      console.error("? File stream error:", err);
       if (!res.headersSent) {
         res.status(500).json({ error: "File read error" });
       }
     });
   } catch (error) {
-    console.error("❌ serveMediaFile error:", error);
+    console.error("? serveMediaFile error:", error);
     return res.status(500).json({
       success: false,
       error: "Internal server error",
@@ -248,7 +249,7 @@ export const serveMediaFile = async (req, res) => {
   }
 };
 
-// ── Refresh Expired Signed URL ────────────────────────────────
+// -- Refresh Expired Signed URL --------------------------------
 export const refreshMediaUrl = async (req, res) => {
   try {
     const { messageId } = req.params;
@@ -292,7 +293,7 @@ export const refreshMediaUrl = async (req, res) => {
       expiresIn: 3600,
     });
   } catch (error) {
-    console.error("❌ refreshMediaUrl error:", error);
+    console.error("? refreshMediaUrl error:", error);
     return res.status(500).json({
       success: false,
       error: "Internal server error",

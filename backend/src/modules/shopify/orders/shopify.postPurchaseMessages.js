@@ -5,7 +5,7 @@
  */
 const formatAmount = (currency, total) => {
   const symbol =
-    currency === "INR" ? "₹" : currency === "USD" ? "$" : currency || "";
+    currency === "INR" ? "?" : currency === "USD" ? "$" : currency || "";
   return `${symbol}${Number(total || 0).toFixed(2)}`;
 };
 
@@ -37,9 +37,9 @@ const extractFirstProduct = (lineItems) => {
   }
 };
 
-// ─────────────────────────────────────────────
+// ---------------------------------------------
 // 8.1 REVIEW / FEEDBACK REQUEST
-// ─────────────────────────────────────────────
+// ---------------------------------------------
 export const buildReviewRequestMessage = ({
   customerName,
   orderNumber,
@@ -48,18 +48,18 @@ export const buildReviewRequestMessage = ({
 }) => {
   const product = extractFirstProduct(lineItems);
   return (
-    `⭐ *How was your experience?*\n\n` +
+    `? *How was your experience?*\n\n` +
     `Hi *${customerName}*, your order *${orderNumber}* was delivered recently.\n\n` +
     `We'd love to hear about your *${product}*!\n\n` +
     `Please rate your experience (1-5):\n` +
-    `1️⃣ Poor\n2️⃣ Fair\n3️⃣ Good\n4️⃣ Very Good\n5️⃣ Excellent\n\n` +
-    `Just reply with a number! 😊`
+    `1?? Poor\n2?? Fair\n3?? Good\n4?? Very Good\n5?? Excellent\n\n` +
+    `Just reply with a number! ??`
   );
 };
 
-// ─────────────────────────────────────────────
+// ---------------------------------------------
 // 8.2 CROSS-SELL (After delivery)
-// ─────────────────────────────────────────────
+// ---------------------------------------------
 export const buildCrossSellMessage = ({
   customerName,
   purchasedProduct,
@@ -70,21 +70,21 @@ export const buildCrossSellMessage = ({
     .slice(0, 3)
     .map(
       (p, i) =>
-        `${i + 1}. *${p.title}* — ${formatAmount(p.currency, p.price)}\n   ${p.productUrl || ""}`,
+        `${i + 1}. *${p.title}* � ${formatAmount(p.currency, p.price)}\n   ${p.productUrl || ""}`,
     )
     .join("\n\n");
 
   return (
-    `🛍️ *You might also love...*\n\n` +
+    `??? *You might also love...*\n\n` +
     `Hi *${customerName}*, customers who bought *${purchasedProduct}* also loved these:\n\n` +
     `${recommendations}\n\n` +
-    `Tap any link to shop! 🛒`
+    `Tap any link to shop! ??`
   );
 };
 
-// ─────────────────────────────────────────────
+// ---------------------------------------------
 // 8.3 UPSELL (After order confirmed, before shipping)
-// ─────────────────────────────────────────────
+// ---------------------------------------------
 export const buildUpsellMessage = ({
   customerName,
   orderNumber,
@@ -92,17 +92,17 @@ export const buildUpsellMessage = ({
   storeUrl,
 }) => {
   return (
-    `✨ *Perfect match for your order!*\n\n` +
+    `? *Perfect match for your order!*\n\n` +
     `Hi *${customerName}*, you just ordered *${orderNumber}*.\n\n` +
     `Add *${upsellProduct.title}* for just ${formatAmount(upsellProduct.currency, upsellProduct.price)}!\n\n` +
-    `👉 ${upsellProduct.productUrl || storeUrl || "Visit our store"}\n\n` +
+    `?? ${upsellProduct.productUrl || storeUrl || "Visit our store"}\n\n` +
     `_Hurry, your order hasn't shipped yet!_`
   );
 };
 
-// ─────────────────────────────────────────────
+// ---------------------------------------------
 // 8.4 REORDER REMINDER (30 days after consumable)
-// ─────────────────────────────────────────────
+// ---------------------------------------------
 export const buildReorderReminderMessage = ({
   customerName,
   productName,
@@ -110,16 +110,16 @@ export const buildReorderReminderMessage = ({
   storeUrl,
 }) => {
   return (
-    `🔄 *Time to restock?*\n\n` +
+    `?? *Time to restock?*\n\n` +
     `Hi *${customerName}*, it's been a while since you ordered *${productName}*.\n\n` +
     `Running low? Reorder now before it goes out of stock!\n\n` +
-    `👉 ${productUrl || storeUrl || "Visit our store"}`
+    `?? ${productUrl || storeUrl || "Visit our store"}`
   );
 };
 
-// ─────────────────────────────────────────────
+// ---------------------------------------------
 // 8.6 WIN-BACK CAMPAIGN (90 days inactive)
-// ─────────────────────────────────────────────
+// ---------------------------------------------
 export const buildWinBackMessage = ({
   customerName,
   storeName,
@@ -127,20 +127,20 @@ export const buildWinBackMessage = ({
   discountCode,
 }) => {
   const discountLine = discountCode
-    ? `\n\n🎁 Use code *${discountCode}* for a special discount on your next order!`
+    ? `\n\n?? Use code *${discountCode}* for a special discount on your next order!`
     : "";
 
   return (
-    `💜 *We miss you, ${customerName}!*\n\n` +
+    `?? *We miss you, ${customerName}!*\n\n` +
     `It's been a while since you shopped at *${storeName}*.\n\n` +
     `We've got new arrivals waiting for you!${discountLine}\n\n` +
-    `👉 ${storeUrl || "Visit our store"}`
+    `?? ${storeUrl || "Visit our store"}`
   );
 };
 
-// ─────────────────────────────────────────────
+// ---------------------------------------------
 // REVIEW RATING PARSER (reused from Woo logic)
-// ─────────────────────────────────────────────
+// ---------------------------------------------
 export const parseShopifyReviewRating = (text) => {
   const match = String(text || "")
     .trim()

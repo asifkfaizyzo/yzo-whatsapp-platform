@@ -1,4 +1,4 @@
-// backend/src/cron/jobs/shopifyWinBackJob.js (do not remove this comment)
+// backend/src/cron/jobs/shopify-win-back.job.js (do not remove this comment)
 
 import prisma from "../../config/prisma.js";
 import { orderWebhookQueue } from "../queues/order-webhook.queue.js";
@@ -7,7 +7,7 @@ import { orderWebhookQueue } from "../queues/order-webhook.queue.js";
  * Runs daily. Finds inactive Shopify customers and enqueues win-back messages.
  */
 export const runShopifyWinBackCampaign = async () => {
-  console.log("\n💜 [WinBack] Starting daily win-back scan...");
+  console.log("\n?? [WinBack] Starting daily win-back scan...");
 
   try {
     const shopifyTenants = await prisma.shopifyConnection.findMany({
@@ -22,7 +22,7 @@ export const runShopifyWinBackCampaign = async () => {
     });
 
     if (shopifyTenants.length === 0) {
-      console.log("⏭️ [WinBack] No tenants with win-back enabled.");
+      console.log("?? [WinBack] No tenants with win-back enabled.");
       return;
     }
 
@@ -103,8 +103,8 @@ export const runShopifyWinBackCampaign = async () => {
       }
     }
 
-    console.log(`✅ [WinBack] Enqueued ${totalEnqueued} win-back messages.`);
+    console.log(`? [WinBack] Enqueued ${totalEnqueued} win-back messages.`);
   } catch (err) {
-    console.error("❌ [WinBack] Error:", err.message);
+    console.error("? [WinBack] Error:", err.message);
   }
 };

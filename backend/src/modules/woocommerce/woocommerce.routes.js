@@ -17,7 +17,8 @@ import {
   updateWooCommerceAlertSettings,
   updateWooCommerceCartRecoverySettings,
 } from "./woocommerce.controller.js";
-import { verifyTenantOrUser } from "../../middlewares/auth.verifyTenantOrUser.js";
+import { authenticate } from "../../middleware/authenticate.js";
+import { requireTenantOrUser } from "../../middleware/requireTenantOrUser.js";
 import rateLimit from "express-rate-limit";
 
 const router = express.Router();
@@ -50,7 +51,7 @@ router.post("/oauth/callback", handleWooCommerceOAuthCallback);
 router.get("/oauth/callback", handleWooCommerceOAuthCallback);
 
 // 🔒 PROTECTED TENANT ROUTES
-router.use(verifyTenantOrUser);
+router.use(authenticate, requireTenantOrUser);
 router.get("/status", getWooCommerceStatus);
 router.get("/auth-webhook-config", getWooCommerceAuthWebhookConfig);
 router.get(

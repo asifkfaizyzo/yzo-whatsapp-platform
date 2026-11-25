@@ -4,9 +4,9 @@ import fs from "fs";
 
 const META_API_VERSION = "v23.0";
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // 1. Fetch templates catalog from Meta Business Account (WABA)
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 export const fetchMetaTemplates = async (tenant) => {
   const token = decrypt(tenant.whatsappAccessToken);
   const wabaId = tenant.whatsappWabaId;
@@ -31,16 +31,16 @@ export const fetchMetaTemplates = async (tenant) => {
   return payload.data || [];
 };
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // 2. Submit a new message template to Meta review pipeline
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 export const submitMetaTemplate = async (
   tenant,
   { name, category, language, components },
 ) => {
   const url = `https://graph.facebook.com/${META_API_VERSION}/${tenant.whatsappWabaId}/message_templates`;
   console.log(
-    "📤 Submitting template to Meta:",
+    "?? Submitting template to Meta:",
     JSON.stringify({ name, category, language, components }, null, 2),
   );
 
@@ -57,7 +57,7 @@ export const submitMetaTemplate = async (
 
   if (!response.ok) {
     console.error(
-      "❌ Meta template submission error response:",
+      "? Meta template submission error response:",
       JSON.stringify(data, null, 2),
     );
     const details =
@@ -71,9 +71,9 @@ export const submitMetaTemplate = async (
   return data;
 };
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // 3. Delete a template from WABA
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 export const deleteMetaTemplate = async (tenant, templateName) => {
   const url = `https://graph.facebook.com/${META_API_VERSION}/${tenant.whatsappWabaId}/message_templates?name=${templateName}`;
   const response = await fetch(url, {
@@ -91,10 +91,10 @@ export const deleteMetaTemplate = async (tenant, templateName) => {
   return response.json();
 };
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // 4. Upload media to Meta using Resumable Upload API
 //    Returns: mediaHandle string (used in example.header_handle)
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 export const uploadMediaToMeta = async (tenant, filePath, mimeType) => {
   const accessToken = decrypt(tenant.whatsappAccessToken);
   const fileBuffer = fs.readFileSync(filePath);
@@ -158,18 +158,18 @@ export const uploadMediaToMeta = async (tenant, filePath, mimeType) => {
   return handle;
 };
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // 5. Build the full Meta components array
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 /**
  * @param {Object} opts
  * @param {'NONE'|'TEXT'|'IMAGE'|'VIDEO'|'DOCUMENT'|'LOCATION'} opts.headerType
- * @param {string|null} opts.headerText           – TEXT header content
- * @param {string|null} opts.headerHandle         – Meta media handle for IMAGE/VIDEO/DOCUMENT
- * @param {string}      opts.bodyText             – body text (required)
- * @param {string[]}    opts.bodyExampleValues    – sample values for {{n}} placeholders
+ * @param {string|null} opts.headerText           � TEXT header content
+ * @param {string|null} opts.headerHandle         � Meta media handle for IMAGE/VIDEO/DOCUMENT
+ * @param {string}      opts.bodyText             � body text (required)
+ * @param {string[]}    opts.bodyExampleValues    � sample values for {{n}} placeholders
  * @param {string|null} opts.footerText
- * @param {Array}       opts.buttons              – array of button definition objects
+ * @param {Array}       opts.buttons              � array of button definition objects
  * @returns {{ components: Array, validationError: string|null }}
  */
 export const buildTemplateComponents = ({
@@ -183,7 +183,7 @@ export const buildTemplateComponents = ({
 }) => {
   const components = [];
 
-  // ── HEADER component ──────────────────────────────────────
+  // -- HEADER component --------------------------------------
   if (headerType === "TEXT") {
     const headerComp = { type: "HEADER", format: "TEXT", text: headerText };
     // If header contains {{1}}, supply an example
@@ -198,12 +198,12 @@ export const buildTemplateComponents = ({
       example: { header_handle: [headerHandle] },
     });
   } else if (headerType === "LOCATION") {
-    // Meta native LOCATION header — no data in the template itself
+    // Meta native LOCATION header � no data in the template itself
     components.push({ type: "HEADER", format: "LOCATION" });
   }
-  // NONE → no HEADER component
+  // NONE ? no HEADER component
 
-  // ── BODY component ────────────────────────────────────────
+  // -- BODY component ----------------------------------------
   const bodyComp = { type: "BODY", text: bodyText };
   const placeholders = bodyText.match(/\{\{(\d+)\}\}/g);
   if (placeholders) {
@@ -219,12 +219,12 @@ export const buildTemplateComponents = ({
   }
   components.push(bodyComp);
 
-  // ── FOOTER component ──────────────────────────────────────
+  // -- FOOTER component --------------------------------------
   if (footerText && footerText.trim()) {
     components.push({ type: "FOOTER", text: footerText.trim() });
   }
 
-  // ── BUTTONS component ─────────────────────────────────────
+  // -- BUTTONS component -------------------------------------
   if (buttons && buttons.length > 0) {
     const validationError = validateButtons(buttons);
     if (validationError) {
@@ -265,9 +265,9 @@ export const buildTemplateComponents = ({
   return { components, validationError: null };
 };
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // 6. Validate button definitions (Meta rules)
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 function validateButtons(buttons) {
   if (buttons.length > 10) {
     return "Maximum 10 buttons are allowed per template.";
@@ -308,10 +308,10 @@ function validateButtons(buttons) {
   return null; // valid
 }
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // 7. Infer TemplateHeaderType from a Meta components array
 //    Used by syncTemplates to derive the typed enum value
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 export const inferHeaderTypeFromComponents = (components) => {
   if (!Array.isArray(components)) return "NONE";
 

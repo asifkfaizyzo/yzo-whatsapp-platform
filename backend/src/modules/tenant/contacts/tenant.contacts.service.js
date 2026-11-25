@@ -95,9 +95,9 @@ export const assignContactService = async (contactId, userId, tenantId) => {
       const flowEngine = flowEngineModule.default;
 
       const customerMsg =
-        `👋 Hi ${contact.name || "there"}!\n\n` +
+        `?? Hi ${contact.name || "there"}!\n\n` +
         `You've been connected with *${user.name}*.\n` +
-        `They will respond to you shortly. 💬`;
+        `They will respond to you shortly. ??`;
 
       await flowEngine.sendWhatsAppMessage(
         tenantId,
@@ -196,9 +196,9 @@ export const reassignContactService = async (
       const flowEngine = flowEngineModule.default;
 
       const customerMsg =
-        `👋 Hi ${contact.name || "there"}!\n\n` +
+        `?? Hi ${contact.name || "there"}!\n\n` +
         `Your conversation has been transferred to *${user.name}*.\n` +
-        `They will help you from here. 💬`;
+        `They will help you from here. ??`;
 
       await flowEngine.sendWhatsAppMessage(
         tenantId,

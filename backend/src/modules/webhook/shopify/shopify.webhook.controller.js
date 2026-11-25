@@ -14,7 +14,7 @@ export const handleShopifyWebhook = async (req, res) => {
     }
 
     if (!req.rawBody) {
-      console.warn("⚠️ [ShopifyWebhook] rawBody missing on request");
+      console.warn("?? [ShopifyWebhook] rawBody missing on request");
     }
 
     // Lookup active connection for this shop
@@ -24,7 +24,7 @@ export const handleShopifyWebhook = async (req, res) => {
 
     if (!connection || !connection.webhookSecret) {
       console.warn(
-        `⚠️ [ShopifyWebhook] No active connection or webhook secret for shop: ${shopDomain}`,
+        `?? [ShopifyWebhook] No active connection or webhook secret for shop: ${shopDomain}`,
       );
       return res.status(404).send("Tenant integration not found");
     }
@@ -46,19 +46,19 @@ export const handleShopifyWebhook = async (req, res) => {
       !crypto.timingSafeEqual(expectedBuf, sigBuf)
     ) {
       console.warn(
-        `⚠️ [ShopifyWebhook] Invalid HMAC signature for shop: ${shopDomain}`,
+        `?? [ShopifyWebhook] Invalid HMAC signature for shop: ${shopDomain}`,
       );
       return res.status(401).send("Invalid signature");
     }
 
     console.log(
-      `🔔 [ShopifyWebhook] Verified event: ${topic} from shop: ${shopDomain}`,
+      `?? [ShopifyWebhook] Verified event: ${topic} from shop: ${shopDomain}`,
     );
 
-    // Phase 1: Acknowledge only — no order/product sync yet
+    // Phase 1: Acknowledge only � no order/product sync yet
     return res.status(200).json({ status: "ok" });
   } catch (error) {
-    console.error("❌ [ShopifyWebhook] Error:", error);
+    console.error("? [ShopifyWebhook] Error:", error);
     return res.status(500).send("Internal server error");
   }
 };

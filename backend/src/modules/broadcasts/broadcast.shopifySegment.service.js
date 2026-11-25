@@ -25,7 +25,7 @@ export async function resolveShopifySegment(tenantId, filters = {}) {
 
   if (!connection || connection.status !== "active") {
     console.warn(
-      `📢 [Shopify Segment] No active Shopify connection for tenant=${tenantId}`,
+      `?? [Shopify Segment] No active Shopify connection for tenant=${tenantId}`,
     );
     return { contacts: [], stats: { matched: 0, reason: "no_connection" } };
   }
@@ -87,14 +87,14 @@ export async function resolveShopifySegment(tenantId, filters = {}) {
       // Safety cap: 2500 customers max
       if (allCustomers.length >= 2500) {
         console.warn(
-          `📢 [Shopify Segment] Hit 2500 customer cap for tenant=${tenantId}`,
+          `?? [Shopify Segment] Hit 2500 customer cap for tenant=${tenantId}`,
         );
         break;
       }
     }
   } catch (err) {
     console.error(
-      `📢 [Shopify Segment] API error for tenant=${tenantId}:`,
+      `?? [Shopify Segment] API error for tenant=${tenantId}:`,
       err.message,
     );
     return resolveShopifySegmentFromOrders(tenantId, filters);
@@ -102,7 +102,7 @@ export async function resolveShopifySegment(tenantId, filters = {}) {
 
   if (allCustomers.length === 0) {
     console.log(
-      `📢 [Shopify Segment] 0 customers from Shopify API, falling back to orders`,
+      `?? [Shopify Segment] 0 customers from Shopify API, falling back to orders`,
     );
     return resolveShopifySegmentFromOrders(tenantId, filters);
   }
@@ -146,7 +146,7 @@ export async function resolveShopifySegment(tenantId, filters = {}) {
 
   if (matchedPhones.length === 0) {
     console.log(
-      `📢 [Shopify Segment] tenant=${tenantId} matched 0 customers after filters`,
+      `?? [Shopify Segment] tenant=${tenantId} matched 0 customers after filters`,
     );
     return { contacts: [], stats: { matched: 0 } };
   }
@@ -283,7 +283,7 @@ async function matchAndCreateContacts(
         finalContacts.push(created);
       } catch (err) {
         console.warn(
-          `📢 [Shopify Segment] Contact creation failed for ${cust.phone}:`,
+          `?? [Shopify Segment] Contact creation failed for ${cust.phone}:`,
           err.message,
         );
       }
@@ -291,7 +291,7 @@ async function matchAndCreateContacts(
   }
 
   console.log(
-    `📢 [Shopify Segment] Resolved ${finalContacts.length} contacts for tenant=${tenantId} (source: ${source})`,
+    `?? [Shopify Segment] Resolved ${finalContacts.length} contacts for tenant=${tenantId} (source: ${source})`,
   );
 
   return {

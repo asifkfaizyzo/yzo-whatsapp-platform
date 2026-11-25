@@ -1,4 +1,4 @@
-// backend/src/cron/jobs/cleanupWebhookEventsJob.js (do not remove this comment)
+// backend/src/cron/jobs/webhook-cleanup.job.js (do not remove this comment)
 import cron from "node-cron";
 import prisma from "../../config/prisma.js";
 
@@ -28,6 +28,6 @@ export const startWebhookEventsCleanupJob = () => {
   });
 
   console.log(
-    "[WebhookCleanup] Job scheduled — runs daily at 3:00 AM (7-day retention)",
+    "[WebhookCleanup] Job scheduled � runs daily at 3:00 AM (7-day retention)",
   );
 };

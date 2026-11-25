@@ -23,9 +23,9 @@ import pushService, {
 
 const CLOSED_STATUSES = ["RESOLVED", "CLOSED"];
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // PUSH NOTIFICATION TO ASSIGNED AGENT
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 const sendPushToAssignedAgent = async (
   assignedUserId,
   contact,
@@ -34,11 +34,11 @@ const sendPushToAssignedAgent = async (
   messageType,
 ) => {
   try {
-    console.log(`🔔 sendPushToAssignedAgent: checking user ${assignedUserId}`);
+    console.log(`?? sendPushToAssignedAgent: checking user ${assignedUserId}`);
     const allowed = await shouldSendPush(assignedUserId, "new_message");
     if (!allowed) {
       console.log(
-        `🔔 sendPushToAssignedAgent: skipped (prefs/token) for ${assignedUserId}`,
+        `?? sendPushToAssignedAgent: skipped (prefs/token) for ${assignedUserId}`,
       );
       return;
     }
@@ -50,7 +50,7 @@ const sendPushToAssignedAgent = async (
 
     if (!agent?.pushToken) {
       console.log(
-        `🔔 sendPushToAssignedAgent: no pushToken for ${assignedUserId}`,
+        `?? sendPushToAssignedAgent: no pushToken for ${assignedUserId}`,
       );
       return;
     }
@@ -58,11 +58,11 @@ const sendPushToAssignedAgent = async (
     const previewText =
       messageText?.substring(0, 200) ||
       (messageType && messageType !== "TEXT"
-        ? `📷 ${messageType.toLowerCase()} message`
+        ? `?? ${messageType.toLowerCase()} message`
         : "New message");
 
     console.log(
-      `🔔 sendPushToAssignedAgent: sending to ${agent.pushToken.substring(0, 30)}...`,
+      `?? sendPushToAssignedAgent: sending to ${agent.pushToken.substring(0, 30)}...`,
     );
     const result = await pushService.sendToDevice({
       token: agent.pushToken,
@@ -77,17 +77,17 @@ const sendPushToAssignedAgent = async (
       },
     });
     console.log(
-      `🔔 sendPushToAssignedAgent: result =`,
-      result.success ? "✅ sent" : `❌ ${result.message}`,
+      `?? sendPushToAssignedAgent: result =`,
+      result.success ? "? sent" : `? ${result.message}`,
     );
   } catch (err) {
-    console.error("❌ Push to agent failed:", err.message);
+    console.error("? Push to agent failed:", err.message);
   }
 };
 
-// ─────────────────────────────────────────────────────────────
-// HANDLE INCOMING MESSAGE  (Contact → Platform)
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
+// HANDLE INCOMING MESSAGE  (Contact ? Platform)
+// -------------------------------------------------------------
 export const handleIncomingMessage = async ({
   contactId,
   tenantId,
@@ -106,7 +106,7 @@ export const handleIncomingMessage = async ({
   wamid = null,
   channel = null,
 }) => {
-  // ── 1. Load contact & tenant boundary check ──────────────────
+  // -- 1. Load contact & tenant boundary check ------------------
   const contact = await prisma.contact.findUnique({
     where: { id: contactId },
   });
@@ -119,7 +119,7 @@ export const handleIncomingMessage = async ({
     throw new Error("Cannot receive message from a blocked contact");
   }
 
-  // ── 2. Get or create conversation ────────────────────────────
+  // -- 2. Get or create conversation ----------------------------
   const contactChannel = channel || contact.channel || "WHATSAPP";
   let conversation = await getOrCreateConversation(
     contactId,
@@ -130,7 +130,7 @@ export const handleIncomingMessage = async ({
   let action = "message_saved";
   let reason = null;
 
-  // ── 3 & 4. Atomic Transaction: Update Conversation + Create Message ──
+  // -- 3 & 4. Atomic Transaction: Update Conversation + Create Message --
   const { updatedConversation, message } = await prisma.$transaction(
     async (tx) => {
       let updatedConv;
@@ -228,7 +228,7 @@ export const handleIncomingMessage = async ({
     },
   );
 
-  // ── 5. Create notification ────────────────────────────────────
+  // -- 5. Create notification ------------------------------------
   await createNotification({
     tenantId,
     userId: null,
@@ -242,7 +242,7 @@ export const handleIncomingMessage = async ({
     },
   });
 
-  // ── Emit unread count to tenant room (for admin) ──────────────
+  // -- Emit unread count to tenant room (for admin) --------------
   emitToTenant(tenantId, "unread_count_update", {
     conversationId: updatedConversation.id,
     unreadCount: updatedConversation.unreadCount,
@@ -250,7 +250,7 @@ export const handleIncomingMessage = async ({
     contactName: contact.name || contact.phone,
   });
 
-  // ── Emit to assigned user (for agent) ─────────────────────────
+  // -- Emit to assigned user (for agent) -------------------------
   const assignedUserId = contact.assignedTo || updatedConversation.assignedTo;
 
   if (assignedUserId) {
@@ -283,7 +283,7 @@ export const handleIncomingMessage = async ({
       },
     });
 
-    // ── Push notification to assigned agent (fire-and-forget) ──
+    // -- Push notification to assigned agent (fire-and-forget) --
     sendPushToAssignedAgent(
       assignedUserId,
       contact,
@@ -291,11 +291,11 @@ export const handleIncomingMessage = async ({
       updatedConversation.id,
       type,
     ).catch((err) => {
-      console.error("❌ Push notification error:", err.message);
+      console.error("? Push notification error:", err.message);
     });
   }
 
-  // ── Notify tenant about unassigned contact ───────────────────
+  // -- Notify tenant about unassigned contact -------------------
   if (!assignedUserId) {
     const unassignedCount = await prisma.contact.count({
       where: {
@@ -321,7 +321,7 @@ export const handleIncomingMessage = async ({
         notification: {
           id: `unassigned_${contact.id}_${Date.now()}`,
           type: "contact_waiting_assignment",
-          title: "👤 New contact needs assignment",
+          title: "?? New contact needs assignment",
           message: `${contact.name} is waiting to be assigned to an agent`,
           isRead: false,
           createdAt: new Date(),
@@ -334,7 +334,7 @@ export const handleIncomingMessage = async ({
       });
     }
 
-    // ── Push to ALL tenant agents for unassigned messages ──
+    // -- Push to ALL tenant agents for unassigned messages --
     prisma.user
       .findMany({
         where: { tenantId },
@@ -342,7 +342,7 @@ export const handleIncomingMessage = async ({
       })
       .then((agents) => {
         console.log(
-          `🔔 Unassigned message — pushing to ${agents.length} agent(s)`,
+          `?? Unassigned message � pushing to ${agents.length} agent(s)`,
         );
         agents.forEach((agent) => {
           sendPushToAssignedAgent(
@@ -352,16 +352,16 @@ export const handleIncomingMessage = async ({
             updatedConversation.id,
             type,
           ).catch((err) =>
-            console.error("❌ Push to unassigned agent failed:", err.message),
+            console.error("? Push to unassigned agent failed:", err.message),
           );
         });
       })
       .catch((err) =>
-        console.error("❌ Failed to fetch agents for push:", err.message),
+        console.error("? Failed to fetch agents for push:", err.message),
       );
   }
 
-  // ── Trigger flow engine (text or location) ───────────────────
+  // -- Trigger flow engine (text or location) -------------------
   if ((text || type === "LOCATION") && type !== "ORDER") {
     flowEngine
       .processIncomingMessage(
@@ -378,7 +378,7 @@ export const handleIncomingMessage = async ({
         },
       )
       .catch((err) => {
-        console.error("❌ Flow Engine error:", err);
+        console.error("? Flow Engine error:", err);
       });
   }
 
@@ -392,9 +392,9 @@ export const handleIncomingMessage = async ({
 
 import { GRAPH_BASE_URL } from "../../config/meta.js";
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // SHARED META SENDER (Messenger & Instagram)
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 export const sendMetaMessage = async ({
   tenant,
   channelId,
@@ -499,9 +499,9 @@ export const sendMetaMessage = async ({
   return { messageId: data.message_id || data.recipient_id };
 };
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // SEND META MEDIA MESSAGE (Direct Binary Upload via FormData)
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 export const sendMetaMediaMessage = async ({
   tenant,
   channelId,
@@ -624,9 +624,9 @@ export const sendMetaMediaMessage = async ({
   };
 };
 
-// ─────────────────────────────────────────────────────────────
-// SEND TEXT MESSAGE  (Tenant / Agent → Contact)
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
+// SEND TEXT MESSAGE  (Tenant / Agent ? Contact)
+// -------------------------------------------------------------
 export const sendMessageService = async ({
   contactId,
   tenantId,
@@ -634,7 +634,7 @@ export const sendMessageService = async ({
   senderType,
   text,
 }) => {
-  // ── 1. Check contact & tenant boundary ────────────────────────
+  // -- 1. Check contact & tenant boundary ------------------------
   const contact = await prisma.contact.findUnique({
     where: { id: contactId },
   });
@@ -653,7 +653,7 @@ export const sendMessageService = async ({
   });
   Object.assign(tenant, tenant?.whatsapp, tenant?.social);
 
-  // ── 2. Get or create conversation early for channel context ──
+  // -- 2. Get or create conversation early for channel context --
   const conversation = await getOrCreateConversation(
     contactId,
     tenantId,
@@ -665,7 +665,7 @@ export const sendMessageService = async ({
   let failureCode = null;
   let failureReason = null;
 
-  // ── 3. Branch by Channel: MESSENGER / INSTAGRAM vs WHATSAPP ──
+  // -- 3. Branch by Channel: MESSENGER / INSTAGRAM vs WHATSAPP --
   if (
     conversation.channel === "MESSENGER" ||
     conversation.channel === "INSTAGRAM"
@@ -682,7 +682,7 @@ export const sendMessageService = async ({
       msgStatus = "sent";
     } catch (metaErr) {
       console.error(
-        `⚠️ Meta ${conversation.channel} send failed:`,
+        `?? Meta ${conversation.channel} send failed:`,
         metaErr.message,
       );
       msgStatus = "failed";
@@ -714,7 +714,7 @@ export const sendMessageService = async ({
       const responseData = await response.json();
 
       if (!response.ok) {
-        console.error("⚠️ WhatsApp API Error:", responseData);
+        console.error("?? WhatsApp API Error:", responseData);
         msgStatus = "failed";
         failureCode = responseData?.error?.code || null;
         failureReason = responseData?.error?.message || "Meta API Error";
@@ -729,11 +729,11 @@ export const sendMessageService = async ({
             responseData,
           );
         } else {
-          console.log("✅ WhatsApp message sent, wamid:", waMessageId);
+          console.log("? WhatsApp message sent, wamid:", waMessageId);
         }
       }
     } catch (waError) {
-      console.error("⚠️ WhatsApp send failed:", waError.message);
+      console.error("?? WhatsApp send failed:", waError.message);
       msgStatus = "failed";
       failureReason = waError.message;
     }
@@ -770,7 +770,7 @@ export const sendMessageService = async ({
     });
   }
 
-  // ── 4. Create message in DB ────────────────────────────────────
+  // -- 4. Create message in DB ------------------------------------
   const message = await prisma.message.create({
     data: {
       conversationId: conversation.id,
@@ -787,7 +787,7 @@ export const sendMessageService = async ({
     },
   });
 
-  // ── Phase 4: Log outbound message as Zoho Note ──
+  // -- Phase 4: Log outbound message as Zoho Note --
   try {
     const { logMessageAsZohoNote } =
       await import("../zoho/crm/zoho.note.service.js");
@@ -803,9 +803,9 @@ export const sendMessageService = async ({
   return { ...message, conversationId: conversation.id };
 };
 
-// ─────────────────────────────────────────────────────────────
-// SEND MEDIA MESSAGE  (Tenant / Agent → Contact)
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
+// SEND MEDIA MESSAGE  (Tenant / Agent ? Contact)
+// -------------------------------------------------------------
 export const sendMediaMessageService = async ({
   contactId,
   conversationId,
@@ -836,7 +836,7 @@ export const sendMediaMessageService = async ({
     throw new Error(validation.error);
   }
 
-  // ── Verify Contact & Tenant Security ──────────────────────────
+  // -- Verify Contact & Tenant Security --------------------------
   const contact = await prisma.contact.findUnique({
     where: { id: contactId },
   });
@@ -856,7 +856,7 @@ export const sendMediaMessageService = async ({
     throw new Error("Cannot send to blocked contact");
   }
 
-  // ── Verify Conversation & Tenant Security ─────────────────────
+  // -- Verify Conversation & Tenant Security ---------------------
   const conversation = await prisma.conversation.findUnique({
     where: { id: conversationId },
   });
@@ -880,7 +880,7 @@ export const sendMediaMessageService = async ({
   let msgStatus = "sent";
   let failureReason = null;
 
-  // ── Branch by Channel: MESSENGER / INSTAGRAM vs WHATSAPP ────
+  // -- Branch by Channel: MESSENGER / INSTAGRAM vs WHATSAPP ----
   if (
     conversation.channel === "MESSENGER" ||
     conversation.channel === "INSTAGRAM"
@@ -911,14 +911,14 @@ export const sendMediaMessageService = async ({
           });
         } catch (captionErr) {
           console.error(
-            `⚠️ Failed to send caption follow-up for Meta ${conversation.channel}:`,
+            `?? Failed to send caption follow-up for Meta ${conversation.channel}:`,
             captionErr.message,
           );
         }
       }
     } catch (metaErr) {
       console.error(
-        `⚠️ Meta ${conversation.channel} media send failed:`,
+        `?? Meta ${conversation.channel} media send failed:`,
         metaErr.message,
       );
       msgStatus = "failed";
@@ -952,7 +952,7 @@ export const sendMediaMessageService = async ({
         console.error("WhatsApp API response did not include a WAMID:", result);
       }
     } catch (waError) {
-      console.error("⚠️ WhatsApp API media send failed:", waError.message);
+      console.error("?? WhatsApp API media send failed:", waError.message);
       msgStatus = "failed";
       failureReason = waError.message;
     } finally {
@@ -1010,8 +1010,146 @@ export const sendMediaMessageService = async ({
 
 // ── WhatsApp Media Send Helper ────────────────────────────────
 // ─────────────────────────────────────────────────────────────
+// -- WhatsApp Media Send Helper --------------------------------
+const sendWhatsAppMedia = async ({
+  tenant,
+  contactPhone,
+  file,
+  caption,
+  mediaType,
+  isVoiceNote = false,
+}) => {
+  const accessToken = decrypt(tenant.whatsappAccessToken);
+  const phoneId = tenant.whatsappPhoneId;
+  const cleanPhone = contactPhone.replace("+", "");
+
+  const resolvedFilePath = path.isAbsolute(file.path)
+    ? file.path
+    : path.resolve(process.cwd(), file.path);
+  const fileBuffer = fs.readFileSync(resolvedFilePath);
+
+  let uploadMimeType = file.mimetype || "application/octet-stream";
+
+  const metaAllowedTypes = [
+    "audio/aac",
+    "audio/mp4",
+    "audio/mpeg",
+    "audio/amr",
+    "audio/ogg",
+    "audio/opus",
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "video/mp4",
+    "video/3gpp",
+    "application/pdf",
+    "text/plain",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-powerpoint",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  ];
+
+  if (!metaAllowedTypes.includes(uploadMimeType)) {
+    throw new Error(`Unsupported WhatsApp media MIME type: ${uploadMimeType}`);
+  }
+
+  const blob = new Blob([fileBuffer], { type: uploadMimeType });
+  const formData = new globalThis.FormData();
+
+  formData.append("file", blob, file.originalname);
+  formData.append("messaging_product", "whatsapp");
+
+  const uploadRes = await fetch(
+    `https://graph.facebook.com/v18.0/${phoneId}/media`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: formData,
+    },
+  );
+
+  if (!uploadRes.ok) {
+    const err = await uploadRes.json();
+    throw new Error(
+      `Media upload failed: ${err.error?.message || JSON.stringify(err)}`,
+    );
+  }
+
+  const { id: mediaId } = await uploadRes.json();
+
+  const typeMap = {
+    IMAGE: "image",
+    VIDEO: "video",
+    AUDIO: "audio",
+    FILE: "document",
+  };
+
+  let waType = typeMap[mediaType] || "document";
+
+  const supportedAudioMimeTypes = [
+    "audio/aac",
+    "audio/mp4",
+    "audio/mpeg",
+    "audio/amr",
+    "audio/ogg",
+  ];
+
+  if (
+    waType === "audio" &&
+    file.mimetype &&
+    !supportedAudioMimeTypes.some((mime) => file.mimetype.includes(mime))
+  ) {
+    waType = "document";
+  }
+
+  const mediaPayload = { id: mediaId };
+
+  if (waType === "audio" && isVoiceNote) {
+    mediaPayload.voice = true;
+  }
+
+  if (waType === "document" && file.originalname) {
+    mediaPayload.filename = file.originalname;
+  }
+
+  if (["image", "video", "document"].includes(waType) && caption) {
+    mediaPayload.caption = caption;
+  }
+
+  const sendRes = await fetch(
+    `https://graph.facebook.com/v18.0/${phoneId}/messages`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: cleanPhone,
+        type: waType,
+        [waType]: mediaPayload,
+      }),
+    },
+  );
+
+  if (!sendRes.ok) {
+    const err = await sendRes.json();
+    throw new Error(`WhatsApp send failed: ${err.error?.message}`);
+  }
+
+  return sendRes.json();
+};
+
+// -------------------------------------------------------------
 // DELETE MESSAGE  (Soft delete)
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 export const deleteMessageService = async ({
   messageId,
   requesterId,
@@ -1069,9 +1207,9 @@ export const deleteMessageService = async ({
   };
 };
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // MARK CONVERSATION AS READ  (clears unread + sends read receipt to Meta)
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 export const markConversationAsReadService = async ({
   conversationId,
   tenantId,
@@ -1151,13 +1289,13 @@ export const markConversationAsReadService = async ({
           if (!response.ok) {
             const errorData = await response.json();
             console.warn(
-              `⚠️ Meta rejected read receipt for WAMID ${msg.wamid}:`,
+              `?? Meta rejected read receipt for WAMID ${msg.wamid}:`,
               errorData,
             );
           }
         } catch (error) {
           console.error(
-            `⚠️ Meta read receipt failed for WAMID ${msg.wamid}:`,
+            `?? Meta read receipt failed for WAMID ${msg.wamid}:`,
             error.message,
           );
         }
@@ -1176,9 +1314,9 @@ export const markConversationAsReadService = async ({
   };
 };
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // SEND QUICK REPLY MESSAGE (Text or Pre-uploaded Media)
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 export const sendQuickReplyMessageService = async ({
   contactId,
   tenantId,
@@ -1333,9 +1471,9 @@ export const sendQuickReplyMessageService = async ({
   return { ...result, isMedia: false };
 };
 
-// ─────────────────────────────────────────────────────────────
-// SEND TEMPLATE MESSAGE  (Tenant / Agent → Contact via Meta)
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
+// SEND TEMPLATE MESSAGE  (Tenant / Agent ? Contact via Meta)
+// -------------------------------------------------------------
 export const sendTemplateMessageService = async ({
   contactId,
   tenantId,
@@ -1344,7 +1482,7 @@ export const sendTemplateMessageService = async ({
   templateId,
   params = [],
 }) => {
-  // ── 1. Validate contact & tenant boundary ──────────────────
+  // -- 1. Validate contact & tenant boundary ------------------
   const contact = await prisma.contact.findUnique({
     where: { id: contactId },
   });
@@ -1357,7 +1495,7 @@ export const sendTemplateMessageService = async ({
     throw new Error("Cannot send message to a blocked contact");
   }
 
-  // ── 2. Load approved template ──────────────────────────────
+  // -- 2. Load approved template ------------------------------
   const template = await prisma.template.findFirst({
     where: { id: templateId, tenantId, status: "APPROVED" },
   });
@@ -1366,14 +1504,14 @@ export const sendTemplateMessageService = async ({
     throw new Error("Template not found or not approved");
   }
 
-  // ── 3. Load tenant credentials ─────────────────────────────
+  // -- 3. Load tenant credentials -----------------------------
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
     include: { whatsapp: true },
   });
   Object.assign(tenant, tenant?.whatsapp);
 
-  // ── 4. Get or create conversation ──────────────────────────
+  // -- 4. Get or create conversation --------------------------
   const conversation = await getOrCreateConversation(
     contactId,
     tenantId,
@@ -1384,7 +1522,7 @@ export const sendTemplateMessageService = async ({
   let msgStatus = "sent";
   let failureReason = null;
 
-  // ── 5. Send via Meta Cloud API ─────────────────────────────
+  // -- 5. Send via Meta Cloud API -----------------------------
   if (process.env.MOCK_WHATSAPP === "true") {
     waMessageId = `mock_wamid_template_${Date.now()}`;
   } else if (tenant?.whatsappPhoneId && tenant?.whatsappAccessToken) {
@@ -1424,7 +1562,7 @@ export const sendTemplateMessageService = async ({
       const responseData = await response.json();
 
       if (!response.ok) {
-        console.error("⚠️ WhatsApp Template API Error:", responseData);
+        console.error("?? WhatsApp Template API Error:", responseData);
         msgStatus = "failed";
         failureReason =
           responseData?.error?.message || "Meta template send failed";
@@ -1434,11 +1572,11 @@ export const sendTemplateMessageService = async ({
           msgStatus = "failed";
           failureReason = "Meta accepted but returned no WAMID";
         } else {
-          console.log("✅ WhatsApp template sent, wamid:", waMessageId);
+          console.log("? WhatsApp template sent, wamid:", waMessageId);
         }
       }
     } catch (err) {
-      console.error("⚠️ WhatsApp template send failed:", err.message);
+      console.error("?? WhatsApp template send failed:", err.message);
       msgStatus = "failed";
       failureReason = err.message;
     }
@@ -1447,7 +1585,7 @@ export const sendTemplateMessageService = async ({
     failureReason = "WhatsApp credentials not configured for tenant";
   }
 
-  // ── 6. Build preview text from template body ───────────────
+  // -- 6. Build preview text from template body ---------------
   let previewText = `[Template: ${template.name}]`;
   try {
     const components =
@@ -1472,7 +1610,7 @@ export const sendTemplateMessageService = async ({
     // fallback to [Template: name]
   }
 
-  // ── 7. Reopen conversation if closed ───────────────────────
+  // -- 7. Reopen conversation if closed -----------------------
   const isClosed = CLOSED_STATUSES.includes(conversation.status);
 
   if (isClosed) {
@@ -1501,7 +1639,7 @@ export const sendTemplateMessageService = async ({
     });
   }
 
-  // ── 8. Create message in DB ────────────────────────────────
+  // -- 8. Create message in DB --------------------------------
   const message = await prisma.message.create({
     data: {
       conversationId: conversation.id,

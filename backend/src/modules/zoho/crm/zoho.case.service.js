@@ -60,7 +60,7 @@ export async function syncTicketToZohoCase(tenantId, ticketId) {
 
     if (result && result.code === "SUCCESS" && result.details?.id) {
       console.log(
-        `🎫 [ZohoCase] Created Zoho Case ${result.details.id} for Ticket #${ticket.ticketNumber}`,
+        `?? [ZohoCase] Created Zoho Case ${result.details.id} for Ticket #${ticket.ticketNumber}`,
       );
       return result.details.id;
     }
@@ -68,7 +68,7 @@ export async function syncTicketToZohoCase(tenantId, ticketId) {
     return null;
   } catch (error) {
     console.error(
-      `❌ [ZohoCase] Failed to sync ticket ${ticketId}:`,
+      `? [ZohoCase] Failed to sync ticket ${ticketId}:`,
       error.response?.data || error.message,
     );
     return null;

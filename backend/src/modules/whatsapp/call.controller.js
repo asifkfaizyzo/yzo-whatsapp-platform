@@ -275,11 +275,11 @@ export const initiateCall = async (req, res) => {
     let outboundTransport = null;
     if (clientSdpOffer) {
       console.log(
-        `🌐 [WebRTC] Using client direct browser SDP offer for outbound call to: ${toNumber}`,
+        `?? [WebRTC] Using client direct browser SDP offer for outbound call to: ${toNumber}`,
       );
     } else {
       console.log(
-        `🌐 [WebRTC] No client SDP offer provided, falling back to Mediasoup for: ${toNumber}`,
+        `?? [WebRTC] No client SDP offer provided, falling back to Mediasoup for: ${toNumber}`,
       );
       try {
         const { transport, params: metaTransportParams } =
@@ -475,7 +475,7 @@ export const requestCallPermission = async (req, res) => {
           return res.status(500).json({
             error: "CALLING_ENABLE_FAILED",
             message:
-              "Calling is not enabled for this phone number and could not be auto-enabled. Please enable it manually in WhatsApp Manager → Phone Number Settings → Calling.",
+              "Calling is not enabled for this phone number and could not be auto-enabled. Please enable it manually in WhatsApp Manager ? Phone Number Settings ? Calling.",
           });
         }
 
@@ -498,7 +498,7 @@ export const requestCallPermission = async (req, res) => {
           });
         }
       } else {
-        // Non-138000 error — throw to outer catch
+        // Non-138000 error � throw to outer catch
         throw permErr;
       }
     }
@@ -543,7 +543,7 @@ export const getCallSettings = async (req, res) => {
       );
     }
 
-    // Sanitize Meta's NOT_SET → valid defaults (Meta returns NOT_SET when calling was never configured)
+    // Sanitize Meta's NOT_SET ? valid defaults (Meta returns NOT_SET when calling was never configured)
     const validStatuses = ["ENABLED", "DISABLED"];
     const validVisibilities = ["DEFAULT", "DISABLE_ALL"];
     const sanitizedStatus = validStatuses.includes(callingSettings.status)
@@ -576,7 +576,7 @@ export const updateCallSettings = async (req, res) => {
     const updateData = req.body;
     const token = await getTenantToken(req.tenant?.id || req.user?.tenantId);
 
-    // Whitelist valid Meta enum values — reject NOT_SET or any invalid value
+    // Whitelist valid Meta enum values � reject NOT_SET or any invalid value
     const validStatuses = ["ENABLED", "DISABLED"];
     const validVisibilities = ["DEFAULT", "DISABLE_ALL"];
     const safeStatus = validStatuses.includes(updateData.status)

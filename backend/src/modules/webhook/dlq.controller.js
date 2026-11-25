@@ -2,9 +2,9 @@
 import { dlqQueue } from "../../cron/queues/dlq.queue.js";
 import { webhookQueue } from "../../cron/queues/webhook.queue.js";
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 // GET ALL FAILED WEBHOOKS
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 export const getFailedWebhooks = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -55,9 +55,9 @@ export const getFailedWebhooks = async (req, res) => {
   }
 };
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 // GET DLQ STATISTICS
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 export const getDLQStats = async (req, res) => {
   try {
     const counts = await dlqQueue.getJobCounts();
@@ -81,9 +81,9 @@ export const getDLQStats = async (req, res) => {
   }
 };
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 // GET SINGLE FAILED WEBHOOK DETAIL
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 export const getFailedWebhookDetail = async (req, res) => {
   try {
     const { id } = req.params;
@@ -119,9 +119,9 @@ export const getFailedWebhookDetail = async (req, res) => {
   }
 };
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 // RETRY A SINGLE FAILED WEBHOOK
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 export const retryFailedWebhook = async (req, res) => {
   try {
     const { id } = req.params;
@@ -148,7 +148,7 @@ export const retryFailedWebhook = async (req, res) => {
     // Remove from DLQ after successful re-push
     await job.remove();
 
-    console.log(`🔄 [DLQ] Retried job ${id}, new job ID: ${newJob.id}`);
+    console.log(`?? [DLQ] Retried job ${id}, new job ID: ${newJob.id}`);
 
     return res.status(200).json({
       success: true,
@@ -167,9 +167,9 @@ export const retryFailedWebhook = async (req, res) => {
   }
 };
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 // RETRY ALL FAILED WEBHOOKS
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 export const retryAllFailedWebhooks = async (req, res) => {
   try {
     const jobs = await dlqQueue.getJobs(["waiting", "completed"], 0, -1);
@@ -199,7 +199,7 @@ export const retryAllFailedWebhooks = async (req, res) => {
     }
 
     console.log(
-      `🔄 [DLQ] Bulk retry: ${retriedCount} succeeded, ${errors.length} failed`,
+      `?? [DLQ] Bulk retry: ${retriedCount} succeeded, ${errors.length} failed`,
     );
 
     return res.status(200).json({
@@ -220,9 +220,9 @@ export const retryAllFailedWebhooks = async (req, res) => {
   }
 };
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 // DELETE A SINGLE FAILED WEBHOOK
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 export const deleteFailedWebhook = async (req, res) => {
   try {
     const { id } = req.params;
@@ -238,7 +238,7 @@ export const deleteFailedWebhook = async (req, res) => {
 
     await job.remove();
 
-    console.log(`🗑️ [DLQ] Deleted job ${id}`);
+    console.log(`??? [DLQ] Deleted job ${id}`);
 
     return res.status(200).json({
       success: true,
@@ -252,9 +252,9 @@ export const deleteFailedWebhook = async (req, res) => {
   }
 };
 
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 // CLEAR ALL FAILED WEBHOOKS
-// ═══════════════════════════════════════════════
+// -----------------------------------------------
 export const clearAllFailedWebhooks = async (req, res) => {
   try {
     // Get all jobs
@@ -269,7 +269,7 @@ export const clearAllFailedWebhooks = async (req, res) => {
     // Remove all
     await Promise.all(jobs.map((job) => job.remove()));
 
-    console.log(`🗑️ [DLQ] Cleared all ${totalCount} failed webhooks`);
+    console.log(`??? [DLQ] Cleared all ${totalCount} failed webhooks`);
 
     return res.status(200).json({
       success: true,

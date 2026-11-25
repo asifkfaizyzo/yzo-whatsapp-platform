@@ -1,10 +1,6 @@
 // backend/src/modules/enterprise-leads/enterpriseLead.controller.js (do not remove this comment)
 import prisma from "../../config/prisma.js";
-import {
-  sendEnterpriseLeadConfirmationEmail,
-  sendEnterpriseLeadNotificationEmail,
-  sendEnterpriseAccountActivationEmail,
-} from "../auth/email.service.js";
+import { sendEnterpriseLeadConfirmationEmail, sendEnterpriseLeadNotificationEmail, sendEnterpriseAccountActivationEmail } from "../email/index.js";
 import { validationResult } from "express-validator";
 
 // Map UI display values to Prisma DB enum keys
@@ -46,7 +42,7 @@ export const submitEnterpriseLead = async (req, res) => {
     });
   }
 
-  const tenantId = req.tenantId; // From verifyOnboarding middleware
+  const tenantId = req.tenantId; // From authenticate, requireOnboarding middleware
   const {
     companyName,
     contactName,
@@ -91,17 +87,11 @@ export const submitEnterpriseLead = async (req, res) => {
       },
     });
 
-    // 2️⃣ Update the Tenant: planStatus = 'enterprise_pending', onboardingStep = 6
+    // 2️⃣ Update the Tenant: onboardingStep = 6
     await prisma.tenant.update({
       where: { id: tenantId },
       data: {
         onboardingStep: 6,
-      },
-    });
-    await prisma.tenantSubscription.update({
-      where: { tenantId },
-      data: {
-        planStatus: "enterprise_pending",
       },
     });
 
@@ -110,7 +100,7 @@ export const submitEnterpriseLead = async (req, res) => {
       console.error,
     );
 
-    const adminEmail = process.env.EMAIL_USER || "info@sudoreply.com";
+    const adminEmail = process.env.SES_FROM_EMAIL;
     sendEnterpriseLeadNotificationEmail(adminEmail, {
       companyName,
       contactName,
@@ -126,7 +116,7 @@ export const submitEnterpriseLead = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      status: "enterprise_pending",
+      status: "pending",
       data: lead,
     });
   } catch (error) {
@@ -148,11 +138,11 @@ export const resetEnterpriseLead = async (req, res) => {
       where: { tenantId, status: "pending" },
     });
 
-    // 2️⃣ Reset plan status to inactive or none
-    await prisma.tenantSubscription.update({
+    // 2️⃣ Reset subscription status to inactive
+    await prisma.tenantSubscription.updateMany({
       where: { tenantId },
       data: {
-        planStatus: "inactive", // or none, inactive is default in schema.prisma
+        subscriptionStatus: "inactive",
       },
     });
     const updatedTenant = await prisma.tenant.findUnique({
@@ -327,8 +317,8 @@ export const updateStatus = async (req, res) => {
     const historyItem = {
       status,
       timestamp: new Date().toISOString(),
-      adminName: req.superAdmin?.name || "Admin",
-      adminId: req.superAdminId || "unknown",
+      adminName: req.srAdmin?.name || "Admin",
+      adminId: req.srAdminId || "unknown",
       notes: `Status changed to '${status}'`,
     };
 
@@ -385,7 +375,7 @@ export const updateNotes = async (req, res) => {
 // ── Admin: Activate Enterprise Account ──
 export const activateTenant = async (req, res) => {
   const { id } = req.params;
-  const adminId = req.superAdminId; // From verifySuperAdmin middleware
+  const adminId = req.srAdminId; // From authenticate, requireSRAdmin middleware
 
   try {
     const lead = await prisma.enterpriseLead.findUnique({
@@ -410,7 +400,7 @@ export const activateTenant = async (req, res) => {
     const historyItem = {
       status: "converted",
       timestamp: new Date().toISOString(),
-      adminName: req.superAdmin?.name || "Admin",
+      adminName: req.srAdmin?.name || "Admin",
       adminId,
       notes: "Enterprise account activated.",
     };
@@ -438,10 +428,14 @@ export const activateTenant = async (req, res) => {
           status: "APPROVED", // Force APPROVED status so they can bypass restrictions
         },
       }),
-      prisma.tenantSubscription.update({
+      prisma.tenantSubscription.upsert({
         where: { tenantId: lead.tenantId },
-        data: {
-          planStatus: "enterprise_active",
+        update: {
+          subscriptionStatus: "active",
+        },
+        create: {
+          tenantId: lead.tenantId,
+          subscriptionStatus: "active",
         },
       }),
     ]);

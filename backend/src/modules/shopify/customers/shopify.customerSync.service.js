@@ -45,6 +45,59 @@ export const syncShopifyCustomer = async (tenantId, storeId, customerPayload) =>
     const shopifyStore = await tx.shopifyStore.findFirst({
       where: {
         id: storeId,
+  if (rawPhone) {
+    cleanDigits = String(rawPhone).replace(/\D/g, "");
+    if (cleanDigits.length >= 8) {
+      formattedPhone = `+${cleanDigits}`;
+    }
+  }
+
+  // Email
+  const email = customerPayload.email || null;
+
+  if (!formattedPhone && !email) {
+    console.log(
+      `?? [Shopify Sync] Customer ${shopifyId} (${fullName}) has no phone or email. Skipping.`,
+    );
+    return null;
+  }
+
+  // Extract formatted customer address
+  const rawAddressObj =
+    customerPayload.default_address || customerPayload.addresses?.[0] || null;
+  const formattedAddress = formatShopifyAddress(rawAddressObj);
+
+  // 1. Check if Provider Mapping exists
+  let providerMapping = await prisma.contactProviderMapping.findFirst({
+    where: {
+      tenantId,
+      provider: "SHOPIFY",
+      providerContactId: shopifyId,
+    },
+    include: { contact: true },
+  });
+
+  let contact = providerMapping?.contact;
+
+  // 2. If no provider mapping exists, check existing Contact by phone or email
+  if (!contact) {
+    if (formattedPhone) {
+      contact = await prisma.contact.findUnique({
+        where: { phone_tenantId: { phone: formattedPhone, tenantId } },
+      });
+    }
+
+    if (!contact && email) {
+      contact = await prisma.contact.findFirst({
+        where: { email: { equals: email, mode: "insensitive" }, tenantId },
+      });
+    }
+  }
+
+  // 3. Create or Update Contact
+  if (!contact) {
+    contact = await prisma.contact.create({
+      data: {
         tenantId,
         status: "active",
         redactedAt: null,
@@ -207,6 +260,10 @@ export const syncShopifyCustomer = async (tenantId, storeId, customerPayload) =>
     // Always update the contact actually assigned to this Shopify customer.
     contact = savedMapping.contact;
 
+    console.log(
+      `? [Shopify Sync] Created new SudoReply Contact: ${contact.name} (${contact.id})`,
+    );
+  } else {
     const updateData = {};
     if (fullName && contact.name !== fullName) updateData.name = fullName;
     if (email && !contact.email) updateData.email = email;
@@ -253,7 +310,7 @@ export const syncAllShopifyCustomers = async (tenantId) => {
   let hasNextPage = true;
 
   console.log(
-    `🚀 [Shopify Sync] Starting full customer sync for ${shopName}...`,
+    `?? [Shopify Sync] Starting full customer sync for ${shopName}...`,
   );
 
   while (hasNextPage) {
@@ -275,7 +332,7 @@ export const syncAllShopifyCustomers = async (tenantId) => {
         totalSynced++;
       } catch (err) {
         console.error(
-          `❌ [Shopify Sync] Error syncing customer ${customer.id}:`,
+          `? [Shopify Sync] Error syncing customer ${customer.id}:`,
           err.message,
         );
       }
@@ -293,7 +350,7 @@ export const syncAllShopifyCustomers = async (tenantId) => {
   }
 
   console.log(
-    `🎉 [Shopify Sync] Completed customer sync. Total processed: ${totalSynced}`,
+    `?? [Shopify Sync] Completed customer sync. Total processed: ${totalSynced}`,
   );
   return { totalSynced };
 };

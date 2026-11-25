@@ -4,7 +4,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 
-// ── Ensure tenant logos folder exists ──
+// -- Ensure tenant logos folder exists --
 const UPLOAD_DIR = "uploads/logos";
 if (!fs.existsSync(UPLOAD_DIR)) {
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -28,7 +28,7 @@ const storage = multer.diskStorage({
   },
 });
 
-// ── Only allow image files ──
+// -- Only allow image files --
 const ALLOWED_MIMES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
 const fileFilter = (req, file, cb) => {

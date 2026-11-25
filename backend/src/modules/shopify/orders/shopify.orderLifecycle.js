@@ -17,9 +17,9 @@ import {
 } from "./shopify.postPurchase.service.js";
 import { generateTrackingUrl } from "../../../lib/utils/tracking.helper.js";
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // Environment Auto-Detection (Dev vs Production Meta WA)
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 export const isProductionEnvironment = () => {
   const url = (process.env.BACKEND_URL || "").toLowerCase();
   if (!url) return false;
@@ -89,9 +89,9 @@ const extractShopifyTrackingInfo = (source) => {
   });
 };
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // SHOPIFY: Helper to find or create Contact + Conversation
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 export const getOrCreateShopifyContact = async ({
   tenantId,
   customerPhone,
@@ -133,9 +133,9 @@ export const getOrCreateShopifyContact = async ({
   return { contact, conversation };
 };
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // SHOPIFY: Save message to inbox + emit socket events
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 export const saveShopifyInboxMessage = async ({
   tenantId,
   conversation,
@@ -174,15 +174,15 @@ export const saveShopifyInboxMessage = async ({
       });
     }
   } catch (sockErr) {
-    console.error("⚠️ Socket emit error:", sockErr.message);
+    console.error("?? Socket emit error:", sockErr.message);
   }
 
   return messageRecord;
 };
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // SHOPIFY: Send WhatsApp Template (Production Only)
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 export const sendShopifyWhatsAppTemplate = async ({
   tenantId,
   customerPhone,
@@ -191,7 +191,7 @@ export const sendShopifyWhatsAppTemplate = async ({
 }) => {
   if (!isProductionEnvironment()) {
     console.log(
-      `🧪 [Shopify Dev] WhatsApp template skipped (dev mode). Would send to ${customerPhone}`,
+      `?? [Shopify Dev] WhatsApp template skipped (dev mode). Would send to ${customerPhone}`,
     );
     return null;
   }
@@ -209,7 +209,7 @@ export const sendShopifyWhatsAppTemplate = async ({
 
     if (!phoneNumberId || !whatsappToken) {
       console.warn(
-        `⚠️ [Shopify WA] Skipped for tenant ${tenantId}: WhatsApp not connected.`,
+        `?? [Shopify WA] Skipped for tenant ${tenantId}: WhatsApp not connected.`,
       );
       return null;
     }
@@ -230,7 +230,7 @@ export const sendShopifyWhatsAppTemplate = async ({
 
     if (!approvedTemplate) {
       console.warn(
-        `⚠️ [Shopify WA] No APPROVED template matching [${templateNamePatterns.join(", ")}] for tenant ${tenantId}`,
+        `?? [Shopify WA] No APPROVED template matching [${templateNamePatterns.join(", ")}] for tenant ${tenantId}`,
       );
       return null;
     }
@@ -271,21 +271,21 @@ export const sendShopifyWhatsAppTemplate = async ({
     );
 
     console.log(
-      `✅ [Shopify WA] Template "${approvedTemplate.name}" sent to ${cleanRecipientPhone} (WAMID: ${waResponse.data?.messages?.[0]?.id || "ok"})`,
+      `? [Shopify WA] Template "${approvedTemplate.name}" sent to ${cleanRecipientPhone} (WAMID: ${waResponse.data?.messages?.[0]?.id || "ok"})`,
     );
     return waResponse.data;
   } catch (waErr) {
     console.error(
-      `❌ [Shopify WA Error]:`,
+      `? [Shopify WA Error]:`,
       waErr.response?.data || waErr.message,
     );
     return null;
   }
 };
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // SHOPIFY: Deduplication Check
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 export const isShopifyEventDuplicate = async (tenantId, orderId, eventType) => {
   try {
     const existing = await prisma.webhookEvent.findFirst({
@@ -313,14 +313,14 @@ export const recordShopifyEvent = async (tenantId, orderId, eventType) => {
     });
   } catch (err) {
     if (err.code !== "P2002") {
-      console.warn(`⚠️ [Shopify Dedup] Failed to record event: ${err.message}`);
+      console.warn(`?? [Shopify Dedup] Failed to record event: ${err.message}`);
     }
   }
 };
 
-// ─────────────────────────────────────────────────────────────
-// SHOPIFY → Google Sheets Sync
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
+// SHOPIFY ? Google Sheets Sync
+// -------------------------------------------------------------
 export const logShopifyOrderToSheet = async ({
   tenantId,
   storeId,
@@ -431,16 +431,16 @@ export const logShopifyOrderToSheet = async ({
     });
 
     console.log(
-      `📊 [Shopify Sheets] Synced ${cleanOrderId} → ${formattedStatus}`,
+      `?? [Shopify Sheets] Synced ${cleanOrderId} ? ${formattedStatus}`,
     );
   } catch (sheetErr) {
-    console.warn(`⚠️ [Shopify Sheets] Sync failed: ${sheetErr.message}`);
+    console.warn(`?? [Shopify Sheets] Sync failed: ${sheetErr.message}`);
   }
 };
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // SHOPIFY: Payment Reminder Handler (Delayed BullMQ Job)
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 export const processShopifyPaymentReminderJob = async (data) => {
   const {
     tenantId,
@@ -475,7 +475,7 @@ export const processShopifyPaymentReminderJob = async (data) => {
     });
 
     if (contact && conversation) {
-      const messageText = `⏳ *Payment Reminder!* Hi ${customerName}, your order ${orderNumber} is awaiting payment. Complete it before items go out of stock here: ${orderStatusUrl || "your order link"}`;
+      const messageText = `? *Payment Reminder!* Hi ${customerName}, your order ${orderNumber} is awaiting payment. Complete it before items go out of stock here: ${orderStatusUrl || "your order link"}`;
       await saveShopifyInboxMessage({
         tenantId,
         conversation,
@@ -483,7 +483,7 @@ export const processShopifyPaymentReminderJob = async (data) => {
         messageText,
         orderRecord: currentOrder,
       });
-      console.log(`💬 [Shopify] Payment reminder sent for ${orderNumber}`);
+      console.log(`?? [Shopify] Payment reminder sent for ${orderNumber}`);
     }
 
     await sendShopifyWhatsAppTemplate({
@@ -494,15 +494,15 @@ export const processShopifyPaymentReminderJob = async (data) => {
     });
   } else {
     console.log(
-      `⏭️ [Shopify] Payment reminder skipped for ${orderNumber}. Status is now: ${currentOrder?.paymentStatus}`,
+      `?? [Shopify] Payment reminder skipped for ${orderNumber}. Status is now: ${currentOrder?.paymentStatus}`,
     );
   }
   return { success: true, type: "SHOPIFY_REMINDER", orderNumber };
 };
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // SHOPIFY: Order Webhook Event Router (Lifecycle Handler)
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 export const processShopifyOrderLifecycle = async ({
   tenantId,
   storeId,
@@ -511,7 +511,7 @@ export const processShopifyOrderLifecycle = async ({
   payload,
 }) => {
   console.log(
-    `\n📦 [ShopifyWorker] Processing Shopify event '${topic}' for tenant ${tenantId}`,
+    `\n?? [ShopifyWorker] Processing Shopify event '${topic}' for tenant ${tenantId}`,
   );
 
   if (!payload) return { ignored: true, reason: "empty_payload" };
@@ -549,7 +549,7 @@ export const processShopifyOrderLifecycle = async ({
 
     if (!externalOrderId || trackingInfo.length === 0) {
       console.warn(
-        `⚠️ [Shopify] Fulfillment ${topic} had no order ID or tracking details`,
+        `?? [Shopify] Fulfillment ${topic} had no order ID or tracking details`,
       );
       return {
         success: true,
@@ -571,6 +571,7 @@ export const processShopifyOrderLifecycle = async ({
     if (!orderRecord) {
       console.warn(
         `⚠️ [Shopify] Cannot save tracking for unsynced Shopify order ${externalOrderId} in store ${storeId}`,
+        `?? [Shopify] Cannot save tracking for unsynced order ${externalOrderId}`,
       );
       return { success: true, ignored: true, reason: "order_not_synced" };
     }
@@ -586,7 +587,7 @@ export const processShopifyOrderLifecycle = async ({
     });
 
     console.log(
-      `✅ [Shopify] Saved ${trackingInfo.length} tracking record(s) for order ${externalOrderId}`,
+      `? [Shopify] Saved ${trackingInfo.length} tracking record(s) for order ${externalOrderId}`,
     );
 
     return {
@@ -786,12 +787,12 @@ export const processShopifyOrderLifecycle = async ({
         }
 
         console.log(
-          `🧾 [Shopify] orders/edited enriched from DB order ${existing.orderNumber || existing.externalOrderId}`,
+          `?? [Shopify] orders/edited enriched from DB order ${existing.orderNumber || existing.externalOrderId}`,
         );
       }
     } catch (enrichErr) {
       console.warn(
-        "⚠️ [Shopify] orders/edited DB enrich failed:",
+        "?? [Shopify] orders/edited DB enrich failed:",
         enrichErr.message,
       );
     }
@@ -908,11 +909,11 @@ export const processShopifyOrderLifecycle = async ({
     });
 
     console.log(
-      `✅ [ShopifyWorker] EcommerceOrder stored in DB (ID: ${orderRecord.id})`,
+      `? [ShopifyWorker] EcommerceOrder stored in DB (ID: ${orderRecord.id})`,
     );
   } catch (dbErr) {
     console.warn(
-      `ℹ️ [ShopifyWorker] EcommerceOrder upsert notice: ${dbErr.message}`,
+      `?? [ShopifyWorker] EcommerceOrder upsert notice: ${dbErr.message}`,
     );
   }
 
@@ -920,19 +921,19 @@ export const processShopifyOrderLifecycle = async ({
   const storeName = shopDomain || "our store";
 
   switch (topic) {
-    // ── 0. ABANDONED CART CHECKOUT ─────────────────────────────
+    // -- 0. ABANDONED CART CHECKOUT -----------------------------
     case "carts/create":
     case "carts/update":
     case "checkouts/create":
     case "checkouts/update": {
       console.log(
-        `🛒 [Shopify Lifecycle] Received ${topic} for tenant ${tenantId}`,
+        `?? [Shopify Lifecycle] Received ${topic} for tenant ${tenantId}`,
       );
       const result = await handleCheckoutUpdate(tenantId, storeId, payload);
       return { success: true, type: "SHOPIFY_CHECKOUT", result };
     }
 
-    // ── 1.1 ORDER CONFIRMATION & 2.3 PAYMENT REMINDER ──────────────
+    // -- 1.1 ORDER CONFIRMATION & 2.3 PAYMENT REMINDER --------------
     case "orders/create": {
       // Cancel any pending abandoned cart reminders since the customer purchased!
       const checkoutId =
@@ -944,6 +945,12 @@ export const processShopifyOrderLifecycle = async ({
     err.message,
   ),
 );
+        cancelCartReminders(tenantId, String(checkoutId)).catch((err) =>
+          console.warn(
+            "?? [Shopify] Failed to cancel cart reminders:",
+            err.message,
+          ),
+        );
       }
       if (
         await isShopifyEventDuplicate(
@@ -953,7 +960,7 @@ export const processShopifyOrderLifecycle = async ({
         )
       ) {
         console.log(
-          `⏭️ [Shopify] Duplicate orders/create skipped for #${orderNumber}`,
+          `?? [Shopify] Duplicate orders/create skipped for #${orderNumber}`,
         );
         break;
       }
@@ -966,7 +973,7 @@ export const processShopifyOrderLifecycle = async ({
       });
 
       if (contact && conversation) {
-        const messageText = `🎉 *Order Confirmed!* Hi ${customerName}, thank you for your order ${orderNumber} totaling ${currency} ${total.toFixed(2)} at ${storeName}. Items: ${itemsList || "1 Item"}. We are preparing your shipment! 🛍️`;
+        const messageText = `?? *Order Confirmed!* Hi ${customerName}, thank you for your order ${orderNumber} totaling ${currency} ${total.toFixed(2)} at ${storeName}. Items: ${itemsList || "1 Item"}. We are preparing your shipment! ???`;
         await saveShopifyInboxMessage({
           tenantId,
           conversation,
@@ -975,7 +982,7 @@ export const processShopifyOrderLifecycle = async ({
           orderRecord,
         });
         console.log(
-          `💬 [Shopify] Order confirmation saved to inbox for ${customerPhone}`,
+          `?? [Shopify] Order confirmation saved to inbox for ${customerPhone}`,
         );
       }
 
@@ -1028,11 +1035,11 @@ export const processShopifyOrderLifecycle = async ({
           { delay: 300000 }, // 5 minutes delay for testing (use 3600000 for 1 hr in prod)
         );
         console.log(
-          `⏱️ [Shopify] Enqueued payment reminder for ${orderNumber} in 5 minutes.`,
+          `?? [Shopify] Enqueued payment reminder for ${orderNumber} in 5 minutes.`,
         );
       }
 
-      // ── POST-PURCHASE: Schedule upsell after order confirmation ──
+      // -- POST-PURCHASE: Schedule upsell after order confirmation --
       if (orderRecord && financialStatus === "paid") {
         try {
           const shopifyConfig = await prisma.shopifyConnection.findUnique({
@@ -1043,7 +1050,7 @@ export const processShopifyOrderLifecycle = async ({
           }
         } catch (upsellErr) {
           console.warn(
-            `⚠️ [PostPurchase] Upsell scheduling failed for ${orderNumber}:`,
+            `?? [PostPurchase] Upsell scheduling failed for ${orderNumber}:`,
             upsellErr.message,
           );
         }
@@ -1051,7 +1058,7 @@ export const processShopifyOrderLifecycle = async ({
       break;
     }
 
-    // ── 1.2 & 2.X PAYMENT UPDATES (SUCCESS, FAILED, REFUNDS) ────────
+    // -- 1.2 & 2.X PAYMENT UPDATES (SUCCESS, FAILED, REFUNDS) --------
     case "orders/updated": {
       const { contact, conversation } = await getOrCreateShopifyContact({
         tenantId,
@@ -1088,8 +1095,8 @@ export const processShopifyOrderLifecycle = async ({
 
         if (contact && conversation && refundTotal > 0) {
           const messageText = isPartial
-            ? `💸 *Partial Refund.* Hi ${customerName}, a partial refund of ${currency} ${refundTotal.toFixed(2)} for order ${orderNumber} has been processed.`
-            : `💰 *Refund Completed.* Hi ${customerName}, a refund of ${currency} ${refundTotal.toFixed(2)} for order ${orderNumber} has been credited to your account. ✅`;
+            ? `?? *Partial Refund.* Hi ${customerName}, a partial refund of ${currency} ${refundTotal.toFixed(2)} for order ${orderNumber} has been processed.`
+            : `?? *Refund Completed.* Hi ${customerName}, a refund of ${currency} ${refundTotal.toFixed(2)} for order ${orderNumber} has been credited to your account. ?`;
 
           await saveShopifyInboxMessage({
             tenantId,
@@ -1099,7 +1106,7 @@ export const processShopifyOrderLifecycle = async ({
             orderRecord,
           });
           console.log(
-            `💬 [Shopify] Refund notification saved to inbox for ${customerPhone}`,
+            `?? [Shopify] Refund notification saved to inbox for ${customerPhone}`,
           );
         }
 
@@ -1145,7 +1152,7 @@ export const processShopifyOrderLifecycle = async ({
         ))
       ) {
         if (contact && conversation) {
-          const messageText = `✅ *Payment Received!* Hi ${customerName}, payment of ${currency} ${total.toFixed(2)} for order ${orderNumber} has been confirmed. Thank you! 💳`;
+          const messageText = `? *Payment Received!* Hi ${customerName}, payment of ${currency} ${total.toFixed(2)} for order ${orderNumber} has been confirmed. Thank you! ??`;
           await saveShopifyInboxMessage({
             tenantId,
             conversation,
@@ -1154,7 +1161,7 @@ export const processShopifyOrderLifecycle = async ({
             orderRecord,
           });
           console.log(
-            `💬 [Shopify] Payment confirmation saved to inbox for ${customerPhone}`,
+            `?? [Shopify] Payment confirmation saved to inbox for ${customerPhone}`,
           );
         }
         await sendShopifyWhatsAppTemplate({
@@ -1195,7 +1202,7 @@ export const processShopifyOrderLifecycle = async ({
         const orderStatusUrl =
           payload.order_status_url || rootOrder.order_status_url || "";
         if (contact && conversation) {
-          const messageText = `⚠️ *Payment Failed.* Hi ${customerName}, payment for order ${orderNumber} failed. Please retry here: ${orderStatusUrl || "your order link"}`;
+          const messageText = `?? *Payment Failed.* Hi ${customerName}, payment for order ${orderNumber} failed. Please retry here: ${orderStatusUrl || "your order link"}`;
           await saveShopifyInboxMessage({
             tenantId,
             conversation,
@@ -1232,7 +1239,7 @@ export const processShopifyOrderLifecycle = async ({
       break;
     }
 
-    // ── 1.3 ORDER SHIPPED ──────────────────────────────────
+    // -- 1.3 ORDER SHIPPED ----------------------------------
     case "orders/fulfilled": {
       if (
         await isShopifyEventDuplicate(
@@ -1242,7 +1249,7 @@ export const processShopifyOrderLifecycle = async ({
         )
       ) {
         console.log(
-          `⏭️ [Shopify] Duplicate orders/fulfilled skipped for #${orderNumber}`,
+          `?? [Shopify] Duplicate orders/fulfilled skipped for #${orderNumber}`,
         );
         break;
       }
@@ -1273,7 +1280,7 @@ export const processShopifyOrderLifecycle = async ({
         "Courier";
 
       if (contact && conversation) {
-        const messageText = `🚚 *Order Shipped!* Hi ${customerName}, your order ${orderNumber} has been shipped! ${trackingCompany ? `Courier: ${trackingCompany}. ` : ""}Tracking: ${trackingNumber}${trackingUrl ? `. Track here: ${trackingUrl}` : ""}`;
+        const messageText = `?? *Order Shipped!* Hi ${customerName}, your order ${orderNumber} has been shipped! ${trackingCompany ? `Courier: ${trackingCompany}. ` : ""}Tracking: ${trackingNumber}${trackingUrl ? `. Track here: ${trackingUrl}` : ""}`;
         await saveShopifyInboxMessage({
           tenantId,
           conversation,
@@ -1282,7 +1289,7 @@ export const processShopifyOrderLifecycle = async ({
           orderRecord,
         });
         console.log(
-          `💬 [Shopify] Shipping notification saved to inbox for ${customerPhone}`,
+          `?? [Shopify] Shipping notification saved to inbox for ${customerPhone}`,
         );
       }
 
@@ -1317,7 +1324,7 @@ export const processShopifyOrderLifecycle = async ({
       break;
     }
 
-    // ── 1.6 ORDER CANCELLED ────────────────────────────────
+    // -- 1.6 ORDER CANCELLED --------------------------------
     case "orders/cancelled": {
       if (
         await isShopifyEventDuplicate(
@@ -1327,7 +1334,7 @@ export const processShopifyOrderLifecycle = async ({
         )
       ) {
         console.log(
-          `⏭️ [Shopify] Duplicate orders/cancelled skipped for #${orderNumber}`,
+          `?? [Shopify] Duplicate orders/cancelled skipped for #${orderNumber}`,
         );
         break;
       }
@@ -1342,7 +1349,7 @@ export const processShopifyOrderLifecycle = async ({
       const cancelReason = payload.cancel_reason || "your request";
 
       if (contact && conversation) {
-        const messageText = `❌ *Order Cancelled.* Hi ${customerName}, your order ${orderNumber} has been cancelled as per ${cancelReason}. Refund will be processed in 3-5 business days.`;
+        const messageText = `? *Order Cancelled.* Hi ${customerName}, your order ${orderNumber} has been cancelled as per ${cancelReason}. Refund will be processed in 3-5 business days.`;
         await saveShopifyInboxMessage({
           tenantId,
           conversation,
@@ -1351,7 +1358,7 @@ export const processShopifyOrderLifecycle = async ({
           orderRecord,
         });
         console.log(
-          `💬 [Shopify] Cancellation notification saved to inbox for ${customerPhone}`,
+          `?? [Shopify] Cancellation notification saved to inbox for ${customerPhone}`,
         );
       }
 
@@ -1383,7 +1390,7 @@ export const processShopifyOrderLifecycle = async ({
       break;
     }
 
-    // ── 1.7 ORDER EDITED ───────────────────────────────────
+    // -- 1.7 ORDER EDITED -----------------------------------
     case "orders/edited": {
       if (
         await isShopifyEventDuplicate(
@@ -1393,7 +1400,7 @@ export const processShopifyOrderLifecycle = async ({
         )
       ) {
         console.log(
-          `⏭️ [Shopify] Duplicate orders/edited skipped for #${orderNumber}`,
+          `?? [Shopify] Duplicate orders/edited skipped for #${orderNumber}`,
         );
         break;
       }
@@ -1406,7 +1413,7 @@ export const processShopifyOrderLifecycle = async ({
       });
 
       if (contact && conversation) {
-        const messageText = `✏️ *Order Updated.* Hi ${customerName}, your order ${orderNumber} has been updated. New total: ${currency} ${total.toFixed(2)}. Items: ${itemsList || "1 Item"}.`;
+        const messageText = `?? *Order Updated.* Hi ${customerName}, your order ${orderNumber} has been updated. New total: ${currency} ${total.toFixed(2)}. Items: ${itemsList || "1 Item"}.`;
         await saveShopifyInboxMessage({
           tenantId,
           conversation,
@@ -1415,7 +1422,7 @@ export const processShopifyOrderLifecycle = async ({
           orderRecord,
         });
         console.log(
-          `💬 [Shopify] Edit notification saved to inbox for ${customerPhone}`,
+          `?? [Shopify] Edit notification saved to inbox for ${customerPhone}`,
         );
       }
 
@@ -1447,7 +1454,7 @@ export const processShopifyOrderLifecycle = async ({
       break;
     }
 
-    // ── 1.4 & 1.5 FULFILLMENT EVENTS ───────────────────────
+    // -- 1.4 & 1.5 FULFILLMENT EVENTS -----------------------
     case "fulfillment_events/create": {
       const fStatus = payload.status || "";
       const eventSubType =
@@ -1459,7 +1466,7 @@ export const processShopifyOrderLifecycle = async ({
 
       if (!eventSubType) {
         console.log(
-          `⏭️ [Shopify] fulfillment_events/create with status '${fStatus}' — not handled.`,
+          `?? [Shopify] fulfillment_events/create with status '${fStatus}' � not handled.`,
         );
         break;
       }
@@ -1468,7 +1475,7 @@ export const processShopifyOrderLifecycle = async ({
         await isShopifyEventDuplicate(tenantId, externalOrderId, eventSubType)
       ) {
         console.log(
-          `⏭️ [Shopify] Duplicate ${eventSubType} skipped for #${orderNumber}`,
+          `?? [Shopify] Duplicate ${eventSubType} skipped for #${orderNumber}`,
         );
         break;
       }
@@ -1483,8 +1490,8 @@ export const processShopifyOrderLifecycle = async ({
       if (contact && conversation) {
         const messageText =
           eventSubType === "out_for_delivery"
-            ? `🏠 *Out for Delivery!* Hi ${customerName}, your order ${orderNumber} is out for delivery today! Be ready to receive it.`
-            : `✅ *Delivered!* Hi ${customerName}, your order ${orderNumber} has been delivered! Hope you love it. 🎉`;
+            ? `?? *Out for Delivery!* Hi ${customerName}, your order ${orderNumber} is out for delivery today! Be ready to receive it.`
+            : `? *Delivered!* Hi ${customerName}, your order ${orderNumber} has been delivered! Hope you love it. ??`;
         await saveShopifyInboxMessage({
           tenantId,
           conversation,
@@ -1493,7 +1500,7 @@ export const processShopifyOrderLifecycle = async ({
           orderRecord,
         });
         console.log(
-          `💬 [Shopify] ${eventSubType} notification saved to inbox for ${customerPhone}`,
+          `?? [Shopify] ${eventSubType} notification saved to inbox for ${customerPhone}`,
         );
       }
 
@@ -1532,7 +1539,7 @@ export const processShopifyOrderLifecycle = async ({
             : `Shopify order ${orderNumber} delivered`,
       });
 
-      // ── POST-PURCHASE: Schedule review + cross-sell on delivery ──
+      // -- POST-PURCHASE: Schedule review + cross-sell on delivery --
       if (eventSubType === "delivered" && orderRecord) {
         try {
           const deliveredUpdate = await prisma.ecommerceOrder.updateMany({
@@ -1575,14 +1582,14 @@ export const processShopifyOrderLifecycle = async ({
           }
         } catch (ppErr) {
           console.warn(
-            `⚠️ [PostPurchase] Scheduling failed for ${orderNumber}:`,
+            `?? [PostPurchase] Scheduling failed for ${orderNumber}:`,
             ppErr.message,
           );
         }
       }
       break;
     }
-    // ── 5.x CUSTOMER DATA SYNC + NEW CUSTOMER GREETING ─────
+    // -- 5.x CUSTOMER DATA SYNC + NEW CUSTOMER GREETING -----
     case "customers/create":
     case "customers/update": {
       // Resolve the exact Shopify store before syncing customer data.
@@ -1614,9 +1621,11 @@ export const processShopifyOrderLifecycle = async ({
         await syncShopifyCustomer(tenantId, shopifyStore.id, payload);
 
         console.log(`✅ [Shopify] Customer data synced for topic '${topic}'`);
+        await syncShopifyCustomer(tenantId, payload);
+        console.log(`? [Shopify] Customer data synced for topic '${topic}'`);
       } catch (syncErr) {
         console.error(
-          `❌ [Shopify] Customer sync failed for '${topic}':`,
+          `? [Shopify] Customer sync failed for '${topic}':`,
           syncErr.message,
         );
       }
@@ -1635,7 +1644,7 @@ export const processShopifyOrderLifecycle = async ({
 
       if (!custPhone || custPhone === "+") {
         console.log(
-          `⏭️ [Shopify] customers/create greeting skipped — no phone for ${custName} (${custEmail})`,
+          `?? [Shopify] customers/create greeting skipped � no phone for ${custName} (${custEmail})`,
         );
         break;
       }
@@ -1646,7 +1655,7 @@ export const processShopifyOrderLifecycle = async ({
 
       if (await isShopifyEventDuplicate(tenantId, custId, "customers/create")) {
         console.log(
-          `⏭️ [Shopify] Duplicate customers/create skipped for ${custName}`,
+          `?? [Shopify] Duplicate customers/create skipped for ${custName}`,
         );
         break;
       }
@@ -1659,7 +1668,7 @@ export const processShopifyOrderLifecycle = async ({
       });
 
       if (contact && conversation) {
-        const greetingText = `🎉 *Welcome to ${storeName}!* Hi ${custName}, thank you for joining us! We're excited to have you here. Feel free to message us anytime for help, orders, or just to say hi! 😊`;
+        const greetingText = `?? *Welcome to ${storeName}!* Hi ${custName}, thank you for joining us! We're excited to have you here. Feel free to message us anytime for help, orders, or just to say hi! ??`;
 
         await saveShopifyInboxMessage({
           tenantId,
@@ -1697,12 +1706,12 @@ export const processShopifyOrderLifecycle = async ({
                 },
               );
               console.log(
-                `📤 [Shopify Dev] Welcome message sent to ${normalizedPhone}`,
+                `?? [Shopify Dev] Welcome message sent to ${normalizedPhone}`,
               );
             }
           } catch (devErr) {
             console.warn(
-              `⚠️ [Shopify Dev] Failed to send welcome message:`,
+              `?? [Shopify Dev] Failed to send welcome message:`,
               devErr.message,
             );
           }
@@ -1717,13 +1726,13 @@ export const processShopifyOrderLifecycle = async ({
       }
       await recordShopifyEvent(tenantId, custId, "customers/create");
       console.log(
-        `✅ [Shopify] New customer greeting processed for ${custName} (${normalizedPhone})`,
+        `? [Shopify] New customer greeting processed for ${custName} (${normalizedPhone})`,
       );
       break;
     }
     default:
       console.log(
-        `ℹ️ [Shopify] Unhandled topic: ${topic} for order #${orderNumber}`,
+        `?? [Shopify] Unhandled topic: ${topic} for order #${orderNumber}`,
       );
   }
   return { success: true, type: "SHOPIFY", orderNumber, topic };
@@ -1748,7 +1757,7 @@ export const triggerCustomerSync = async (req, res, next) => {
       data: result,
     });
   } catch (err) {
-    console.error("❌ [Shopify] Customer bulk sync failed:", err.message);
+    console.error("? [Shopify] Customer bulk sync failed:", err.message);
     next(err);
   }
 };

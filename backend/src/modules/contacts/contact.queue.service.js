@@ -3,15 +3,15 @@ import prisma from "../../config/prisma.js";
 import { isUserOnline, emitToUser, emitToTenant } from "../../lib/socket.js";
 
 /**
- * ═══════════════════════════════════════════════════════════
+ * -----------------------------------------------------------
  * Process ALL queued conversations for a tenant.
  * Called when a user comes online (from socket.js).
- * ═══════════════════════════════════════════════════════════
+ * -----------------------------------------------------------
  */
 export const processQueuedConversations = async (tenantId) => {
-  console.log(`\n🔄 Processing queued conversations for tenant: ${tenantId}`);
+  console.log(`\n?? Processing queued conversations for tenant: ${tenantId}`);
 
-  // Fetch all queued conversations (oldest first — FIFO)
+  // Fetch all queued conversations (oldest first � FIFO)
   const queued = await prisma.conversation.findMany({
     where: {
       tenantId,
@@ -24,11 +24,11 @@ export const processQueuedConversations = async (tenantId) => {
   });
 
   if (queued.length === 0) {
-    console.log(`✅ No queued conversations for tenant: ${tenantId}\n`);
+    console.log(`? No queued conversations for tenant: ${tenantId}\n`);
     return { processed: 0, assigned: 0 };
   }
 
-  console.log(`📋 Found ${queued.length} queued conversation(s)`);
+  console.log(`?? Found ${queued.length} queued conversation(s)`);
 
   let assignedCount = 0;
 
@@ -37,7 +37,7 @@ export const processQueuedConversations = async (tenantId) => {
     if (assigned) assignedCount++;
   }
 
-  // 🆕 Emit updated queue count to tenant
+  // ?? Emit updated queue count to tenant
   const remainingQueueCount = await prisma.conversation.count({
     where: {
       tenantId,
@@ -50,59 +50,59 @@ export const processQueuedConversations = async (tenantId) => {
   });
 
   console.log(
-    `✅ Queue processing done. Assigned: ${assignedCount}/${queued.length}, Remaining: ${remainingQueueCount}\n`,
+    `? Queue processing done. Assigned: ${assignedCount}/${queued.length}, Remaining: ${remainingQueueCount}\n`,
   );
   return { processed: queued.length, assigned: assignedCount };
 };
 
 /**
- * ═══════════════════════════════════════════════════════════
+ * -----------------------------------------------------------
  * Try to assign ONE queued conversation to an available agent.
  * Uses same tag-priority logic as first-touch assignment.
- * ═══════════════════════════════════════════════════════════
+ * -----------------------------------------------------------
  */
 const assignQueuedConversation = async (conversation) => {
   const contact = conversation.contact;
   const tenantId = conversation.tenantId;
 
   console.log(
-    `\n  ── Processing queued: ${contact.name} (${contact.phone}) ──`,
+    `\n  -- Processing queued: ${contact.name} (${contact.phone}) --`,
   );
 
-  // ── Step 1: Get contact tags ──
+  // -- Step 1: Get contact tags --
   const contactTags = await prisma.contactTagMapping.findMany({
     where: { contactId: contact.id },
     select: { tagId: true },
   });
   const contactTagIds = contactTags.map((ct) => ct.tagId);
-  console.log(`  🏷️  Contact tags: ${contactTagIds.length}`);
+  console.log(`  ???  Contact tags: ${contactTagIds.length}`);
 
   let agent = null;
 
-  // ── Step 2: Try tag-matched online agents first ──
+  // -- Step 2: Try tag-matched online agents first --
   if (contactTagIds.length > 0) {
     agent = await findLeastBusyOnlineAgentByTags(tenantId, contactTagIds);
     if (agent) {
-      console.log(`  ✅ Tag match → ${agent.name}`);
+      console.log(`  ? Tag match ? ${agent.name}`);
     }
   }
 
-  // ── Step 3: Fallback to any online agent ──
+  // -- Step 3: Fallback to any online agent --
   if (!agent) {
-    console.log(`  ⚠️  No tag match. Trying fallback (any online agent)...`);
+    console.log(`  ??  No tag match. Trying fallback (any online agent)...`);
     agent = await findLeastBusyOnlineAgent(tenantId);
     if (agent) {
-      console.log(`  ✅ Fallback → ${agent.name}`);
+      console.log(`  ? Fallback ? ${agent.name}`);
     }
   }
 
-  // ── Step 4: Still no agent? Keep in queue ──
+  // -- Step 4: Still no agent? Keep in queue --
   if (!agent) {
-    console.log(`  ⏳ Still no agent available. Conversation stays queued.`);
+    console.log(`  ? Still no agent available. Conversation stays queued.`);
     return false;
   }
 
-  // ── Step 5: Assign ──
+  // -- Step 5: Assign --
   await prisma.conversation.update({
     where: { id: conversation.id },
     data: {
@@ -120,13 +120,13 @@ const assignQueuedConversation = async (conversation) => {
     },
   });
 
-  console.log(`  ✅ Assigned queued conversation to ${agent.name}`);
+  console.log(`  ? Assigned queued conversation to ${agent.name}`);
 
-  // 🆕 Notify customer via WhatsApp that agent is now assigned
+  // ?? Notify customer via WhatsApp that agent is now assigned
   try {
     const { default: flowEngine } =
       await import("../automation/flowEngine.service.js");
-    const queueAssignedText = `✅ Great news! Our agent *${agent.name}* is now available and will assist you shortly. 💬`;
+    const queueAssignedText = `? Great news! Our agent *${agent.name}* is now available and will assist you shortly. ??`;
 
     await flowEngine.sendWhatsAppMessage(
       tenantId,
@@ -136,12 +136,12 @@ const assignQueuedConversation = async (conversation) => {
 
     await flowEngine.saveBotMessage(conversation.id, queueAssignedText);
 
-    console.log(`  📤 Notified customer about agent assignment`);
+    console.log(`  ?? Notified customer about agent assignment`);
   } catch (err) {
-    console.error("  ❌ Failed to notify customer:", err.message);
+    console.error("  ? Failed to notify customer:", err.message);
   }
 
-  // ── Step 6: Notify agent directly (badge/toast on dashboard) ──
+  // -- Step 6: Notify agent directly (badge/toast on dashboard) --
   emitToUser(agent.id, "new_assignment", {
     conversationId: conversation.id,
     contact: {
@@ -152,12 +152,12 @@ const assignQueuedConversation = async (conversation) => {
     fromQueue: true, // flag so frontend can say "waiting chat now assigned"
   });
 
-  // 🆕 Emit notification event (for bell icon in TopNavBar)
+  // ?? Emit notification event (for bell icon in TopNavBar)
   emitToUser(agent.id, "new_notification", {
     notification: {
       id: `assign_${conversation.id}_${Date.now()}`,
       type: "contact_assigned",
-      title: "🎯 New chat assigned",
+      title: "?? New chat assigned",
       message: `${contact.name} has been assigned to you (from queue)`,
       isRead: false,
       createdAt: new Date(),
@@ -168,7 +168,7 @@ const assignQueuedConversation = async (conversation) => {
     },
   });
 
-  // ── Step 7: Broadcast to tenant (for admin dashboard) ──
+  // -- Step 7: Broadcast to tenant (for admin dashboard) --
   emitToTenant(tenantId, "conversation_assigned", {
     conversationId: conversation.id,
     agentId: agent.id,
@@ -183,10 +183,10 @@ const assignQueuedConversation = async (conversation) => {
 };
 
 /**
- * ═══════════════════════════════════════════════════════════
+ * -----------------------------------------------------------
  * Find least busy ONLINE agent matching contact tags.
  * Returns null if none available.
- * ═══════════════════════════════════════════════════════════
+ * -----------------------------------------------------------
  */
 const findLeastBusyOnlineAgentByTags = async (tenantId, contactTagIds) => {
   const matchingAgents = await prisma.userTagMapping.findMany({
@@ -197,7 +197,7 @@ const findLeastBusyOnlineAgentByTags = async (tenantId, contactTagIds) => {
     include: { user: true },
   });
 
-  // ── BEFORE ──
+  // -- BEFORE --
   // const eligibleAgents = matchingAgents
   //     .filter(m => m.user.isActive && isUserOnline(tenantId, m.user.id))
   //     .map(m => m.user)
@@ -205,12 +205,12 @@ const findLeastBusyOnlineAgentByTags = async (tenantId, contactTagIds) => {
   //       index === self.findIndex(u => u.id === user.id)
   //     );
 
-  // ── AFTER ──
+  // -- AFTER --
   const eligibleAgents = matchingAgents
     .filter(
       (m) =>
         m.user.isActive &&
-        m.user.availabilityStatus === "AVAILABLE" && // ← NEW
+        m.user.availabilityStatus === "AVAILABLE" && // ? NEW
         isUserOnline(tenantId, m.user.id),
     )
     .map((m) => m.user)
@@ -223,13 +223,13 @@ const findLeastBusyOnlineAgentByTags = async (tenantId, contactTagIds) => {
 };
 
 /**
- * ═══════════════════════════════════════════════════════════
+ * -----------------------------------------------------------
  * Find least busy ONLINE agent (any tag).
  * Returns null if nobody online.
- * ═══════════════════════════════════════════════════════════
+ * -----------------------------------------------------------
  */
 const findLeastBusyOnlineAgent = async (tenantId) => {
-  // ── BEFORE ──
+  // -- BEFORE --
   // const allAgents = await prisma.user.findMany({
   //     where: {
   //       tenantId,
@@ -237,12 +237,12 @@ const findLeastBusyOnlineAgent = async (tenantId) => {
   //     }
   //   });
 
-  // ── AFTER ──
+  // -- AFTER --
   const allAgents = await prisma.user.findMany({
     where: {
       tenantId,
       isActive: true,
-      availabilityStatus: "AVAILABLE", // ← NEW
+      availabilityStatus: "AVAILABLE", // ? NEW
     },
   });
 
@@ -254,10 +254,10 @@ const findLeastBusyOnlineAgent = async (tenantId) => {
 };
 
 /**
- * ═══════════════════════════════════════════════════════════
+ * -----------------------------------------------------------
  * From a list of eligible agents, pick the one with the
  * least assigned contacts (round-robin by load).
- * ═══════════════════════════════════════════════════════════
+ * -----------------------------------------------------------
  */
 const pickLeastBusyAgent = async (tenantId, agents) => {
   const agentCounts = await Promise.all(

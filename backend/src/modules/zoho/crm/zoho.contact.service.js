@@ -29,7 +29,7 @@ export async function getTenantZohoPreferences(tenantId) {
       : DEFAULT_PREFERENCES;
   } catch (err) {
     console.warn(
-      `⚠️ [ZohoPreferences] Redis error for tenant ${tenantId}, using defaults:`,
+      `?? [ZohoPreferences] Redis error for tenant ${tenantId}, using defaults:`,
       err.message,
     );
     return DEFAULT_PREFERENCES;
@@ -197,17 +197,17 @@ export async function autoSyncContactToZoho(tenantId, contactId) {
       });
 
       console.log(
-        `✅ [ZohoAutoSync] Contact ${contact.name} (${contact.id}) synced to Zoho (${result.action})`,
+        `? [ZohoAutoSync] Contact ${contact.name} (${contact.id}) synced to Zoho (${result.action})`,
       );
     } else {
       console.warn(
-        `⚠️ [ZohoAutoSync] Contact ${contact.id} failed:`,
+        `?? [ZohoAutoSync] Contact ${contact.id} failed:`,
         result?.message || "Unknown",
       );
     }
   } catch (error) {
     console.error(
-      `❌ [ZohoAutoSync] Failed for contact ${contactId}:`,
+      `? [ZohoAutoSync] Failed for contact ${contactId}:`,
       error.response?.data || error.message,
     );
   }
@@ -220,7 +220,7 @@ export async function syncTenantContactsToZoho(tenantId, options = {}) {
   const { syncType = "FULL" } = options;
 
   console.log(
-    `🚀 [ZohoSync] Starting ${syncType} contact sync for tenant: ${tenantId}`,
+    `?? [ZohoSync] Starting ${syncType} contact sync for tenant: ${tenantId}`,
   );
 
   const tenantRow = await prisma.tenant.findUnique({
@@ -277,7 +277,7 @@ export async function syncTenantContactsToZoho(tenantId, options = {}) {
   if (syncType === "INCREMENTAL" && lastSyncedAt) {
     baseWhere.updatedAt = { gte: lastSyncedAt };
     console.log(
-      `📅 [ZohoSync] Incremental mode: syncing contacts updated since ${lastSyncedAt}`,
+      `?? [ZohoSync] Incremental mode: syncing contacts updated since ${lastSyncedAt}`,
     );
   }
 
@@ -354,14 +354,14 @@ export async function syncTenantContactsToZoho(tenantId, options = {}) {
             10,
           );
           console.warn(
-            `⏳ [ZohoSync] Rate limited. Waiting ${retryAfter}s before retrying batch at offset ${offset}`,
+            `? [ZohoSync] Rate limited. Waiting ${retryAfter}s before retrying batch at offset ${offset}`,
           );
           await new Promise((r) => setTimeout(r, retryAfter * 1000));
           continue;
         }
 
         console.error(
-          `❌ [ZohoSync] Batch API error at offset ${offset}:`,
+          `? [ZohoSync] Batch API error at offset ${offset}:`,
           errorData || apiError.message,
         );
         totalFailed += contacts.length;
@@ -411,7 +411,7 @@ export async function syncTenantContactsToZoho(tenantId, options = {}) {
         } else {
           totalFailed++;
           console.warn(
-            `⚠️ [ZohoSync] Contact ${contact.id} (${contact.name}) failed:`,
+            `?? [ZohoSync] Contact ${contact.id} (${contact.name}) failed:`,
             res?.message || "Unknown",
           );
         }
@@ -442,7 +442,7 @@ export async function syncTenantContactsToZoho(tenantId, options = {}) {
     };
 
     console.log(
-      `✅ [ZohoSync] Sync completed for tenant ${tenantId}:`,
+      `? [ZohoSync] Sync completed for tenant ${tenantId}:`,
       summary,
     );
 
@@ -462,7 +462,7 @@ export async function syncTenantContactsToZoho(tenantId, options = {}) {
 
     return summary;
   } catch (error) {
-    console.error(`❌ [ZohoSync] Sync failed for tenant ${tenantId}:`, error);
+    console.error(`? [ZohoSync] Sync failed for tenant ${tenantId}:`, error);
 
     await createAuditLog({
       actorId: tenant.id,
@@ -514,7 +514,7 @@ export async function getTenantSyncStats(tenantId) {
  */
 export async function pullContactsFromZoho(tenantId) {
   console.log(
-    `📥 [ZohoPullSync] Starting inbound contact import from Zoho CRM for tenant ${tenantId}`,
+    `?? [ZohoPullSync] Starting inbound contact import from Zoho CRM for tenant ${tenantId}`,
   );
 
   let page = 1;
@@ -534,7 +534,7 @@ export async function pullContactsFromZoho(tenantId) {
       });
     } catch (apiErr) {
       console.error(
-        `❌ [ZohoPullSync] Failed to fetch page ${page}:`,
+        `? [ZohoPullSync] Failed to fetch page ${page}:`,
         apiErr.response?.data || apiErr.message,
       );
       break;
@@ -672,7 +672,7 @@ export async function pullContactsFromZoho(tenantId) {
   }
 
   console.log(
-    `✅ [ZohoPullSync] Completed: ${totalImported} imported, ${totalUpdated} updated`,
+    `? [ZohoPullSync] Completed: ${totalImported} imported, ${totalUpdated} updated`,
   );
   return { totalImported, totalUpdated };
 }

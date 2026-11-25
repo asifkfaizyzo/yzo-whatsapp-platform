@@ -1,16 +1,16 @@
 // backend/src/modules/automation/faq.service.js (do not remove this comment)
 
 /**
- * Automation (Shopify) — Tenant FAQ search for the FAQ_LOOKUP flow node.
+ * Automation (Shopify) � Tenant FAQ search for the FAQ_LOOKUP flow node.
  * Auto-answers customer WhatsApp queries (shipping, returns, payments) via keyword matching.
  */
 
 import prisma from "../../config/prisma.js";
 
 const faqService = {
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // Create a new FAQ entry
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   createFaq: async (tenantId, data) => {
     return prisma.botFaq.create({
       data: {
@@ -25,9 +25,9 @@ const faqService = {
     });
   },
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // Update an existing FAQ
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   updateFaq: async (faqId, data) => {
     return prisma.botFaq.update({
       where: { id: faqId },
@@ -42,18 +42,18 @@ const faqService = {
     });
   },
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // Delete an FAQ
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   deleteFaq: async (faqId) => {
     return prisma.botFaq.delete({
       where: { id: faqId },
     });
   },
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // List all active FAQs for a tenant
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   getFaqsByTenant: async (tenantId, category = null) => {
     return prisma.botFaq.findMany({
       where: {
@@ -65,9 +65,9 @@ const faqService = {
     });
   },
 
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   // Search FAQ by query (keyword + fuzzy match)
-  // ─────────────────────────────────────────
+  // -----------------------------------------
   searchFaq: async (tenantId, query) => {
     if (!query || !query.trim()) return null;
 

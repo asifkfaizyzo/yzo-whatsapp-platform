@@ -18,7 +18,7 @@ export const listQuickReplies = async (req, res) => {
     const result = await quickReplyService.getQuickReplies({
       tenantId: req.tenantId,
       userId: req.user?.id,
-      userType: req.userType,
+      userType: req.actorType,
       ...validatedQuery,
     });
 
@@ -77,7 +77,7 @@ export const getQuickReply = async (req, res) => {
       id,
       tenantId: req.tenantId,
       userId: req.user?.id,
-      userType: req.userType,
+      userType: req.actorType,
     });
 
     return res.json({ success: true, data: result });
@@ -102,7 +102,7 @@ export const createQuickReply = async (req, res) => {
     const result = await quickReplyService.createQuickReply({
       tenantId: req.tenantId,
       userId: req.user?.id,
-      userType: req.userType,
+      userType: req.actorType,
       userName: req.user?.name || req.tenant?.tenantName,
       data: validated,
       file: req.file,
@@ -139,7 +139,7 @@ export const updateQuickReply = async (req, res) => {
       id: req.params.id,
       tenantId: req.tenantId,
       userId: req.user?.id,
-      userType: req.userType,
+      userType: req.actorType,
       data: validated,
       file: req.file,
     });
@@ -169,7 +169,7 @@ export const deleteQuickReply = async (req, res) => {
       id,
       tenantId: req.tenantId,
       userId: req.user?.id,
-      userType: req.userType,
+      userType: req.actorType,
     });
 
     return res.json({

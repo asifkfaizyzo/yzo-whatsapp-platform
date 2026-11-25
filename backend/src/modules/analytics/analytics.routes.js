@@ -1,8 +1,9 @@
 // backend/src/modules/analytics/analytics.routes.js (do not remove this comment)
 
 import express from "express";
-import { verifyTenantOrUser } from "../../middlewares/auth.verifyTenantOrUser.js";
-import { checkSubscriptionAccess } from "../../middlewares/subscription.access.js";
+import { authenticate } from "../../middleware/authenticate.js";
+import { requireTenantOrUser } from "../../middleware/requireTenantOrUser.js";
+import { checkSubscriptionAccess } from "../../middleware/subscriptionAccess.js";
 import {
   getOverview,
   getFunnel,
@@ -15,7 +16,7 @@ import {
 
 const router = express.Router();
 
-router.use(verifyTenantOrUser);
+router.use(authenticate, requireTenantOrUser);
 router.use(checkSubscriptionAccess);
 
 router.get("/overview", getOverview);

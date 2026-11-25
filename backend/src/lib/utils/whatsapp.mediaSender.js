@@ -23,10 +23,8 @@ export const sendWhatsAppMedia = async ({
   const phoneId = tenant.whatsappPhoneId;
   const cleanPhone = contactPhone.replace("+", "");
 
-  const uploadFile =
-    mediaType === "AUDIO" && !audioAlreadyProcessed
-      ? await processWhatsAppAudio(file, isVoiceNote)
-      : { ...file, mimetype: normalizeMimeType(file.mimetype) };
+  // -- Step 1: Upload media to Meta --
+  const fileBuffer = fs.readFileSync(file.path);
 
   // ── Step 1: Upload media to Meta ──
   const resolvedFilePath = path.isAbsolute(uploadFile.path)
@@ -87,7 +85,7 @@ export const sendWhatsAppMedia = async ({
 
   if (!uploadRes.ok) {
     const err = await uploadRes.json();
-    console.error("❌ Meta media upload error:", err);
+    console.error("? Meta media upload error:", err);
     throw new Error(
       `Media upload failed: ${err.error?.message || JSON.stringify(err)}`,
     );
@@ -95,7 +93,7 @@ export const sendWhatsAppMedia = async ({
 
   const { id: mediaId } = await uploadRes.json();
 
-  // ── Step 2: Send message with media ID ──
+  // -- Step 2: Send message with media ID --
   const typeMap = {
     IMAGE: "image",
     VIDEO: "video",

@@ -85,7 +85,7 @@ export async function resolveWooCommerceSegment(tenantId, filters = {}) {
   const matchedPhones = customers.map((c) => c.phone);
 
   if (matchedPhones.length === 0) {
-    console.log(`📢 [Woo Segment] tenant=${tenantId} matched 0 customers`);
+    console.log(`?? [Woo Segment] tenant=${tenantId} matched 0 customers`);
     return { contacts: [], stats: { matched: 0 } };
   }
 
@@ -113,7 +113,7 @@ export async function resolveWooCommerceSegment(tenantId, filters = {}) {
         finalContacts.push(created);
       } catch (err) {
         console.warn(
-          `📢 [Woo Segment] Contact creation failed for ${cust.phone}:`,
+          `?? [Woo Segment] Contact creation failed for ${cust.phone}:`,
           err.message,
         );
       }
@@ -121,7 +121,7 @@ export async function resolveWooCommerceSegment(tenantId, filters = {}) {
   }
 
   console.log(
-    `📢 [Woo Segment] Resolved ${finalContacts.length} contacts for tenant=${tenantId}`,
+    `?? [Woo Segment] Resolved ${finalContacts.length} contacts for tenant=${tenantId}`,
   );
 
   return {

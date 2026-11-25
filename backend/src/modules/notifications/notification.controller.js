@@ -7,7 +7,7 @@ export const getNotifications = async (req, res) => {
   try {
     const tenantId = req.tenantId;
     const userId = req.userId || req.user?.id || null;
-    const userType = req.userType; // "TENANT" or "USER"
+    const userType = req.actorType; // "TENANT" or "USER"
 
     console.log("📋 getNotifications:", { tenantId, userId, userType });
 
@@ -57,7 +57,7 @@ export const markAllAsRead = async (req, res) => {
   try {
     const tenantId = req.tenantId;
     const userId = req.userId || req.user?.id || null;
-    const userType = req.userType;
+    const userType = req.actorType;
 
     await notificationService.markAllAsRead(tenantId, userId, userType);
 
@@ -75,7 +75,7 @@ export const clearAll = async (req, res) => {
   try {
     const tenantId = req.tenantId;
     const userId = req.userId || req.user?.id || null;
-    const userType = req.userType;
+    const userType = req.actorType;
 
     await notificationService.clearAllNotifications(tenantId, userId, userType);
 
@@ -93,7 +93,7 @@ export const getPaginatedNotifications = async (req, res) => {
   try {
     const tenantId = req.tenantId;
     const userId = req.userId || req.user?.id || null;
-    const userType = req.userType;
+    const userType = req.actorType;
 
     const { page = 1, limit = 20, filter = "all", type = "all" } = req.query;
 
@@ -122,7 +122,7 @@ export const deleteNotification = async (req, res) => {
     const { id } = req.params;
     const tenantId = req.tenantId;
     const userId = req.userId || req.user?.id || null;
-    const userType = req.userType;
+    const userType = req.actorType;
 
     await notificationService.deleteNotification(
       id,

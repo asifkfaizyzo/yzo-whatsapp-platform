@@ -12,9 +12,9 @@ const DEDUP_TTL_SECONDS = 60 * 60 * 24;
  * @returns {Promise<boolean>} true = NEW event, false = DUPLICATE
  */
 export const isNewWebhookEvent = async (eventId) => {
-  // Safety fallback — if no ID, process it (don't block)
+  // Safety fallback � if no ID, process it (don't block)
   if (!eventId) {
-    console.warn("⚠️ [Idempotency] No eventId provided — processing anyway");
+    console.warn("?? [Idempotency] No eventId provided � processing anyway");
     return true;
   }
 
@@ -33,7 +33,7 @@ export const isNewWebhookEvent = async (eventId) => {
 
     return result === "OK";
   } catch (error) {
-    console.error("❌ [Idempotency] Redis error:", error.message);
+    console.error("? [Idempotency] Redis error:", error.message);
     // If Redis fails, process the webhook anyway (fail open)
     return true;
   }

@@ -1,4 +1,4 @@
-// backend/src/modules/superadmin-notifications/superAdminNotificationRoutes.js (do not remove this comment)
+// backend/src/modules/superadmin-notifications/superadminNotification.routes.js (do not remove this comment)
 
 import { Router } from "express";
 import {
@@ -9,12 +9,13 @@ import {
   getPaginatedNotifications,
   deleteNotification,
 } from "./superadminNotification.controller.js";
-import { verifySuperAdmin } from "../../middlewares/auth.superAdmin.js";
+import { authenticate } from "../../middleware/authenticate.js";
+import { requireSRAdmin } from "../../middleware/requireSRAdmin.js";
 
 const router = Router();
 
 // All routes protected by superadmin auth
-router.use(verifySuperAdmin);
+router.use(authenticate, requireSRAdmin);
 
 router.get("/", getNotifications);
 router.get("/paginated", getPaginatedNotifications);

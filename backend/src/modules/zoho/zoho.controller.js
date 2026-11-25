@@ -51,7 +51,7 @@ export const zohoCallbackHandler = async (req, res) => {
     const { redirectUrl } = await handleOAuthCallback(req.query, req);
     return res.redirect(redirectUrl);
   } catch (error) {
-    console.error("❌ [ZohoController] Callback handler error:", error);
+    console.error("? [ZohoController] Callback handler error:", error);
     return res.redirect(
       "/dashboard/integrations?app=zoho&error=Internal+server+error",
     );

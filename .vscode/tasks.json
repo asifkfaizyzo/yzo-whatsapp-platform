@@ -80,7 +80,7 @@
     {
       "label": "Backend tree",
       "type": "shell",
-      "command": "ls; cd src; tree /f; cd ..; cd prisma/schema; tree /f; cd ../migrations; ls",
+      "command": "ls; cd src; tree /f; cd ..; cd prisma/schema; tree /f;",
       "isBackground": true,
       "options": {
         "cwd": "${workspaceFolder}/backend"

@@ -27,9 +27,9 @@ const formatDuration = (totalSeconds) => {
   return `${hrs}h ${remMin}m`;
 };
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // 1. OVERVIEW KPIS WITH PREVIOUS PERIOD COMPARISON
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 export const getOverviewStatsService = async (
   tenantId,
   { startDate, endDate, campaignId, agentId },
@@ -316,9 +316,9 @@ export const getOverviewStatsService = async (
   };
 };
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // 2. CONVERSION FUNNEL
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 export const getFunnelDataService = async (
   tenantId,
   { startDate, endDate, campaignId, agentId },
@@ -508,9 +508,9 @@ export const getFunnelDataService = async (
   ];
 };
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // 3. MESSAGE VOLUME TRAFFIC (HOURLY / DAILY)
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 export const getTrafficDataService = async (
   tenantId,
   { startDate, endDate, granularity = "daily" },
@@ -572,9 +572,9 @@ export const getTrafficDataService = async (
   return Object.values(trafficMap);
 };
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // 4. BROADCAST CAMPAIGN TABLE
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 export const getCampaignsDataService = async (
   tenantId,
   { page = 1, limit = 8, sortColumn = "sentDate", sortOrder = "desc" },
@@ -661,9 +661,9 @@ export const getCampaignsDataService = async (
   };
 };
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // 5. AGENT PERFORMANCE LEADERBOARD
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 export const getAgentPerformanceDataService = async (
   tenantId,
   { startDate, endDate },
@@ -756,7 +756,7 @@ export const getAgentPerformanceDataService = async (
         resolved: resolvedCount,
         frt: formatDuration(avgFrtSec),
         art: formatDuration(avgArtSec),
-        csat: "—", // CSAT placeholder
+        csat: "�", // CSAT placeholder
       };
     }),
   );
@@ -782,9 +782,9 @@ export const getAgentPerformanceDataService = async (
   };
 };
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // 6. FILTER OPTIONS (CAMPAIGNS + AGENTS)
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 export const getFilterOptionsService = async (tenantId) => {
   const campaigns = await prisma.broadcast.findMany({
     where: { tenantId },
@@ -804,9 +804,9 @@ export const getFilterOptionsService = async (tenantId) => {
   };
 };
 
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 // 7. CSV EXPORTER BUILDER
-// ─────────────────────────────────────────────────────────────
+// -------------------------------------------------------------
 export const exportAnalyticsDataService = async (tenantId, filters) => {
   const overview = await getOverviewStatsService(tenantId, filters);
   const campaigns = await getCampaignsDataService(tenantId, {

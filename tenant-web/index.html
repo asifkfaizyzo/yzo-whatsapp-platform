@@ -1,3 +1,4 @@
+<!-- tenant-web/index.html (do not remove this comment) -->
 <!doctype html>
 <html lang="en">
   <head>
@@ -6,11 +7,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SudoReply</title>
 
+    <!-- Google Identity Services -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+
     <!-- Meta Facebook SDK -->
     <script>
       window.fbAsyncInit = function () {
         FB.init({
-          appId: "1510944094144775",
+          appId: "%VITE_META_APP_ID%",
           cookie: true,
           status: true,
           autoLogAppEvents: true,

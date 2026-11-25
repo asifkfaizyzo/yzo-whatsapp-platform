@@ -18,6 +18,11 @@ model PlatformSettings {
   sacCode          String   @default("998314")
   defaultTrialDays Int      @default(14)
 
+  // ── Subscription Lifecycle Defaults ──
+  defaultGraceDays   Int      @default(7)
+  trialRetentionDays Int      @default(7)
+  paidRetentionDays  Int      @default(90)
+
   updatedAt        DateTime @updatedAt
   updatedBy        String?
 

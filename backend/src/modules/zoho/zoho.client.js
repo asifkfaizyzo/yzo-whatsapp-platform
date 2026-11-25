@@ -70,10 +70,10 @@ export async function extractAndSaveRateLimits(tenantId, headers) {
       );
       emitToTenant(tenantId, "zoho_rate_limits", rateLimitData);
       console.log(
-        `📊 [ZohoRateLimit LIVE] ${rateLimitData.remaining} / ${rateLimitData.limit} credits remaining (Reset in: ${rateLimitData.reset || 0}s)`,
+        `?? [ZohoRateLimit LIVE] ${rateLimitData.remaining} / ${rateLimitData.limit} credits remaining (Reset in: ${rateLimitData.reset || 0}s)`,
       );
     } catch (err) {
-      console.warn("⚠️ [ZohoRateLimit] Redis save error:", err.message);
+      console.warn("?? [ZohoRateLimit] Redis save error:", err.message);
     }
   }
 }
@@ -223,7 +223,7 @@ export async function getValidZohoAccessToken(tenantId) {
     });
 
     console.log(
-      `✅ [ZohoClient] Token refreshed successfully for tenant ${tenantId}`,
+      `? [ZohoClient] Token refreshed successfully for tenant ${tenantId}`,
     );
 
     return {
@@ -241,7 +241,7 @@ export async function getValidZohoAccessToken(tenantId) {
           errorData?.error === "invalid_grant"));
 
     console.error(
-      `❌ [ZohoClient] Token refresh failed for tenant ${tenantId}:`,
+      `? [ZohoClient] Token refresh failed for tenant ${tenantId}:`,
       errorData || error.message,
     );
 
@@ -312,7 +312,7 @@ export async function zohoRequest(tenantId, requestConfig) {
       await extractAndSaveRateLimits(tenantId, error.response.headers);
     }
     console.error(
-      `❌ [ZohoClient] Request failed [${config.method || "GET"} ${fullUrl}]:`,
+      `? [ZohoClient] Request failed [${config.method || "GET"} ${fullUrl}]:`,
       error.response?.data || error.message,
     );
     throw error;

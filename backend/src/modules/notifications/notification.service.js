@@ -2,7 +2,7 @@
 
 import prisma from "../../config/prisma.js";
 
-// ── Create notification ── ✅ ADDED BACK
+// -- Create notification -- ? ADDED BACK
 export const createNotification = async ({
   tenantId,
   userId,
@@ -25,22 +25,22 @@ export const createNotification = async ({
   return notification;
 };
 
-// ── Get notifications ──
+// -- Get notifications --
 export const getNotifications = async (tenantId, userId, userType) => {
   let where = { tenantId };
 
   if (userType === "TENANT") {
-    // ✅ TENANT sees:
-    // → Tenant-wide notifications (userId: null)
-    // → NOT user-specific notifications
+    // ? TENANT sees:
+    // ? Tenant-wide notifications (userId: null)
+    // ? NOT user-specific notifications
     where = {
       tenantId,
       userId: null,
     };
   } else if (userType === "USER") {
-    // ✅ USER sees:
-    // → Only their own notifications (userId: their id)
-    // → NOT tenant-wide notifications
+    // ? USER sees:
+    // ? Only their own notifications (userId: their id)
+    // ? NOT tenant-wide notifications
     where = {
       tenantId,
       userId: userId,
@@ -54,7 +54,7 @@ export const getNotifications = async (tenantId, userId, userType) => {
   });
 };
 
-// ── Get unread count ──
+// -- Get unread count --
 export const getUnreadCount = async (tenantId, userId, userType) => {
   let where = { tenantId, isRead: false };
 
@@ -75,7 +75,7 @@ export const getUnreadCount = async (tenantId, userId, userType) => {
   return await prisma.notification.count({ where });
 };
 
-// ── Mark as read ──
+// -- Mark as read --
 export const markAsRead = async (notificationId) => {
   return await prisma.notification.update({
     where: { id: notificationId },
@@ -83,7 +83,7 @@ export const markAsRead = async (notificationId) => {
   });
 };
 
-// ── Mark all as read ──
+// -- Mark all as read --
 export const markAllAsRead = async (tenantId, userId, userType) => {
   let where = { tenantId, isRead: false };
 
@@ -99,7 +99,7 @@ export const markAllAsRead = async (tenantId, userId, userType) => {
   });
 };
 
-// ── Clear all ──
+// -- Clear all --
 export const clearAllNotifications = async (tenantId, userId, userType) => {
   let where = { tenantId };
 
@@ -112,7 +112,7 @@ export const clearAllNotifications = async (tenantId, userId, userType) => {
   return await prisma.notification.deleteMany({ where });
 };
 
-// ── 🆕 Get paginated notifications with filters ──
+// -- ?? Get paginated notifications with filters --
 export const getPaginatedNotifications = async (
   tenantId,
   userId,
@@ -176,7 +176,7 @@ export const getPaginatedNotifications = async (
   };
 };
 
-// ── 🆕 Delete a single notification (with role validation) ──
+// -- ?? Delete a single notification (with role validation) --
 export const deleteNotification = async (id, tenantId, userId, userType) => {
   // First find the notification to verify ownership
   const notif = await prisma.notification.findUnique({

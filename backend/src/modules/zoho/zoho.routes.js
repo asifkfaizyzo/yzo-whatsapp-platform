@@ -1,10 +1,8 @@
 // backend/src/modules/zoho/zoho.routes.js (do not remove this comment)
 
 import express from "express";
-import {
-  verifyTenant,
-  requireApprovedTenant,
-} from "../../middlewares/auth.tenant.js";
+import { authenticate } from "../../middleware/authenticate.js";
+import { requireTenant } from "../../middleware/requireTenant.js";
 import * as zohoController from "./zoho.controller.js";
 
 const router = express.Router();
@@ -12,79 +10,68 @@ const router = express.Router();
 // ── Connection Management ──
 router.get(
   "/connect",
-  verifyTenant,
-  requireApprovedTenant,
+  authenticate, requireTenant,
   zohoController.getConnectUrl,
 );
-router.get("/status", verifyTenant, zohoController.getStatus);
-router.get("/plan", verifyTenant, zohoController.getPlanInfo);
+router.get("/status", authenticate, requireTenant, zohoController.getStatus);
+router.get("/plan", authenticate, requireTenant, zohoController.getPlanInfo);
 router.post(
   "/test",
-  verifyTenant,
-  requireApprovedTenant,
+  authenticate, requireTenant,
   zohoController.testConnection,
 );
 router.post(
   "/disconnect",
-  verifyTenant,
-  requireApprovedTenant,
+  authenticate, requireTenant,
   zohoController.disconnect,
 );
 
 // ── Contact Synchronization ──
 router.post(
   "/sync/contacts",
-  verifyTenant,
-  requireApprovedTenant,
+  authenticate, requireTenant,
   zohoController.triggerContactSync,
 );
 router.post(
   "/sync/incremental",
-  verifyTenant,
-  requireApprovedTenant,
+  authenticate, requireTenant,
   zohoController.triggerIncrementalSync,
 );
-router.get("/sync/status", verifyTenant, zohoController.getSyncStatus);
+router.get("/sync/status", authenticate, requireTenant, zohoController.getSyncStatus);
 
 // ── Preferences ──
-router.get("/preferences", verifyTenant, zohoController.getPreferences);
+router.get("/preferences", authenticate, requireTenant, zohoController.getPreferences);
 router.put(
   "/preferences",
-  verifyTenant,
-  requireApprovedTenant,
+  authenticate, requireTenant,
   zohoController.updatePreferences,
 );
 
 // ── Phase 6 Advanced CRM Endpoints ──
 router.get(
   "/products",
-  verifyTenant,
-  requireApprovedTenant,
+  authenticate, requireTenant,
   zohoController.listProducts,
 );
 router.post(
   "/events",
-  verifyTenant,
-  requireApprovedTenant,
+  authenticate, requireTenant,
   zohoController.bookEvent,
 );
 router.post(
   "/tickets/:ticketId/sync-case",
-  verifyTenant,
-  requireApprovedTenant,
+  authenticate, requireTenant,
   zohoController.syncTicketCase,
 );
 router.post(
   "/invoices/:invoiceId/send-whatsapp",
-  verifyTenant,
-  requireApprovedTenant,
+  authenticate, requireTenant,
   zohoController.dispatchInvoice,
 );
 
 router.post(
   "/sync/pull",
-  verifyTenant,
-  requireApprovedTenant,
+  authenticate, requireTenant,
   zohoController.triggerPullSync,
 );
 

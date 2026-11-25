@@ -1,93 +1,206 @@
 // backend/src/modules/tenant/auth/tenant.auth.routes.js (do not remove this comment)
-import express from "express";
-import * as tenantController from "./tenant.auth.controller.js";
-import { verifyOnboarding } from "../../../middlewares/auth.tenant.js";
-import validate from "../../../middlewares/validate.middleware.js";
+
+import { Router } from "express";
+import * as ctrl from "./tenant.auth.controller.js";
+import { authenticate } from "../../../middleware/authenticate.js";
+import { requireTenant } from "../../../middleware/requireTenant.js";
+import { requireSetupAccess } from "../../../middleware/requireSetupAccess.js";
 import {
+  authLimiter,
+  signupLimiter,
+  otpLimiter,
+  resetLimiter,
+  usernameCheckLimiter,
+} from "../../../middleware/rateLimiter.js";
+import validate from "../../../middleware/validate.js";
+import {
+  signupSchema,
   loginSchema,
-  forgotPasswordSchema,
-  resetPasswordSchema,
-  refreshTokenSchema,
   logoutSchema,
+  refreshSchema,
+  googleSignupSchema,
+  facebookSignupSchema,
   googleLoginSchema,
   facebookLoginSchema,
-} from "../../auth/auth.schema.js";
-import {
-  step1Schema,
-  step2Schema,
-  step3Schema,
-  step4Schema,
-  step5Schema,
+  facebookSendOtpSchema,
+  facebookVerifyOtpSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+  checkUsernameSchema,
+  usernameSuggestionsSchema,
+  setUsernameSchema,
+  profileSchema,
+  verifyOtpSchema,
+  onboardingStepSchema,
+  setPasswordSchema,
 } from "./tenant.auth.schema.js";
 
-const router = express.Router();
+const router = Router();
 
-// ── Multi-Step Onboarding ──
-router.post(
-  "/register/step-1",
-  validate(step1Schema),
-  tenantController.onboardingStep1,
-);
-router.put(
-  "/register/step-2",
-  verifyOnboarding,
-  validate(step2Schema),
-  tenantController.onboardingStep2,
-);
-router.post(
-  "/register/verify-email",
-  verifyOnboarding,
-  tenantController.verifyEmailOtp,
-);
-router.put(
-  "/register/step-3",
-  verifyOnboarding,
-  validate(step3Schema),
-  tenantController.onboardingStep3,
-);
-router.put(
-  "/register/step-4",
-  verifyOnboarding,
-  validate(step4Schema),
-  tenantController.onboardingStep4,
-);
-router.put(
-  "/register/step-5",
-  verifyOnboarding,
-  validate(step5Schema),
-  tenantController.onboardingStep5,
-);
-router.get("/register/status", tenantController.getOnboardingStatus);
+// ═══════════════════════════════════════════════════════════
+// PUBLIC ROUTES (no auth required)
+// ═══════════════════════════════════════════════════════════
 
-// ── Auth ──
-router.post("/login", validate(loginSchema), tenantController.loginTenant);
-router.post("/logout", validate(logoutSchema), tenantController.logoutTenant);
+// ── Email Signup (Kiran's new flow) ──
 router.post(
-  "/refresh-token",
-  validate(refreshTokenSchema),
-  tenantController.refreshTenantAccessToken,
-);
-router.post(
-  "/forgot-ten-password",
-  validate(forgotPasswordSchema),
-  tenantController.forgotPasswordTenant,
-);
-router.post(
-  "/reset-ten-password",
-  validate(resetPasswordSchema),
-  tenantController.resetPasswordTenant,
+  "/auth/signup",
+  signupLimiter,
+  validate(signupSchema),
+  ctrl.signup,
 );
 
-// ── Social Login ──
+// ── Email Login ──
+router.post("/login", authLimiter, validate(loginSchema), ctrl.login);
+
+// ── Token Management ──
+router.post("/logout", validate(logoutSchema), ctrl.logout);
+router.post("/refresh", validate(refreshSchema), ctrl.refresh);
+
+// Backward-compat: auth store + axios interceptor still call /refresh-token
+router.post("/refresh-token", validate(refreshSchema), ctrl.refresh);
+
+// ── OAuth Signup (creates account or auto-logins) ──
+router.post(
+  "/auth/google-signup",
+  signupLimiter,
+  validate(googleSignupSchema),
+  ctrl.googleSignup,
+);
+router.post(
+  "/auth/facebook-signup",
+  signupLimiter,
+  validate(facebookSignupSchema),
+  ctrl.facebookSignup,
+);
+
+// ── OAuth Login (existing accounts only) ──
 router.post(
   "/google-login",
+  authLimiter,
   validate(googleLoginSchema),
-  tenantController.googleLoginTenant,
+  ctrl.googleLogin,
 );
 router.post(
   "/facebook-login",
+  authLimiter,
   validate(facebookLoginSchema),
-  tenantController.facebookLoginTenant,
+  ctrl.facebookLogin,
+);
+
+// ── Facebook No-Email OTP Flow ──
+router.post(
+  "/auth/facebook-signup/send-otp",
+  otpLimiter,
+  validate(facebookSendOtpSchema),
+  ctrl.facebookSendOtp,
+);
+router.post(
+  "/auth/facebook-signup/verify-otp",
+  authLimiter,
+  validate(facebookVerifyOtpSchema),
+  ctrl.facebookVerifyOtp,
+);
+
+// ── Password Reset ──
+router.post(
+  "/forgot-password",
+  resetLimiter,
+  validate(forgotPasswordSchema),
+  ctrl.forgotPassword,
+);
+router.post(
+  "/reset-password",
+  resetLimiter,
+  validate(resetPasswordSchema),
+  ctrl.resetPassword,
+);
+
+// Backward-compat: old auth.js still calls /forgot-ten-password and /reset-ten-password
+router.post(
+  "/forgot-ten-password",
+  resetLimiter,
+  validate(forgotPasswordSchema),
+  ctrl.forgotPassword,
+);
+router.post(
+  "/reset-ten-password",
+  resetLimiter,
+  validate(resetPasswordSchema),
+  ctrl.resetPassword,
+);
+
+// ═══════════════════════════════════════════════════════════
+// ONBOARDING ROUTES (auth + onboarding status required)
+// ═══════════════════════════════════════════════════════════
+
+router.get(
+  "/auth/check-username",
+  authenticate,
+  requireSetupAccess,
+  usernameCheckLimiter,
+  validate(checkUsernameSchema),
+  ctrl.checkUsername,
+);
+
+router.get(
+  "/auth/username-suggestions",
+  authenticate,
+  requireSetupAccess,
+  validate(usernameSuggestionsSchema),
+  ctrl.usernameSuggestions,
+);
+
+router.put(
+  "/auth/onboarding/profile",
+  authenticate,
+  requireSetupAccess,
+  validate(profileSchema),
+  ctrl.updateProfile,
+);
+
+router.post(
+  "/auth/onboarding/verify-email",
+  authenticate,
+  requireSetupAccess,
+  otpLimiter,
+  validate(verifyOtpSchema),
+  ctrl.verifyEmailOtp,
+);
+
+router.post(
+  "/auth/onboarding/resend-otp",
+  authenticate,
+  requireSetupAccess,
+  otpLimiter,
+  ctrl.resendOtp,
+);
+
+router.put(
+  "/auth/onboarding/step",
+  authenticate,
+  requireSetupAccess,
+  validate(onboardingStepSchema),
+  ctrl.updateOnboardingStep,
+);
+
+router.put(
+  "/auth/onboarding/set-password",
+  authenticate,
+  requireSetupAccess,
+  validate(setPasswordSchema),
+  ctrl.setPassword,
+);
+
+// ═══════════════════════════════════════════════════════════
+// LEGACY GUARD (for ACTIVE tenants with NULL username)
+// ═══════════════════════════════════════════════════════════
+
+router.put(
+  "/set-username",
+  authenticate,
+  requireTenant,
+  validate(setUsernameSchema),
+  ctrl.setUsername,
 );
 
 export default router;

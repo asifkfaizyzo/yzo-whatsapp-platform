@@ -5,14 +5,15 @@ import {
   submitEnterpriseLead,
   resetEnterpriseLead,
 } from "./enterpriseLead.controller.js";
-import { verifyOnboarding } from "../../middlewares/auth.tenant.js";
+import { authenticate } from "../../middleware/authenticate.js";
+import { requireOnboarding } from "../../middleware/requireOnboarding.js";
 
 const router = Router();
 
 // Onboarding endpoints (Secured by onboarding session token cookie)
 router.post(
   "/",
-  verifyOnboarding,
+  authenticate, requireOnboarding,
   [
     body("companyName")
       .trim()
@@ -40,6 +41,6 @@ router.post(
   submitEnterpriseLead,
 );
 
-router.post("/reset", verifyOnboarding, resetEnterpriseLead);
+router.post("/reset", authenticate, requireOnboarding, resetEnterpriseLead);
 
 export default router;

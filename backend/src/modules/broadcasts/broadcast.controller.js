@@ -1,7 +1,11 @@
 // backend/src/modules/broadcasts/broadcast.controller.js (do not remove this comment)
 import prisma from "../../config/prisma.js";
 import { processBroadcastCampaign } from "./broadcast.service.js";
-import { checkFeatureAccess, checkLimitAccess } from "../../lib/plan.limits.js";
+import {
+  checkFeatureAccess,
+  checkMeteredAccess,
+} from "../../lib/entitlements/access.js";
+import { consumeQuota } from "../../lib/entitlements/usage.service.js";
 import { parseMetaError } from "../../lib/meta.errorCodes.js";
 import { emitToTenant } from "../../lib/socket.js";
 import { resolveWooCommerceSegment } from "./broadcast.wooSegment.service.js";
@@ -535,10 +539,10 @@ export const launchBroadcast = async (req, res) => {
       if (!isNaN(targetTime) && targetTime > Date.now()) {
         const featureCheck = await checkFeatureAccess(
           tenantId,
-          "Campaign Scheduler",
+          "campaignScheduler",
         );
         if (!featureCheck.allowed) {
-          return res.status(featureCheck.status).json({
+          return res.status(featureCheck.status || 403).json({
             success: false,
             code: featureCheck.code,
             message: featureCheck.message,
@@ -547,10 +551,29 @@ export const launchBroadcast = async (req, res) => {
       }
     }
 
-    // Check campaign limit
-    const campaignCheck = await checkLimitAccess(tenantId, "maxCampaigns");
+    // Check audience segments feature when targeting WooCommerce or Shopify segments
+    if (targetType === "WOO_SEGMENT" || targetType === "SHOPIFY_SEGMENT") {
+      const segmentFeatureCheck = await checkFeatureAccess(
+        tenantId,
+        "audienceSegments",
+      );
+      if (!segmentFeatureCheck.allowed) {
+        return res.status(segmentFeatureCheck.status || 403).json({
+          success: false,
+          code: segmentFeatureCheck.code,
+          message: segmentFeatureCheck.message,
+        });
+      }
+    }
+
+    // Check monthly campaign quota
+    const campaignCheck = await checkMeteredAccess(
+      tenantId,
+      "maxCampaignsPerMonth",
+      1,
+    );
     if (!campaignCheck.allowed) {
-      return res.status(campaignCheck.status).json({
+      return res.status(campaignCheck.status || 403).json({
         success: false,
         code: campaignCheck.code,
         message: campaignCheck.message,
@@ -641,19 +664,27 @@ export const launchBroadcast = async (req, res) => {
         });
     }
 
-    // Check broadcast recipients limit
-    const broadcastCheck = await checkLimitAccess(
+    // Check monthly broadcast recipients quota
+    const broadcastCheck = await checkMeteredAccess(
       tenantId,
-      "maxBroadcasts",
+      "maxBroadcastRecipientsPerMonth",
       contacts.length,
     );
     if (!broadcastCheck.allowed) {
-      return res.status(broadcastCheck.status).json({
+      return res.status(broadcastCheck.status || 403).json({
         success: false,
         code: broadcastCheck.code,
         message: broadcastCheck.message,
       });
     }
+
+    // Consume monthly campaign and broadcast recipient quotas
+    await consumeQuota(tenantId, "maxCampaignsPerMonth", 1);
+    await consumeQuota(
+      tenantId,
+      "maxBroadcastRecipientsPerMonth",
+      contacts.length,
+    );
 
     // 2. Create the Broadcast record
     const campaign = await prisma.broadcast.create({
@@ -757,7 +788,7 @@ export const cancelBroadcast = async (req, res) => {
       },
     });
 
-    console.log(`🚫 Campaign ${id} was CANCELLED by tenant admin.`);
+    console.log(`?? Campaign ${id} was CANCELLED by tenant admin.`);
 
     emitToTenant(tenantId, "broadcast_update", {
       broadcastId: id,

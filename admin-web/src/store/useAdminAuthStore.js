@@ -13,12 +13,12 @@ export const useAdminAuthStore = create((set) => ({
     set({ isLoading: true });
     try {
       const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}/sradmin/refresh-token`,
+        `${import.meta.env.VITE_API_URL}/sradmin/refresh`,
         {},
         { withCredentials: true },
       );
 
-      const accessToken = response.data.accessToken;
+      const accessToken = response.data?.data?.accessToken;
       let userData = JSON.parse(localStorage.getItem("user") || "null");
 
       if (!accessToken) {

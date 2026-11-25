@@ -10,7 +10,7 @@ import {
 } from "../../lib/socket.js";
 import { createSuperAdminNotification } from "../superadmin-notifications/superadminNotification.service.js";
 import { createAuditLog } from "../audit/audit.service.js";
-import { sendWhatsAppStatusAlertEmail } from "../auth/email.service.js";
+import { sendWhatsappStatusEmail } from "../email/index.js";
 import { performTemplateSync } from "../templates/template.controller.js";
 
 import redisClient from "../../config/redis.js";
@@ -86,8 +86,7 @@ const notifySuperAdminWhatsAppStatus = async ({
     emitToSuperAdmin("superadmin_notification", { notification });
 
     // 5️⃣ Send email alert to superadmin
-    await sendWhatsAppStatusAlertEmail({
-      superAdminEmail: superAdmin.email,
+    await sendWhatsappStatusEmail({      superAdminEmail: superAdmin.email,
       tenantName,
       tenantEmail,
       phoneNumber: phoneNumberId,
@@ -1073,7 +1072,7 @@ export const sendLocation = async (req, res) => {
     const { to, latitude, longitude, name, address, conversationId } = req.body;
 
     const tenantId = req.tenantId;
-    const userType = req.userType;
+    const userType = req.actorType;
 
     // ── Identify sender ──────────────────────────────────────
     // Same pattern as sendMessage in message.controller.js

@@ -52,7 +52,7 @@ export async function getZohoProducts(tenantId, options = {}) {
     };
   } catch (error) {
     console.error(
-      `❌ [ZohoProduct] Failed to fetch products for tenant ${tenantId}:`,
+      `? [ZohoProduct] Failed to fetch products for tenant ${tenantId}:`,
       error.response?.data || error.message,
     );
     return { products: [], count: 0, error: error.message };

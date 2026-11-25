@@ -67,7 +67,7 @@ export const ZOHO_EXTENDED_SCOPES = [
 ];
 
 /**
- * All scopes combined — used for new connections
+ * All scopes combined � used for new connections
  */
 export const ZOHO_PHASE_1_SCOPES = [
   ...ZOHO_BASE_SCOPES,

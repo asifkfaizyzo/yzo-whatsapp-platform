@@ -43,7 +43,7 @@ export async function createZohoFollowUpTask(
     dueDate.setDate(dueDate.getDate() + 1);
 
     const taskPayload = {
-      Subject: `${reason} — Sudo Reply`,
+      Subject: `${reason} � Sudo Reply`,
       Due_Date: dueDate.toISOString().split("T")[0],
       Status: "Not Started",
       Priority: "High",
@@ -70,12 +70,12 @@ export async function createZohoFollowUpTask(
 
     if (result && result.code === "SUCCESS") {
       console.log(
-        `✅ [ZohoTask] Created follow-up task for contact ${contactId}`,
+        `? [ZohoTask] Created follow-up task for contact ${contactId}`,
       );
     }
   } catch (error) {
     console.error(
-      `❌ [ZohoTask] Failed for contact ${contactId}:`,
+      `? [ZohoTask] Failed for contact ${contactId}:`,
       error.response?.data || error.message,
     );
   }
@@ -138,11 +138,11 @@ export async function scanAndCreateStaleTasks() {
 
       if (staleConversations.length > 0) {
         console.log(
-          `📋 [ZohoTask] Created ${staleConversations.length} follow-up tasks for tenant ${tenant.id}`,
+          `?? [ZohoTask] Created ${staleConversations.length} follow-up tasks for tenant ${tenant.id}`,
         );
       }
     }
   } catch (error) {
-    console.error("❌ [ZohoTask] Stale scan failed:", error.message);
+    console.error("? [ZohoTask] Stale scan failed:", error.message);
   }
 }

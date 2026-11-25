@@ -1,12 +1,13 @@
 // backend/src/modules/tenant/profile/tenant.profile.controller.js (do not remove this comment)
 import prisma from "../../../config/prisma.js";
-import { updateTenantByIdService } from "../../superadmin/superadmin.service.js";
+import { updateTenantByIdService } from "./tenant.profile.service.js";
 import {
   updateTenantPasswordService,
   uploadTenantLogoService,
   deleteTenantLogoService,
 } from "./tenant.profile.service.js";
 import { extractRequestMeta } from "../../../lib/utils/request.meta.js";
+import { getSetupStatus } from "../auth/tenant.setup.service.js";
 
 export const getLoggedInTenant = async (req, res) => {
   try {
@@ -25,6 +26,7 @@ export const getLoggedInTenant = async (req, res) => {
         id: true,
         tenantName: true,
         email: true,
+        username: true,
         status: true,
         isActive: true,
         phone: true,
@@ -41,27 +43,37 @@ export const getLoggedInTenant = async (req, res) => {
         useCase: true,
         logo: true,
         timezone: true,
-        auth: {
-          select: { authProvider: true },
-        },
+        authProvider: true,
+        isEmailVerified: true,
         subscription: {
           select: {
             planId: true,
-            currentPlan: true,
-            planStatus: true,
+            billingCycle: true,
             subscriptionStatus: true,
+            isTrial: true,
+            trialEndsAt: true,
             planPeriodStart: true,
             planPeriodEnd: true,
-            hasUsedTrial: true,
+            gracePeriodEnd: true,
+            freeUntilDate: true,
             autopayEnabled: true,
             cancelRequestedAt: true,
-            billingType: true,
+            pendingPlanId: true,
+            pendingBillingCycle: true,
+            plan: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                type: true,
+              },
+            },
           },
         },
       },
     });
     const tenant = tenantRow
-      ? { ...tenantRow, ...tenantRow.auth, ...tenantRow.subscription }
+      ? { ...tenantRow, ...tenantRow.subscription }
       : null;
 
     if (!tenant) {
@@ -75,6 +87,7 @@ export const getLoggedInTenant = async (req, res) => {
     const tenantData = {
       ...safeTenant,
       hasPassword: !!password,
+      setup: getSetupStatus(tenant),
     };
 
     return res.status(200).json({
@@ -94,9 +107,6 @@ export const updateTenantProfile = async (req, res) => {
     const tenantId = req.tenant?.id;
     const meta = extractRequestMeta(req);
 
-    console.log("📥 Update profile - tenantId:", tenantId);
-    console.log("📥 Update profile - body:", req.body);
-
     if (!tenantId) {
       return res.status(401).json({
         success: false,
@@ -104,11 +114,12 @@ export const updateTenantProfile = async (req, res) => {
       });
     }
 
+    // NOTE: email is intentionally excluded from self-serve updates.
+    // Email changes require OTP verification (handled separately).
     const {
       tenantName,
       firstName,
       lastName,
-      email,
       phone,
       address,
       websiteUrl,
@@ -125,7 +136,6 @@ export const updateTenantProfile = async (req, res) => {
         tenantName,
         firstName,
         lastName,
-        email,
         phone,
         address,
         websiteUrl,
@@ -194,9 +204,9 @@ export const completeOnboarding = async (req, res) => {
           email: safeTenant.email,
           type: "TENANT",
           status: safeTenant.status,
-          planId: safeTenant.planId,
-          planStatus: safeTenant.planStatus,
-          billingType: safeTenant.billingType,
+          planId: safeTenant.planId || null,
+          subscriptionStatus: safeTenant.subscriptionStatus || "inactive",
+          billingCycle: safeTenant.billingCycle || null,
           tenantName: safeTenant.tenantName,
           firstName: safeTenant.firstName,
           lastName: safeTenant.lastName,
