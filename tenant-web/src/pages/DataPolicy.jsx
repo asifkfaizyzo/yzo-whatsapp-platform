@@ -35,7 +35,9 @@ export default function PrivacyPolicy() {
                 We collect information you provide directly to us, including
                 your name, email address, phone number, company name, and any
                 other information you choose to provide when creating an account
-                or contacting us.
+                or contacting us. Additionally, when you connect third-party platforms
+                such as Shopify, we may collect store, product, inventory, customer, order,
+                and checkout information necessary to provide our integration services.
               </p>
             </div>
 
@@ -51,6 +53,7 @@ export default function PrivacyPolicy() {
                 <li>Send technical notices and support messages</li>
                 <li>Respond to your comments and questions</li>
                 <li>Monitor and analyze usage trends</li>
+                <li>Synchronize data with third-party platforms to provide integration features</li>
               </ul>
             </div>
 
@@ -63,6 +66,8 @@ export default function PrivacyPolicy() {
                 We implement industry-standard security measures to protect your
                 data. All data is encrypted in transit and at rest. We use
                 secure servers and follow best practices for data protection.
+                As part of operating our services, we may also use third-party hosting
+                and infrastructure providers to store and process data securely.
               </p>
             </div>
 
@@ -75,7 +80,10 @@ export default function PrivacyPolicy() {
                 We do not sell, trade, or otherwise transfer your personal
                 information to third parties. We may share data only with
                 service providers who assist us in operating our platform,
-                subject to confidentiality agreements.
+                subject to confidentiality agreements. These may include hosting
+                and infrastructure providers, as well as third-party platforms
+                such as WhatsApp/Meta, Shopify, Google Sheets, and Zoho when you
+                choose to use their integrations.
               </p>
             </div>
 
@@ -132,6 +140,9 @@ export default function PrivacyPolicy() {
                 stored in our systems, and profile data, will be permanently
                 deleted unless retention is required by law.
               </p>
+              <p>For Shopify-connected stores, we also handle customer data and
+                deletion requests in accordance with Shopify’s requirements. Once disconnected,
+                integration access stops and stored data is deleted as required.</p>
             </div>
 
             {/* Section 7 - Previously Section 6 */}
@@ -148,6 +159,159 @@ export default function PrivacyPolicy() {
                 >
                   info@sudoreply.com
                 </a>
+              </p>
+            </div>
+
+             {/* Section 8 - NEW DATA DELETION SECTION */}
+              <div>
+              <h2 className="text-lg font-semibold text-gray-900 mb-3">
+                8. Device Permissions and Data Collection
+              </h2>
+              <p className="mb-3">
+                The Sudo Reply mobile application may request access to certain
+                device features to provide its communication and CRM functionality.
+                These permissions are used as follows:
+              </p>
+
+              <h3 className="font-semibold text-gray-800 mb-2">
+                Microphone and Audio
+              </h3>
+              <ul className="list-disc pl-5 space-y-1 text-gray-500 mb-3">
+                <li>Microphone access is used for supported WhatsApp voice calling and recording or sending voice messages.</li>
+                <li>Audio data may be processed to enable voice communication and voice-note functionality.</li>
+                <li>Audio recordings are stored only where the relevant feature explicitly supports recording and the recording is initiated.</li>
+              </ul>
+
+              <h3 className="font-semibold text-gray-800 mb-2">
+                Contacts
+              </h3>
+              <ul className="list-disc pl-5 space-y-1 text-gray-500 mb-3">
+                <li>Contacts permission allows users to access and manage contact information through CRM functionality.</li>
+                <li>Contact information may include names and phone numbers.</li>
+                <li>Contact information is processed to support contact management and customer communication.</li>
+              </ul>
+
+              <h3 className="font-semibold text-gray-800 mb-2">
+                Camera and Photos
+              </h3>
+              <ul className="list-disc pl-5 space-y-1 text-gray-500 mb-3">
+                <li>Camera access allows users to capture images for sharing.</li>
+                <li>Photo and video access allows users to select and send media attachments in conversations.</li>
+                <li>Selected media may be uploaded to our servers or associated service providers to facilitate message delivery.</li>
+              </ul>
+
+              <h3 className="font-semibold text-gray-800 mb-2">
+                Notifications
+              </h3>
+              <p>
+                Notification permissions are used to deliver alerts about
+                incoming messages, calls, and relevant account activity.
+              </p>
+              </div>
+
+               {/* Section 9 - Third-Party Services */}
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 mb-3">
+                9. Third-Party Services
+              </h2>
+              <p className="mb-3">
+                Sudo Reply integrates with third-party services, including
+                Meta WhatsApp Business Platform and infrastructure providers,
+                to deliver messaging, calling, media sharing, and CRM
+                functionality.
+              </p>
+              <p className="mb-3">
+                Information processed through these integrations may be
+                subject to the respective third-party privacy policies and
+                terms.
+              </p>
+              <p>
+                We only process information necessary to provide the
+                requested functionality.
+              </p>
+            </div>
+
+              {/* Section 10 - Data Retention */}
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 mb-3">
+                10. Data Retention
+              </h2>
+              <p className="mb-3">
+                We retain personal information for as long as necessary to
+                provide our services, comply with legal obligations, resolve
+                disputes, and enforce our agreements.
+              </p>
+              <p>
+                Users may request deletion of their personal information using
+                the contact details provided in Section 6.
+              </p>
+            </div>
+
+            {/* Section 11 - Account and Data Deletion */}
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 mb-3">
+                11. Account and Data Deletion
+              </h2>
+              <p className="mb-3">
+                Users have the right to request the deletion of their account
+                and all associated personal data at any time.
+              </p>
+
+              <h3 className="font-semibold text-gray-800 mb-2">
+                How to request account and data deletion:
+              </h3>
+              <ol className="list-decimal pl-5 space-y-1 text-gray-500 mb-3">
+                <li>
+                  <span className="font-medium text-gray-700">
+                    Via Dashboard / Settings:
+                  </span>{" "}
+                  Mobile app users can delete their account through the
+                  Account Settings section of the Sudo Reply mobile app,
+                  if this feature is available.
+                </li>
+                <li>
+                  <span className="font-medium text-gray-700">
+                    Via Email Request:
+                  </span>{" "}
+                  Users can submit an account and data deletion request by
+                  emailing{" "}
+                  <a
+                    href="mailto:info@sudoreply.com"
+                    className="text-[#125EF2] hover:underline"
+                  >
+                    info@sudoreply.com
+                  </a>{" "}
+                  with the subject line{" "}
+                  <span className="font-medium text-gray-700">
+                    "Account Deletion Request"
+                  </span>
+                  . Please send the request from the email address registered
+                  with your Sudo Reply account.
+                </li>
+              </ol>
+
+              <h3 className="font-semibold text-gray-800 mb-2">
+                What data will be deleted:
+              </h3>
+              <ul className="list-disc pl-5 space-y-1 text-gray-500 mb-3">
+                <li>User profile information, including name, email address, password hash, and profile image.</li>
+                <li>Contact lists and customer data associated with the tenant workspace.</li>
+                <li>Stored chat messages, call logs, and uploaded media files.</li>
+                <li>Device tokens and notification identifiers.</li>
+              </ul>
+
+              <h3 className="font-semibold text-gray-800 mb-2">
+                Data retention:
+              </h3>
+              <p className="mb-3">
+                Upon receipt of a verified deletion request, all personal data
+                and account records will be permanently deleted from our active
+                databases within 30 days.
+              </p>
+              <p>
+                Certain billing and transactional records may be retained for
+                up to 7 years solely to comply with legal, tax, and regulatory
+                obligations.
               </p>
             </div>
           </div>

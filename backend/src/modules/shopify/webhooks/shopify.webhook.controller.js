@@ -1,7 +1,6 @@
 // backend/src/modules/shopify/webhooks/shopify.webhook.controller.js (do not remove this comment)
 import crypto from "node:crypto";
 import prisma from "../../../config/prisma.js";
-import { decrypt } from "../../../lib/crypto.js";
 import { orderWebhookQueue } from "../../../cron/queues/order-webhook.queue.js";
 import { handleProductUpdateForBackInStock } from "../products/shopify.backInStock.service.js";
 import {
@@ -52,12 +51,64 @@ export const handleIncomingWebhook = async (req, res) => {
   if (cleanDomain && !cleanDomain.includes("."))
     cleanDomain = `${cleanDomain}.myshopify.com`;
 
-  // 1. ALWAYS log incoming webhook hit immediately
-  console.log(
-    `📥 [Shopify Webhook Received] Topic: '${topic}' | Shop: '${cleanDomain}'`,
-  );
-
   try {
+    if (!cleanDomain) {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "Missing Shopify shop domain header",
+        });
+    }
+
+    const rawSecret = process.env.SHOPIFY_API_SECRET;
+    if (!rawSecret) {
+      console.error(
+        "❌ [Shopify Webhook] SHOPIFY_API_SECRET is not configured",
+      );
+      return res
+        .status(500)
+        .json({ success: false, message: "Webhook verification is unavailable" });
+    }
+
+    if (!Buffer.isBuffer(req.rawBody)) {
+      console.error(
+        `❌ [Shopify Webhook] Raw request body unavailable for ${JSON.stringify(cleanDomain)}`,
+      );
+      return res
+        .status(500)
+        .json({ success: false, message: "Webhook verification is unavailable" });
+    }
+
+    if (!hmacHeader) {
+      return res
+        .status(401)
+        .json({ success: false, message: "Missing Shopify webhook signature" });
+    }
+
+    const expectedSignature = crypto
+      .createHmac("sha256", rawSecret)
+      .update(req.rawBody)
+      .digest("base64");
+    const receivedSignatureBuffer = Buffer.from(hmacHeader, "base64");
+    const expectedSignatureBuffer = Buffer.from(expectedSignature, "base64");
+
+    if (
+      receivedSignatureBuffer.length !== expectedSignatureBuffer.length ||
+      !crypto.timingSafeEqual(receivedSignatureBuffer, expectedSignatureBuffer)
+    ) {
+      console.warn(
+        `⚠️ [Shopify Webhook] HMAC signature mismatch for ${JSON.stringify(cleanDomain)} | ` +
+          `rawBodyBytes=${req.rawBody.length}`,
+      );
+      return res
+        .status(401)
+        .json({ success: false, message: "Invalid Shopify webhook signature" });
+    }
+    console.log(
+      `🔒 [Shopify Webhook] HMAC Signature Verified Successfully for ${JSON.stringify(cleanDomain)}`,
+    );
+
     if (!payload || typeof payload !== "object") {
       return res
         .status(400)
@@ -71,29 +122,150 @@ export const handleIncomingWebhook = async (req, res) => {
           message: "Missing Shopify webhook topic header",
         });
     }
-    if (!cleanDomain) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Missing Shopify shop domain header",
+
+    console.log(
+      `📥 [Shopify Webhook Received] Topic: '${topic}' | Shop: '${JSON.stringify(cleanDomain)}'`,
+    );
+
+        // Handle Shopify mandatory privacy webhooks separately.
+    const privacyTopics = [
+      "customers/data_request",
+      "customers/redact",
+      "shop/redact",
+    ];
+
+    if (privacyTopics.includes(topic)) {
+      const store = await prisma.shopifyStore.findUnique({
+        where: { shopDomain: cleanDomain },
+        select: {
+          id: true,
+          tenantId: true,
+          shopDomain: true,
+          shopifyShopId: true,
+        },
+      });
+
+      if (!store || !store.tenantId) {
+        console.warn(
+          `[Shopify Privacy] Store not found for privacy request: ${cleanDomain}`,
+        );
+        return res.status(200).json({
+          success: true,
+          message: "Privacy request acknowledged; store not found",
         });
+      }
+
+      const payloadShopDomain = String(payload.shop_domain || "")
+        .trim()
+        .toLowerCase();
+
+      const payloadShopId = payload.shop_id
+        ? String(payload.shop_id)
+        : null;
+
+      if (
+        (payloadShopDomain && payloadShopDomain !== store.shopDomain) ||
+        (payloadShopId &&
+          store.shopifyShopId &&
+          payloadShopId !== String(store.shopifyShopId))
+      ) {
+        console.warn(
+          `[Shopify Privacy] Store identity mismatch for ${cleanDomain}`,
+        );
+        return res.status(200).json({
+          success: true,
+          message: "Privacy request acknowledged; identity mismatch",
+        });
+      }
+
+      const customerId =
+        topic === "shop/redact"
+          ? null
+          : payload.customer?.id
+            ? String(payload.customer.id)
+            : null;
+
+      if (topic !== "shop/redact" && !customerId) {
+        return res.status(400).json({
+          success: false,
+          message: "Missing Shopify customer ID",
+        });
+      }
+
+      const webhookId = req.headers["x-shopify-webhook-id"];
+
+      if (!webhookId) {
+        return res.status(400).json({
+          success: false,
+          message: "Missing Shopify webhook ID",
+        });
+      }
+
+      const jobId = `shopify_privacy_${store.id}_${topic.replace("/", "_")}_${String(webhookId).replace(/[^a-zA-Z0-9_-]/g, "")}`;
+
+      await orderWebhookQueue.add(
+        "shopify-privacy",
+        {
+          provider: "SHOPIFY",
+          type: "SHOPIFY_PRIVACY",
+          tenantId: store.tenantId,
+          storeId: store.id,
+          topic,
+          shopDomain: store.shopDomain,
+          customerId,
+          webhookId: String(webhookId),
+        },
+        {
+          jobId,
+          attempts: 5,
+          backoff: {
+            type: "exponential",
+            delay: 10000,
+          },
+        },
+      );
+
+      console.log(
+        `[Shopify Privacy] Queued ${topic} for store ${store.id}`,
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: "Privacy request accepted",
+      });
     }
 
-    // 2. Resolve tenant connection from DB
-    const connection = await prisma.shopifyConnection.findFirst({
-      where: { shopName: cleanDomain },
+    // Resolve and verify the connected Shopify store after HMAC verification.
+const connection = await prisma.shopifyConnection.findFirst({
+  where: { shopName: cleanDomain },
+  select: {
+    tenantId: true,
+    store: {
       select: {
+        id: true,
         tenantId: true,
-        webhookSecret: true,
+        shopDomain: true,
+        status: true,
+        redactedAt: true,
       },
-    });
+    },
+  },
+});
 
-    let tenantId = connection?.tenantId;
+const tenantId = connection?.tenantId;
+const store = connection?.store;
+const storeId = store?.id;
 
-    if (!tenantId) {
+if (
+  !tenantId ||
+  !storeId ||
+  store.tenantId !== tenantId ||
+  store.shopDomain !== cleanDomain ||
+  store.status !== "active" ||
+  store.redactedAt
+) {
       console.warn(
-        `⚠️ [Shopify Webhook] No active integration found for shop: ${cleanDomain}`,
+        `⚠️ [Shopify Webhook] Unknown shop ignored: ${JSON.stringify(cleanDomain)}`,
       );
       return res
         .status(200)
@@ -102,59 +274,6 @@ export const handleIncomingWebhook = async (req, res) => {
           message: "Shopify integration not found, ignored",
         });
     }
-
-    // 3. Verify Shopify's signature before accepting the event.
-    if (!hmacHeader) {
-      return res
-        .status(401)
-        .json({ success: false, message: "Missing Shopify webhook signature" });
-    }
-
-    const encryptedSecret = connection.webhookSecret;
-    const rawSecret = encryptedSecret
-      ? decrypt(encryptedSecret)
-      : process.env.SHOPIFY_API_SECRET;
-    if (!rawSecret) {
-      console.error(
-        `❌ [Shopify Webhook] No signing secret configured for ${cleanDomain}`,
-      );
-      return res
-        .status(503)
-        .json({
-          success: false,
-          message: "Shopify webhook signing secret is not configured",
-        });
-    }
-
-    const rawPayload =
-      req.rawBody ||
-      Buffer.from(
-        typeof req.body === "string" ? req.body : JSON.stringify(req.body),
-      );
-    const expectedSignature = crypto
-      .createHmac("sha256", rawSecret)
-      .update(rawPayload)
-      .digest("base64");
-    const receivedSignatureBuffer = Buffer.from(hmacHeader, "base64");
-    const expectedSignatureBuffer = Buffer.from(expectedSignature, "base64");
-
-    if (
-      receivedSignatureBuffer.length !== expectedSignatureBuffer.length ||
-      !crypto.timingSafeEqual(receivedSignatureBuffer, expectedSignatureBuffer)
-    ) {
-      console.warn(
-        `⚠️ [Shopify Webhook] HMAC signature mismatch for ${cleanDomain} | ` +
-          `rawBodyCaptured=${Buffer.isBuffer(req.rawBody)} | ` +
-          `rawBodyBytes=${Buffer.isBuffer(req.rawBody) ? req.rawBody.length : 0} | ` +
-          `signedBodyBytes=${rawPayload.length}`,
-      );
-      return res
-        .status(401)
-        .json({ success: false, message: "Invalid Shopify webhook signature" });
-    }
-    console.log(
-      `🔒 [Shopify Webhook] HMAC Signature Verified Successfully for ${cleanDomain}`,
-    );
 
     // 4. Format & override target phone for local dev testing safely
     const targetPhone = resolveCustomerPhone(payload);
@@ -182,6 +301,7 @@ export const handleIncomingWebhook = async (req, res) => {
         provider: "SHOPIFY",
         type: "SHOPIFY",
         tenantId,
+        storeId,
         topic,
         event: topic,
         eventType: topic,

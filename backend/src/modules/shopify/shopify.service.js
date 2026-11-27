@@ -40,50 +40,126 @@ export const connect = async (
   }
 
   // 2. Validate credentials against Shopify Admin REST API
+   // 2. Validate credentials and retrieve Shopify store identity
+  let shopifyShopId;
+
   try {
     const apiVersion = process.env.SHOPIFY_API_VERSION || "2026-07";
-    await axios.get(`https://${cleanShop}/admin/api/${apiVersion}/shop.json`, {
-      headers: {
-        "X-Shopify-Access-Token": accessToken,
-        "Content-Type": "application/json",
+
+    const response = await axios.get(
+      `https://${cleanShop}/admin/api/${apiVersion}/shop.json`,
+      {
+        headers: {
+          "X-Shopify-Access-Token": accessToken,
+          "Content-Type": "application/json",
+        },
+        timeout: 10000,
       },
-      timeout: 10000,
-    });
+    );
+
+    const rawShopId = response.data?.shop?.id;
+
+    if (rawShopId === undefined || rawShopId === null) {
+      throw new Error("Shopify response did not contain a shop ID");
+    }
+
+    shopifyShopId = String(rawShopId);
   } catch (err) {
     const errorMsg =
       err.response?.data?.errors ||
       err.response?.statusText ||
       err.message ||
       "Could not verify Shopify store with provided credentials";
+
     throw new Error(
-      `Shopify verification failed: ${typeof errorMsg === "string" ? errorMsg : JSON.stringify(errorMsg)}`,
+      `Shopify verification failed: ${
+        typeof errorMsg === "string" ? errorMsg : JSON.stringify(errorMsg)
+      }`,
     );
   }
 
-  // 3. Upsert connection record (1 per tenant)
-  const connection = await prisma.shopifyConnection.upsert({
-    where: { tenantId },
-    update: {
-      shopName: cleanShop,
-      accessToken: encrypt(accessToken),
-      accessTokenExpiresAt,
-      refreshToken: refreshToken ? encrypt(refreshToken) : null,
-      refreshTokenExpiresAt,
-      webhookSecret: webhookSecret ? encrypt(webhookSecret) : null,
-      connectedBy: userId || null,
-      status: "active",
-    },
-    create: {
-      tenantId,
-      shopName: cleanShop,
-      accessToken: encrypt(accessToken),
-      accessTokenExpiresAt,
-      refreshToken: refreshToken ? encrypt(refreshToken) : null,
-      refreshTokenExpiresAt,
-      webhookSecret: webhookSecret ? encrypt(webhookSecret) : null,
-      connectedBy: userId || null,
-      status: "active",
-    },
+  // 3. Create/reuse Shopify store identity and link connection
+  const connection = await prisma.$transaction(async (tx) => {
+    const matchingStores = await tx.shopifyStore.findMany({
+      where: {
+        OR: [
+          { shopDomain: cleanShop },
+          { shopifyShopId },
+        ],
+      },
+    });
+
+    if (matchingStores.length > 1) {
+      throw new Error(
+        "Shopify store identity conflict: domain and shop ID belong to different records",
+      );
+    }
+
+    let store = matchingStores[0];
+
+    if (store) {
+      if (
+        store.shopDomain !== cleanShop ||
+        (store.shopifyShopId &&
+          store.shopifyShopId !== shopifyShopId)
+      ) {
+        throw new Error(
+          "Shopify store identity mismatch. Please contact support.",
+        );
+      }
+
+      if (store.tenantId && store.tenantId !== tenantId) {
+        throw new Error(
+          "This Shopify store is already connected to another SudoReply tenant.",
+        );
+      }
+
+      store = await tx.shopifyStore.update({
+        where: { id: store.id },
+        data: {
+          shopifyShopId,
+          tenantId,
+          status: "active",
+          disconnectedAt: null,
+        },
+      });
+    } else {
+      store = await tx.shopifyStore.create({
+        data: {
+          shopifyShopId,
+          shopDomain: cleanShop,
+          tenantId,
+          status: "active",
+        },
+      });
+    }
+
+    return tx.shopifyConnection.upsert({
+      where: { tenantId },
+      update: {
+        storeId: store.id,
+        shopName: cleanShop,
+        accessToken: encrypt(accessToken),
+        accessTokenExpiresAt,
+        refreshToken: refreshToken ? encrypt(refreshToken) : null,
+        refreshTokenExpiresAt,
+        webhookSecret: webhookSecret ? encrypt(webhookSecret) : null,
+        connectedBy: userId || null,
+        status: "active",
+      },
+      create: {
+        tenantId,
+        storeId: store.id,
+        shopName: cleanShop,
+        accessToken: encrypt(accessToken),
+        accessTokenExpiresAt,
+        refreshToken: refreshToken ? encrypt(refreshToken) : null,
+        refreshTokenExpiresAt,
+        webhookSecret: webhookSecret ? encrypt(webhookSecret) : null,
+        connectedBy: userId || null,
+        status: "active",
+      },
+    });
   });
 
   // 4. AUTOMATIC WEBHOOK REGISTRATION
@@ -184,15 +260,21 @@ export const getShopifyAccessToken = async (tenantId) => {
     }
 
     const response = await axios.post(
-      `https://${latestConnection.shopName}/admin/oauth/access_token`,
-      {
-        client_id: SHOPIFY_API_KEY,
-        client_secret: SHOPIFY_API_SECRET,
-        grant_type: "refresh_token",
-        refresh_token: decrypt(latestConnection.refreshToken),
-      },
-      { timeout: 10000 },
-    );
+  `https://${latestConnection.shopName}/admin/oauth/access_token`,
+  new URLSearchParams({
+    client_id: SHOPIFY_API_KEY,
+    client_secret: SHOPIFY_API_SECRET,
+    grant_type: "refresh_token",
+    refresh_token: decrypt(latestConnection.refreshToken),
+  }),
+  {
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "application/json",
+    },
+    timeout: 10000,
+  },
+);
 
     const {
       access_token: accessToken,

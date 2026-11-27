@@ -15,6 +15,49 @@ import {
   parseShopifyReviewRating,
 } from "./shopify.postPurchaseMessages.js";
 
+const isShopifyCustomerRedacted = async (storeId, shopifyCustomerId) => {
+  if (shopifyCustomerId == null) return false;
+
+  const redaction = await prisma.shopifyCustomerRedaction.findUnique({
+    where: {
+      storeId_shopifyCustomerId: {
+        storeId,
+        shopifyCustomerId: String(shopifyCustomerId),
+      },
+    },
+    select: { id: true },
+  });
+
+  return Boolean(redaction);
+};
+
+const checkPostPurchaseRedaction = async ({
+  tenantId,
+  storeId,
+  shopifyCustomerId,
+}) => {
+  try {
+    const store = await prisma.shopifyStore.findFirst({
+      where: { id: storeId, tenantId, status: "active", redactedAt: null },
+      select: { id: true, tenantId: true, status: true, redactedAt: true },
+    });
+    if (
+      !store || store.id !== storeId || store.tenantId !== tenantId ||
+      store.status !== "active" || store.redactedAt !== null
+    ) {
+      return { skipped: true, reason: "inactive_or_invalid_store" };
+    }
+
+    if (shopifyCustomerId != null &&
+      await isShopifyCustomerRedacted(storeId, shopifyCustomerId)) {
+      return { skipped: true, reason: "customer_redacted" };
+    }
+    return null;
+  } catch {
+    return { skipped: true, reason: "shopify_redaction_check_failed" };
+  }
+};
+
 // ─────────────────────────────────────────────
 // ENQUEUE: Schedule post-purchase jobs from lifecycle events
 // Called by shopify.orderLifecycle.js when delivery/order events fire
@@ -32,12 +75,20 @@ export const scheduleReviewRequest = async ({
   if (!order.customerPhone || order.customerPhone === "+") return;
   if (order.reviewRequestedAt) return; // Already scheduled
 
+  const redactionGuard = await checkPostPurchaseRedaction({
+    tenantId,
+    storeId: order.shopifyStoreId,
+    shopifyCustomerId: order.shopifyCustomerId,
+  });
+  if (redactionGuard) return redactionGuard;
+
   const delayMs = delayDays * 24 * 60 * 60 * 1000;
 
   await orderWebhookQueue.add(
     "shopify-review-request",
     {
       tenantId,
+      storeId: order.shopifyStoreId,
       ecommerceOrderId: order.id,
       externalOrderId: order.externalOrderId,
       orderNumber: order.orderNumber,
@@ -65,12 +116,20 @@ export const scheduleCrossSell = async ({
   if (!order.customerPhone || order.customerPhone === "+") return;
   if (order.crossSellSentAt) return;
 
+  const redactionGuard = await checkPostPurchaseRedaction({
+    tenantId,
+    storeId: order.shopifyStoreId,
+    shopifyCustomerId: order.shopifyCustomerId,
+  });
+  if (redactionGuard) return redactionGuard;
+
   const delayMs = delayHours * 60 * 60 * 1000;
 
   await orderWebhookQueue.add(
     "shopify-cross-sell",
     {
-      tenantId,
+       tenantId,
+      storeId: order.shopifyStoreId,
       ecommerceOrderId: order.id,
       orderNumber: order.orderNumber,
       customerPhone: order.customerPhone,
@@ -93,12 +152,20 @@ export const scheduleUpsell = async ({ tenantId, order }) => {
   if (!order.customerPhone || order.customerPhone === "+") return;
   if (order.upsellSentAt) return;
 
+  const redactionGuard = await checkPostPurchaseRedaction({
+    tenantId,
+    storeId: order.shopifyStoreId,
+    shopifyCustomerId: order.shopifyCustomerId,
+  });
+  if (redactionGuard) return redactionGuard;
+
   const delayMs = 15 * 60 * 1000; // 15 minutes after order
 
   await orderWebhookQueue.add(
     "shopify-upsell",
-    {
+        {
       tenantId,
+      storeId: order.shopifyStoreId,
       ecommerceOrderId: order.id,
       orderNumber: order.orderNumber,
       customerPhone: order.customerPhone,
@@ -125,6 +192,7 @@ export const scheduleUpsell = async ({ tenantId, order }) => {
 export const processReviewRequestJob = async (data) => {
   const {
     tenantId,
+    storeId,
     ecommerceOrderId,
     orderNumber,
     customerPhone,
@@ -133,11 +201,37 @@ export const processReviewRequestJob = async (data) => {
   } = data;
 
   // 1. Check if review already submitted or order cancelled
-  const order = await prisma.ecommerceOrder.findUnique({
-    where: { id: ecommerceOrderId },
+  const order = await prisma.ecommerceOrder.findFirst({
+    where: {
+      id: ecommerceOrderId,
+      tenantId,
+      source: "SHOPIFY",
+      shopifyStoreId: storeId,
+    },
   });
 
   if (!order) return { skipped: true, reason: "order_not_found" };
+  if (
+    await isShopifyCustomerRedacted(
+      order.shopifyStoreId,
+      order.shopifyCustomerId,
+    )
+  ) {
+    return { skipped: true, reason: "customer_redacted" };
+  }
+    const activeStore = await prisma.shopifyStore.findFirst({
+    where: {
+      id: storeId,
+      tenantId,
+      status: "active",
+      redactedAt: null,
+    },
+    select: { id: true },
+  });
+
+  if (!activeStore) {
+    return { skipped: true, reason: "invalid_shopify_store" };
+  }
   if (order.reviewRating)
     return { skipped: true, reason: "review_already_submitted" };
   if (order.status === "cancelled")
@@ -152,10 +246,12 @@ export const processReviewRequestJob = async (data) => {
   }
 
   // 3. Get or create contact + conversation
-  const { contact, conversation } = await getOrCreateShopifyContact({
+    const { contact, conversation } = await getOrCreateShopifyContact({
     tenantId,
-    customerPhone,
-    customerName,
+    storeId,
+    shopifyCustomerId: order.shopifyCustomerId,
+    customerPhone: order.customerPhone,
+    customerName: order.customerName,
     customerEmail: order.customerEmail || "",
   });
 
@@ -164,26 +260,44 @@ export const processReviewRequestJob = async (data) => {
   }
 
   // 4. Build and send message (inbox only in dev mode)
-  const messageText = buildReviewRequestMessage({
-    customerName,
-    orderNumber,
-    lineItems,
+    const messageText = buildReviewRequestMessage({
+    customerName: order.customerName,
+    orderNumber: order.orderNumber,
+    lineItems: order.lineItems,
     storeUrl: "",
   });
 
-  await saveShopifyInboxMessage({
+  // 5. Mark review as requested
+  const redactionGuard = await checkPostPurchaseRedaction({
     tenantId,
+    storeId,
+    shopifyCustomerId: order.shopifyCustomerId,
+  });
+  if (redactionGuard) return redactionGuard;
+    const reviewUpdate = await prisma.ecommerceOrder.updateMany({
+    where: {
+      id: ecommerceOrderId,
+      tenantId,
+      source: "SHOPIFY",
+      shopifyStoreId: storeId,
+    },
+    data: { reviewRequestedAt: new Date() },
+  });
+
+  if (reviewUpdate.count === 0) {
+    return { skipped: true, reason: "order_store_ownership_mismatch" };
+  }
+
+  const inboxResult = await saveShopifyInboxMessage({
+    tenantId,
+    storeId,
+    shopifyCustomerId: order.shopifyCustomerId,
     conversation,
     contact,
     messageText,
     orderRecord: order,
   });
-
-  // 5. Mark review as requested
-  await prisma.ecommerceOrder.update({
-    where: { id: ecommerceOrderId },
-    data: { reviewRequestedAt: new Date() },
-  });
+  if (inboxResult?.skipped) return inboxResult;
 
   console.log(
     `✅ [PostPurchase] Review request sent for ${orderNumber} to ${customerPhone}`,
@@ -198,6 +312,7 @@ export const processReviewRequestJob = async (data) => {
 export const processCrossSellJob = async (data) => {
   const {
     tenantId,
+    storeId,
     ecommerceOrderId,
     orderNumber,
     customerPhone,
@@ -205,11 +320,37 @@ export const processCrossSellJob = async (data) => {
     lineItems,
   } = data;
 
-  const order = await prisma.ecommerceOrder.findUnique({
-    where: { id: ecommerceOrderId },
+    const order = await prisma.ecommerceOrder.findFirst({
+    where: {
+      id: ecommerceOrderId,
+      tenantId,
+      source: "SHOPIFY",
+      shopifyStoreId: storeId,
+    },
   });
 
   if (!order) return { skipped: true, reason: "order_not_found" };
+  if (
+    await isShopifyCustomerRedacted(
+      order.shopifyStoreId,
+      order.shopifyCustomerId,
+    )
+  ) {
+    return { skipped: true, reason: "customer_redacted" };
+  }
+    const activeStore = await prisma.shopifyStore.findFirst({
+    where: {
+      id: storeId,
+      tenantId,
+      status: "active",
+      redactedAt: null,
+    },
+    select: { id: true },
+  });
+
+  if (!activeStore) {
+    return { skipped: true, reason: "invalid_shopify_store" };
+  }
   if (order.crossSellSentAt) return { skipped: true, reason: "already_sent" };
 
   const shopifyConfig = await prisma.shopifyConnection.findUnique({
@@ -281,34 +422,54 @@ export const processCrossSellJob = async (data) => {
     return { skipped: true, reason: "no_related_products" };
   }
 
-  const { contact, conversation } = await getOrCreateShopifyContact({
+    const { contact, conversation } = await getOrCreateShopifyContact({
     tenantId,
-    customerPhone,
-    customerName,
+    storeId,
+    shopifyCustomerId: order.shopifyCustomerId,
+    customerPhone: order.customerPhone,
+    customerName: order.customerName,
     customerEmail: order.customerEmail || "",
   });
 
   if (!contact || !conversation) return { skipped: true, reason: "no_contact" };
 
-  const messageText = buildCrossSellMessage({
-    customerName,
+    const messageText = buildCrossSellMessage({
+    customerName: order.customerName,
     purchasedProduct,
     recommendedProducts,
     storeUrl: "",
   });
 
-  await saveShopifyInboxMessage({
+  const redactionGuard = await checkPostPurchaseRedaction({
     tenantId,
+    storeId,
+    shopifyCustomerId: order.shopifyCustomerId,
+  });
+  if (redactionGuard) return redactionGuard;
+    const crossSellUpdate = await prisma.ecommerceOrder.updateMany({
+    where: {
+      id: ecommerceOrderId,
+      tenantId,
+      source: "SHOPIFY",
+      shopifyStoreId: storeId,
+    },
+    data: { crossSellSentAt: new Date() },
+  });
+
+  if (crossSellUpdate.count === 0) {
+    return { skipped: true, reason: "order_store_ownership_mismatch" };
+  }
+
+  const inboxResult = await saveShopifyInboxMessage({
+    tenantId,
+    storeId,
+    shopifyCustomerId: order.shopifyCustomerId,
     conversation,
     contact,
     messageText,
     orderRecord: order,
   });
-
-  await prisma.ecommerceOrder.update({
-    where: { id: ecommerceOrderId },
-    data: { crossSellSentAt: new Date() },
-  });
+  if (inboxResult?.skipped) return inboxResult;
 
   console.log(`✅ [PostPurchase] Cross-sell sent for ${orderNumber}`);
   return { success: true, type: "CROSS_SELL", orderNumber };
@@ -326,13 +487,40 @@ export const processUpsellJob = async (data) => {
     customerPhone,
     customerName,
     lineItems,
+    storeId,
   } = data;
 
-  const order = await prisma.ecommerceOrder.findUnique({
-    where: { id: ecommerceOrderId },
+    const order = await prisma.ecommerceOrder.findFirst({
+    where: {
+      id: ecommerceOrderId,
+      tenantId,
+      source: "SHOPIFY",
+      shopifyStoreId: storeId,
+    },
   });
 
   if (!order) return { skipped: true, reason: "order_not_found" };
+  if (
+    await isShopifyCustomerRedacted(
+      order.shopifyStoreId,
+      order.shopifyCustomerId,
+    )
+  ) {
+    return { skipped: true, reason: "customer_redacted" };
+  }
+    const activeStore = await prisma.shopifyStore.findFirst({
+    where: {
+      id: storeId,
+      tenantId,
+      status: "active",
+      redactedAt: null,
+    },
+    select: { id: true },
+  });
+
+  if (!activeStore) {
+    return { skipped: true, reason: "invalid_shopify_store" };
+  }
   if (order.upsellSentAt) return { skipped: true, reason: "already_sent" };
   // Don't upsell if already shipped
   if (
@@ -393,80 +581,147 @@ export const processUpsellJob = async (data) => {
     return { skipped: true, reason: "no_upsell_product" };
   }
 
-  const { contact, conversation } = await getOrCreateShopifyContact({
+   const { contact, conversation } = await getOrCreateShopifyContact({
     tenantId,
-    customerPhone,
-    customerName,
+    storeId,
+    shopifyCustomerId: order.shopifyCustomerId,
+    customerPhone: order.customerPhone,
+    customerName: order.customerName,
     customerEmail: order.customerEmail || "",
   });
 
   if (!contact || !conversation) return { skipped: true, reason: "no_contact" };
 
   const messageText = buildUpsellMessage({
-    customerName,
-    orderNumber,
+    customerName: order.customerName,
+    orderNumber: order.orderNumber,
     upsellProduct,
     storeUrl: "",
   });
 
-  await saveShopifyInboxMessage({
+  const redactionGuard = await checkPostPurchaseRedaction({
     tenantId,
+    storeId,
+    shopifyCustomerId: order.shopifyCustomerId,
+  });
+  if (redactionGuard) return redactionGuard;
+    const upsellUpdate = await prisma.ecommerceOrder.updateMany({
+    where: {
+      id: ecommerceOrderId,
+      tenantId,
+      source: "SHOPIFY",
+      shopifyStoreId: storeId,
+    },
+    data: { upsellSentAt: new Date() },
+  });
+
+  if (upsellUpdate.count === 0) {
+    return { skipped: true, reason: "order_store_ownership_mismatch" };
+  }
+
+  const inboxResult = await saveShopifyInboxMessage({
+    tenantId,
+    storeId,
+    shopifyCustomerId: order.shopifyCustomerId,
     conversation,
     contact,
     messageText,
     orderRecord: order,
   });
-
-  await prisma.ecommerceOrder.update({
-    where: { id: ecommerceOrderId },
-    data: { upsellSentAt: new Date() },
-  });
+  if (inboxResult?.skipped) return inboxResult;
 
   console.log(`✅ [PostPurchase] Upsell sent for ${orderNumber}`);
   return { success: true, type: "UPSELL", orderNumber };
 };
 
+
 /**
- * Handle incoming review rating reply from customer
- * PURPOSE: When customer replies "4" or "5 stars" after a review request,
- *   parse the rating and save it to the EcommerceOrder record.
- *   This is the missing piece in your WooCommerce implementation too.
+ * Handle incoming review rating reply from customer.
+ * Temporarily disabled until trusted Shopify store identity
+ * is available in the incoming conversation context.
  */
 export const handleReviewReply = async ({
   tenantId,
   contactPhone,
   userMessage,
+  storeId,
 }) => {
-  const rating = parseShopifyReviewRating(userMessage);
-  if (!rating) return null; // Not a valid rating reply
+  // Do not process ratings without trusted store identity.
+  if (!storeId) {
+    return { handled: false };
+  }
 
-  // Find the most recent order that has a pending review
+  const rating = parseShopifyReviewRating(userMessage);
+  if (!rating) {
+    return { handled: false };
+  }
+
+  // Validate that the store belongs to this tenant and is active.
+  const store = await prisma.shopifyStore.findFirst({
+    where: {
+      id: storeId,
+      tenantId,
+      status: "active",
+      redactedAt: null,
+    },
+    select: { id: true },
+  });
+
+  if (!store) {
+    return { handled: false };
+  }
+
+  // Find a pending review belonging to this exact store.
   const pendingReviewOrder = await prisma.ecommerceOrder.findFirst({
     where: {
       tenantId,
+      shopifyStoreId: store.id,
       customerPhone: contactPhone,
       source: "SHOPIFY",
       reviewRequestedAt: { not: null },
-      reviewRating: null, // Not yet rated
+      reviewRating: null,
     },
     orderBy: { reviewRequestedAt: "desc" },
   });
 
-  if (!pendingReviewOrder) return null; // No pending review for this customer
+  if (!pendingReviewOrder) {
+    return { handled: false };
+  }
 
-  await prisma.ecommerceOrder.update({
-    where: { id: pendingReviewOrder.id },
+  // Update only if the order still belongs to this store
+  // and the review is still pending.
+  const updateResult = await prisma.ecommerceOrder.updateMany({
+    where: {
+      id: pendingReviewOrder.id,
+      tenantId,
+      shopifyStoreId: store.id,
+      source: "SHOPIFY",
+      reviewRequestedAt: { not: null },
+      reviewRating: null,
+    },
     data: {
       reviewRating: rating,
       reviewReceivedAt: new Date(),
     },
   });
 
+  if (updateResult.count === 0) {
+    return { handled: false };
+  }
+
   console.log(
     `⭐ [PostPurchase] Review saved: ${rating}/5 for order ${pendingReviewOrder.orderNumber}`,
   );
-  return { success: true, rating, orderNumber: pendingReviewOrder.orderNumber };
+
+  return {
+    handled: true,
+    orderId: pendingReviewOrder.id,
+    responseSent: false,
+    rating,
+    orderNumber: pendingReviewOrder.orderNumber,
+  };
 };
+
 
 /**
  * Process reorder reminder job
@@ -475,6 +730,7 @@ export const handleReviewReply = async ({
 export const processReorderReminderJob = async (data) => {
   const {
     tenantId,
+    storeId,
     ecommerceOrderId,
     orderNumber,
     customerPhone,
@@ -482,18 +738,52 @@ export const processReorderReminderJob = async (data) => {
     lineItems,
   } = data;
 
-  const order = await prisma.ecommerceOrder.findUnique({
-    where: { id: ecommerceOrderId },
+    const order = await prisma.ecommerceOrder.findFirst({
+    where: {
+      id: ecommerceOrderId,
+      tenantId,
+      source: "SHOPIFY",
+      shopifyStoreId: storeId,
+    },
   });
 
-  if (!order || order.reorderReminderSentAt) {
+    if (!order) {
     return { skipped: true, reason: "already_sent_or_not_found" };
   }
 
-  const { contact, conversation } = await getOrCreateShopifyContact({
+  if (
+    await isShopifyCustomerRedacted(
+      order.shopifyStoreId,
+      order.shopifyCustomerId,
+    )
+  ) {
+    return { skipped: true, reason: "customer_redacted" };
+  }
+
+  if (order.reorderReminderSentAt) {
+    return { skipped: true, reason: "already_sent_or_not_found" };
+  }
+
+  const activeStore = await prisma.shopifyStore.findFirst({
+    where: {
+      id: storeId,
+      tenantId,
+      status: "active",
+      redactedAt: null,
+    },
+    select: { id: true },
+  });
+
+  if (!activeStore) {
+    return { skipped: true, reason: "inactive_or_invalid_store" };
+  }
+
+    const { contact, conversation } = await getOrCreateShopifyContact({
     tenantId,
-    customerPhone,
-    customerName,
+    storeId,
+    shopifyCustomerId: order.shopifyCustomerId,
+    customerPhone: order.customerPhone,
+    customerName: order.customerName,
     customerEmail: order.customerEmail || "",
   });
 
@@ -509,28 +799,50 @@ export const processReorderReminderJob = async (data) => {
     }
   } catch {}
 
-  const messageText = buildReorderReminderMessage({
-    customerName: customerName || "Customer",
+    const messageText = buildReorderReminderMessage({
+    customerName: order.customerName || "Customer",
     productName,
     productUrl: "",
     storeUrl: "",
   });
 
-  await saveShopifyInboxMessage({
+  const redactionGuard = await checkPostPurchaseRedaction({
     tenantId,
+    storeId,
+    shopifyCustomerId: order.shopifyCustomerId,
+  });
+  if (redactionGuard) return redactionGuard;
+    const updateResult = await prisma.ecommerceOrder.updateMany({
+    where: {
+      id: ecommerceOrderId,
+      tenantId,
+      source: "SHOPIFY",
+      shopifyStoreId: storeId,
+    },
+    data: { reorderReminderSentAt: new Date() },
+  });
+
+  if (updateResult.count === 0) {
+    return { skipped: true, reason: "order_store_ownership_mismatch" };
+  }
+
+  const inboxResult = await saveShopifyInboxMessage({
+    tenantId,
+    storeId,
+    shopifyCustomerId: order.shopifyCustomerId,
     conversation,
     contact,
     messageText,
     orderRecord: order,
   });
+  if (inboxResult?.skipped) return inboxResult;
 
-  await prisma.ecommerceOrder.update({
-    where: { id: ecommerceOrderId },
-    data: { reorderReminderSentAt: new Date() },
-  });
-
-  console.log(`✅ [PostPurchase] Reorder reminder sent for ${orderNumber}`);
-  return { success: true, type: "REORDER_REMINDER", orderNumber };
+  console.log(`✅ [PostPurchase] Reorder reminder sent for ${order.orderNumber}`);
+  return {
+    success: true,
+    type: "REORDER_REMINDER",
+    orderNumber: order.orderNumber,
+  };
 };
 
 /**
@@ -538,20 +850,49 @@ export const processReorderReminderJob = async (data) => {
  * PURPOSE: Sends win-back message to customers inactive for 90+ days
  */
 export const processWinBackJob = async (data) => {
-  const { tenantId, ecommerceOrderId, customerPhone, customerName } = data;
+  const { tenantId, storeId, ecommerceOrderId, customerPhone, customerName } = data;
 
-  const order = await prisma.ecommerceOrder.findUnique({
-    where: { id: ecommerceOrderId },
+    const order = await prisma.ecommerceOrder.findFirst({
+    where: {
+      id: ecommerceOrderId,
+      tenantId,
+      source: "SHOPIFY",
+      shopifyStoreId: storeId,
+    },
   });
 
-  if (!order) return { skipped: true, reason: "order_not_found" };
+    if (!order) return { skipped: true, reason: "order_not_found" };
+
+  if (
+    await isShopifyCustomerRedacted(
+      order.shopifyStoreId,
+      order.shopifyCustomerId,
+    )
+  ) {
+    return { skipped: true, reason: "customer_redacted" };
+  }
+
+  const activeStore = await prisma.shopifyStore.findFirst({
+    where: {
+      id: storeId,
+      tenantId,
+      status: "active",
+      redactedAt: null,
+    },
+    select: { id: true },
+  });
+
+  if (!activeStore) {
+    return { skipped: true, reason: "inactive_or_invalid_store" };
+  }
 
   // Check if customer has ordered recently (safety check)
   const recentOrder = await prisma.ecommerceOrder.findFirst({
-    where: {
+       where: {
       tenantId,
       source: "SHOPIFY",
-      customerPhone,
+      shopifyStoreId: storeId,
+      customerPhone: order.customerPhone,
       createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
     },
   });
@@ -563,34 +904,54 @@ export const processWinBackJob = async (data) => {
     select: { tenantName: true },
   });
 
-  const { contact, conversation } = await getOrCreateShopifyContact({
+    const { contact, conversation } = await getOrCreateShopifyContact({
     tenantId,
-    customerPhone,
-    customerName,
+    storeId,
+    shopifyCustomerId: order.shopifyCustomerId,
+    customerPhone: order.customerPhone,
+    customerName: order.customerName,
     customerEmail: order.customerEmail || "",
   });
 
   if (!contact || !conversation) return { skipped: true, reason: "no_contact" };
 
   const messageText = buildWinBackMessage({
-    customerName: customerName || "Customer",
+    customerName: order.customerName || "Customer",
     storeName: tenant?.tenantName || "our store",
     storeUrl: "",
     discountCode: "",
   });
 
-  await saveShopifyInboxMessage({
+  const redactionGuard = await checkPostPurchaseRedaction({
     tenantId,
+    storeId,
+    shopifyCustomerId: order.shopifyCustomerId,
+  });
+  if (redactionGuard) return redactionGuard;
+    const updateResult = await prisma.ecommerceOrder.updateMany({
+    where: {
+      id: ecommerceOrderId,
+      tenantId,
+      source: "SHOPIFY",
+      shopifyStoreId: storeId,
+    },
+    data: { winBackSentAt: new Date() },
+  });
+
+  if (updateResult.count === 0) {
+    return { skipped: true, reason: "order_store_ownership_mismatch" };
+  }
+
+  const inboxResult = await saveShopifyInboxMessage({
+    tenantId,
+    storeId,
+    shopifyCustomerId: order.shopifyCustomerId,
     conversation,
     contact,
     messageText,
     orderRecord: order,
   });
-
-  await prisma.ecommerceOrder.update({
-    where: { id: ecommerceOrderId },
-    data: { winBackSentAt: new Date() },
-  });
+  if (inboxResult?.skipped) return inboxResult;
 
   console.log(`✅ [PostPurchase] Win-back sent to ${customerPhone}`);
   return { success: true, type: "WIN_BACK", customerPhone };

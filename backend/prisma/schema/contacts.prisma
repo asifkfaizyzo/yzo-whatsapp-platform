@@ -17,6 +17,7 @@ model Contact {
   avatarUrl   String?
 
   providerMappings ContactProviderMapping[]
+  shopifyCustomerMappings ShopifyCustomerMapping[]
 
   contactTags ContactTagMapping[]
 

@@ -23,94 +23,200 @@ const formatShopifyAddress = (addr) => {
 /**
  * Sync a single Shopify customer record into SudoReply Contact system.
  */
-export const syncShopifyCustomer = async (tenantId, customerPayload) => {
-  if (!tenantId || !customerPayload) return null;
+ export const syncShopifyCustomer = async (tenantId, storeId, customerPayload) => {
+  if (!tenantId || !storeId || !customerPayload?.id) return null;
 
   const shopifyId = String(customerPayload.id);
-  const firstName = customerPayload.first_name || "";
-  const lastName = customerPayload.last_name || "";
-  const fullName =
-    `${firstName} ${lastName}`.trim() ||
-    customerPayload.email ||
-    `Customer ${shopifyId}`;
 
-  // Extract and format phone to E.164
-  let rawPhone =
-    customerPayload.phone ||
-    customerPayload.default_address?.phone ||
-    customerPayload.addresses?.[0]?.phone ||
-    "";
-  let formattedPhone = null;
-  let cleanDigits = null;
+  return await prisma.$transaction(async (tx) => {
+    // Serialize syncs for this specific Shopify store/customer.
+    await tx.$queryRaw`
+  SELECT 1
+  FROM (
+    SELECT pg_advisory_xact_lock(
+      hashtextextended(${`${storeId}:${shopifyId}`}, 0)
+    )
+  ) AS lock_result
+`;
 
-  if (rawPhone) {
-    cleanDigits = String(rawPhone).replace(/\D/g, "");
-    if (cleanDigits.length >= 8) {
-      formattedPhone = `+${cleanDigits}`;
-    }
-  }
-
-  // Email
-  const email = customerPayload.email || null;
-
-  if (!formattedPhone && !email) {
-    console.log(
-      `⚠️ [Shopify Sync] Customer ${shopifyId} (${fullName}) has no phone or email. Skipping.`,
-    );
-    return null;
-  }
-
-  // Extract formatted customer address
-  const rawAddressObj =
-    customerPayload.default_address || customerPayload.addresses?.[0] || null;
-  const formattedAddress = formatShopifyAddress(rawAddressObj);
-
-  // 1. Check if Provider Mapping exists
-  let providerMapping = await prisma.contactProviderMapping.findFirst({
-    where: {
-      tenantId,
-      provider: "SHOPIFY",
-      providerContactId: shopifyId,
-    },
-    include: { contact: true },
-  });
-
-  let contact = providerMapping?.contact;
-
-  // 2. If no provider mapping exists, check existing Contact by phone or email
-  if (!contact) {
-    if (formattedPhone) {
-      contact = await prisma.contact.findUnique({
-        where: { phone_tenantId: { phone: formattedPhone, tenantId } },
-      });
-    }
-
-    if (!contact && email) {
-      contact = await prisma.contact.findFirst({
-        where: { email: { equals: email, mode: "insensitive" }, tenantId },
-      });
-    }
-  }
-
-  // 3. Create or Update Contact
-  if (!contact) {
-    contact = await prisma.contact.create({
-      data: {
+    // Confirm this Shopify store belongs to the tenant and is active.
+    const shopifyStore = await tx.shopifyStore.findFirst({
+      where: {
+        id: storeId,
         tenantId,
-        name: fullName,
-        phone: formattedPhone || `+000${shopifyId}`,
-        email: email,
-        whatsappId: cleanDigits ? cleanDigits.slice(-10) : null,
-        company: formattedAddress,
-        createdAt: customerPayload.created_at
-          ? new Date(customerPayload.created_at)
-          : new Date(),
+        status: "active",
+        redactedAt: null,
       },
+      select: { id: true },
     });
-    console.log(
-      `✅ [Shopify Sync] Created new SudoReply Contact: ${contact.name} (${contact.id})`,
-    );
-  } else {
+
+    if (!shopifyStore) {
+      throw new Error("Active Shopify store not found for this tenant");
+    }
+
+    const redaction = await tx.shopifyCustomerRedaction.findUnique({
+      where: {
+        storeId_shopifyCustomerId: {
+          storeId,
+          shopifyCustomerId: shopifyId,
+        },
+      },
+      select: { id: true },
+    });
+
+    if (redaction) return null;
+
+    const firstName = customerPayload.first_name || "";
+    const lastName = customerPayload.last_name || "";
+    const fullName =
+      `${firstName} ${lastName}`.trim() ||
+      customerPayload.email ||
+      `Customer ${shopifyId}`;
+
+    // Extract and format phone to E.164
+    let rawPhone =
+      customerPayload.phone ||
+      customerPayload.default_address?.phone ||
+      customerPayload.addresses?.[0]?.phone ||
+      "";
+    let formattedPhone = null;
+    let cleanDigits = null;
+
+    if (rawPhone) {
+      cleanDigits = String(rawPhone).replace(/\D/g, "");
+      if (cleanDigits.length >= 8) {
+        formattedPhone = `+${cleanDigits}`;
+      }
+    }
+
+    // Email
+    const email = customerPayload.email || null;
+
+    if (!formattedPhone && !email) {
+      console.log(
+        `⚠️ [Shopify Sync] Customer ${shopifyId} (${fullName}) has no phone or email. Skipping.`,
+      );
+      return null;
+    }
+
+    // Extract formatted customer address
+    const rawAddressObj =
+      customerPayload.default_address || customerPayload.addresses?.[0] || null;
+    const formattedAddress = formatShopifyAddress(rawAddressObj);
+
+    // 1. Find the store-specific Shopify customer mapping.
+    const shopifyMapping = await tx.shopifyCustomerMapping.findUnique({
+      where: {
+        storeId_shopifyCustomerId: {
+          storeId,
+          shopifyCustomerId: shopifyId,
+        },
+      },
+      include: { contact: true },
+    });
+
+    if (shopifyMapping && shopifyMapping.tenantId !== tenantId) {
+      throw new Error("Shopify customer mapping tenant mismatch");
+    }
+
+    // A mapping must never point to another tenant's contact.
+    if (shopifyMapping && shopifyMapping.contact.tenantId !== tenantId) {
+      throw new Error("Shopify customer mapping tenant mismatch");
+    }
+
+    // Legacy fallback: preserve existing Shopify customer-to-contact links.
+    let legacyContact = null;
+
+    if (!shopifyMapping) {
+      const legacyMapping = await tx.contactProviderMapping.findFirst({
+        where: {
+          tenantId,
+          provider: "SHOPIFY",
+          providerContactId: shopifyId,
+        },
+        include: { contact: true },
+      });
+
+      legacyContact = legacyMapping?.contact || null;
+
+      if (legacyContact && legacyContact.tenantId !== tenantId) {
+        throw new Error("Legacy Shopify contact mapping tenant mismatch");
+      }
+    }
+
+    let contact = shopifyMapping?.contact || legacyContact;
+
+    // 2. If no provider mapping exists, check existing Contact by phone or email
+    if (!contact) {
+      if (formattedPhone) {
+        contact = await tx.contact.findUnique({
+          where: { phone_tenantId: { phone: formattedPhone, tenantId } },
+        });
+      }
+
+      if (!contact && email) {
+        contact = await tx.contact.findFirst({
+          where: { email: { equals: email, mode: "insensitive" }, tenantId },
+        });
+      }
+    }
+
+    // 3. Create Contact only if none exists.
+    if (!contact) {
+      contact = await tx.contact.create({
+        data: {
+          tenantId,
+          name: fullName,
+          phone: formattedPhone || `+000${shopifyId}`,
+          email: email,
+          whatsappId: cleanDigits ? cleanDigits.slice(-10) : null,
+          company: formattedAddress,
+          createdAt: customerPayload.created_at
+            ? new Date(customerPayload.created_at)
+            : new Date(),
+        },
+      });
+      console.log(
+        `✅ [Shopify Sync] Created new SudoReply Contact: ${contact.name} (${contact.id})`,
+      );
+    }
+
+    // 4. Validate contact ownership before recording the mapping.
+    if (!contact || !contact.id || contact.tenantId !== tenantId) {
+      throw new Error("Cannot map Shopify customer to an invalid or foreign contact");
+    }
+
+    // Record store-specific Shopify Customer Mapping safely.
+    const savedMapping = await tx.shopifyCustomerMapping.upsert({
+      where: {
+        storeId_shopifyCustomerId: {
+          storeId,
+          shopifyCustomerId: shopifyId,
+        },
+      },
+      create: {
+        storeId,
+        tenantId,
+        contactId: contact.id,
+        shopifyCustomerId: shopifyId,
+        lastSyncedAt: new Date(),
+      },
+      update: {
+        lastSyncedAt: new Date(),
+      },
+      include: { contact: true },
+    });
+
+    if (
+      savedMapping.tenantId !== tenantId ||
+      savedMapping.contact.tenantId !== tenantId
+    ) {
+      throw new Error("Saved Shopify customer mapping tenant mismatch");
+    }
+
+    // Always update the contact actually assigned to this Shopify customer.
+    contact = savedMapping.contact;
+
     const updateData = {};
     if (fullName && contact.name !== fullName) updateData.name = fullName;
     if (email && !contact.email) updateData.email = email;
@@ -120,33 +226,17 @@ export const syncShopifyCustomer = async (tenantId, customerPayload) => {
       updateData.company = formattedAddress;
 
     if (Object.keys(updateData).length > 0) {
-      contact = await prisma.contact.update({
-        where: { id: contact.id },
+      contact = await tx.contact.update({
+        where: { id: contact.id, tenantId },
         data: updateData,
       });
     }
-  }
 
-  // 4. Record Provider Mapping
-  if (!providerMapping) {
-    await prisma.contactProviderMapping.create({
-      data: {
-        tenantId,
-        contactId: contact.id,
-        provider: "SHOPIFY",
-        providerContactId: shopifyId,
-        lastSyncedAt: new Date(),
-      },
-    });
-  } else {
-    await prisma.contactProviderMapping.update({
-      where: { id: providerMapping.id },
-      data: { lastSyncedAt: new Date() },
-    });
-  }
-
-  return contact;
+    return contact;
+  });
 };
+
+
 
 /**
  * Fetch and sync all store customers using REST Admin API cursor pagination
@@ -159,6 +249,10 @@ export const syncAllShopifyCustomers = async (tenantId) => {
   if (!connection || connection.status !== "active") {
     throw new Error("No active Shopify connection found for this tenant");
   }
+
+  if (!connection.storeId) {
+  throw new Error("Shopify connection is missing its store identity");
+}
 
   const shopName = connection.shopName;
   const accessToken = await getShopifyAccessToken(tenantId);
@@ -187,7 +281,7 @@ export const syncAllShopifyCustomers = async (tenantId) => {
 
     for (const customer of customers) {
       try {
-        await syncShopifyCustomer(tenantId, customer);
+        await syncShopifyCustomer(tenantId, connection.storeId, customer);
         totalSynced++;
       } catch (err) {
         console.error(

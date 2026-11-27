@@ -1,6 +1,51 @@
 // backend/src/modules/webhook/dlq.controller.js (do not remove this comment)
 import { dlqQueue } from "../../cron/queues/dlq.queue.js";
 import { webhookQueue } from "../../cron/queues/webhook.queue.js";
+import {
+  orderWebhookQueue,
+  QUEUE_NAME_ORDER_WEBHOOK,
+} from "../../cron/queues/order-webhook.queue.js";
+
+
+const SHOPIFY_RETRY_JOB_NAMES = new Set([
+  "shopify-privacy",
+  "shopify-customer-data-export",
+]);
+
+const retryDLQJobToOriginalQueue = async (job) => {
+  const {
+    originalQueue,
+    originalJobName,
+    originalData,
+  } = job.data || {};
+
+  // Shopify privacy and customer export jobs
+  if (
+    originalQueue === QUEUE_NAME_ORDER_WEBHOOK &&
+    SHOPIFY_RETRY_JOB_NAMES.has(originalJobName)
+  ) {
+    return orderWebhookQueue.add(originalJobName, originalData, {
+      attempts: 5,
+      backoff: {
+        type: "exponential",
+        delay: 10000,
+      },
+    });
+  }
+
+  // Preserve existing Meta retry behaviour
+  return webhookQueue.add(
+    "meta-webhook-payload",
+    originalData,
+    {
+      attempts: 3,
+      backoff: {
+        type: "exponential",
+        delay: 1000,
+      },
+    },
+  );
+};
 
 // ═══════════════════════════════════════════════
 // GET ALL FAILED WEBHOOKS
@@ -136,14 +181,7 @@ export const retryFailedWebhook = async (req, res) => {
     }
 
     // Push original data back to main queue
-    const newJob = await webhookQueue.add(
-      "meta-webhook-payload",
-      job.data.originalData,
-      {
-        attempts: 3,
-        backoff: { type: "exponential", delay: 1000 },
-      },
-    );
+    const newJob = await retryDLQJobToOriginalQueue(job);
 
     // Remove from DLQ after successful re-push
     await job.remove();
@@ -187,10 +225,7 @@ export const retryAllFailedWebhooks = async (req, res) => {
 
     for (const job of jobs) {
       try {
-        await webhookQueue.add("meta-webhook-payload", job.data.originalData, {
-          attempts: 3,
-          backoff: { type: "exponential", delay: 1000 },
-        });
+        await retryDLQJobToOriginalQueue(job);
         await job.remove();
         retriedCount++;
       } catch (err) {

@@ -200,16 +200,22 @@ export const handleOAuthCallback = async (req, res) => {
       });
     }
 
-    const tokenResponse = await axios.post(
-      `https://${shop}/admin/oauth/access_token`,
-      {
-        client_id: apiKey,
-        client_secret: apiSecret,
-        code: req.query.code,
-        expiring: 1,
-      },
-      { timeout: 10000 },
-    );
+   const tokenResponse = await axios.post(
+  `https://${shop}/admin/oauth/access_token`,
+  new URLSearchParams({
+    client_id: apiKey,
+    client_secret: apiSecret,
+    code: String(req.query.code),
+    expiring: "1",
+  }),
+  {
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "application/json",
+    },
+    timeout: 10000,
+  },
+);
 
     const {
       access_token: accessToken,

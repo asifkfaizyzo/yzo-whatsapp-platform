@@ -63,6 +63,11 @@ model Message {
   senderId       String?
   senderType     SenderType
 
+   // ── Message Source Attribution ──
+  source          String?
+  shopifyStoreId  String?
+  shopifyCustomerId String?
+
   // ── Direction ──
   direction      MessageDirection @default(OUTBOUND)
 
@@ -102,6 +107,8 @@ model Message {
   updatedAt      DateTime         @updatedAt
 
   @@index([conversationId, createdAt])
+  @@index([source, shopifyStoreId])
+  @@index([source, shopifyStoreId, shopifyCustomerId])
   @@index([senderType])
   @@index([direction])
 

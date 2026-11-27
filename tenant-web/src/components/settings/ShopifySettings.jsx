@@ -197,6 +197,42 @@ export default function ShopifySettings({ onBack } = {}) {
     }
   };
 
+
+  const handleReconnect = async () => {
+  if (!connection.shopName) {
+    toast.error("Shopify store domain is unavailable. Please refresh the page.");
+    return;
+  }
+
+  setConnecting(true);
+
+  try {
+    const shop = connection.shopName
+      .trim()
+      .replace(/^https?:\/\//i, "")
+      .replace(/\/+$/, "");
+
+    const response = await getShopifyOAuthUrl(shop);
+
+    if (!response.success || !response.authUrl) {
+      throw new Error(
+        response.message || "Failed to start Shopify authorization",
+      );
+    }
+
+    window.location.href = response.authUrl;
+  } catch (err) {
+    console.error("Shopify reconnect error:", err);
+    toast.error(
+      err?.response?.data?.message ||
+        err.message ||
+        "Failed to reconnect Shopify",
+    );
+    setConnecting(false);
+  }
+};
+
+
   const handleConnect = async (e) => {
     e.preventDefault();
     if (!form.shopName.trim() || !form.accessToken.trim()) {
@@ -385,18 +421,28 @@ export default function ShopifySettings({ onBack } = {}) {
           </div>
         </div>
 
-        {isConnected && (
-          <div className="shrink-0">
-            <button
-              type="button"
-              onClick={() => setShowDisconnectModal(true)}
-              className="px-4 py-2 text-xs font-semibold rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 transition flex items-center gap-1.5"
-            >
-              <Unlink size={13} />
-              <span>Disconnect</span>
-            </button>
-          </div>
-        )}
+       {isConnected && (
+  <div className="shrink-0 flex items-center gap-2">
+    <button
+      type="button"
+      onClick={handleReconnect}
+      disabled={connecting}
+      className="px-4 py-2 text-xs font-semibold rounded-xl border border-[#d5e7bd] text-[#547b28] hover:bg-[#f4faec] transition flex items-center gap-1.5 disabled:opacity-60"
+    >
+      <RefreshCw size={13} className={connecting ? "animate-spin" : ""} />
+      <span>{connecting ? "Connecting..." : "Reconnect"}</span>
+    </button>
+
+    <button
+      type="button"
+      onClick={() => setShowDisconnectModal(true)}
+      className="px-4 py-2 text-xs font-semibold rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 transition flex items-center gap-1.5"
+    >
+      <Unlink size={13} />
+      <span>Disconnect</span>
+    </button>
+  </div>
+)}
       </div>
 
       {/* 2-COLUMN GRID */}

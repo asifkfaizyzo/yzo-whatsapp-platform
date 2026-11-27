@@ -146,16 +146,47 @@ export const getUnreadCount = (
  *   {{date}}         → today's locale date
  *   {{time}}         → current locale time (HH:MM)
  */
+// export const interpolateQuickReply = (text, contact, authUser) => {
+//   if (!text) return "";
+//   return text
+//     .replace(/{{contactName}}/gi, contact?.name || "Customer")
+//     .replace(/{{contactPhone}}/gi, contact?.phone || "")
+//     .replace(/{{agentName}}/gi, authUser?.name || "Agent")
+//     .replace(/{{companyName}}/gi, authUser?.tenantName || "Our Company")
+//     .replace(/{{date}}/gi, new Date().toLocaleDateString())
+//     .replace(
+//       /{{time}}/gi,
+//       new Date().toLocaleTimeString([], {
+//         hour: "2-digit",
+//         minute: "2-digit",
+//       }),
+//     );
+// };
+
+
+
 export const interpolateQuickReply = (text, contact, authUser) => {
   if (!text) return "";
   return text
-    .replace(/{{contactName}}/gi, contact?.name || "Customer")
-    .replace(/{{contactPhone}}/gi, contact?.phone || "")
-    .replace(/{{agentName}}/gi, authUser?.name || "Agent")
-    .replace(/{{companyName}}/gi, authUser?.tenantName || "Our Company")
-    .replace(/{{date}}/gi, new Date().toLocaleDateString())
     .replace(
-      /{{time}}/gi,
+      /{{\s*(customer_name|customerName|contact_name|contactName)\s*}}/gi,
+      contact?.name || "Customer",
+    )
+    .replace(
+      /{{\s*(contact_phone|contactPhone|customer_phone|customerPhone)\s*}}/gi,
+      contact?.phone || "",
+    )
+    .replace(
+      /{{\s*(agent_name|agentName)\s*}}/gi,
+      authUser?.name || "Agent",
+    )
+    .replace(
+      /{{\s*(company_name|companyName)\s*}}/gi,
+      authUser?.tenantName || "Our Company",
+    )
+    .replace(/{{\s*date\s*}}/gi, new Date().toLocaleDateString())
+    .replace(
+      /{{\s*time\s*}}/gi,
       new Date().toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit",
