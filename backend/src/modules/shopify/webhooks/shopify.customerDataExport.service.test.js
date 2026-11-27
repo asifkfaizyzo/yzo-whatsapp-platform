@@ -14,6 +14,7 @@ function createHarness({
   redacted = false,
   storeActive = true,
   failShopify = false,
+  redactDuringProcessing = false,
 } = {}) {
   const state = {
     exports: [],
@@ -25,6 +26,7 @@ function createHarness({
     orders: [{ id: "shopify-order-1" }],
     localOrders: [{ id: "local-order-1" }],
     messages: [{ id: "shopify-message-1" }],
+    renameFails: false,
   };
 
   const exportRecord = {
@@ -162,7 +164,11 @@ function createHarness({
         };
       }
 
-      if (url.includes("/orders.json")) {
+            if (url.includes("/orders.json")) {
+        if (redactDuringProcessing) {
+          state.redaction = { id: "redaction-during-processing" };
+        }
+
         return {
           data: {
             orders: state.orders,
@@ -176,27 +182,31 @@ function createHarness({
   };
 
   const fs = {
-    mkdir: async () => {},
+  mkdir: async () => {},
 
-    writeFile: async (filePath, content) => {
-      state.files.set(filePath, content);
-    },
+  writeFile: async (filePath, content) => {
+    state.files.set(filePath, content);
+  },
 
-    rename: async (temporaryPath, finalPath) => {
-      const content = state.files.get(temporaryPath);
+  rename: async (temporaryPath, finalPath) => {
+    if (state.renameFails) {
+      throw new Error("Simulated rename failure");
+    }
 
-      if (content === undefined) {
-        throw new Error("Temporary export file not found");
-      }
+    const content = state.files.get(temporaryPath);
 
-      state.files.delete(temporaryPath);
-      state.files.set(finalPath, content);
-    },
+    if (content === undefined) {
+      throw new Error("Temporary export file not found");
+    }
 
-    unlink: async (filePath) => {
-      state.files.delete(filePath);
-    },
-  };
+    state.files.delete(temporaryPath);
+    state.files.set(finalPath, content);
+  },
+
+  unlink: async (filePath) => {
+    state.files.delete(filePath);
+  },
+};
 
   const getShopifyAccessToken = async (tenantId) => {
     assert.equal(tenantId, "tenant-1");
@@ -302,6 +312,18 @@ test("skips an export when the customer is already redacted", async () => {
   assert.equal(state.files.size, 0);
 });
 
+test("stops export when customer is redacted during processing", async () => {
+  const { processShopifyCustomerDataExport, state, exportRecord } =
+    createHarness({ redactDuringProcessing: true });
+
+  const result = await processShopifyCustomerDataExport(jobData);
+
+  assert.equal(result.skipped, true);
+  assert.equal(result.reason, "customer_redacted");
+  assert.equal(exportRecord.status, "REDACTED");
+  assert.equal(state.files.size, 0);
+});
+
 test("rejects an export when the Shopify store is inactive", async () => {
   const { processShopifyCustomerDataExport, state, exportRecord } =
     createHarness({ storeActive: false });
@@ -357,5 +379,23 @@ test("marks the export as failed when Shopify API fails", async () => {
   assert.equal(exportRecord.status, "FAILED");
   assert.equal(exportRecord.filePath, null);
   assert.match(exportRecord.failureReason, /Shopify API request failed/);
+  assert.equal(state.files.size, 0);
+});
+
+
+test("removes the temporary file when export rename fails", async () => {
+  const { processShopifyCustomerDataExport, state, exportRecord } =
+    createHarness();
+
+  state.renameFails = true;
+
+  await assert.rejects(
+    processShopifyCustomerDataExport(jobData),
+    /Simulated rename failure/,
+  );
+
+  assert.equal(exportRecord.status, "FAILED");
+  assert.equal(exportRecord.filePath, null);
+  assert.match(exportRecord.failureReason, /Simulated rename failure/);
   assert.equal(state.files.size, 0);
 });

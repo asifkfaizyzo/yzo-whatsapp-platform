@@ -4,6 +4,7 @@ import { test } from "node:test";
 
 const serviceSource = await readFile(new URL("./shopify.privacyWebhook.service.js", import.meta.url), "utf8");
 
+
 function createHarness({
   storeExists = true,
   failCleanup = false,
@@ -16,6 +17,7 @@ function createHarness({
     operations: [],
     deleted: [],
     exports: [],
+    unlinkedFiles: [],
     failCleanup,
     failQueueCleanup,
     queueJobs,
@@ -149,8 +151,18 @@ function createHarness({
         return null;
       },
 
-      findMany: async ({ where }) =>
-        state.exports.filter((record) => matches(record, where)),
+    findMany: async ({ where }) => {
+  const records = state.exports
+    .filter((record) => matches(record, where))
+    .map((record) => ({ ...record }));
+
+  state.operations.push([
+    "export.findMany",
+    { where, matchedCount: records.length, records },
+  ]);
+
+  return records;
+},
 
       updateMany: async ({ where, data }) => {
         state.operations.push(["export.updateMany", { where, data }]);
@@ -258,6 +270,12 @@ function createHarness({
     return job;
   };
 
+  const fs = {
+    unlink: async (filePath) => {
+      state.unlinkedFiles.push(filePath);
+    },
+  };
+
   const executable = serviceSource
     .replace(/^import .*;\s*/gm, "")
     .replace(
@@ -269,8 +287,9 @@ function createHarness({
     "prisma",
     "orderWebhookQueue",
     "dlqQueue",
+    "fs",
     `${executable}; return processShopifyPrivacyWebhook;`,
-  )(prisma, orderWebhookQueue, dlqQueue);
+  )(prisma, orderWebhookQueue, dlqQueue, fs);
 
   return {
     processShopifyPrivacyWebhook,
@@ -278,7 +297,6 @@ function createHarness({
     store,
   };
 }
-
 
 const request = {
   topic: "customers/redact",
@@ -307,6 +325,25 @@ test("deletes only the exact store/customer Shopify records", async () => {
   assert.equal(state.tombstones.size, 1);
   assert.ok(state.operations.findIndex(([name]) => name === "redaction.create") <
     state.operations.findIndex(([name]) => name === "transaction.begin"));
+});
+
+test("physically deletes customer export files during customer redaction", async () => {
+  const { processShopifyPrivacyWebhook, state } = createHarness();
+
+  state.exports.push({
+    id: "export-1",
+    tenantId: "tenant-1",
+    storeId: "store-1",
+    shopifyCustomerId: "customer-1",
+    filePath: "/private-exports/export-1.json",
+  });
+
+  await processShopifyPrivacyWebhook(request);
+  assert.deepEqual(state.unlinkedFiles, [
+    "/private-exports/export-1.json",
+  ]);
+  assert.equal(state.exports[0].status, "REDACTED");
+  assert.equal(state.exports[0].filePath, null);
 });
 
 test("repeated request is idempotent and retries scoped cleanup", async () => {

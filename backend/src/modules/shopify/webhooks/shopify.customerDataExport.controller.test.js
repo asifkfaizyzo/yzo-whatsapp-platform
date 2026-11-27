@@ -236,6 +236,27 @@ test("downloads a completed export successfully", async () => {
   );
 });
 
+test("allows only one of two concurrent download attempts", async () => {
+  const harness = createHarness();
+
+  await Promise.all([
+    harness.downloadShopifyCustomerDataExport(
+      harness.req,
+      harness.res,
+    ),
+    harness.downloadShopifyCustomerDataExport(
+      harness.req,
+      harness.res,
+    ),
+  ]);
+
+  assert.ok(harness.exportRecord.downloadedAt instanceof Date);
+  assert.equal(harness.state.transactionCalls, 2);
+  assert.equal(harness.state.audits.length, 1);
+  assert.equal(harness.res.streamPiped, true);
+  assert.equal(harness.state.responseStatus, 410);
+});
+
 test("rejects an export belonging to another tenant", async () => {
   const harness = createHarness({ wrongTenant: true });
 
@@ -314,4 +335,18 @@ test("rejects an export when its private file is missing", async () => {
   assert.equal(harness.state.responseStatus, 410);
   assert.equal(harness.state.audits.length, 0);
   assert.equal(harness.exportRecord.downloadedAt, null);
+});
+
+test("keeps the export claimed when the download stream fails", async () => {
+  const harness = createHarness();
+  harness.state.streamError = new Error("Simulated stream failure");
+
+  await harness.downloadShopifyCustomerDataExport(
+    harness.req,
+    harness.res,
+  );
+
+  assert.equal(harness.state.responseStatus, 500);
+  assert.ok(harness.exportRecord.downloadedAt instanceof Date);
+  assert.equal(harness.state.audits.length, 1);
 });

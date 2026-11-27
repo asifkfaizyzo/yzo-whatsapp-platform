@@ -25,6 +25,7 @@ import "./cron/jobs/expired-subscriptions.job.js";
 import "./cron/jobs/expiry-reminders.job.js";
 import { startAuditCleanupJob } from "./cron/jobs/audit-cleanup.job.js";
 import { startWebhookEventsCleanupJob } from "./cron/jobs/webhook-cleanup.job.js";
+import { startShopifyCustomerDataExportCleanupJob } from "./cron/jobs/shopify-customer-data-export-cleanup.job.js";
 import { initQuickReplyIndexes } from "./scripts/initQuickReplyIndexes.js";
 import { startZohoSyncWorker } from "./cron/workers/zoho-sync.worker.js";
 import { startZohoStaleTaskJob } from "./cron/jobs/zoho-stale-task.job.js";
@@ -56,6 +57,7 @@ const zohoSyncWorker = startZohoSyncWorker();
 startCleanupWorker();
 startAuditCleanupJob();
 startWebhookEventsCleanupJob();
+startShopifyCustomerDataExportCleanupJob();
 startZohoStaleTaskJob();
 startZohoWatchRenewalJob(); // ✅ Handled and running alongside workers
 initQuickReplyIndexes();

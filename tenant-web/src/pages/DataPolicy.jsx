@@ -35,7 +35,9 @@ export default function PrivacyPolicy() {
                 We collect information you provide directly to us, including
                 your name, email address, phone number, company name, and any
                 other information you choose to provide when creating an account
-                or contacting us.
+                or contacting us. Additionally, when you connect third-party platforms 
+                such as Shopify, we may collect store, product, inventory, customer, order, 
+                and checkout information necessary to provide our integration services.
               </p>
             </div>
 
@@ -51,6 +53,7 @@ export default function PrivacyPolicy() {
                 <li>Send technical notices and support messages</li>
                 <li>Respond to your comments and questions</li>
                 <li>Monitor and analyze usage trends</li>
+                <li>Synchronize data with third-party platforms to provide integration features</li>
               </ul>
             </div>
 
@@ -63,6 +66,8 @@ export default function PrivacyPolicy() {
                 We implement industry-standard security measures to protect your
                 data. All data is encrypted in transit and at rest. We use
                 secure servers and follow best practices for data protection.
+                As part of operating our services, we may also use third-party hosting 
+                and infrastructure providers to store and process data securely.
               </p>
             </div>
 
@@ -75,7 +80,10 @@ export default function PrivacyPolicy() {
                 We do not sell, trade, or otherwise transfer your personal
                 information to third parties. We may share data only with
                 service providers who assist us in operating our platform,
-                subject to confidentiality agreements.
+                subject to confidentiality agreements. These may include hosting 
+                and infrastructure providers, as well as third-party platforms 
+                such as WhatsApp/Meta, Shopify, Google Sheets, and Zoho when you 
+                choose to use their integrations.
               </p>
             </div>
 
@@ -132,6 +140,9 @@ export default function PrivacyPolicy() {
                 stored in our systems, and profile data, will be permanently
                 deleted unless retention is required by law.
               </p>
+              <p>For Shopify-connected stores, we also handle customer data and 
+                deletion requests in accordance with Shopify’s requirements. Once disconnected, 
+                integration access stops and stored data is deleted as required.</p>
             </div>
 
             {/* Section 7 - Previously Section 6 */}

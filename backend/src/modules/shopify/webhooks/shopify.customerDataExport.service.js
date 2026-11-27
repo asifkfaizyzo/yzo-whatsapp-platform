@@ -42,15 +42,20 @@ const writePrivateExport = async (exportId, data) => {
   const filePath = path.join(directory, fileName);
   const temporaryPath = `${filePath}.${crypto.randomUUID()}.tmp`;
 
-  await fs.writeFile(temporaryPath, JSON.stringify(data, null, 2), {
-    encoding: "utf8",
-    mode: 0o600,
-    flag: "wx",
-  });
+  try {
+    await fs.writeFile(temporaryPath, JSON.stringify(data, null, 2), {
+      encoding: "utf8",
+      mode: 0o600,
+      flag: "wx",
+    });
 
-  await fs.rename(temporaryPath, filePath);
+    await fs.rename(temporaryPath, filePath);
 
-  return filePath;
+    return filePath;
+  } catch (error) {
+    await fs.unlink(temporaryPath).catch(() => {});
+    throw error;
+  }
 };
 
 const fetchShopifyCustomer = async ({

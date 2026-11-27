@@ -83,31 +83,69 @@ export const startOrderWebhookWorker = () => {
     );
   });
 
+  
   worker.on("failed", async (job, err) => {
     console.error(
       `❌ [OrderWebhookWorker] Job ${job?.id} failed (attempt ${job?.attemptsMade}/${job?.opts?.attempts}):`,
       err.message,
     );
 
-    // If retry attempts exhausted, push to Dead Letter Queue (DLQ)
     if (job && job.attemptsMade >= job.opts.attempts) {
+      const isShopifyPrivacyJob = [
+        "shopify-privacy",
+        "shopify-customer-data-export",
+      ].includes(job.name);
+
+      const dlqPayload = {
+        originalJobId: job.id,
+        originalJobName: job.name,
+        originalData: job.data,
+        failedAt: new Date().toISOString(),
+        attempts: job.attemptsMade,
+        errorMessage: err.message,
+        errorStack: err.stack,
+        errorName: err.name,
+        originalQueue: QUEUE_NAME_ORDER_WEBHOOK,
+        processingTime: job.processedOn
+          ? Date.now() - job.processedOn
+          : null,
+      };
+
+      // Shopify privacy jobs: retry DLQ insertion up to 3 times.
+      if (isShopifyPrivacyJob) {
+        const dlqJobId = `dlq_shopify_${job.id}`;
+
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            await dlqQueue.add(
+              "failed-order-webhook",
+              dlqPayload,
+              { jobId: dlqJobId },
+            );
+
+            console.warn(
+              `📮 [Shopify DLQ] Job ${job.id} moved to DLQ after ${job.attemptsMade} attempts`,
+            );
+            return;
+          } catch (dlqErr) {
+            console.error(
+              `[Shopify DLQ] Insertion attempt ${attempt}/3 failed for job ${job.id}:`,
+              dlqErr.message,
+            );
+          }
+        }
+
+        console.error(
+          `[Shopify DLQ] All 3 insertion attempts failed for job ${job.id}. Original failed job remains retained in the order queue.`,
+        );
+        return;
+      }
+
+      // Existing non-Shopify DLQ behaviour remains unchanged.
       try {
         await dlqQueue.add(
           "failed-order-webhook",
-          {
-            originalJobId: job.id,
-            originalJobName: job.name,
-            originalData: job.data,
-            failedAt: new Date().toISOString(),
-            attempts: job.attemptsMade,
-            errorMessage: err.message,
-            errorStack: err.stack,
-            errorName: err.name,
-            originalQueue: QUEUE_NAME_ORDER_WEBHOOK,
-            processingTime: job.processedOn
-              ? Date.now() - job.processedOn
-              : null,
-          },
+          dlqPayload,
           { jobId: `dlq_order_rzp_${job.id}_${Date.now()}` },
         );
 
@@ -122,6 +160,7 @@ export const startOrderWebhookWorker = () => {
       }
     }
   });
+
 
   console.log(
     "👷 Order Webhook Worker started (concurrency: 5) with DLQ support",

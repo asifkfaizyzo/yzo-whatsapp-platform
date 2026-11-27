@@ -1,3 +1,4 @@
+// backend/src/lib/utils/audio.converter.js (do not remove this comment)
 import { spawn } from "child_process";
 import fs from "fs";
 import path from "path";
@@ -141,15 +142,20 @@ const convertToOggOpus = async (inputPath, originalName) => {
   const ffmpegPath = process.env.FFMPEG_PATH || "ffmpeg";
 
   try {
+    console.log(`🎤 Converting voice note to WhatsApp PTT OGG/Opus Mono: ${inputPath}`);
     await runCommand(ffmpegPath, [
       "-y",
       "-i",
       resolvedInputPath,
       "-vn",
+      "-ac",
+      "1", // 👈 Force Mono (1 channel) — Required by WhatsApp for PTT waveform voice notes
+      "-ar",
+      "16000", // 👈 16 kHz sample rate — WhatsApp voice note standard
       "-c:a",
       "libopus",
       "-b:a",
-      "64k",
+      "32k",
       "-application",
       "voip",
       "-f",
@@ -172,6 +178,8 @@ const convertToOggOpus = async (inputPath, originalName) => {
     if (stats.size > MEDIA_CONFIG.AUDIO.maxSize) {
       throw new Error("Converted voice message exceeds the WhatsApp audio size limit");
     }
+
+    console.log(`✅ Voice note converted successfully to mono OGG Opus: ${outputPath} (${stats.size} bytes)`);
 
     return {
       path: outputPath,
