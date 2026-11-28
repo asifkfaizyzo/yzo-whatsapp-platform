@@ -1,6 +1,7 @@
 // tenant-web/src/pages/dashboard/Dashboard.jsx (do not remove this comment)
 import React, { useEffect, useState } from "react";
 import WhatsAppConnect from "../../components/whatsapp/WhatsAppConnect";
+import FacebookConnect from "../../components/facebook/FacebookConnect";
 import {
   Users,
   FileText,
@@ -20,7 +21,7 @@ import {
   Ticket,
 } from "lucide-react";
 import { Link, useOutletContext } from "react-router-dom";
-import { getTenantUsers } from "../../api/tenant";
+import { getTenantUsers,getMetaChannelsStatus } from "../../api/tenant";
 import { getContacts } from "../../api/contact";
 import { getTemplates } from "../../api/template";
 import { getBroadcasts } from "../../api/broadcast";
@@ -39,6 +40,11 @@ export default function Dashboard() {
   const [userName, setUserName] = useState("Admin");
   const [userRole, setUserRole] = useState(null);
   const [showConnect, setShowConnect] = useState(false);
+  const [showFacebookConnect, setShowFacebookConnect] = useState(false);
+  const [metaStatus, setMetaStatus] = useState({
+    facebook: { connected: false, pageName: "" },
+    instagram: { connected: false, username: "" },
+  });
   const [copiedField, setCopiedField] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [newAssignmentBadge, setNewAssignmentBadge] = useState(0);
@@ -70,6 +76,20 @@ export default function Dashboard() {
       await useWhatsAppStore.getState().fetchStatus({ force: true });
     } catch (err) {
       console.error("❌ Failed to fetch WhatsApp status:", err);
+    }
+  };
+
+  // ═════════════════════════════════════════════════════════
+  // FETCH: Meta (Facebook/Instagram) Status
+  // ═════════════════════════════════════════════════════════
+  const fetchMetaStatus = async () => {
+    try {
+      const res = await getMetaChannelsStatus();
+      if (res.success && res.data) {
+        setMetaStatus(res.data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch Meta status:", err);
     }
   };
 
@@ -217,9 +237,10 @@ export default function Dashboard() {
     if (!userRole) return;
     if (tenantStatus === "PENDING") return;
 
-    if (userRole === "admin") {
+      if (userRole === "admin") {
       fetchWaStatus();
       fetchAdminCounts();
+      fetchMetaStatus();
     } else if (userRole === "agent") {
       fetchAgentData();
     }
@@ -524,13 +545,23 @@ export default function Dashboard() {
         <CancelAtPeriodEndBanner periodEndDate={authUser.planPeriodEnd} />
       )}
 
-      {showConnect && (
+           {showConnect && (
         <WhatsAppConnect
           onSuccess={() => {
             setShowConnect(false);
             fetchWaStatus();
           }}
           onClose={() => setShowConnect(false)}
+        />
+      )}
+
+      {showFacebookConnect && (
+        <FacebookConnect
+          onSuccess={() => {
+            setShowFacebookConnect(false);
+            fetchMetaStatus();
+          }}
+          onClose={() => setShowFacebookConnect(false)}
         />
       )}
 
@@ -640,8 +671,75 @@ export default function Dashboard() {
           >
             <span>Connect WhatsApp</span>
           </button>
+               </div>
+      )}
+
+      {/* Facebook & Instagram Banner */}
+      {metaStatus.facebook.connected ? (
+        <div className="relative overflow-hidden rounded-2xl border border-blue-200/80 bg-gradient-to-r from-blue-50 via-white to-blue-50/50 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-center gap-4 relative z-10">
+            <div className="p-3 rounded-2xl bg-[#1877F2] shadow-md shrink-0 text-white">
+              <CheckCircle2 size={24} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-sm font-extrabold text-blue-950">
+                  Facebook & Instagram Connected
+                </h3>
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-200 text-blue-900">
+                  ACTIVE
+                </span>
+                {metaStatus.instagram.connected && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-pink-200 text-pink-900">
+                    INSTAGRAM
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-blue-800/80 font-medium mt-0.5 max-w-md leading-relaxed">
+                {metaStatus.facebook.pageName || "Facebook Page"}
+                {metaStatus.instagram.username
+                  ? ` · @${metaStatus.instagram.username}`
+                  : ""}{" "}
+                — Messenger and Instagram messages are active.
+              </p>
+            </div>
+          </div>
+          <Link
+            to="/dashboard/settings?tab=facebook"
+            className="relative z-10 shrink-0 flex items-center gap-2 px-5 py-2.5 text-xs font-bold rounded-xl bg-white border border-blue-300 text-blue-800 hover:bg-blue-50 transition-all duration-200 shadow-sm"
+          >
+            <span>Manage Settings</span>
+            <ArrowRight size={14} />
+          </Link>
+        </div>
+      ) : (
+        <div className="relative overflow-hidden rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50/60 via-white to-blue-50 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-center gap-4 relative z-10">
+            <div className="p-3 rounded-2xl bg-[#1877F2] shadow-md shrink-0">
+              <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-sm font-extrabold text-slate-800">
+                Connect Facebook & Instagram
+              </h3>
+              <p className="text-xs text-slate-500 font-medium mt-0.5 max-w-sm leading-relaxed">
+                Connect your Facebook Page and linked Instagram account to
+                receive Messenger and Instagram Direct messages in your
+                unified inbox.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowFacebookConnect(true)}
+            className="relative z-10 shrink-0 flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl bg-[#1877F2] text-white hover:bg-[#166FE5] transition-all duration-200 shadow-md hover:shadow-lg"
+          >
+            <span>Connect Facebook</span>
+          </button>
         </div>
       )}
+
 
       {/* 🆕 CHUNK 7: Resource Cards WITH Queue Card */}
       <div

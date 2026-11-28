@@ -536,3 +536,47 @@ export const disconnectRazorpayOAuth = async () => {
     };
   }
 };
+
+// ===================== FACEBOOK & INSTAGRAM ONE-CLICK =====================
+export const exchangeFacebookToken = async (code) => {
+  try {
+    const response = await api.post(
+      `${TENANT_BASE_URL}/facebook/exchange-token`,
+      { code },
+    );
+    return {
+      success: response.data.success !== false,
+      requiresSelection: response.data.requiresSelection || false,
+      pages: response.data.pages || [],
+      facebook: response.data.facebook || null,
+      instagram: response.data.instagram || null,
+      message: response.data.message || "Connected successfully",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message:
+        error.response?.data?.message || "Failed to connect Facebook",
+    };
+  }
+};
+
+export const selectFacebookPage = async (pageId) => {
+  try {
+    const response = await api.post(
+      `${TENANT_BASE_URL}/facebook/select-page`,
+      { pageId },
+    );
+    return {
+      success: response.data.success !== false,
+      facebook: response.data.facebook || null,
+      instagram: response.data.instagram || null,
+      message: response.data.message || "Page connected successfully",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to select page",
+    };
+  }
+};
