@@ -62,6 +62,7 @@ import {
 } from "../../api/tenant";
 import { getUserProfile, updateUserPassword } from "../../api/user";
 import WhatsAppConnect from "../../components/whatsapp/WhatsAppConnect";
+import FacebookConnect from "../../components/facebook/FacebookConnect";
 import QuickReplies from "./QuickReplies";
 import Team from "./Team";
 import PaymentGatewaySettings from "../../components/settings/PaymentGatewaySettings";
@@ -307,6 +308,7 @@ export default function SettingsPage() {
   const [disconnectError, setDisconnectError] = useState(null);
   const [showConfirmDisconnect, setShowConfirmDisconnect] = useState(false);
   const [showConnectModal, setShowConnectModal] = useState(false);
+  const [showFacebookConnectModal, setShowFacebookConnectModal] = useState(false);
 
   // Expandable Manual WhatsApp Setup in Connectors Tab
   const [isManualExpanded, setIsManualExpanded] = useState(false);
@@ -2464,7 +2466,36 @@ export default function SettingsPage() {
                     )}
                   </div>
 
-                  <div className="space-y-4">
+                                 {/* One-Click Connect (primary) */}
+                {!metaChannels.facebook.connected && (
+                  <div className="bg-gradient-to-r from-blue-50/60 via-slate-50 to-blue-50/40 border border-blue-200/60 rounded-2xl p-5 shadow-sm sm:flex sm:items-center sm:justify-between gap-4">
+                    <div className="flex items-center gap-3.5 mb-4 sm:mb-0">
+                      <div className="w-12 h-12 bg-[#1877F2] text-white rounded-2xl flex items-center justify-center shrink-0 shadow-sm">
+                        <FaFacebookMessenger size={20} />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-slate-800">
+                          One-Click Connect
+                        </h4>
+                        <p className="text-xs text-slate-500 font-medium mt-0.5">
+                          Connect your Facebook Page and linked Instagram
+                          account automatically — no tokens to paste.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowFacebookConnectModal(true)}
+                      className="shrink-0 px-5 py-2.5 bg-[#1877F2] hover:bg-[#166FE5] text-white rounded-xl font-bold text-xs shadow-sm flex items-center justify-center gap-2 transition"
+                    >
+                      <FaFacebookMessenger size={15} />
+                      <span>Connect with Facebook</span>
+                    </button>
+                  </div>
+                )}
+
+
+                <div className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="label text-xs font-semibold text-slate-700">
@@ -3249,7 +3280,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {showConnectModal && (
+            {showConnectModal && (
         <WhatsAppConnect
           onSuccess={(data) => {
             setShowConnectModal(false);
@@ -3258,6 +3289,17 @@ export default function SettingsPage() {
             toast.success("WhatsApp connected successfully!");
           }}
           onClose={() => setShowConnectModal(false)}
+        />
+      )}
+
+      {showFacebookConnectModal && (
+        <FacebookConnect
+          onSuccess={(data) => {
+            setShowFacebookConnectModal(false);
+            fetchMetaChannels();
+            toast.success("Facebook & Instagram connected successfully!");
+          }}
+          onClose={() => setShowFacebookConnectModal(false)}
         />
       )}
     </div>

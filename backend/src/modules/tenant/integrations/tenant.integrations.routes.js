@@ -35,6 +35,18 @@ router.delete(
   tenantController.disconnectMetaChannels,
 );
 
+// ── Facebook & Instagram One-Click Connection ──          ← NEW
+router.post(                                                
+  "/facebook/exchange-token",                               
+  verifyTenant,                                             
+  tenantController.exchangeFacebookToken,                   
+);                                                          
+router.post(                                                
+  "/facebook/select-page",                                  
+  verifyTenant,                                             
+  tenantController.selectFacebookPage,                      
+);    
+
 // ── Payment Gateway (Razorpay Direct) ──
 router.get(
   "/payment-gateway",

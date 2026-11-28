@@ -182,21 +182,20 @@ export default function Sidebar({ userRole = "Super Admin" }) {
           {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
         </button>
 
-        {/* ── Brand / Logo Area ── */}
+                {/* ── Brand / Logo Area ── */}
         <div
-          className={`flex items-center justify-between px-4 py-5 min-h-[64px] ${collapsed ? "justify-center px-2" : ""}`}
+          className={`flex items-center justify-between px-4 py-4 min-h-[68px] ${collapsed ? "justify-center px-2" : ""}`}
         >
-          <div className="flex items-center gap-2.5 overflow-hidden whitespace-nowrap">
+          <div className="flex items-center overflow-hidden">
             <img
               src="/sudo_bg.png"
               alt="SudoReply Logo"
-              className="h-8 w-8 min-w-[32px] rounded-lg object-contain"
+              className={`rounded-xl object-contain transition-all duration-200 ${
+                collapsed
+                  ? "h-9 w-9 min-w-[36px]"
+                  : "h-11 w-auto max-w-[180px]"
+              }`}
             />
-            <span
-              className={`text-lg font-bold text-slate-800 tracking-tight transition-all duration-200 ${collapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100"}`}
-            >
-              SudoReply
-            </span>
           </div>
           {/* Mobile close button */}
           <button

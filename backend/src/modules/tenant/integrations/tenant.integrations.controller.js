@@ -1,6 +1,8 @@
 // backend/src/modules/tenant/integrations/tenant.integrations.controller.js (do not remove this comment)
 import prisma from "../../../config/prisma.js";
 import { encrypt, decrypt } from "../../../lib/crypto.js";
+import redisClient from "../../../config/redis.js";
+import { emitToTenant } from "../../../lib/socket.js";
 
 export const getWhatsappCredentials = async (req, res, next) => {
   try {
@@ -370,4 +372,334 @@ export const testPaymentGatewayConnection = async (req, res) => {
         : `Connection failed: ${error.message}`,
     });
   }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /tenant/facebook/exchange-token
+// One-click Facebook & Instagram connection (replaces manual paste)
+// ─────────────────────────────────────────────────────────────────────────────
+export const exchangeFacebookToken = async (req, res) => {
+  const { code } = req.body;
+  const tenantId = req.tenant?.id;
+
+  if (!code) {
+    return res.status(400).json({
+      success: false,
+      message: "Authorization code is required.",
+    });
+  }
+
+  const appId = process.env.META_APP_ID?.trim();
+  const appSecret = process.env.META_APP_SECRET?.trim();
+
+  if (!appId || !appSecret) {
+    return res.status(500).json({
+      success: false,
+      message: "Meta credentials not configured.",
+    });
+  }
+
+  console.log("──────────────────────────────────────────────────");
+  console.log("[Facebook] exchangeToken started");
+  console.log("[Facebook] Code preview:", code.substring(0, 15) + "...");
+  console.log("[Facebook] Tenant:", tenantId);
+  console.log("──────────────────────────────────────────────────");
+
+  try {
+    // ── Step 1: Exchange code for short-lived user token ────────────
+    const params = new URLSearchParams({
+      client_id: appId,
+      client_secret: appSecret,
+      code,
+    });
+
+    const tokenRes = await fetch(
+      `https://graph.facebook.com/v22.0/oauth/access_token?${params.toString()}`,
+    );
+    const tokenData = await tokenRes.json();
+
+    console.log(
+      "[Facebook] Token exchange response:",
+      JSON.stringify(tokenData),
+    );
+
+    if (!tokenData?.access_token) {
+      console.error("❌ Token exchange failed:", tokenData);
+      return res.status(400).json({
+        success: false,
+        message: tokenData?.error?.message || "Failed to exchange code.",
+        error_code: tokenData?.error?.code,
+      });
+    }
+
+    let userAccessToken = tokenData.access_token;
+    console.log("[Facebook] ✅ Short-lived token obtained");
+
+    // ── Step 2: Convert to long-lived user token (60 days) ──────────
+    const llParams = new URLSearchParams({
+      grant_type: "fb_exchange_token",
+      client_id: appId,
+      client_secret: appSecret,
+      fb_exchange_token: userAccessToken,
+    });
+
+    const llRes = await fetch(
+      `https://graph.facebook.com/v22.0/oauth/access_token?${llParams.toString()}`,
+    );
+    const llData = await llRes.json();
+
+    if (llData?.access_token) {
+      userAccessToken = llData.access_token;
+      console.log("[Facebook] ✅ Long-lived token obtained");
+    } else {
+      console.warn(
+        "[Facebook] Could not extend token, using short-lived:",
+        llData,
+      );
+    }
+
+    // ── Step 3: Fetch Facebook Pages managed by this user ───────────
+    const pagesRes = await fetch(
+      `https://graph.facebook.com/v22.0/me/accounts?fields=id,name,access_token&access_token=${userAccessToken}`,
+    );
+    const pagesData = await pagesRes.json();
+
+    console.log("[Facebook] Pages response:", JSON.stringify(pagesData));
+
+    if (pagesData.error) {
+      console.error("❌ Pages fetch failed:", pagesData.error);
+      return res.status(400).json({
+        success: false,
+        message: pagesData.error.message || "Could not fetch Facebook Pages.",
+      });
+    }
+
+    const pages = pagesData.data || [];
+
+    if (pages.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "No Facebook Pages found. Please create a Facebook Page first at facebook.com/pages/create",
+      });
+    }
+
+    // ── Step 4: Check Instagram link for each Page ──────────────────
+    const pagesWithIG = await Promise.all(
+      pages.map(async (page) => {
+        let igAccount = null;
+        try {
+          const igRes = await fetch(
+            `https://graph.facebook.com/v22.0/${page.id}?fields=instagram_business_account{id,username}&access_token=${page.access_token}`,
+          );
+          const igData = await igRes.json();
+          if (igData.instagram_business_account) {
+            igAccount = igData.instagram_business_account;
+          }
+        } catch (e) {
+          console.warn(
+            `[Facebook] IG check failed for page ${page.id}:`,
+            e.message,
+          );
+        }
+        return { ...page, instagram: igAccount };
+      }),
+    );
+
+    console.log(
+      "[Facebook] Pages with IG:",
+      JSON.stringify(pagesWithIG, null, 2),
+    );
+
+    // ── Step 5: If only one page → auto-connect ─────────────────────
+    if (pagesWithIG.length === 1) {
+      const page = pagesWithIG[0];
+      return await saveFacebookConnection(res, page, tenantId);
+    }
+
+    // ── Step 6: Multiple pages → store token in Redis, return list ──
+    const redisKey = `fb:user_token:${tenantId}`;
+    await redisClient.set(redisKey, userAccessToken, "EX", 300);
+
+    return res.json({
+      success: true,
+      requiresSelection: true,
+      pages: pagesWithIG.map((p) => ({
+        id: p.id,
+        name: p.name,
+        instagramUsername: p.instagram?.username || null,
+      })),
+    });
+  } catch (err) {
+    console.error("❌ exchangeFacebookToken error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Server error during token exchange.",
+    });
+  }
+};
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /tenant/facebook/select-page
+// Called after user picks a Page from selector (multi-page case)
+// ─────────────────────────────────────────────────────────────────────────────
+export const selectFacebookPage = async (req, res) => {
+  const { pageId } = req.body;
+  const tenantId = req.tenant?.id;
+
+  if (!pageId) {
+    return res.status(400).json({
+      success: false,
+      message: "pageId is required.",
+    });
+  }
+
+  try {
+    const redisKey = `fb:user_token:${tenantId}`;
+    const userAccessToken = await redisClient.get(redisKey);
+
+    if (!userAccessToken) {
+      return res.status(401).json({
+        success: false,
+        message: "Session expired. Please try connecting again.",
+      });
+    }
+
+    const pagesRes = await fetch(
+      `https://graph.facebook.com/v22.0/me/accounts?fields=id,name,access_token&access_token=${userAccessToken}`,
+    );
+    const pagesData = await pagesRes.json();
+
+    const page = pagesData.data?.find((p) => p.id === pageId);
+    if (!page) {
+      return res.status(404).json({
+        success: false,
+        message: "Selected page not found or not accessible.",
+      });
+    }
+
+    // Get Instagram link
+    let igAccount = null;
+    try {
+      const igRes = await fetch(
+        `https://graph.facebook.com/v22.0/${page.id}?fields=instagram_business_account{id,username}&access_token=${page.access_token}`,
+      );
+      const igData = await igRes.json();
+      if (igData.instagram_business_account) {
+        igAccount = igData.instagram_business_account;
+      }
+    } catch (e) {
+      console.warn("[Facebook] IG check failed:", e.message);
+    }
+
+    // Clean up Redis
+    await redisClient.del(redisKey);
+
+    return await saveFacebookConnection(
+      res,
+      { ...page, instagram: igAccount },
+      tenantId,
+    );
+  } catch (err) {
+    console.error("❌ selectFacebookPage error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Server error during page selection.",
+    });
+  }
+};
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper: Save connection + subscribe webhooks + emit socket
+// Shared by exchangeFacebookToken and selectFacebookPage
+// ─────────────────────────────────────────────────────────────────────────────
+const saveFacebookConnection = async (res, page, tenantId) => {
+  // ── Check duplicate ──────────────────────────────────────────────
+  const existingTenant = await prisma.tenantSocial.findFirst({
+    where: {
+      facebookPageId: page.id,
+      NOT: { tenantId },
+    },
+    select: { tenantId: true },
+  });
+
+  if (existingTenant) {
+    const existingTenantData = await prisma.tenant.findUnique({
+      where: { id: existingTenant.tenantId },
+      select: { tenantName: true },
+    });
+    return res.status(400).json({
+      success: false,
+      message: `This Facebook Page is already connected to ${existingTenantData?.tenantName || "another account"}.`,
+    });
+  }
+
+  // ── Subscribe Page to webhooks ───────────────────────────────────
+  try {
+    const subRes = await fetch(
+      `https://graph.facebook.com/v22.0/${page.id}/subscribed_apps`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${page.access_token}` },
+      },
+    );
+    const subData = await subRes.json();
+    console.log("[Facebook] Webhook subscription:", subData);
+  } catch (e) {
+    console.warn(
+      "[Facebook] Webhook subscription failed (non-fatal):",
+      e.message,
+    );
+  }
+
+  // ── Save to DB (token encrypted at rest) ─────────────────────────
+  await prisma.tenantSocial.upsert({
+    where: { tenantId },
+    create: {
+      tenantId,
+      facebookPageId: page.id,
+      facebookPageName: page.name,
+      facebookPageAccessToken: encrypt(page.access_token),
+      instagramAccountId: page.instagram?.id || null,
+      instagramUsername: page.instagram?.username || null,
+    },
+    update: {
+      facebookPageId: page.id,
+      facebookPageName: page.name,
+      facebookPageAccessToken: encrypt(page.access_token),
+      instagramAccountId: page.instagram?.id || null,
+      instagramUsername: page.instagram?.username || null,
+    },
+  });
+
+  console.log(`[Facebook] ✅ Tenant ${tenantId} connected — ${page.name}`);
+
+  // 📡 Real-time socket emit
+  emitToTenant(tenantId, "meta_channels_status_changed", {
+    facebook: {
+      connected: true,
+      pageId: page.id,
+      pageName: page.name,
+    },
+    instagram: {
+      connected: Boolean(page.instagram),
+      username: page.instagram?.username || null,
+    },
+  });
+
+  return res.json({
+    success: true,
+    message: "Facebook & Instagram connected successfully.",
+    facebook: {
+      pageId: page.id,
+      pageName: page.name,
+    },
+    instagram: {
+      connected: Boolean(page.instagram),
+      accountId: page.instagram?.id || null,
+      username: page.instagram?.username || null,
+    },
+  });
 };
