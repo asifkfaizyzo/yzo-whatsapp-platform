@@ -17,11 +17,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY package*.json ./
 COPY prisma ./prisma/
+COPY prisma.config.ts* ./
 
 # Install exact dependencies
 RUN npm ci
 
-# Generate Prisma Client
+# Generate Prisma Client (dummy URL — real one from .env at runtime)
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
 RUN npx prisma generate
 
 # Copy source code
